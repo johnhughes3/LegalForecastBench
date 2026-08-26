@@ -1,0 +1,25 @@
+{
+  "cycle_id": "cycle-1-target-100-2026-07-25",
+  "provider_accounts": [
+    {
+      "account": "cycle1-anthropic",
+      "provider": "anthropic"
+    },
+    {
+      "account": "cycle1-openai",
+      "provider": "openai"
+    }
+  ],
+  "schema_version": "legalforecast.provider_cycle_caps_successor_policy.v1",
+  "spend_authority": {
+    "backend": "dynamodb",
+    "failure_threshold": 3,
+    "failure_window_seconds": 300,
+    "ledger_scope_fields": [
+      "cycle_id",
+      "provider",
+      "account"
+    ],
+    "max_billable_attempts": 2
+  }
+}

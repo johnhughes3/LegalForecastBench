@@ -477,6 +477,7 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
         "ManageExactAuthoritySmokeCanary",
         "ManageExactOfficialLabelingRole",
         "ManageExactOfficialEvalCellRole",
+        "ManageExactOfficialEvalFanInRole",
     }
     state = statements["ReadWriteExactRuntimeState"]
     assert state["Action"] == ["s3:GetObject", "s3:PutObject"]
@@ -573,11 +574,9 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     ]
     assert labeling["Resource"] == LABELING_ROLE_ARN
 
-    # The official-eval cell role already exists, and the only reviewed change to
-    # it is MaxSessionDuration. Import, refresh, and that one update need exactly
-    # these five actions; creating the role, rewriting its inline policies, or
-    # editing its trust policy stay denied, so drift remediation fails closed
-    # rather than being silently repaired by the routine operator.
+    # Initial role creation and inline-policy issuance require a separately
+    # reviewed one-time human-admin plan. The routine OIDC operator can refresh
+    # only the two exact roles and update MaxSessionDuration via UpdateRole.
     eval_cell = statements["ManageExactOfficialEvalCellRole"]
     assert eval_cell["Action"] == [
         "iam:GetRole",
@@ -588,12 +587,38 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     ]
     assert eval_cell["Resource"] == EVAL_CELL_ROLE_ARN
 
+    eval_fan_in = statements["ManageExactOfficialEvalFanInRole"]
+    assert eval_fan_in["Action"] == eval_cell["Action"]
+    assert eval_fan_in["Resource"] == EVAL_FAN_IN_ROLE_ARN
+    assert {eval_cell["Resource"], eval_fan_in["Resource"]} == {
+        EVAL_CELL_ROLE_ARN,
+        EVAL_FAN_IN_ROLE_ARN,
+    }
+
+    eval_granted_actions = {
+        action
+        for statement in (eval_cell, eval_fan_in)
+        for action in cast(list[object], statement["Action"])
+    }
+    assert eval_granted_actions.isdisjoint(
+        {
+            "iam:AttachRolePolicy",
+            "iam:CreateRole",
+            "iam:DeleteRole",
+            "iam:DeleteRolePermissionsBoundary",
+            "iam:DeleteRolePolicy",
+            "iam:DetachRolePolicy",
+            "iam:PassRole",
+            "iam:PutRolePolicy",
+            "iam:PutRolePermissionsBoundary",
+            "iam:TagRole",
+            "iam:UntagRole",
+            "iam:UpdateAssumeRolePolicy",
+        }
+    )
+
     serialized = json.dumps(policy)
     for forbidden in (
-        # The fan-in role is deliberately outside the operator's authority: it
-        # keeps its own one-hour session and nothing in the reviewed change
-        # touches it.
-        EVAL_FAN_IN_ROLE_ARN,
         "iam:PassRole",
         "iam:CreateOpenIDConnectProvider",
         "iam:UpdateOpenIDConnectProviderThumbprint",

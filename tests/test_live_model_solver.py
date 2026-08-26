@@ -7,6 +7,7 @@ import socket
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import date
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -16,7 +17,6 @@ from legalforecast.evals.inspect_task import SolverKind
 from legalforecast.evals.live_model_solver import (
     ANTHROPIC_MESSAGES_URL,
     GEMINI_GENERATE_CONTENT_URL_TEMPLATE,
-    OPENAI_FALLBACK_SERVICE_TIER,
     OPENAI_FLEX_TIMEOUT_SECONDS,
     OPENAI_RESPONSES_URL,
     OPENAI_SERVICE_TIER,
@@ -28,6 +28,10 @@ from legalforecast.evals.live_model_solver import (
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.evals.tools import ControlledDocketEntry, ControlledDocketTool
+from legalforecast.openai_transport import (
+    VERCEL_AI_GATEWAY_RESPONSES_URL,
+    resolve_openai_transport,
+)
 
 
 def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
@@ -95,6 +99,140 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert body["input"].startswith("Controlled docket tool transcript:")
     assert "Predict the case outcome." in body["input"]
     assert "read_docket_entry_results" in body["input"]
+    assert "reasoning" not in body
+    assert "requested_reasoning_effort" not in response.metadata
+
+
+def test_openai_solver_emits_registry_reasoning_effort_and_metadata() -> None:
+    record = _registry_record("openai", "gpt-test")
+    record["reasoning_effort"] = "high"
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=ModelRegistryEntry.from_record(record),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+    )
+
+    response = solver.solve(_request("Predict the case outcome."))
+
+    body = _json_body(transport.only_request())
+    assert body["reasoning"] == {"effort": "high"}
+    assert response.metadata is not None
+    assert response.metadata["requested_reasoning_effort"] == "high"
+
+
+def test_openai_sol_uses_vercel_and_forces_openai_upstream_during_promotion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = resolve_openai_transport(
+        "gpt-5.6-sol",
+        on_date_utc=date(2026, 9, 18),
+    )
+    monkeypatch.setattr(
+        live_model_solver,
+        "resolve_openai_transport",
+        lambda _, *, use_vercel_gateway=None: route,
+    )
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-5.6-sol-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-5.6-sol"),
+        transport=transport,
+        environ={
+            "OPENAI_API_KEY": "gateway-secret",
+            "LFB_OPENAI_USE_VERCEL_GATEWAY": "true",
+        },
+    )
+
+    solver.solve(_request("Predict the case outcome."))
+
+    captured = transport.only_request()
+    assert captured.full_url == VERCEL_AI_GATEWAY_RESPONSES_URL
+    assert captured.headers["Authorization"] == "Bearer gateway-secret"
+    assert _json_body(captured) == {
+        "model": "openai/gpt-5.6-sol",
+        "input": _json_body(captured)["input"],
+        "max_output_tokens": 4096,
+        "providerOptions": {"gateway": {"only": ["openai"]}},
+        "service_tier": OPENAI_SERVICE_TIER,
+        "tools": [],
+    }
+
+
+def test_openai_accepts_vercel_namespaced_served_model_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = resolve_openai_transport(
+        "gpt-5.6-sol",
+        on_date_utc=date(2026, 9, 18),
+    )
+    monkeypatch.setattr(
+        live_model_solver,
+        "resolve_openai_transport",
+        lambda _, *, use_vercel_gateway=None: route,
+    )
+    transport = _FixtureTransport(
+        {
+            "model": "openai/gpt-5.6-sol-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-5.6-sol"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "gateway-secret"},
+    )
+
+    response = solver.solve(_request("Predict the case outcome."))
+
+    assert response.metadata is not None
+    assert response.metadata["served_model_version"] == (
+        "openai/gpt-5.6-sol-2026-05-14"
+    )
+
+
+def test_openai_rejects_invalid_workflow_transport_override() -> None:
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-5.6-sol"),
+        transport=_FixtureTransport({}),
+        environ={
+            "OPENAI_API_KEY": "gateway-secret",
+            "LFB_OPENAI_USE_VERCEL_GATEWAY": "sometimes",
+        },
+    )
+
+    with pytest.raises(
+        LiveModelConfigError,
+        match="LFB_OPENAI_USE_VERCEL_GATEWAY must be true or false",
+    ):
+        solver.solve(_request("Predict the case outcome."))
+
+
+def test_openai_observes_gateway_reported_service_tier() -> None:
+    assert (
+        live_model_solver._observed_openai_service_tier(  # pyright: ignore[reportPrivateUsage]
+            {"provider_metadata": {"gateway": {"serviceTier": "flex"}}}
+        )
+        == "flex"
+    )
 
 
 @pytest.mark.parametrize("status", ("failed", "cancelled", "incomplete", None))
@@ -347,6 +485,32 @@ def test_anthropic_models_omit_sampling_controls_but_preserve_registry_policy(
     assert response.metadata["served_model_version"] == model_id
     assert response.metadata["model_registry_sha256"] == "cycle-1-registry-sha256"
 
+    if model_id == "claude-opus-4-8":
+        assert body["thinking"] == {"type": "adaptive"}
+        assert "output_config" not in body
+        assert response.metadata["requested_thinking_type"] == "adaptive"
+        assert response.metadata["provider_reasoning_effort"] == (
+            "provider_default_high"
+        )
+    else:
+        assert "thinking" not in body
+        assert "requested_thinking_type" not in response.metadata
+        assert "provider_reasoning_effort" not in response.metadata
+
+
+def test_anthropic_opus_snapshot_enables_adaptive_thinking_for_callable_alias() -> None:
+    entry = _registry_entry(
+        "anthropic",
+        "claude-callable-alias",
+        model_version_or_snapshot="claude-opus-4-8",
+    )
+
+    direct = live_model_solver._anthropic_request(entry, "prompt", "key", None)
+    bedrock = live_model_solver._bedrock_anthropic_payload(entry, "prompt")
+
+    assert _json_body(direct)["thinking"] == {"type": "adaptive"}
+    assert bedrock["thinking"] == {"type": "adaptive"}
+
 
 def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
     monkeypatch: pytest.MonkeyPatch,
@@ -419,6 +583,54 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
         "Controlled docket tool transcript:"
     )
     assert "Use AWS Bedrock." in body["messages"][0]["content"][0]["text"]
+
+
+def test_opus_4_8_bedrock_enables_adaptive_thinking_without_effort_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[dict[str, object]] = []
+
+    def fake_bedrock(
+        model_id: str,
+        payload: live_model_solver.JsonRecord,
+        *,
+        environ: Mapping[str, str] | None,
+        timeout_seconds: float,
+    ) -> live_model_solver.JsonRecord:
+        del environ, timeout_seconds
+        assert model_id == "us.anthropic.claude-opus-4-8"
+        observed.append(dict(payload))
+        return {
+            "model": "claude-opus-4-8",
+            "content": [{"type": "text", "text": '{"bedrock":true}'}],
+            "usage": {"input_tokens": 220, "output_tokens": 55},
+        }
+
+    monkeypatch.setattr(
+        live_model_solver,
+        "_invoke_bedrock_runtime_json",
+        fake_bedrock,
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry(
+            "anthropic",
+            "claude-opus-4-8",
+            model_version_or_snapshot="claude-opus-4-8",
+        ),
+        environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
+    )
+
+    response = solver.solve(_request("Use AWS Bedrock."))
+
+    assert len(observed) == 1
+    body = observed[0]
+    assert body["thinking"] == {"type": "adaptive"}
+    assert "output_config" not in body
+    assert "temperature" not in body
+    assert "top_p" not in body
+    assert response.metadata is not None
+    assert response.metadata["requested_thinking_type"] == "adaptive"
+    assert response.metadata["provider_reasoning_effort"] == ("provider_default_high")
 
 
 def test_bedrock_request_body_observer_receives_exact_transport_bytes(
@@ -977,7 +1189,7 @@ def test_solver_retries_transient_provider_failures_without_leaving_flex() -> No
 
 
 @pytest.mark.parametrize("status_code", (429, 503))
-def test_openai_flex_falls_back_to_standard_on_capacity_errors(
+def test_openai_flex_remains_selected_on_capacity_retries(
     status_code: int,
 ) -> None:
     observed_tiers: list[str] = []
@@ -990,7 +1202,7 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
-                "service_tier": OPENAI_FALLBACK_SERVICE_TIER,
+                "service_tier": OPENAI_SERVICE_TIER,
                 "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             },
@@ -1008,14 +1220,14 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
 
     assert response.request_count == 2
     assert response.metadata is not None
-    assert response.metadata["service_tier"] == OPENAI_FALLBACK_SERVICE_TIER
+    assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
     assert "observed_service_tier" not in response.metadata
-    assert observed_tiers == [OPENAI_FALLBACK_SERVICE_TIER]
-    assert response.metadata["service_tier_fallback"] == "flex_unavailable"
+    assert observed_tiers == [OPENAI_SERVICE_TIER]
+    assert "service_tier_fallback" not in response.metadata
     assert [_json_body(item)["service_tier"] for item in transport.requests] == [
         OPENAI_SERVICE_TIER,
-        OPENAI_FALLBACK_SERVICE_TIER,
+        OPENAI_SERVICE_TIER,
     ]
 
 

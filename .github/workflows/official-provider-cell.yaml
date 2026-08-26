@@ -33,6 +33,13 @@ on:
       execution_policy_sha256:
         required: true
         type: string
+      freeze_bundle_sha256:
+        required: true
+        type: string
+      execution_scope_sha256:
+        required: false
+        default: ""
+        type: string
       model_key:
         required: true
         type: string
@@ -92,6 +99,8 @@ jobs:
           CASE_ID_SLUG: ${{ inputs.case_id_slug }}
           ENVIRONMENT_NAME: ${{ inputs.environment_name }}
           EXECUTION_POLICY_SHA256: ${{ inputs.execution_policy_sha256 }}
+          EXECUTION_SCOPE_SHA256: ${{ inputs.execution_scope_sha256 }}
+          FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}
           MODEL_KEY: ${{ inputs.model_key }}
           MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
           CELL_INDEX: ${{ inputs.cell_index }}
@@ -129,6 +138,14 @@ jobs:
           fi
           if [[ ! "${EXECUTION_POLICY_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
             echo "execution_policy_sha256 must be lowercase SHA-256." >&2
+            exit 1
+          fi
+          if [[ ! "${FREEZE_BUNDLE_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "freeze_bundle_sha256 must be lowercase SHA-256." >&2
+            exit 1
+          fi
+          if [[ -n "${EXECUTION_SCOPE_SHA256}" ]] && ! [[ "${EXECUTION_SCOPE_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "execution_scope_sha256 must be lowercase SHA-256." >&2
             exit 1
           fi
           if ! [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
@@ -175,7 +192,12 @@ jobs:
         if: ${{ !inputs.dry_run }}
         shell: bash
         env:
+          ABLATION: ${{ inputs.ablation }}
           EXPECTED_EXECUTION_POLICY_SHA256: ${{ inputs.execution_policy_sha256 }}
+          EXPECTED_EXECUTION_SCOPE_SHA256: ${{ inputs.execution_scope_sha256 }}
+          EXPECTED_FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}
+          CYCLE_ID: ${{ inputs.cycle_id }}
+          MODEL_KEY: ${{ inputs.model_key }}
         run: |
           set -euo pipefail
           uv run python - <<'PY'
@@ -197,14 +219,50 @@ jobs:
           if missing:
               raise SystemExit(f"frozen dispatch artifact is incomplete: {missing}")
           expected = os.environ["EXPECTED_EXECUTION_POLICY_SHA256"]
+          expected_scope = os.environ["EXPECTED_EXECUTION_SCOPE_SHA256"]
           if re.fullmatch(r"[0-9a-f]{64}", expected) is None:
               raise SystemExit("expected execution-policy hash is invalid")
-          policy = required["execution policy"].read_bytes()
-          if hashlib.sha256(policy).hexdigest() != expected:
-              raise SystemExit("downloaded execution policy differs from matrix commitment")
+          policy = json.loads(required["execution policy"].read_text(encoding="utf-8"))
+          from legalforecast.protocol.policy_artifacts import verify_official_execution_policy
+          try:
+              verify_official_execution_policy(
+                  policy,
+                  expected_cycle_id=os.environ["CYCLE_ID"],
+                  expected_sha256=expected,
+              )
+          except ValueError as exc:
+              raise SystemExit(
+                  "downloaded execution policy differs from matrix commitment"
+              ) from exc
           provenance = json.loads(required["dispatch provenance"].read_text(encoding="utf-8"))
           if provenance.get("execution_policy_sha256") != expected:
               raise SystemExit("dispatch provenance execution-policy commitment differs")
+          plan = json.loads(required["execution policy"].read_text(encoding="utf-8"))
+          if plan.get("schema_version") in {
+              "legalforecast.execution_policy.v3",
+              "legalforecast.execution_policy.v4",
+          }:
+              if re.fullmatch(r"[0-9a-f]{64}", expected_scope) is None:
+                  raise SystemExit("v3/v4 execution policy requires an execution-scope hash")
+              scope_path = root / "lfb-execution-scope.json"
+              if not scope_path.is_file():
+                  raise SystemExit("v3/v4 execution policy requires an execution-scope artifact")
+              scope = json.loads(scope_path.read_text(encoding="utf-8"))
+              from legalforecast.evals.corpus_manifest.execution_scope import verify_execution_scope_runtime
+              from legalforecast.evals.model_registry import load_model_registry
+              registry_path = required["model registry"]
+              verify_execution_scope_runtime(
+                  scope,
+                  common_plan=plan,
+                  model_registry=load_model_registry(registry_path),
+                  model_registry_sha256=hashlib.sha256(registry_path.read_bytes()).hexdigest(),
+                  expected_model_key=os.environ["MODEL_KEY"],
+                  expected_ablation=os.environ["ABLATION"],
+                  expected_scope_sha256=expected_scope,
+                  expected_freeze_bundle_sha256=os.environ[
+                      "EXPECTED_FREEZE_BUNDLE_SHA256"
+                  ],
+              )
           PY
 
       - name: Validate protected environment values
@@ -276,6 +334,28 @@ jobs:
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
           role-duration-seconds: 3600
 
+      - name: Select OpenAI transport
+        id: openai_transport
+        if: ${{ !inputs.dry_run && inputs.provider == 'openai' }}
+        shell: bash
+        env:
+          MODEL_KEY: ${{ inputs.model_key }}
+        run: |
+          set -euo pipefail
+          if [[ "${MODEL_KEY}" == "openai:gpt-5.6-sol" && "$(date -u +%F)" < "2026-09-19" ]]; then
+            transport_contract="$(uv run python -c 'from legalforecast.openai_transport import OPENAI_TRANSPORT_CONTRACT_VERSION; print(OPENAI_TRANSPORT_CONTRACT_VERSION)' 2>/dev/null)" || {
+              echo "Selected release does not support the Vercel Sol transport contract." >&2
+              exit 1
+            }
+            [[ "${transport_contract}" == "vercel-sol-flex-v1" ]] || {
+              echo "Selected release has an unsupported Vercel Sol transport contract." >&2
+              exit 1
+            }
+            echo "use_vercel_gateway=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "use_vercel_gateway=false" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Run isolated case evaluation
         if: ${{ !inputs.dry_run }}
         shell: bash
@@ -285,9 +365,11 @@ jobs:
           CASE_ID_SLUG: ${{ inputs.case_id_slug }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           EXPECTED_EXECUTION_POLICY_SHA256: ${{ inputs.execution_policy_sha256 }}
+          EXPECTED_EXECUTION_SCOPE_SHA256: ${{ inputs.execution_scope_sha256 }}
           EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}
           EXPECTED_PACKET_SHA256: ${{ inputs.packet_sha256 }}
-          LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && !contains(fromJSON('["bedrock","aws-bedrock","aws_bedrock"]'), vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}
+          LFB_OPENAI_USE_VERCEL_GATEWAY: ${{ steps.openai_transport.outputs.use_vercel_gateway }}
+          LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && steps.openai_transport.outputs.use_vercel_gateway == 'true' && secrets.AI_GATEWAY_API_KEY || inputs.provider == 'openai' && steps.openai_transport.outputs.use_vercel_gateway != 'true' && secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && !contains(fromJSON('["bedrock","aws-bedrock","aws_bedrock"]'), vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}
           MODEL_KEY: ${{ inputs.model_key }}
           MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
           PROVIDER: ${{ inputs.provider }}
@@ -297,6 +379,11 @@ jobs:
           set -euo pipefail
           case "${PROVIDER}" in
             openai)
+              expected_gateway="false"
+              if [[ "${MODEL_KEY}" == "openai:gpt-5.6-sol" && "$(date -u +%F)" < "2026-09-19" ]]; then
+                expected_gateway="true"
+              fi
+              [[ "${LFB_OPENAI_USE_VERCEL_GATEWAY}" == "${expected_gateway}" ]] || { echo "OpenAI transport selection expired before launch." >&2; exit 1; }
               [[ -n "${LFB_PROVIDER_API_KEY:-}" ]] || { echo "PROVIDER_API_KEY is required for the OpenAI cell." >&2; exit 1; }
               export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"
               ;;
@@ -317,6 +404,13 @@ jobs:
           resume_args=()
           if [[ "${RESUME_EXISTING_RESULTS}" == "true" ]]; then
             resume_args+=(--resume-existing)
+          fi
+          scope_args=()
+          if [[ -s /tmp/lfb-provider-cell-inputs/lfb-execution-scope.json ]] && [[ "$(tr -d '[:space:]' < /tmp/lfb-provider-cell-inputs/lfb-execution-scope.json)" != "{}" ]]; then
+            scope_args+=(
+              --execution-scope /tmp/lfb-provider-cell-inputs/lfb-execution-scope.json
+              --expected-execution-scope-sha256 "${EXPECTED_EXECUTION_SCOPE_SHA256}"
+            )
           fi
           output_dir="tmp/official-eval/${PROVIDER}/${CASE_ID_SLUG}/${ABLATION}/${MODEL_KEY_SLUG}"
           uv run legalforecast eval run-case \
@@ -339,7 +433,8 @@ jobs:
             --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
             --provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}" \
             --provider-authority-region "${AWS_REGION}" \
-            "${resume_args[@]}"
+            "${resume_args[@]}" \
+            "${scope_args[@]}"
 
       - name: Refresh AWS authority for cycle finish
         if: ${{ always() && !inputs.dry_run && steps.begin_cycle_mutation.outcome == 'success' }}

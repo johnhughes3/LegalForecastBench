@@ -311,6 +311,28 @@ def write_hash_bundle(
     return record
 
 
+def write_hash_bundle_create_only(
+    path: str | Path,
+    bundle: FreezeBundle,
+    *,
+    root_path: str | Path | None = None,
+) -> Mapping[str, Any]:
+    """Durably publish a final hash bundle without replacing any destination."""
+
+    from legalforecast.immutable_io import ImmutableIOError, write_file_create_only
+
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    root = Path(root_path) if root_path is not None else None
+    record = bundle.to_record(root_path=root)
+    payload = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    try:
+        write_file_create_only(output_path, payload)
+    except ImmutableIOError as exc:
+        raise FreezeProtocolError(f"cannot create final freeze bundle: {exc}") from exc
+    return record
+
+
 def load_freeze_bundle(
     path: str | Path,
     *,
@@ -704,8 +726,9 @@ def cli_freeze(argv: Sequence[str]) -> int:
                 if args.timestamp is not None
                 else None
             ),
-            bundle_output_path=bundle_output,
+            bundle_output_path=None,
         )
+        write_hash_bundle_create_only(bundle_output, bundle)
     except (FreezeProtocolError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -918,6 +941,7 @@ def _verify_policy_artifact_links(
             f"freeze policy artifacts are mandatory: {', '.join(missing)}"
         )
 
+    from legalforecast.contracts.schemas import EXECUTION_POLICY_V4
     from legalforecast.ingestion.cohort_policy import (
         CohortPolicyError,
         verify_cohort_policy,
@@ -928,11 +952,11 @@ def _verify_policy_artifact_links(
     )
     from legalforecast.protocol.policy_artifacts import (
         PolicyArtifactError,
-        execution_policy_content,
         find_values,
         load_json_object,
-        verify_execution_policy,
+        official_execution_policy_content,
         verify_labeling_policy,
+        verify_official_execution_policy,
     )
 
     execution_artifact = load_json_object(
@@ -945,7 +969,7 @@ def _verify_policy_artifact_links(
         by_name[FrozenArtifactName.COHORT_POLICY].path, "cohort policy"
     )
     try:
-        verify_execution_policy(execution_artifact, expected_cycle_id=cycle_id)
+        verify_official_execution_policy(execution_artifact, expected_cycle_id=cycle_id)
         verify_labeling_policy(labeling_artifact, expected_cycle_id=cycle_id)
         verify_cohort_policy(cohort_artifact)
         provider_cycle_caps = load_provider_cycle_caps(
@@ -954,7 +978,7 @@ def _verify_policy_artifact_links(
     except (PolicyArtifactError, CohortPolicyError, ProviderJournalError) as exc:
         raise FreezeProtocolError(f"invalid policy artifact: {exc}") from exc
 
-    execution = execution_policy_content(execution_artifact)
+    execution = official_execution_policy_content(execution_artifact)
     labeling = cast(Mapping[str, Any], labeling_artifact["policy"])
     cohort = cast(Mapping[str, Any], cohort_artifact["policy"])
     if cohort.get("cycle_id") != cycle_id:
@@ -963,33 +987,43 @@ def _verify_policy_artifact_links(
         raise FreezeProtocolError(
             "provider cycle caps cycle_id does not match freeze cycle"
         )
-    try:
-        expected_attempt_policy = provider_cycle_caps.execution_attempt_policy(
-            by_name[FrozenArtifactName.PROVIDER_CYCLE_CAPS].sha256
-        )
-    except ProviderJournalError as exc:
-        raise FreezeProtocolError(f"invalid policy artifact: {exc}") from exc
-    if execution.get("attempt_policy") != expected_attempt_policy:
-        raise FreezeProtocolError(
-            "execution policy attempt_policy does not exactly match the frozen "
-            "provider cycle caps artifact"
-        )
-    links = {
-        "labeling_policy_sha256": FrozenArtifactName.LABELING_POLICY,
-        "cohort_policy_sha256": FrozenArtifactName.COHORT_POLICY,
-    }
-    for field, artifact_name in links.items():
-        if execution.get(field) != by_name[artifact_name].sha256:
-            raise FreezeProtocolError(
-                f"execution policy {field} does not match frozen artifact bytes"
+    if execution_artifact.get("schema_version") != str(EXECUTION_POLICY_V4):
+        try:
+            expected_attempt_policy = provider_cycle_caps.execution_attempt_policy(
+                by_name[FrozenArtifactName.PROVIDER_CYCLE_CAPS].sha256
             )
+        except ProviderJournalError as exc:
+            raise FreezeProtocolError(f"invalid policy artifact: {exc}") from exc
+        if execution.get("attempt_policy") != expected_attempt_policy:
+            raise FreezeProtocolError(
+                "execution policy attempt_policy does not exactly match the frozen "
+                "provider cycle caps artifact"
+            )
+        links = {
+            "labeling_policy_sha256": FrozenArtifactName.LABELING_POLICY,
+            "cohort_policy_sha256": FrozenArtifactName.COHORT_POLICY,
+        }
+        for field, artifact_name in links.items():
+            if execution.get(field) != by_name[artifact_name].sha256:
+                raise FreezeProtocolError(
+                    f"execution policy {field} does not match frozen artifact bytes"
+                )
 
-    lifecycle = cast(Mapping[str, Any], execution["lifecycle"])
-    if lifecycle.get("labeling_policy_published_at") != labeling.get("published_at"):
-        raise FreezeProtocolError(
-            "execution policy labeling publication timestamp does not match "
-            "the labeling policy"
-        )
+        lifecycle = cast(Mapping[str, Any], execution["lifecycle"])
+        if lifecycle.get("labeling_policy_published_at") != labeling.get(
+            "published_at"
+        ):
+            raise FreezeProtocolError(
+                "execution policy labeling publication timestamp does not match "
+                "the labeling policy"
+            )
+    else:
+        # v4 is intentionally a provider-free pre-freeze model-scope plan.  Its
+        # per-model scope binds the exact provider-cycle-caps bytes after the
+        # final freeze exists; requiring the all-provider attempt-policy
+        # rendering here would make the pre-freeze plan impossible to freeze.
+        # v1/v2/v3 keep the legacy all-cycle policy and lifecycle checks above.
+        pass
 
     authoritative_series = execution["cycle_series"]
     for name, artifact in by_name.items():

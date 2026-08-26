@@ -101,6 +101,7 @@ def test_provider_environment_and_model_pair_are_closed_before_secrets() -> None
 
 def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
     assert WORKFLOW.count("secrets.OPENAI_API_KEY") == 1
+    assert WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 1
     assert WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 1
     assert WORKFLOW.count("secrets.GEMINI_API_KEY") == 1
     assert "secrets: inherit" not in WORKFLOW
@@ -115,12 +116,29 @@ def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
     ]
     selector = (
         "LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && "
+        "steps.openai_transport.outputs.use_vercel_gateway == 'true' && "
+        "secrets.AI_GATEWAY_API_KEY || inputs.provider == 'openai' && "
+        "steps.openai_transport.outputs.use_vercel_gateway != 'true' && "
         "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
         '!contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
         "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
         "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}"
     )
     assert provider_step.count(selector) == 1
+    selection_step = WORKFLOW[
+        WORKFLOW.index("- name: Select OpenAI transport") : WORKFLOW.index(
+            "- name: Run isolated case evaluation"
+        )
+    ]
+    assert "secrets." not in selection_step
+    assert "OPENAI_TRANSPORT_CONTRACT_VERSION" in selection_step
+    assert "vercel-sol-flex-v1" in selection_step
+    assert "Selected release does not support the Vercel Sol transport contract." in (
+        selection_step
+    )
+    assert "inputs.model_key == 'openai:gpt-5.6-sol'" not in provider_step
+    assert '"$(date -u +%F)" < "2026-09-19"' in provider_step
+    assert "OpenAI transport selection expired before launch." in provider_step
     assert "export OPENAI_API_KEY=" in provider_step
     assert "export ANTHROPIC_API_KEY=" in provider_step
     assert "export GEMINI_API_KEY=" in provider_step
@@ -136,6 +154,13 @@ def test_provider_cell_preserves_frozen_dispatch_and_cycle_bindings() -> None:
     assert "--expected-execution-policy-sha256" in WORKFLOW
     assert "--provider-account" not in WORKFLOW
     assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in WORKFLOW
+    assert "freeze_bundle_sha256:" in WORKFLOW
+    assert "FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}" in WORKFLOW
+    assert "freeze_bundle_sha256 must be lowercase SHA-256." in WORKFLOW
+    assert (
+        "EXPECTED_FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}" in WORKFLOW
+    )
+    assert "expected_freeze_bundle_sha256=os.environ[" in WORKFLOW
     assert '--workflow-run-id "${GITHUB_RUN_ID}"' in WORKFLOW
     assert '--workflow-run-attempt "${GITHUB_RUN_ATTEMPT}"' in WORKFLOW
     begin = WORKFLOW.index("- name: Begin per-case cycle mutation")

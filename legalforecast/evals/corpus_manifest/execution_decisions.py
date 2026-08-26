@@ -46,6 +46,7 @@ from legalforecast.evals.corpus_manifest.beads_observation import (
 from legalforecast.evals.corpus_manifest.records import registry_record
 from legalforecast.evals.corpus_manifest.schema import load_signed_manifest_bytes
 from legalforecast.evals.model_registry import (
+    OpenAIReasoningEffort,
     load_model_registry_bytes,
     require_official_registry_entries,
 )
@@ -535,9 +536,17 @@ def _build(
 
 
 def _capture_beads_comments() -> bytes:
+    return capture_beads_comments(_COORDINATION_BEAD_ID)
+
+
+def capture_beads_comments(bead_id: str) -> bytes:
+    """Capture exact live comments for a caller-selected Beads issue."""
+
+    if not bead_id.strip():
+        raise ExecutionDecisionsError("Beads issue id is required for live capture")
     try:
         completed = subprocess.run(
-            ["bd", "comments", _COORDINATION_BEAD_ID, "--json"],
+            ["bd", "comments", bead_id.strip(), "--json"],
             check=False,
             capture_output=True,
         )
@@ -667,6 +676,23 @@ def _require_successor_registry_safety(entries: tuple[Any, ...]) -> None:
     if unsafe:
         raise ExecutionDecisionsError(
             f"successor model registry has unsafe execution settings: {unsafe}"
+        )
+    reasoning_mismatches = sorted(
+        entry.registry_key
+        for entry in entries
+        if (
+            entry.provider.strip().lower() == "openai"
+            and entry.reasoning_effort is not OpenAIReasoningEffort.HIGH
+        )
+        or (
+            entry.provider.strip().lower() != "openai"
+            and entry.reasoning_effort is not None
+        )
+    )
+    if reasoning_mismatches:
+        raise ExecutionDecisionsError(
+            "successor model registry reasoning settings differ: "
+            f"{reasoning_mismatches}"
         )
 
 

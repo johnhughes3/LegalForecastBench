@@ -81,6 +81,61 @@ def test_source_dispatch_identity_fields_are_all_or_nothing() -> None:
         )
 
 
+def test_source_dispatch_identity_requires_every_listed_run_and_rejects_unlisted() -> (
+    None
+):
+    identities = (
+        shard_fan_in.SourceDispatchIdentity("1001", 1),
+        shard_fan_in.SourceDispatchIdentity("1002", 2),
+    )
+    receipts = (
+        _receipt("fixture:model-a", "full_packet", run_id="1001", source_attempt=1),
+        _receipt(
+            "fixture:model-a",
+            "metadata_only",
+            run_id="1002",
+            attempt=2,
+            source_attempt=2,
+        ),
+    )
+
+    shard_fan_in.require_source_dispatch_identity(
+        receipts,
+        workflow_run_id=None,
+        workflow_run_attempt=None,
+        release_sha="d" * 40,
+        source_dispatch_runs=identities,
+    )
+
+    with pytest.raises(shard_fan_in.FanInError, match="unlisted source dispatch"):
+        shard_fan_in.require_source_dispatch_identity(
+            (
+                *receipts,
+                _receipt(
+                    "fixture:model-a",
+                    "full_packet",
+                    run_id="1003",
+                    source_attempt=1,
+                ),
+            ),
+            workflow_run_id=None,
+            workflow_run_attempt=None,
+            release_sha="d" * 40,
+            source_dispatch_runs=identities,
+        )
+
+    with pytest.raises(
+        shard_fan_in.FanInError, match="missing accepted shard receipts"
+    ):
+        shard_fan_in.require_source_dispatch_identity(
+            (receipts[0],),
+            workflow_run_id=None,
+            workflow_run_attempt=None,
+            release_sha="d" * 40,
+            source_dispatch_runs=identities,
+        )
+
+
 def test_missing_or_undeclared_shard_receipts_fail_closed() -> None:
     with pytest.raises(shard_fan_in.FanInError, match="missing shard receipts"):
         shard_fan_in.select_accepted_receipts(
@@ -199,6 +254,174 @@ def test_receipt_hashes_and_cells_are_reverified_against_frozen_inputs() -> None
             context=_context(),
             run_input_manifest=run_manifest,
             repeat_policy=repeat_policy,
+        )
+
+
+def test_scope_required_policy_rejects_all_legacy_receipts() -> None:
+    run_manifest, receipt, repeat_policy = _strict_receipt()
+    artifact = shard_fan_in.ReceiptArtifact(
+        actual_key=str(receipt["receipt_key"]),
+        raw_sha256="8" * 64,
+        record=receipt,
+    )
+
+    with pytest.raises(
+        shard_fan_in.FanInError, match="scoped fan-in cannot mix scoped and legacy"
+    ):
+        shard_fan_in.select_and_validate_receipts(
+            (artifact,),
+            declared_shards=(("fixture:model-a", "full_packet"),),
+            context=_context(),
+            run_input_manifest=run_manifest,
+            repeat_policy=repeat_policy,
+            shard_schedule_sha256=hash_payload(
+                {
+                    "shards": [
+                        {"model_key": "fixture:model-a", "ablation": "full_packet"}
+                    ]
+                }
+            ),
+            scope_required=True,
+        )
+
+
+def test_fan_in_replays_transported_scope_and_matches_both_receipt_hashes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = {
+        "schema_version": "legalforecast.execution_scope.v1",
+        "scope": {
+            "model_key": "fixture:model-a",
+            "common_plan_sha256": "b" * 64,
+        },
+        "scope_sha256": "c" * 64,
+    }
+    scope_path = tmp_path / "execution-scope.json"
+    scope_path.write_text(json.dumps(scope) + "\n", encoding="utf-8")
+    artifact_sha256 = hash_payload(scope)
+    receipt = {
+        "model_key": "fixture:model-a",
+        "ablation": "full_packet",
+        "execution_scope_sha256": "c" * 64,
+        "execution_scope_artifact_sha256": artifact_sha256,
+        "common_plan_sha256": "b" * 64,
+    }
+    calls: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(shard_fan_in, "load_model_registry", lambda _path: object())
+
+    def replay(*_args: object, **kwargs: object) -> str:
+        calls.append(
+            (
+                str(kwargs["expected_model_key"]),
+                str(kwargs["expected_ablation"]),
+            )
+        )
+        return "c" * 64
+
+    monkeypatch.setattr(shard_fan_in, "verify_execution_scope_runtime", replay)
+    shard_fan_in.verify_scoped_execution_scopes(
+        (receipt,),
+        declared_shards=(("fixture:model-a", "full_packet"),),
+        common_plan={"schema_version": "legalforecast.execution_policy.v3"},
+        model_registry_path=tmp_path / "registry.json",
+        model_registry_sha256="d" * 64,
+        scope_paths=(scope_path,),
+    )
+
+    assert calls == [("fixture:model-a", "full_packet")]
+
+
+def test_fan_in_rejects_receipt_bound_to_forged_scope_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = {
+        "schema_version": "legalforecast.execution_scope.v1",
+        "scope": {
+            "model_key": "fixture:model-a",
+            "common_plan_sha256": "b" * 64,
+        },
+        "scope_sha256": "c" * 64,
+    }
+    scope_path = tmp_path / "execution-scope.json"
+    scope_path.write_text(json.dumps(scope) + "\n", encoding="utf-8")
+    receipt = {
+        "model_key": "fixture:model-a",
+        "ablation": "full_packet",
+        "execution_scope_sha256": "c" * 64,
+        "execution_scope_artifact_sha256": "e" * 64,
+        "common_plan_sha256": "b" * 64,
+    }
+    monkeypatch.setattr(shard_fan_in, "load_model_registry", lambda _path: object())
+
+    with pytest.raises(
+        shard_fan_in.FanInError,
+        match="execution_scope_artifact_sha256 does not match",
+    ):
+        shard_fan_in.verify_scoped_execution_scopes(
+            (receipt,),
+            declared_shards=(("fixture:model-a", "full_packet"),),
+            common_plan={"schema_version": "legalforecast.execution_policy.v3"},
+            model_registry_path=tmp_path / "registry.json",
+            model_registry_sha256="d" * 64,
+            scope_paths=(scope_path,),
+        )
+
+
+def test_fan_in_deduplicates_identical_scope_artifacts_but_rejects_conflicts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = {
+        "schema_version": "legalforecast.execution_scope.v1",
+        "scope": {
+            "model_key": "fixture:model-a",
+            "common_plan_sha256": "b" * 64,
+        },
+        "scope_sha256": "c" * 64,
+    }
+    first_path = tmp_path / "execution-scope-1.json"
+    duplicate_path = tmp_path / "execution-scope-2.json"
+    first_path.write_text(json.dumps(scope) + "\n", encoding="utf-8")
+    duplicate_path.write_text(json.dumps(scope) + "\n", encoding="utf-8")
+    artifact_sha256 = hash_payload(scope)
+    receipt = {
+        "model_key": "fixture:model-a",
+        "ablation": "full_packet",
+        "execution_scope_sha256": "c" * 64,
+        "execution_scope_artifact_sha256": artifact_sha256,
+        "common_plan_sha256": "b" * 64,
+    }
+    replayed: list[str] = []
+    monkeypatch.setattr(shard_fan_in, "load_model_registry", lambda _path: object())
+    monkeypatch.setattr(
+        shard_fan_in,
+        "verify_execution_scope_runtime",
+        lambda *_args, **kwargs: (
+            replayed.append(str(kwargs["expected_model_key"])) or "c" * 64
+        ),
+    )
+
+    shard_fan_in.verify_scoped_execution_scopes(
+        (receipt,),
+        declared_shards=(("fixture:model-a", "full_packet"),),
+        common_plan={"schema_version": "legalforecast.execution_policy.v3"},
+        model_registry_path=tmp_path / "registry.json",
+        model_registry_sha256="d" * 64,
+        scope_paths=(first_path, duplicate_path),
+    )
+    assert replayed == ["fixture:model-a"]
+
+    duplicate_path.write_text(json.dumps(scope, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(
+        shard_fan_in.FanInError, match="conflicting transported execution scopes"
+    ):
+        shard_fan_in.verify_scoped_execution_scopes(
+            (receipt,),
+            declared_shards=(("fixture:model-a", "full_packet"),),
+            common_plan={"schema_version": "legalforecast.execution_policy.v3"},
+            model_registry_path=tmp_path / "registry.json",
+            model_registry_sha256="d" * 64,
+            scope_paths=(first_path, duplicate_path),
         )
 
 
@@ -478,7 +701,9 @@ def test_fan_in_uses_downloaded_manifest_run_root_and_staged_bundle_hash(
     }
     monkeypatch.setattr(shard_fan_in, "verify_freeze_bundle", fake_verify_freeze_bundle)
     monkeypatch.setattr(shard_fan_in, "load_json_object", lambda *_args: execution)
-    monkeypatch.setattr(shard_fan_in, "execution_policy_content", lambda value: value)
+    monkeypatch.setattr(
+        shard_fan_in, "official_execution_policy_content", lambda value: value
+    )
     monkeypatch.setattr(shard_fan_in, "policy_content_sha256", lambda _value: "e" * 64)
 
     config = shard_fan_in.FanInConfig(
@@ -488,10 +713,15 @@ def test_fan_in_uses_downloaded_manifest_run_root_and_staged_bundle_hash(
         receipt_root="s3://results",
         output_dir=tmp_path / "output",
     )
+    config.freeze_bundle_path.write_bytes(b"freeze bytes\n")
     frozen = shard_fan_in._load_frozen_inputs(config)
 
     assert captured["root_path"] == tmp_path
     assert frozen.context.freeze_bundle_sha256 == "c" * 64
+    assert (
+        frozen.context.raw_freeze_bundle_sha256
+        == hashlib.sha256(b"freeze bytes\n").hexdigest()
+    )
     assert frozen.manifest_path == artifact_paths[FrozenArtifactName.MANIFEST]
 
 

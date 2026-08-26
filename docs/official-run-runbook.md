@@ -1748,6 +1748,10 @@ Run the release gate at the exact SHA you intend to dispatch:
 uv run scripts/release_check.py
 ```
 
+For the model-scoped official path, issue the provider-free pre-freeze execution plan with `issue-manifest-execution-policy-v4`. The v4 successor is deliberately non-authorizing and omits only the final freeze commitment because the final freeze contains the plan. The existing v3 issuer remains strict and requires `--freeze-bundle`; do not reinterpret v3 as a pre-freeze contract. Create and verify the final freeze containing the v4 plan, then run `project-manifest-cost` against the final or staged freeze for exactly one registry model and both official ablations. Issue the model scope with the final `--freeze-bundle`, its `--freeze-root`, and the frozen `--provider-cycle-caps`; scope issuance derives provider authority from those authenticated caps, so caller-authored provider-authority JSON is not a production input. Stage the immutable manifest-run root before dispatching one model/ablation shard at a time.
+
+The scope and cost receipt bind the raw SHA-256 of the final freeze file because those bytes are the authenticated input. Shard receipts and fan-in continue to use the freeze protocol's canonical `bundle_sha256` for receipt identity; these are distinct commitments and must not be substituted for one another. The provider workflow compares the transported raw freeze hash before it opens provider credentials, and fan-in repeats that check against the staged freeze file.
+
 Prepare the frozen run-input manifest, locked labels, model registry, and packet objects. The run-input manifest must use the same `cycle_id` as the dispatch and either omit `labels_sha256` or contain the SHA-256 of the exact labels JSONL. Generate and commit the hash-only freeze commitment before dispatch:
 
 ```bash
@@ -1816,7 +1820,7 @@ state-detach/import/plan/approved-apply sequence:
 
 ## Dispatch Sequence
 
-Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_manifest_uri`, `labels_uri`, `model_registry_uri`, and exactly one declared shard through the `model_keys` and `ablations` inputs. Set `shard_only: true` and keep `resume_existing_results: true`. Run its dry-run first, then use one explicitly approved bounded non-dry-run shard as the sole producer of the validation inputs described above.
+Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_manifest_uri`, `labels_uri`, `model_registry_uri`, and exactly one declared shard through the `model_keys` and `ablations` inputs. Set `shard_only: true` and keep `resume_existing_results: true`. Run its dry-run first, then use one explicitly approved bounded non-dry-run shard as the sole producer of the validation inputs described above. For the complete four-model cycle, run all eight model/ablation shards (`openai:gpt-5.6-sol`, `openai:gpt-5.6-terra`, `openai:gpt-5.6-luna`, and `anthropic:claude-opus-4-8`, each with `full_packet` and `metadata_only`) and retain the exact successful workflow run ID and attempt for each shard.
 
 1. Run the declared first shard with `dry_run: true` and an explicit spend cap. This validates the frozen schedule, hashes, model eligibility, projected cost, and exact shard identity without provider calls; it cannot issue the S3 validation inputs.
 2. Run the bounded smoke under its dedicated smoke freeze and prefix. Complete it with `Fan In Official Shards` in `verify_only: true` mode; verification-only may accept the smoke cycle because its entry point has no canonical publication code path.
@@ -1832,7 +1836,34 @@ The resume identity includes the case, ablation, packet hash, solver/model ident
 
 ## Aggregation
 
-After every declared shard has a receipt, dispatch `Fan In Official Shards` at the exact 40-character trusted release SHA and provide one accepted shard's `source_dispatch_run_id` and `source_dispatch_run_attempt`. The workflow validates the exact completed `run-benchmark.yaml` attempt through GitHub's attempt-specific API and requires that attempt's `Build benchmark matrix` job to have succeeded; the overall attempt may have failed before a later **Re-run failed jobs** attempt completed the shard. It downloads the source attempt's non-overwritable `official-dispatch-provenance-<run_id>-<run_attempt>` artifact and uses the exact frozen run-input manifest, labels, and model registry bytes. The artifact binds the run ID, source dispatch attempt, and release SHA; every accepted receipt must bind the same release SHA, and at least one accepted receipt must bind that exact source attempt even when its receipt was finalized by a later workflow attempt. Fan-in auto-selects singleton shards and refuses any multi-receipt shard until a committed [accepted-attempt map](schemas/accepted-attempt-map-v1.md) selects exactly one receipt for each ambiguity. It verifies that the current union contains no uncommitted or stale object, fetches each accepted object by its exact S3 `VersionId`, verifies its size and SHA-256, and materializes only those bytes for `official_aggregate`.
+After every declared shard has a receipt, dispatch `Fan In Official Shards` at the exact 40-character trusted release SHA with `source_dispatch_runs_json`, not the singular `source_dispatch_run_id`/`source_dispatch_run_attempt` fields. Supply one `{run_id, run_attempt}` object for each of the eight successful shard dispatches:
+
+```json
+[
+  {"run_id": "<openai-sol-full-packet-run-id>", "run_attempt": <openai-sol-full-packet-attempt>},
+  {"run_id": "<openai-sol-metadata-only-run-id>", "run_attempt": <openai-sol-metadata-only-attempt>},
+  {"run_id": "<openai-terra-full-packet-run-id>", "run_attempt": <openai-terra-full-packet-attempt>},
+  {"run_id": "<openai-terra-metadata-only-run-id>", "run_attempt": <openai-terra-metadata-only-attempt>},
+  {"run_id": "<openai-luna-full-packet-run-id>", "run_attempt": <openai-luna-full-packet-attempt>},
+  {"run_id": "<openai-luna-metadata-only-run-id>", "run_attempt": <openai-luna-metadata-only-attempt>},
+  {"run_id": "<anthropic-opus-full-packet-run-id>", "run_attempt": <anthropic-opus-full-packet-attempt>},
+  {"run_id": "<anthropic-opus-metadata-only-run-id>", "run_attempt": <anthropic-opus-metadata-only-attempt>}
+]
+```
+
+Pass that array as the single workflow input (with the singular source-dispatch inputs left at their defaults):
+
+```bash
+gh workflow run fan-in-publish.yaml --ref main \
+  -f release_sha=<release_sha> \
+  -f cycle_id=<cycle_id> \
+  -f freeze_bundle_path=s3://<results-bucket>/cycle-1/manifest-runs/<manifest-digest>/freeze.json \
+  -f source_dispatch_runs_json='<the eight-entry JSON array above>' \
+  -f verify_only=true \
+  -f artifact_retention_days=30
+```
+
+The workflow validates every exact completed `run-benchmark.yaml` attempt through GitHub's attempt-specific API and requires each attempt's `Build benchmark matrix` job to have succeeded; an overall attempt may have failed before a later **Re-run failed jobs** attempt completed its shard. It downloads each source attempt's non-overwritable `official-dispatch-provenance-<run_id>-<run_attempt>` artifact and uses the exact frozen run-input manifest, labels, and model registry bytes. The artifact binds each run ID, source dispatch attempt, and release SHA; every accepted receipt must bind the same release SHA, and the accepted set must account for all eight declared shard identities. A single model execution scope authorizes both of that model's ablations, so the same byte-identical scope artifact is expected to arrive from the two corresponding dispatches and is deduplicated as one authorization; conflicting scope bytes for one model fail closed. Fan-in auto-selects singleton shards and refuses any multi-receipt shard until a committed [accepted-attempt map](schemas/accepted-attempt-map-v1.md) selects exactly one receipt for each ambiguity. It verifies that the current union contains no uncommitted or stale object, fetches each accepted object by its exact S3 `VersionId`, verifies its size and SHA-256, and materializes only those bytes for `official_aggregate`.
 
 The fan-in workflow consumes the exact staged manifest-run root, not a source checkout freeze. Set `freeze_bundle_path` to the immutable `s3://<results-bucket>/cycle-1/manifest-runs/<manifest-digest>/freeze.json` URI. After assuming the fan-in role, the workflow downloads that entire prefix, passes `/tmp/lfb-manifest-run/freeze.json` with `--freeze-root /tmp/lfb-manifest-run`, and discovers any staged amendment bundles under `/tmp/lfb-manifest-run/amendments/`. The staged bundle's hash is authoritative: staging rewrites relative artifact paths, so receipts must bind the staged `freeze_bundle_sha256`, never the source or committed bundle hash. The fan-in role must have read/list authority for this exact immutable prefix.
 

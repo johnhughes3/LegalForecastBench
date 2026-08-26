@@ -204,6 +204,10 @@ def authenticate_manifest_cost_inputs(
     seen_pairs: set[tuple[str, str]] = set()
     candidate_cases: dict[str, str] = {}
     case_candidates: dict[str, str] = {}
+    # Import lazily to keep the authentication module usable by the public
+    # projector without creating an import cycle during module initialization.
+    from legalforecast.evals.corpus_manifest.cost_projector import packet_input_tokens
+
     for raw_packet in packets:
         if not isinstance(raw_packet, Mapping):
             raise ManifestCostProjectionError("model_packets entries must be objects")
@@ -263,6 +267,9 @@ def authenticate_manifest_cost_inputs(
                 "packet_object_key": key,
                 "sha256": expected_sha256,
                 "size_bytes": expected_size,
+                "input_tokens": packet_input_tokens(
+                    packet, authenticated_packet_size=len(payload)
+                ),
             }
         )
     expected_pairs = {

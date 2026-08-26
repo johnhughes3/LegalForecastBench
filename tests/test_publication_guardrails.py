@@ -4,6 +4,12 @@ import json
 from pathlib import Path
 
 import pytest
+from legalforecast.hugging_face_publication import (
+    OfficialHFPublicationConfig,
+    OfficialHFPublicationError,
+    build_official_hf_publication,
+    validate_official_hf_publication,
+)
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailCode,
     PublicationGuardrailConfig,
@@ -14,6 +20,7 @@ from legalforecast.publication.publication_guardrails import (
 from legalforecast.publication.publication_guardrails import (
     main as publication_guardrails_main,
 )
+from tests.test_static_result_sites import write_official_report_fixture
 
 
 def test_publication_guardrails_accept_public_safe_outputs(tmp_path: Path) -> None:
@@ -104,6 +111,93 @@ def test_publication_guardrails_cli_reports_findings(
     assert {finding["code"] for finding in summary["findings"]} >= {
         "audit_only_material"
     }
+
+
+def test_builds_native_manually_gated_hf_package(tmp_path: Path) -> None:
+    official = write_official_report_fixture(tmp_path)
+    result = build_official_hf_publication(
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=official,
+            output_dir=tmp_path / "hugging-face",
+            release_version="cycle-1.0.0",
+            dataset_repository="example/legalforecastbench",
+        )
+    )
+
+    card = result.readme_path.read_text(encoding="utf-8")
+    evaluation = result.eval_path.read_text(encoding="utf-8")
+    manifest = json.loads(result.publication_manifest_path.read_text(encoding="utf-8"))
+    assert "gated: manual" in card
+    assert "I agree to the Controlled-Access Terms: checkbox" in card
+    assert "submit to the jurisdiction of the court" in card
+    assert "delete or destroy information" in card
+    assert "reasonable precautions not to republish" in card
+    assert "evaluation_framework: legalforecastbench" in evaluation
+    assert 'id: "legalforecast_mtd_fixture_cycle"' in evaluation
+    assert manifest["release_path"] == "releases/cycle-1.0.0/fixture-cycle"
+    assert manifest["manual_gate"]["mode"] == "manual"
+    assert validate_official_hf_publication(result.output_dir) == result
+
+
+def test_hf_package_rejects_mutable_version_and_existing_output(
+    tmp_path: Path,
+) -> None:
+    official = write_official_report_fixture(tmp_path)
+    with pytest.raises(OfficialHFPublicationError, match="mutable revision"):
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=official,
+            output_dir=tmp_path / "hugging-face",
+            release_version="main",
+            dataset_repository="example/legalforecastbench",
+        )
+
+    destination = tmp_path / "existing"
+    destination.mkdir()
+    with pytest.raises(OfficialHFPublicationError, match="already exists"):
+        build_official_hf_publication(
+            OfficialHFPublicationConfig(
+                official_artifacts_dir=official,
+                output_dir=destination,
+                release_version="cycle-1.0.0",
+                dataset_repository="example/legalforecastbench",
+            )
+        )
+
+
+def test_hf_package_validation_rejects_byte_drift(tmp_path: Path) -> None:
+    official = write_official_report_fixture(tmp_path)
+    result = build_official_hf_publication(
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=official,
+            output_dir=tmp_path / "hugging-face",
+            release_version="cycle-1.0.0",
+            dataset_repository="example/legalforecastbench",
+        )
+    )
+    result.eval_path.write_text("name: replaced\n", encoding="utf-8")
+
+    with pytest.raises(OfficialHFPublicationError, match=r"hash mismatch: eval\.yaml"):
+        validate_official_hf_publication(result.output_dir)
+
+
+def test_hf_package_validation_binds_release_identity(tmp_path: Path) -> None:
+    official = write_official_report_fixture(tmp_path)
+    result = build_official_hf_publication(
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=official,
+            output_dir=tmp_path / "hugging-face",
+            release_version="cycle-1.0.0",
+            dataset_repository="example/legalforecastbench",
+        )
+    )
+    manifest = json.loads(result.publication_manifest_path.read_text(encoding="utf-8"))
+    manifest["release_version"] = "cycle-1.0.1"
+    result.publication_manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True), encoding="utf-8"
+    )
+
+    with pytest.raises(OfficialHFPublicationError, match="release_path does not match"):
+        validate_official_hf_publication(result.output_dir)
 
 
 def _write_text(path: Path, text: str) -> None:

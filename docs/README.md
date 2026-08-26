@@ -24,6 +24,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
 - [Corpus split public-history audit and cutover map](corpus-split-history-audit.md): revision-bound security conclusion and package-level keep, private-port, delete, and archive boundaries for the public/private cutover.
 - [Publication governance](publication-governance.md): public evidence tiers, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
+- [Hugging Face benchmark publication](hugging-face-publication.md): manually gated access, immutable dataset revisions, native leaderboard registration, and short-lived automated publication.
 
 ## Release Security
 
@@ -205,6 +206,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 - [evaluation-policy-artifacts-v1.md](schemas/evaluation-policy-artifacts-v1.md): how decisions made before labeling or acquisition are separated from facts observed later.
 - [evaluation-policy-artifacts-v2.md](schemas/evaluation-policy-artifacts-v2.md): additive truthful lifecycle semantics, journal-derived production start, and authenticated manifest execution decisions; v1 remains unchanged.
+- [execution-policy-artifacts-v4.md](schemas/execution-policy-artifacts-v4.md): provider-free pre-freeze model-scope plan successor; v3 remains strict.
 - [manifest-forecast-bundle-v2.md](schemas/manifest-forecast-bundle-v2.md): the exact labels-deferred, non-scoreable, non-publishable manifest forecast commitment and provider-free run card.
 - [manifest-cost-projection-receipt-v1.md](schemas/manifest-cost-projection-receipt-v1.md): authenticated provider-free cost projection, matrix partitioning, input commitments, and create-only receipt publication for an official manifest run.
 

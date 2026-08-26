@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from legalforecast.evals.corpus_manifest import beads_observation as evidence
 from legalforecast.evals.corpus_manifest import execution_decisions as module
+from legalforecast.evals.model_registry import OpenAIReasoningEffort
 from legalforecast.labeling.provider_journal import (
     PROVIDER_JOURNAL_SCHEMA_VERSION,
     ProviderAttemptJournal,
@@ -50,6 +51,9 @@ def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             search_disabled=True,
             temperature=0.0,
             top_p=1.0,
+            reasoning_effort=(
+                OpenAIReasoningEffort.HIGH if key.startswith("openai:") else None
+            ),
             tool_policy=SimpleNamespace(value="controlled_docket_tool_only"),
         )
         for key in sorted(evidence.SUCCESSOR_REGISTRY_KEYS)
@@ -327,12 +331,48 @@ def test_successor_registry_safety_ignores_legacy_sampling_fields() -> None:
             search_disabled=True,
             temperature=0.7,
             top_p=0.2,
+            reasoning_effort=(
+                OpenAIReasoningEffort.HIGH if key.startswith("openai:") else None
+            ),
             tool_policy=SimpleNamespace(value="controlled_docket_tool_only"),
         )
         for key in sorted(evidence.SUCCESSOR_REGISTRY_KEYS)
     )
 
     module._require_successor_registry_safety(entries)
+
+
+@pytest.mark.parametrize(
+    ("registry_key", "reasoning_effort"),
+    (
+        ("openai:gpt-5.6-sol", None),
+        ("openai:gpt-5.6-terra", OpenAIReasoningEffort.MEDIUM),
+        ("anthropic:claude-opus-4-8", OpenAIReasoningEffort.HIGH),
+    ),
+)
+def test_successor_registry_safety_requires_exact_reasoning_settings(
+    registry_key: str,
+    reasoning_effort: OpenAIReasoningEffort | None,
+) -> None:
+    entries = tuple(
+        SimpleNamespace(
+            provider=key.split(":", 1)[0],
+            model_id=key.split(":", 1)[1],
+            registry_key=key,
+            network_disabled=True,
+            search_disabled=True,
+            reasoning_effort=(
+                reasoning_effort
+                if key == registry_key
+                else (OpenAIReasoningEffort.HIGH if key.startswith("openai:") else None)
+            ),
+            tool_policy=SimpleNamespace(value="controlled_docket_tool_only"),
+        )
+        for key in sorted(evidence.SUCCESSOR_REGISTRY_KEYS)
+    )
+
+    with pytest.raises(module.ExecutionDecisionsError, match="reasoning settings"):
+        module._require_successor_registry_safety(entries)
 
 
 def _issue(fixture: dict[str, Any]) -> module.ExecutionDecisionsBuild:

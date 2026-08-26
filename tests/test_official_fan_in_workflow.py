@@ -34,6 +34,8 @@ def test_workflow_downloads_exact_cross_run_dispatch_artifact() -> None:
     )
     assert "/tmp/lfb-source-dispatch/lfb-dispatch-release.json" in WORKFLOW
     assert "/tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json" in WORKFLOW
+    assert "lfb-execution-scope*.json" in WORKFLOW
+    assert "--execution-scope" in WORKFLOW
     assert "--labels /tmp/lfb-source-dispatch/lfb-labels.jsonl" in WORKFLOW
     assert (
         "--model-registry /tmp/lfb-source-dispatch/lfb-model-registry.json" in WORKFLOW

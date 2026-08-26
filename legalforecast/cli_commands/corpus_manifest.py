@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from legalforecast.protocol.freeze import sha256_file
 from legalforecast.publication.manifest_forecast_stage import (
     add_manifest_forecast_stage_arguments,
     run_manifest_forecast_stage,
@@ -164,6 +165,32 @@ _ISSUE_BEADS_OBSERVATION = importlib.metadata.EntryPoint(
     value=(
         "legalforecast.evals.corpus_manifest.execution_decisions:"
         "issue_beads_observation"
+    ),
+    group="legalforecast.internal",
+)
+_ISSUE_EXECUTION_PLAN_V3 = importlib.metadata.EntryPoint(
+    name="manifest-execution-policy-v3-issue",
+    value=("legalforecast.evals.corpus_manifest.execution_scope:issue_execution_plan"),
+    group="legalforecast.internal",
+)
+_ISSUE_EXECUTION_PLAN_V4 = importlib.metadata.EntryPoint(
+    name="manifest-execution-policy-v4-issue",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_scope:issue_execution_plan_v4"
+    ),
+    group="legalforecast.internal",
+)
+_ISSUE_EXECUTION_SCOPE = importlib.metadata.EntryPoint(
+    name="manifest-execution-scope-issue",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_scope:issue_model_execution_scope"
+    ),
+    group="legalforecast.internal",
+)
+_VERIFY_EXECUTION_SCOPE = importlib.metadata.EntryPoint(
+    name="manifest-execution-scope-verify",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_scope:verify_execution_scope"
     ),
     group="legalforecast.internal",
 )
@@ -476,6 +503,130 @@ def register(
     issue_beads.add_argument("--output", type=Path, required=True)
     issue_beads.set_defaults(handler=run_issue_beads_observation)
 
+    issue_plan = subparsers.add_parser(
+        "issue-manifest-execution-policy-v3",
+        help="Issue a complete provider-free, non-authorizing model-scope plan.",
+        description=(
+            "Hash the common freeze, manifest, run-input, registry, and run-card "
+            "bytes and derive the complete model/ablation schedule. The v3 plan "
+            "cannot authorize provider execution; each later paid shard requires "
+            "a separately authenticated exact-model scope."
+        ),
+    )
+    issue_plan.add_argument("--cycle-id", required=True)
+    issue_plan.add_argument(
+        "--freeze-bundle",
+        type=Path,
+        required=True,
+        help=("Existing final freeze bundle to bind to the strict v3 plan."),
+    )
+    issue_plan.add_argument("--manifest", type=Path, required=True)
+    issue_plan.add_argument("--run-input-manifest", type=Path, required=True)
+    issue_plan.add_argument("--run-card", type=Path, required=True)
+    issue_plan.add_argument("--model-registry", type=Path, required=True)
+    issue_plan.add_argument(
+        "--allow-no-baselines",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Allow fan-in without a baseline corpus (default: true).",
+    )
+    issue_plan.add_argument("--output", type=Path, required=True)
+    issue_plan.set_defaults(handler=run_issue_execution_plan_v3)
+
+    issue_plan_v4 = subparsers.add_parser(
+        "issue-manifest-execution-policy-v4",
+        help="Issue a provider-free pre-freeze model-scope plan.",
+        description=(
+            "Hash the common manifest, run-input, registry, and run-card bytes "
+            "and derive the complete model/ablation schedule. The v4 plan is "
+            "the explicit pre-freeze successor to v3: it cannot authorize "
+            "provider execution and omits only the final freeze commitment, "
+            "which is bound by a later exact-model scope."
+        ),
+    )
+    issue_plan_v4.add_argument("--cycle-id", required=True)
+    issue_plan_v4.add_argument("--manifest", type=Path, required=True)
+    issue_plan_v4.add_argument("--run-input-manifest", type=Path, required=True)
+    issue_plan_v4.add_argument("--run-card", type=Path, required=True)
+    issue_plan_v4.add_argument("--model-registry", type=Path, required=True)
+    issue_plan_v4.add_argument(
+        "--allow-no-baselines",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Allow fan-in without a baseline corpus (default: true).",
+    )
+    issue_plan_v4.add_argument("--output", type=Path, required=True)
+    issue_plan_v4.set_defaults(handler=run_issue_execution_plan_v4)
+
+    issue_scope = subparsers.add_parser(
+        "issue-manifest-execution-scope",
+        help="Issue a separately authenticated exact-model execution scope.",
+        description=(
+            "Bind one frozen registry entry, both official ablations, the exact "
+            "100-case/200-call cost receipt, owner ceiling and raw owner-authored "
+            "Beads evidence to a provider authority identity."
+        ),
+    )
+    issue_scope.add_argument("--plan", type=Path, required=True)
+    issue_scope.add_argument(
+        "--freeze-bundle",
+        type=Path,
+        required=True,
+        help="Final/staged freeze bundle authenticated by the cost receipt.",
+    )
+    issue_scope.add_argument(
+        "--freeze-root",
+        type=Path,
+        help="Root containing relative artifacts named by the final freeze.",
+    )
+    issue_scope.add_argument("--model-registry", type=Path, required=True)
+    issue_scope.add_argument("--model-key", required=True)
+    issue_scope.add_argument("--cost-projection", type=Path, required=True)
+    issue_scope.add_argument(
+        "--run-input-manifest",
+        type=Path,
+        required=True,
+        help="Exact frozen run-input manifest used to authenticate packet costs.",
+    )
+    issue_scope.add_argument("--owner-ceiling-usd", required=True)
+    issue_scope.add_argument(
+        "--owner-bead-id",
+        required=True,
+        help="Beads issue whose live comments contain the owner approval.",
+    )
+    issue_scope.add_argument(
+        "--provider-cycle-caps",
+        type=Path,
+        required=True,
+        help=(
+            "Frozen provider-cycle-caps bytes used to derive provider authority; "
+            "caller-authored authority JSON is not accepted."
+        ),
+    )
+    issue_scope.add_argument("--output", type=Path, required=True)
+    issue_scope.set_defaults(handler=run_issue_execution_scope)
+
+    verify_scope = subparsers.add_parser(
+        "verify-manifest-execution-scope",
+        help="Verify an exact-model execution scope and all source commitments.",
+    )
+    verify_scope.add_argument("--scope", type=Path, required=True)
+    verify_scope.add_argument("--plan", type=Path, required=True)
+    verify_scope.add_argument("--freeze-bundle", type=Path, required=True)
+    verify_scope.add_argument("--freeze-root", type=Path)
+    verify_scope.add_argument("--model-registry", type=Path, required=True)
+    verify_scope.add_argument("--cost-projection", type=Path, required=True)
+    verify_scope.add_argument(
+        "--run-input-manifest",
+        type=Path,
+        required=True,
+        help="Exact frozen run-input manifest used to authenticate packet costs.",
+    )
+    verify_scope.add_argument("--owner-evidence", type=Path, required=True)
+    verify_scope.add_argument("--provider-cycle-caps", type=Path, required=True)
+    verify_scope.add_argument("--model-key")
+    verify_scope.set_defaults(handler=run_verify_execution_scope)
+
     stage = subparsers.add_parser(
         "stage-manifest-forecast",
         help="Stage manifest-mode forecast inputs into immutable S3 prefixes.",
@@ -694,4 +845,92 @@ def run_issue_beads_observation(args: argparse.Namespace) -> int:
         output=cast(Path, args.output),
     )
     print(json.dumps(dict(result), indent=2, sort_keys=True))
+    return 0
+
+
+def run_issue_execution_plan_v3(args: argparse.Namespace) -> int:
+    """Issue the provider-free complete v3 model-scope plan."""
+
+    issue = _ISSUE_EXECUTION_PLAN_V3.load()
+    common_inputs = {
+        "manifest_sha256": sha256_file(cast(Path, args.manifest)),
+        "run_input_manifest_sha256": sha256_file(cast(Path, args.run_input_manifest)),
+        "model_registry_sha256": sha256_file(cast(Path, args.model_registry)),
+        "run_card_sha256": sha256_file(cast(Path, args.run_card)),
+    }
+    if args.freeze_bundle is not None:
+        common_inputs["freeze_bundle_sha256"] = sha256_file(
+            cast(Path, args.freeze_bundle)
+        )
+    result = issue(
+        cycle_id=cast(str, args.cycle_id),
+        model_registry=cast(Path, args.model_registry),
+        common_frozen_inputs=common_inputs,
+        allow_no_baselines=cast(bool, args.allow_no_baselines),
+        output=cast(Path, args.output),
+    )
+    print(json.dumps(dict(result), indent=2, sort_keys=True))
+    return 0
+
+
+def run_issue_execution_plan_v4(args: argparse.Namespace) -> int:
+    """Issue the provider-free pre-freeze v4 model-scope plan."""
+
+    issue = _ISSUE_EXECUTION_PLAN_V4.load()
+    result = issue(
+        cycle_id=cast(str, args.cycle_id),
+        model_registry=cast(Path, args.model_registry),
+        common_frozen_inputs={
+            "manifest_sha256": sha256_file(cast(Path, args.manifest)),
+            "run_input_manifest_sha256": sha256_file(
+                cast(Path, args.run_input_manifest)
+            ),
+            "model_registry_sha256": sha256_file(cast(Path, args.model_registry)),
+            "run_card_sha256": sha256_file(cast(Path, args.run_card)),
+        },
+        allow_no_baselines=cast(bool, args.allow_no_baselines),
+        output=cast(Path, args.output),
+    )
+    print(json.dumps(dict(result), indent=2, sort_keys=True))
+    return 0
+
+
+def run_issue_execution_scope(args: argparse.Namespace) -> int:
+    """Issue one authenticated provider execution scope."""
+
+    issue = _ISSUE_EXECUTION_SCOPE.load()
+    result = issue(
+        common_plan=cast(Path, args.plan),
+        model_registry=cast(Path, args.model_registry),
+        model_key=cast(str, args.model_key),
+        cost_projection=cast(Path, args.cost_projection),
+        run_input_manifest=cast(Path, args.run_input_manifest),
+        owner_ceiling_usd=cast(str, args.owner_ceiling_usd),
+        owner_bead_id=cast(str, args.owner_bead_id),
+        freeze_bundle=cast(Path, args.freeze_bundle),
+        freeze_root=cast(Path | None, args.freeze_root),
+        provider_cycle_caps=cast(Path, args.provider_cycle_caps),
+        output=cast(Path, args.output),
+    )
+    print(json.dumps(dict(result), indent=2, sort_keys=True))
+    return 0
+
+
+def run_verify_execution_scope(args: argparse.Namespace) -> int:
+    """Verify one authenticated provider execution scope."""
+
+    verify = _VERIFY_EXECUTION_SCOPE.load()
+    result = verify(
+        json.loads(cast(Path, args.scope).read_text()),
+        common_plan=cast(Path, args.plan),
+        model_registry=cast(Path, args.model_registry),
+        cost_projection=cast(Path, args.cost_projection),
+        run_input_manifest=cast(Path, args.run_input_manifest),
+        owner_evidence=cast(Path, args.owner_evidence),
+        freeze_bundle=cast(Path, args.freeze_bundle),
+        freeze_root=cast(Path | None, args.freeze_root),
+        provider_cycle_caps=cast(Path, args.provider_cycle_caps),
+        expected_model_key=cast(str | None, args.model_key),
+    )
+    print(json.dumps({"scope_sha256": result}, indent=2, sort_keys=True))
     return 0

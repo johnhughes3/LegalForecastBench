@@ -27,23 +27,28 @@ from legalforecast.evals.inspect_task import (
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry, ToolPolicy
 from legalforecast.evals.response_verification import verify_provider_response
+from legalforecast.openai_transport import (
+    OPENAI_RESPONSES_URL as OPENAI_RESPONSES_URL,
+)
+from legalforecast.openai_transport import (
+    OPENAI_SERVICE_TIER,
+    OpenAITransportRoute,
+    resolve_openai_transport,
+)
 
 OPENAI_API_KEY_ENV = "OPENAI_API_KEY"
 ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
 GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
 ANTHROPIC_RUNTIME_ENV = "LFB_ANTHROPIC_RUNTIME"
 ANTHROPIC_BEDROCK_MODEL_ID_ENV = "LFB_ANTHROPIC_BEDROCK_MODEL_ID"
+OPENAI_USE_VERCEL_GATEWAY_ENV = "LFB_OPENAI_USE_VERCEL_GATEWAY"
 
-OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 GEMINI_GENERATE_CONTENT_URL_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
 
 # Official OpenAI eval uses Flex processing: Batch-rate tokens, slower replies.
-# Retryable 429/503 on Flex fall back to standard (`default`) for remaining attempts.
-OPENAI_SERVICE_TIER = "flex"
-OPENAI_FALLBACK_SERVICE_TIER = "default"
 OPENAI_FLEX_TIMEOUT_SECONDS = 900.0
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_ATTEMPTS = 3
@@ -247,7 +252,6 @@ def complete_live_prompt(
     max_output_tokens_override: int | None = None,
     openai_service_tier_observer: Callable[[str], None] | None = None,
     request_body_observer: RequestBodyObserver | None = None,
-    openai_flex_already_rejected: bool = False,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
 
@@ -308,7 +312,12 @@ def complete_live_prompt(
         )
 
     started = time.perf_counter()
-    payload, request_count, durable_attempt_ordinal, used_tier, fell_back = (
+    openai_route = (
+        _resolve_openai_transport(registry_entry.model_id, environ)
+        if _is_openai_provider(registry_entry)
+        else None
+    )
+    payload, request_count, durable_attempt_ordinal, used_tier = (
         _call_live_http_provider(
             registry_entry,
             prompt,
@@ -320,7 +329,7 @@ def complete_live_prompt(
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
             request_body_observer=request_body_observer,
-            openai_flex_already_rejected=openai_flex_already_rejected,
+            openai_route=openai_route,
         )
     )
     latency_ms = (time.perf_counter() - started) * 1000
@@ -373,10 +382,10 @@ def complete_live_prompt(
             "context_limit": str(registry_entry.context_limit),
             "max_output_tokens": str(registry_entry.max_output_tokens),
             **_sampling_policy_metadata(registry_entry),
+            **_reasoning_policy_metadata(registry_entry),
             **_openai_service_tier_metadata(
                 registry_entry,
                 used_tier=used_tier,
-                fell_back=fell_back,
             ),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
@@ -481,6 +490,7 @@ def _complete_bedrock_anthropic_prompt(
             "context_limit": str(registry_entry.context_limit),
             "max_output_tokens": str(registry_entry.max_output_tokens),
             **_sampling_policy_metadata(registry_entry),
+            **_reasoning_policy_metadata(registry_entry),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
             "provider_attempt_count": str(request_count),
@@ -611,17 +621,22 @@ def _openai_request(
     response_json_schema: Mapping[str, object] | None,
     *,
     service_tier: str = OPENAI_SERVICE_TIER,
+    route: OpenAITransportRoute | None = None,
 ) -> urllib.request.Request:
     del response_json_schema
+    resolved_route = route or resolve_openai_transport(entry.model_id)
     payload: dict[str, object] = {
-        "model": entry.model_id,
+        "model": resolved_route.request_model_id,
         "input": prompt,
         "max_output_tokens": entry.max_output_tokens,
         "service_tier": service_tier,
         "tools": [],
     }
+    if entry.reasoning_effort is not None:
+        payload["reasoning"] = {"effort": entry.reasoning_effort.value}
+    payload.update(resolved_route.gateway_extra_body())
     return _json_request(
-        OPENAI_RESPONSES_URL,
+        resolved_route.responses_url,
         payload,
         headers={"Authorization": f"Bearer {api_key}"},
     )
@@ -640,6 +655,8 @@ def _anthropic_request(
         "max_tokens": entry.max_output_tokens,
         "tools": [],
     }
+    if _uses_anthropic_adaptive_thinking(entry):
+        payload["thinking"] = {"type": "adaptive"}
     return _json_request(
         ANTHROPIC_MESSAGES_URL,
         payload,
@@ -664,6 +681,8 @@ def _bedrock_anthropic_payload(
         ],
         "max_tokens": entry.max_output_tokens,
     }
+    if _uses_anthropic_adaptive_thinking(entry):
+        payload["thinking"] = {"type": "adaptive"}
     return payload
 
 
@@ -672,6 +691,24 @@ def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
 
     del entry
     return {"provider_sampling_policy": "provider_default"}
+
+
+def _reasoning_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
+    if entry.reasoning_effort is not None:
+        return {"requested_reasoning_effort": entry.reasoning_effort.value}
+    if _uses_anthropic_adaptive_thinking(entry):
+        return {
+            "requested_thinking_type": "adaptive",
+            "provider_reasoning_effort": "provider_default_high",
+        }
+    return {}
+
+
+def _uses_anthropic_adaptive_thinking(entry: ModelRegistryEntry) -> bool:
+    return entry.provider.strip().lower() == "anthropic" and "claude-opus-4-8" in {
+        _canonical_model_version(entry.model_id),
+        _canonical_model_version(entry.model_version_or_snapshot),
+    }
 
 
 def _is_openai_provider(entry: ModelRegistryEntry) -> bool:
@@ -693,7 +730,6 @@ def _openai_service_tier_metadata(
     entry: ModelRegistryEntry,
     *,
     used_tier: str | None = None,
-    fell_back: bool = False,
 ) -> dict[str, str]:
     if not _is_openai_provider(entry):
         return {}
@@ -701,9 +737,32 @@ def _openai_service_tier_metadata(
         "service_tier": used_tier or OPENAI_SERVICE_TIER,
         "requested_service_tier": OPENAI_SERVICE_TIER,
     }
-    if fell_back:
-        metadata["service_tier_fallback"] = "flex_unavailable"
     return metadata
+
+
+def _resolve_openai_transport(
+    model_id: str,
+    environ: Mapping[str, str] | None,
+) -> OpenAITransportRoute:
+    """Resolve the route once, honoring the workflow's credential-bound choice."""
+
+    values = os.environ if environ is None else environ
+    raw_override = values.get(OPENAI_USE_VERCEL_GATEWAY_ENV)
+    use_vercel_gateway: bool | None = None
+    if raw_override is not None:
+        normalized_override = raw_override.strip().lower()
+        if normalized_override not in {"true", "false"}:
+            raise LiveModelConfigError(
+                f"{OPENAI_USE_VERCEL_GATEWAY_ENV} must be true or false"
+            )
+        use_vercel_gateway = normalized_override == "true"
+    try:
+        return resolve_openai_transport(
+            model_id,
+            use_vercel_gateway=use_vercel_gateway,
+        )
+    except ValueError as exc:
+        raise LiveModelConfigError(str(exc)) from exc
 
 
 def _observed_openai_service_tier(payload: JsonRecord | None) -> str:
@@ -712,11 +771,16 @@ def _observed_openai_service_tier(payload: JsonRecord | None) -> str:
     value = payload.get("service_tier")
     if isinstance(value, str) and value.strip():
         return value.strip()
+    provider_metadata = payload.get("provider_metadata")
+    if isinstance(provider_metadata, Mapping):
+        provider_metadata_record = cast(Mapping[str, object], provider_metadata)
+        gateway_metadata = provider_metadata_record.get("gateway")
+        if isinstance(gateway_metadata, Mapping):
+            gateway_metadata_record = cast(Mapping[str, object], gateway_metadata)
+            gateway_value = gateway_metadata_record.get("serviceTier")
+            if isinstance(gateway_value, str) and gateway_value.strip():
+                return gateway_value.strip()
     return "unreported"
-
-
-def _is_openai_flex_unavailable(exc: LiveModelProviderError) -> bool:
-    return exc.status_code in {429, 503}
 
 
 def _gemini_request(
@@ -942,9 +1006,9 @@ def _call_live_http_provider(
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None,
     request_body_observer: RequestBodyObserver | None,
-    openai_flex_already_rejected: bool,
-) -> tuple[JsonRecord, int, int, str | None, bool]:
-    """POST one live HTTP provider call, with OpenAI Flex-to-standard fallback."""
+    openai_route: OpenAITransportRoute | None,
+) -> tuple[JsonRecord, int, int, str | None]:
+    """POST one live HTTP provider call while retaining OpenAI Flex on retries."""
 
     if not _is_openai_provider(registry_entry):
         provider = _provider_config(registry_entry.provider)
@@ -973,14 +1037,11 @@ def _call_live_http_provider(
             attempt_handler=attempt_handler,
             attempt_preflight=prepare_provider_request,
         )
-        return payload, request_count, durable_attempt_ordinal, None, False
+        return payload, request_count, durable_attempt_ordinal, None
 
-    used_tier = (
-        OPENAI_FALLBACK_SERVICE_TIER
-        if openai_flex_already_rejected
-        else OPENAI_SERVICE_TIER
-    )
-    fell_back = openai_flex_already_rejected
+    used_tier = OPENAI_SERVICE_TIER
+    if openai_route is None:
+        raise RuntimeError("OpenAI route preflight did not run")
     api_key: str | None = None
     request: urllib.request.Request | None = None
 
@@ -995,6 +1056,7 @@ def _call_live_http_provider(
             api_key,
             response_json_schema,
             service_tier=used_tier,
+            route=openai_route,
         )
 
     def openai_call() -> JsonRecord:
@@ -1003,30 +1065,14 @@ def _call_live_http_provider(
         _observe_request_body(request, request_body_observer)
         return transport(request, timeout_seconds)
 
-    def on_retryable_error(exc: LiveModelProviderError) -> None:
-        nonlocal used_tier, fell_back, request
-        if used_tier == OPENAI_SERVICE_TIER and _is_openai_flex_unavailable(exc):
-            if api_key is None:
-                raise RuntimeError("OpenAI request preflight did not run")
-            used_tier = OPENAI_FALLBACK_SERVICE_TIER
-            fell_back = True
-            request = _openai_request(
-                registry_entry,
-                prompt,
-                api_key,
-                response_json_schema,
-                service_tier=used_tier,
-            )
-
     payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
         openai_call,
         max_attempts=max_attempts,
         retry_backoff_seconds=retry_backoff_seconds,
         attempt_handler=attempt_handler,
-        on_retryable_error=on_retryable_error,
         attempt_preflight=prepare_openai_request,
     )
-    return payload, request_count, durable_attempt_ordinal, used_tier, fell_back
+    return payload, request_count, durable_attempt_ordinal, used_tier
 
 
 def _observe_request_body(
@@ -1311,6 +1357,8 @@ def _canonical_model_version(value: str) -> str:
         normalized = normalized.removeprefix("foundation-model/")
     if normalized.startswith("models/"):
         normalized = normalized.removeprefix("models/")
+    if normalized.startswith("openai/"):
+        normalized = normalized.removeprefix("openai/")
     if normalized.startswith("us.anthropic."):
         normalized = normalized.removeprefix("us.anthropic.")
     if normalized.startswith("anthropic."):

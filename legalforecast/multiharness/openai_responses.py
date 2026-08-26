@@ -26,9 +26,14 @@ from legalforecast.multiharness.spec import (
 )
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 from legalforecast.multiharness.validation import validate_public_record
+from legalforecast.openai_transport import (
+    OPENAI_SERVICE_TIER,
+    OpenAITransportRoute,
+    resolve_openai_transport,
+)
 
 OPENAI_RESPONSES_ADAPTER_ID = "openai-responses-baseline"
-OPENAI_RESPONSES_ADAPTER_VERSION = "1.0.0"
+OPENAI_RESPONSES_ADAPTER_VERSION = "1.1.0"
 OPENAI_SDK_VERSION = "3.3.1"
 OPENAI_SDK_MAX_RETRIES = 0
 OPENAI_MAX_OUTPUT_TOKENS = 4096
@@ -154,6 +159,7 @@ def run_openai_responses(
     tool_transport: ToolTransport,
     client: OpenAIClient,
     max_tool_calls: int = 8,
+    transport_route: OpenAITransportRoute | None = None,
 ) -> RunResult:
     """Run the pinned Responses function-tool loop for one solver prompt."""
 
@@ -163,6 +169,7 @@ def run_openai_responses(
         raise OpenAIResponsesAdapterError("max_tool_calls must be positive")
 
     requested_model = _requested_model(request.model_key)
+    route = transport_route or resolve_openai_transport(requested_model)
     required_unit_ids = _required_unit_ids(request)
     conversation: list[Any] = _initial_input(request, required_unit_ids)
     transcript: list[dict[str, Any]] = []
@@ -170,11 +177,14 @@ def run_openai_responses(
         "include": ["reasoning.encrypted_content"],
         "instructions": _instructions(required_unit_ids),
         "max_output_tokens": OPENAI_MAX_OUTPUT_TOKENS,
-        "model": requested_model,
+        "model": route.request_model_id,
+        "service_tier": OPENAI_SERVICE_TIER,
         "store": False,
         "timeout": float(request.sandbox_policy.timeout_seconds),
         "tools": [_READ_TASK_TOOL],
     }
+    if route.uses_vercel_gateway:
+        common["extra_body"] = route.gateway_extra_body()
     response = _recorded_provider_request(
         client,
         transcript,
@@ -264,6 +274,7 @@ def run_openai_responses(
             workspace=workspace,
             forecast=forecast,
             requested_model=requested_model,
+            transport_route=route,
             served_model=served_model,
             provider_request_count=provider_request_count,
             tool_call_count=tool_call_count,
@@ -305,6 +316,7 @@ def _successful_result(
     workspace: Path,
     forecast: Mapping[str, Any],
     requested_model: str,
+    transport_route: OpenAITransportRoute,
     served_model: str,
     provider_request_count: int,
     tool_call_count: int,
@@ -353,10 +365,12 @@ def _successful_result(
         "model_key": request.model_key,
         "output_tokens": output_tokens,
         "provider": "openai",
+        "provider_request_model": transport_route.request_model_id,
         "provider_request_count": provider_request_count,
         "provider_request_timeout_seconds": request.sandbox_policy.timeout_seconds,
         "python_version": sys.version.split()[0],
         "requested_model": requested_model,
+        "requested_service_tier": OPENAI_SERVICE_TIER,
         "sdk_name": "openai",
         "sdk_max_retries": OPENAI_SDK_MAX_RETRIES,
         "sdk_version": OPENAI_SDK_VERSION,
@@ -367,6 +381,12 @@ def _successful_result(
         "tool_policy": "host_read_canonical_task_only",
         "tool_call_count": tool_call_count,
         "total_tokens": input_tokens + output_tokens,
+        "openai_transport": transport_route.transport_name,
+        "gateway_only_providers": (
+            [transport_route.gateway_provider]
+            if transport_route.gateway_provider is not None
+            else []
+        ),
         "harness_track": "neutral",
         "transcript_sha256": transcript_sha256,
     }
@@ -668,6 +688,7 @@ def adapter_bundle_sha256() -> str:
     relative_paths = (
         "legalforecast/multiharness/openai_responses.py",
         "legalforecast/multiharness/openai_responses_cli.py",
+        "legalforecast/openai_transport.py",
         "examples/adapters/openai-responses/adapter-manifest.json",
         "pyproject.toml",
         "uv.lock",

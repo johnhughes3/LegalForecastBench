@@ -3242,6 +3242,17 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
         "--expected-execution-policy-sha256",
         help="Canonical policy SHA-256 committed by dispatch provenance.",
     )
+    parser.add_argument(
+        "--execution-scope",
+        help=(
+            "Authenticated exact-model execution-scope artifact path, file:// URI, "
+            "or s3:// URI; required when the execution policy is v3."
+        ),
+    )
+    parser.add_argument(
+        "--expected-execution-scope-sha256",
+        help="Scope-content SHA-256 committed by dispatch provenance.",
+    )
     parser.add_argument("--workflow-run-id")
     parser.add_argument("--workflow-run-attempt", type=int)
     parser.add_argument(
@@ -11916,6 +11927,10 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             execution_policy_uri=cast(str | None, args.execution_policy),
             expected_execution_policy_sha256=cast(
                 str | None, args.expected_execution_policy_sha256
+            ),
+            execution_scope_uri=cast(str | None, args.execution_scope),
+            expected_execution_scope_sha256=cast(
+                str | None, args.expected_execution_scope_sha256
             ),
             workflow_run_id=cast(str | None, args.workflow_run_id),
             workflow_run_attempt=cast(int | None, args.workflow_run_attempt),

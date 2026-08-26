@@ -200,6 +200,7 @@
         "legalforecast/evals/inspect_task.py",
         "legalforecast/evals/per_case_runner.py",
         "legalforecast/evals/live_model_solver.py",
+        "legalforecast/evals/model_registry.py",
         "legalforecast/publication/official_aggregate.py"
       ]
     }
@@ -388,6 +389,7 @@
     "tests/test_provenance_clearance_cli.py",
     "tests/test_provider_authority_infra.py",
     "tests/test_provider_baselines.py",
+    "tests/test_provider_cycle_caps_materializer.py",
     "tests/test_provider_spend_control.py",
     "tests/test_public_corpus_id_fence.py",
     "tests/test_public_marker_clearance_policy.py",
@@ -438,6 +440,7 @@
       "legalforecast/evals/corpus_manifest/forecast_entry.py",
       "legalforecast/evals/inspect_task.py",
       "legalforecast/evals/live_model_solver.py",
+      "legalforecast/evals/model_registry.py",
       "legalforecast/evals/per_case_runner.py",
       "legalforecast/publication/official_aggregate.py"
     ],
@@ -491,7 +494,8 @@
     ],
     "legalforecast/multiharness/openai_responses.py": [
       "legalforecast/multiharness/openai_responses.py",
-      "legalforecast/multiharness/openai_responses_cli.py"
+      "legalforecast/multiharness/openai_responses_cli.py",
+      "legalforecast/openai_transport.py"
     ],
     "legalforecast/testing/architecture_rules/cli_compatibility.py": [
       "legalforecast/cli.py",
@@ -598,6 +602,7 @@
       "legalforecast/evals/corpus_manifest/forecast_entry.py",
       "legalforecast/evals/inspect_task.py",
       "legalforecast/evals/live_model_solver.py",
+      "legalforecast/evals/model_registry.py",
       "legalforecast/evals/per_case_runner.py",
       "legalforecast/publication/official_aggregate.py"
     ],

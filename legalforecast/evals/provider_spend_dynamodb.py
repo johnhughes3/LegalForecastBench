@@ -137,6 +137,7 @@ class DynamoDbProviderSpendAuthority:
         *,
         table_name: str,
         authority_identity_sha256: str,
+        resource_identity_sha256: str | None = None,
         cycle_id: str,
         provider: str,
         account: str,
@@ -150,6 +151,10 @@ class DynamoDbProviderSpendAuthority:
         self.authority_identity_sha256 = _sha256(
             authority_identity_sha256,
             "authority_identity_sha256",
+        )
+        self.resource_identity_sha256 = _sha256(
+            resource_identity_sha256 or authority_identity_sha256,
+            "resource_identity_sha256",
         )
         self.cycle_id = _identity(cycle_id, "cycle_id")
         self.provider = _identity(provider, "provider").lower()
@@ -182,7 +187,7 @@ class DynamoDbProviderSpendAuthority:
         if not isinstance(raw_arn, str) or not raw_arn.strip():
             raise DynamoDbAuthorityError("DynamoDB DescribeTable lacks TableArn")
         actual_identity = hashlib.sha256(raw_arn.strip().encode()).hexdigest()
-        if actual_identity != self.authority_identity_sha256:
+        if actual_identity != self.resource_identity_sha256:
             raise AuthorityIdentityMismatchError(
                 "DynamoDB table ARN differs from frozen authority identity"
             )

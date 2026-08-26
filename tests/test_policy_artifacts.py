@@ -11,7 +11,6 @@ from legalforecast.cli import main
 from legalforecast.evals import per_case_runner
 from legalforecast.evals.per_case_runner import (
     PerCaseRunnerConfig,
-    PerCaseRunnerError,
 )
 from legalforecast.labeling.provider_journal import load_provider_cycle_caps
 from legalforecast.protocol.freeze import cli_freeze
@@ -26,11 +25,16 @@ from legalforecast.protocol.policy_artifacts import (
     generate_execution_policy,
     generate_execution_policy_v2,
     generate_labeling_policy,
+    official_execution_policy_content,
+    official_execution_policy_runtime_binding,
+    official_execution_repeat_policy,
+    official_execution_repeat_policy_sha256,
     require_dispatch_policy_match,
     require_repeat_case_coverage,
     verify_execution_policy,
     verify_execution_policy_v2,
     verify_labeling_policy,
+    verify_official_execution_policy,
     write_labeling_policy,
 )
 
@@ -121,7 +125,38 @@ def test_execution_policy_v2_authenticates_only_truthful_lifecycle_facts() -> No
         execution_policy_content(artifact)
 
 
-def test_legacy_per_case_runtime_rejects_execution_policy_v2(
+def test_official_execution_policy_bridge_accepts_v2_without_weakening_v1_api() -> None:
+    artifact = generate_execution_policy_v2(_execution_decisions_v2())
+
+    assert verify_official_execution_policy(artifact) == artifact["policy_sha256"]
+    assert official_execution_policy_content(artifact) == artifact["policy"]
+    assert official_execution_repeat_policy(artifact) == {
+        "case_ids": ["case-1", "case-2"],
+        "count": 2,
+    }
+    assert official_execution_repeat_policy_sha256(
+        artifact
+    ) == execution_repeat_policy_sha256(
+        generate_execution_policy(_execution_decisions())
+    )
+    binding = official_execution_policy_runtime_binding(
+        artifact,
+        execution_policy_sha256="f" * 64,
+        provider="openai",
+        account="primary",
+    )
+    assert binding["execution_policy_sha256"] == "f" * 64
+    assert binding["cap_microusd"] == 1_000_000_000
+
+    with pytest.raises(PolicyArtifactError, match="schema version"):
+        execution_policy_runtime_binding(
+            artifact,
+            execution_policy_sha256="f" * 64,
+            provider="openai",
+        )
+
+
+def test_official_per_case_runtime_accepts_execution_policy_v2(
     tmp_path: Path,
 ) -> None:
     artifact = generate_execution_policy_v2(_execution_decisions_v2())
@@ -134,14 +169,16 @@ def test_legacy_per_case_runtime_rejects_execution_policy_v2(
         output_dir=tmp_path / "output",
         mock_output="{}",
         execution_policy_uri=str(policy_path),
+        repeat_count=2,
     )
 
-    with pytest.raises(
-        PerCaseRunnerError, match=r"invalid frozen execution policy.*schema version"
-    ):
-        per_case_runner._verified_repeat_policy_for_config(
-            config, expected_cycle_id="cycle-1"
-        )
+    binding = per_case_runner._verified_repeat_policy_for_config(
+        config, expected_cycle_id="cycle-1"
+    )
+
+    assert binding.case_ids == ("case-1", "case-2")
+    assert binding.count == 2
+    assert binding.execution_policy_sha256 == artifact["policy_sha256"]
 
 
 @pytest.mark.parametrize(
