@@ -16,6 +16,15 @@ from legalforecast.labeling.provider_cycle_caps_materializer import (
 )
 from legalforecast.labeling.provider_journal import load_provider_cycle_caps_bytes
 
+ROOT = Path(__file__).resolve().parents[1]
+FORECAST_LEGACY_CAPS = (
+    ROOT / "model_registries/cycle-1-forecast-provider-caps-base-2026-08-25.json"
+)
+FORECAST_SUCCESSOR_POLICY = (
+    ROOT
+    / "model_registries/cycle-1-forecast-provider-caps-successor-policy-2026-08-25.json"
+)
+
 ProviderCycleCapsSuccessorPolicy = _ProviderCycleCapsSuccessorPolicy
 VerifiedAuthoritySmoke = _VerifiedAuthoritySmoke
 materialize_provider_cycle_caps_successor = _materialize_provider_cycle_caps_successor
@@ -200,6 +209,42 @@ def test_materializer_builds_deterministic_authority_enabled_successor() -> None
     assert b"arn:" not in materialized.caps_bytes + receipt_bytes
     assert b"123456789012" not in materialized.caps_bytes + receipt_bytes
     assert b"external_spend" not in materialized.caps_bytes + receipt_bytes
+
+
+def test_materializer_accepts_forecast_only_successor_registry_provider_set() -> None:
+    source = FORECAST_LEGACY_CAPS.read_bytes()
+    policy_bytes = FORECAST_SUCCESSOR_POLICY.read_bytes()
+    policy = load_provider_cycle_caps_successor_policy(
+        policy_bytes,
+        expected_sha256=hashlib.sha256(policy_bytes).hexdigest(),
+    )
+
+    materialized = materialize_provider_cycle_caps_successor(
+        source,
+        expected_source_sha256=hashlib.sha256(source).hexdigest(),
+        authority_smoke=_verified_smoke(),
+        policy=policy,
+    )
+
+    caps = load_provider_cycle_caps_bytes(
+        materialized.caps_bytes,
+        source="forecast-only successor",
+    )
+    assert caps.cycle_id == "cycle-1"
+    assert set(caps.providers) == {"anthropic", "openai"}
+    assert caps.account("anthropic") == "cycle1-anthropic"
+    assert caps.account("openai") == "cycle1-openai"
+    assert caps.cap_microusd("anthropic") == 668_700_000
+    assert caps.cap_microusd("openai") == 1_374_960_000
+    assert sum(caps.cap_microusd(provider) for provider in caps.providers) == (
+        2_043_660_000
+    )
+    authority = caps.require_spend_authority()
+    assert authority.backend == "dynamodb"
+    assert authority.ledger_scope_fields == ("cycle_id", "provider", "account")
+    assert authority.max_billable_attempts == 2
+    assert authority.failure_threshold == 3
+    assert authority.failure_window_seconds == 300
 
 
 def test_materializer_is_order_independent() -> None:

@@ -1,0 +1,14 @@
+{
+  "cycle_id": "cycle-1",
+  "providers": [
+    {
+      "cycle_reservation_cap_usd": "668.70",
+      "provider": "anthropic"
+    },
+    {
+      "cycle_reservation_cap_usd": "1374.96",
+      "provider": "openai"
+    }
+  ],
+  "schema_version": "legalforecast.provider_cycle_caps.v1"
+}
