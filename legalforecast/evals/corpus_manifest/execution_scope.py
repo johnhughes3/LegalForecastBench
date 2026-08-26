@@ -222,6 +222,7 @@ def issue_model_execution_scope(
     model_registry: Path,
     model_key: str,
     cost_projection: Path | Mapping[str, Any],
+    run_input_manifest: Path | bytes,
     owner_ceiling_usd: str,
     owner_bead_id: str,
     provider_authority: Mapping[str, Any],
@@ -267,6 +268,7 @@ def issue_model_execution_scope(
         model_key=key,
         common_frozen_inputs=common_inputs,
         registry_entry=entry.to_record(),
+        run_input_manifest=run_input_manifest,
     )
     ceiling = _money(owner_ceiling_usd, "owner_ceiling_usd")
     projected = _money(
@@ -325,6 +327,7 @@ def issue_model_execution_scope(
         common_plan=plan_artifact,
         model_registry=registry_path,
         cost_projection=cost_artifact,
+        run_input_manifest=run_input_manifest,
         owner_evidence=evidence,
         provider_authority=authority,
         expected_model_key=key,
@@ -342,6 +345,7 @@ def verify_execution_scope(
     common_plan: Path | Mapping[str, Any],
     model_registry: Path,
     cost_projection: Path | Mapping[str, Any],
+    run_input_manifest: Path | bytes,
     owner_evidence: Path | Mapping[str, Any] | bytes | None = None,
     provider_authority: Mapping[str, Any],
     expected_model_key: str | None = None,
@@ -406,6 +410,7 @@ def verify_execution_scope(
             plan.get("common_frozen_inputs"), "common_frozen_inputs"
         ),
         registry_entry=entry.to_record(),
+        run_input_manifest=run_input_manifest,
     )
     if scope.get("cost_projection_receipt_sha256") != cost_digest:
         raise ExecutionScopeError("scope cost projection drift")
@@ -746,6 +751,7 @@ def _verify_cost_receipt(
     model_key: str,
     common_frozen_inputs: Mapping[str, Any],
     registry_entry: Mapping[str, Any],
+    run_input_manifest: Path | bytes,
 ) -> str:
     try:
         return verify_manifest_cost_projection_receipt(
@@ -754,6 +760,7 @@ def _verify_cost_receipt(
             expected_model_key=model_key,
             expected_common_frozen_inputs=common_frozen_inputs,
             expected_registry_entry=registry_entry,
+            run_input_manifest=run_input_manifest,
         )
     except ManifestCostProjectionError as exc:
         raise ExecutionScopeError(str(exc)) from exc

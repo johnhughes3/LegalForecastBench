@@ -11757,6 +11757,19 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "run_input_manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--run-input-manifest"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "owner_ceiling_usd",
           "metavar": null,
           "nargs": null,
@@ -11886,6 +11899,19 @@
           "nargs": null,
           "option_strings": [
             "--cost-projection"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "run_input_manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--run-input-manifest"
           ],
           "required": true,
           "type": "pathlib.Path"

@@ -63,37 +63,44 @@ def _write_registry(path: Path, model_id: str = "test-2026") -> str:
 
 
 def _write_cost(
-    path: Path, *, cycle_id: str, model_key: str, registry_sha256: str
+    path: Path,
+    *,
+    cycle_id: str,
+    model_key: str,
+    registry_sha256: str,
+    run_input_manifest: Path,
 ) -> None:
+    run_inputs = json.loads(run_input_manifest.read_text(encoding="utf-8"))
+    packets = run_inputs["model_packets"]
     case_ids = [f"case-{index:03d}" for index in range(100)]
     packet_commitments: list[dict[str, object]] = []
     matrix_rows: list[dict[str, object]] = []
-    for case_id in case_ids:
-        for ablation in ("full_packet", "metadata_only"):
-            packet_key = f"model-packets/{case_id}-{ablation}.json"
-            packet_payload = json.dumps(
-                {"ablation": ablation, "case_id": case_id}, sort_keys=True
-            ).encode()
-            packet_sha256 = hashlib.sha256(packet_payload).hexdigest()
-            packet_commitments.append(
-                {
-                    "packet_object_key": packet_key,
-                    "sha256": packet_sha256,
-                    "size_bytes": len(packet_payload),
-                }
-            )
-            matrix_rows.append(
-                {
-                    "case_id": case_id,
-                    "case_id_slug": safe_case_id_slug(case_id),
-                    "ablation": ablation,
-                    "packet_object_key": packet_key,
-                    "packet_sha256": packet_sha256,
-                    "model_key": model_key,
-                    "model_key_slug": model_key.replace(":", "-"),
-                    "repeat_count": 1,
-                }
-            )
+    for packet in packets:
+        packet_key = packet["packet_object_key"]
+        packet_sha256 = packet["packet_sha256"]
+        packet_size_bytes = packet["packet_size_bytes"]
+        packet_commitments.append(
+            {
+                "packet_object_key": packet_key,
+                "sha256": packet_sha256,
+                "size_bytes": packet_size_bytes,
+                "input_tokens": (packet_size_bytes + 3) // 4,
+            }
+        )
+        case_id = packet["case_id"]
+        ablation = packet["ablation"]
+        matrix_rows.append(
+            {
+                "case_id": case_id,
+                "case_id_slug": safe_case_id_slug(case_id),
+                "ablation": ablation,
+                "packet_object_key": packet_key,
+                "packet_sha256": packet_sha256,
+                "model_key": model_key,
+                "model_key_slug": model_key.replace(":", "-"),
+                "repeat_count": 1,
+            }
+        )
     provider_matrices = {
         "openai": {"include": matrix_rows},
         "anthropic": {"include": []},
@@ -107,7 +114,10 @@ def _write_cost(
             "freeze_amendment_bundles": [],
             "owner_manifest": {"sha256": "2" * 64, "size_bytes": 1},
             "manifest_run_record": {"sha256": "5" * 64, "size_bytes": 1},
-            "run_input_manifest": {"sha256": "3" * 64, "size_bytes": 1},
+            "run_input_manifest": {
+                "sha256": hashlib.sha256(run_input_manifest.read_bytes()).hexdigest(),
+                "size_bytes": run_input_manifest.stat().st_size,
+            },
             "model_registry": {
                 "sha256": registry_sha256,
                 "size_bytes": 1,
@@ -137,8 +147,8 @@ def _write_cost(
         "long_context_surcharge_packet_count": 0,
         "long_context_surcharge_packets": [],
         "long_context_surcharge_packets_json": "[]",
-        "projected_model_cost_usd": "1.000000",
-        "recommended_max_projected_model_cost_usd": "2.000000",
+        "projected_model_cost_usd": "0.819250",
+        "recommended_max_projected_model_cost_usd": "1.638500",
         "provider_calls_made": 0,
         "aws_activity_executed": False,
         "packet_mutations_made": 0,
@@ -153,14 +163,44 @@ def _write_cost(
     path.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _write_scope_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, str]:
+def _write_scope_inputs(
+    tmp_path: Path,
+) -> tuple[Path, Path, Path, Path, Path, str]:
     registry_path = tmp_path / "registry.json"
     registry_sha = _write_registry(registry_path)
     model_key = "openai:test-2026"
+    run_input_path = tmp_path / "run-inputs.json"
+    run_input_path.write_text(
+        json.dumps(
+            {
+                "cycle_id": "cycle-scope-test",
+                "model_packets": [
+                    {
+                        "ablation": ablation,
+                        "case_id": case_id,
+                        "packet_object_key": (
+                            f"model-packets/{case_id}-{ablation}.json"
+                        ),
+                        "packet_sha256": hashlib.sha256(
+                            f"{case_id}:{ablation}".encode()
+                        ).hexdigest(),
+                        "packet_size_bytes": 4,
+                    }
+                    for case_id in (f"case-{index:03d}" for index in range(100))
+                    for ablation in ("full_packet", "metadata_only")
+                ],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     common_inputs = {
         "freeze_bundle_sha256": "1" * 64,
         "manifest_sha256": "2" * 64,
-        "run_input_manifest_sha256": "3" * 64,
+        "run_input_manifest_sha256": hashlib.sha256(
+            run_input_path.read_bytes()
+        ).hexdigest(),
         "model_registry_sha256": registry_sha,
         "run_card_sha256": "4" * 64,
     }
@@ -177,6 +217,7 @@ def _write_scope_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, str]:
         cycle_id="cycle-scope-test",
         model_key=model_key,
         registry_sha256=registry_sha,
+        run_input_manifest=run_input_path,
     )
     evidence_path = tmp_path / "owner-evidence.json"
     evidence_path.write_text(
@@ -198,7 +239,7 @@ def _write_scope_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, str]:
         + "\n",
         encoding="utf-8",
     )
-    return plan_path, registry_path, cost_path, evidence_path, model_key
+    return plan_path, registry_path, run_input_path, cost_path, evidence_path, model_key
 
 
 def _authority() -> dict[str, object]:
@@ -215,6 +256,7 @@ def test_scope_binds_one_model_and_authorizes_both_ablations(tmp_path: Path) -> 
     (
         plan_path,
         registry_path,
+        run_input_path,
         cost_path,
         evidence_path,
         model_key,
@@ -224,6 +266,7 @@ def test_scope_binds_one_model_and_authorizes_both_ablations(tmp_path: Path) -> 
         model_registry=registry_path,
         model_key=model_key,
         cost_projection=cost_path,
+        run_input_manifest=run_input_path,
         owner_ceiling_usd="1.50",
         owner_bead_id="scope-test",
         provider_authority=_authority(),
@@ -241,6 +284,7 @@ def test_scope_binds_one_model_and_authorizes_both_ablations(tmp_path: Path) -> 
         common_plan=plan_path,
         model_registry=registry_path,
         cost_projection=cost_path,
+        run_input_manifest=run_input_path,
         owner_evidence=evidence_path,
         provider_authority=_authority(),
         expected_model_key=model_key,
@@ -285,6 +329,7 @@ def test_scope_rejects_cost_and_owner_evidence_drift(tmp_path: Path) -> None:
     (
         plan_path,
         registry_path,
+        run_input_path,
         cost_path,
         evidence_path,
         model_key,
@@ -294,6 +339,7 @@ def test_scope_rejects_cost_and_owner_evidence_drift(tmp_path: Path) -> None:
         model_registry=registry_path,
         model_key=model_key,
         cost_projection=cost_path,
+        run_input_manifest=run_input_path,
         owner_ceiling_usd="1.50",
         owner_bead_id="scope-test",
         provider_authority=_authority(),
@@ -307,13 +353,96 @@ def test_scope_rejects_cost_and_owner_evidence_drift(tmp_path: Path) -> None:
             common_plan=plan_path,
             model_registry=registry_path,
             cost_projection=cost_path,
+            run_input_manifest=run_input_path,
             owner_evidence=evidence_path,
             provider_authority=_authority(),
         )
 
 
+def test_scope_rejects_run_input_manifest_hash_drift(tmp_path: Path) -> None:
+    (
+        plan_path,
+        registry_path,
+        run_input_path,
+        cost_path,
+        evidence_path,
+        model_key,
+    ) = _write_scope_inputs(tmp_path)
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        owner_ceiling_usd="1.50",
+        owner_bead_id="scope-test",
+        provider_authority=_authority(),
+    )
+    run_input_path.write_bytes(run_input_path.read_bytes() + b" ")
+
+    with pytest.raises(ExecutionScopeError, match="run-input manifest bytes"):
+        verify_execution_scope(
+            scope,
+            common_plan=plan_path,
+            model_registry=registry_path,
+            cost_projection=cost_path,
+            run_input_manifest=run_input_path,
+            owner_evidence=evidence_path,
+            provider_authority=_authority(),
+        )
+
+
+def test_scope_rejects_self_authored_packet_token_basis(tmp_path: Path) -> None:
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
+        _write_scope_inputs(tmp_path)
+    )
+    cost = json.loads(cost_path.read_text(encoding="utf-8"))
+    cost["input_commitments"]["packets"][0]["input_tokens"] += 1
+    cost["receipt_sha256"] = hash_payload(
+        {key: value for key, value in cost.items() if key != "receipt_sha256"}
+    )
+    cost_path.write_text(json.dumps(cost, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(ExecutionScopeError, match="differs from authenticated"):
+        issue_model_execution_scope(
+            common_plan=plan_path,
+            model_registry=registry_path,
+            model_key=model_key,
+            cost_projection=cost_path,
+            run_input_manifest=run_input_path,
+            owner_ceiling_usd="1.50",
+            owner_bead_id="scope-test",
+            provider_authority=_authority(),
+        )
+
+
+def test_scope_rejects_legacy_packet_commitments(tmp_path: Path) -> None:
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
+        _write_scope_inputs(tmp_path)
+    )
+    cost = json.loads(cost_path.read_text(encoding="utf-8"))
+    for packet in cost["input_commitments"]["packets"]:
+        packet.pop("input_tokens")
+    cost["receipt_sha256"] = hash_payload(
+        {key: value for key, value in cost.items() if key != "receipt_sha256"}
+    )
+    cost_path.write_text(json.dumps(cost, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(ExecutionScopeError, match="input_tokens"):
+        issue_model_execution_scope(
+            common_plan=plan_path,
+            model_registry=registry_path,
+            model_key=model_key,
+            cost_projection=cost_path,
+            run_input_manifest=run_input_path,
+            owner_ceiling_usd="1.50",
+            owner_bead_id="scope-test",
+            provider_authority=_authority(),
+        )
+
+
 def test_scope_rejects_minimal_self_hashed_cost_receipt(tmp_path: Path) -> None:
-    plan_path, registry_path, cost_path, _evidence_path, model_key = (
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
         _write_scope_inputs(tmp_path)
     )
     cost = json.loads(cost_path.read_text(encoding="utf-8"))
@@ -331,6 +460,7 @@ def test_scope_rejects_minimal_self_hashed_cost_receipt(tmp_path: Path) -> None:
             model_registry=registry_path,
             model_key=model_key,
             cost_projection=cost_path,
+            run_input_manifest=run_input_path,
             owner_ceiling_usd="1.50",
             owner_bead_id="scope-test",
             provider_authority=_authority(),
@@ -340,7 +470,7 @@ def test_scope_rejects_minimal_self_hashed_cost_receipt(tmp_path: Path) -> None:
 def test_scope_rejects_cost_commitment_drift_from_common_plan(
     tmp_path: Path,
 ) -> None:
-    plan_path, registry_path, cost_path, _evidence_path, model_key = (
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
         _write_scope_inputs(tmp_path)
     )
     cost = json.loads(cost_path.read_text(encoding="utf-8"))
@@ -356,6 +486,7 @@ def test_scope_rejects_cost_commitment_drift_from_common_plan(
             model_registry=registry_path,
             model_key=model_key,
             cost_projection=cost_path,
+            run_input_manifest=run_input_path,
             owner_ceiling_usd="1.50",
             owner_bead_id="scope-test",
             provider_authority=_authority(),
@@ -363,7 +494,7 @@ def test_scope_rejects_cost_commitment_drift_from_common_plan(
 
 
 def test_scope_rejects_cost_matrix_row_for_wrong_model(tmp_path: Path) -> None:
-    plan_path, registry_path, cost_path, _evidence_path, model_key = (
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
         _write_scope_inputs(tmp_path)
     )
     cost = json.loads(cost_path.read_text(encoding="utf-8"))
@@ -379,6 +510,7 @@ def test_scope_rejects_cost_matrix_row_for_wrong_model(tmp_path: Path) -> None:
             model_registry=registry_path,
             model_key=model_key,
             cost_projection=cost_path,
+            run_input_manifest=run_input_path,
             owner_ceiling_usd="1.50",
             owner_bead_id="scope-test",
             provider_authority=_authority(),
@@ -389,33 +521,30 @@ def test_scope_preserves_six_decimal_cost_projection(tmp_path: Path) -> None:
     (
         plan_path,
         registry_path,
+        run_input_path,
         cost_path,
         evidence_path,
         model_key,
     ) = _write_scope_inputs(tmp_path)
-    cost = json.loads(cost_path.read_text(encoding="utf-8"))
-    cost["projected_model_cost_usd"] = "0.328147"
-    cost["receipt_sha256"] = hash_payload(
-        {key: value for key, value in cost.items() if key != "receipt_sha256"}
-    )
-    cost_path.write_text(json.dumps(cost, sort_keys=True) + "\n", encoding="utf-8")
 
     scope = issue_model_execution_scope(
         common_plan=plan_path,
         model_registry=registry_path,
         model_key=model_key,
         cost_projection=cost_path,
+        run_input_manifest=run_input_path,
         owner_ceiling_usd="1.50",
         owner_bead_id="scope-test",
         provider_authority=_authority(),
     )
 
-    assert scope["scope"]["projected_cost_usd"] == "0.328147"
+    assert scope["scope"]["projected_cost_usd"] == "0.819250"
     verify_execution_scope(
         scope,
         common_plan=plan_path,
         model_registry=registry_path,
         cost_projection=cost_path,
+        run_input_manifest=run_input_path,
         owner_evidence=evidence_path,
         provider_authority=_authority(),
         expected_model_key=model_key,
@@ -425,9 +554,14 @@ def test_scope_preserves_six_decimal_cost_projection(tmp_path: Path) -> None:
 def test_scope_issuance_captures_live_owner_comments(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    plan_path, registry_path, cost_path, evidence_path, model_key = _write_scope_inputs(
-        tmp_path
-    )
+    (
+        plan_path,
+        registry_path,
+        run_input_path,
+        cost_path,
+        evidence_path,
+        model_key,
+    ) = _write_scope_inputs(tmp_path)
     captured: list[str] = []
 
     def capture(bead_id: str) -> bytes:
@@ -440,6 +574,7 @@ def test_scope_issuance_captures_live_owner_comments(
         model_registry=registry_path,
         model_key=model_key,
         cost_projection=cost_path,
+        run_input_manifest=run_input_path,
         owner_ceiling_usd="1.50",
         owner_bead_id="scope-test",
         provider_authority=_authority(),
@@ -452,13 +587,14 @@ def test_scope_issuance_captures_live_owner_comments(
         common_plan=plan_path,
         model_registry=registry_path,
         cost_projection=cost_path,
+        run_input_manifest=run_input_path,
         provider_authority=_authority(),
         expected_model_key=model_key,
     )
 
 
 def test_scope_issuance_rejects_caller_authored_owner_wrapper(tmp_path: Path) -> None:
-    plan_path, registry_path, cost_path, _evidence_path, model_key = (
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
         _write_scope_inputs(tmp_path)
     )
     with pytest.raises(TypeError, match="unexpected keyword argument 'owner_evidence'"):
@@ -467,6 +603,7 @@ def test_scope_issuance_rejects_caller_authored_owner_wrapper(tmp_path: Path) ->
             model_registry=registry_path,
             model_key=model_key,
             cost_projection=cost_path,
+            run_input_manifest=run_input_path,
             owner_ceiling_usd="1.50",
             owner_evidence={},
             owner_bead_id="scope-test",
@@ -475,7 +612,7 @@ def test_scope_issuance_rejects_caller_authored_owner_wrapper(tmp_path: Path) ->
 
 
 def test_scope_issuance_rejects_wrong_owner_issue_identity(tmp_path: Path) -> None:
-    plan_path, registry_path, cost_path, _evidence_path, model_key = (
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
         _write_scope_inputs(tmp_path)
     )
     with pytest.raises(ExecutionScopeError, match="issue differs from scope"):
@@ -484,6 +621,7 @@ def test_scope_issuance_rejects_wrong_owner_issue_identity(tmp_path: Path) -> No
             model_registry=registry_path,
             model_key=model_key,
             cost_projection=cost_path,
+            run_input_manifest=run_input_path,
             owner_ceiling_usd="1.50",
             owner_bead_id="wrong-issue",
             provider_authority=_authority(),
@@ -491,7 +629,7 @@ def test_scope_issuance_rejects_wrong_owner_issue_identity(tmp_path: Path) -> No
 
 
 def test_scope_rejects_provider_cap_above_owner_ceiling(tmp_path: Path) -> None:
-    plan_path, registry_path, cost_path, _evidence_path, model_key = (
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
         _write_scope_inputs(tmp_path)
     )
     authority = _authority()
@@ -502,6 +640,7 @@ def test_scope_rejects_provider_cap_above_owner_ceiling(tmp_path: Path) -> None:
             model_registry=registry_path,
             model_key=model_key,
             cost_projection=cost_path,
+            run_input_manifest=run_input_path,
             owner_ceiling_usd="1.50",
             owner_bead_id="scope-test",
             provider_authority=authority,
@@ -511,7 +650,7 @@ def test_scope_rejects_provider_cap_above_owner_ceiling(tmp_path: Path) -> None:
 def test_runtime_provider_authority_rejects_scope_identity_drift(
     tmp_path: Path,
 ) -> None:
-    plan_path, registry_path, cost_path, _evidence_path, model_key = (
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
         _write_scope_inputs(tmp_path)
     )
     scope = issue_model_execution_scope(
@@ -519,6 +658,7 @@ def test_runtime_provider_authority_rejects_scope_identity_drift(
         model_registry=registry_path,
         model_key=model_key,
         cost_projection=cost_path,
+        run_input_manifest=run_input_path,
         owner_ceiling_usd="1.50",
         owner_bead_id="scope-test",
         provider_authority=_authority(),

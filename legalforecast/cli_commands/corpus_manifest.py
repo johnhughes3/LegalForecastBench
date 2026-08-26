@@ -534,6 +534,12 @@ def register(
     issue_scope.add_argument("--model-registry", type=Path, required=True)
     issue_scope.add_argument("--model-key", required=True)
     issue_scope.add_argument("--cost-projection", type=Path, required=True)
+    issue_scope.add_argument(
+        "--run-input-manifest",
+        type=Path,
+        required=True,
+        help="Exact frozen run-input manifest used to authenticate packet costs.",
+    )
     issue_scope.add_argument("--owner-ceiling-usd", required=True)
     issue_scope.add_argument(
         "--owner-bead-id",
@@ -552,6 +558,12 @@ def register(
     verify_scope.add_argument("--plan", type=Path, required=True)
     verify_scope.add_argument("--model-registry", type=Path, required=True)
     verify_scope.add_argument("--cost-projection", type=Path, required=True)
+    verify_scope.add_argument(
+        "--run-input-manifest",
+        type=Path,
+        required=True,
+        help="Exact frozen run-input manifest used to authenticate packet costs.",
+    )
     verify_scope.add_argument("--owner-evidence", type=Path, required=True)
     verify_scope.add_argument("--provider-authority", type=Path, required=True)
     verify_scope.add_argument("--model-key")
@@ -811,6 +823,7 @@ def run_issue_execution_scope(args: argparse.Namespace) -> int:
         model_registry=cast(Path, args.model_registry),
         model_key=cast(str, args.model_key),
         cost_projection=cast(Path, args.cost_projection),
+        run_input_manifest=cast(Path, args.run_input_manifest),
         owner_ceiling_usd=cast(str, args.owner_ceiling_usd),
         owner_bead_id=cast(str, args.owner_bead_id),
         provider_authority=cast(dict[str, Any], authority),
@@ -830,6 +843,7 @@ def run_verify_execution_scope(args: argparse.Namespace) -> int:
         common_plan=cast(Path, args.plan),
         model_registry=cast(Path, args.model_registry),
         cost_projection=cast(Path, args.cost_projection),
+        run_input_manifest=cast(Path, args.run_input_manifest),
         owner_evidence=cast(Path, args.owner_evidence),
         provider_authority=cast(dict[str, Any], authority),
         expected_model_key=cast(str | None, args.model_key),

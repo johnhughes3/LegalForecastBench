@@ -414,15 +414,15 @@ def verify_manifest_cost_projection_receipt(
     expected_model_key: str,
     expected_common_frozen_inputs: Mapping[str, Any],
     expected_registry_entry: Mapping[str, Any],
+    run_input_manifest: Path | bytes | None = None,
 ) -> str:
     """Verify one exact-model receipt emitted by the canonical cost projector.
 
-    A scope issuer only receives the receipt and the common plan, not the
-    manifest-run packet bytes.  The receipt therefore has to carry the
-    projector's complete authenticated commitment set and matrix.  This
-    verifier binds the commitments available in the plan, checks the matrix
-    shape and packet coverage, and checks every provider projection against the
-    selected registry entry identity before a scope can be issued.
+    When ``run_input_manifest`` is supplied, the verifier is in strict scope
+    mode: it authenticates the exact frozen run-input bytes and derives every
+    packet's token basis from its ``packet_size_bytes`` row.  Omitting the
+    source retains the standalone compatibility path for callers that cannot
+    reach execution-scope authority.
     """
 
     record = dict(receipt)
@@ -522,6 +522,16 @@ def verify_manifest_cost_projection_receipt(
     for name in ("manifest_run_record", "prompt_contract"):
         _cost_raw_commitment(input_commitments.get(name), f"input_commitments.{name}")
 
+    authenticated_packet_rows = None
+    if run_input_manifest is not None:
+        authenticated_packet_rows = _authenticated_run_input_packet_rows(
+            run_input_manifest,
+            expected_cycle_id=cycle_id,
+            expected_sha256=expected_common_frozen_inputs.get(
+                "run_input_manifest_sha256"
+            ),
+        )
+
     raw_packet_commitments = input_commitments.get("packets")
     if not isinstance(raw_packet_commitments, list):
         raise ManifestCostProjectionError("input_commitments.packets must be an array")
@@ -532,10 +542,17 @@ def verify_manifest_cost_projection_receipt(
             raw_commitment, f"input_commitments.packets[{index}]"
         )
         commitment_fields = set(commitment)
-        if commitment_fields == set(_LEGACY_COST_PACKET_COMMITMENT_FIELDS):
-            # Receipts issued before the token-basis extension remain readable
-            # for existing offline scope fixtures.  Newly issued receipts
-            # always carry input_tokens and take the strict path below.
+        if authenticated_packet_rows is not None:
+            _cost_exact_keys(
+                commitment,
+                _COST_PACKET_COMMITMENT_FIELDS,
+                f"input_commitments.packets[{index}]",
+            )
+            has_token_basis = True
+        elif commitment_fields == set(_LEGACY_COST_PACKET_COMMITMENT_FIELDS):
+            # Keep receipts issued before the token-basis extension readable
+            # for standalone consumers.  Scope authority always supplies the
+            # run-input source and takes the strict path above.
             has_token_basis = False
         elif commitment_fields != set(_COST_PACKET_COMMITMENT_FIELDS):
             _cost_exact_keys(
@@ -574,10 +591,33 @@ def verify_manifest_cost_projection_receipt(
                 commitment.get("input_tokens"),
                 f"input_commitments.packets[{index}].input_tokens",
             )
+        if authenticated_packet_rows is not None:
+            authenticated_row = authenticated_packet_rows.get(key)
+            if authenticated_row is None:
+                raise ManifestCostProjectionError(
+                    "cost receipt packet commitment is not present in the "
+                    f"authenticated run-input manifest: {key}"
+                )
+            if (
+                commitment.get("sha256") != authenticated_row["packet_sha256"]
+                or commitment.get("size_bytes")
+                != authenticated_row["packet_size_bytes"]
+                or commitment.get("input_tokens") != authenticated_row["input_tokens"]
+            ):
+                raise ManifestCostProjectionError(
+                    "cost receipt packet commitment differs from authenticated "
+                    f"run-input row: {key}"
+                )
         packet_commitments[key] = commitment
     if len(packet_commitments) != OFFICIAL_CALL_COUNT:
         raise ManifestCostProjectionError(
             "input_commitments.packets must contain exactly 200 packets"
+        )
+    if authenticated_packet_rows is not None and set(packet_commitments) != set(
+        authenticated_packet_rows
+    ):
+        raise ManifestCostProjectionError(
+            "cost receipt packets do not cover the authenticated run-input matrix"
         )
 
     matrix = _cost_mapping(record.get("matrix"), "matrix")
@@ -638,11 +678,30 @@ def verify_manifest_cost_projection_receipt(
                 "cost receipt matrix packet commitment is not authenticated: "
                 f"{packet_key}"
             )
+        if authenticated_packet_rows is not None:
+            authenticated_row = authenticated_packet_rows[packet_key]
+            if (
+                row_case_id != authenticated_row["case_id"]
+                or row_ablation != authenticated_row["ablation"]
+                or packet_sha != authenticated_row["packet_sha256"]
+                or commitment.get("size_bytes")
+                != authenticated_row["packet_size_bytes"]
+            ):
+                raise ManifestCostProjectionError(
+                    "cost receipt matrix packet differs from authenticated "
+                    f"run-input row: {packet_key}"
+                )
         if row.get("repeat_count") != 1:
             raise ManifestCostProjectionError(
                 "cost receipt matrix repeat_count must be one"
             )
-        if authenticated_token_basis:
+        if authenticated_packet_rows is not None:
+            input_tokens = authenticated_packet_rows[packet_key]["input_tokens"]
+            recomputed_cost += projected_cost_for_row(
+                input_tokens=input_tokens,
+                registry_record=expected_registry_entry,
+            )
+        elif authenticated_token_basis:
             input_tokens = _cost_nonnegative_int(
                 packet_commitments[packet_key].get("input_tokens"),
                 f"input_commitments.packets[{packet_key}].input_tokens",
@@ -744,9 +803,12 @@ def verify_manifest_cost_projection_receipt(
             warning.get("estimated_input_tokens"),
             "long_context warning estimated_input_tokens",
         )
-        if authenticated_token_basis and warning_tokens != packet_commitments[
-            warning_key
-        ].get("input_tokens"):
+        expected_warning_tokens = (
+            authenticated_packet_rows[warning_key]["input_tokens"]
+            if authenticated_packet_rows is not None
+            else packet_commitments[warning_key].get("input_tokens")
+        )
+        if authenticated_token_basis and warning_tokens != expected_warning_tokens:
             raise ManifestCostProjectionError(
                 "long_context warning token basis differs from packet commitment"
             )
@@ -754,11 +816,17 @@ def verify_manifest_cost_projection_receipt(
         expected_warning_keys = {
             (cast(str, row["case_id"]), cast(str, row["ablation"]))
             for row in matrix_rows
-            if _cost_nonnegative_int(
-                packet_commitments[cast(str, row["packet_object_key"])].get(
+            if (
+                authenticated_packet_rows[cast(str, row["packet_object_key"])][
                     "input_tokens"
-                ),
-                "matrix packet input_tokens",
+                ]
+                if authenticated_packet_rows is not None
+                else _cost_nonnegative_int(
+                    packet_commitments[cast(str, row["packet_object_key"])].get(
+                        "input_tokens"
+                    ),
+                    "matrix packet input_tokens",
+                )
             )
             > LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS
         }
@@ -824,6 +892,89 @@ def verify_manifest_cost_projection_receipt(
     if record.get("packet_mutations_made") != 0:
         raise ManifestCostProjectionError("cost receipt records packet mutation")
     return supplied
+
+
+def _authenticated_run_input_packet_rows(
+    source: object,
+    *,
+    expected_cycle_id: str,
+    expected_sha256: object,
+) -> dict[str, dict[str, Any]]:
+    """Load packet identities and token bases from one frozen run-input source."""
+
+    if isinstance(source, Path):
+        try:
+            payload = source.read_bytes()
+        except OSError as exc:
+            raise ManifestCostProjectionError(
+                f"cannot read run-input manifest: {source}"
+            ) from exc
+    elif isinstance(source, bytes):
+        payload = source
+    else:
+        raise ManifestCostProjectionError(
+            "run-input manifest must be a path or exact bytes"
+        )
+    expected = _cost_sha(
+        expected_sha256, "common_frozen_inputs.run_input_manifest_sha256"
+    )
+    actual = hashlib.sha256(payload).hexdigest()
+    if actual != expected:
+        raise ManifestCostProjectionError(
+            "run-input manifest bytes do not match common frozen input hash"
+        )
+    try:
+        decoded: object = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ManifestCostProjectionError(
+            "authenticated run-input manifest is not valid JSON"
+        ) from exc
+    manifest = _cost_mapping(decoded, "authenticated run-input manifest")
+    if manifest.get("cycle_id") != expected_cycle_id:
+        raise ManifestCostProjectionError(
+            "authenticated run-input manifest cycle_id does not match scope"
+        )
+    raw_packets = manifest.get("model_packets")
+    if not isinstance(raw_packets, list):
+        raise ManifestCostProjectionError(
+            "authenticated run-input manifest must contain exactly 200 model_packets"
+        )
+    packets = cast(list[object], raw_packets)
+    if len(packets) != OFFICIAL_CALL_COUNT:
+        raise ManifestCostProjectionError(
+            "authenticated run-input manifest must contain exactly 200 model_packets"
+        )
+    packet_rows: dict[str, dict[str, Any]] = {}
+    for index, raw_packet in enumerate(packets):
+        packet = _cost_mapping(raw_packet, f"authenticated model_packets[{index}]")
+        key = _cost_packet_key(
+            packet.get("packet_object_key"),
+            f"authenticated model_packets[{index}].packet_object_key",
+        )
+        if key in packet_rows:
+            raise ManifestCostProjectionError(
+                f"authenticated run-input manifest contains duplicate packet: {key}"
+            )
+        packet_sha = packet_sha256_from_row(packet)
+        packet_size = _cost_nonnegative_int(
+            packet.get("packet_size_bytes"),
+            f"authenticated model_packets[{index}].packet_size_bytes",
+        )
+        packet_rows[key] = {
+            "packet_object_key": key,
+            "packet_sha256": packet_sha,
+            "packet_size_bytes": packet_size,
+            "input_tokens": math.ceil(packet_size / 4),
+            "case_id": _cost_text(
+                packet.get("case_id"),
+                f"authenticated model_packets[{index}].case_id",
+            ),
+            "ablation": _cost_text(
+                packet.get("ablation"),
+                f"authenticated model_packets[{index}].ablation",
+            ),
+        }
+    return packet_rows
 
 
 def packet_input_tokens(
