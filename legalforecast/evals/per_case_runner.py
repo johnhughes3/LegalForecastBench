@@ -12,6 +12,7 @@ import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -53,6 +54,7 @@ from legalforecast.evals.response_verification import (
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 from legalforecast.path_safety import safe_path_component
 from legalforecast.protocol.freeze import hash_freeze_payload, sha256_file
+from legalforecast.protocol.manifest import hash_payload
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
     official_execution_repeat_policy,
@@ -1751,7 +1753,18 @@ def _verified_execution_policy_for_config(
                 scope_record.get("provider_authority"),
                 "execution scope provider_authority",
             )
-            _scope_provider_authority(authority, provider=registry_entry.provider)
+            authority_scope_identity_sha256 = _scope_provider_authority(
+                authority,
+                provider=registry_entry.provider,
+                model_key=cast(str, config.model_key),
+                cycle_id=cycle_id,
+                projected_cost_usd=required_str(
+                    scope_record, "execution scope projected_cost_usd"
+                ),
+                owner_ceiling_usd=required_str(
+                    scope_record, "execution scope owner_ceiling_usd"
+                ),
+            )
             attempt_policy = {
                 "reservation_ledger_sha256": scope_sha256,
                 "max_billable_attempts": 1,
@@ -1760,6 +1773,7 @@ def _verified_execution_policy_for_config(
                 "authority_resource_identity_sha256": authority[
                     "resource_identity_sha256"
                 ],
+                "authority_scope_identity_sha256": authority_scope_identity_sha256,
             }
             binding = {
                 "schema_version": "legalforecast.execution_policy_runtime_binding.v1",
@@ -1770,6 +1784,7 @@ def _verified_execution_policy_for_config(
                 "authority_resource_identity_sha256": authority[
                     "resource_identity_sha256"
                 ],
+                "authority_scope_identity_sha256": authority_scope_identity_sha256,
                 "ledger_scope_fields": ["cycle_id", "provider", "account"],
                 "provider": registry_entry.provider.lower(),
                 "account": authority["account"],
@@ -1795,7 +1810,15 @@ def _verified_execution_policy_for_config(
     )
 
 
-def _scope_provider_authority(authority: Mapping[str, Any], *, provider: str) -> None:
+def _scope_provider_authority(
+    authority: Mapping[str, Any],
+    *,
+    provider: str,
+    model_key: str,
+    cycle_id: str,
+    projected_cost_usd: str,
+    owner_ceiling_usd: str,
+) -> str:
     """Validate the public authority projection before constructing AWS clients."""
 
     expected = {
@@ -1810,14 +1833,78 @@ def _scope_provider_authority(authority: Mapping[str, Any], *, provider: str) ->
         raise ValueError("execution scope provider_authority fields are invalid")
     if authority.get("backend") != "dynamodb":
         raise ValueError("execution scope provider authority backend is invalid")
-    _normalize_sha256(required_str(authority, "resource_identity_sha256"))
-    _normalize_sha256(required_str(authority, "scope_identity_sha256"))
-    if required_str(authority, "provider").lower() != provider.lower():
+    resource_identity_sha256 = _normalize_sha256(
+        required_str(authority, "resource_identity_sha256")
+    )
+    supplied_scope_identity_sha256 = _normalize_sha256(
+        required_str(authority, "scope_identity_sha256")
+    )
+    expected_provider = provider.strip().lower()
+    normalized_provider = required_str(authority, "provider").lower()
+    if not expected_provider or normalized_provider != expected_provider:
         raise ValueError("execution scope provider authority provider is invalid")
-    required_str(authority, "account")
+    normalized_model_key = model_key.strip()
+    model_provider, separator, model_id = normalized_model_key.partition(":")
+    if (
+        not model_provider
+        or not separator
+        or not model_id
+        or ":" in model_id
+        or model_provider.lower() != expected_provider
+    ):
+        raise ValueError("execution scope model key is invalid")
+    normalized_cycle_id = cycle_id.strip()
+    if not normalized_cycle_id:
+        raise ValueError("execution scope cycle id is invalid")
+    account = required_str(authority, "account")
     cap = required_int(authority, "cap_microusd")
     if cap <= 0:
         raise ValueError("execution scope provider authority cap is invalid")
+    projected = _scope_money(projected_cost_usd, "execution scope projected cost")
+    ceiling = _scope_money(owner_ceiling_usd, "execution scope owner ceiling")
+    if projected > ceiling:
+        raise ValueError("execution scope projected cost exceeds owner ceiling")
+    ceiling_microusd = _scope_microusd(ceiling, "execution scope owner ceiling")
+    if cap > ceiling_microusd:
+        raise ValueError("execution scope provider authority cap exceeds owner ceiling")
+    derived_scope_identity_sha256 = hash_payload(
+        {
+            "cycle_id": normalized_cycle_id,
+            "model_key": normalized_model_key,
+            "provider": normalized_provider,
+            "account": account,
+            "resource_identity_sha256": resource_identity_sha256,
+            "cap_microusd": cap,
+            "projected_cost_usd": _scope_money_text(projected),
+            "owner_ceiling_usd": _scope_money_text(ceiling),
+        }
+    )
+    if supplied_scope_identity_sha256 != derived_scope_identity_sha256:
+        raise ValueError("execution scope provider authority scope identity is invalid")
+    return derived_scope_identity_sha256
+
+
+def _scope_money(value: str, label: str) -> Decimal:
+    if not value.strip():
+        raise ValueError(f"{label} is invalid")
+    try:
+        amount = Decimal(value)
+    except InvalidOperation as exc:
+        raise ValueError(f"{label} is invalid") from exc
+    if not amount.is_finite() or amount < 0:
+        raise ValueError(f"{label} is invalid")
+    return amount
+
+
+def _scope_money_text(value: Decimal) -> str:
+    return format(value, "f")
+
+
+def _scope_microusd(value: Decimal, label: str) -> int:
+    scaled = value * Decimal(1_000_000)
+    if scaled != scaled.to_integral_value():
+        raise ValueError(f"{label} cannot be represented in micro-USD")
+    return int(scaled)
 
 
 def _solver_for_config(

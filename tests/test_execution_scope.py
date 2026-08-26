@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from legalforecast.evals.corpus_manifest import execution_decisions
 from legalforecast.evals.corpus_manifest.execution_scope import (
     ExecutionScopeError,
     issue_execution_plan,
@@ -13,6 +14,7 @@ from legalforecast.evals.corpus_manifest.execution_scope import (
     verify_execution_scope_runtime,
 )
 from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.evals.per_case_runner import _scope_provider_authority
 from legalforecast.protocol.manifest import hash_payload
 
 
@@ -113,7 +115,7 @@ def _authority() -> dict[str, object]:
         "resource_identity_sha256": "a" * 64,
         "provider": "openai",
         "account": "test-account",
-        "cap_microusd": 2_000_000,
+        "cap_microusd": 1_500_000,
     }
 
 
@@ -235,3 +237,120 @@ def test_scope_preserves_six_decimal_cost_projection(tmp_path: Path) -> None:
         provider_authority=_authority(),
         expected_model_key=model_key,
     )
+
+
+def test_scope_issuance_captures_live_owner_comments(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan_path, registry_path, cost_path, evidence_path, model_key = _write_scope_inputs(
+        tmp_path
+    )
+    captured: list[str] = []
+
+    def capture(bead_id: str) -> bytes:
+        captured.append(bead_id)
+        return evidence_path.read_bytes()
+
+    monkeypatch.setattr(execution_decisions, "capture_beads_comments", capture)
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        owner_ceiling_usd="1.50",
+        owner_bead_id="scope-test",
+        provider_authority=_authority(),
+    )
+
+    assert captured == ["scope-test"]
+    assert scope["scope"]["owner_evidence"]["bead_id"] == "scope-test"
+    verify_execution_scope(
+        scope,
+        common_plan=plan_path,
+        model_registry=registry_path,
+        cost_projection=cost_path,
+        provider_authority=_authority(),
+        expected_model_key=model_key,
+    )
+
+
+def test_scope_issuance_rejects_caller_authored_owner_wrapper(tmp_path: Path) -> None:
+    plan_path, registry_path, cost_path, _evidence_path, model_key = (
+        _write_scope_inputs(tmp_path)
+    )
+    with pytest.raises(
+        ExecutionScopeError, match="cannot accept a caller-authored owner wrapper"
+    ):
+        issue_model_execution_scope(
+            common_plan=plan_path,
+            model_registry=registry_path,
+            model_key=model_key,
+            cost_projection=cost_path,
+            owner_ceiling_usd="1.50",
+            owner_evidence={},
+            owner_bead_id="scope-test",
+            provider_authority=_authority(),
+        )
+
+
+def test_scope_issuance_rejects_wrong_owner_issue_identity(tmp_path: Path) -> None:
+    plan_path, registry_path, cost_path, evidence_path, model_key = _write_scope_inputs(
+        tmp_path
+    )
+    with pytest.raises(ExecutionScopeError, match="issue differs from scope"):
+        issue_model_execution_scope(
+            common_plan=plan_path,
+            model_registry=registry_path,
+            model_key=model_key,
+            cost_projection=cost_path,
+            owner_ceiling_usd="1.50",
+            owner_evidence=evidence_path,
+            owner_bead_id="wrong-issue",
+            provider_authority=_authority(),
+        )
+
+
+def test_scope_rejects_provider_cap_above_owner_ceiling(tmp_path: Path) -> None:
+    plan_path, registry_path, cost_path, evidence_path, model_key = _write_scope_inputs(
+        tmp_path
+    )
+    authority = _authority()
+    authority["cap_microusd"] = 1_500_001
+    with pytest.raises(ExecutionScopeError, match="exceeds the model owner ceiling"):
+        issue_model_execution_scope(
+            common_plan=plan_path,
+            model_registry=registry_path,
+            model_key=model_key,
+            cost_projection=cost_path,
+            owner_ceiling_usd="1.50",
+            owner_evidence=evidence_path,
+            provider_authority=authority,
+        )
+
+
+def test_runtime_provider_authority_rejects_scope_identity_drift(
+    tmp_path: Path,
+) -> None:
+    plan_path, registry_path, cost_path, evidence_path, model_key = _write_scope_inputs(
+        tmp_path
+    )
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        owner_ceiling_usd="1.50",
+        owner_evidence=evidence_path,
+        provider_authority=_authority(),
+    )
+    authority = dict(scope["scope"]["provider_authority"])
+    authority["scope_identity_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="scope identity is invalid"):
+        _scope_provider_authority(
+            authority,
+            provider="openai",
+            model_key=model_key,
+            cycle_id="cycle-scope-test",
+            projected_cost_usd="1.00",
+            owner_ceiling_usd="1.50",
+        )

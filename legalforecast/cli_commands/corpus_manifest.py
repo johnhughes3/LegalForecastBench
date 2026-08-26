@@ -528,7 +528,11 @@ def register(
     issue_scope.add_argument("--model-key", required=True)
     issue_scope.add_argument("--cost-projection", type=Path, required=True)
     issue_scope.add_argument("--owner-ceiling-usd", required=True)
-    issue_scope.add_argument("--owner-evidence", type=Path, required=True)
+    issue_scope.add_argument(
+        "--owner-bead-id",
+        required=True,
+        help="Beads issue whose live comments contain the owner approval.",
+    )
     issue_scope.add_argument("--provider-authority", type=Path, required=True)
     issue_scope.add_argument("--output", type=Path, required=True)
     issue_scope.set_defaults(handler=run_issue_execution_scope)
@@ -800,7 +804,7 @@ def run_issue_execution_scope(args: argparse.Namespace) -> int:
         model_key=cast(str, args.model_key),
         cost_projection=cast(Path, args.cost_projection),
         owner_ceiling_usd=cast(str, args.owner_ceiling_usd),
-        owner_evidence=cast(Path, args.owner_evidence),
+        owner_bead_id=cast(str, args.owner_bead_id),
         provider_authority=cast(dict[str, Any], authority),
         output=cast(Path, args.output),
     )

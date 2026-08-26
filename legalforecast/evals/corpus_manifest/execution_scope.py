@@ -212,7 +212,8 @@ def issue_model_execution_scope(
     model_key: str,
     cost_projection: Path | Mapping[str, Any],
     owner_ceiling_usd: str,
-    owner_evidence: Path | Mapping[str, Any] | bytes,
+    owner_evidence: Path | Mapping[str, Any] | bytes | None = None,
+    owner_bead_id: str | None = None,
     provider_authority: Mapping[str, Any],
     output: Path | None = None,
 ) -> dict[str, Any]:
@@ -263,16 +264,32 @@ def issue_model_execution_scope(
     )
     if projected > ceiling:
         raise ExecutionScopeError("projected cost exceeds owner ceiling")
+    if owner_evidence is None:
+        if owner_bead_id is None:
+            raise ExecutionScopeError(
+                "live model-scope issuance requires an owner Beads issue id"
+            )
+        from legalforecast.evals.corpus_manifest.execution_decisions import (
+            capture_beads_comments,
+        )
+
+        owner_evidence = capture_beads_comments(owner_bead_id)
+    elif isinstance(owner_evidence, Mapping):
+        raise ExecutionScopeError(
+            "model-scope issuance cannot accept a caller-authored owner wrapper"
+        )
     evidence = _owner_evidence(
         owner_evidence,
         model_key=key,
         projected_cost=projected,
         owner_ceiling=ceiling,
+        expected_bead_id=owner_bead_id,
     )
     authority = _validate_provider_authority(
         provider_authority,
         provider=entry.provider,
         projected_cost=projected,
+        owner_ceiling=ceiling,
         cycle_id=cast(str, plan["cycle_id"]),
         model_key=key,
     )
@@ -323,7 +340,7 @@ def verify_execution_scope(
     common_plan: Path | Mapping[str, Any],
     model_registry: Path,
     cost_projection: Path | Mapping[str, Any],
-    owner_evidence: Path | Mapping[str, Any] | bytes,
+    owner_evidence: Path | Mapping[str, Any] | bytes | None = None,
     provider_authority: Mapping[str, Any],
     expected_model_key: str | None = None,
     expected_ablation: str | None = None,
@@ -391,11 +408,14 @@ def verify_execution_scope(
     ceiling = _money(
         _text(scope.get("owner_ceiling_usd"), "owner_ceiling_usd"), "owner_ceiling_usd"
     )
+    embedded_evidence = _mapping(scope.get("owner_evidence"), "scope.owner_evidence")
+    embedded_bead_id = _text(embedded_evidence.get("bead_id"), "owner_evidence.bead_id")
     evidence = _owner_evidence(
-        owner_evidence,
+        embedded_evidence if owner_evidence is None else owner_evidence,
         model_key=key,
         projected_cost=projected,
         owner_ceiling=ceiling,
+        expected_bead_id=embedded_bead_id,
     )
     if scope.get("owner_evidence") != evidence:
         raise ExecutionScopeError("scope owner evidence drift")
@@ -415,6 +435,7 @@ def verify_execution_scope(
         provider_authority,
         provider=entry.provider,
         projected_cost=projected,
+        owner_ceiling=ceiling,
         cycle_id=cast(str, plan["cycle_id"]),
         model_key=key,
     )
@@ -509,6 +530,7 @@ def verify_scope_shape(artifact: Mapping[str, Any]) -> None:
         _mapping(scope.get("provider_authority"), "scope.provider_authority"),
         provider=provider,
         projected_cost=projected,
+        owner_ceiling=ceiling,
         cycle_id=_text(scope.get("cycle_id"), "scope.cycle_id"),
         model_key=key,
     )
@@ -745,6 +767,7 @@ def _owner_evidence(
     model_key: str,
     projected_cost: Decimal,
     owner_ceiling: Decimal,
+    expected_bead_id: str | None = None,
 ) -> dict[str, Any]:
     if isinstance(value, Path):
         raw = _read_bytes(value, "owner Beads evidence")
@@ -775,6 +798,10 @@ def _owner_evidence(
             )
     if record["model_key"] != model_key:
         raise ExecutionScopeError("owner Beads approval model differs from scope")
+    if expected_bead_id is not None and record["bead_id"] != _text(
+        expected_bead_id, "expected_bead_id"
+    ):
+        raise ExecutionScopeError("owner Beads approval issue differs from scope")
     approval_ceiling = _money(record["ceiling_usd"], "owner approval ceiling")
     approval_estimate = _money(record["estimate_usd"], "owner approval estimate")
     if approval_ceiling != owner_ceiling:
@@ -861,6 +888,7 @@ def _validate_provider_authority(
     *,
     provider: str,
     projected_cost: Decimal,
+    owner_ceiling: Decimal,
     cycle_id: str,
     model_key: str,
 ) -> dict[str, Any]:
@@ -891,6 +919,11 @@ def _validate_provider_authority(
         raise ExecutionScopeError("provider authority cap_microusd must be positive")
     if Decimal(cap) / Decimal(1_000_000) < projected_cost:
         raise ExecutionScopeError("provider authority cap is below projected cost")
+    owner_cap_microusd = _microusd(owner_ceiling, "owner_ceiling_usd")
+    if cap > owner_cap_microusd:
+        raise ExecutionScopeError(
+            "provider authority cap exceeds the model owner ceiling"
+        )
     record["provider"] = cast(str, record["provider"]).lower()
     derived_scope_identity = hash_payload(
         {
@@ -901,6 +934,7 @@ def _validate_provider_authority(
             "resource_identity_sha256": record["resource_identity_sha256"],
             "cap_microusd": record["cap_microusd"],
             "projected_cost_usd": _format_money(projected_cost),
+            "owner_ceiling_usd": _format_money(owner_ceiling),
         }
     )
     if (
@@ -1016,6 +1050,13 @@ def _money(value: str, label: str) -> Decimal:
     if not parsed.is_finite():
         raise ExecutionScopeError(f"{label} must be finite USD")
     return parsed
+
+
+def _microusd(value: Decimal, label: str) -> int:
+    scaled = value * Decimal(1_000_000)
+    if scaled != scaled.to_integral_value():
+        raise ExecutionScopeError(f"{label} cannot be represented in micro-USD")
+    return int(scaled)
 
 
 def _format_money(value: Decimal) -> str:

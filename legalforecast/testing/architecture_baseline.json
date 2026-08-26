@@ -4007,6 +4007,11 @@
         "legalforecast/labeling/unitizer_terminal.py"
       ],
       [
+        "legalforecast/evals/corpus_manifest/execution_decisions.py",
+        "legalforecast/evals/corpus_manifest/execution_scope.py",
+        "legalforecast/protocol/policy_artifacts.py"
+      ],
+      [
         "legalforecast/multiharness/cli.py",
         "legalforecast/multiharness/tier0_mint.py",
         "legalforecast/multiharness/tier0_production_factory.py"
@@ -4028,7 +4033,7 @@
       "legalforecast/contracts": 4,
       "legalforecast/document_need": 10,
       "legalforecast/evals": 21,
-      "legalforecast/evals/corpus_manifest": 23,
+      "legalforecast/evals/corpus_manifest": 24,
       "legalforecast/extraction": 4,
       "legalforecast/ingestion": 176,
       "legalforecast/ingestion/attachment_page": 7,
@@ -4176,10 +4181,10 @@
         ],
         "lane_owner": "cli",
         "largest_symbol": "register",
-        "largest_symbol_lines": 371,
+        "largest_symbol_lines": 375,
         "layer": "adapter",
-        "line_count": 832,
-        "nonblank_line_count": 753,
+        "line_count": 836,
+        "nonblank_line_count": 757,
         "top_level_definition_count": 21
       },
       "legalforecast/cli_commands/report.py": {
@@ -4354,21 +4359,40 @@
         "top_level_definition_count": 31
       },
       "legalforecast/evals/corpus_manifest/execution_decisions.py": {
-        "cycle_id": "",
+        "cycle_id": "legalforecast/evals/corpus_manifest/execution_decisions.py,legalforecast/evals/corpus_manifest/execution_scope.py,legalforecast/protocol/policy_artifacts.py",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
-        "fan_in": 1,
+        "fan_in": 2,
         "fan_out": 10,
         "flags": [
+          "cycle",
           "oversized"
         ],
         "lane_owner": "evals",
         "largest_symbol": "_build",
         "largest_symbol_lines": 265,
         "layer": "application",
-        "line_count": 1133,
-        "nonblank_line_count": 1053,
-        "top_level_definition_count": 29
+        "line_count": 1141,
+        "nonblank_line_count": 1058,
+        "top_level_definition_count": 30
+      },
+      "legalforecast/evals/corpus_manifest/execution_scope.py": {
+        "cycle_id": "legalforecast/evals/corpus_manifest/execution_decisions.py,legalforecast/evals/corpus_manifest/execution_scope.py,legalforecast/protocol/policy_artifacts.py",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.5",
+        "fan_in": 4,
+        "fan_out": 6,
+        "flags": [
+          "cycle",
+          "oversized"
+        ],
+        "lane_owner": "evals",
+        "largest_symbol": "issue_model_execution_scope",
+        "largest_symbol_lines": 127,
+        "layer": "application",
+        "line_count": 1104,
+        "nonblank_line_count": 1013,
+        "top_level_definition_count": 34
       },
       "legalforecast/evals/corpus_manifest/freeze_inputs.py": {
         "cycle_id": "",
@@ -4531,7 +4555,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
         "fan_in": 3,
-        "fan_out": 16,
+        "fan_out": 17,
         "flags": [
           "monolith"
         ],
@@ -4539,9 +4563,9 @@
         "largest_symbol": "run_per_case_evaluation",
         "largest_symbol_lines": 269,
         "layer": "application",
-        "line_count": 2323,
-        "nonblank_line_count": 2102,
-        "top_level_definition_count": 93
+        "line_count": 2414,
+        "nonblank_line_count": 2187,
+        "top_level_definition_count": 96
       },
       "legalforecast/evals/provider_spend_attempt_handler.py": {
         "cycle_id": "",
@@ -8021,7 +8045,7 @@
         "cycle_id": "",
         "disposition_kind": "no-move",
         "disposition_owner": "legalforecast/protocol/manifest.py",
-        "fan_in": 9,
+        "fan_in": 10,
         "fan_out": 5,
         "flags": [
           "authenticated-path"
@@ -8035,12 +8059,13 @@
         "top_level_definition_count": 12
       },
       "legalforecast/protocol/policy_artifacts.py": {
-        "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "protocol",
+        "cycle_id": "legalforecast/evals/corpus_manifest/execution_decisions.py,legalforecast/evals/corpus_manifest/execution_scope.py,legalforecast/protocol/policy_artifacts.py",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "LegalForecastBench-l8qv.9",
         "fan_in": 10,
         "fan_out": 4,
         "flags": [
+          "cycle",
           "watch"
         ],
         "lane_owner": "protocol",

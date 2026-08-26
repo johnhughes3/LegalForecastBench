@@ -11756,14 +11756,14 @@
           "action": "store",
           "choices": null,
           "default": null,
-          "dest": "owner_evidence",
+          "dest": "owner_bead_id",
           "metavar": null,
           "nargs": null,
           "option_strings": [
-            "--owner-evidence"
+            "--owner-bead-id"
           ],
           "required": true,
-          "type": "pathlib.Path"
+          "type": null
         },
         {
           "action": "store",
