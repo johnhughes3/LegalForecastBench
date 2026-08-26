@@ -1748,6 +1748,10 @@ Run the release gate at the exact SHA you intend to dispatch:
 uv run scripts/release_check.py
 ```
 
+For the model-scoped official path, issue the provider-free pre-freeze execution plan with `issue-manifest-execution-policy-v4`. The v4 successor is deliberately non-authorizing and omits only the final freeze commitment because the final freeze contains the plan. The existing v3 issuer remains strict and requires `--freeze-bundle`; do not reinterpret v3 as a pre-freeze contract. Create and verify the final freeze containing the v4 plan, then run `project-manifest-cost` against the final or staged freeze for exactly one registry model and both official ablations. Issue the model scope with the final `--freeze-bundle`, its `--freeze-root`, and the frozen `--provider-cycle-caps`; scope issuance derives provider authority from those authenticated caps, so caller-authored provider-authority JSON is not a production input. Stage the immutable manifest-run root before dispatching one model/ablation shard at a time.
+
+The scope and cost receipt bind the raw SHA-256 of the final freeze file because those bytes are the authenticated input. Shard receipts and fan-in continue to use the freeze protocol's canonical `bundle_sha256` for receipt identity; these are distinct commitments and must not be substituted for one another. The provider workflow compares the transported raw freeze hash before it opens provider credentials, and fan-in repeats that check against the staged freeze file.
+
 Prepare the frozen run-input manifest, locked labels, model registry, and packet objects. The run-input manifest must use the same `cycle_id` as the dispatch and either omit `labels_sha256` or contain the SHA-256 of the exact labels JSONL. Generate and commit the hash-only freeze commitment before dispatch:
 
 ```bash

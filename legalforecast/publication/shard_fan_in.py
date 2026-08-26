@@ -92,6 +92,10 @@ class FrozenFanInContext:
     run_input_manifest_sha256: str
     labels_sha256: str
     model_registry_sha256: str
+    # The freeze protocol's bundle_sha256 is a canonical payload digest used
+    # in shard receipt identity.  Scope/cost issuance binds the raw freeze
+    # file bytes instead, so retain that distinct commitment for replay.
+    raw_freeze_bundle_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -425,6 +429,7 @@ def verify_scoped_execution_scopes(
     model_registry_path: Path,
     model_registry_sha256: str,
     scope_paths: Sequence[Path],
+    expected_freeze_bundle_sha256: str | None = None,
 ) -> None:
     """Replay transported model scopes and bind them to accepted receipts.
 
@@ -512,16 +517,20 @@ def verify_scoped_execution_scopes(
                 raise FanInError(
                     "receipt common_plan_sha256 does not match transported scope"
                 )
-            try:
-                verify_execution_scope_runtime(
-                    scope_artifact,
-                    common_plan=common_plan,
-                    model_registry=registry,
-                    model_registry_sha256=expected_registry_sha256,
-                    expected_model_key=model_key,
-                    expected_ablation=ablation,
-                    expected_scope_sha256=receipt_scope_sha256,
+            runtime_kwargs: dict[str, Any] = {
+                "common_plan": common_plan,
+                "model_registry": registry,
+                "model_registry_sha256": expected_registry_sha256,
+                "expected_model_key": model_key,
+                "expected_ablation": ablation,
+                "expected_scope_sha256": receipt_scope_sha256,
+            }
+            if expected_freeze_bundle_sha256 is not None:
+                runtime_kwargs["expected_freeze_bundle_sha256"] = (
+                    expected_freeze_bundle_sha256
                 )
+            try:
+                verify_execution_scope_runtime(scope_artifact, **runtime_kwargs)
             except ExecutionScopeError as exc:
                 raise FanInError(
                     f"transported execution scope is invalid for "
@@ -939,6 +948,7 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
             model_registry_path=frozen.model_registry_path,
             model_registry_sha256=frozen.context.model_registry_sha256,
             scope_paths=config.execution_scope_paths,
+            expected_freeze_bundle_sha256=frozen.context.raw_freeze_bundle_sha256,
         )
     counts = derive_cadence_counts(
         frozen.manifest_path,
@@ -1090,6 +1100,7 @@ def _load_frozen_inputs(config: FanInConfig) -> _FrozenInputs:
     context = FrozenFanInContext(
         cycle_id=bundle.cycle_id,
         freeze_bundle_sha256=bundle.bundle_sha256,
+        raw_freeze_bundle_sha256=sha256_file(config.freeze_bundle_path),
         execution_policy_sha256=policy_content_sha256(execution),
         execution_policy_artifact_sha256=bundle.artifact(
             FrozenArtifactName.EXECUTION_POLICY

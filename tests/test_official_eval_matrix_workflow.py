@@ -445,6 +445,12 @@ def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
     assert 'find "${FREEZE_ROOT}/amendments"' in BUILD_MATRIX_JOB
     assert "--amendment-bundle" in BUILD_MATRIX_JOB
     assert "--candidate-freeze-bundle" in BUILD_MATRIX_JOB
+    assert "id: verify_freeze" in BUILD_MATRIX_JOB
+    assert (
+        "freeze_bundle_sha256: ${{ steps.verify_freeze.outputs.freeze_bundle_sha256 }}"
+        in BUILD_MATRIX_JOB
+    )
+    assert 'sha256sum "${FREEZE_COMMITMENT_PATH}"' in BUILD_MATRIX_JOB
     assert '--artifact-path "manifest=' not in BUILD_MATRIX_JOB
     assert (
         "RUN_INPUT_MANIFEST_PATH:" not in BUILD_MATRIX_JOB[commitment_step:matrix_step]
@@ -519,6 +525,19 @@ def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None
         "Non-dry-run official evaluation requires "
         "max_projected_model_cost_usd" in WORKFLOW
     )
+
+
+def test_official_eval_matrix_transports_raw_freeze_commitment_to_each_cell() -> None:
+    for provider in ("openai", "anthropic", "gemini"):
+        start = WORKFLOW.index(f"  run-{provider}:")
+        end = WORKFLOW.find("\n  run-", start + 1)
+        if end == -1:
+            end = WORKFLOW.index("\n  finalize-shard:", start)
+        job = WORKFLOW[start:end]
+        assert (
+            "freeze_bundle_sha256: ${{ needs.build-matrix.outputs."
+            "freeze_bundle_sha256 }}" in job
+        )
 
 
 def test_manifest_cost_projection_requires_immutable_manifest_run_uri() -> None:

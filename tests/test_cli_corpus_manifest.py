@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any, cast
 
+import pytest
+from legalforecast import cli as cli_module
+from legalforecast.cli_commands import corpus_manifest as corpus_manifest_cli
 from legalforecast.testing.cli_corpus.command_manifest import (
     build_command_manifest,
     command_paths,
@@ -104,3 +109,67 @@ def test_manifest_records_registration_order_and_dest_values() -> None:
     assert handler["name"] == "_cmd_discover"
     payload = json.dumps(discover, sort_keys=True)
     assert "dest" in payload
+
+
+def test_execution_scope_verify_cli_uses_frozen_sources_without_authority_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope_path = tmp_path / "scope.json"
+    scope_path.write_text("{}\n", encoding="utf-8")
+    paths = {
+        "scope": scope_path,
+        "plan": tmp_path / "plan.json",
+        "freeze_bundle": tmp_path / "freeze.json",
+        "model_registry": tmp_path / "registry.json",
+        "cost_projection": tmp_path / "cost.json",
+        "run_input_manifest": tmp_path / "run-inputs.json",
+        "owner_evidence": tmp_path / "owner.json",
+        "provider_cycle_caps": tmp_path / "caps.json",
+    }
+    argv = [
+        "acquisition",
+        "verify-manifest-execution-scope",
+        "--scope",
+        str(paths["scope"]),
+        "--plan",
+        str(paths["plan"]),
+        "--freeze-bundle",
+        str(paths["freeze_bundle"]),
+        "--model-registry",
+        str(paths["model_registry"]),
+        "--cost-projection",
+        str(paths["cost_projection"]),
+        "--run-input-manifest",
+        str(paths["run_input_manifest"]),
+        "--owner-evidence",
+        str(paths["owner_evidence"]),
+        "--provider-cycle-caps",
+        str(paths["provider_cycle_caps"]),
+        "--model-key",
+        "openai:test-2026",
+    ]
+    parsed = cli_module.build_parser().parse_args(argv)
+    assert not hasattr(parsed, "provider_authority")
+
+    calls: dict[str, object] = {}
+
+    def fake_verify(artifact: Mapping[str, Any], **kwargs: Any) -> str:
+        calls["artifact"] = artifact
+        calls["kwargs"] = kwargs
+        return "a" * 64
+
+    class _EntryPoint:
+        def load(self) -> Any:
+            return fake_verify
+
+    monkeypatch.setattr(corpus_manifest_cli, "_VERIFY_EXECUTION_SCOPE", _EntryPoint())
+    assert cast(Any, parsed.handler)(parsed) == 0
+    assert calls["artifact"] == {}
+    assert "provider_authority" not in cast(dict[str, Any], calls["kwargs"])
+    assert (
+        cast(dict[str, Any], calls["kwargs"])["provider_cycle_caps"]
+        == paths["provider_cycle_caps"]
+    )
+
+    with pytest.raises(SystemExit):
+        cli_module.build_parser().parse_args([*argv, "--provider-authority", "{}"])

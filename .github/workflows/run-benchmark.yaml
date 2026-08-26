@@ -179,6 +179,7 @@ jobs:
       attempt_count: ${{ steps.matrix.outputs.attempt_count }}
       dispatch_run_attempt: ${{ steps.dispatch.outputs.workflow_run_attempt }}
       frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
+      freeze_bundle_sha256: ${{ steps.verify_freeze.outputs.freeze_bundle_sha256 }}
       execution_policy_sha256: ${{ steps.dispatch.outputs.execution_policy_sha256 }}
       execution_scope_sha256: ${{ steps.dispatch.outputs.execution_scope_sha256 }}
       freeze_bundle_path: ${{ steps.validate.outputs.freeze_bundle_path }}
@@ -656,6 +657,7 @@ jobs:
           printf '{}\n' > /tmp/lfb-execution-scope.json
 
       - name: Verify pre-run freeze commitment
+        id: verify_freeze
         shell: bash
         env:
           CYCLE_ID: ${{ inputs.cycle_id }}
@@ -688,6 +690,8 @@ jobs:
             --artifact-path "labels=${LABELS_PATH}" \
             --artifact-path "model_registry=${MODEL_REGISTRY_PATH}" \
             "${amendment_args[@]}"
+          freeze_bundle_sha256="$(sha256sum "${FREEZE_COMMITMENT_PATH}" | cut -d ' ' -f1)"
+          printf 'freeze_bundle_sha256=%s\n' "${freeze_bundle_sha256}" >> "${GITHUB_OUTPUT}"
 
       - name: Validate staged dispatch and build provenance
         id: dispatch
@@ -698,6 +702,7 @@ jobs:
           CYCLE_ID: ${{ inputs.cycle_id }}
           DRY_RUN: ${{ inputs.dry_run }}
           EXECUTION_SCOPE_SPEC: ${{ inputs.execution_scope_uri }}
+          EXPECTED_FREEZE_BUNDLE_SHA256: ${{ steps.verify_freeze.outputs.freeze_bundle_sha256 }}
           FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
           FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
           MODEL_KEYS: ${{ inputs.model_keys }}
@@ -799,16 +804,19 @@ jobs:
           if scope_path.is_file():
               loaded_scope = json.loads(scope_path.read_text(encoding="utf-8"))
               scope = None if loaded_scope == {} else loaded_scope
-          if plan_artifact.get("schema_version") == "legalforecast.execution_policy.v3":
+          if plan_artifact.get("schema_version") in {
+              "legalforecast.execution_policy.v3",
+              "legalforecast.execution_policy.v4",
+          }:
               if scope is None and os.environ["DRY_RUN"] != "true":
-                  raise SystemExit("v3 execution policy requires an execution scope")
+                  raise SystemExit("v3/v4 execution policy requires an execution scope")
               if scope is not None and os.environ["SHARD_ONLY"] != "true":
-                  raise SystemExit("v3 execution policy requires shard_only=true")
+                  raise SystemExit("v3/v4 execution policy requires shard_only=true")
               if scope is not None:
                   model_keys = [value.strip() for value in os.environ["MODEL_KEYS"].split(",") if value.strip()]
                   ablations = [value.strip() for value in os.environ["ABLATIONS"].split(",") if value.strip()]
                   if len(model_keys) != 1 or len(ablations) != 1:
-                      raise SystemExit("a paid v3 dispatch must select one model and one ablation")
+                      raise SystemExit("a paid v3/v4 dispatch must select one model and one ablation")
                   from legalforecast.evals.corpus_manifest.execution_scope import verify_execution_scope_runtime
                   from legalforecast.evals.model_registry import load_model_registry
                   registry = load_model_registry(Path("/tmp/lfb-model-registry.json"))
@@ -820,9 +828,12 @@ jobs:
                       expected_model_key=model_keys[0],
                       expected_ablation=ablations[0],
                       expected_scope_sha256=os.environ["EXECUTION_SCOPE_SHA256_INPUT"],
+                      expected_freeze_bundle_sha256=os.environ[
+                          "EXPECTED_FREEZE_BUNDLE_SHA256"
+                      ],
                   )
           elif scope is not None:
-              raise SystemExit("execution scope is only valid with execution policy v3")
+              raise SystemExit("execution scope is only valid with execution policy v3 or v4")
           release_provenance = {
               "schema_version": "legalforecast.dispatch_release.v2",
               "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
@@ -939,6 +950,7 @@ jobs:
       environment_name: legalforecastbench-official-eval
       execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
       execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
+      freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
       model_key: ${{ matrix.model_key }}
       model_key_slug: ${{ matrix.model_key_slug }}
       packet_object_key: ${{ matrix.packet_object_key }}
@@ -972,6 +984,7 @@ jobs:
       environment_name: legalforecastbench-official-eval
       execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
       execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
+      freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
       model_key: ${{ matrix.model_key }}
       model_key_slug: ${{ matrix.model_key_slug }}
       packet_object_key: ${{ matrix.packet_object_key }}
@@ -1005,6 +1018,7 @@ jobs:
       environment_name: legalforecastbench-official-eval
       execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
       execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
+      freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
       model_key: ${{ matrix.model_key }}
       model_key_slug: ${{ matrix.model_key_slug }}
       packet_object_key: ${{ matrix.packet_object_key }}

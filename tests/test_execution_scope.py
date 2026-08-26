@@ -5,12 +5,15 @@ import json
 from pathlib import Path
 
 import pytest
-from legalforecast.evals.corpus_manifest import execution_decisions
+from legalforecast.evals.corpus_manifest import execution_decisions, execution_scope
 from legalforecast.evals.corpus_manifest.cost_projector import safe_case_id_slug
 from legalforecast.evals.corpus_manifest.execution_scope import (
     ExecutionScopeError,
     issue_execution_plan,
+    issue_execution_plan_v4,
     issue_model_execution_scope,
+    verify_execution_policy_v3,
+    verify_execution_policy_v4,
     verify_execution_scope,
     verify_execution_scope_runtime,
 )
@@ -252,6 +255,213 @@ def _authority() -> dict[str, object]:
     }
 
 
+def _provider_cycle_caps(
+    path: Path,
+    *,
+    cycle_id: str = "cycle-scope-test",
+    cap_usd: str = "1.50",
+) -> bytes:
+    payload = (
+        json.dumps(
+            {
+                "schema_version": "legalforecast.provider_cycle_caps.v1",
+                "cycle_id": cycle_id,
+                "spend_authority": {
+                    "backend": "dynamodb",
+                    "resource_identity_sha256": "a" * 64,
+                    "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                    "max_billable_attempts": 2,
+                    "failure_threshold": 3,
+                    "failure_window_seconds": 300,
+                },
+                "providers": [
+                    {
+                        "provider": "openai",
+                        "account": "test-account",
+                        "cycle_reservation_cap_usd": cap_usd,
+                    }
+                ],
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    path.write_bytes(payload)
+    return payload
+
+
+def test_v3_stays_final_freeze_bound_and_v4_supports_pre_freeze_mode(
+    tmp_path: Path,
+) -> None:
+    plan_path, registry_path, run_input_path, _cost_path, _evidence_path, _model_key = (
+        _write_scope_inputs(tmp_path)
+    )
+    complete_inputs = json.loads(plan_path.read_text(encoding="utf-8"))["policy"][
+        "common_frozen_inputs"
+    ]
+    pre_freeze_inputs = dict(complete_inputs)
+    pre_freeze_inputs.pop("freeze_bundle_sha256")
+
+    with pytest.raises(ExecutionScopeError, match="freeze_bundle_sha256"):
+        issue_execution_plan(
+            cycle_id="cycle-scope-test",
+            model_registry=registry_path,
+            common_frozen_inputs=pre_freeze_inputs,
+        )
+
+    plan = issue_execution_plan_v4(
+        cycle_id="cycle-scope-test",
+        model_registry=registry_path,
+        common_frozen_inputs=pre_freeze_inputs,
+    )
+
+    assert "freeze_bundle_sha256" not in plan["policy"]["common_frozen_inputs"]
+    assert verify_execution_policy_v4(plan) == plan["policy_sha256"]
+    with pytest.raises(ExecutionScopeError, match="unsupported execution policy v3"):
+        verify_execution_policy_v3(plan)
+    assert plan["policy"]["common_frozen_inputs"]["run_input_manifest_sha256"] == (
+        hashlib.sha256(run_input_path.read_bytes()).hexdigest()
+    )
+
+
+def test_scope_issuance_fills_freeze_and_derives_authority_from_caps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
+        _write_scope_inputs(tmp_path)
+    )
+    complete_inputs = json.loads(plan_path.read_text(encoding="utf-8"))["policy"][
+        "common_frozen_inputs"
+    ]
+    pre_freeze_plan = issue_execution_plan_v4(
+        cycle_id="cycle-scope-test",
+        model_registry=registry_path,
+        common_frozen_inputs={
+            key: value
+            for key, value in complete_inputs.items()
+            if key != "freeze_bundle_sha256"
+        },
+    )
+    pre_freeze_path = tmp_path / "pre-freeze-plan.json"
+    pre_freeze_path.write_text(json.dumps(pre_freeze_plan) + "\n", encoding="utf-8")
+
+    freeze_path = tmp_path / "freeze.json"
+    freeze_bytes = b"authenticated final freeze\n"
+    freeze_path.write_bytes(freeze_bytes)
+    freeze_sha256 = hashlib.sha256(freeze_bytes).hexdigest()
+    cost = json.loads(cost_path.read_text(encoding="utf-8"))
+    cost["input_commitments"]["freeze_bundle"] = {
+        "sha256": freeze_sha256,
+        "size_bytes": len(freeze_bytes),
+    }
+    cost["receipt_sha256"] = hash_payload(
+        {key: value for key, value in cost.items() if key != "receipt_sha256"}
+    )
+    cost_path.write_text(json.dumps(cost, sort_keys=True) + "\n", encoding="utf-8")
+
+    caps_path = tmp_path / "provider-cycle-caps.json"
+    caps_bytes = _provider_cycle_caps(caps_path)
+
+    class _Artifact:
+        sha256 = hashlib.sha256(caps_bytes).hexdigest()
+        size_bytes = len(caps_bytes)
+
+    class _Bundle:
+        cycle_id = "cycle-scope-test"
+
+        @staticmethod
+        def artifact(_name: object) -> _Artifact:
+            return _Artifact()
+
+    monkeypatch.setattr(
+        execution_scope,
+        "verify_freeze_bundle",
+        lambda *_args, **_kwargs: _Bundle(),
+    )
+    scope = issue_model_execution_scope(
+        common_plan=pre_freeze_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        owner_ceiling_usd="1.50",
+        owner_bead_id="scope-test",
+        freeze_bundle=freeze_path,
+        provider_cycle_caps=caps_path,
+    )
+
+    assert scope["scope"]["common_frozen_inputs"]["freeze_bundle_sha256"] == (
+        freeze_sha256
+    )
+    assert scope["scope"]["provider_authority"]["cap_microusd"] == 1_500_000
+    assert scope["scope"]["provider_authority"]["account"] == "test-account"
+
+    caps_path.write_bytes(caps_bytes + b"tampered")
+    with pytest.raises(ExecutionScopeError, match="caps bytes do not match"):
+        issue_model_execution_scope(
+            common_plan=pre_freeze_path,
+            model_registry=registry_path,
+            model_key=model_key,
+            cost_projection=cost_path,
+            run_input_manifest=run_input_path,
+            owner_ceiling_usd="1.50",
+            owner_bead_id="scope-test",
+            freeze_bundle=freeze_path,
+            provider_cycle_caps=caps_path,
+        )
+
+    too_large_caps = _provider_cycle_caps(caps_path, cap_usd="2.00")
+    _Artifact.sha256 = hashlib.sha256(too_large_caps).hexdigest()
+    _Artifact.size_bytes = len(too_large_caps)
+    larger_scope = issue_model_execution_scope(
+        common_plan=pre_freeze_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        owner_ceiling_usd="1.50",
+        owner_bead_id="scope-test",
+        freeze_bundle=freeze_path,
+        provider_cycle_caps=caps_path,
+    )
+    assert larger_scope["scope"]["provider_authority"]["cap_microusd"] == 2_000_000
+
+    # The caps path is authenticated before the live owner comment capture.
+    # Replacing it during that capture must prevent create-only publication,
+    # even though authority derivation continues to use the authenticated bytes.
+    caps_path.write_bytes(caps_bytes)
+    _Artifact.sha256 = hashlib.sha256(caps_bytes).hexdigest()
+    _Artifact.size_bytes = len(caps_bytes)
+
+    def capture_and_replace_caps(_bead_id: str) -> bytes:
+        caps_path.write_bytes(caps_bytes + b"raced")
+        return _evidence_path.read_bytes()
+
+    monkeypatch.setattr(
+        execution_decisions, "capture_beads_comments", capture_and_replace_caps
+    )
+    raced_output = tmp_path / "raced-scope.json"
+    with pytest.raises(
+        ExecutionScopeError,
+        match=(
+            "provider cycle caps before scope publication changed after authentication"
+        ),
+    ):
+        issue_model_execution_scope(
+            common_plan=pre_freeze_path,
+            model_registry=registry_path,
+            model_key=model_key,
+            cost_projection=cost_path,
+            run_input_manifest=run_input_path,
+            owner_ceiling_usd="1.50",
+            owner_bead_id="scope-test",
+            freeze_bundle=freeze_path,
+            provider_cycle_caps=caps_path,
+            output=raced_output,
+        )
+    assert not raced_output.exists()
+
+
 def test_scope_binds_one_model_and_authorizes_both_ablations(tmp_path: Path) -> None:
     (
         plan_path,
@@ -300,6 +510,19 @@ def test_scope_binds_one_model_and_authorizes_both_ablations(tmp_path: Path) -> 
         expected_scope_sha256=scope["scope_sha256"],
     )
     assert runtime_digest == scope["scope_sha256"]
+
+    with pytest.raises(ExecutionScopeError, match="does not match the current freeze"):
+        verify_execution_scope_runtime(
+            scope,
+            common_plan=json.loads(plan_path.read_text(encoding="utf-8")),
+            model_registry=load_model_registry(registry_path),
+            model_registry_sha256=hashlib.sha256(
+                registry_path.read_bytes()
+            ).hexdigest(),
+            expected_model_key=model_key,
+            expected_ablation="full_packet",
+            expected_freeze_bundle_sha256="2" * 64,
+        )
 
     with pytest.raises(ExecutionScopeError, match="selected model"):
         verify_execution_scope_runtime(
@@ -628,23 +851,25 @@ def test_scope_issuance_rejects_wrong_owner_issue_identity(tmp_path: Path) -> No
         )
 
 
-def test_scope_rejects_provider_cap_above_owner_ceiling(tmp_path: Path) -> None:
+def test_scope_allows_aggregate_provider_cap_above_owner_ceiling(
+    tmp_path: Path,
+) -> None:
     plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
         _write_scope_inputs(tmp_path)
     )
     authority = _authority()
     authority["cap_microusd"] = 1_500_001
-    with pytest.raises(ExecutionScopeError, match="exceeds the model owner ceiling"):
-        issue_model_execution_scope(
-            common_plan=plan_path,
-            model_registry=registry_path,
-            model_key=model_key,
-            cost_projection=cost_path,
-            run_input_manifest=run_input_path,
-            owner_ceiling_usd="1.50",
-            owner_bead_id="scope-test",
-            provider_authority=authority,
-        )
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        owner_ceiling_usd="1.50",
+        owner_bead_id="scope-test",
+        provider_authority=authority,
+    )
+    assert scope["scope"]["provider_authority"]["cap_microusd"] == 1_500_001
 
 
 def test_runtime_provider_authority_rejects_scope_identity_drift(

@@ -205,6 +205,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 
 - [evaluation-policy-artifacts-v1.md](schemas/evaluation-policy-artifacts-v1.md): how decisions made before labeling or acquisition are separated from facts observed later.
 - [evaluation-policy-artifacts-v2.md](schemas/evaluation-policy-artifacts-v2.md): additive truthful lifecycle semantics, journal-derived production start, and authenticated manifest execution decisions; v1 remains unchanged.
+- [execution-policy-artifacts-v4.md](schemas/execution-policy-artifacts-v4.md): provider-free pre-freeze model-scope plan successor; v3 remains strict.
 - [manifest-forecast-bundle-v2.md](schemas/manifest-forecast-bundle-v2.md): the exact labels-deferred, non-scoreable, non-publishable manifest forecast commitment and provider-free run card.
 - [manifest-cost-projection-receipt-v1.md](schemas/manifest-cost-projection-receipt-v1.md): authenticated provider-free cost projection, matrix partitioning, input commitments, and create-only receipt publication for an official manifest run.
 

@@ -713,10 +713,15 @@ def test_fan_in_uses_downloaded_manifest_run_root_and_staged_bundle_hash(
         receipt_root="s3://results",
         output_dir=tmp_path / "output",
     )
+    config.freeze_bundle_path.write_bytes(b"freeze bytes\n")
     frozen = shard_fan_in._load_frozen_inputs(config)
 
     assert captured["root_path"] == tmp_path
     assert frozen.context.freeze_bundle_sha256 == "c" * 64
+    assert (
+        frozen.context.raw_freeze_bundle_sha256
+        == hashlib.sha256(b"freeze bytes\n").hexdigest()
+    )
     assert frozen.manifest_path == artifact_paths[FrozenArtifactName.MANIFEST]
 
 
