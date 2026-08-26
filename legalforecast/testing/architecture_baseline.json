@@ -4064,7 +4064,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 19,
-      "tests": 499,
+      "tests": 500,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -4567,17 +4567,17 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
         "fan_in": 10,
-        "fan_out": 3,
+        "fan_out": 4,
         "flags": [
           "oversized"
         ],
         "lane_owner": "evals",
         "largest_symbol": "complete_live_prompt",
-        "largest_symbol_lines": 155,
+        "largest_symbol_lines": 153,
         "layer": "application",
         "line_count": 1491,
-        "nonblank_line_count": 1299,
-        "top_level_definition_count": 70
+        "nonblank_line_count": 1302,
+        "top_level_definition_count": 69
       },
       "legalforecast/evals/model_registry.py": {
         "cycle_id": "",
@@ -7869,17 +7869,17 @@
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
         "fan_in": 1,
-        "fan_out": 5,
+        "fan_out": 6,
         "flags": [
           "relative-path",
           "watch"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_openai_responses",
-        "largest_symbol_lines": 124,
+        "largest_symbol_lines": 129,
         "layer": "application",
-        "line_count": 693,
-        "nonblank_line_count": 615,
+        "line_count": 704,
+        "nonblank_line_count": 626,
         "top_level_definition_count": 29
       },
       "legalforecast/multiharness/process_containment.py": {
@@ -8515,8 +8515,8 @@
         "largest_symbol": "execute_release_run",
         "largest_symbol_lines": 431,
         "layer": "application",
-        "line_count": 829,
-        "nonblank_line_count": 772,
+        "line_count": 818,
+        "nonblank_line_count": 761,
         "top_level_definition_count": 14
       },
       "legalforecast/selection/case_mix_diagnostics.py": {
@@ -10447,9 +10447,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1501,
-        "nonblank_line_count": 1303,
-        "top_level_definition_count": 48
+        "line_count": 1590,
+        "nonblank_line_count": 1382,
+        "top_level_definition_count": 51
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",
@@ -10898,11 +10898,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_live_responses_tool_loop_maps_request_and_records_safe_provenance",
-        "largest_symbol_lines": 135,
+        "largest_symbol_lines": 136,
         "layer": "test",
-        "line_count": 789,
-        "nonblank_line_count": 713,
-        "top_level_definition_count": 23
+        "line_count": 860,
+        "nonblank_line_count": 774,
+        "top_level_definition_count": 25
       },
       "tests/test_multiharness_release_harness.py": {
         "cycle_id": "",
@@ -11037,10 +11037,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row",
-        "largest_symbol_lines": 65,
+        "largest_symbol_lines": 66,
         "layer": "test",
-        "line_count": 763,
-        "nonblank_line_count": 701,
+        "line_count": 764,
+        "nonblank_line_count": 702,
         "top_level_definition_count": 24
       },
       "tests/test_official_paid_labeling_baton.py": {

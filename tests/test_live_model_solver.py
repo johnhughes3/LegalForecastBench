@@ -7,6 +7,7 @@ import socket
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import date
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -16,7 +17,6 @@ from legalforecast.evals.inspect_task import SolverKind
 from legalforecast.evals.live_model_solver import (
     ANTHROPIC_MESSAGES_URL,
     GEMINI_GENERATE_CONTENT_URL_TEMPLATE,
-    OPENAI_FALLBACK_SERVICE_TIER,
     OPENAI_FLEX_TIMEOUT_SECONDS,
     OPENAI_RESPONSES_URL,
     OPENAI_SERVICE_TIER,
@@ -28,6 +28,10 @@ from legalforecast.evals.live_model_solver import (
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.evals.tools import ControlledDocketEntry, ControlledDocketTool
+from legalforecast.openai_transport import (
+    VERCEL_AI_GATEWAY_RESPONSES_URL,
+    resolve_openai_transport,
+)
 
 
 def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
@@ -71,6 +75,9 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert response.metadata["provider_sampling_policy"] == "provider_default"
     assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
+    assert response.metadata["openai_transport"] == "direct_openai"
+    assert response.metadata["provider_request_model"] == "gpt-test"
+    assert response.metadata["gateway_provider_restriction"] == "not_applicable"
     assert "observed_service_tier" not in response.metadata
     assert observed_tiers == [OPENAI_SERVICE_TIER]
     assert "service_tier_fallback" not in response.metadata
@@ -123,6 +130,88 @@ def test_openai_solver_emits_registry_reasoning_effort_and_metadata() -> None:
     assert body["reasoning"] == {"effort": "high"}
     assert response.metadata is not None
     assert response.metadata["requested_reasoning_effort"] == "high"
+
+
+def test_openai_sol_uses_vercel_and_forces_openai_upstream_during_promotion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = resolve_openai_transport(
+        "gpt-5.6-sol",
+        on_date_utc=date(2026, 9, 18),
+    )
+    monkeypatch.setattr(live_model_solver, "resolve_openai_transport", lambda _: route)
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-5.6-sol-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-5.6-sol"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "gateway-secret"},
+    )
+
+    response = solver.solve(_request("Predict the case outcome."))
+
+    captured = transport.only_request()
+    assert captured.full_url == VERCEL_AI_GATEWAY_RESPONSES_URL
+    assert captured.headers["Authorization"] == "Bearer gateway-secret"
+    assert _json_body(captured) == {
+        "model": "openai/gpt-5.6-sol",
+        "input": _json_body(captured)["input"],
+        "max_output_tokens": 4096,
+        "providerOptions": {"gateway": {"only": ["openai"]}},
+        "service_tier": OPENAI_SERVICE_TIER,
+        "tools": [],
+    }
+    assert response.metadata is not None
+    assert response.metadata["openai_transport"] == "vercel_ai_gateway"
+    assert response.metadata["provider_request_model"] == "openai/gpt-5.6-sol"
+    assert response.metadata["gateway_provider_restriction"] == "openai"
+
+
+def test_openai_accepts_vercel_namespaced_served_model_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = resolve_openai_transport(
+        "gpt-5.6-sol",
+        on_date_utc=date(2026, 9, 18),
+    )
+    monkeypatch.setattr(live_model_solver, "resolve_openai_transport", lambda _: route)
+    transport = _FixtureTransport(
+        {
+            "model": "openai/gpt-5.6-sol-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-5.6-sol"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "gateway-secret"},
+    )
+
+    response = solver.solve(_request("Predict the case outcome."))
+
+    assert response.metadata is not None
+    assert response.metadata["served_model_version"] == (
+        "openai/gpt-5.6-sol-2026-05-14"
+    )
+
+
+def test_openai_observes_gateway_reported_service_tier() -> None:
+    assert (
+        live_model_solver._observed_openai_service_tier(  # pyright: ignore[reportPrivateUsage]
+            {"provider_metadata": {"gateway": {"serviceTier": "flex"}}}
+        )
+        == "flex"
+    )
 
 
 @pytest.mark.parametrize("status", ("failed", "cancelled", "incomplete", None))
@@ -1079,7 +1168,7 @@ def test_solver_retries_transient_provider_failures_without_leaving_flex() -> No
 
 
 @pytest.mark.parametrize("status_code", (429, 503))
-def test_openai_flex_falls_back_to_standard_on_capacity_errors(
+def test_openai_flex_remains_selected_on_capacity_retries(
     status_code: int,
 ) -> None:
     observed_tiers: list[str] = []
@@ -1092,7 +1181,7 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
             {
                 "model": "gpt-test-2026-05-14",
                 "output_text": '{"predictions":[]}',
-                "service_tier": OPENAI_FALLBACK_SERVICE_TIER,
+                "service_tier": OPENAI_SERVICE_TIER,
                 "status": "completed",
                 "usage": {"input_tokens": 1000, "output_tokens": 250},
             },
@@ -1110,14 +1199,14 @@ def test_openai_flex_falls_back_to_standard_on_capacity_errors(
 
     assert response.request_count == 2
     assert response.metadata is not None
-    assert response.metadata["service_tier"] == OPENAI_FALLBACK_SERVICE_TIER
+    assert response.metadata["service_tier"] == OPENAI_SERVICE_TIER
     assert response.metadata["requested_service_tier"] == OPENAI_SERVICE_TIER
     assert "observed_service_tier" not in response.metadata
-    assert observed_tiers == [OPENAI_FALLBACK_SERVICE_TIER]
-    assert response.metadata["service_tier_fallback"] == "flex_unavailable"
+    assert observed_tiers == [OPENAI_SERVICE_TIER]
+    assert "service_tier_fallback" not in response.metadata
     assert [_json_body(item)["service_tier"] for item in transport.requests] == [
         OPENAI_SERVICE_TIER,
-        OPENAI_FALLBACK_SERVICE_TIER,
+        OPENAI_SERVICE_TIER,
     ]
 
 

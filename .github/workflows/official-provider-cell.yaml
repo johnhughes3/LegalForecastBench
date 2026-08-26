@@ -319,6 +319,20 @@ jobs:
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
           role-duration-seconds: 3600
 
+      - name: Select OpenAI transport
+        id: openai_transport
+        if: ${{ !inputs.dry_run && inputs.provider == 'openai' }}
+        shell: bash
+        env:
+          MODEL_KEY: ${{ inputs.model_key }}
+        run: |
+          set -euo pipefail
+          if [[ "${MODEL_KEY}" == "openai:gpt-5.6-sol" && "$(date -u +%F)" < "2026-09-19" ]]; then
+            echo "use_vercel_gateway=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "use_vercel_gateway=false" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Run isolated case evaluation
         if: ${{ !inputs.dry_run }}
         shell: bash
@@ -331,7 +345,8 @@ jobs:
           EXPECTED_EXECUTION_SCOPE_SHA256: ${{ inputs.execution_scope_sha256 }}
           EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}
           EXPECTED_PACKET_SHA256: ${{ inputs.packet_sha256 }}
-          LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && !contains(fromJSON('["bedrock","aws-bedrock","aws_bedrock"]'), vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}
+          LFB_OPENAI_USE_VERCEL_GATEWAY: ${{ steps.openai_transport.outputs.use_vercel_gateway }}
+          LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && steps.openai_transport.outputs.use_vercel_gateway == 'true' && secrets.AI_GATEWAY_API_KEY || inputs.provider == 'openai' && steps.openai_transport.outputs.use_vercel_gateway != 'true' && secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && !contains(fromJSON('["bedrock","aws-bedrock","aws_bedrock"]'), vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}
           MODEL_KEY: ${{ inputs.model_key }}
           MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
           PROVIDER: ${{ inputs.provider }}
@@ -341,6 +356,11 @@ jobs:
           set -euo pipefail
           case "${PROVIDER}" in
             openai)
+              expected_gateway="false"
+              if [[ "${MODEL_KEY}" == "openai:gpt-5.6-sol" && "$(date -u +%F)" < "2026-09-19" ]]; then
+                expected_gateway="true"
+              fi
+              [[ "${LFB_OPENAI_USE_VERCEL_GATEWAY}" == "${expected_gateway}" ]] || { echo "OpenAI transport selection expired before launch." >&2; exit 1; }
               [[ -n "${LFB_PROVIDER_API_KEY:-}" ]] || { echo "PROVIDER_API_KEY is required for the OpenAI cell." >&2; exit 1; }
               export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"
               ;;

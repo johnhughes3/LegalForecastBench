@@ -101,6 +101,7 @@ def test_provider_environment_and_model_pair_are_closed_before_secrets() -> None
 
 def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
     assert WORKFLOW.count("secrets.OPENAI_API_KEY") == 1
+    assert WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 1
     assert WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 1
     assert WORKFLOW.count("secrets.GEMINI_API_KEY") == 1
     assert "secrets: inherit" not in WORKFLOW
@@ -115,12 +116,24 @@ def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
     ]
     selector = (
         "LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && "
+        "steps.openai_transport.outputs.use_vercel_gateway == 'true' && "
+        "secrets.AI_GATEWAY_API_KEY || inputs.provider == 'openai' && "
+        "steps.openai_transport.outputs.use_vercel_gateway != 'true' && "
         "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
         '!contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
         "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
         "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}"
     )
     assert provider_step.count(selector) == 1
+    selection_step = WORKFLOW[
+        WORKFLOW.index("- name: Select OpenAI transport") : WORKFLOW.index(
+            "- name: Run isolated case evaluation"
+        )
+    ]
+    assert "secrets." not in selection_step
+    assert "inputs.model_key == 'openai:gpt-5.6-sol'" not in provider_step
+    assert '"$(date -u +%F)" < "2026-09-19"' in provider_step
+    assert "OpenAI transport selection expired before launch." in provider_step
     assert "export OPENAI_API_KEY=" in provider_step
     assert "export ANTHROPIC_API_KEY=" in provider_step
     assert "export GEMINI_API_KEY=" in provider_step

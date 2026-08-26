@@ -4,6 +4,7 @@ import json
 import math
 import traceback
 from dataclasses import dataclass
+from datetime import date
 from importlib.metadata import version
 from pathlib import Path
 from types import SimpleNamespace
@@ -38,6 +39,11 @@ from legalforecast.multiharness.spec import (
 )
 from legalforecast.multiharness.task_loaders import ReleaseLfbTaskLoader
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
+from legalforecast.openai_transport import (
+    OPENAI_SERVICE_TIER,
+    VERCEL_AI_GATEWAY_RESPONSES_URL,
+    resolve_openai_transport,
+)
 from legalforecast.release.synthetic import issue_synthetic_release
 
 
@@ -145,6 +151,30 @@ def test_live_client_disables_transparent_sdk_retries(
     }
 
 
+def test_live_client_targets_vercel_for_promotional_sol_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_openai(**kwargs: object) -> object:
+        observed.update(kwargs)
+        return object()
+
+    monkeypatch.setattr("openai.OpenAI", fake_openai)
+    route = resolve_openai_transport(
+        "gpt-5.6-sol",
+        on_date_utc=date(2026, 9, 18),
+    )
+
+    build_openai_client("gateway-test", route=route)
+
+    assert observed == {
+        "api_key": "gateway-test",
+        "base_url": VERCEL_AI_GATEWAY_RESPONSES_URL.removesuffix("/responses"),
+        "max_retries": OPENAI_SDK_MAX_RETRIES,
+    }
+
+
 def test_cli_missing_key_fails_with_constant_public_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -217,6 +247,7 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
     assert len(client.responses.calls) == 2
     initial = client.responses.calls[0]
     assert initial["model"] == "gpt-test"
+    assert initial["service_tier"] == OPENAI_SERVICE_TIER
     assert initial["store"] is False
     assert initial["include"] == ["reasoning.encrypted_content"]
     assert initial["max_output_tokens"] == OPENAI_MAX_OUTPUT_TOKENS
@@ -272,9 +303,11 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
         "max_output_tokens_per_request": OPENAI_MAX_OUTPUT_TOKENS,
         "output_tokens": 10,
         "provider": "openai",
+        "provider_request_model": "gpt-test",
         "provider_request_count": 2,
         "python_version": result.public_summary["python_version"],
         "requested_model": "gpt-test",
+        "requested_service_tier": OPENAI_SERVICE_TIER,
         "sdk_name": "openai",
         "sdk_max_retries": OPENAI_SDK_MAX_RETRIES,
         "sdk_version": OPENAI_SDK_VERSION,
@@ -286,6 +319,8 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
         "tool_policy": "host_read_canonical_task_only",
         "tool_call_count": 1,
         "total_tokens": 42,
+        "openai_transport": "direct_openai",
+        "gateway_only_providers": [],
         "harness_track": "neutral",
         "transcript_sha256": result.public_summary["transcript_sha256"],
     }
@@ -308,6 +343,46 @@ def test_live_responses_tool_loop_maps_request_and_records_safe_provenance(
     assert json.loads(
         (tmp_path / "private-logs" / "openai-transcript.json").read_text()
     )
+
+
+def test_live_responses_forces_openai_gateway_fulfiller_for_promotional_sol(
+    tmp_path: Path,
+) -> None:
+    forecast = {
+        "case_assessment": "Fixture assessment.",
+        "predictions": [{"unit_id": "count_i", "probability_fully_dismissed": 0.7}],
+    }
+    client = _FakeClient(
+        [
+            _response(
+                response_id="resp-sol",
+                model="gpt-5.6-sol",
+                output=[],
+                output_text=json.dumps(forecast),
+            )
+        ]
+    )
+    route = resolve_openai_transport(
+        "gpt-5.6-sol",
+        on_date_utc=date(2026, 9, 18),
+    )
+
+    result = run_openai_responses(
+        _request(model_key="openai:gpt-5.6-sol"),
+        tmp_path,
+        tool_transport=_ToolTransport(),
+        client=client,
+        transport_route=route,
+    )
+
+    call = client.responses.calls[0]
+    assert call["model"] == "openai/gpt-5.6-sol"
+    assert call["service_tier"] == OPENAI_SERVICE_TIER
+    assert call["extra_body"] == {"providerOptions": {"gateway": {"only": ["openai"]}}}
+    assert result.public_summary["openai_transport"] == "vercel_ai_gateway"
+    assert result.public_summary["provider_request_model"] == "openai/gpt-5.6-sol"
+    assert result.public_summary["requested_service_tier"] == OPENAI_SERVICE_TIER
+    assert result.public_summary["gateway_only_providers"] == ["openai"]
 
 
 def test_release_response_projects_end_to_end_with_bound_transcript(

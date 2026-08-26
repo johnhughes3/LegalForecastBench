@@ -663,12 +663,17 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in RUN_CASE_JOB
     selector = (
         "LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && "
+        "steps.openai_transport.outputs.use_vercel_gateway == 'true' && "
+        "secrets.AI_GATEWAY_API_KEY || inputs.provider == 'openai' && "
+        "steps.openai_transport.outputs.use_vercel_gateway != 'true' && "
         "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
         '!contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
         "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
         "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}"
     )
     assert selector in RUN_CASE_JOB
+    assert "secrets.AI_GATEWAY_API_KEY" in RUN_CASE_JOB
+    assert '"$(date -u +%F)" < "2026-09-19"' in RUN_CASE_JOB
     assert (
         "LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}" in PROVIDER_WORKFLOW
     )

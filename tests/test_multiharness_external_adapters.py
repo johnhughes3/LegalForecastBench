@@ -203,7 +203,7 @@ def test_openai_responses_baseline_advertises_live_tool_protocol(
     assert claude.tool_protocol_version == TOOL_REQUEST_SCHEMA_VERSION
     expected_semantics = {
         "adapter_id": "openai-responses-baseline",
-        "adapter_version": "1.0.0",
+        "adapter_version": "1.1.0",
         "adapter_bundle_sha256": openai_adapter_bundle_sha256(),
         "max_output_tokens_per_request": 4096,
         "sdk_name": "openai",
