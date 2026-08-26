@@ -119,13 +119,31 @@
       "Sid": "ManageExactOfficialEvalCellRole",
       "Effect": "Allow",
       "Action": [
+        "iam:CreateRole",
         "iam:GetRole",
         "iam:GetRolePolicy",
         "iam:ListAttachedRolePolicies",
         "iam:ListRolePolicies",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
         "iam:UpdateRole"
       ],
       "Resource": "${official_eval_cell_role_arn}"
+    },
+    {
+      "Sid": "ManageExactOfficialEvalFanInRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
+        "iam:UpdateRole"
+      ],
+      "Resource": "${official_eval_cell_role_arn}-fan-in"
     }
   ]
 }

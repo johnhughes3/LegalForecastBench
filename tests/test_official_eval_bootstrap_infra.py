@@ -477,6 +477,7 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
         "ManageExactAuthoritySmokeCanary",
         "ManageExactOfficialLabelingRole",
         "ManageExactOfficialEvalCellRole",
+        "ManageExactOfficialEvalFanInRole",
     }
     state = statements["ReadWriteExactRuntimeState"]
     assert state["Action"] == ["s3:GetObject", "s3:PutObject"]
@@ -573,27 +574,60 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     ]
     assert labeling["Resource"] == LABELING_ROLE_ARN
 
-    # The official-eval cell role already exists, and the only reviewed change to
-    # it is MaxSessionDuration. Import, refresh, and that one update need exactly
-    # these five actions; creating the role, rewriting its inline policies, or
-    # editing its trust policy stay denied, so drift remediation fails closed
-    # rather than being silently repaired by the routine operator.
+    # The reviewed official-eval module creates each exact role plus its inline
+    # policies and two exclusive-ownership resources. These are the IAM calls the
+    # pinned AWS provider needs for that nine-create plan. TagRole is required for
+    # tag-on-create because versions.tf supplies non-empty provider default_tags;
+    # destructive convergence remains denied by the protected plan contract.
+    official_eval_provider = (
+        ROOT / "infra" / "official-eval" / "versions.tf"
+    ).read_text(encoding="utf-8")
+    assert "default_tags" in official_eval_provider
+    for required_default_tag in ("ManagedBy", "Project", "Purpose"):
+        assert required_default_tag in official_eval_provider
+
     eval_cell = statements["ManageExactOfficialEvalCellRole"]
     assert eval_cell["Action"] == [
+        "iam:CreateRole",
         "iam:GetRole",
         "iam:GetRolePolicy",
         "iam:ListAttachedRolePolicies",
         "iam:ListRolePolicies",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
         "iam:UpdateRole",
     ]
     assert eval_cell["Resource"] == EVAL_CELL_ROLE_ARN
 
+    eval_fan_in = statements["ManageExactOfficialEvalFanInRole"]
+    assert eval_fan_in["Action"] == eval_cell["Action"]
+    assert eval_fan_in["Resource"] == EVAL_FAN_IN_ROLE_ARN
+    assert {eval_cell["Resource"], eval_fan_in["Resource"]} == {
+        EVAL_CELL_ROLE_ARN,
+        EVAL_FAN_IN_ROLE_ARN,
+    }
+
+    eval_granted_actions = {
+        action
+        for statement in (eval_cell, eval_fan_in)
+        for action in cast(list[object], statement["Action"])
+    }
+    assert eval_granted_actions.isdisjoint(
+        {
+            "iam:AttachRolePolicy",
+            "iam:DeleteRole",
+            "iam:DeleteRolePermissionsBoundary",
+            "iam:DeleteRolePolicy",
+            "iam:DetachRolePolicy",
+            "iam:PassRole",
+            "iam:PutRolePermissionsBoundary",
+            "iam:UntagRole",
+            "iam:UpdateAssumeRolePolicy",
+        }
+    )
+
     serialized = json.dumps(policy)
     for forbidden in (
-        # The fan-in role is deliberately outside the operator's authority: it
-        # keeps its own one-hour session and nothing in the reviewed change
-        # touches it.
-        EVAL_FAN_IN_ROLE_ARN,
         "iam:PassRole",
         "iam:CreateOpenIDConnectProvider",
         "iam:UpdateOpenIDConnectProviderThumbprint",
