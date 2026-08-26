@@ -11,7 +11,6 @@ open credentials.
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -20,7 +19,12 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Final, cast
 
-from legalforecast.contracts.schemas import EXECUTION_POLICY_V3
+from legalforecast.contracts import RAW_BYTES_RAW_SHA256_V1
+from legalforecast.contracts.schemas import (
+    EXECUTION_POLICY_V3,
+    EXECUTION_SCOPE_V1,
+    RAW_BYTES_RAW_SHA256_COMMITMENT_V1,
+)
 from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
@@ -32,7 +36,7 @@ from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.protocol.manifest import hash_payload
 
 EXECUTION_POLICY_V3_SCHEMA_VERSION: Final = str(EXECUTION_POLICY_V3)
-EXECUTION_SCOPE_SCHEMA_VERSION: Final = "legalforecast.execution_scope.v1"
+EXECUTION_SCOPE_SCHEMA_VERSION: Final = str(EXECUTION_SCOPE_V1)
 OFFICIAL_SCOPE_ABLATIONS: Final = ("full_packet", "metadata_only")
 OFFICIAL_CASE_COUNT: Final = 100
 OFFICIAL_CALL_COUNT: Final = 200
@@ -1030,7 +1034,12 @@ def _content_hash(value: Mapping[str, Any]) -> str:
 
 
 def _sha256_bytes(payload: bytes) -> str:
-    return hashlib.sha256(payload).hexdigest()
+    return str(
+        RAW_BYTES_RAW_SHA256_V1.commit(
+            payload,
+            domain=RAW_BYTES_RAW_SHA256_COMMITMENT_V1,
+        ).digest
+    )
 
 
 def _sha(value: Any, label: str) -> str:

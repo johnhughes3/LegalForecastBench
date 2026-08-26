@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import unquote, urlparse
 
+from legalforecast.contracts.schemas import SHARD_RECEIPT_V3
 from legalforecast.path_safety import safe_path_component
 from legalforecast.protocol.manifest import hash_payload
 from legalforecast.protocol.policy_artifacts import (
@@ -24,7 +25,7 @@ from legalforecast.protocol.policy_artifacts import (
 
 JsonRecord = dict[str, Any]
 RECEIPT_SCHEMA_VERSION = "legalforecast.shard_receipt.v2"
-SCOPED_RECEIPT_SCHEMA_VERSION = "legalforecast.shard_receipt.v3"
+SCOPED_RECEIPT_SCHEMA_VERSION = str(SHARD_RECEIPT_V3)
 CELL_SCHEMA_VERSION = "legalforecast.shard_cell_completion.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _GIT_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")

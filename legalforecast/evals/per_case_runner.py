@@ -25,6 +25,10 @@ from legalforecast._record_validation import (
     required_int,
     required_str,
 )
+from legalforecast.contracts.schemas import (
+    EXECUTION_POLICY_RUNTIME_BINDING_V1,
+    EXECUTION_POLICY_V3,
+)
 from legalforecast.evals.accounting import accounting_records_from_inspect_run
 from legalforecast.evals.inspect_task import (
     DEFAULT_TOOL_CALL_CAP,
@@ -1718,7 +1722,7 @@ def _verified_execution_policy_for_config(
             expected_sha256=config.expected_execution_policy_sha256,
         )
         policy = official_execution_policy_content(artifact)
-        if artifact.get("schema_version") == "legalforecast.execution_policy.v3":
+        if artifact.get("schema_version") == str(EXECUTION_POLICY_V3):
             if config.execution_scope_uri is None:
                 raise ValueError("v3 execution policy requires execution scope")
             if config.expected_execution_scope_sha256 is None:
@@ -1776,7 +1780,7 @@ def _verified_execution_policy_for_config(
                 "authority_scope_identity_sha256": authority_scope_identity_sha256,
             }
             binding = {
-                "schema_version": "legalforecast.execution_policy_runtime_binding.v1",
+                "schema_version": str(EXECUTION_POLICY_RUNTIME_BINDING_V1),
                 "execution_policy_sha256": hashlib.sha256(payload).hexdigest(),
                 "execution_scope_sha256": scope_sha256,
                 "reservation_ledger_sha256": scope_sha256,
@@ -1979,7 +1983,12 @@ def _solver_for_config(
     )
     authority = DynamoDbProviderSpendAuthority(
         table_name=cast(str, config.provider_authority_table),
-        authority_identity_sha256=required_str(
+        authority_identity_sha256=(
+            required_str(attempt_policy, "authority_scope_identity_sha256")
+            if "authority_scope_identity_sha256" in attempt_policy
+            else required_str(attempt_policy, "authority_resource_identity_sha256")
+        ),
+        resource_identity_sha256=required_str(
             attempt_policy,
             "authority_resource_identity_sha256",
         ),

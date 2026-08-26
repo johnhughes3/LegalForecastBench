@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from legalforecast.protocol.freeze import sha256_file
 from legalforecast.publication.manifest_forecast_stage import (
     add_manifest_forecast_stage_arguments,
     run_manifest_forecast_stage,
@@ -779,13 +780,13 @@ def run_issue_execution_plan_v3(args: argparse.Namespace) -> int:
         cycle_id=cast(str, args.cycle_id),
         model_registry=cast(Path, args.model_registry),
         common_frozen_inputs={
-            "freeze_bundle_sha256": _sha256_file(cast(Path, args.freeze_bundle)),
-            "manifest_sha256": _sha256_file(cast(Path, args.manifest)),
-            "run_input_manifest_sha256": _sha256_file(
+            "freeze_bundle_sha256": sha256_file(cast(Path, args.freeze_bundle)),
+            "manifest_sha256": sha256_file(cast(Path, args.manifest)),
+            "run_input_manifest_sha256": sha256_file(
                 cast(Path, args.run_input_manifest)
             ),
-            "model_registry_sha256": _sha256_file(cast(Path, args.model_registry)),
-            "run_card_sha256": _sha256_file(cast(Path, args.run_card)),
+            "model_registry_sha256": sha256_file(cast(Path, args.model_registry)),
+            "run_card_sha256": sha256_file(cast(Path, args.run_card)),
         },
         output=cast(Path, args.output),
     )
@@ -828,9 +829,3 @@ def run_verify_execution_scope(args: argparse.Namespace) -> int:
     )
     print(json.dumps({"scope_sha256": result}, indent=2, sort_keys=True))
     return 0
-
-
-def _sha256_file(path: Path) -> str:
-    import hashlib
-
-    return hashlib.sha256(path.read_bytes()).hexdigest()
