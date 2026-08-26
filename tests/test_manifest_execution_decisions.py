@@ -15,17 +15,10 @@ import pytest
 from legalforecast.evals.corpus_manifest import beads_observation as evidence
 from legalforecast.evals.corpus_manifest import execution_decisions as module
 from legalforecast.evals.model_registry import OpenAIReasoningEffort
-from legalforecast.labeling.provider_cycle_caps_materializer import (
-    _materialize_provider_cycle_caps_successor,
-    load_provider_cycle_caps_successor_policy,
-)
 from legalforecast.labeling.provider_journal import (
     PROVIDER_JOURNAL_SCHEMA_VERSION,
     ProviderAttemptJournal,
     ProviderCallIdentity,
-)
-from legalforecast.labeling.provider_journal import (
-    load_provider_cycle_caps_bytes as load_provider_cycle_caps_bytes_impl,
 )
 
 
@@ -41,12 +34,8 @@ def _write(path: Path, value: object) -> bytes:
 
 
 @pytest.fixture
-def fixture(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    request: pytest.FixtureRequest,
-) -> dict[str, Any]:
-    cycle_id = getattr(request, "param", "cycle-1")
+def fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    cycle_id = "cycle-1"
     manifest_digest = "a" * 64
     cases = tuple(SimpleNamespace(candidate_id=f"case-{i}") for i in range(100))
     prediction_units_source = {
@@ -416,65 +405,6 @@ def test_issue_and_verify_derives_four_by_two_policy(fixture: dict[str, Any]) ->
         fixture["output"], verify_freeze_inputs=fixture["freeze_verifier"]
     )
     assert verified.decisions == build.decisions
-
-
-@pytest.mark.parametrize(
-    "fixture",
-    ["cycle-1-target-100-2026-07-25"],
-    indirect=True,
-)
-def test_checked_in_forecast_caps_pass_execution_decisions_consumer(
-    fixture: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    root = Path(__file__).resolve().parents[1]
-    legacy_path = (
-        root / "model_registries/cycle-1-forecast-provider-caps-base-2026-08-25.json"
-    )
-    policy_path = root / (
-        "model_registries/"
-        "cycle-1-forecast-provider-caps-successor-policy-2026-08-25.json"
-    )
-    policy_bytes = policy_path.read_bytes()
-    policy = load_provider_cycle_caps_successor_policy(
-        policy_bytes,
-        expected_sha256=hashlib.sha256(policy_bytes).hexdigest(),
-    )
-    source = legacy_path.read_bytes()
-    materialized = _materialize_provider_cycle_caps_successor(
-        source,
-        expected_source_sha256=hashlib.sha256(source).hexdigest(),
-        authority_smoke=SimpleNamespace(
-            byte_count=321,
-            sha256="d" * 64,
-            release_sha="e" * 40,
-            resource_identity_sha256="a" * 64,
-        ),
-        policy=policy,
-    )
-    fixture["caps"].write_bytes(materialized.caps_bytes)
-    fixture["labeling_caps"].write_bytes(materialized.caps_bytes)
-    monkeypatch.setattr(
-        module, "load_provider_cycle_caps_bytes", load_provider_cycle_caps_bytes_impl
-    )
-
-    comments = _raw_comments(fixture)
-    comments[2]["text"] = (
-        "I approve up to USD 2043.66 of provider spend for the Cycle 1 forecast "
-        "run, estimated USD 1.00, across the four models in `"
-        + evidence.SUCCESSOR_REGISTRY_PATH
-        + "`."
-    )
-    monkeypatch.setattr(
-        module, "_capture_beads_comments", lambda: json.dumps(comments).encode()
-    )
-
-    build = _issue(fixture)
-
-    assert build.decisions["cycle_id"] == "cycle-1-target-100-2026-07-25"
-    assert {
-        cap["provider"]
-        for cap in build.decisions["attempt_policy"]["provider_account_caps"]
-    } == {"anthropic", "openai"}
 
 
 def test_issue_is_create_only(fixture: dict[str, Any]) -> None:

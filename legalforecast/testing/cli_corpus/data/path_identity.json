@@ -389,6 +389,7 @@
     "tests/test_provenance_clearance_cli.py",
     "tests/test_provider_authority_infra.py",
     "tests/test_provider_baselines.py",
+    "tests/test_provider_cycle_caps_materializer.py",
     "tests/test_provider_spend_control.py",
     "tests/test_public_corpus_id_fence.py",
     "tests/test_public_marker_clearance_policy.py",
