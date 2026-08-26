@@ -73,7 +73,7 @@ JUDGE_PROVIDER = "anthropic"
 JUDGE_REQUESTED_MODEL = "claude-sonnet-4-6"
 # The paid path fails closed rather than silently running against an SDK whose
 # request shape was never characterized for this freeze.
-REQUIRED_ANTHROPIC_SDK_VERSION = "0.116.0"
+REQUIRED_ANTHROPIC_SDK_VERSION = "1.0.0"
 
 # Tokens reserved for provider-side message framing, which the prompt bytes do
 # not account for. Small and fixed: the bound below only has to be safe, and

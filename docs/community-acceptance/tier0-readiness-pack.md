@@ -20,7 +20,7 @@ The companion `.sha256` file permits a reviewer to verify the exact bytes. The d
 | Field | Value |
 | --- | --- |
 | Executable freeze | `docs/community-acceptance/tier0-paired-smoke-executable-freeze.md` |
-| SHA-256 | `3f7b4c450749ee5088bda4c0d78b392b7282db07be01eb561ab4ba8a7f2e81f9` |
+| SHA-256 | `361b73272da76f68cf29954d881e6d5cdf20d553c73a9e55a15cda1e71131676` |
 | Status | Command, evaluator-entrypoint, production-seam, dated-pricing, and per-call ceiling packet; not an approval target |
 | Remaining mint | Public authorities, judge credential, native-thin enforcement, executable spec, detached approval |
 

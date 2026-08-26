@@ -30,7 +30,10 @@ from legalforecast.multiharness.tier0_operator_contract import (
     infisical_evaluator_issuer_secret_loader,
 )
 from legalforecast.multiharness.tier0_production_factory import (
+    JUDGE_SETTINGS,
     REQUIRED_ANTHROPIC_SDK_VERSION,
+    RUNTIME_POLICY,
+    policy_digest,
 )
 from legalforecast.multiharness.tier0_runner import (
     TIER0_SPEND_APPROVAL_SCHEMA_VERSION,
@@ -67,6 +70,12 @@ def test_tier0_optional_extra_matches_the_frozen_anthropic_sdk_version() -> None
     assert project["project"]["optional-dependencies"]["tier0-judge-adapter"] == [
         f"anthropic=={REQUIRED_ANTHROPIC_SDK_VERSION}"
     ]
+    freeze = Path(
+        "docs/community-acceptance/tier0-paired-smoke-executable-freeze.md"
+    ).read_text(encoding="utf-8")
+    assert f"| Required SDK version | `{REQUIRED_ANTHROPIC_SDK_VERSION}` " in freeze
+    assert f"| Judge settings SHA-256 | `{policy_digest(JUDGE_SETTINGS)}` |" in freeze
+    assert f"| Runtime policy SHA-256 | `{policy_digest(RUNTIME_POLICY)}` |" in freeze
 
 
 class _FixtureApprovalAuthority:
