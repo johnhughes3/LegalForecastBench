@@ -49,6 +49,7 @@ from legalforecast.unitization.review import (
 
 JsonRecord = dict[str, Any]
 ShardKey = tuple[str, str]
+SourceDispatchKey = tuple[str, int]
 ACCEPTED_ATTEMPT_MAP_SCHEMA_VERSION = "legalforecast.accepted_attempt_map.v1"
 FAN_IN_REPORT_SCHEMA_VERSION = "legalforecast.shard_fan_in_report.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -59,6 +60,20 @@ _RESULT_NAMES = ("accounting", "metrics", "runs")
 
 class FanInError(ValueError):
     """Raised when shard evidence cannot form one safe aggregate."""
+
+
+@dataclass(frozen=True, slots=True)
+class SourceDispatchIdentity:
+    """Immutable identity for one source ``run-benchmark`` workflow attempt."""
+
+    workflow_run_id: str
+    workflow_run_attempt: int
+
+    @property
+    def key(self) -> SourceDispatchKey:
+        """Return the identity in the form carried by shard receipts."""
+
+        return (self.workflow_run_id, self.workflow_run_attempt)
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +122,8 @@ class FanInConfig:
     amendment_bundle_paths: tuple[Path, ...] = ()
     source_dispatch_run_id: str | None = None
     source_dispatch_run_attempt: int | None = None
+    source_dispatch_runs: tuple[SourceDispatchIdentity, ...] = ()
+    source_dispatch_artifact_roots: tuple[Path, ...] = ()
     source_release_sha: str | None = None
     labels_path: Path | None = None
     model_registry_path: Path | None = None
@@ -420,8 +437,11 @@ def verify_scoped_execution_scopes(
         raise FanInError("scoped fan-in requires transported execution scopes")
     declared_models = {model_key for model_key, _ in declared_shards}
     scopes_by_model: dict[str, Mapping[str, Any]] = {}
+    scope_bytes_by_model: dict[str, bytes] = {}
+    scope_hashes_by_model: dict[str, str] = {}
     for path in scope_paths:
         try:
+            scope_bytes = path.read_bytes()
             scope_artifact = load_json_object(path, "execution scope")
         except (OSError, ValueError) as exc:
             raise FanInError(f"invalid execution scope artifact: {path}") from exc
@@ -430,8 +450,22 @@ def verify_scoped_execution_scopes(
         if model_key not in declared_models:
             raise FanInError(f"execution scope model is unauthorized: {model_key}")
         if model_key in scopes_by_model:
-            raise FanInError(f"duplicate transported execution scope: {model_key}")
+            if scope_bytes_by_model[model_key] != scope_bytes:
+                raise FanInError(
+                    f"conflicting transported execution scopes for model: {model_key}"
+                )
+            artifact_hash = hash_payload(scope_artifact)
+            if scope_hashes_by_model[model_key] != artifact_hash:
+                raise FanInError(
+                    f"conflicting transported execution scopes for model: {model_key}"
+                )
+            # The same model scope is intentionally transported by both
+            # ablation dispatches.  A byte-identical duplicate is one
+            # authorization, not a second authorization.
+            continue
         scopes_by_model[model_key] = scope_artifact
+        scope_bytes_by_model[model_key] = scope_bytes
+        scope_hashes_by_model[model_key] = hash_payload(scope_artifact)
     missing_models = sorted(declared_models - set(scopes_by_model))
     if missing_models:
         raise FanInError(f"missing transported execution scopes: {missing_models}")
@@ -744,8 +778,52 @@ def require_source_dispatch_identity(
     workflow_run_id: str | None,
     workflow_run_attempt: int | None,
     release_sha: str | None,
+    source_dispatch_runs: Sequence[SourceDispatchIdentity] | None = None,
 ) -> None:
-    """Bind accepted receipts to one immutable source dispatch attempt and release."""
+    """Bind accepted receipts to the exact source dispatch attempts and release.
+
+    Older callers provide one run ID/attempt pair.  Paid sharded runs provide
+    one identity for each independent dispatch; every accepted receipt must
+    belong to one of those identities, and every listed identity must account
+    for at least one accepted receipt.
+    """
+
+    multi = tuple(source_dispatch_runs or ())
+    singular_supplied = any(
+        value is not None for value in (workflow_run_id, workflow_run_attempt)
+    )
+    if multi and singular_supplied:
+        raise FanInError(
+            "source dispatch runs JSON cannot be combined with singular source "
+            "dispatch fields"
+        )
+    if multi:
+        _validate_source_dispatch_identities(multi)
+        if release_sha is None:
+            raise FanInError("source release SHA is required for source dispatch runs")
+        if _GIT_COMMIT_SHA.fullmatch(release_sha) is None:
+            raise FanInError("source release SHA must be a full lowercase commit SHA")
+        expected = {identity.key for identity in multi}
+        observed: set[SourceDispatchKey] = set()
+        for receipt in receipts:
+            key = (
+                _required_str(receipt, "workflow_run_id"),
+                _positive_int(receipt, "source_dispatch_run_attempt"),
+            )
+            if key not in expected:
+                raise FanInError(
+                    "accepted shard receipt belongs to an unlisted source dispatch "
+                    f"run: {key[0]}/{key[1]}"
+                )
+            if _required_commit_sha(receipt, "source_release_sha") != release_sha:
+                raise FanInError("accepted shard receipt source release SHA mismatch")
+            observed.add(key)
+        missing = sorted(expected - observed)
+        if missing:
+            raise FanInError(
+                f"source dispatch runs are missing accepted shard receipts: {missing}"
+            )
+        return
 
     supplied = (workflow_run_id, workflow_run_attempt, release_sha)
     if all(value is None for value in supplied):
@@ -778,6 +856,30 @@ def require_source_dispatch_identity(
         raise FanInError(
             "source dispatch run attempt must match at least one accepted shard receipt"
         )
+
+
+def _validate_source_dispatch_identities(
+    identities: Sequence[SourceDispatchIdentity],
+) -> None:
+    if not identities:
+        raise FanInError("source dispatch runs must not be empty")
+    keys: set[SourceDispatchKey] = set()
+    for raw_identity in cast(Sequence[object], identities):
+        if not isinstance(raw_identity, SourceDispatchIdentity):
+            raise FanInError("source dispatch runs contain an invalid identity")
+        identity = raw_identity
+        run_id = cast(object, identity.workflow_run_id)
+        attempt = cast(object, identity.workflow_run_attempt)
+        if not isinstance(run_id, str) or re.fullmatch(r"[1-9][0-9]*", run_id) is None:
+            raise FanInError("source dispatch run ID must be a positive integer")
+        if not isinstance(attempt, int) or isinstance(attempt, bool) or attempt < 1:
+            raise FanInError("source dispatch run attempt must be a positive integer")
+        key = (run_id, attempt)
+        if key in keys:
+            raise FanInError(
+                "source dispatch runs contain a duplicate run ID/attempt identity"
+            )
+        keys.add(key)
 
 
 def verify_fan_in(config: FanInConfig) -> FanInReport:
@@ -825,6 +927,7 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
         workflow_run_id=config.source_dispatch_run_id,
         workflow_run_attempt=config.source_dispatch_run_attempt,
         release_sha=config.source_release_sha,
+        source_dispatch_runs=config.source_dispatch_runs,
     )
     if receipt_policy.get("scope_required") is True:
         common_plan = load_json_object(frozen.execution_policy_path, "execution policy")
@@ -998,6 +1101,19 @@ def _load_frozen_inputs(config: FanInConfig) -> _FrozenInputs:
         labels_sha256=bundle.artifact(FrozenArtifactName.LABELS).sha256,
         model_registry_sha256=bundle.artifact(FrozenArtifactName.MODEL_REGISTRY).sha256,
     )
+    _verify_dispatch_artifact_roots(
+        config,
+        bundle_execution_policy_path=bundle.artifact(
+            FrozenArtifactName.EXECUTION_POLICY
+        ).path,
+        canonical_paths={
+            "lfb-run-inputs-frozen.json": config.run_input_manifest_path,
+            "lfb-labels.jsonl": bundle.artifact(FrozenArtifactName.LABELS).path,
+            "lfb-model-registry.json": bundle.artifact(
+                FrozenArtifactName.MODEL_REGISTRY
+            ).path,
+        },
+    )
     return _FrozenInputs(
         context=context,
         execution_policy=execution,
@@ -1008,6 +1124,123 @@ def _load_frozen_inputs(config: FanInConfig) -> _FrozenInputs:
         model_registry_path=bundle.artifact(FrozenArtifactName.MODEL_REGISTRY).path,
         baselines_path=bundle.artifact(FrozenArtifactName.BASELINES).path,
     )
+
+
+def _verify_dispatch_artifact_roots(
+    config: FanInConfig,
+    *,
+    bundle_execution_policy_path: Path,
+    canonical_paths: Mapping[str, Path],
+) -> None:
+    """Verify each transported dispatch agrees with one canonical input set.
+
+    A source dispatch artifact is immutable only in its own workflow run.  The
+    fan-in therefore checks all downloaded roots before selecting one copy of
+    the shared inputs.  Release records intentionally differ in their run
+    identity, so those are checked field-by-field rather than byte-for-byte.
+    """
+
+    roots = tuple(config.source_dispatch_artifact_roots)
+    identities = tuple(config.source_dispatch_runs)
+    if not identities:
+        if (
+            config.source_dispatch_run_id is not None
+            or config.source_dispatch_run_attempt is not None
+        ):
+            if (
+                config.source_dispatch_run_id is None
+                or config.source_dispatch_run_attempt is None
+            ):
+                raise FanInError(
+                    "source dispatch run ID and run attempt must be supplied together"
+                )
+            identities = (
+                SourceDispatchIdentity(
+                    config.source_dispatch_run_id, config.source_dispatch_run_attempt
+                ),
+            )
+    if not roots:
+        if len(identities) > 1:
+            raise FanInError(
+                "multi-dispatch fan-in requires one artifact root per source run"
+            )
+        return
+    if len(roots) != len(identities):
+        raise FanInError(
+            "source dispatch artifact roots must correspond one-to-one with "
+            "source dispatch runs"
+        )
+    _validate_source_dispatch_identities(identities)
+    resolved_roots = tuple(path.resolve() for path in roots)
+    if len(set(resolved_roots)) != len(resolved_roots):
+        raise FanInError("source dispatch artifact roots contain duplicates")
+
+    artifact_names = (
+        "lfb-run-inputs-frozen.json",
+        "lfb-labels.jsonl",
+        "lfb-model-registry.json",
+        "lfb-execution-policy.json",
+    )
+    payloads: dict[str, bytes] = {}
+    for name in artifact_names:
+        for index, root in enumerate(resolved_roots):
+            path = root / name
+            try:
+                payload = path.read_bytes()
+            except OSError as exc:
+                raise FanInError(
+                    f"source dispatch artifact is missing or unreadable: {path}"
+                ) from exc
+            if index == 0:
+                payloads[name] = payload
+            elif payload != payloads[name]:
+                raise FanInError(f"source dispatch {name} differs across source runs")
+        canonical_path = canonical_paths.get(name)
+        if canonical_path is None and name == "lfb-execution-policy.json":
+            canonical_path = bundle_execution_policy_path
+        if canonical_path is None:
+            raise FanInError(
+                f"no canonical path configured for source artifact: {name}"
+            )
+        try:
+            canonical_payload = canonical_path.read_bytes()
+        except OSError as exc:
+            raise FanInError(
+                f"canonical source dispatch artifact is unreadable: {canonical_path}"
+            ) from exc
+        if canonical_payload != payloads[name]:
+            raise FanInError(f"canonical {name} differs from source dispatch artifact")
+
+    release_sha = config.source_release_sha
+    if release_sha is None or _GIT_COMMIT_SHA.fullmatch(release_sha) is None:
+        raise FanInError(
+            "source release SHA is required when source dispatch artifacts are supplied"
+        )
+    for identity, root in zip(identities, resolved_roots, strict=True):
+        try:
+            release_value: object = json.loads(
+                (root / "lfb-dispatch-release.json").read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise FanInError(
+                f"source dispatch release provenance is invalid: {root}"
+            ) from exc
+        release = _mapping(release_value, "source dispatch release provenance")
+        if set(release) != {
+            "schema_version",
+            "workflow_run_id",
+            "workflow_run_attempt",
+            "release_sha",
+        }:
+            raise FanInError("source dispatch release provenance fields mismatch")
+        if release.get("schema_version") != "legalforecast.dispatch_release.v2":
+            raise FanInError("source dispatch release provenance schema mismatch")
+        if release.get("workflow_run_id") != identity.workflow_run_id:
+            raise FanInError("source dispatch provenance workflow run mismatch")
+        if release.get("workflow_run_attempt") != identity.workflow_run_attempt:
+            raise FanInError("source dispatch provenance workflow attempt mismatch")
+        if release.get("release_sha") != release_sha:
+            raise FanInError("source dispatch provenance release SHA mismatch")
 
 
 def _validate_aggregate(
@@ -1628,6 +1861,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--accepted-attempt-map", type=Path)
     parser.add_argument("--source-dispatch-run-id")
     parser.add_argument("--source-dispatch-run-attempt", type=int)
+    parser.add_argument(
+        "--source-dispatch-runs",
+        help=(
+            "JSON array of source dispatch identities, each with run_id and "
+            "run_attempt; use the singular options for one legacy dispatch."
+        ),
+    )
+    parser.add_argument(
+        "--source-dispatch-artifact-root",
+        type=Path,
+        action="append",
+        default=[],
+        help="Downloaded artifact root for one source dispatch; repeat per run.",
+    )
     parser.add_argument("--source-release-sha")
     parser.add_argument("--clean-motion-count", type=int)
     parser.add_argument("--prediction-unit-count", type=int)
@@ -1641,6 +1888,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def config_from_args(args: argparse.Namespace, *, verify_only: bool) -> FanInConfig:
     deferred = tuple(cast(Sequence[str], args.deferred_ablation))
+    source_dispatch_runs = _parse_source_dispatch_runs(
+        cast(str | None, args.source_dispatch_runs)
+    )
     return FanInConfig(
         freeze_bundle_path=cast(Path, args.freeze_bundle),
         freeze_root=cast(Path | None, args.freeze_root),
@@ -1654,6 +1904,10 @@ def config_from_args(args: argparse.Namespace, *, verify_only: bool) -> FanInCon
         accepted_attempt_map_path=cast(Path | None, args.accepted_attempt_map),
         source_dispatch_run_id=cast(str | None, args.source_dispatch_run_id),
         source_dispatch_run_attempt=cast(int | None, args.source_dispatch_run_attempt),
+        source_dispatch_runs=source_dispatch_runs,
+        source_dispatch_artifact_roots=tuple(
+            cast(Sequence[Path], args.source_dispatch_artifact_root)
+        ),
         source_release_sha=cast(str | None, args.source_release_sha),
         operator_clean_motion_count=cast(int | None, args.clean_motion_count),
         operator_prediction_unit_count=cast(int | None, args.prediction_unit_count),
@@ -1665,6 +1919,38 @@ def config_from_args(args: argparse.Namespace, *, verify_only: bool) -> FanInCon
         deferred_ablations=deferred or ("judge_removed",),
         verify_only=verify_only,
     )
+
+
+def _parse_source_dispatch_runs(raw: str | None) -> tuple[SourceDispatchIdentity, ...]:
+    if raw is None or not raw.strip() or raw.strip() == "[]":
+        return ()
+    try:
+        value: object = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise FanInError("source dispatch runs must be a JSON array") from exc
+    if not isinstance(value, list):
+        raise FanInError("source dispatch runs must be a JSON array")
+    identities: list[SourceDispatchIdentity] = []
+    for index, item in enumerate(cast(list[object], value)):
+        record = _mapping(item, f"source dispatch runs[{index}]")
+        if set(record) != {"run_id", "run_attempt"}:
+            raise FanInError(
+                f"source dispatch runs[{index}] must contain only run_id and "
+                "run_attempt"
+            )
+        raw_run_id = record.get("run_id")
+        if isinstance(raw_run_id, int) and not isinstance(raw_run_id, bool):
+            run_id = str(raw_run_id)
+        else:
+            run_id = _required_str(record, "run_id")
+        attempt = record.get("run_attempt")
+        if not isinstance(attempt, int) or isinstance(attempt, bool):
+            raise FanInError(
+                f"source dispatch runs[{index}].run_attempt must be an integer"
+            )
+        identities.append(SourceDispatchIdentity(run_id, attempt))
+    _validate_source_dispatch_identities(identities)
+    return tuple(identities)
 
 
 def _mapping(value: object, description: str) -> Mapping[str, Any]:

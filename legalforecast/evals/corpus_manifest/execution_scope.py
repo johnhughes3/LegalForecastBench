@@ -583,7 +583,12 @@ def verify_execution_scope_runtime(
         model_registry_sha256, "model_registry_sha256"
     ):
         raise ExecutionScopeError("scope model registry hash drift")
-    entry = _registry_entry(model_registry, key)
+    try:
+        entry = _registry_entry(model_registry, key)
+    except (KeyError, ValueError, TypeError) as exc:
+        raise ExecutionScopeError(
+            f"selected model is missing from the model registry: {key}"
+        ) from exc
     if (
         scope.get("registry_entry_sha256") != model_registry_entry_sha256(entry)
         or scope.get("registry_entry") != entry.to_record()

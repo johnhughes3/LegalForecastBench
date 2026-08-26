@@ -796,6 +796,52 @@ def test_complete_frozen_manifest_chain_authenticates_every_packet(
     )
 
 
+def test_cost_verifier_recomputes_authenticated_numeric_projection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request, _packet_paths = _authenticated_chain(tmp_path, monkeypatch)
+    authenticated = authenticate_manifest_cost_inputs(request)
+    receipt = build_manifest_cost_projection(request, authenticated=authenticated)
+    registry_entry = next(
+        entry
+        for entry in load_model_registry_bytes(SUCCESSOR_REGISTRY.read_bytes()).entries
+        if entry.registry_key == "openai:gpt-5.6-terra"
+    )
+    commitments = cast(dict[str, Any], receipt["input_commitments"])
+    expected_common = {
+        "freeze_bundle_sha256": commitments["freeze_bundle"]["sha256"],
+        "manifest_sha256": commitments["owner_manifest"]["sha256"],
+        "run_input_manifest_sha256": commitments["run_input_manifest"]["sha256"],
+        "model_registry_sha256": commitments["model_registry"]["sha256"],
+    }
+    assert (
+        projector_module.verify_manifest_cost_projection_receipt(
+            receipt,
+            expected_cycle_id="cycle-1",
+            expected_model_key="openai:gpt-5.6-terra",
+            expected_common_frozen_inputs=expected_common,
+            expected_registry_entry=registry_entry.to_record(),
+        )
+        == receipt["receipt_sha256"]
+    )
+
+    tampered = dict(receipt)
+    tampered["projected_model_cost_usd"] = "0.000001"
+    tampered["receipt_sha256"] = hash_payload(
+        {key: value for key, value in tampered.items() if key != "receipt_sha256"}
+    )
+    with pytest.raises(
+        ManifestCostProjectionError, match="authenticated pricing projection"
+    ):
+        projector_module.verify_manifest_cost_projection_receipt(
+            tampered,
+            expected_cycle_id="cycle-1",
+            expected_model_key="openai:gpt-5.6-terra",
+            expected_common_frozen_inputs=expected_common,
+            expected_registry_entry=registry_entry.to_record(),
+        )
+
+
 def test_authenticated_packet_matrix_rejects_unexpected_ablation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

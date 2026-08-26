@@ -81,6 +81,61 @@ def test_source_dispatch_identity_fields_are_all_or_nothing() -> None:
         )
 
 
+def test_source_dispatch_identity_requires_every_listed_run_and_rejects_unlisted() -> (
+    None
+):
+    identities = (
+        shard_fan_in.SourceDispatchIdentity("1001", 1),
+        shard_fan_in.SourceDispatchIdentity("1002", 2),
+    )
+    receipts = (
+        _receipt("fixture:model-a", "full_packet", run_id="1001", source_attempt=1),
+        _receipt(
+            "fixture:model-a",
+            "metadata_only",
+            run_id="1002",
+            attempt=2,
+            source_attempt=2,
+        ),
+    )
+
+    shard_fan_in.require_source_dispatch_identity(
+        receipts,
+        workflow_run_id=None,
+        workflow_run_attempt=None,
+        release_sha="d" * 40,
+        source_dispatch_runs=identities,
+    )
+
+    with pytest.raises(shard_fan_in.FanInError, match="unlisted source dispatch"):
+        shard_fan_in.require_source_dispatch_identity(
+            (
+                *receipts,
+                _receipt(
+                    "fixture:model-a",
+                    "full_packet",
+                    run_id="1003",
+                    source_attempt=1,
+                ),
+            ),
+            workflow_run_id=None,
+            workflow_run_attempt=None,
+            release_sha="d" * 40,
+            source_dispatch_runs=identities,
+        )
+
+    with pytest.raises(
+        shard_fan_in.FanInError, match="missing accepted shard receipts"
+    ):
+        shard_fan_in.require_source_dispatch_identity(
+            (receipts[0],),
+            workflow_run_id=None,
+            workflow_run_attempt=None,
+            release_sha="d" * 40,
+            source_dispatch_runs=identities,
+        )
+
+
 def test_missing_or_undeclared_shard_receipts_fail_closed() -> None:
     with pytest.raises(shard_fan_in.FanInError, match="missing shard receipts"):
         shard_fan_in.select_accepted_receipts(
@@ -310,6 +365,63 @@ def test_fan_in_rejects_receipt_bound_to_forged_scope_artifact(
             model_registry_path=tmp_path / "registry.json",
             model_registry_sha256="d" * 64,
             scope_paths=(scope_path,),
+        )
+
+
+def test_fan_in_deduplicates_identical_scope_artifacts_but_rejects_conflicts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = {
+        "schema_version": "legalforecast.execution_scope.v1",
+        "scope": {
+            "model_key": "fixture:model-a",
+            "common_plan_sha256": "b" * 64,
+        },
+        "scope_sha256": "c" * 64,
+    }
+    first_path = tmp_path / "execution-scope-1.json"
+    duplicate_path = tmp_path / "execution-scope-2.json"
+    first_path.write_text(json.dumps(scope) + "\n", encoding="utf-8")
+    duplicate_path.write_text(json.dumps(scope) + "\n", encoding="utf-8")
+    artifact_sha256 = hash_payload(scope)
+    receipt = {
+        "model_key": "fixture:model-a",
+        "ablation": "full_packet",
+        "execution_scope_sha256": "c" * 64,
+        "execution_scope_artifact_sha256": artifact_sha256,
+        "common_plan_sha256": "b" * 64,
+    }
+    replayed: list[str] = []
+    monkeypatch.setattr(shard_fan_in, "load_model_registry", lambda _path: object())
+    monkeypatch.setattr(
+        shard_fan_in,
+        "verify_execution_scope_runtime",
+        lambda *_args, **kwargs: (
+            replayed.append(str(kwargs["expected_model_key"])) or "c" * 64
+        ),
+    )
+
+    shard_fan_in.verify_scoped_execution_scopes(
+        (receipt,),
+        declared_shards=(("fixture:model-a", "full_packet"),),
+        common_plan={"schema_version": "legalforecast.execution_policy.v3"},
+        model_registry_path=tmp_path / "registry.json",
+        model_registry_sha256="d" * 64,
+        scope_paths=(first_path, duplicate_path),
+    )
+    assert replayed == ["fixture:model-a"]
+
+    duplicate_path.write_text(json.dumps(scope, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(
+        shard_fan_in.FanInError, match="conflicting transported execution scopes"
+    ):
+        shard_fan_in.verify_scoped_execution_scopes(
+            (receipt,),
+            declared_shards=(("fixture:model-a", "full_packet"),),
+            common_plan={"schema_version": "legalforecast.execution_policy.v3"},
+            model_registry_path=tmp_path / "registry.json",
+            model_registry_sha256="d" * 64,
+            scope_paths=(first_path, duplicate_path),
         )
 
 

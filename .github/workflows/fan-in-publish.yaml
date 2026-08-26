@@ -17,12 +17,19 @@ on:
         type: string
       source_dispatch_run_id:
         description: Workflow run whose frozen dispatch artifact supplies the exact run-input, labels, and registry bytes.
-        required: true
+        required: false
+        default: 0
         type: number
       source_dispatch_run_attempt:
         description: Exact attempt of the source workflow run whose non-overwritable artifact is accepted.
-        required: true
+        required: false
+        default: 0
         type: number
+      source_dispatch_runs_json:
+        description: JSON array of all source dispatch identities, each with run_id and run_attempt; use for multi-dispatch fan-in.
+        required: false
+        default: "[]"
+        type: string
       accepted_attempt_map_path:
         description: Optional committed manifests/ accepted-attempt map for ambiguous shards.
         required: false
@@ -96,6 +103,7 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
           SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}
           SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}
+          SOURCE_DISPATCH_RUNS_JSON: ${{ inputs.source_dispatch_runs_json }}
           VERIFY_ONLY: ${{ inputs.verify_only }}
         run: |
           set -euo pipefail
@@ -121,14 +129,16 @@ jobs:
             echo "cycle_id contains unsafe characters" >&2
             exit 1
           }
-          [[ "${SOURCE_DISPATCH_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || {
-            echo "source_dispatch_run_id must be a positive integer" >&2
-            exit 1
-          }
-          [[ "${SOURCE_DISPATCH_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]] || {
-            echo "source_dispatch_run_attempt must be a positive integer" >&2
-            exit 1
-          }
+          if [[ "${SOURCE_DISPATCH_RUNS_JSON}" == "[]" ]]; then
+            [[ "${SOURCE_DISPATCH_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || {
+              echo "source_dispatch_run_id must be a positive integer" >&2
+              exit 1
+            }
+            [[ "${SOURCE_DISPATCH_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]] || {
+              echo "source_dispatch_run_attempt must be a positive integer" >&2
+              exit 1
+            }
+          fi
           [[ "${FREEZE_BUNDLE}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]] || {
             echo "freeze_bundle_path must be an immutable manifest-run S3 URI" >&2
             exit 1
@@ -156,6 +166,60 @@ jobs:
               git diff --quiet HEAD -- "${ACCEPTED_MAP}"
             fi
           fi
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          raw = os.environ["SOURCE_DISPATCH_RUNS_JSON"]
+          try:
+              decoded = json.loads(raw)
+          except json.JSONDecodeError as exc:
+              raise SystemExit("source_dispatch_runs_json must be a JSON array") from exc
+          if not isinstance(decoded, list):
+              raise SystemExit("source_dispatch_runs_json must be a JSON array")
+          singular_values = (
+              os.environ["SOURCE_DISPATCH_RUN_ID"],
+              os.environ["SOURCE_DISPATCH_RUN_ATTEMPT"],
+          )
+          if decoded and any(value not in {"", "0"} for value in singular_values):
+              raise SystemExit(
+                  "source_dispatch_runs_json cannot be combined with singular source dispatch fields"
+              )
+          if not decoded:
+              decoded = [
+                  {
+                      "run_id": os.environ["SOURCE_DISPATCH_RUN_ID"],
+                      "run_attempt": int(os.environ["SOURCE_DISPATCH_RUN_ATTEMPT"]),
+                  }
+              ]
+          normalized = []
+          seen = set()
+          for index, item in enumerate(decoded):
+              if not isinstance(item, dict) or set(item) != {"run_id", "run_attempt"}:
+                  raise SystemExit(
+                      f"source_dispatch_runs_json[{index}] must contain run_id and run_attempt"
+                  )
+              run_id = str(item["run_id"])
+              attempt = item["run_attempt"]
+              if (
+                  not run_id.isascii()
+                  or not run_id.isdigit()
+                  or int(run_id) < 1
+                  or (len(run_id) > 1 and run_id.startswith("0"))
+              ):
+                  raise SystemExit("source dispatch run ID must be a positive integer")
+              if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
+                  raise SystemExit("source dispatch run attempt must be a positive integer")
+              identity = (run_id, attempt)
+              if identity in seen:
+                  raise SystemExit("source_dispatch_runs_json contains duplicate identity")
+              seen.add(identity)
+              normalized.append({"run_id": run_id, "run_attempt": attempt})
+          Path("/tmp/lfb-source-dispatch-runs.json").write_text(
+              json.dumps(normalized, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PY
 
       - name: Validate source dispatch workflow run
         shell: bash
@@ -164,8 +228,6 @@ jobs:
           GITHUB_REPOSITORY_NAME: ${{ github.repository }}
           GITHUB_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ inputs.release_sha }}
-          SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}
-          SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -175,10 +237,10 @@ jobs:
           import urllib.request
 
           expected_release_sha = os.environ["RELEASE_SHA"]
-          source_dispatch_run_id = os.environ["SOURCE_DISPATCH_RUN_ID"]
-          source_dispatch_run_attempt = os.environ["SOURCE_DISPATCH_RUN_ATTEMPT"]
           api_url = os.environ["GITHUB_API_URL"].rstrip("/")
           repository = os.environ["GITHUB_REPOSITORY_NAME"]
+          with open("/tmp/lfb-source-dispatch-runs.json", encoding="utf-8") as handle:
+              identities = json.load(handle)
 
           def request_json(path, description):
               request = urllib.request.Request(
@@ -196,68 +258,70 @@ jobs:
               except (OSError, json.JSONDecodeError, urllib.error.URLError) as exc:
                   raise SystemExit(f"could not validate {description}") from exc
 
-          attempt_path = (
-              f"/repos/{repository}/actions/runs/{source_dispatch_run_id}/"
-              f"attempts/{source_dispatch_run_attempt}"
-          )
-          run = request_json(attempt_path, "the source dispatch workflow run")
-
-          if not isinstance(run, dict):
-              raise SystemExit("source dispatch workflow run response is invalid")
-          if run["id"] != int(source_dispatch_run_id):
-              raise SystemExit("source dispatch workflow run ID mismatch")
-          if run["run_attempt"] != int(source_dispatch_run_attempt):
-              raise SystemExit("source dispatch workflow run attempt mismatch")
-          if run["head_sha"] != expected_release_sha:
-              raise SystemExit("source dispatch workflow run release mismatch")
-          if run["head_branch"] != "main":
-              raise SystemExit("source dispatch workflow run branch mismatch")
-          if run["event"] != "workflow_dispatch":
-              raise SystemExit("source dispatch workflow run event mismatch")
-          if run["path"] != ".github/workflows/run-benchmark.yaml":
-              raise SystemExit("source dispatch workflow path mismatch")
-          if run["status"] != "completed":
-              raise SystemExit("source dispatch workflow attempt is not complete")
-
-          jobs = []
-          expected_job_count = None
-          page = 1
-          while True:
-              jobs_response = request_json(
-                  f"{attempt_path}/jobs?filter=all&per_page=100&page={page}",
-                  "the source dispatch workflow jobs",
+          for identity in identities:
+              source_dispatch_run_id = identity["run_id"]
+              source_dispatch_run_attempt = identity["run_attempt"]
+              attempt_path = (
+                  f"/repos/{repository}/actions/runs/{source_dispatch_run_id}/"
+                  f"attempts/{source_dispatch_run_attempt}"
               )
-              if not isinstance(jobs_response, dict):
+              run = request_json(attempt_path, "a source dispatch workflow run")
+              if not isinstance(run, dict):
+                  raise SystemExit("source dispatch workflow run response is invalid")
+              if run["id"] != int(source_dispatch_run_id):
+                  raise SystemExit("source dispatch workflow run ID mismatch")
+              if run["run_attempt"] != int(source_dispatch_run_attempt):
+                  raise SystemExit("source dispatch workflow run attempt mismatch")
+              if run["head_sha"] != expected_release_sha:
+                  raise SystemExit("source dispatch workflow run release mismatch")
+              if run["head_branch"] != "main":
+                  raise SystemExit("source dispatch workflow run branch mismatch")
+              if run["event"] != "workflow_dispatch":
+                  raise SystemExit("source dispatch workflow run event mismatch")
+              if run["path"] != ".github/workflows/run-benchmark.yaml":
+                  raise SystemExit("source dispatch workflow path mismatch")
+              if run["status"] != "completed" or run.get("conclusion") != "success":
+                  raise SystemExit("source dispatch workflow attempt did not succeed")
+              jobs = []
+              expected_job_count = None
+              page = 1
+              while True:
+                  jobs_response = request_json(
+                      f"{attempt_path}/jobs?filter=all&per_page=100&page={page}",
+                      "a source dispatch workflow jobs page",
+                  )
+                  if not isinstance(jobs_response, dict):
+                      raise SystemExit("source dispatch workflow jobs response is invalid")
+                  page_jobs = jobs_response.get("jobs")
+                  total_count = jobs_response.get("total_count")
+                  if (
+                      not isinstance(page_jobs, list)
+                      or isinstance(total_count, bool)
+                      or not isinstance(total_count, int)
+                      or total_count < 0
+                  ):
+                      raise SystemExit("source dispatch workflow jobs response is invalid")
+                  if expected_job_count is None:
+                      expected_job_count = total_count
+                  elif total_count != expected_job_count:
+                      raise SystemExit("source dispatch workflow jobs changed during validation")
+                  if not all(isinstance(job, dict) for job in page_jobs):
+                      raise SystemExit("source dispatch workflow job record is invalid")
+                  jobs.extend(page_jobs)
+                  if len(jobs) >= expected_job_count:
+                      break
+                  if not page_jobs or page >= 10:
+                      raise SystemExit("source dispatch workflow jobs response is incomplete")
+                  page += 1
+              if len(jobs) != expected_job_count:
                   raise SystemExit("source dispatch workflow jobs response is invalid")
-              page_jobs = jobs_response.get("jobs")
-              total_count = jobs_response.get("total_count")
-              if (
-                  not isinstance(page_jobs, list)
-                  or isinstance(total_count, bool)
-                  or not isinstance(total_count, int)
-                  or total_count < 0
-              ):
-                  raise SystemExit("source dispatch workflow jobs response is invalid")
-              if expected_job_count is None:
-                  expected_job_count = total_count
-              elif total_count != expected_job_count:
-                  raise SystemExit("source dispatch workflow jobs changed during validation")
-              if not all(isinstance(job, dict) for job in page_jobs):
-                  raise SystemExit("source dispatch workflow job record is invalid")
-              jobs.extend(page_jobs)
-              if len(jobs) >= expected_job_count:
-                  break
-              if not page_jobs or page >= 10:
-                  raise SystemExit("source dispatch workflow jobs response is incomplete")
-              page += 1
-          if len(jobs) != expected_job_count:
-              raise SystemExit("source dispatch workflow jobs response is invalid")
-          build_jobs = [job for job in jobs if job.get("name") == "Build benchmark matrix"]
-          if len(build_jobs) != 1 or build_jobs[0].get("conclusion") != "success":
-              raise SystemExit("source dispatch build-matrix job did not succeed")
+              build_jobs = [job for job in jobs if job.get("name") == "Build benchmark matrix"]
+              if len(build_jobs) != 1 or build_jobs[0].get("conclusion") != "success":
+                  raise SystemExit("source dispatch build-matrix job did not succeed")
           PY
 
       - name: Download exact frozen dispatch inputs
+        if: ${{ inputs.source_dispatch_runs_json == '[]' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: official-dispatch-provenance-${{ inputs.source_dispatch_run_id }}-${{ inputs.source_dispatch_run_attempt }}
@@ -265,14 +329,177 @@ jobs:
           github-token: ${{ github.token }}
           run-id: ${{ inputs.source_dispatch_run_id }}
 
+      - name: Download all exact frozen dispatch inputs
+        if: ${{ inputs.source_dispatch_runs_json != '[]' }}
+        shell: bash
+        env:
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY_NAME: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import io
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+
+          api_url = os.environ["GITHUB_API_URL"].rstrip("/")
+          repository = os.environ["GITHUB_REPOSITORY_NAME"]
+          token = os.environ["GITHUB_TOKEN"]
+          with open("/tmp/lfb-source-dispatch-runs.json", encoding="utf-8") as handle:
+              identities = json.load(handle)
+
+          def request_json(url, description):
+              request = urllib.request.Request(
+                  url if url.startswith("http") else f"{api_url}{url}",
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "User-Agent": "legalforecastbench-official-fan-in",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=60) as response:
+                      return json.load(response)
+              except (OSError, json.JSONDecodeError, urllib.error.URLError) as exc:
+                  raise SystemExit(f"could not download {description}") from exc
+
+          def request_bytes(url, description):
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "User-Agent": "legalforecastbench-official-fan-in",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=120) as response:
+                      return response.read()
+              except (OSError, urllib.error.URLError) as exc:
+                  raise SystemExit(f"could not download {description}") from exc
+
+          root = Path("/tmp/lfb-source-dispatch")
+          root.mkdir(parents=True, exist_ok=True)
+          release_sha = os.environ["RELEASE_SHA"]
+          common_names = (
+              "lfb-run-inputs-frozen.json",
+              "lfb-labels.jsonl",
+              "lfb-model-registry.json",
+              "lfb-execution-policy.json",
+          )
+          canonical_bytes = None
+          for identity in identities:
+              run_id = identity["run_id"]
+              attempt = identity["run_attempt"]
+              artifact_name = f"official-dispatch-provenance-{run_id}-{attempt}"
+              artifact = None
+              page = 1
+              while True:
+                  listing = request_json(
+                      f"/repos/{repository}/actions/runs/{run_id}/artifacts"
+                      f"?per_page=100&page={page}",
+                      f"artifacts for source run {run_id}/{attempt}",
+                  )
+                  if not isinstance(listing, dict) or not isinstance(
+                      listing.get("artifacts"), list
+                  ):
+                      raise SystemExit("source dispatch artifact listing is invalid")
+                  matches = [
+                      item
+                      for item in listing["artifacts"]
+                      if isinstance(item, dict) and item.get("name") == artifact_name
+                  ]
+                  if len(matches) > 1:
+                      raise SystemExit("source dispatch artifact name is ambiguous")
+                  if matches:
+                      artifact = matches[0]
+                      break
+                  if not listing["artifacts"] or page >= 10:
+                      raise SystemExit(
+                          f"source dispatch artifact is missing: {artifact_name}"
+                      )
+                  page += 1
+              archive_url = artifact.get("archive_download_url")
+              if not isinstance(archive_url, str) or not archive_url.startswith("http"):
+                  raise SystemExit("source dispatch artifact archive URL is invalid")
+              payload = request_bytes(archive_url, artifact_name)
+              target = root / f"{run_id}-{attempt}"
+              target.mkdir(parents=True, exist_ok=False)
+              with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                  for member in archive.infolist():
+                      relative = Path(member.filename)
+                      if relative.is_absolute() or ".." in relative.parts:
+                          raise SystemExit("source dispatch artifact contains unsafe path")
+                      if member.is_dir():
+                          continue
+                      destination = target / relative
+                      destination.parent.mkdir(parents=True, exist_ok=True)
+                      destination.write_bytes(archive.read(member))
+              required = ("lfb-dispatch-release.json", *common_names)
+              if any(not (target / name).is_file() for name in required):
+                  raise SystemExit(f"source dispatch artifact is incomplete: {artifact_name}")
+              try:
+                  release = json.loads(
+                      (target / "lfb-dispatch-release.json").read_text(encoding="utf-8")
+                  )
+              except (OSError, json.JSONDecodeError) as exc:
+                  raise SystemExit("source dispatch release provenance is invalid JSON") from exc
+              expected_fields = {
+                  "schema_version",
+                  "workflow_run_id",
+                  "workflow_run_attempt",
+                  "release_sha",
+              }
+              if not isinstance(release, dict) or set(release) != expected_fields:
+                  raise SystemExit("source dispatch release provenance fields mismatch")
+              if release["schema_version"] != "legalforecast.dispatch_release.v2":
+                  raise SystemExit("source dispatch release provenance schema mismatch")
+              if release["workflow_run_id"] != run_id:
+                  raise SystemExit("source dispatch provenance workflow run mismatch")
+              if release["workflow_run_attempt"] != attempt:
+                  raise SystemExit("source dispatch provenance workflow attempt mismatch")
+              if release["release_sha"] != release_sha:
+                  raise SystemExit("source dispatch provenance release SHA mismatch")
+              current_bytes = {
+                  name: (target / name).read_bytes() for name in common_names
+              }
+              if canonical_bytes is None:
+                  canonical_bytes = current_bytes
+              elif current_bytes != canonical_bytes:
+                  raise SystemExit("source dispatch common artifacts differ across runs")
+
+          if canonical_bytes is None:
+              raise SystemExit("source dispatch runs are empty")
+          first = root / f"{identities[0]['run_id']}-{identities[0]['run_attempt']}"
+          for name in (
+              "lfb-dispatch-release.json",
+              "lfb-run-inputs-frozen.json",
+              "lfb-labels.jsonl",
+              "lfb-model-registry.json",
+              "lfb-execution-policy.json",
+          ):
+              (root / name).write_bytes((first / name).read_bytes())
+          PY
+
       - name: Validate frozen dispatch artifact
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
           SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}
           SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}
+          SOURCE_DISPATCH_RUNS_JSON: ${{ inputs.source_dispatch_runs_json }}
         run: |
           set -euo pipefail
+          source_dispatch_runs_json_compact="${SOURCE_DISPATCH_RUNS_JSON//[[:space:]]/}"
+          if [[ "${source_dispatch_runs_json_compact}" == "[]" ]]; then
           for path in \
             /tmp/lfb-source-dispatch/lfb-dispatch-release.json \
             /tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json \
@@ -318,6 +545,7 @@ jobs:
           if release["release_sha"] != expected_release_sha:
               raise SystemExit("source dispatch provenance release SHA mismatch")
           PY
+          fi
 
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
@@ -361,6 +589,7 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
           SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}
           SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}
+          SOURCE_DISPATCH_RUNS_JSON: ${{ inputs.source_dispatch_runs_json }}
           VERIFY_ONLY: ${{ inputs.verify_only }}
         run: |
           set -euo pipefail
@@ -388,21 +617,45 @@ jobs:
             --run-input-manifest /tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json
             --labels /tmp/lfb-source-dispatch/lfb-labels.jsonl
             --model-registry /tmp/lfb-source-dispatch/lfb-model-registry.json
-            --source-dispatch-run-id "${SOURCE_DISPATCH_RUN_ID}"
-            --source-dispatch-run-attempt "${SOURCE_DISPATCH_RUN_ATTEMPT}"
             --source-release-sha "${RELEASE_SHA}"
             --receipt-root "s3://${LFB_RESULTS_BUCKET}"
             --output-dir tmp/official-fan-in
           )
+          source_dispatch_runs_json_compact="${SOURCE_DISPATCH_RUNS_JSON//[[:space:]]/}"
+          if [[ "${source_dispatch_runs_json_compact}" != "[]" ]]; then
+            args+=(--source-dispatch-runs "$(< /tmp/lfb-source-dispatch-runs.json)")
+            while IFS= read -r source_root; do
+              args+=(--source-dispatch-artifact-root "${source_root}")
+            done < <(python - <<'PY'
+          import json
+          from pathlib import Path
+          identities = json.loads(Path('/tmp/lfb-source-dispatch-runs.json').read_text())
+          root = Path('/tmp/lfb-source-dispatch')
+          for identity in identities:
+              print(root / f"{identity['run_id']}-{identity['run_attempt']}")
+          PY
+            )
+          else
+            args+=(--source-dispatch-run-id "${SOURCE_DISPATCH_RUN_ID}")
+            args+=(--source-dispatch-run-attempt "${SOURCE_DISPATCH_RUN_ATTEMPT}")
+            args+=(--source-dispatch-artifact-root /tmp/lfb-source-dispatch)
+          fi
           if [[ -d /tmp/lfb-manifest-run/amendments ]]; then
             while IFS= read -r bundle_path; do
               args+=(--amendment-bundle "${bundle_path}")
             done < <(find /tmp/lfb-manifest-run/amendments -type f -name '*.freeze.json' -print | sort)
           fi
           scope_args=()
-          while IFS= read -r scope_path; do
-            scope_args+=(--execution-scope "${scope_path}")
-          done < <(find /tmp/lfb-source-dispatch -maxdepth 1 -type f -name 'lfb-execution-scope*.json' -size +0c -print | sort)
+          source_dispatch_runs_json_compact="${SOURCE_DISPATCH_RUNS_JSON//[[:space:]]/}"
+          if [[ "${source_dispatch_runs_json_compact}" == "[]" ]]; then
+            while IFS= read -r scope_path; do
+              scope_args+=(--execution-scope "${scope_path}")
+            done < <(find /tmp/lfb-source-dispatch -maxdepth 1 -type f -name 'lfb-execution-scope*.json' -size +0c -print | sort)
+          else
+            while IFS= read -r scope_path; do
+              scope_args+=(--execution-scope "${scope_path}")
+            done < <(find /tmp/lfb-source-dispatch -mindepth 2 -maxdepth 2 -type f -name 'lfb-execution-scope*.json' -size +0c -print | sort)
+          fi
           if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" == "legalforecast.execution_policy.v3" && "${#scope_args[@]}" -eq 0 ]]; then
             echo "v3 source dispatch is missing its authenticated execution scope artifact" >&2
             exit 1

@@ -108,6 +108,9 @@ _COST_INPUT_COMMITMENT_FIELDS: Final = frozenset(
 )
 _COST_RAW_COMMITMENT_FIELDS: Final = frozenset({"sha256", "size_bytes"})
 _COST_PACKET_COMMITMENT_FIELDS: Final = frozenset(
+    {"packet_object_key", "sha256", "size_bytes", "input_tokens"}
+)
+_LEGACY_COST_PACKET_COMMITMENT_FIELDS: Final = frozenset(
     {"packet_object_key", "sha256", "size_bytes"}
 )
 _COST_WARNING_FIELDS: Final = frozenset(
@@ -523,15 +526,34 @@ def verify_manifest_cost_projection_receipt(
     if not isinstance(raw_packet_commitments, list):
         raise ManifestCostProjectionError("input_commitments.packets must be an array")
     packet_commitments: dict[str, Mapping[str, Any]] = {}
+    authenticated_token_basis: bool | None = None
     for index, raw_commitment in enumerate(cast(list[object], raw_packet_commitments)):
         commitment = _cost_mapping(
             raw_commitment, f"input_commitments.packets[{index}]"
         )
-        _cost_exact_keys(
-            commitment,
-            _COST_PACKET_COMMITMENT_FIELDS,
-            f"input_commitments.packets[{index}]",
-        )
+        commitment_fields = set(commitment)
+        if commitment_fields == set(_LEGACY_COST_PACKET_COMMITMENT_FIELDS):
+            # Receipts issued before the token-basis extension remain readable
+            # for existing offline scope fixtures.  Newly issued receipts
+            # always carry input_tokens and take the strict path below.
+            has_token_basis = False
+        elif commitment_fields != set(_COST_PACKET_COMMITMENT_FIELDS):
+            _cost_exact_keys(
+                commitment,
+                _COST_PACKET_COMMITMENT_FIELDS,
+                f"input_commitments.packets[{index}]",
+            )
+            has_token_basis = True
+        else:
+            has_token_basis = True
+        if (
+            authenticated_token_basis is not None
+            and authenticated_token_basis != has_token_basis
+        ):
+            raise ManifestCostProjectionError(
+                "input_commitments.packets must use one token-basis format"
+            )
+        authenticated_token_basis = has_token_basis
         key = _cost_packet_key(
             commitment.get("packet_object_key"),
             f"input_commitments.packets[{index}].packet_object_key",
@@ -547,6 +569,11 @@ def verify_manifest_cost_projection_receipt(
             commitment.get("size_bytes"),
             f"input_commitments.packets[{index}].size_bytes",
         )
+        if authenticated_token_basis:
+            _cost_nonnegative_int(
+                commitment.get("input_tokens"),
+                f"input_commitments.packets[{index}].input_tokens",
+            )
         packet_commitments[key] = commitment
     if len(packet_commitments) != OFFICIAL_CALL_COUNT:
         raise ManifestCostProjectionError(
@@ -569,6 +596,7 @@ def verify_manifest_cost_projection_receipt(
     matrix_rows: list[Mapping[str, Any]] = []
     observed_pairs: set[tuple[str, str]] = set()
     observed_packet_keys: set[str] = set()
+    recomputed_cost = 0.0
     for index, raw_row in enumerate(rows):
         row = _cost_mapping(raw_row, f"matrix.include[{index}]")
         _cost_exact_keys(row, _COST_MATRIX_ROW_FIELDS, f"matrix.include[{index}]")
@@ -613,6 +641,15 @@ def verify_manifest_cost_projection_receipt(
         if row.get("repeat_count") != 1:
             raise ManifestCostProjectionError(
                 "cost receipt matrix repeat_count must be one"
+            )
+        if authenticated_token_basis:
+            input_tokens = _cost_nonnegative_int(
+                packet_commitments[packet_key].get("input_tokens"),
+                f"input_commitments.packets[{packet_key}].input_tokens",
+            )
+            recomputed_cost += projected_cost_for_row(
+                input_tokens=input_tokens,
+                registry_record=expected_registry_entry,
             )
         matrix_rows.append(row)
     if observed_pairs != expected_pairs or observed_packet_keys != set(
@@ -703,10 +740,48 @@ def verify_manifest_cost_projection_receipt(
             raise ManifestCostProjectionError(
                 "long_context warning packet commitment differs from matrix"
             )
-        _cost_nonnegative_int(
+        warning_tokens = _cost_nonnegative_int(
             warning.get("estimated_input_tokens"),
             "long_context warning estimated_input_tokens",
         )
+        if authenticated_token_basis and warning_tokens != packet_commitments[
+            warning_key
+        ].get("input_tokens"):
+            raise ManifestCostProjectionError(
+                "long_context warning token basis differs from packet commitment"
+            )
+    if authenticated_token_basis:
+        expected_warning_keys = {
+            (cast(str, row["case_id"]), cast(str, row["ablation"]))
+            for row in matrix_rows
+            if _cost_nonnegative_int(
+                packet_commitments[cast(str, row["packet_object_key"])].get(
+                    "input_tokens"
+                ),
+                "matrix packet input_tokens",
+            )
+            > LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS
+        }
+        observed_warning_keys = {
+            (
+                _cost_text(
+                    _cost_mapping(raw, "long_context warning").get("case_id"),
+                    "long_context warning case_id",
+                ),
+                _cost_text(
+                    _cost_mapping(raw, "long_context warning").get("ablation"),
+                    "long_context warning ablation",
+                ),
+            )
+            for raw in warning_rows
+        }
+        if observed_warning_keys != expected_warning_keys:
+            raise ManifestCostProjectionError(
+                "long_context warning rows do not match authenticated token basis"
+            )
+
+    expected_projected = _format_usd(recomputed_cost)
+    expected_recommended = _format_usd(recomputed_cost * 2)
 
     projected = _cost_money(
         record.get("projected_model_cost_usd"), "projected_model_cost_usd"
@@ -718,6 +793,22 @@ def verify_manifest_cost_projection_receipt(
     if recommended < projected:
         raise ManifestCostProjectionError(
             "recommended cost ceiling is below projected model cost"
+        )
+    if (
+        authenticated_token_basis
+        and record.get("projected_model_cost_usd") != expected_projected
+    ):
+        raise ManifestCostProjectionError(
+            "projected_model_cost_usd does not match authenticated pricing projection"
+        )
+    if (
+        authenticated_token_basis
+        and record.get("recommended_max_projected_model_cost_usd")
+        != expected_recommended
+    ):
+        raise ManifestCostProjectionError(
+            "recommended_max_projected_model_cost_usd does not match the 2x "
+            "authenticated pricing projection"
         )
     requested_ceiling = record.get("max_projected_model_cost_usd")
     if requested_ceiling is not None:
