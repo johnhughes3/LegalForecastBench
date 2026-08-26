@@ -24,6 +24,7 @@ The technical documentation in this folder is drafted and maintained with substa
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
 - [Corpus split public-history audit and cutover map](corpus-split-history-audit.md): revision-bound security conclusion and package-level keep, private-port, delete, and archive boundaries for the public/private cutover.
 - [Publication governance](publication-governance.md): public evidence tiers, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
+- [Hugging Face benchmark publication](hugging-face-publication.md): manually gated access, immutable dataset revisions, native leaderboard registration, and short-lived automated publication.
 
 ## Release Security
 

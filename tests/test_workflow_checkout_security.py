@@ -37,3 +37,39 @@ def test_checkout_steps_disable_credential_persistence() -> None:
         "actions/checkout steps must set persist-credentials: false: "
         + ", ".join(unsecured_steps)
     )
+
+
+def test_official_fan_in_keeps_hf_publication_gated_and_short_lived() -> None:
+    workflow = (WORKFLOW_ROOT / "fan-in-publish.yaml").read_text(encoding="utf-8")
+
+    assert "hugging_face_release_version:" in workflow
+    assert (
+        workflow.count(
+            "if: ${{ !inputs.verify_only && "
+            "inputs.hugging_face_release_version != '' }}"
+        )
+        == 2
+    )
+    assert (
+        "HF_OIDC_RESOURCE: datasets/${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}"
+        in workflow
+    )
+    assert "huggingface_hub==1.28.0" in workflow
+    assert 'if info.gated != "manual":' in workflow
+    assert "api.list_repo_files(" in workflow
+    assert "immutable release already exists" in workflow
+    assert "api.upload_folder(" in workflow
+    assert "parent_commit=info.sha" in workflow
+    assert "HF_TOKEN" not in workflow
+
+
+def test_hf_runbook_records_revision_and_registration_boundaries() -> None:
+    runbook = (ROOT / "docs" / "hugging-face-publication.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "dataset.revision" in runbook
+    assert "full Hugging Face commit SHA" in runbook
+    assert "Manual approval" in runbook
+    assert "allow-list" in runbook
+    assert "not a reproducible benchmark identity" in runbook

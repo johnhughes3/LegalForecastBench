@@ -60,6 +60,7 @@
       "variables": [
         "LFB_AWS_REGION",
         "LFB_GITHUB_FAN_IN_ROLE_ARN",
+        "LFB_HF_OFFICIAL_DATASET_REPO",
         "LFB_PACKET_BUCKET",
         "LFB_RESULTS_BUCKET"
       ]
