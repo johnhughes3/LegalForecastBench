@@ -4,9 +4,14 @@ from datetime import date
 
 from legalforecast.openai_transport import (
     OPENAI_RESPONSES_URL,
+    OPENAI_TRANSPORT_CONTRACT_VERSION,
     VERCEL_AI_GATEWAY_RESPONSES_URL,
     resolve_openai_transport,
 )
+
+
+def test_transport_contract_version_identifies_gateway_capable_release() -> None:
+    assert OPENAI_TRANSPORT_CONTRACT_VERSION == "vercel-sol-flex-v1"
 
 
 def test_sol_uses_openai_only_vercel_route_through_promotion_last_date() -> None:

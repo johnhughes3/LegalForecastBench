@@ -10,6 +10,7 @@ OPENAI_RESPONSES_URL: Final = "https://api.openai.com/v1/responses"
 VERCEL_AI_GATEWAY_RESPONSES_URL: Final = "https://ai-gateway.vercel.sh/v1/responses"
 OPENAI_SERVICE_TIER: Final = "flex"
 OPENAI_SOL_MODEL_ID: Final = "gpt-5.6-sol"
+OPENAI_TRANSPORT_CONTRACT_VERSION: Final = "vercel-sol-flex-v1"
 VERCEL_SOL_PROMOTION_LAST_DATE_UTC: Final = date(2026, 9, 18)
 VERCEL_OPENAI_PROVIDER: Final = "openai"
 
