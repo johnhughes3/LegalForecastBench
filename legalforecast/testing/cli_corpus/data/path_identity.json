@@ -200,6 +200,7 @@
         "legalforecast/evals/inspect_task.py",
         "legalforecast/evals/per_case_runner.py",
         "legalforecast/evals/live_model_solver.py",
+        "legalforecast/evals/model_registry.py",
         "legalforecast/publication/official_aggregate.py"
       ]
     }
@@ -438,6 +439,7 @@
       "legalforecast/evals/corpus_manifest/forecast_entry.py",
       "legalforecast/evals/inspect_task.py",
       "legalforecast/evals/live_model_solver.py",
+      "legalforecast/evals/model_registry.py",
       "legalforecast/evals/per_case_runner.py",
       "legalforecast/publication/official_aggregate.py"
     ],
@@ -598,6 +600,7 @@
       "legalforecast/evals/corpus_manifest/forecast_entry.py",
       "legalforecast/evals/inspect_task.py",
       "legalforecast/evals/live_model_solver.py",
+      "legalforecast/evals/model_registry.py",
       "legalforecast/evals/per_case_runner.py",
       "legalforecast/publication/official_aggregate.py"
     ],
