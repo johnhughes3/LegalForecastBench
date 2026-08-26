@@ -154,6 +154,13 @@ def test_provider_cell_preserves_frozen_dispatch_and_cycle_bindings() -> None:
     assert "--expected-execution-policy-sha256" in WORKFLOW
     assert "--provider-account" not in WORKFLOW
     assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in WORKFLOW
+    assert "freeze_bundle_sha256:" in WORKFLOW
+    assert "FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}" in WORKFLOW
+    assert "freeze_bundle_sha256 must be lowercase SHA-256." in WORKFLOW
+    assert (
+        "EXPECTED_FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}" in WORKFLOW
+    )
+    assert "expected_freeze_bundle_sha256=os.environ[" in WORKFLOW
     assert '--workflow-run-id "${GITHUB_RUN_ID}"' in WORKFLOW
     assert '--workflow-run-attempt "${GITHUB_RUN_ATTEMPT}"' in WORKFLOW
     begin = WORKFLOW.index("- name: Begin per-case cycle mutation")

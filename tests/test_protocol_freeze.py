@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import legalforecast.protocol.freeze as freeze_module
 import pytest
 from legalforecast.ingestion.cohort_policy import generate_cohort_policy
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -99,6 +100,62 @@ def test_freeze_api_cannot_override_mandatory_policy_artifacts(tmp_path: Path) -
         match=("provider_cycle_caps, execution_policy, labeling_policy, cohort_policy"),
     ):
         freeze_cycle("cycle_fixture", without_policies)
+
+
+def test_v3_model_scope_plan_does_not_require_legacy_policy_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = {
+        FrozenArtifactName.PROVIDER_CYCLE_CAPS: tmp_path / "caps.json",
+        FrozenArtifactName.EXECUTION_POLICY: tmp_path / "execution.json",
+        FrozenArtifactName.LABELING_POLICY: tmp_path / "labeling.json",
+        FrozenArtifactName.COHORT_POLICY: tmp_path / "cohort.json",
+    }
+    paths[FrozenArtifactName.EXECUTION_POLICY].write_text(
+        json.dumps({"schema_version": "legalforecast.execution_policy.v3"}) + "\n",
+        encoding="utf-8",
+    )
+    paths[FrozenArtifactName.LABELING_POLICY].write_text(
+        json.dumps({"policy": {"cycle_id": "cycle_fixture"}}) + "\n",
+        encoding="utf-8",
+    )
+    paths[FrozenArtifactName.COHORT_POLICY].write_text(
+        json.dumps({"policy": {"cycle_id": "cycle_fixture"}}) + "\n",
+        encoding="utf-8",
+    )
+    paths[FrozenArtifactName.PROVIDER_CYCLE_CAPS].write_text("{}\n", encoding="utf-8")
+    artifacts = tuple(
+        freeze_module.FrozenArtifact(
+            name=name,
+            path=path,
+            sha256=sha256_file(path),
+            size_bytes=path.stat().st_size,
+        )
+        for name, path in paths.items()
+    )
+
+    monkeypatch.setattr(
+        "legalforecast.protocol.policy_artifacts.verify_official_execution_policy",
+        lambda *_args, **_kwargs: "v3-plan",
+    )
+    monkeypatch.setattr(
+        "legalforecast.protocol.policy_artifacts.verify_labeling_policy",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "legalforecast.ingestion.cohort_policy.verify_cohort_policy",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "legalforecast.protocol.policy_artifacts.official_execution_policy_content",
+        lambda _artifact: {"cycle_series": "official"},
+    )
+    monkeypatch.setattr(
+        "legalforecast.labeling.provider_journal.load_provider_cycle_caps",
+        lambda _path: type("Caps", (), {"cycle_id": "cycle_fixture"})(),
+    )
+
+    freeze_module._verify_policy_artifact_links("cycle_fixture", artifacts)
 
 
 def test_post_freeze_modification_is_detected(tmp_path: Path) -> None:

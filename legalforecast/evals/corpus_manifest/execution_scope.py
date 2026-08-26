@@ -37,6 +37,15 @@ from legalforecast.evals.model_registry import (
 )
 from legalforecast.immutable_io import ImmutableIOError, write_file_create_only
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
+from legalforecast.labeling.provider_journal import (
+    ProviderJournalError,
+    load_provider_cycle_caps_bytes,
+)
+from legalforecast.protocol.freeze import (
+    FreezeProtocolError,
+    FrozenArtifactName,
+    verify_freeze_bundle,
+)
 from legalforecast.protocol.manifest import hash_payload
 
 EXECUTION_POLICY_V3_SCHEMA_VERSION: Final = str(EXECUTION_POLICY_V3)
@@ -167,7 +176,11 @@ def issue_execution_plan(
     inputs = dict(common_frozen_inputs)
     if run_card_sha256 is not None:
         inputs["run_card_sha256"] = run_card_sha256
-    _validate_common_inputs(inputs)
+    # The v3 plan is deliberately issuable before the final freeze.  The
+    # freeze itself contains this plan, so including the final bundle hash here
+    # would require a hash fixed point.  Scope issuance fills this one field
+    # from the authenticated cost receipt after the final bundle exists.
+    _validate_common_inputs(inputs, allow_missing_freeze=True)
     registry_sha256 = _sha256_bytes(registry_bytes)
     if inputs["model_registry_sha256"] != registry_sha256:
         raise ExecutionScopeError("model registry hash does not match supplied inputs")
@@ -225,7 +238,10 @@ def issue_model_execution_scope(
     run_input_manifest: Path | bytes,
     owner_ceiling_usd: str,
     owner_bead_id: str,
-    provider_authority: Mapping[str, Any],
+    provider_authority: Mapping[str, Any] | None = None,
+    freeze_bundle: Path | None = None,
+    freeze_root: Path | None = None,
+    provider_cycle_caps: Path | None = None,
     output: Path | None = None,
 ) -> dict[str, Any]:
     """Issue one exact-model scope against a complete v3 plan.
@@ -260,8 +276,21 @@ def issue_model_execution_scope(
         "model_registry_sha256"
     ) != _sha256_bytes(registry_bytes):
         raise ExecutionScopeError("model registry does not match common plan")
-    common_inputs = _mapping(plan.get("common_frozen_inputs"), "common_frozen_inputs")
+    plan_common_inputs = _mapping(
+        plan.get("common_frozen_inputs"), "common_frozen_inputs"
+    )
     cost_artifact = _load_json_source(cost_projection, "cost projection receipt")
+    common_inputs = _complete_common_inputs_from_cost(
+        plan_common_inputs,
+        cost_artifact,
+    )
+    _verify_final_freeze_and_provider_caps(
+        freeze_bundle=freeze_bundle,
+        freeze_root=freeze_root,
+        provider_cycle_caps=provider_cycle_caps,
+        expected_freeze_sha256=common_inputs["freeze_bundle_sha256"],
+        expected_cycle_id=_text(plan.get("cycle_id"), "cycle_id"),
+    )
     cost_digest = _verify_cost_receipt(
         cost_artifact,
         cycle_id=_text(plan.get("cycle_id"), "cycle_id"),
@@ -291,8 +320,11 @@ def issue_model_execution_scope(
         owner_ceiling=ceiling,
         expected_bead_id=owner_bead_id,
     )
-    authority = _validate_provider_authority(
-        provider_authority,
+    authority = _authority_for_scope(
+        provider_authority=provider_authority,
+        provider_cycle_caps=provider_cycle_caps,
+        freeze_bundle=freeze_bundle,
+        freeze_root=freeze_root,
         provider=entry.provider,
         projected_cost=projected,
         owner_ceiling=ceiling,
@@ -330,6 +362,9 @@ def issue_model_execution_scope(
         run_input_manifest=run_input_manifest,
         owner_evidence=evidence,
         provider_authority=authority,
+        freeze_bundle=freeze_bundle,
+        freeze_root=freeze_root,
+        provider_cycle_caps=provider_cycle_caps,
         expected_model_key=key,
     )
     if _read_bytes(registry_path, "model registry") != registry_bytes:
@@ -347,7 +382,10 @@ def verify_execution_scope(
     cost_projection: Path | Mapping[str, Any],
     run_input_manifest: Path | bytes,
     owner_evidence: Path | Mapping[str, Any] | bytes | None = None,
-    provider_authority: Mapping[str, Any],
+    provider_authority: Mapping[str, Any] | None = None,
+    freeze_bundle: Path | None = None,
+    freeze_root: Path | None = None,
+    provider_cycle_caps: Path | None = None,
     expected_model_key: str | None = None,
     expected_ablation: str | None = None,
 ) -> str:
@@ -388,8 +426,13 @@ def verify_execution_scope(
         raise ExecutionScopeError(
             "scope model_key is not authorized by registry"
         ) from exc
-    if scope.get("common_frozen_inputs") != plan.get("common_frozen_inputs"):
-        raise ExecutionScopeError("scope common frozen inputs drift")
+    plan_common_inputs = _mapping(
+        plan.get("common_frozen_inputs"), "common_frozen_inputs"
+    )
+    scope_common_inputs = _mapping(
+        scope.get("common_frozen_inputs"), "scope.common_frozen_inputs"
+    )
+    _require_scope_common_inputs_match_plan(scope_common_inputs, plan_common_inputs)
     if scope["common_frozen_inputs"].get("model_registry_sha256") != _sha256_bytes(
         registry_bytes
     ):
@@ -402,13 +445,24 @@ def verify_execution_scope(
         raise ExecutionScopeError("scope registry entry drift")
     _require_plan_registry_entry(plan, key, entry)
     cost_artifact = _load_json_source(cost_projection, "cost projection receipt")
+    common_inputs = _complete_common_inputs_from_cost(
+        plan_common_inputs,
+        cost_artifact,
+    )
+    if scope_common_inputs != common_inputs:
+        raise ExecutionScopeError("scope common frozen inputs drift")
+    _verify_final_freeze_and_provider_caps(
+        freeze_bundle=freeze_bundle,
+        freeze_root=freeze_root,
+        provider_cycle_caps=provider_cycle_caps,
+        expected_freeze_sha256=common_inputs["freeze_bundle_sha256"],
+        expected_cycle_id=cast(str, plan["cycle_id"]),
+    )
     cost_digest = _verify_cost_receipt(
         cost_artifact,
         cycle_id=cast(str, plan["cycle_id"]),
         model_key=key,
-        common_frozen_inputs=_mapping(
-            plan.get("common_frozen_inputs"), "common_frozen_inputs"
-        ),
+        common_frozen_inputs=_mapping(common_inputs, "common_frozen_inputs"),
         registry_entry=entry.to_record(),
         run_input_manifest=run_input_manifest,
     )
@@ -444,8 +498,11 @@ def verify_execution_scope(
         or projected > ceiling
     ):
         raise ExecutionScopeError("scope cost or owner ceiling drift")
-    authority = _validate_provider_authority(
-        provider_authority,
+    authority = _authority_for_scope(
+        provider_authority=provider_authority,
+        provider_cycle_caps=provider_cycle_caps,
+        freeze_bundle=freeze_bundle,
+        freeze_root=freeze_root,
         provider=entry.provider,
         projected_cost=projected,
         owner_ceiling=ceiling,
@@ -558,6 +615,7 @@ def verify_execution_scope_runtime(
     expected_model_key: str,
     expected_ablation: str,
     expected_scope_sha256: str | None = None,
+    expected_freeze_bundle_sha256: str | None = None,
 ) -> str:
     """Verify scope bindings available before provider credentials are opened.
 
@@ -582,9 +640,24 @@ def verify_execution_scope_runtime(
         raise ExecutionScopeError("scope model_key is not the selected model")
     if expected_ablation not in scope.get("selected_ablations", ()):
         raise ExecutionScopeError("scope does not authorize selected ablation")
-    if scope.get("common_frozen_inputs") != plan.get("common_frozen_inputs"):
-        raise ExecutionScopeError("scope common frozen inputs drift")
-    if scope["common_frozen_inputs"].get("model_registry_sha256") != _sha(
+    plan_common_inputs = _mapping(
+        plan.get("common_frozen_inputs"), "common_frozen_inputs"
+    )
+    scope_common_inputs = _mapping(
+        scope.get("common_frozen_inputs"), "scope.common_frozen_inputs"
+    )
+    _require_scope_common_inputs_match_plan(scope_common_inputs, plan_common_inputs)
+    scope_freeze_sha256 = _sha(
+        scope_common_inputs.get("freeze_bundle_sha256"),
+        "scope.common_frozen_inputs.freeze_bundle_sha256",
+    )
+    if expected_freeze_bundle_sha256 is not None and scope_freeze_sha256 != _sha(
+        expected_freeze_bundle_sha256, "expected_freeze_bundle_sha256"
+    ):
+        raise ExecutionScopeError(
+            "scope freeze bundle hash does not match the current freeze"
+        )
+    if scope_common_inputs.get("model_registry_sha256") != _sha(
         model_registry_sha256, "model_registry_sha256"
     ):
         raise ExecutionScopeError("scope model registry hash drift")
@@ -683,7 +756,8 @@ def _validate_plan(plan: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(normalized.get("allow_no_baselines"), bool):
         raise ExecutionScopeError("v3 plan allow_no_baselines must be Boolean")
     _validate_common_inputs(
-        _mapping(normalized.get("common_frozen_inputs"), "common_frozen_inputs")
+        _mapping(normalized.get("common_frozen_inputs"), "common_frozen_inputs"),
+        allow_missing_freeze=True,
     )
     entries = _mapping(
         normalized.get("model_registry_entries"), "model_registry_entries"
@@ -1024,10 +1098,186 @@ def _read_bytes(path: Path, label: str) -> bytes:
         raise ExecutionScopeError(f"cannot read {label}: {path}") from exc
 
 
-def _validate_common_inputs(value: Mapping[str, Any]) -> None:
-    _exact_keys(value, set(_COMMON_INPUT_FIELDS), "common_frozen_inputs")
-    for field in _COMMON_INPUT_FIELDS:
+def _validate_common_inputs(
+    value: Mapping[str, Any], *, allow_missing_freeze: bool = False
+) -> None:
+    expected = set(_COMMON_INPUT_FIELDS)
+    if allow_missing_freeze:
+        actual = set(value)
+        if actual == expected - {"freeze_bundle_sha256"}:
+            expected.remove("freeze_bundle_sha256")
+    _exact_keys(value, expected, "common_frozen_inputs")
+    for field in expected:
         _sha(value.get(field), f"common_frozen_inputs.{field}")
+
+
+def _require_scope_common_inputs_match_plan(
+    scope_inputs: Mapping[str, Any], plan_inputs: Mapping[str, Any]
+) -> None:
+    """Require a scope to preserve every plan commitment it can inherit.
+
+    A pre-freeze v3 plan intentionally omits only the final bundle hash.  The
+    scope must add that hash after the final freeze is created; all other
+    commitments remain byte-identical to the plan.
+    """
+
+    _validate_common_inputs(scope_inputs)
+    _validate_common_inputs(plan_inputs, allow_missing_freeze=True)
+    for field, value in plan_inputs.items():
+        if scope_inputs.get(field) != value:
+            raise ExecutionScopeError(f"scope common frozen input drift: {field}")
+
+
+def _complete_common_inputs_from_cost(
+    plan_inputs: Mapping[str, Any], cost_artifact: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Complete a pre-freeze plan with the authenticated final freeze hash."""
+
+    _validate_common_inputs(plan_inputs, allow_missing_freeze=True)
+    raw_commitments_value = cost_artifact.get("input_commitments")
+    if not isinstance(raw_commitments_value, Mapping):
+        raise ExecutionScopeError(
+            "cost projection fields mismatch: missing=['input_commitments'], unknown=[]"
+        )
+    raw_commitments = cast(Mapping[str, Any], raw_commitments_value)
+    freeze_commitment = _mapping(
+        raw_commitments.get("freeze_bundle"),
+        "cost projection input_commitments.freeze_bundle",
+    )
+    freeze_sha256 = _sha(
+        freeze_commitment.get("sha256"),
+        "cost projection input_commitments.freeze_bundle.sha256",
+    )
+    existing = plan_inputs.get("freeze_bundle_sha256")
+    if (
+        existing is not None
+        and _sha(existing, "common_frozen_inputs.freeze_bundle_sha256") != freeze_sha256
+    ):
+        raise ExecutionScopeError(
+            "cost receipt freeze bundle hash does not match common plan"
+        )
+    completed = dict(plan_inputs)
+    completed["freeze_bundle_sha256"] = freeze_sha256
+    _validate_common_inputs(completed)
+    return completed
+
+
+def _verify_final_freeze_and_provider_caps(
+    *,
+    freeze_bundle: Path | None,
+    freeze_root: Path | None,
+    provider_cycle_caps: Path | None,
+    expected_freeze_sha256: str,
+    expected_cycle_id: str,
+) -> None:
+    """Verify the staged freeze and cap bytes used to derive authority."""
+
+    if freeze_bundle is None and provider_cycle_caps is None:
+        # Existing callers may still use the legacy injected authority API.
+        return
+    if freeze_bundle is None or provider_cycle_caps is None:
+        raise ExecutionScopeError(
+            "freeze_bundle and provider_cycle_caps are required together"
+        )
+    freeze_path = Path(freeze_bundle)
+    caps_path = Path(provider_cycle_caps)
+    freeze_bytes = _read_bytes(freeze_path, "final freeze bundle")
+    if _sha256_bytes(freeze_bytes) != _sha(
+        expected_freeze_sha256, "expected final freeze bundle hash"
+    ):
+        raise ExecutionScopeError(
+            "final freeze bundle bytes do not match authenticated cost receipt"
+        )
+    root = Path(freeze_root) if freeze_root is not None else freeze_path.parent
+    try:
+        bundle = verify_freeze_bundle(
+            freeze_path,
+            cycle_id=expected_cycle_id,
+            root_path=root,
+        )
+    except (FreezeProtocolError, OSError, ValueError) as exc:
+        raise ExecutionScopeError(f"final freeze bundle is invalid: {exc}") from exc
+    frozen_caps = bundle.artifact(FrozenArtifactName.PROVIDER_CYCLE_CAPS)
+    caps_bytes = _read_bytes(caps_path, "provider cycle caps")
+    if (
+        _sha256_bytes(caps_bytes) != frozen_caps.sha256
+        or len(caps_bytes) != frozen_caps.size_bytes
+    ):
+        raise ExecutionScopeError(
+            "provider cycle caps bytes do not match the final freeze"
+        )
+
+
+def _authority_for_scope(
+    *,
+    provider_authority: Mapping[str, Any] | None,
+    provider_cycle_caps: Path | None,
+    freeze_bundle: Path | None,
+    freeze_root: Path | None,
+    provider: str,
+    projected_cost: Decimal,
+    owner_ceiling: Decimal,
+    cycle_id: str,
+    model_key: str,
+) -> dict[str, Any]:
+    """Derive provider authority from frozen caps for the production path.
+
+    ``provider_authority`` remains an injected compatibility seam for older
+    callers and fixtures.  The supported CLI supplies the freeze and caps
+    paths, in which case no caller-authored authority JSON is accepted.
+    """
+
+    if provider_cycle_caps is None:
+        if provider_authority is None:
+            raise ExecutionScopeError(
+                "provider_cycle_caps is required to derive provider authority"
+            )
+        return _validate_provider_authority(
+            provider_authority,
+            provider=provider,
+            projected_cost=projected_cost,
+            owner_ceiling=owner_ceiling,
+            cycle_id=cycle_id,
+            model_key=model_key,
+        )
+    if freeze_bundle is None:
+        raise ExecutionScopeError(
+            "freeze_bundle is required when deriving provider authority"
+        )
+    caps_path = Path(provider_cycle_caps)
+    caps_bytes = _read_bytes(caps_path, "provider cycle caps")
+    try:
+        caps = load_provider_cycle_caps_bytes(caps_bytes, source=caps_path)
+        authority_policy = caps.require_spend_authority()
+        cap_microusd = caps.cap_microusd(provider)
+        account = caps.account(provider)
+    except ProviderJournalError as exc:
+        raise ExecutionScopeError(f"provider cycle caps are invalid: {exc}") from exc
+    if caps.cycle_id != cycle_id:
+        raise ExecutionScopeError(
+            "provider cycle caps cycle_id does not match common plan"
+        )
+    authority = {
+        "backend": authority_policy.backend,
+        "resource_identity_sha256": authority_policy.resource_identity_sha256,
+        "provider": provider,
+        "account": account,
+        "cap_microusd": cap_microusd,
+    }
+    validated = _validate_provider_authority(
+        authority,
+        provider=provider,
+        projected_cost=projected_cost,
+        owner_ceiling=owner_ceiling,
+        cycle_id=cycle_id,
+        model_key=model_key,
+    )
+    # Do not allow the caps source to change between derivation and artifact
+    # issuance.  The final freeze check separately binds these bytes to its
+    # provider-cycle-caps artifact.
+    if _read_bytes(caps_path, "provider cycle caps recheck") != caps_bytes:
+        raise ExecutionScopeError("provider cycle caps changed during scope issuance")
+    return validated
 
 
 def _content_hash(value: Mapping[str, Any]) -> str:

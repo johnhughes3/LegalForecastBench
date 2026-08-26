@@ -986,33 +986,43 @@ def _verify_policy_artifact_links(
         raise FreezeProtocolError(
             "provider cycle caps cycle_id does not match freeze cycle"
         )
-    try:
-        expected_attempt_policy = provider_cycle_caps.execution_attempt_policy(
-            by_name[FrozenArtifactName.PROVIDER_CYCLE_CAPS].sha256
-        )
-    except ProviderJournalError as exc:
-        raise FreezeProtocolError(f"invalid policy artifact: {exc}") from exc
-    if execution.get("attempt_policy") != expected_attempt_policy:
-        raise FreezeProtocolError(
-            "execution policy attempt_policy does not exactly match the frozen "
-            "provider cycle caps artifact"
-        )
-    links = {
-        "labeling_policy_sha256": FrozenArtifactName.LABELING_POLICY,
-        "cohort_policy_sha256": FrozenArtifactName.COHORT_POLICY,
-    }
-    for field, artifact_name in links.items():
-        if execution.get(field) != by_name[artifact_name].sha256:
-            raise FreezeProtocolError(
-                f"execution policy {field} does not match frozen artifact bytes"
+    if execution_artifact.get("schema_version") != "legalforecast.execution_policy.v3":
+        try:
+            expected_attempt_policy = provider_cycle_caps.execution_attempt_policy(
+                by_name[FrozenArtifactName.PROVIDER_CYCLE_CAPS].sha256
             )
+        except ProviderJournalError as exc:
+            raise FreezeProtocolError(f"invalid policy artifact: {exc}") from exc
+        if execution.get("attempt_policy") != expected_attempt_policy:
+            raise FreezeProtocolError(
+                "execution policy attempt_policy does not exactly match the frozen "
+                "provider cycle caps artifact"
+            )
+        links = {
+            "labeling_policy_sha256": FrozenArtifactName.LABELING_POLICY,
+            "cohort_policy_sha256": FrozenArtifactName.COHORT_POLICY,
+        }
+        for field, artifact_name in links.items():
+            if execution.get(field) != by_name[artifact_name].sha256:
+                raise FreezeProtocolError(
+                    f"execution policy {field} does not match frozen artifact bytes"
+                )
 
-    lifecycle = cast(Mapping[str, Any], execution["lifecycle"])
-    if lifecycle.get("labeling_policy_published_at") != labeling.get("published_at"):
-        raise FreezeProtocolError(
-            "execution policy labeling publication timestamp does not match "
-            "the labeling policy"
-        )
+        lifecycle = cast(Mapping[str, Any], execution["lifecycle"])
+        if lifecycle.get("labeling_policy_published_at") != labeling.get(
+            "published_at"
+        ):
+            raise FreezeProtocolError(
+                "execution policy labeling publication timestamp does not match "
+                "the labeling policy"
+            )
+    else:
+        # v3 is intentionally a provider-free model-scope plan.  Its
+        # per-model scope binds the exact provider-cycle-caps bytes after the
+        # final freeze exists; requiring the all-provider attempt-policy
+        # rendering here would make the pre-freeze plan impossible to freeze.
+        # v1/v2 keep the legacy all-cycle policy and lifecycle checks above.
+        pass
 
     authoritative_series = execution["cycle_series"]
     for name, artifact in by_name.items():
