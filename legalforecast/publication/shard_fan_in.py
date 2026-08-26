@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import unquote, urlparse
 
+from legalforecast.contracts.schemas import DISPATCH_RELEASE_V2
 from legalforecast.evals.corpus_manifest.execution_scope import (
     ExecutionScopeError,
     verify_execution_scope_runtime,
@@ -1233,7 +1234,7 @@ def _verify_dispatch_artifact_roots(
             "release_sha",
         }:
             raise FanInError("source dispatch release provenance fields mismatch")
-        if release.get("schema_version") != "legalforecast.dispatch_release.v2":
+        if release.get("schema_version") != str(DISPATCH_RELEASE_V2):
             raise FanInError("source dispatch release provenance schema mismatch")
         if release.get("workflow_run_id") != identity.workflow_run_id:
             raise FanInError("source dispatch provenance workflow run mismatch")

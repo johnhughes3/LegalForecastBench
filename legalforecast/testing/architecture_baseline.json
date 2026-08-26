@@ -4287,7 +4287,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "contracts",
-        "fan_in": 28,
+        "fan_in": 29,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -4296,8 +4296,8 @@
         "largest_symbol": "SchemaIdentifier",
         "largest_symbol_lines": 13,
         "layer": "domain",
-        "line_count": 590,
-        "nonblank_line_count": 579,
+        "line_count": 591,
+        "nonblank_line_count": 580,
         "top_level_definition_count": 1
       },
       "legalforecast/document_need/cycle_config.py": {
@@ -8371,7 +8371,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
         "fan_in": 1,
-        "fan_out": 9,
+        "fan_out": 10,
         "flags": [
           "monolith"
         ],
@@ -8379,8 +8379,8 @@
         "largest_symbol": "verify_fan_in",
         "largest_symbol_lines": 159,
         "layer": "application",
-        "line_count": 2018,
-        "nonblank_line_count": 1847,
+        "line_count": 2019,
+        "nonblank_line_count": 1848,
         "top_level_definition_count": 63
       },
       "legalforecast/publication/shard_fan_in_publish.py": {
