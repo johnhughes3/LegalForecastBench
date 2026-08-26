@@ -804,16 +804,19 @@ jobs:
           if scope_path.is_file():
               loaded_scope = json.loads(scope_path.read_text(encoding="utf-8"))
               scope = None if loaded_scope == {} else loaded_scope
-          if plan_artifact.get("schema_version") == "legalforecast.execution_policy.v3":
+          if plan_artifact.get("schema_version") in {
+              "legalforecast.execution_policy.v3",
+              "legalforecast.execution_policy.v4",
+          }:
               if scope is None and os.environ["DRY_RUN"] != "true":
-                  raise SystemExit("v3 execution policy requires an execution scope")
+                  raise SystemExit("v3/v4 execution policy requires an execution scope")
               if scope is not None and os.environ["SHARD_ONLY"] != "true":
-                  raise SystemExit("v3 execution policy requires shard_only=true")
+                  raise SystemExit("v3/v4 execution policy requires shard_only=true")
               if scope is not None:
                   model_keys = [value.strip() for value in os.environ["MODEL_KEYS"].split(",") if value.strip()]
                   ablations = [value.strip() for value in os.environ["ABLATIONS"].split(",") if value.strip()]
                   if len(model_keys) != 1 or len(ablations) != 1:
-                      raise SystemExit("a paid v3 dispatch must select one model and one ablation")
+                      raise SystemExit("a paid v3/v4 dispatch must select one model and one ablation")
                   from legalforecast.evals.corpus_manifest.execution_scope import verify_execution_scope_runtime
                   from legalforecast.evals.model_registry import load_model_registry
                   registry = load_model_registry(Path("/tmp/lfb-model-registry.json"))
@@ -830,7 +833,7 @@ jobs:
                       ],
                   )
           elif scope is not None:
-              raise SystemExit("execution scope is only valid with execution policy v3")
+              raise SystemExit("execution scope is only valid with execution policy v3 or v4")
           release_provenance = {
               "schema_version": "legalforecast.dispatch_release.v2",
               "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],

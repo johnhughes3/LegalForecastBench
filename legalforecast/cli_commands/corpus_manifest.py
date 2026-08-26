@@ -173,6 +173,13 @@ _ISSUE_EXECUTION_PLAN_V3 = importlib.metadata.EntryPoint(
     value=("legalforecast.evals.corpus_manifest.execution_scope:issue_execution_plan"),
     group="legalforecast.internal",
 )
+_ISSUE_EXECUTION_PLAN_V4 = importlib.metadata.EntryPoint(
+    name="manifest-execution-policy-v4-issue",
+    value=(
+        "legalforecast.evals.corpus_manifest.execution_scope:issue_execution_plan_v4"
+    ),
+    group="legalforecast.internal",
+)
 _ISSUE_EXECUTION_SCOPE = importlib.metadata.EntryPoint(
     name="manifest-execution-scope-issue",
     value=(
@@ -510,10 +517,8 @@ def register(
     issue_plan.add_argument(
         "--freeze-bundle",
         type=Path,
-        help=(
-            "Existing final freeze bundle to bind, when issuing a plan after "
-            "freeze. Omit this for the provider-free pre-freeze plan."
-        ),
+        required=True,
+        help=("Existing final freeze bundle to bind to the strict v3 plan."),
     )
     issue_plan.add_argument("--manifest", type=Path, required=True)
     issue_plan.add_argument("--run-input-manifest", type=Path, required=True)
@@ -527,6 +532,31 @@ def register(
     )
     issue_plan.add_argument("--output", type=Path, required=True)
     issue_plan.set_defaults(handler=run_issue_execution_plan_v3)
+
+    issue_plan_v4 = subparsers.add_parser(
+        "issue-manifest-execution-policy-v4",
+        help="Issue a provider-free pre-freeze model-scope plan.",
+        description=(
+            "Hash the common manifest, run-input, registry, and run-card bytes "
+            "and derive the complete model/ablation schedule. The v4 plan is "
+            "the explicit pre-freeze successor to v3: it cannot authorize "
+            "provider execution and omits only the final freeze commitment, "
+            "which is bound by a later exact-model scope."
+        ),
+    )
+    issue_plan_v4.add_argument("--cycle-id", required=True)
+    issue_plan_v4.add_argument("--manifest", type=Path, required=True)
+    issue_plan_v4.add_argument("--run-input-manifest", type=Path, required=True)
+    issue_plan_v4.add_argument("--run-card", type=Path, required=True)
+    issue_plan_v4.add_argument("--model-registry", type=Path, required=True)
+    issue_plan_v4.add_argument(
+        "--allow-no-baselines",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Allow fan-in without a baseline corpus (default: true).",
+    )
+    issue_plan_v4.add_argument("--output", type=Path, required=True)
+    issue_plan_v4.set_defaults(handler=run_issue_execution_plan_v4)
 
     issue_scope = subparsers.add_parser(
         "issue-manifest-execution-scope",
@@ -836,6 +866,28 @@ def run_issue_execution_plan_v3(args: argparse.Namespace) -> int:
         cycle_id=cast(str, args.cycle_id),
         model_registry=cast(Path, args.model_registry),
         common_frozen_inputs=common_inputs,
+        allow_no_baselines=cast(bool, args.allow_no_baselines),
+        output=cast(Path, args.output),
+    )
+    print(json.dumps(dict(result), indent=2, sort_keys=True))
+    return 0
+
+
+def run_issue_execution_plan_v4(args: argparse.Namespace) -> int:
+    """Issue the provider-free pre-freeze v4 model-scope plan."""
+
+    issue = _ISSUE_EXECUTION_PLAN_V4.load()
+    result = issue(
+        cycle_id=cast(str, args.cycle_id),
+        model_registry=cast(Path, args.model_registry),
+        common_frozen_inputs={
+            "manifest_sha256": sha256_file(cast(Path, args.manifest)),
+            "run_input_manifest_sha256": sha256_file(
+                cast(Path, args.run_input_manifest)
+            ),
+            "model_registry_sha256": sha256_file(cast(Path, args.model_registry)),
+            "run_card_sha256": sha256_file(cast(Path, args.run_card)),
+        },
         allow_no_baselines=cast(bool, args.allow_no_baselines),
         output=cast(Path, args.output),
     )

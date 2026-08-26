@@ -98,6 +98,7 @@ DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v
 DISPATCH_RELEASE_V2 = SchemaIdentifier("legalforecast.dispatch_release.v2")
 EXECUTION_POLICY_V2 = SchemaIdentifier("legalforecast.execution_policy.v2")
 EXECUTION_POLICY_V3 = SchemaIdentifier("legalforecast.execution_policy.v3")
+EXECUTION_POLICY_V4 = SchemaIdentifier("legalforecast.execution_policy.v4")
 EXECUTION_POLICY_RUNTIME_BINDING_V1 = SchemaIdentifier(
     "legalforecast.execution_policy_runtime_binding.v1"
 )

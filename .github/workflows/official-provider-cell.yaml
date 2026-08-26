@@ -238,12 +238,15 @@ jobs:
           if provenance.get("execution_policy_sha256") != expected:
               raise SystemExit("dispatch provenance execution-policy commitment differs")
           plan = json.loads(required["execution policy"].read_text(encoding="utf-8"))
-          if plan.get("schema_version") == "legalforecast.execution_policy.v3":
+          if plan.get("schema_version") in {
+              "legalforecast.execution_policy.v3",
+              "legalforecast.execution_policy.v4",
+          }:
               if re.fullmatch(r"[0-9a-f]{64}", expected_scope) is None:
-                  raise SystemExit("v3 execution policy requires an execution-scope hash")
+                  raise SystemExit("v3/v4 execution policy requires an execution-scope hash")
               scope_path = root / "lfb-execution-scope.json"
               if not scope_path.is_file():
-                  raise SystemExit("v3 execution policy requires an execution-scope artifact")
+                  raise SystemExit("v3/v4 execution policy requires an execution-scope artifact")
               scope = json.loads(scope_path.read_text(encoding="utf-8"))
               from legalforecast.evals.corpus_manifest.execution_scope import verify_execution_scope_runtime
               from legalforecast.evals.model_registry import load_model_registry

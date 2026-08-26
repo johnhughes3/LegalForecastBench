@@ -604,10 +604,10 @@ jobs:
           print(path if path.is_absolute() else Path('/tmp/lfb-manifest-run') / path)
           PY
           )"
-          if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" == "legalforecast.execution_policy.v3" ]]; then
+          if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" =~ ^legalforecast\.execution_policy\.v[34]$ ]]; then
             scope_count="$(find /tmp/lfb-source-dispatch -maxdepth 1 -type f -name 'lfb-execution-scope*.json' -size +0c | wc -l)"
             [[ "${scope_count}" -gt 0 ]] || {
-              echo "v3 source dispatch is missing its authenticated execution scope artifact" >&2
+              echo "v3/v4 source dispatch is missing its authenticated execution scope artifact" >&2
               exit 1
             }
           fi
@@ -656,8 +656,8 @@ jobs:
               scope_args+=(--execution-scope "${scope_path}")
             done < <(find /tmp/lfb-source-dispatch -mindepth 2 -maxdepth 2 -type f -name 'lfb-execution-scope*.json' -size +0c -print | sort)
           fi
-          if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" == "legalforecast.execution_policy.v3" && "${#scope_args[@]}" -eq 0 ]]; then
-            echo "v3 source dispatch is missing its authenticated execution scope artifact" >&2
+          if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" =~ ^legalforecast\.execution_policy\.v[34]$ && "${#scope_args[@]}" -eq 0 ]]; then
+            echo "v3/v4 source dispatch is missing its authenticated execution scope artifact" >&2
             exit 1
           fi
           [[ -z "${ACCEPTED_MAP//[[:space:]]/}" ]] || args+=(--accepted-attempt-map "${ACCEPTED_MAP}")

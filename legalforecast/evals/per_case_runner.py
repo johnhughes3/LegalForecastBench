@@ -28,6 +28,7 @@ from legalforecast._record_validation import (
 from legalforecast.contracts.schemas import (
     EXECUTION_POLICY_RUNTIME_BINDING_V1,
     EXECUTION_POLICY_V3,
+    EXECUTION_POLICY_V4,
 )
 from legalforecast.evals.accounting import accounting_records_from_inspect_run
 from legalforecast.evals.inspect_task import (
@@ -1721,15 +1722,24 @@ def _verified_execution_policy_for_config(
             expected_sha256=config.expected_execution_policy_sha256,
         )
         policy = official_execution_policy_content(artifact)
-        if artifact.get("schema_version") == str(EXECUTION_POLICY_V3):
+        if artifact.get("schema_version") in {
+            str(EXECUTION_POLICY_V3),
+            str(EXECUTION_POLICY_V4),
+        }:
+            policy_version = artifact.get("schema_version")
             if config.execution_scope_uri is None:
-                raise ValueError("v3 execution policy requires execution scope")
+                raise ValueError(
+                    f"{policy_version} execution policy requires execution scope"
+                )
             if config.expected_execution_scope_sha256 is None:
                 raise ValueError(
-                    "v3 execution policy requires expected execution scope hash"
+                    f"{policy_version} execution policy requires expected "
+                    "execution scope hash"
                 )
             if config.model_registry_uri is None:
-                raise ValueError("v3 execution policy requires model registry")
+                raise ValueError(
+                    f"{policy_version} execution policy requires model registry"
+                )
             from legalforecast.evals.corpus_manifest.execution_scope import (
                 verify_execution_scope_runtime,
             )
@@ -1872,9 +1882,6 @@ def _scope_provider_authority(
     ceiling = _scope_money(owner_ceiling_usd, "execution scope owner ceiling")
     if projected > ceiling:
         raise ValueError("execution scope projected cost exceeds owner ceiling")
-    ceiling_microusd = _scope_microusd(ceiling, "execution scope owner ceiling")
-    if cap > ceiling_microusd:
-        raise ValueError("execution scope provider authority cap exceeds owner ceiling")
     derived_scope_identity_sha256 = hash_payload(
         {
             "cycle_id": normalized_cycle_id,
@@ -1906,13 +1913,6 @@ def _scope_money(value: str, label: str) -> Decimal:
 
 def _scope_money_text(value: Decimal) -> str:
     return format(value, "f")
-
-
-def _scope_microusd(value: Decimal, label: str) -> int:
-    scaled = value * Decimal(1_000_000)
-    if scaled != scaled.to_integral_value():
-        raise ValueError(f"{label} cannot be represented in micro-USD")
-    return int(scaled)
 
 
 def _solver_for_config(

@@ -58,6 +58,8 @@ positional arguments:
     issue-manifest-execution-policy-v3
                         Issue a complete provider-free, non-authorizing model-
                         scope plan.
+    issue-manifest-execution-policy-v4
+                        Issue a provider-free pre-freeze model-scope plan.
     issue-manifest-execution-scope
                         Issue a separately authenticated exact-model execution
                         scope.

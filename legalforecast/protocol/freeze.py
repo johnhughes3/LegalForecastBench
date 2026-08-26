@@ -941,7 +941,7 @@ def _verify_policy_artifact_links(
             f"freeze policy artifacts are mandatory: {', '.join(missing)}"
         )
 
-    from legalforecast.contracts.schemas import EXECUTION_POLICY_V3
+    from legalforecast.contracts.schemas import EXECUTION_POLICY_V4
     from legalforecast.ingestion.cohort_policy import (
         CohortPolicyError,
         verify_cohort_policy,
@@ -987,7 +987,7 @@ def _verify_policy_artifact_links(
         raise FreezeProtocolError(
             "provider cycle caps cycle_id does not match freeze cycle"
         )
-    if execution_artifact.get("schema_version") != str(EXECUTION_POLICY_V3):
+    if execution_artifact.get("schema_version") != str(EXECUTION_POLICY_V4):
         try:
             expected_attempt_policy = provider_cycle_caps.execution_attempt_policy(
                 by_name[FrozenArtifactName.PROVIDER_CYCLE_CAPS].sha256
@@ -1018,11 +1018,11 @@ def _verify_policy_artifact_links(
                 "the labeling policy"
             )
     else:
-        # v3 is intentionally a provider-free model-scope plan.  Its
+        # v4 is intentionally a provider-free pre-freeze model-scope plan.  Its
         # per-model scope binds the exact provider-cycle-caps bytes after the
         # final freeze exists; requiring the all-provider attempt-policy
         # rendering here would make the pre-freeze plan impossible to freeze.
-        # v1/v2 keep the legacy all-cycle policy and lifecycle checks above.
+        # v1/v2/v3 keep the legacy all-cycle policy and lifecycle checks above.
         pass
 
     authoritative_series = execution["cycle_series"]
