@@ -36,6 +36,7 @@
       "authority": "evaluation_cell",
       "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-eval",
       "secrets": [
+        "AI_GATEWAY_API_KEY",
         "ANTHROPIC_API_KEY",
         "GEMINI_API_KEY",
         "OPENAI_API_KEY"

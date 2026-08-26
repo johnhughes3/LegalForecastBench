@@ -494,7 +494,8 @@
     ],
     "legalforecast/multiharness/openai_responses.py": [
       "legalforecast/multiharness/openai_responses.py",
-      "legalforecast/multiharness/openai_responses_cli.py"
+      "legalforecast/multiharness/openai_responses_cli.py",
+      "legalforecast/openai_transport.py"
     ],
     "legalforecast/testing/architecture_rules/cli_compatibility.py": [
       "legalforecast/cli.py",

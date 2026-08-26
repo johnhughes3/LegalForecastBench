@@ -29,6 +29,10 @@ from legalforecast.multiharness.tool_protocol import (
     decode_tool_response,
     encode_tool_message,
 )
+from legalforecast.openai_transport import (
+    OpenAITransportRoute,
+    resolve_openai_transport,
+)
 
 
 class StdioToolTransport:
@@ -77,12 +81,15 @@ def main(argv: list[str] | None = None) -> int:
                 raise OpenAIResponsesAdapterError(
                     "OPENAI_API_KEY must be set and non-empty"
                 )
-            client = build_openai_client(api_key)
+            model_id = request.model_key.removeprefix("openai:")
+            route = resolve_openai_transport(model_id)
+            client = build_openai_client(api_key, route=route)
             result = run_openai_responses(
                 request,
                 args.workspace,
                 tool_transport=StdioToolTransport(),
                 client=client,
+                transport_route=route,
             )
         write_json_object(args.output, result.to_record())
         return 0
@@ -97,11 +104,24 @@ def _verify_sdk() -> None:
         raise OpenAIResponsesAdapterError("installed OpenAI SDK version does not match")
 
 
-def build_openai_client(api_key: str) -> Any:
+def build_openai_client(
+    api_key: str,
+    *,
+    route: OpenAITransportRoute | None = None,
+) -> Any:
     """Build the pinned live client with transparent retries disabled."""
 
     from openai import OpenAI
 
+    if route is not None and route.uses_vercel_gateway:
+        return cast(
+            Any,
+            OpenAI(
+                api_key=api_key,
+                base_url=route.responses_url.removesuffix("/responses"),
+                max_retries=OPENAI_SDK_MAX_RETRIES,
+            ),
+        )
     return cast(
         Any,
         OpenAI(api_key=api_key, max_retries=OPENAI_SDK_MAX_RETRIES),

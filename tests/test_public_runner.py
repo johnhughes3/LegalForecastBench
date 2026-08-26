@@ -309,7 +309,7 @@ def test_runner_refuses_exact_ledger_identity_drift_without_transport(
     assert second_transport.calls == 0
 
 
-def test_runner_falls_back_after_explicit_nonbillable_429(
+def test_runner_retries_flex_after_explicit_nonbillable_429(
     tmp_path: Path,
 ) -> None:
     class FlexFallbackTransport:
@@ -326,7 +326,7 @@ def test_runner_falls_back_after_explicit_nonbillable_429(
                     retryable=True,
                 )
             response = dict(_valid_response(request))
-            response["service_tier"] = "default"
+            response["service_tier"] = "flex"
             return response
 
     config = _config(tmp_path)
@@ -344,7 +344,7 @@ def test_runner_falls_back_after_explicit_nonbillable_429(
     assert [
         cast(str, _request_body(request)["service_tier"])
         for request in transport.requests
-    ] == ["flex", "default", "flex", "flex"]
+    ] == ["flex", "flex", "flex", "flex"]
     first_cell_receipt = next(
         payload
         for payload in (
@@ -385,7 +385,7 @@ def test_runner_falls_back_after_explicit_nonbillable_429(
     assert resumed_transport.calls == 0
 
 
-def test_runner_recovers_retryable_429_after_crash_before_fallback(
+def test_runner_recovers_retryable_429_after_crash_with_flex(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -442,7 +442,7 @@ def test_runner_recovers_retryable_429_after_crash_before_fallback(
     assert [
         cast(str, _request_body(request)["service_tier"])
         for request in recovery.requests
-    ] == ["default", "flex", "flex"]
+    ] == ["flex", "flex", "flex"]
     with sqlite3.connect(config.ledger_path) as connection:
         attempts = connection.execute(
             "SELECT attempt_ordinal, status FROM provider_attempts "

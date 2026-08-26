@@ -621,17 +621,6 @@ def _complete_cell(
         ),
         attempt_handler=handler,
         request_body_observer=request_body_observer,
-        openai_flex_already_rejected=(
-            retryable_nonbillable_prior_attempt is not None
-            or (
-                replayable_attempt is not None
-                and replayable_attempt.attempt_ordinal == 2
-            )
-            or (
-                pretransport_attempt_ordinal is not None
-                and pretransport_attempt_ordinal == 2
-            )
-        ),
     )
 
 
