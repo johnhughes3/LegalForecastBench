@@ -328,6 +328,14 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${MODEL_KEY}" == "openai:gpt-5.6-sol" && "$(date -u +%F)" < "2026-09-19" ]]; then
+            transport_contract="$(uv run python -c 'from legalforecast.openai_transport import OPENAI_TRANSPORT_CONTRACT_VERSION; print(OPENAI_TRANSPORT_CONTRACT_VERSION)' 2>/dev/null)" || {
+              echo "Selected release does not support the Vercel Sol transport contract." >&2
+              exit 1
+            }
+            [[ "${transport_contract}" == "vercel-sol-flex-v1" ]] || {
+              echo "Selected release has an unsupported Vercel Sol transport contract." >&2
+              exit 1
+            }
             echo "use_vercel_gateway=true" >> "${GITHUB_OUTPUT}"
           else
             echo "use_vercel_gateway=false" >> "${GITHUB_OUTPUT}"

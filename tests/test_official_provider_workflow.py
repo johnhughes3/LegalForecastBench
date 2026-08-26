@@ -131,6 +131,11 @@ def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
         )
     ]
     assert "secrets." not in selection_step
+    assert "OPENAI_TRANSPORT_CONTRACT_VERSION" in selection_step
+    assert "vercel-sol-flex-v1" in selection_step
+    assert "Selected release does not support the Vercel Sol transport contract." in (
+        selection_step
+    )
     assert "inputs.model_key == 'openai:gpt-5.6-sol'" not in provider_step
     assert '"$(date -u +%F)" < "2026-09-19"' in provider_step
     assert "OpenAI transport selection expired before launch." in provider_step

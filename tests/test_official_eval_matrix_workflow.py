@@ -673,6 +673,8 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     )
     assert selector in RUN_CASE_JOB
     assert "secrets.AI_GATEWAY_API_KEY" in RUN_CASE_JOB
+    assert "OPENAI_TRANSPORT_CONTRACT_VERSION" in RUN_CASE_JOB
+    assert "vercel-sol-flex-v1" in RUN_CASE_JOB
     assert '"$(date -u +%F)" < "2026-09-19"' in RUN_CASE_JOB
     assert (
         "LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}" in PROVIDER_WORKFLOW
