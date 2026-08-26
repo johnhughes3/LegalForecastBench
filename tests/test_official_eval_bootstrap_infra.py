@@ -574,27 +574,15 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     ]
     assert labeling["Resource"] == LABELING_ROLE_ARN
 
-    # The reviewed official-eval module creates each exact role plus its inline
-    # policies and two exclusive-ownership resources. These are the IAM calls the
-    # pinned AWS provider needs for that nine-create plan. TagRole is required for
-    # tag-on-create because versions.tf supplies non-empty provider default_tags;
-    # destructive convergence remains denied by the protected plan contract.
-    official_eval_provider = (
-        ROOT / "infra" / "official-eval" / "versions.tf"
-    ).read_text(encoding="utf-8")
-    assert "default_tags" in official_eval_provider
-    for required_default_tag in ("ManagedBy", "Project", "Purpose"):
-        assert required_default_tag in official_eval_provider
-
+    # Initial role creation and inline-policy issuance require a separately
+    # reviewed one-time human-admin plan. The routine OIDC operator can refresh
+    # only the two exact roles and update MaxSessionDuration via UpdateRole.
     eval_cell = statements["ManageExactOfficialEvalCellRole"]
     assert eval_cell["Action"] == [
-        "iam:CreateRole",
         "iam:GetRole",
         "iam:GetRolePolicy",
         "iam:ListAttachedRolePolicies",
         "iam:ListRolePolicies",
-        "iam:PutRolePolicy",
-        "iam:TagRole",
         "iam:UpdateRole",
     ]
     assert eval_cell["Resource"] == EVAL_CELL_ROLE_ARN
@@ -615,12 +603,15 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     assert eval_granted_actions.isdisjoint(
         {
             "iam:AttachRolePolicy",
+            "iam:CreateRole",
             "iam:DeleteRole",
             "iam:DeleteRolePermissionsBoundary",
             "iam:DeleteRolePolicy",
             "iam:DetachRolePolicy",
             "iam:PassRole",
+            "iam:PutRolePolicy",
             "iam:PutRolePermissionsBoundary",
+            "iam:TagRole",
             "iam:UntagRole",
             "iam:UpdateAssumeRolePolicy",
         }
