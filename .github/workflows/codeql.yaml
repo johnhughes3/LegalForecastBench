@@ -20,9 +20,8 @@ concurrency:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
-    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
-    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
-    runs-on: ubuntu-latest
+    # Public johnhughes3 repos cannot see the private org CI_RUNNER variable, so CodeQL is pinned to ubicloud-standard-2.
+    runs-on: ubicloud-standard-2
     timeout-minutes: 30
     strategy:
       fail-fast: false
