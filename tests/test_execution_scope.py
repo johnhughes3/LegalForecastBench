@@ -1,0 +1,237 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+
+import pytest
+from legalforecast.evals.corpus_manifest.execution_scope import (
+    ExecutionScopeError,
+    issue_execution_plan,
+    issue_model_execution_scope,
+    verify_execution_scope,
+    verify_execution_scope_runtime,
+)
+from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.protocol.manifest import hash_payload
+
+
+def _registry_record(model_id: str) -> dict[str, object]:
+    return {
+        "provider": "openai",
+        "model_id": model_id,
+        "display_name": "Test model",
+        "model_version_or_snapshot": "2026-08-20",
+        "release_timestamp": "2026-08-20T09:00:00Z",
+        "release_timestamp_source": "test fixture",
+        "provider_training_cutoff_status": "known",
+        "provider_training_cutoff": "2026-01-01",
+        "temperature": 0,
+        "top_p": 1,
+        "max_output_tokens": 4096,
+        "network_disabled": True,
+        "search_disabled": True,
+        "tool_policy": "controlled_docket_tool_only",
+        "context_limit": 200000,
+        "pricing_source": "test fixture",
+        "input_token_price": 0.25,
+        "output_token_price": 1.0,
+        "known_cutoff_publicity_caveats": [],
+    }
+
+
+def _write_registry(path: Path, model_id: str = "test-2026") -> str:
+    payload = (json.dumps([_registry_record(model_id)], sort_keys=True) + "\n").encode()
+    path.write_bytes(payload)
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _write_cost(path: Path, *, cycle_id: str, model_key: str) -> None:
+    record: dict[str, object] = {
+        "schema_version": "legalforecast.manifest_cost_projection.v1",
+        "cycle_id": cycle_id,
+        "requested_model_keys": [model_key],
+        "requested_ablations": ["full_packet", "metadata_only"],
+        "case_count": 100,
+        "packet_count": 200,
+        "request_count": 200,
+        "attempt_count": 200,
+        "cell_count": 2,
+        "matrix_row_count": 200,
+        "projected_model_cost_usd": "1.00",
+    }
+    record["receipt_sha256"] = hash_payload(record)
+    path.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _write_scope_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, str]:
+    registry_path = tmp_path / "registry.json"
+    registry_sha = _write_registry(registry_path)
+    model_key = "openai:test-2026"
+    common_inputs = {
+        "freeze_bundle_sha256": "1" * 64,
+        "manifest_sha256": "2" * 64,
+        "run_input_manifest_sha256": "3" * 64,
+        "model_registry_sha256": registry_sha,
+        "run_card_sha256": "4" * 64,
+    }
+    plan = issue_execution_plan(
+        cycle_id="cycle-scope-test",
+        model_registry=registry_path,
+        common_frozen_inputs=common_inputs,
+    )
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan, sort_keys=True) + "\n", encoding="utf-8")
+    cost_path = tmp_path / "cost.json"
+    _write_cost(cost_path, cycle_id="cycle-scope-test", model_key=model_key)
+    evidence_path = tmp_path / "owner-evidence.json"
+    evidence_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "owner-1",
+                    "issue_id": "scope-test",
+                    "author": "John Hughes",
+                    "text": (
+                        "I approve up to USD 1.50 of provider spend for model "
+                        "openai:test-2026 in the Cycle 1 forecast run, estimated "
+                        "USD 1.00."
+                    ),
+                    "created_at": "2026-08-26T09:00:00Z",
+                }
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return plan_path, registry_path, cost_path, evidence_path, model_key
+
+
+def _authority() -> dict[str, object]:
+    return {
+        "backend": "dynamodb",
+        "resource_identity_sha256": "a" * 64,
+        "provider": "openai",
+        "account": "test-account",
+        "cap_microusd": 2_000_000,
+    }
+
+
+def test_scope_binds_one_model_and_authorizes_both_ablations(tmp_path: Path) -> None:
+    plan_path, registry_path, cost_path, evidence_path, model_key = _write_scope_inputs(
+        tmp_path
+    )
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        owner_ceiling_usd="1.50",
+        owner_evidence=evidence_path,
+        provider_authority=_authority(),
+    )
+
+    assert scope["scope"]["selected_ablations"] == ["full_packet", "metadata_only"]
+    verify_execution_scope(
+        scope,
+        common_plan=plan_path,
+        model_registry=registry_path,
+        cost_projection=cost_path,
+        owner_evidence=evidence_path,
+        provider_authority=_authority(),
+        expected_model_key=model_key,
+        expected_ablation="metadata_only",
+    )
+    runtime_digest = verify_execution_scope_runtime(
+        scope,
+        common_plan=json.loads(plan_path.read_text(encoding="utf-8")),
+        model_registry=load_model_registry(registry_path),
+        model_registry_sha256=hashlib.sha256(registry_path.read_bytes()).hexdigest(),
+        expected_model_key=model_key,
+        expected_ablation="full_packet",
+        expected_scope_sha256=scope["scope_sha256"],
+    )
+    assert runtime_digest == scope["scope_sha256"]
+
+    with pytest.raises(ExecutionScopeError, match="selected model"):
+        verify_execution_scope_runtime(
+            scope,
+            common_plan=json.loads(plan_path.read_text(encoding="utf-8")),
+            model_registry=load_model_registry(registry_path),
+            model_registry_sha256=hashlib.sha256(
+                registry_path.read_bytes()
+            ).hexdigest(),
+            expected_model_key="openai:other-model",
+            expected_ablation="full_packet",
+        )
+    with pytest.raises(ExecutionScopeError, match="selected ablation"):
+        verify_execution_scope_runtime(
+            scope,
+            common_plan=json.loads(plan_path.read_text(encoding="utf-8")),
+            model_registry=load_model_registry(registry_path),
+            model_registry_sha256=hashlib.sha256(
+                registry_path.read_bytes()
+            ).hexdigest(),
+            expected_model_key=model_key,
+            expected_ablation="unsupported",
+        )
+
+
+def test_scope_rejects_cost_and_owner_evidence_drift(tmp_path: Path) -> None:
+    plan_path, registry_path, cost_path, evidence_path, model_key = _write_scope_inputs(
+        tmp_path
+    )
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        owner_ceiling_usd="1.50",
+        owner_evidence=evidence_path,
+        provider_authority=_authority(),
+    )
+    cost = json.loads(cost_path.read_text(encoding="utf-8"))
+    cost["projected_model_cost_usd"] = "1.01"
+    cost_path.write_text(json.dumps(cost, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(ExecutionScopeError, match="cost projection receipt hash"):
+        verify_execution_scope(
+            scope,
+            common_plan=plan_path,
+            model_registry=registry_path,
+            cost_projection=cost_path,
+            owner_evidence=evidence_path,
+            provider_authority=_authority(),
+        )
+
+
+def test_scope_preserves_six_decimal_cost_projection(tmp_path: Path) -> None:
+    plan_path, registry_path, cost_path, evidence_path, model_key = _write_scope_inputs(
+        tmp_path
+    )
+    cost = json.loads(cost_path.read_text(encoding="utf-8"))
+    cost["projected_model_cost_usd"] = "0.328147"
+    cost["receipt_sha256"] = hash_payload(
+        {key: value for key, value in cost.items() if key != "receipt_sha256"}
+    )
+    cost_path.write_text(json.dumps(cost, sort_keys=True) + "\n", encoding="utf-8")
+
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        owner_ceiling_usd="1.50",
+        owner_evidence=evidence_path,
+        provider_authority=_authority(),
+    )
+
+    assert scope["scope"]["projected_cost_usd"] == "0.328147"
+    verify_execution_scope(
+        scope,
+        common_plan=plan_path,
+        model_registry=registry_path,
+        cost_projection=cost_path,
+        owner_evidence=evidence_path,
+        provider_authority=_authority(),
+        expected_model_key=model_key,
+    )

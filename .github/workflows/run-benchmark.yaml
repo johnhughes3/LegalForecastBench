@@ -141,6 +141,14 @@ on:
         required: false
         default: ""
         type: string
+      execution_scope_uri:
+        description: >-
+          Authenticated exact-model execution-scope artifact followed by # and
+          its lowercase SHA-256 (URI#sha256). Required for a non-dry paid shard;
+          the scope covers both official ablations for one registry model.
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -172,6 +180,7 @@ jobs:
       dispatch_run_attempt: ${{ steps.dispatch.outputs.workflow_run_attempt }}
       frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
       execution_policy_sha256: ${{ steps.dispatch.outputs.execution_policy_sha256 }}
+      execution_scope_sha256: ${{ steps.dispatch.outputs.execution_scope_sha256 }}
       freeze_bundle_path: ${{ steps.validate.outputs.freeze_bundle_path }}
       freeze_root: ${{ steps.validate.outputs.freeze_root }}
       labels_sha256: ${{ steps.freeze_labels.outputs.labels_sha256 }}
@@ -223,6 +232,7 @@ jobs:
           CYCLE_ID_INPUT: ${{ inputs.cycle_id }}
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
           ELAPSED_DAYS_INPUT: ${{ inputs.elapsed_days }}
+          EXECUTION_SCOPE_URI_INPUT: ${{ inputs.execution_scope_uri }}
           FREEZE_BUNDLE_PATH_INPUT: ${{ inputs.freeze_bundle_path }}
           LABELS_URI: ${{ inputs.labels_uri }}
           MAX_PROJECTED_MODEL_COST_USD_INPUT: ${{ inputs.max_projected_model_cost_usd }}
@@ -259,6 +269,21 @@ jobs:
               exit 1
               ;;
           esac
+          if [[ -n "${EXECUTION_SCOPE_URI_INPUT//[[:space:]]/}" ]]; then
+            scope_uri="${EXECUTION_SCOPE_URI_INPUT%#*}"
+            scope_sha256="${EXECUTION_SCOPE_URI_INPUT##*#}"
+            if [[ "${scope_uri}" == "${EXECUTION_SCOPE_URI_INPUT}" ]] || ! [[ "${scope_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "execution_scope_uri must be URI#<lowercase SHA-256>." >&2
+              exit 1
+            fi
+            case "${scope_uri}" in
+              s3://*|manifests/*|./*|/*|[A-Za-z0-9._/-]*.json) ;;
+              *)
+                echo "execution_scope_uri must be s3://, manifests/, or a JSON file path followed by #<sha256>." >&2
+                exit 1
+                ;;
+            esac
+          fi
           case "${RUN_INPUT_MANIFEST_URI}" in
             source-documents/*|extracted-text/*|audit-bundles/*|withdrawn/*|quarantine/*)
               echo "run_input_manifest_uri must not point at private packet prefixes." >&2
@@ -599,6 +624,37 @@ jobs:
               ;;
           esac
 
+      - name: Download authenticated execution scope
+        if: ${{ inputs.execution_scope_uri != '' }}
+        shell: bash
+        env:
+          EXECUTION_SCOPE_SPEC: ${{ inputs.execution_scope_uri }}
+        run: |
+          set -euo pipefail
+          scope_uri="${EXECUTION_SCOPE_SPEC%#*}"
+          case "${scope_uri}" in
+            s3://*)
+              aws s3 cp "${scope_uri}" /tmp/lfb-execution-scope.json --only-show-errors
+              ;;
+            manifests/*)
+              if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
+                echo "LFB_RESULTS_BUCKET is required for manifests/ execution scopes." >&2
+                exit 1
+              fi
+              aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${scope_uri}" /tmp/lfb-execution-scope.json --only-show-errors
+              ;;
+            *)
+              cp "${scope_uri}" /tmp/lfb-execution-scope.json
+              ;;
+          esac
+
+      - name: Prepare optional scope artifact for dispatch transport
+        if: ${{ inputs.execution_scope_uri == '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '{}\n' > /tmp/lfb-execution-scope.json
+
       - name: Verify pre-run freeze commitment
         shell: bash
         env:
@@ -640,6 +696,8 @@ jobs:
           ABLATIONS: ${{ inputs.ablations }}
           CONCURRENCY_GROUP: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
           CYCLE_ID: ${{ inputs.cycle_id }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          EXECUTION_SCOPE_SPEC: ${{ inputs.execution_scope_uri }}
           FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
           FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
           MODEL_KEYS: ${{ inputs.model_keys }}
@@ -654,6 +712,11 @@ jobs:
           WORKFLOW_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
+          execution_scope_sha256_input=""
+          if [[ -n "${EXECUTION_SCOPE_SPEC//[[:space:]]/}" ]]; then
+            execution_scope_sha256_input="${EXECUTION_SCOPE_SPEC##*#}"
+          fi
+          export EXECUTION_SCOPE_SHA256_INPUT="${execution_scope_sha256_input}"
           candidate_args=(--candidate-freeze-bundle "${FREEZE_COMMITMENT_PATH}")
           if [[ "${FREEZE_ROOT}" == "." ]]; then
             while IFS= read -r bundle_path; do
@@ -709,6 +772,7 @@ jobs:
             "${shard_args[@]}" \
             --output /tmp/lfb-dispatch-provenance.json
           python - <<'PY'
+          import hashlib
           import json
           import os
           from pathlib import Path
@@ -729,6 +793,36 @@ jobs:
               source = Path(os.environ["FREEZE_ROOT"]) / source
           target = Path("/tmp/lfb-execution-policy.json")
           target.write_bytes(source.read_bytes())
+          plan_artifact = json.loads(target.read_text(encoding="utf-8"))
+          scope_path = Path("/tmp/lfb-execution-scope.json")
+          scope = None
+          if scope_path.is_file():
+              loaded_scope = json.loads(scope_path.read_text(encoding="utf-8"))
+              scope = None if loaded_scope == {} else loaded_scope
+          if plan_artifact.get("schema_version") == "legalforecast.execution_policy.v3":
+              if scope is None and os.environ["DRY_RUN"] != "true":
+                  raise SystemExit("v3 execution policy requires an execution scope")
+              if scope is not None and os.environ["SHARD_ONLY"] != "true":
+                  raise SystemExit("v3 execution policy requires shard_only=true")
+              if scope is not None:
+                  model_keys = [value.strip() for value in os.environ["MODEL_KEYS"].split(",") if value.strip()]
+                  ablations = [value.strip() for value in os.environ["ABLATIONS"].split(",") if value.strip()]
+                  if len(model_keys) != 1 or len(ablations) != 1:
+                      raise SystemExit("a paid v3 dispatch must select one model and one ablation")
+                  from legalforecast.evals.corpus_manifest.execution_scope import verify_execution_scope_runtime
+                  from legalforecast.evals.model_registry import load_model_registry
+                  registry = load_model_registry(Path("/tmp/lfb-model-registry.json"))
+                  scope_sha256 = verify_execution_scope_runtime(
+                      scope,
+                      common_plan=plan_artifact,
+                      model_registry=registry,
+                      model_registry_sha256=hashlib.sha256(Path("/tmp/lfb-model-registry.json").read_bytes()).hexdigest(),
+                      expected_model_key=model_keys[0],
+                      expected_ablation=ablations[0],
+                      expected_scope_sha256=os.environ["EXECUTION_SCOPE_SHA256_INPUT"],
+                  )
+          elif scope is not None:
+              raise SystemExit("execution scope is only valid with execution policy v3")
           release_provenance = {
               "schema_version": "legalforecast.dispatch_release.v2",
               "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
@@ -746,6 +840,8 @@ jobs:
               output.write(
                   f"workflow_run_attempt={os.environ['WORKFLOW_RUN_ATTEMPT']}\n"
               )
+              if scope is not None:
+                  output.write(f"execution_scope_sha256={scope_sha256}\n")
           PY
 
       - name: Build matrix JSON
@@ -814,6 +910,7 @@ jobs:
             /tmp/lfb-labels.jsonl
             /tmp/lfb-model-registry.json
             /tmp/lfb-execution-policy.json
+            /tmp/lfb-execution-scope.json
             /tmp/lfb-manifest-cost-projection.json
           if-no-files-found: error
           retention-days: ${{ fromJSON(steps.validate.outputs.artifact_retention_days) }}
@@ -841,6 +938,7 @@ jobs:
       dry_run: ${{ inputs.dry_run }}
       environment_name: legalforecastbench-official-eval
       execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
+      execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
       model_key: ${{ matrix.model_key }}
       model_key_slug: ${{ matrix.model_key_slug }}
       packet_object_key: ${{ matrix.packet_object_key }}
@@ -873,6 +971,7 @@ jobs:
       dry_run: ${{ inputs.dry_run }}
       environment_name: legalforecastbench-official-eval
       execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
+      execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
       model_key: ${{ matrix.model_key }}
       model_key_slug: ${{ matrix.model_key_slug }}
       packet_object_key: ${{ matrix.packet_object_key }}
@@ -905,6 +1004,7 @@ jobs:
       dry_run: ${{ inputs.dry_run }}
       environment_name: legalforecastbench-official-eval
       execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
+      execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
       model_key: ${{ matrix.model_key }}
       model_key_slug: ${{ matrix.model_key_slug }}
       packet_object_key: ${{ matrix.packet_object_key }}
@@ -998,6 +1098,10 @@ jobs:
           SOURCE_RELEASE_SHA: ${{ needs.build-matrix.outputs.release_sha }}
         run: |
           set -euo pipefail
+          scope_args=()
+          if [[ -s /tmp/lfb-shard-inputs/lfb-execution-scope.json ]] && [[ "$(tr -d '[:space:]' < /tmp/lfb-shard-inputs/lfb-execution-scope.json)" != "{}" ]]; then
+            scope_args+=(--execution-scope /tmp/lfb-shard-inputs/lfb-execution-scope.json)
+          fi
           uv run python -m legalforecast.publication.shard_receipt \
             --dispatch-provenance /tmp/lfb-shard-inputs/lfb-dispatch-provenance.json \
             --run-input-manifest /tmp/lfb-shard-inputs/lfb-run-inputs-frozen.json \
@@ -1008,7 +1112,8 @@ jobs:
             --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
             --source-dispatch-run-attempt "${SOURCE_DISPATCH_RUN_ATTEMPT}" \
             --source-release-sha "${SOURCE_RELEASE_SHA}" \
-            --receipt-root "s3://${LFB_RESULTS_BUCKET}"
+            --receipt-root "s3://${LFB_RESULTS_BUCKET}" \
+            "${scope_args[@]}"
 
       - name: Finish shard-receipt cycle mutation
         if: ${{ always() && steps.begin_shard_receipt_mutation.outcome == 'success' }}

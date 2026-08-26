@@ -31,6 +31,7 @@ from legalforecast.publication.official_aggregate import (
     aggregate_official_results,
 )
 from legalforecast.publication.shard_receipt import (
+    SCOPED_RECEIPT_SCHEMA_VERSION,
     ShardReceiptError,
     verify_committed_payload,
     verify_shard_receipt,
@@ -335,11 +336,62 @@ def select_and_validate_receipts(
                 actual_receipt_key=artifact.actual_key,
             )
         )
+    if any(
+        receipt.get("schema_version") == SCOPED_RECEIPT_SCHEMA_VERSION
+        for receipt in verified
+    ):
+        require_scoped_receipt_set(
+            verified,
+            declared_shards=declared_shards,
+        )
     return ReceiptSelection(
         tuple(verified),
         selection.accepted_attempt_map_sha256,
         selection.accepted_attempt_map,
     )
+
+
+def require_scoped_receipt_set(
+    receipts: Sequence[Mapping[str, Any]],
+    *,
+    declared_shards: Sequence[ShardKey],
+) -> None:
+    """Require all accepted shards to use one authorized scope per model.
+
+    A scope covers both official ablations, so two receipts are expected to
+    share its digest. A different digest for the same model is an ambiguous
+    or duplicated authorization; a scope-bearing receipt mixed with a legacy
+    receipt cannot be admitted to the canonical fan-in.
+    """
+
+    if not receipts:
+        raise FanInError("scoped fan-in requires at least one receipt")
+    if any(
+        receipt.get("schema_version") != SCOPED_RECEIPT_SCHEMA_VERSION
+        for receipt in receipts
+    ):
+        raise FanInError("scoped fan-in cannot mix scoped and legacy receipts")
+    declared_models = {model_key for model_key, _ in declared_shards}
+    scope_by_model: dict[str, str] = {}
+    model_by_scope: dict[str, str] = {}
+    for receipt in receipts:
+        model_key = _required_str(receipt, "model_key")
+        if model_key not in declared_models:
+            raise FanInError(f"receipt scope model is unauthorized: {model_key}")
+        scope_sha256 = _required_sha256(receipt, "execution_scope_sha256")
+        prior = scope_by_model.get(model_key)
+        if prior is not None and prior != scope_sha256:
+            raise FanInError(f"duplicate model scopes for {model_key}")
+        other_model = model_by_scope.get(scope_sha256)
+        if other_model is not None and other_model != model_key:
+            raise FanInError(
+                f"execution scope is authorized for multiple models: {scope_sha256}"
+            )
+        scope_by_model[model_key] = scope_sha256
+        model_by_scope[scope_sha256] = model_key
+    missing = sorted(declared_models - set(scope_by_model))
+    if missing:
+        raise FanInError(f"missing model execution scopes: {missing}")
 
 
 def verify_and_materialize_union(

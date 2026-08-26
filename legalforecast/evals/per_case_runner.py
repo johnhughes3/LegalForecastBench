@@ -135,6 +135,8 @@ class PerCaseRunnerConfig:
     model_key: str | None = None
     execution_policy_uri: str | None = None
     expected_execution_policy_sha256: str | None = None
+    execution_scope_uri: str | None = None
+    expected_execution_scope_sha256: str | None = None
     workflow_run_id: str | None = None
     workflow_run_attempt: int | None = None
     expected_packet_object_key: str | None = None
@@ -176,6 +178,11 @@ class PerCaseRunnerConfig:
                 self.expected_execution_policy_sha256,
                 "expected_execution_policy_sha256",
             ),
+            (self.execution_scope_uri, "execution_scope_uri"),
+            (
+                self.expected_execution_scope_sha256,
+                "expected_execution_scope_sha256",
+            ),
             (self.workflow_run_id, "workflow_run_id"),
             (self.provider_account, "provider_account"),
         ):
@@ -213,6 +220,8 @@ class PerCaseRunnerConfig:
             _normalize_sha256(self.expected_packet_sha256)
         if self.expected_execution_policy_sha256 is not None:
             _normalize_sha256(self.expected_execution_policy_sha256)
+        if self.expected_execution_scope_sha256 is not None:
+            _normalize_sha256(self.expected_execution_scope_sha256)
         if self.backend is PerCaseExecutionBackend.LIVE and (
             self.execution_policy_uri is None
             or self.expected_execution_policy_sha256 is None
@@ -1707,13 +1716,76 @@ def _verified_execution_policy_for_config(
             expected_sha256=config.expected_execution_policy_sha256,
         )
         policy = official_execution_policy_content(artifact)
-        attempt_policy = _mapping(policy.get("attempt_policy"), "attempt_policy")
-        binding = official_execution_policy_runtime_binding(
-            artifact,
-            execution_policy_sha256=hashlib.sha256(payload).hexdigest(),
-            provider=registry_entry.provider,
-            account=config.provider_account,
-        )
+        if artifact.get("schema_version") == "legalforecast.execution_policy.v3":
+            if config.execution_scope_uri is None:
+                raise ValueError("v3 execution policy requires execution scope")
+            if config.expected_execution_scope_sha256 is None:
+                raise ValueError(
+                    "v3 execution policy requires expected execution scope hash"
+                )
+            if config.model_registry_uri is None:
+                raise ValueError("v3 execution policy requires model registry")
+            from legalforecast.evals.corpus_manifest.execution_scope import (
+                verify_execution_scope_runtime,
+            )
+
+            registry, registry_sha256 = _load_model_registry_uri(
+                config.model_registry_uri
+            )
+            scope_payload = _read_uri_bytes(config.execution_scope_uri)
+            scope_loaded: object = json.loads(scope_payload.decode("utf-8"))
+            if not isinstance(scope_loaded, Mapping):
+                raise ValueError("execution scope must be a JSON object")
+            scope = cast(Mapping[str, Any], scope_loaded)
+            scope_sha256 = verify_execution_scope_runtime(
+                scope,
+                common_plan=artifact,
+                model_registry=registry,
+                model_registry_sha256=registry_sha256,
+                expected_model_key=cast(str, config.model_key),
+                expected_ablation=config.ablation,
+                expected_scope_sha256=config.expected_execution_scope_sha256,
+            )
+            scope_record = _mapping(scope["scope"], "execution scope")
+            authority = _mapping(
+                scope_record.get("provider_authority"),
+                "execution scope provider_authority",
+            )
+            _scope_provider_authority(authority, provider=registry_entry.provider)
+            attempt_policy = {
+                "reservation_ledger_sha256": scope_sha256,
+                "max_billable_attempts": 1,
+                "failure_threshold": 1,
+                "failure_window_seconds": 900,
+                "authority_resource_identity_sha256": authority[
+                    "resource_identity_sha256"
+                ],
+            }
+            binding = {
+                "schema_version": "legalforecast.execution_policy_runtime_binding.v1",
+                "execution_policy_sha256": hashlib.sha256(payload).hexdigest(),
+                "execution_scope_sha256": scope_sha256,
+                "reservation_ledger_sha256": scope_sha256,
+                "authority_backend": authority["backend"],
+                "authority_resource_identity_sha256": authority[
+                    "resource_identity_sha256"
+                ],
+                "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                "provider": registry_entry.provider.lower(),
+                "account": authority["account"],
+                "cap_microusd": authority["cap_microusd"],
+                "max_billable_attempts": 1,
+                "failure_threshold": 1,
+                "failure_window_seconds": 900,
+            }
+        else:
+            attempt_policy = _mapping(policy.get("attempt_policy"), "attempt_policy")
+            binding = official_execution_policy_runtime_binding(
+                artifact,
+                execution_policy_sha256=hashlib.sha256(payload).hexdigest(),
+                provider=registry_entry.provider,
+                account=config.provider_account,
+            )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise PerCaseRunnerError(f"invalid execution policy: {exc}") from exc
     return _VerifiedExecutionPolicy(
@@ -1721,6 +1793,31 @@ def _verified_execution_policy_for_config(
         attempt_policy=attempt_policy,
         runtime_binding=binding,
     )
+
+
+def _scope_provider_authority(authority: Mapping[str, Any], *, provider: str) -> None:
+    """Validate the public authority projection before constructing AWS clients."""
+
+    expected = {
+        "backend",
+        "resource_identity_sha256",
+        "provider",
+        "account",
+        "cap_microusd",
+        "scope_identity_sha256",
+    }
+    if set(authority) != expected:
+        raise ValueError("execution scope provider_authority fields are invalid")
+    if authority.get("backend") != "dynamodb":
+        raise ValueError("execution scope provider authority backend is invalid")
+    _normalize_sha256(required_str(authority, "resource_identity_sha256"))
+    _normalize_sha256(required_str(authority, "scope_identity_sha256"))
+    if required_str(authority, "provider").lower() != provider.lower():
+        raise ValueError("execution scope provider authority provider is invalid")
+    required_str(authority, "account")
+    cap = required_int(authority, "cap_microusd")
+    if cap <= 0:
+        raise ValueError("execution scope provider authority cap is invalid")
 
 
 def _solver_for_config(

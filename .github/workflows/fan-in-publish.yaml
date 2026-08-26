@@ -283,6 +283,9 @@ jobs:
               exit 1
             }
           done
+          # v3 scopes are transported with the exact dispatch artifact. Legacy
+          # v1/v2 policies remain admissible without this additive file.
+          [[ -f /tmp/lfb-source-dispatch/lfb-execution-scope.json ]] || true
           python - <<'PY'
           import json
           import os
@@ -361,6 +364,23 @@ jobs:
           VERIFY_ONLY: ${{ inputs.verify_only }}
         run: |
           set -euo pipefail
+          execution_policy_path="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          freeze = json.loads(Path('/tmp/lfb-manifest-run/freeze.json').read_text(encoding='utf-8'))
+          paths = [item['path'] for item in freeze.get('artifacts', []) if item.get('name') == 'execution_policy']
+          if len(paths) != 1:
+              raise SystemExit('freeze must contain exactly one execution_policy artifact')
+          path = Path(paths[0])
+          print(path if path.is_absolute() else Path('/tmp/lfb-manifest-run') / path)
+          PY
+          )"
+          if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" == "legalforecast.execution_policy.v3" ]]; then
+            [[ -s /tmp/lfb-source-dispatch/lfb-execution-scope.json ]] || {
+              echo "v3 source dispatch is missing its authenticated execution scope artifact" >&2
+              exit 1
+            }
+          fi
           args=(
             --freeze-bundle /tmp/lfb-manifest-run/freeze.json
             --freeze-root /tmp/lfb-manifest-run

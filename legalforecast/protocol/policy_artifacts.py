@@ -14,11 +14,12 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast._datetime import format_utc_iso_z
-from legalforecast.contracts.schemas import EXECUTION_POLICY_V2
+from legalforecast.contracts.schemas import EXECUTION_POLICY_V2, EXECUTION_POLICY_V3
 
 LABELING_POLICY_SCHEMA_VERSION = "legalforecast.labeling_policy.v1"
 EXECUTION_POLICY_SCHEMA_VERSION = "legalforecast.execution_policy.v1"
 EXECUTION_POLICY_V2_SCHEMA_VERSION = str(EXECUTION_POLICY_V2)
+EXECUTION_POLICY_V3_SCHEMA_VERSION = str(EXECUTION_POLICY_V3)
 LABEL_AUDIT_SAMPLE_FRACTION = 0.05
 LABEL_AUDIT_MINIMUM_SAMPLE_SIZE = 20
 LABEL_AUDIT_MINIMUM_PER_STRATUM = 5
@@ -194,9 +195,20 @@ def verify_official_execution_policy(
             expected_cycle_id=expected_cycle_id,
             expected_sha256=expected_sha256,
         )
+    if schema_version == EXECUTION_POLICY_V3_SCHEMA_VERSION:
+        from legalforecast.evals.corpus_manifest.execution_scope import (
+            verify_execution_policy_v3,
+        )
+
+        return verify_execution_policy_v3(
+            artifact,
+            expected_cycle_id=expected_cycle_id,
+            expected_sha256=expected_sha256,
+        )
     raise PolicyArtifactError(
         "official execution policy schema version must be "
-        f"{EXECUTION_POLICY_SCHEMA_VERSION} or {EXECUTION_POLICY_V2_SCHEMA_VERSION}"
+        f"{EXECUTION_POLICY_SCHEMA_VERSION}, {EXECUTION_POLICY_V2_SCHEMA_VERSION}, "
+        f"or {EXECUTION_POLICY_V3_SCHEMA_VERSION}"
     )
 
 
@@ -254,6 +266,13 @@ def official_execution_policy_content(
 
     verify_official_execution_policy(artifact)
     schema_version = cast(str, artifact["schema_version"])
+    if schema_version == EXECUTION_POLICY_V3_SCHEMA_VERSION:
+        from legalforecast.evals.corpus_manifest.execution_scope import (
+            verify_execution_policy_v3,
+        )
+
+        verify_execution_policy_v3(artifact)
+        return cast(Mapping[str, Any], artifact["policy"])
     return _validated_execution_policy(
         cast(Mapping[str, Any], artifact["policy"]),
         schema_version=schema_version,
