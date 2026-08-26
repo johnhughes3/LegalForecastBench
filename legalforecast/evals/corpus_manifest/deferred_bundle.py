@@ -27,6 +27,7 @@ from legalforecast.contracts.schemas import (
 from legalforecast.evals.corpus_manifest.records import registry_record
 from legalforecast.evals.corpus_manifest.schema import load_signed_manifest_bytes
 from legalforecast.evals.model_registry import (
+    OpenAIReasoningEffort,
     load_model_registry_bytes,
     require_official_registry_entries,
 )
@@ -697,6 +698,22 @@ def _authenticate_runtime_inputs(
         raise ManifestForecastBundleError(
             "execution policy does not bind the provider caps authority"
         )
+    _require_successor_registry_safety(entries)
+    caps_providers = {
+        _required_text(cap, "provider").lower()
+        for cap in _records(
+            expected_attempt_policy.get("provider_account_caps"),
+            "provider_account_caps",
+        )
+    }
+    if caps_providers != {entry.provider.lower() for entry in entries}:
+        raise ManifestForecastBundleError(
+            "provider caps do not exactly cover successor providers"
+        )
+    return registry_entries, policy_content
+
+
+def _require_successor_registry_safety(entries: Sequence[Any]) -> None:
     from legalforecast.evals.corpus_manifest.beads_observation import (
         SUCCESSOR_REGISTRY_KEYS,
     )
@@ -712,18 +729,18 @@ def _authenticate_runtime_inputs(
         for entry in entries
     ):
         raise ManifestForecastBundleError("model registry execution safety differs")
-    caps_providers = {
-        _required_text(cap, "provider").lower()
-        for cap in _records(
-            expected_attempt_policy.get("provider_account_caps"),
-            "provider_account_caps",
+    if any(
+        (
+            entry.provider.strip().lower() == "openai"
+            and entry.reasoning_effort is not OpenAIReasoningEffort.HIGH
         )
-    }
-    if caps_providers != {entry.provider.lower() for entry in entries}:
-        raise ManifestForecastBundleError(
-            "provider caps do not exactly cover successor providers"
+        or (
+            entry.provider.strip().lower() != "openai"
+            and entry.reasoning_effort is not None
         )
-    return registry_entries, policy_content
+        for entry in entries
+    ):
+        raise ManifestForecastBundleError("model registry reasoning settings differ")
 
 
 def _official_policy_bindings(

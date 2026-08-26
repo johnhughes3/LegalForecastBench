@@ -75,7 +75,12 @@ def test_opus_4_8_successor_replaces_sonnet_without_expanding_matrix() -> None:
     for model_id in ("gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"):
         successor_record = successor.get("openai", model_id).to_record()
         frozen_record = frozen.get("openai", model_id).to_record()
-        for field in ("max_output_tokens", "temperature", "top_p"):
+        for field in (
+            "max_output_tokens",
+            "reasoning_effort",
+            "temperature",
+            "top_p",
+        ):
             successor_record.pop(field, None)
             frozen_record.pop(field, None)
         assert successor_record == frozen_record
@@ -94,6 +99,17 @@ def test_opus_4_8_successor_uses_provider_output_limits_and_sampling_defaults() 
     }
     assert all(entry.temperature is None for entry in successor.entries)
     assert all(entry.top_p is None for entry in successor.entries)
+    assert {
+        entry.registry_key: (
+            entry.reasoning_effort.value if entry.reasoning_effort is not None else None
+        )
+        for entry in successor.entries
+    } == {
+        "anthropic:claude-opus-4-8": None,
+        "openai:gpt-5.6-luna": "high",
+        "openai:gpt-5.6-sol": "high",
+        "openai:gpt-5.6-terra": "high",
+    }
 
 
 def test_opus_4_8_successor_preserves_corpus_dates_and_release_anchor() -> None:

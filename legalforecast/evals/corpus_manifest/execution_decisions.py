@@ -46,6 +46,7 @@ from legalforecast.evals.corpus_manifest.beads_observation import (
 from legalforecast.evals.corpus_manifest.records import registry_record
 from legalforecast.evals.corpus_manifest.schema import load_signed_manifest_bytes
 from legalforecast.evals.model_registry import (
+    OpenAIReasoningEffort,
     load_model_registry_bytes,
     require_official_registry_entries,
 )
@@ -667,6 +668,23 @@ def _require_successor_registry_safety(entries: tuple[Any, ...]) -> None:
     if unsafe:
         raise ExecutionDecisionsError(
             f"successor model registry has unsafe execution settings: {unsafe}"
+        )
+    reasoning_mismatches = sorted(
+        entry.registry_key
+        for entry in entries
+        if (
+            entry.provider.strip().lower() == "openai"
+            and entry.reasoning_effort is not OpenAIReasoningEffort.HIGH
+        )
+        or (
+            entry.provider.strip().lower() != "openai"
+            and entry.reasoning_effort is not None
+        )
+    )
+    if reasoning_mismatches:
+        raise ExecutionDecisionsError(
+            "successor model registry reasoning settings differ: "
+            f"{reasoning_mismatches}"
         )
 
 

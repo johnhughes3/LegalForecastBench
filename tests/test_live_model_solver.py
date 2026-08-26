@@ -95,6 +95,34 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert body["input"].startswith("Controlled docket tool transcript:")
     assert "Predict the case outcome." in body["input"]
     assert "read_docket_entry_results" in body["input"]
+    assert "reasoning" not in body
+    assert "requested_reasoning_effort" not in response.metadata
+
+
+def test_openai_solver_emits_registry_reasoning_effort_and_metadata() -> None:
+    record = _registry_record("openai", "gpt-test")
+    record["reasoning_effort"] = "high"
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": '{"predictions":[]}',
+            "service_tier": OPENAI_SERVICE_TIER,
+            "status": "completed",
+            "usage": {"input_tokens": 1000, "output_tokens": 250},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=ModelRegistryEntry.from_record(record),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+    )
+
+    response = solver.solve(_request("Predict the case outcome."))
+
+    body = _json_body(transport.only_request())
+    assert body["reasoning"] == {"effort": "high"}
+    assert response.metadata is not None
+    assert response.metadata["requested_reasoning_effort"] == "high"
 
 
 @pytest.mark.parametrize("status", ("failed", "cancelled", "incomplete", None))
@@ -347,6 +375,32 @@ def test_anthropic_models_omit_sampling_controls_but_preserve_registry_policy(
     assert response.metadata["served_model_version"] == model_id
     assert response.metadata["model_registry_sha256"] == "cycle-1-registry-sha256"
 
+    if model_id == "claude-opus-4-8":
+        assert body["thinking"] == {"type": "adaptive"}
+        assert "output_config" not in body
+        assert response.metadata["requested_thinking_type"] == "adaptive"
+        assert response.metadata["provider_reasoning_effort"] == (
+            "provider_default_high"
+        )
+    else:
+        assert "thinking" not in body
+        assert "requested_thinking_type" not in response.metadata
+        assert "provider_reasoning_effort" not in response.metadata
+
+
+def test_anthropic_opus_snapshot_enables_adaptive_thinking_for_callable_alias() -> None:
+    entry = _registry_entry(
+        "anthropic",
+        "claude-callable-alias",
+        model_version_or_snapshot="claude-opus-4-8",
+    )
+
+    direct = live_model_solver._anthropic_request(entry, "prompt", "key", None)
+    bedrock = live_model_solver._bedrock_anthropic_payload(entry, "prompt")
+
+    assert _json_body(direct)["thinking"] == {"type": "adaptive"}
+    assert bedrock["thinking"] == {"type": "adaptive"}
+
 
 def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
     monkeypatch: pytest.MonkeyPatch,
@@ -419,6 +473,54 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
         "Controlled docket tool transcript:"
     )
     assert "Use AWS Bedrock." in body["messages"][0]["content"][0]["text"]
+
+
+def test_opus_4_8_bedrock_enables_adaptive_thinking_without_effort_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[dict[str, object]] = []
+
+    def fake_bedrock(
+        model_id: str,
+        payload: live_model_solver.JsonRecord,
+        *,
+        environ: Mapping[str, str] | None,
+        timeout_seconds: float,
+    ) -> live_model_solver.JsonRecord:
+        del environ, timeout_seconds
+        assert model_id == "us.anthropic.claude-opus-4-8"
+        observed.append(dict(payload))
+        return {
+            "model": "claude-opus-4-8",
+            "content": [{"type": "text", "text": '{"bedrock":true}'}],
+            "usage": {"input_tokens": 220, "output_tokens": 55},
+        }
+
+    monkeypatch.setattr(
+        live_model_solver,
+        "_invoke_bedrock_runtime_json",
+        fake_bedrock,
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry(
+            "anthropic",
+            "claude-opus-4-8",
+            model_version_or_snapshot="claude-opus-4-8",
+        ),
+        environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
+    )
+
+    response = solver.solve(_request("Use AWS Bedrock."))
+
+    assert len(observed) == 1
+    body = observed[0]
+    assert body["thinking"] == {"type": "adaptive"}
+    assert "output_config" not in body
+    assert "temperature" not in body
+    assert "top_p" not in body
+    assert response.metadata is not None
+    assert response.metadata["requested_thinking_type"] == "adaptive"
+    assert response.metadata["provider_reasoning_effort"] == ("provider_default_high")
 
 
 def test_bedrock_request_body_observer_receives_exact_transport_bytes(

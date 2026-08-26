@@ -14,6 +14,7 @@ from legalforecast.evals import (
 from legalforecast.evals.model_registry import (
     LongContextSurcharge,
     ModelRegistryEntry,
+    OpenAIReasoningEffort,
     earliest_eligible_decision_date,
     latest_release_timestamp,
     model_registry_entry_sha256,
@@ -84,6 +85,44 @@ def test_registry_allows_provider_default_sampling_without_legacy_fields() -> No
     serialized = entry.to_record()
     assert "temperature" not in serialized
     assert "top_p" not in serialized
+
+
+def test_openai_reasoning_effort_round_trips_and_is_hash_bound() -> None:
+    record = _registry_record()
+    record["provider"] = "openai"
+    record["reasoning_effort"] = "high"
+
+    entry = ModelRegistryEntry.from_record(record)
+
+    assert entry.reasoning_effort is OpenAIReasoningEffort.HIGH
+    assert entry.to_record()["reasoning_effort"] == "high"
+    assert model_registry_entry_sha256(entry) != model_registry_entry_sha256(
+        ModelRegistryEntry.from_record({**record, "reasoning_effort": "medium"})
+    )
+
+
+@pytest.mark.parametrize(
+    "reasoning_effort",
+    ("minimal", "", 1, True),
+)
+def test_registry_rejects_invalid_openai_reasoning_effort(
+    reasoning_effort: object,
+) -> None:
+    record = _registry_record()
+    record["provider"] = "openai"
+    record["reasoning_effort"] = reasoning_effort
+
+    with pytest.raises((TypeError, ValueError), match="reasoning_effort"):
+        ModelRegistryEntry.from_record(record)
+
+
+def test_registry_rejects_openai_reasoning_effort_for_other_providers() -> None:
+    record = _registry_record()
+    record["provider"] = "anthropic"
+    record["reasoning_effort"] = "high"
+
+    with pytest.raises(ValueError, match=r"reasoning_effort.*OpenAI"):
+        ModelRegistryEntry.from_record(record)
 
 
 def test_model_registry_entry_round_trips_long_context_surcharge() -> None:
