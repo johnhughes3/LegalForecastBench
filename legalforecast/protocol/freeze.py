@@ -941,6 +941,7 @@ def _verify_policy_artifact_links(
             f"freeze policy artifacts are mandatory: {', '.join(missing)}"
         )
 
+    from legalforecast.contracts.schemas import EXECUTION_POLICY_V3
     from legalforecast.ingestion.cohort_policy import (
         CohortPolicyError,
         verify_cohort_policy,
@@ -986,7 +987,7 @@ def _verify_policy_artifact_links(
         raise FreezeProtocolError(
             "provider cycle caps cycle_id does not match freeze cycle"
         )
-    if execution_artifact.get("schema_version") != "legalforecast.execution_policy.v3":
+    if execution_artifact.get("schema_version") != str(EXECUTION_POLICY_V3):
         try:
             expected_attempt_policy = provider_cycle_caps.execution_attempt_policy(
                 by_name[FrozenArtifactName.PROVIDER_CYCLE_CAPS].sha256
