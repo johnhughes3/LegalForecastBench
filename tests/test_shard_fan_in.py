@@ -202,6 +202,117 @@ def test_receipt_hashes_and_cells_are_reverified_against_frozen_inputs() -> None
         )
 
 
+def test_scope_required_policy_rejects_all_legacy_receipts() -> None:
+    run_manifest, receipt, repeat_policy = _strict_receipt()
+    artifact = shard_fan_in.ReceiptArtifact(
+        actual_key=str(receipt["receipt_key"]),
+        raw_sha256="8" * 64,
+        record=receipt,
+    )
+
+    with pytest.raises(
+        shard_fan_in.FanInError, match="scoped fan-in cannot mix scoped and legacy"
+    ):
+        shard_fan_in.select_and_validate_receipts(
+            (artifact,),
+            declared_shards=(("fixture:model-a", "full_packet"),),
+            context=_context(),
+            run_input_manifest=run_manifest,
+            repeat_policy=repeat_policy,
+            shard_schedule_sha256=hash_payload(
+                {
+                    "shards": [
+                        {"model_key": "fixture:model-a", "ablation": "full_packet"}
+                    ]
+                }
+            ),
+            scope_required=True,
+        )
+
+
+def test_fan_in_replays_transported_scope_and_matches_both_receipt_hashes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = {
+        "schema_version": "legalforecast.execution_scope.v1",
+        "scope": {
+            "model_key": "fixture:model-a",
+            "common_plan_sha256": "b" * 64,
+        },
+        "scope_sha256": "c" * 64,
+    }
+    scope_path = tmp_path / "execution-scope.json"
+    scope_path.write_text(json.dumps(scope) + "\n", encoding="utf-8")
+    artifact_sha256 = hash_payload(scope)
+    receipt = {
+        "model_key": "fixture:model-a",
+        "ablation": "full_packet",
+        "execution_scope_sha256": "c" * 64,
+        "execution_scope_artifact_sha256": artifact_sha256,
+        "common_plan_sha256": "b" * 64,
+    }
+    calls: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(shard_fan_in, "load_model_registry", lambda _path: object())
+
+    def replay(*_args: object, **kwargs: object) -> str:
+        calls.append(
+            (
+                str(kwargs["expected_model_key"]),
+                str(kwargs["expected_ablation"]),
+            )
+        )
+        return "c" * 64
+
+    monkeypatch.setattr(shard_fan_in, "verify_execution_scope_runtime", replay)
+    shard_fan_in.verify_scoped_execution_scopes(
+        (receipt,),
+        declared_shards=(("fixture:model-a", "full_packet"),),
+        common_plan={"schema_version": "legalforecast.execution_policy.v3"},
+        model_registry_path=tmp_path / "registry.json",
+        model_registry_sha256="d" * 64,
+        scope_paths=(scope_path,),
+    )
+
+    assert calls == [("fixture:model-a", "full_packet")]
+
+
+def test_fan_in_rejects_receipt_bound_to_forged_scope_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = {
+        "schema_version": "legalforecast.execution_scope.v1",
+        "scope": {
+            "model_key": "fixture:model-a",
+            "common_plan_sha256": "b" * 64,
+        },
+        "scope_sha256": "c" * 64,
+    }
+    scope_path = tmp_path / "execution-scope.json"
+    scope_path.write_text(json.dumps(scope) + "\n", encoding="utf-8")
+    receipt = {
+        "model_key": "fixture:model-a",
+        "ablation": "full_packet",
+        "execution_scope_sha256": "c" * 64,
+        "execution_scope_artifact_sha256": "e" * 64,
+        "common_plan_sha256": "b" * 64,
+    }
+    monkeypatch.setattr(shard_fan_in, "load_model_registry", lambda _path: object())
+
+    with pytest.raises(
+        shard_fan_in.FanInError,
+        match="execution_scope_artifact_sha256 does not match",
+    ):
+        shard_fan_in.verify_scoped_execution_scopes(
+            (receipt,),
+            declared_shards=(("fixture:model-a", "full_packet"),),
+            common_plan={"schema_version": "legalforecast.execution_policy.v3"},
+            model_registry_path=tmp_path / "registry.json",
+            model_registry_sha256="d" * 64,
+            scope_paths=(scope_path,),
+        )
+
+
 def test_mapped_rerun_validates_only_the_selected_receipt() -> None:
     run_manifest, valid, repeat_policy = _strict_receipt()
     invalid = deepcopy(valid)

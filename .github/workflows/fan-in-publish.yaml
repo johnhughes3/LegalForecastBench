@@ -376,7 +376,8 @@ jobs:
           PY
           )"
           if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" == "legalforecast.execution_policy.v3" ]]; then
-            [[ -s /tmp/lfb-source-dispatch/lfb-execution-scope.json ]] || {
+            scope_count="$(find /tmp/lfb-source-dispatch -maxdepth 1 -type f -name 'lfb-execution-scope*.json' -size +0c | wc -l)"
+            [[ "${scope_count}" -gt 0 ]] || {
               echo "v3 source dispatch is missing its authenticated execution scope artifact" >&2
               exit 1
             }
@@ -398,18 +399,26 @@ jobs:
               args+=(--amendment-bundle "${bundle_path}")
             done < <(find /tmp/lfb-manifest-run/amendments -type f -name '*.freeze.json' -print | sort)
           fi
+          scope_args=()
+          while IFS= read -r scope_path; do
+            scope_args+=(--execution-scope "${scope_path}")
+          done < <(find /tmp/lfb-source-dispatch -maxdepth 1 -type f -name 'lfb-execution-scope*.json' -size +0c -print | sort)
+          if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" == "legalforecast.execution_policy.v3" && "${#scope_args[@]}" -eq 0 ]]; then
+            echo "v3 source dispatch is missing its authenticated execution scope artifact" >&2
+            exit 1
+          fi
           [[ -z "${ACCEPTED_MAP//[[:space:]]/}" ]] || args+=(--accepted-attempt-map "${ACCEPTED_MAP}")
           [[ -z "${BASELINES//[[:space:]]/}" ]] || args+=(--baseline-training-examples "${BASELINES}")
           [[ -z "${CLEAN_MOTION_COUNT//[[:space:]]/}" ]] || args+=(--clean-motion-count "${CLEAN_MOTION_COUNT}")
           [[ -z "${PREDICTION_UNIT_COUNT//[[:space:]]/}" ]] || args+=(--prediction-unit-count "${PREDICTION_UNIT_COUNT}")
           if [[ "${VERIFY_ONLY}" == "true" ]]; then
             uv run python -m legalforecast.publication.shard_fan_in \
-              --verify-only "${args[@]}"
+              --verify-only "${args[@]}" "${scope_args[@]}"
           else
             uv run python -m legalforecast.publication.shard_fan_in_publish \
               --publish-root "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/" \
               --publication-cycle-id "${CYCLE_ID}" \
-              "${args[@]}"
+              "${args[@]}" "${scope_args[@]}"
           fi
 
       - name: Upload sanitized fan-in verification report

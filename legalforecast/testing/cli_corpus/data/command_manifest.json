@@ -11642,6 +11642,20 @@
           "type": "pathlib.Path"
         },
         {
+          "action": "BooleanOptionalAction",
+          "choices": null,
+          "default": true,
+          "dest": "allow_no_baselines",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--allow-no-baselines",
+            "--no-allow-no-baselines"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
           "action": "store",
           "choices": null,
           "default": null,

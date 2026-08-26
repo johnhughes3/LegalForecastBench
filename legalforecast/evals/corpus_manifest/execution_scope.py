@@ -25,6 +25,10 @@ from legalforecast.contracts.schemas import (
     EXECUTION_SCOPE_V1,
     RAW_BYTES_RAW_SHA256_COMMITMENT_V1,
 )
+from legalforecast.evals.corpus_manifest.cost_projector import (
+    ManifestCostProjectionError,
+    verify_manifest_cost_projection_receipt,
+)
 from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
@@ -58,6 +62,7 @@ _PLAN_FIELDS: Final = frozenset(
         "authorization_mode",
         "provider_execution_authorized",
         "model_scope_required",
+        "allow_no_baselines",
         "common_frozen_inputs",
         "model_registry_entries",
         "shard_schedule",
@@ -145,6 +150,7 @@ def issue_execution_plan(
     model_registry: Path,
     common_frozen_inputs: Mapping[str, str],
     run_card_sha256: str | None = None,
+    allow_no_baselines: bool = True,
     output: Path | None = None,
 ) -> dict[str, Any]:
     """Issue a provider-free complete plan without granting provider authority.
@@ -178,6 +184,7 @@ def issue_execution_plan(
         "authorization_mode": "model_scope_required",
         "provider_execution_authorized": False,
         "model_scope_required": True,
+        "allow_no_baselines": allow_no_baselines,
         "common_frozen_inputs": inputs,
         "model_registry_entries": entries,
         "shard_schedule": {
@@ -216,8 +223,7 @@ def issue_model_execution_scope(
     model_key: str,
     cost_projection: Path | Mapping[str, Any],
     owner_ceiling_usd: str,
-    owner_evidence: Path | Mapping[str, Any] | bytes | None = None,
-    owner_bead_id: str | None = None,
+    owner_bead_id: str,
     provider_authority: Mapping[str, Any],
     output: Path | None = None,
 ) -> dict[str, Any]:
@@ -253,11 +259,14 @@ def issue_model_execution_scope(
         "model_registry_sha256"
     ) != _sha256_bytes(registry_bytes):
         raise ExecutionScopeError("model registry does not match common plan")
+    common_inputs = _mapping(plan.get("common_frozen_inputs"), "common_frozen_inputs")
     cost_artifact = _load_json_source(cost_projection, "cost projection receipt")
     cost_digest = _verify_cost_receipt(
         cost_artifact,
         cycle_id=_text(plan.get("cycle_id"), "cycle_id"),
         model_key=key,
+        common_frozen_inputs=common_inputs,
+        registry_entry=entry.to_record(),
     )
     ceiling = _money(owner_ceiling_usd, "owner_ceiling_usd")
     projected = _money(
@@ -268,20 +277,11 @@ def issue_model_execution_scope(
     )
     if projected > ceiling:
         raise ExecutionScopeError("projected cost exceeds owner ceiling")
-    if owner_evidence is None:
-        if owner_bead_id is None:
-            raise ExecutionScopeError(
-                "live model-scope issuance requires an owner Beads issue id"
-            )
-        from legalforecast.evals.corpus_manifest.execution_decisions import (
-            capture_beads_comments,
-        )
+    from legalforecast.evals.corpus_manifest.execution_decisions import (
+        capture_beads_comments,
+    )
 
-        owner_evidence = capture_beads_comments(owner_bead_id)
-    elif isinstance(owner_evidence, Mapping):
-        raise ExecutionScopeError(
-            "model-scope issuance cannot accept a caller-authored owner wrapper"
-        )
+    owner_evidence = capture_beads_comments(owner_bead_id)
     evidence = _owner_evidence(
         owner_evidence,
         model_key=key,
@@ -297,9 +297,7 @@ def issue_model_execution_scope(
         cycle_id=cast(str, plan["cycle_id"]),
         model_key=key,
     )
-    common_inputs = dict(
-        _mapping(plan.get("common_frozen_inputs"), "common_frozen_inputs")
-    )
+    common_inputs = dict(common_inputs)
     scope: dict[str, Any] = {
         "cycle_id": plan["cycle_id"],
         "common_plan_sha256": plan_digest,
@@ -401,7 +399,13 @@ def verify_execution_scope(
     _require_plan_registry_entry(plan, key, entry)
     cost_artifact = _load_json_source(cost_projection, "cost projection receipt")
     cost_digest = _verify_cost_receipt(
-        cost_artifact, cycle_id=cast(str, plan["cycle_id"]), model_key=key
+        cost_artifact,
+        cycle_id=cast(str, plan["cycle_id"]),
+        model_key=key,
+        common_frozen_inputs=_mapping(
+            plan.get("common_frozen_inputs"), "common_frozen_inputs"
+        ),
+        registry_entry=entry.to_record(),
     )
     if scope.get("cost_projection_receipt_sha256") != cost_digest:
         raise ExecutionScopeError("scope cost projection drift")
@@ -666,6 +670,8 @@ def _validate_plan(plan: Mapping[str, Any]) -> dict[str, Any]:
         raise ExecutionScopeError("v3 plan cannot authorize provider execution")
     if normalized.get("model_scope_required") is not True:
         raise ExecutionScopeError("v3 plan must require model scopes")
+    if not isinstance(normalized.get("allow_no_baselines"), bool):
+        raise ExecutionScopeError("v3 plan allow_no_baselines must be Boolean")
     _validate_common_inputs(
         _mapping(normalized.get("common_frozen_inputs"), "common_frozen_inputs")
     )
@@ -729,40 +735,23 @@ def _validate_plan(plan: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _verify_cost_receipt(
-    receipt: Mapping[str, Any], *, cycle_id: str, model_key: str
+    receipt: Mapping[str, Any],
+    *,
+    cycle_id: str,
+    model_key: str,
+    common_frozen_inputs: Mapping[str, Any],
+    registry_entry: Mapping[str, Any],
 ) -> str:
-    supplied = _sha(receipt.get("receipt_sha256"), "cost receipt receipt_sha256")
-    without = dict(receipt)
-    without.pop("receipt_sha256", None)
-    if hash_payload(without) != supplied:
-        raise ExecutionScopeError("cost projection receipt hash does not match bytes")
-    if receipt.get("cycle_id") != cycle_id:
-        raise ExecutionScopeError("cost projection cycle_id does not match plan")
-    if receipt.get("requested_model_keys") != [model_key] or receipt.get(
-        "requested_ablations"
-    ) != list(OFFICIAL_SCOPE_ABLATIONS):
-        raise ExecutionScopeError(
-            "cost receipt is not the exact selected-model two-ablation projection"
+    try:
+        return verify_manifest_cost_projection_receipt(
+            receipt,
+            expected_cycle_id=cycle_id,
+            expected_model_key=model_key,
+            expected_common_frozen_inputs=common_frozen_inputs,
+            expected_registry_entry=registry_entry,
         )
-    if (
-        receipt.get("case_count") != OFFICIAL_CASE_COUNT
-        or receipt.get("packet_count") != OFFICIAL_CALL_COUNT
-        or receipt.get("request_count") != OFFICIAL_CALL_COUNT
-        or receipt.get("attempt_count") != OFFICIAL_CALL_COUNT
-    ):
-        raise ExecutionScopeError(
-            "cost receipt must cover exactly 100 cases and 200 calls"
-        )
-    if (
-        receipt.get("cell_count") != 2
-        or receipt.get("matrix_row_count") != OFFICIAL_CALL_COUNT
-    ):
-        raise ExecutionScopeError(
-            "cost receipt must contain two 100-row ablation cells"
-        )
-    if not isinstance(receipt.get("projected_model_cost_usd"), str):
-        raise ExecutionScopeError("cost receipt projected_model_cost_usd is required")
-    return supplied
+    except ManifestCostProjectionError as exc:
+        raise ExecutionScopeError(str(exc)) from exc
 
 
 def _owner_evidence(

@@ -6,7 +6,9 @@ import hashlib
 import json
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Set
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, cast
 
 from legalforecast.contracts.schemas import MANIFEST_COST_PROJECTION_RECEIPT_V1
@@ -32,8 +34,91 @@ if TYPE_CHECKING:
 PRICE_UNITS_PER_TOKEN: Final = 1_000_000
 LONG_CONTEXT_SURCHARGE_THRESHOLD_TOKENS: Final = 272_000
 AUTHENTICATED_MANIFEST_ABLATIONS: Final = frozenset({"full_packet", "metadata_only"})
+_OFFICIAL_ABLATIONS: Final = ("full_packet", "metadata_only")
 PROVIDER_LANES: Final = ("openai", "anthropic", "gemini")
+OFFICIAL_CASE_COUNT: Final = 100
+OFFICIAL_CALL_COUNT: Final = 200
+_SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
 _USD: Final = re.compile(r"[0-9]+(?:\.[0-9]+)?\Z")
+_USD_SIX: Final = re.compile(r"[0-9]+\.[0-9]{6}\Z")
+_COST_RECEIPT_FIELDS: Final = frozenset(
+    {
+        "schema_version",
+        "cycle_id",
+        "input_commitments",
+        "requested_model_keys",
+        "requested_ablations",
+        "case_ids",
+        "repeat_sample_case_ids",
+        "repeat_count",
+        "matrix_limit",
+        "shard_only",
+        "max_projected_model_cost_usd",
+        "matrix",
+        "provider_counts",
+        "provider_matrices",
+        "case_count",
+        "packet_count",
+        "cell_count",
+        "matrix_row_count",
+        "shard_matrix_row_count",
+        "request_count",
+        "attempt_count",
+        "model_count",
+        "long_context_surcharge_packet_count",
+        "long_context_surcharge_packets",
+        "long_context_surcharge_packets_json",
+        "projected_model_cost_usd",
+        "recommended_max_projected_model_cost_usd",
+        "provider_calls_made",
+        "aws_activity_executed",
+        "packet_mutations_made",
+        "openai_count",
+        "openai_matrix",
+        "anthropic_count",
+        "anthropic_matrix",
+        "gemini_count",
+        "gemini_matrix",
+        "receipt_sha256",
+    }
+)
+_COST_MATRIX_ROW_FIELDS: Final = frozenset(
+    {
+        "case_id",
+        "case_id_slug",
+        "ablation",
+        "packet_object_key",
+        "packet_sha256",
+        "model_key",
+        "model_key_slug",
+        "repeat_count",
+    }
+)
+_COST_INPUT_COMMITMENT_FIELDS: Final = frozenset(
+    {
+        "freeze_bundle",
+        "freeze_amendment_bundles",
+        "owner_manifest",
+        "manifest_run_record",
+        "run_input_manifest",
+        "model_registry",
+        "prompt_contract",
+        "packets",
+    }
+)
+_COST_RAW_COMMITMENT_FIELDS: Final = frozenset({"sha256", "size_bytes"})
+_COST_PACKET_COMMITMENT_FIELDS: Final = frozenset(
+    {"packet_object_key", "sha256", "size_bytes"}
+)
+_COST_WARNING_FIELDS: Final = frozenset(
+    {
+        "case_id",
+        "ablation",
+        "packet_object_key",
+        "packet_sha256",
+        "estimated_input_tokens",
+    }
+)
 
 
 def issue_manifest_cost_projection(
@@ -319,6 +404,337 @@ def build_manifest_cost_projection(
     return receipt
 
 
+def verify_manifest_cost_projection_receipt(
+    receipt: Mapping[str, Any],
+    *,
+    expected_cycle_id: str,
+    expected_model_key: str,
+    expected_common_frozen_inputs: Mapping[str, Any],
+    expected_registry_entry: Mapping[str, Any],
+) -> str:
+    """Verify one exact-model receipt emitted by the canonical cost projector.
+
+    A scope issuer only receives the receipt and the common plan, not the
+    manifest-run packet bytes.  The receipt therefore has to carry the
+    projector's complete authenticated commitment set and matrix.  This
+    verifier binds the commitments available in the plan, checks the matrix
+    shape and packet coverage, and checks every provider projection against the
+    selected registry entry identity before a scope can be issued.
+    """
+
+    record = dict(receipt)
+    _cost_exact_keys(record, _COST_RECEIPT_FIELDS, "cost projection receipt")
+    if record.get("schema_version") != str(MANIFEST_COST_PROJECTION_RECEIPT_V1):
+        raise ManifestCostProjectionError(
+            "unsupported manifest cost projection receipt schema"
+        )
+    supplied = _cost_sha(record.get("receipt_sha256"), "receipt_sha256")
+    without_hash = dict(record)
+    without_hash.pop("receipt_sha256")
+    if hash_payload(without_hash) != supplied:
+        raise ManifestCostProjectionError(
+            "cost projection receipt hash does not match bytes"
+        )
+    cycle_id = _cost_text(expected_cycle_id, "expected cycle_id")
+    if record.get("cycle_id") != cycle_id:
+        raise ManifestCostProjectionError(
+            "cost projection receipt cycle_id does not match common plan"
+        )
+    model_key = _cost_text(expected_model_key, "expected model_key")
+    if record.get("requested_model_keys") != [model_key]:
+        raise ManifestCostProjectionError(
+            "cost receipt is not the exact selected-model projection"
+        )
+    if record.get("requested_ablations") != list(_OFFICIAL_ABLATIONS):
+        raise ManifestCostProjectionError(
+            "cost receipt is not the exact two-ablation projection"
+        )
+    if record.get("repeat_sample_case_ids") != [] or record.get("repeat_count") != 1:
+        raise ManifestCostProjectionError(
+            "cost receipt repeat policy must be the unexpanded official matrix"
+        )
+    if record.get("shard_only") is not False:
+        raise ManifestCostProjectionError(
+            "scope cost receipt must be the two-cell aggregate projection"
+        )
+
+    case_ids = _cost_string_list(record.get("case_ids"), "case_ids")
+    if len(case_ids) != OFFICIAL_CASE_COUNT or len(set(case_ids)) != len(case_ids):
+        raise ManifestCostProjectionError(
+            "cost receipt must contain exactly 100 unique case IDs"
+        )
+    if (
+        record.get("case_count") != OFFICIAL_CASE_COUNT
+        or record.get("packet_count") != OFFICIAL_CALL_COUNT
+        or record.get("request_count") != OFFICIAL_CALL_COUNT
+        or record.get("attempt_count") != OFFICIAL_CALL_COUNT
+        or record.get("cell_count") != 2
+        or record.get("matrix_row_count") != OFFICIAL_CALL_COUNT
+        or record.get("shard_matrix_row_count") != OFFICIAL_CASE_COUNT
+        or record.get("model_count") != 1
+    ):
+        raise ManifestCostProjectionError(
+            "cost receipt must cover exactly 100 cases, 200 calls, and two cells"
+        )
+    matrix_limit = _cost_nonnegative_int(record.get("matrix_limit"), "matrix_limit")
+    if matrix_limit < OFFICIAL_CALL_COUNT:
+        raise ManifestCostProjectionError(
+            "cost receipt matrix_limit is below the two-cell matrix"
+        )
+
+    input_commitments = _cost_mapping(
+        record.get("input_commitments"), "input_commitments"
+    )
+    _cost_exact_keys(
+        input_commitments, _COST_INPUT_COMMITMENT_FIELDS, "input_commitments"
+    )
+    common_commitment_fields = {
+        "freeze_bundle": "freeze_bundle_sha256",
+        "owner_manifest": "manifest_sha256",
+        "run_input_manifest": "run_input_manifest_sha256",
+        "model_registry": "model_registry_sha256",
+    }
+    for commitment_name, common_name in common_commitment_fields.items():
+        commitment = _cost_raw_commitment(
+            input_commitments.get(commitment_name),
+            f"input_commitments.{commitment_name}",
+        )
+        expected = _cost_sha(
+            expected_common_frozen_inputs.get(common_name),
+            f"common_frozen_inputs.{common_name}",
+        )
+        if commitment["sha256"] != expected:
+            raise ManifestCostProjectionError(
+                f"input_commitments.{commitment_name} does not match common plan"
+            )
+    amendment_bundles = input_commitments.get("freeze_amendment_bundles")
+    if not isinstance(amendment_bundles, list):
+        raise ManifestCostProjectionError(
+            "input_commitments.freeze_amendment_bundles must be an array"
+        )
+    for index, commitment in enumerate(cast(list[object], amendment_bundles)):
+        _cost_raw_commitment(
+            commitment, f"input_commitments.freeze_amendment_bundles[{index}]"
+        )
+    for name in ("manifest_run_record", "prompt_contract"):
+        _cost_raw_commitment(input_commitments.get(name), f"input_commitments.{name}")
+
+    raw_packet_commitments = input_commitments.get("packets")
+    if not isinstance(raw_packet_commitments, list):
+        raise ManifestCostProjectionError("input_commitments.packets must be an array")
+    packet_commitments: dict[str, Mapping[str, Any]] = {}
+    for index, raw_commitment in enumerate(cast(list[object], raw_packet_commitments)):
+        commitment = _cost_mapping(
+            raw_commitment, f"input_commitments.packets[{index}]"
+        )
+        _cost_exact_keys(
+            commitment,
+            _COST_PACKET_COMMITMENT_FIELDS,
+            f"input_commitments.packets[{index}]",
+        )
+        key = _cost_packet_key(
+            commitment.get("packet_object_key"),
+            f"input_commitments.packets[{index}].packet_object_key",
+        )
+        if key in packet_commitments:
+            raise ManifestCostProjectionError(
+                f"input_commitments.packets contains duplicate key: {key}"
+            )
+        _cost_sha(
+            commitment.get("sha256"), f"input_commitments.packets[{index}].sha256"
+        )
+        _cost_nonnegative_int(
+            commitment.get("size_bytes"),
+            f"input_commitments.packets[{index}].size_bytes",
+        )
+        packet_commitments[key] = commitment
+    if len(packet_commitments) != OFFICIAL_CALL_COUNT:
+        raise ManifestCostProjectionError(
+            "input_commitments.packets must contain exactly 200 packets"
+        )
+
+    matrix = _cost_mapping(record.get("matrix"), "matrix")
+    _cost_exact_keys(matrix, {"include"}, "matrix")
+    raw_rows = matrix.get("include")
+    if not isinstance(raw_rows, list):
+        raise ManifestCostProjectionError("matrix.include must be an array")
+    rows = cast(list[object], raw_rows)
+    if len(rows) != OFFICIAL_CALL_COUNT:
+        raise ManifestCostProjectionError(
+            "cost receipt matrix must contain exactly 200 rows"
+        )
+    expected_pairs = {
+        (case_id, ablation) for case_id in case_ids for ablation in _OFFICIAL_ABLATIONS
+    }
+    matrix_rows: list[Mapping[str, Any]] = []
+    observed_pairs: set[tuple[str, str]] = set()
+    observed_packet_keys: set[str] = set()
+    for index, raw_row in enumerate(rows):
+        row = _cost_mapping(raw_row, f"matrix.include[{index}]")
+        _cost_exact_keys(row, _COST_MATRIX_ROW_FIELDS, f"matrix.include[{index}]")
+        row_case_id = _cost_text(row.get("case_id"), "matrix row case_id")
+        row_ablation = _cost_text(row.get("ablation"), "matrix row ablation")
+        pair = (row_case_id, row_ablation)
+        if pair in observed_pairs:
+            raise ManifestCostProjectionError(
+                f"cost receipt matrix contains duplicate row: {pair}"
+            )
+        if pair not in expected_pairs:
+            raise ManifestCostProjectionError(
+                f"cost receipt matrix contains undeclared row: {pair}"
+            )
+        observed_pairs.add(pair)
+        if row.get("model_key") != model_key:
+            raise ManifestCostProjectionError(
+                "cost receipt matrix row model_key differs from selected model"
+            )
+        if row.get("case_id_slug") != safe_case_id_slug(row_case_id):
+            raise ManifestCostProjectionError(
+                "cost receipt matrix case_id_slug does not match case_id"
+            )
+        expected_model_slug = re.sub(r"[^A-Za-z0-9._-]+", "-", model_key).strip("-")
+        if row.get("model_key_slug") != expected_model_slug:
+            raise ManifestCostProjectionError(
+                "cost receipt matrix model_key_slug does not match model_key"
+            )
+        packet_key = _cost_packet_key(row.get("packet_object_key"), "matrix packet key")
+        if packet_key in observed_packet_keys:
+            raise ManifestCostProjectionError(
+                f"cost receipt matrix reuses packet: {packet_key}"
+            )
+        observed_packet_keys.add(packet_key)
+        packet_sha = _cost_sha(row.get("packet_sha256"), "matrix packet_sha256")
+        commitment = packet_commitments.get(packet_key)
+        if commitment is None or commitment.get("sha256") != packet_sha:
+            raise ManifestCostProjectionError(
+                "cost receipt matrix packet commitment is not authenticated: "
+                f"{packet_key}"
+            )
+        if row.get("repeat_count") != 1:
+            raise ManifestCostProjectionError(
+                "cost receipt matrix repeat_count must be one"
+            )
+        matrix_rows.append(row)
+    if observed_pairs != expected_pairs or observed_packet_keys != set(
+        packet_commitments
+    ):
+        raise ManifestCostProjectionError(
+            "cost receipt matrix does not cover the authenticated packet matrix"
+        )
+
+    registry_provider = _cost_text(
+        expected_registry_entry.get("provider"), "selected registry provider"
+    )
+    registry_model_id = _cost_text(
+        expected_registry_entry.get("model_id"), "selected registry model_id"
+    )
+    if model_key != f"{registry_provider}:{registry_model_id}":
+        raise ManifestCostProjectionError(
+            "cost receipt selected model differs from registry entry"
+        )
+    selected_provider = provider_lane(model_key)
+    provider_counts = _cost_mapping(record.get("provider_counts"), "provider_counts")
+    _cost_exact_keys(provider_counts, set(PROVIDER_LANES), "provider_counts")
+    provider_matrices = _cost_mapping(
+        record.get("provider_matrices"), "provider_matrices"
+    )
+    _cost_exact_keys(provider_matrices, set(PROVIDER_LANES), "provider_matrices")
+    for provider in PROVIDER_LANES:
+        expected_rows = matrix_rows if provider == selected_provider else []
+        if record.get(f"{provider}_count") != len(expected_rows):
+            raise ManifestCostProjectionError(
+                f"{provider} count does not match selected model matrix"
+            )
+        if provider_counts.get(provider) != len(expected_rows):
+            raise ManifestCostProjectionError(
+                f"provider_counts.{provider} does not match selected model matrix"
+            )
+        provider_matrix = _cost_mapping(
+            provider_matrices.get(provider), f"provider_matrices.{provider}"
+        )
+        _cost_exact_keys(provider_matrix, {"include"}, f"provider_matrices.{provider}")
+        if provider_matrix.get("include") != expected_rows:
+            raise ManifestCostProjectionError(
+                f"provider_matrices.{provider} differs from the full matrix"
+            )
+        if record.get(f"{provider}_matrix") != provider_matrix:
+            raise ManifestCostProjectionError(
+                f"{provider}_matrix differs from provider_matrices.{provider}"
+            )
+
+    warnings = record.get("long_context_surcharge_packets")
+    if not isinstance(warnings, list):
+        raise ManifestCostProjectionError(
+            "long_context_surcharge_packets must be an array"
+        )
+    warning_rows = cast(list[object], warnings)
+    if record.get("long_context_surcharge_packet_count") != len(warning_rows):
+        raise ManifestCostProjectionError(
+            "long_context_surcharge_packet_count does not match warning rows"
+        )
+    if record.get("long_context_surcharge_packets_json") != json.dumps(
+        warnings, ensure_ascii=False, separators=(",", ":")
+    ):
+        raise ManifestCostProjectionError(
+            "long_context_surcharge_packets_json does not match warning rows"
+        )
+    for index, raw_warning in enumerate(warning_rows):
+        warning = _cost_mapping(raw_warning, f"long_context warning[{index}]")
+        _cost_exact_keys(
+            warning, _COST_WARNING_FIELDS, f"long_context warning[{index}]"
+        )
+        warning_pair = (
+            _cost_text(warning.get("case_id"), "long_context warning case_id"),
+            _cost_text(warning.get("ablation"), "long_context warning ablation"),
+        )
+        warning_key = _cost_packet_key(
+            warning.get("packet_object_key"), "long_context warning packet key"
+        )
+        if (
+            warning_pair not in observed_pairs
+            or warning_key not in observed_packet_keys
+        ):
+            raise ManifestCostProjectionError(
+                "long_context warning is not part of the authenticated matrix"
+            )
+        if _cost_sha(
+            warning.get("packet_sha256"), "long_context warning packet_sha256"
+        ) != packet_commitments[warning_key].get("sha256"):
+            raise ManifestCostProjectionError(
+                "long_context warning packet commitment differs from matrix"
+            )
+        _cost_nonnegative_int(
+            warning.get("estimated_input_tokens"),
+            "long_context warning estimated_input_tokens",
+        )
+
+    projected = _cost_money(
+        record.get("projected_model_cost_usd"), "projected_model_cost_usd"
+    )
+    recommended = _cost_money(
+        record.get("recommended_max_projected_model_cost_usd"),
+        "recommended_max_projected_model_cost_usd",
+    )
+    if recommended < projected:
+        raise ManifestCostProjectionError(
+            "recommended cost ceiling is below projected model cost"
+        )
+    requested_ceiling = record.get("max_projected_model_cost_usd")
+    if requested_ceiling is not None:
+        ceiling = _cost_money(requested_ceiling, "max_projected_model_cost_usd")
+        if ceiling < projected:
+            raise ManifestCostProjectionError(
+                "requested cost ceiling is below projected model cost"
+            )
+    if record.get("provider_calls_made") != 0:
+        raise ManifestCostProjectionError("cost receipt records provider activity")
+    if record.get("aws_activity_executed") is not False:
+        raise ManifestCostProjectionError("cost receipt records AWS activity")
+    if record.get("packet_mutations_made") != 0:
+        raise ManifestCostProjectionError("cost receipt records packet mutation")
+    return supplied
+
+
 def packet_input_tokens(
     packet: Mapping[str, Any], *, authenticated_packet_size: int | None = None
 ) -> int:
@@ -476,3 +892,78 @@ def _optional_ceiling(raw: str | None) -> float | None:
 
 def _format_usd(value: float) -> str:
     return f"{value:.6f}"
+
+
+def _cost_exact_keys(value: Mapping[str, Any], expected: Set[str], label: str) -> None:
+    actual = set(value)
+    if actual != expected:
+        raise ManifestCostProjectionError(
+            f"{label} fields mismatch: missing={sorted(expected - actual)}, "
+            f"unknown={sorted(actual - expected)}"
+        )
+
+
+def _cost_mapping(value: object, label: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ManifestCostProjectionError(f"{label} must be an object")
+    return cast(Mapping[str, Any], value)
+
+
+def _cost_text(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ManifestCostProjectionError(f"{label} must be a non-empty string")
+    return value.strip()
+
+
+def _cost_sha(value: object, label: str) -> str:
+    text = _cost_text(value, label)
+    if _SHA256.fullmatch(text) is None:
+        raise ManifestCostProjectionError(f"{label} must be a lowercase SHA-256")
+    return text
+
+
+def _cost_nonnegative_int(value: object, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise ManifestCostProjectionError(f"{label} must be a non-negative integer")
+    return value
+
+
+def _cost_string_list(value: object, label: str) -> list[str]:
+    if not isinstance(value, list):
+        raise ManifestCostProjectionError(f"{label} must be an array")
+    result: list[str] = []
+    for index, item in enumerate(cast(list[object], value)):
+        result.append(_cost_text(item, f"{label}[{index}]"))
+    return result
+
+
+def _cost_raw_commitment(value: object, label: str) -> Mapping[str, Any]:
+    commitment = _cost_mapping(value, label)
+    _cost_exact_keys(commitment, _COST_RAW_COMMITMENT_FIELDS, label)
+    _cost_sha(commitment.get("sha256"), f"{label}.sha256")
+    _cost_nonnegative_int(commitment.get("size_bytes"), f"{label}.size_bytes")
+    return commitment
+
+
+def _cost_packet_key(value: object, label: str) -> str:
+    key = _cost_text(value, label)
+    if not key.startswith("model-packets/"):
+        raise ManifestCostProjectionError(f"{label} must use the model-packets/ prefix")
+    parts = Path(key).parts
+    if Path(key).is_absolute() or any(part in {"", ".", ".."} for part in parts):
+        raise ManifestCostProjectionError(f"{label} is not a safe relative path")
+    return key
+
+
+def _cost_money(value: object, label: str) -> Decimal:
+    if not isinstance(value, str) or _USD_SIX.fullmatch(value) is None:
+        raise ManifestCostProjectionError(
+            f"{label} must be a six-decimal non-negative USD amount"
+        )
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation as exc:
+        raise ManifestCostProjectionError(f"{label} must be decimal USD") from exc
+    if not parsed.is_finite():
+        raise ManifestCostProjectionError(f"{label} must be finite USD")
+    return parsed

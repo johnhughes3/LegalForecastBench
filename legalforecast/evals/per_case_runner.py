@@ -58,7 +58,6 @@ from legalforecast.evals.response_verification import (
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 from legalforecast.path_safety import safe_path_component
 from legalforecast.protocol.freeze import hash_freeze_payload, sha256_file
-from legalforecast.protocol.manifest import hash_payload
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
     official_execution_repeat_policy,
@@ -1824,6 +1823,11 @@ def _scope_provider_authority(
     owner_ceiling_usd: str,
 ) -> str:
     """Validate the public authority projection before constructing AWS clients."""
+
+    # Keep this import local: protocol.manifest imports ingestion, whose package
+    # exports the per-case runner.  Importing it at module load time makes
+    # ``import legalforecast.protocol`` fail in a fresh interpreter.
+    from legalforecast.protocol.manifest import hash_payload
 
     expected = {
         "backend",

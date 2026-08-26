@@ -512,6 +512,12 @@ def register(
     issue_plan.add_argument("--run-input-manifest", type=Path, required=True)
     issue_plan.add_argument("--run-card", type=Path, required=True)
     issue_plan.add_argument("--model-registry", type=Path, required=True)
+    issue_plan.add_argument(
+        "--allow-no-baselines",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Allow fan-in without a baseline corpus (default: true).",
+    )
     issue_plan.add_argument("--output", type=Path, required=True)
     issue_plan.set_defaults(handler=run_issue_execution_plan_v3)
 
@@ -788,6 +794,7 @@ def run_issue_execution_plan_v3(args: argparse.Namespace) -> int:
             "model_registry_sha256": sha256_file(cast(Path, args.model_registry)),
             "run_card_sha256": sha256_file(cast(Path, args.run_card)),
         },
+        allow_no_baselines=cast(bool, args.allow_no_baselines),
         output=cast(Path, args.output),
     )
     print(json.dumps(dict(result), indent=2, sort_keys=True))

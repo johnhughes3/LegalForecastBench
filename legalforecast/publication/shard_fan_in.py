@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import unquote, urlparse
 
+from legalforecast.evals.corpus_manifest.execution_scope import (
+    ExecutionScopeError,
+    verify_execution_scope_runtime,
+)
+from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.protocol.freeze import (
     FrozenArtifactName,
     sha256_file,
@@ -105,6 +110,7 @@ class FanInConfig:
     source_release_sha: str | None = None
     labels_path: Path | None = None
     model_registry_path: Path | None = None
+    execution_scope_paths: tuple[Path, ...] = ()
     accepted_attempt_map_path: Path | None = None
     operator_clean_motion_count: int | None = None
     operator_prediction_unit_count: int | None = None
@@ -175,6 +181,7 @@ class FanInReport:
 class _FrozenInputs:
     context: FrozenFanInContext
     execution_policy: Mapping[str, Any]
+    execution_policy_path: Path
     manifest_path: Path
     units_path: Path
     labels_path: Path
@@ -308,6 +315,7 @@ def select_and_validate_receipts(
     run_input_manifest: Mapping[str, Any],
     repeat_policy: Mapping[str, Any],
     shard_schedule_sha256: str,
+    scope_required: bool = False,
     accepted_attempt_map: Mapping[str, Any] | None = None,
 ) -> ReceiptSelection:
     """Select attempts first, then strictly verify only the accepted receipts."""
@@ -336,10 +344,7 @@ def select_and_validate_receipts(
                 actual_receipt_key=artifact.actual_key,
             )
         )
-    if any(
-        receipt.get("schema_version") == SCOPED_RECEIPT_SCHEMA_VERSION
-        for receipt in verified
-    ):
+    if scope_required:
         require_scoped_receipt_set(
             verified,
             declared_shards=declared_shards,
@@ -392,6 +397,101 @@ def require_scoped_receipt_set(
     missing = sorted(declared_models - set(scope_by_model))
     if missing:
         raise FanInError(f"missing model execution scopes: {missing}")
+
+
+def verify_scoped_execution_scopes(
+    receipts: Sequence[Mapping[str, Any]],
+    *,
+    declared_shards: Sequence[ShardKey],
+    common_plan: Mapping[str, Any],
+    model_registry_path: Path,
+    model_registry_sha256: str,
+    scope_paths: Sequence[Path],
+) -> None:
+    """Replay transported model scopes and bind them to accepted receipts.
+
+    Receipt scope hashes are claims made by untrusted result objects.  The
+    fan-in must therefore load the actual scope artifacts transported with the
+    source dispatch, replay each one against the frozen plan and registry, and
+    compare both the scope-content and full-artifact hashes before aggregation.
+    """
+
+    if not scope_paths:
+        raise FanInError("scoped fan-in requires transported execution scopes")
+    declared_models = {model_key for model_key, _ in declared_shards}
+    scopes_by_model: dict[str, Mapping[str, Any]] = {}
+    for path in scope_paths:
+        try:
+            scope_artifact = load_json_object(path, "execution scope")
+        except (OSError, ValueError) as exc:
+            raise FanInError(f"invalid execution scope artifact: {path}") from exc
+        scope_record = _mapping(scope_artifact.get("scope"), "execution scope")
+        model_key = _required_str(scope_record, "model_key")
+        if model_key not in declared_models:
+            raise FanInError(f"execution scope model is unauthorized: {model_key}")
+        if model_key in scopes_by_model:
+            raise FanInError(f"duplicate transported execution scope: {model_key}")
+        scopes_by_model[model_key] = scope_artifact
+    missing_models = sorted(declared_models - set(scopes_by_model))
+    if missing_models:
+        raise FanInError(f"missing transported execution scopes: {missing_models}")
+    try:
+        registry = load_model_registry(model_registry_path)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise FanInError("fan-in model registry is invalid") from exc
+    expected_registry_sha256 = _required_sha256(
+        {"model_registry_sha256": model_registry_sha256}, "model_registry_sha256"
+    )
+    receipts_by_model: dict[str, list[Mapping[str, Any]]] = {}
+    for receipt in receipts:
+        model_key = _required_str(receipt, "model_key")
+        receipts_by_model.setdefault(model_key, []).append(receipt)
+    for model_key in sorted(declared_models):
+        scope_artifact = scopes_by_model[model_key]
+        scope_record = _mapping(scope_artifact.get("scope"), "execution scope")
+        scope_sha256 = _required_sha256(scope_artifact, "scope_sha256")
+        artifact_sha256 = hash_payload(scope_artifact)
+        model_receipts = receipts_by_model.get(model_key, [])
+        if not model_receipts:
+            raise FanInError(f"missing scoped receipts for model: {model_key}")
+        for receipt in model_receipts:
+            ablation = _required_str(receipt, "ablation")
+            receipt_scope_sha256 = _required_sha256(receipt, "execution_scope_sha256")
+            receipt_artifact_sha256 = _required_sha256(
+                receipt, "execution_scope_artifact_sha256"
+            )
+            if receipt_scope_sha256 != scope_sha256:
+                raise FanInError(
+                    "receipt execution_scope_sha256 does not match transported "
+                    f"scope for {model_key}/{ablation}"
+                )
+            if receipt_artifact_sha256 != artifact_sha256:
+                raise FanInError(
+                    "receipt execution_scope_artifact_sha256 does not match "
+                    f"transported scope for {model_key}/{ablation}"
+                )
+            if _required_sha256(receipt, "common_plan_sha256") != _required_sha256(
+                {"scope.common_plan_sha256": scope_record.get("common_plan_sha256")},
+                "scope.common_plan_sha256",
+            ):
+                raise FanInError(
+                    "receipt common_plan_sha256 does not match transported scope"
+                )
+            try:
+                verify_execution_scope_runtime(
+                    scope_artifact,
+                    common_plan=common_plan,
+                    model_registry=registry,
+                    model_registry_sha256=expected_registry_sha256,
+                    expected_model_key=model_key,
+                    expected_ablation=ablation,
+                    expected_scope_sha256=receipt_scope_sha256,
+                )
+            except ExecutionScopeError as exc:
+                raise FanInError(
+                    f"transported execution scope is invalid for "
+                    f"{model_key}/{ablation}: {exc}"
+                ) from exc
 
 
 def verify_and_materialize_union(
@@ -707,6 +807,9 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
     repeat_policy = _mapping(
         frozen.execution_policy.get("repeat_policy"), "repeat_policy"
     )
+    receipt_policy = _mapping(
+        frozen.execution_policy.get("receipt_policy"), "receipt_policy"
+    )
     selection = select_and_validate_receipts(
         receipt_artifacts,
         declared_shards=schedule,
@@ -714,6 +817,7 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
         run_input_manifest=run_input_manifest,
         repeat_policy=repeat_policy,
         shard_schedule_sha256=schedule_sha256,
+        scope_required=receipt_policy.get("scope_required") is True,
         accepted_attempt_map=accepted_map,
     )
     require_source_dispatch_identity(
@@ -722,6 +826,16 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
         workflow_run_attempt=config.source_dispatch_run_attempt,
         release_sha=config.source_release_sha,
     )
+    if receipt_policy.get("scope_required") is True:
+        common_plan = load_json_object(frozen.execution_policy_path, "execution policy")
+        verify_scoped_execution_scopes(
+            selection.receipts,
+            declared_shards=schedule,
+            common_plan=common_plan,
+            model_registry_path=frozen.model_registry_path,
+            model_registry_sha256=frozen.context.model_registry_sha256,
+            scope_paths=config.execution_scope_paths,
+        )
     counts = derive_cadence_counts(
         frozen.manifest_path,
         frozen.units_path,
@@ -887,6 +1001,7 @@ def _load_frozen_inputs(config: FanInConfig) -> _FrozenInputs:
     return _FrozenInputs(
         context=context,
         execution_policy=execution,
+        execution_policy_path=bundle.artifact(FrozenArtifactName.EXECUTION_POLICY).path,
         manifest_path=bundle.artifact(FrozenArtifactName.MANIFEST).path,
         units_path=bundle.artifact(FrozenArtifactName.UNITS).path,
         labels_path=bundle.artifact(FrozenArtifactName.LABELS).path,
@@ -1503,6 +1618,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--labels", type=Path)
     parser.add_argument("--model-registry", type=Path)
+    parser.add_argument(
+        "--execution-scope",
+        type=Path,
+        action="append",
+        default=[],
+        help="Transported authenticated model scope; repeat once per model.",
+    )
     parser.add_argument("--accepted-attempt-map", type=Path)
     parser.add_argument("--source-dispatch-run-id")
     parser.add_argument("--source-dispatch-run-attempt", type=int)
@@ -1528,6 +1650,7 @@ def config_from_args(args: argparse.Namespace, *, verify_only: bool) -> FanInCon
         output_dir=cast(Path, args.output_dir),
         labels_path=cast(Path | None, args.labels),
         model_registry_path=cast(Path | None, args.model_registry),
+        execution_scope_paths=tuple(cast(Sequence[Path], args.execution_scope)),
         accepted_attempt_map_path=cast(Path | None, args.accepted_attempt_map),
         source_dispatch_run_id=cast(str | None, args.source_dispatch_run_id),
         source_dispatch_run_attempt=cast(int | None, args.source_dispatch_run_attempt),
