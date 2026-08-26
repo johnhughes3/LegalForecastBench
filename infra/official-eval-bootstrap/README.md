@@ -8,6 +8,7 @@ Creating or importing this root does not authorize AWS work.
 The one-time apply requires separately authorized human/operator AWS credentials, independent review of the exact plan, and protected local state custody until remote migration is proven complete.
 
 The rendered operator policy keeps the durable `legalforecastbench-official-eval-provider-authority` table in its existing exact, non-destructive statement and grants a separate exact-resource statement for the public fixed-name canary `legalforecastbench-official-labeling-authority-smoke-canary`. The canary statement grants only the Terraform management actions required to provision and inspect the negative-control resource; it does not grant the labeling or evaluation roles access to the canary. Disposal remains a separately reviewed follow-up because the current protected plan contract rejects destructive actions.
+For the official-eval root, the policy grants the pinned AWS provider only the operations needed by the reviewed nine-create plan for the exact `legalforecastbench-official-eval` and `legalforecastbench-official-eval-fan-in` role resources. `TagRole` is required for role creation because the module supplies non-empty provider default tags; destructive policy convergence, role deletion, role passing, trust-policy updates, permissions-boundary management, and every other IAM resource remain outside the operator's authority.
 
 ## Operator role trust surface
 
