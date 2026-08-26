@@ -9,7 +9,7 @@ No provider call is authorized by this document.
 | Field | Value |
 | --- | --- |
 | Packet | `docs/community-acceptance/tier0-paired-smoke-executable-freeze.md` |
-| Supersedes | The T0R successor packet (`00d37b320cee3d937712b291748143cc816e0dad6813c2ccd71cad2e45c136bc`) in full, and `docs/community-acceptance/tier0-paired-smoke-structural-freeze.md` (`b8a3053f971c81e442fdb778ca7044ee92f24a78dc6eb899e86b05ab2bbdf919`) for operator command, binary identity, evaluator entrypoint, and spend-control shape |
+| Supersedes | The T0R successor packet (`00d37b320cee3d937712b291748143cc816e0dad6813c2ccd71cad2e45c136bc`) in full, `docs/community-acceptance/tier0-paired-smoke-structural-freeze.md` (`b8a3053f971c81e442fdb778ca7044ee92f24a78dc6eb899e86b05ab2bbdf919`) for operator command, binary identity, evaluator entrypoint, and spend-control shape, and the prior executable-freeze packet (`3f7b4c450749ee5088bda4c0d78b392b7282db07be01eb561ab4ba8a7f2e81f9`) for the Anthropic SDK and derived judge-policy identities |
 | Reviewer | `dm0g.4.5.16-reviewer` |
 | Regeneration | Recreate this file from the rows below, then `sha256sum` it. The companion `.sha256` and the readiness-pack executable-freeze table move together |
 
@@ -110,18 +110,24 @@ The wrapper is provider-free and credential-free. Executed, it validates the fro
 
 ## Production evaluator and judge seam
 
+Provider-free interface re-characterization on 2026-08-26 exercised Anthropic
+SDK 1.0.0 against an in-memory `httpx2.MockTransport`. It verified the exact
+`POST /v1/messages` request body and headers used below, plus typed response,
+usage, model-identity, and raw-JSON parsing. The characterization used a fixture
+key and made no provider call.
+
 | Field | Value |
 | --- | --- |
 | Module | `legalforecast/multiharness/tier0_production_factory.py` |
 | Installed by | `tier0 run`, unconditionally, when no reviewed factory is already installed |
 | Provider surface | Anthropic Messages API through the official SDK |
-| Required SDK version | `0.116.0` (optional extra `tier0-judge-adapter`; a mismatch fails closed) |
+| Required SDK version | `1.0.0` (optional extra `tier0-judge-adapter`; a mismatch fails closed) |
 | Judge credential | Infisical `dev`, `/agents/sandbox/legalforecastbench/harness-runtime/tier0-judge`, `TIER0_JUDGE_ANTHROPIC_API_KEY` |
 | Credential resolution | injected callback at the process boundary; no host-environment fallback |
-| Judge settings SHA-256 | `sha256:87863d48b22b4a1803605b0ae0a352fa06123a075b10ad96a3aa70d6789e57bf` |
+| Judge settings SHA-256 | `sha256:f4e98ad3d27c78e27995c4f81cfb5022279ac5b0c2d83494d16ee7274a295e81` |
 | Judge prompt SHA-256 | `sha256:9aa7ce65e53bba6309b88d380f26ece8776fc3d63eb6eda36db9a287a79d8bac` |
 | Judge output schema SHA-256 | `sha256:0543828cbd14f4f8d22312f89666cae2bdacfbfae6b5eabb2b8a4ea350bc5dc0` |
-| Runtime policy SHA-256 | `sha256:81fdf9cdab802a9543cd6bc93b6eba7236be49f932c4449ea1843d6ea9352dda` |
+| Runtime policy SHA-256 | `sha256:6d58be20a12a275a87934d109b0c63d360117ac1ef345f1068422b0ddfc63c36` |
 | Egress policy SHA-256 | `sha256:e34d58b19f2ebe034e84ee59de0e02bebe194bfd72d9e6449a278f2720051f46` |
 | Resource policy SHA-256 | `sha256:6302b8ece0d27180c098c9f5cc4c43516222d384732a461af27860b0b52b5b95` |
 | Token accounting policy SHA-256 | `sha256:9ec98d3f7e68889f2414538099137ebc8ce88bcff2a84bc4cd5a5848452e7f88` |

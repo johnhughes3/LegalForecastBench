@@ -37,7 +37,7 @@ claude-agent-sdk-adapter = [
     "claude-agent-sdk==0.2.143",
 ]
 tier0-judge-adapter = [
-    "anthropic==0.116.0",
+    "anthropic==1.0.0",
 ]
 
 [dependency-groups]
