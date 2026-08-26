@@ -491,6 +491,12 @@ def _require_committed_accepted_map(path: Path | None) -> None:
 
 
 def _require_publication_source_identity(config: FanInConfig) -> None:
+    if config.source_dispatch_runs:
+        if config.source_release_sha is None:
+            raise FanInError(
+                "publication requires source dispatch runs and release SHA"
+            )
+        return
     if (
         config.source_dispatch_run_id is None
         or config.source_dispatch_run_attempt is None

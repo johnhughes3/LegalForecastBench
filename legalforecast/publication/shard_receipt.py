@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import unquote, urlparse
 
+from legalforecast.contracts.schemas import SHARD_RECEIPT_V3
 from legalforecast.path_safety import safe_path_component
 from legalforecast.protocol.manifest import hash_payload
 from legalforecast.protocol.policy_artifacts import (
@@ -24,6 +25,7 @@ from legalforecast.protocol.policy_artifacts import (
 
 JsonRecord = dict[str, Any]
 RECEIPT_SCHEMA_VERSION = "legalforecast.shard_receipt.v2"
+SCOPED_RECEIPT_SCHEMA_VERSION = str(SHARD_RECEIPT_V3)
 CELL_SCHEMA_VERSION = "legalforecast.shard_cell_completion.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _GIT_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
@@ -52,6 +54,11 @@ _RECEIPT_FIELDS = {
     "result_commitment_sha256",
     "receipt_key",
     "receipt_sha256",
+}
+_SCOPED_RECEIPT_FIELDS = _RECEIPT_FIELDS | {
+    "execution_scope_sha256",
+    "execution_scope_artifact_sha256",
+    "common_plan_sha256",
 }
 
 
@@ -134,6 +141,7 @@ def build_shard_receipt(
     source_release_sha: str,
     current_workflow_run_id: str | None = None,
     current_workflow_run_attempt: int | None = None,
+    execution_scope: Mapping[str, Any] | None = None,
 ) -> JsonRecord:
     """Validate an exact successful matrix and build its current-attempt receipt."""
 
@@ -301,6 +309,30 @@ def build_shard_receipt(
         ),
     }
     receipt["receipt_key"] = receipt_key(receipt)
+    if execution_scope is not None:
+        from legalforecast.evals.corpus_manifest.execution_scope import (
+            select_model_scope,
+            verify_scope_shape,
+        )
+
+        verify_scope_shape(execution_scope)
+        select_model_scope(
+            execution_scope,
+            model_key=model_key,
+            ablation=ablation,
+        )
+        scope = _mapping(execution_scope.get("scope"), "execution scope")
+        receipt.update(
+            {
+                "schema_version": SCOPED_RECEIPT_SCHEMA_VERSION,
+                "execution_scope_sha256": _required_sha256(
+                    execution_scope, "scope_sha256"
+                ),
+                "execution_scope_artifact_sha256": hash_payload(execution_scope),
+                "common_plan_sha256": _required_sha256(scope, "common_plan_sha256"),
+            }
+        )
+        receipt["receipt_key"] = receipt_key(receipt)
     receipt["receipt_sha256"] = hash_payload(receipt)
     return receipt
 
@@ -337,8 +369,14 @@ def verify_shard_receipt(
     """Strictly revalidate an untrusted receipt against frozen shard inputs."""
 
     record = dict(receipt)
-    _exact_keys(record, _RECEIPT_FIELDS, "receipt")
-    if record.get("schema_version") != RECEIPT_SCHEMA_VERSION:
+    schema_version = record.get("schema_version")
+    receipt_fields = (
+        _SCOPED_RECEIPT_FIELDS
+        if schema_version == SCOPED_RECEIPT_SCHEMA_VERSION
+        else _RECEIPT_FIELDS
+    )
+    _exact_keys(record, receipt_fields, "receipt")
+    if schema_version not in {RECEIPT_SCHEMA_VERSION, SCOPED_RECEIPT_SCHEMA_VERSION}:
         raise ShardReceiptError("unsupported shard receipt schema")
     _require_commit_sha(record.get("source_release_sha"), "source_release_sha")
     source_attempt = _positive_int(record, "source_dispatch_run_attempt")
@@ -367,6 +405,16 @@ def verify_shard_receipt(
         supplied = _required_sha256(record, field)
         if supplied != _require_sha256(expected, field):
             raise ShardReceiptError(f"receipt {field} does not match frozen identity")
+    if schema_version == SCOPED_RECEIPT_SCHEMA_VERSION:
+        _required_sha256(record, "execution_scope_sha256")
+        _required_sha256(record, "execution_scope_artifact_sha256")
+        common_plan_sha256 = _required_sha256(record, "common_plan_sha256")
+        if common_plan_sha256 != _required_sha256(
+            expected_identity, "execution_policy_sha256"
+        ):
+            raise ShardReceiptError(
+                "receipt common plan does not match execution policy identity"
+            )
 
     repeat_policy_sha256 = policy_content_sha256(repeat_policy)
     if _required_sha256(record, "repeat_policy_sha256") != repeat_policy_sha256:
@@ -518,7 +566,10 @@ def verify_committed_payload(
 def write_receipt_once(root: str, receipt: Mapping[str, Any]) -> str:
     """Write a receipt with atomic create-only semantics."""
 
-    if receipt.get("schema_version") != RECEIPT_SCHEMA_VERSION:
+    if receipt.get("schema_version") not in {
+        RECEIPT_SCHEMA_VERSION,
+        SCOPED_RECEIPT_SCHEMA_VERSION,
+    }:
         raise ShardReceiptError("unsupported shard receipt schema")
     without_hash = dict(receipt)
     supplied_hash = _required_sha256(without_hash, "receipt_sha256")
@@ -787,6 +838,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--completions-root", type=Path, required=True)
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--model-registry", type=Path, required=True)
+    parser.add_argument(
+        "--execution-scope",
+        type=Path,
+        help="Authenticated exact-model scope required for scoped receipts.",
+    )
     parser.add_argument("--workflow-run-id", required=True)
     parser.add_argument("--workflow-run-attempt", type=int, required=True)
     parser.add_argument("--source-dispatch-run-attempt", type=int, required=True)
@@ -809,6 +865,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_release_sha=cast(str, args.source_release_sha),
         current_workflow_run_id=cast(str, args.workflow_run_id),
         current_workflow_run_attempt=cast(int, args.workflow_run_attempt),
+        execution_scope=(
+            _load_json(cast(Path, args.execution_scope))
+            if args.execution_scope is not None
+            else None
+        ),
     )
     verify_committed_objects(receipt)
     destination = write_receipt_once(cast(str, args.receipt_root), receipt)

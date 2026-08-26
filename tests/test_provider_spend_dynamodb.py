@@ -910,10 +910,15 @@ def _authority(
     max_billable_attempts: int = 3,
     failure_threshold: int = 3,
     clock: Callable[[], float] | None = None,
+    authority_identity_sha256: str | None = None,
+    resource_identity_sha256: str | None = None,
 ) -> DynamoDbProviderSpendAuthority:
     return DynamoDbProviderSpendAuthority(
         table_name="authority-table",
-        authority_identity_sha256=hashlib.sha256(_TABLE_ARN.encode()).hexdigest(),
+        authority_identity_sha256=(
+            authority_identity_sha256 or hashlib.sha256(_TABLE_ARN.encode()).hexdigest()
+        ),
+        resource_identity_sha256=resource_identity_sha256,
         cycle_id="cycle-1",
         provider="openai",
         account="primary-account-alias",
@@ -928,6 +933,26 @@ def _authority(
         runner=runner,
         clock=clock,
     )
+
+
+def test_scope_ledgers_partition_authority_identity_from_table_resource() -> None:
+    resource_identity = hashlib.sha256(_TABLE_ARN.encode()).hexdigest()
+    first = _authority(
+        InMemoryDynamoRunner(),
+        cap_microusd=500_000,
+        authority_identity_sha256="a" * 64,
+        resource_identity_sha256=resource_identity,
+    )
+    second = _authority(
+        InMemoryDynamoRunner(),
+        cap_microusd=1_000_000,
+        authority_identity_sha256="b" * 64,
+        resource_identity_sha256=resource_identity,
+    )
+
+    assert first.resource_identity_sha256 == resource_identity
+    assert second.resource_identity_sha256 == resource_identity
+    assert first.authority_key != second.authority_key
 
 
 def _key(

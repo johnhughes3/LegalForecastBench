@@ -95,7 +95,13 @@ DIRECT_COURTLISTENER_QUEUE_DELIVERY_AUTHORITY_V1 = SchemaIdentifier(
     "legalforecast.direct_courtlistener_queue_delivery_authority.v1"
 )
 DISCLOSURE_CLEARANCE_V1 = SchemaIdentifier("legalforecast.disclosure_clearance.v1")
+DISPATCH_RELEASE_V2 = SchemaIdentifier("legalforecast.dispatch_release.v2")
 EXECUTION_POLICY_V2 = SchemaIdentifier("legalforecast.execution_policy.v2")
+EXECUTION_POLICY_V3 = SchemaIdentifier("legalforecast.execution_policy.v3")
+EXECUTION_POLICY_RUNTIME_BINDING_V1 = SchemaIdentifier(
+    "legalforecast.execution_policy_runtime_binding.v1"
+)
+EXECUTION_SCOPE_V1 = SchemaIdentifier("legalforecast.execution_scope.v1")
 LOCAL_LUNA_PLAN_V1 = SchemaIdentifier("legalforecast.local_luna_plan.v1")
 LOCAL_LUNA_RESULT_V1 = SchemaIdentifier("legalforecast.local_luna_result.v1")
 LOCAL_MODEL_PLAN_V1 = SchemaIdentifier("legalforecast.local_model_plan.v1")
@@ -295,6 +301,7 @@ RELEASE_HARNESS_RECEIPT_V1 = SchemaIdentifier(
 )
 PUBLIC_RUN_IDENTITY_V1 = SchemaIdentifier("legalforecast.public-run-identity.v1")
 PUBLIC_RUN_RECEIPT_V1 = SchemaIdentifier("legalforecast.public-run-receipt.v1")
+SHARD_RECEIPT_V3 = SchemaIdentifier("legalforecast.shard_receipt.v3")
 FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1 = SchemaIdentifier(
     "legalforecast.free_support_memorandum_recovery_plan.v1"
 )

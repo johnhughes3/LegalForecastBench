@@ -12,6 +12,7 @@ import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -23,6 +24,10 @@ from legalforecast._record_validation import (
     required_float,
     required_int,
     required_str,
+)
+from legalforecast.contracts.schemas import (
+    EXECUTION_POLICY_RUNTIME_BINDING_V1,
+    EXECUTION_POLICY_V3,
 )
 from legalforecast.evals.accounting import accounting_records_from_inspect_run
 from legalforecast.evals.inspect_task import (
@@ -135,6 +140,8 @@ class PerCaseRunnerConfig:
     model_key: str | None = None
     execution_policy_uri: str | None = None
     expected_execution_policy_sha256: str | None = None
+    execution_scope_uri: str | None = None
+    expected_execution_scope_sha256: str | None = None
     workflow_run_id: str | None = None
     workflow_run_attempt: int | None = None
     expected_packet_object_key: str | None = None
@@ -176,6 +183,11 @@ class PerCaseRunnerConfig:
                 self.expected_execution_policy_sha256,
                 "expected_execution_policy_sha256",
             ),
+            (self.execution_scope_uri, "execution_scope_uri"),
+            (
+                self.expected_execution_scope_sha256,
+                "expected_execution_scope_sha256",
+            ),
             (self.workflow_run_id, "workflow_run_id"),
             (self.provider_account, "provider_account"),
         ):
@@ -213,6 +225,8 @@ class PerCaseRunnerConfig:
             _normalize_sha256(self.expected_packet_sha256)
         if self.expected_execution_policy_sha256 is not None:
             _normalize_sha256(self.expected_execution_policy_sha256)
+        if self.expected_execution_scope_sha256 is not None:
+            _normalize_sha256(self.expected_execution_scope_sha256)
         if self.backend is PerCaseExecutionBackend.LIVE and (
             self.execution_policy_uri is None
             or self.expected_execution_policy_sha256 is None
@@ -1707,13 +1721,89 @@ def _verified_execution_policy_for_config(
             expected_sha256=config.expected_execution_policy_sha256,
         )
         policy = official_execution_policy_content(artifact)
-        attempt_policy = _mapping(policy.get("attempt_policy"), "attempt_policy")
-        binding = official_execution_policy_runtime_binding(
-            artifact,
-            execution_policy_sha256=hashlib.sha256(payload).hexdigest(),
-            provider=registry_entry.provider,
-            account=config.provider_account,
-        )
+        if artifact.get("schema_version") == str(EXECUTION_POLICY_V3):
+            if config.execution_scope_uri is None:
+                raise ValueError("v3 execution policy requires execution scope")
+            if config.expected_execution_scope_sha256 is None:
+                raise ValueError(
+                    "v3 execution policy requires expected execution scope hash"
+                )
+            if config.model_registry_uri is None:
+                raise ValueError("v3 execution policy requires model registry")
+            from legalforecast.evals.corpus_manifest.execution_scope import (
+                verify_execution_scope_runtime,
+            )
+
+            registry, registry_sha256 = _load_model_registry_uri(
+                config.model_registry_uri
+            )
+            scope_payload = _read_uri_bytes(config.execution_scope_uri)
+            scope_loaded: object = json.loads(scope_payload.decode("utf-8"))
+            if not isinstance(scope_loaded, Mapping):
+                raise ValueError("execution scope must be a JSON object")
+            scope = cast(Mapping[str, Any], scope_loaded)
+            scope_sha256 = verify_execution_scope_runtime(
+                scope,
+                common_plan=artifact,
+                model_registry=registry,
+                model_registry_sha256=registry_sha256,
+                expected_model_key=cast(str, config.model_key),
+                expected_ablation=config.ablation,
+                expected_scope_sha256=config.expected_execution_scope_sha256,
+            )
+            scope_record = _mapping(scope["scope"], "execution scope")
+            authority = _mapping(
+                scope_record.get("provider_authority"),
+                "execution scope provider_authority",
+            )
+            authority_scope_identity_sha256 = _scope_provider_authority(
+                authority,
+                provider=registry_entry.provider,
+                model_key=cast(str, config.model_key),
+                cycle_id=cycle_id,
+                projected_cost_usd=required_str(
+                    scope_record, "execution scope projected_cost_usd"
+                ),
+                owner_ceiling_usd=required_str(
+                    scope_record, "execution scope owner_ceiling_usd"
+                ),
+            )
+            attempt_policy = {
+                "reservation_ledger_sha256": scope_sha256,
+                "max_billable_attempts": 1,
+                "failure_threshold": 1,
+                "failure_window_seconds": 900,
+                "authority_resource_identity_sha256": authority[
+                    "resource_identity_sha256"
+                ],
+                "authority_scope_identity_sha256": authority_scope_identity_sha256,
+            }
+            binding = {
+                "schema_version": str(EXECUTION_POLICY_RUNTIME_BINDING_V1),
+                "execution_policy_sha256": hashlib.sha256(payload).hexdigest(),
+                "execution_scope_sha256": scope_sha256,
+                "reservation_ledger_sha256": scope_sha256,
+                "authority_backend": authority["backend"],
+                "authority_resource_identity_sha256": authority[
+                    "resource_identity_sha256"
+                ],
+                "authority_scope_identity_sha256": authority_scope_identity_sha256,
+                "ledger_scope_fields": ["cycle_id", "provider", "account"],
+                "provider": registry_entry.provider.lower(),
+                "account": authority["account"],
+                "cap_microusd": authority["cap_microusd"],
+                "max_billable_attempts": 1,
+                "failure_threshold": 1,
+                "failure_window_seconds": 900,
+            }
+        else:
+            attempt_policy = _mapping(policy.get("attempt_policy"), "attempt_policy")
+            binding = official_execution_policy_runtime_binding(
+                artifact,
+                execution_policy_sha256=hashlib.sha256(payload).hexdigest(),
+                provider=registry_entry.provider,
+                account=config.provider_account,
+            )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise PerCaseRunnerError(f"invalid execution policy: {exc}") from exc
     return _VerifiedExecutionPolicy(
@@ -1721,6 +1811,108 @@ def _verified_execution_policy_for_config(
         attempt_policy=attempt_policy,
         runtime_binding=binding,
     )
+
+
+def _scope_provider_authority(
+    authority: Mapping[str, Any],
+    *,
+    provider: str,
+    model_key: str,
+    cycle_id: str,
+    projected_cost_usd: str,
+    owner_ceiling_usd: str,
+) -> str:
+    """Validate the public authority projection before constructing AWS clients."""
+
+    # Keep this import local: protocol.manifest imports ingestion, whose package
+    # exports the per-case runner.  Importing it at module load time makes
+    # ``import legalforecast.protocol`` fail in a fresh interpreter.
+    from legalforecast.protocol.manifest import hash_payload
+
+    expected = {
+        "backend",
+        "resource_identity_sha256",
+        "provider",
+        "account",
+        "cap_microusd",
+        "scope_identity_sha256",
+    }
+    if set(authority) != expected:
+        raise ValueError("execution scope provider_authority fields are invalid")
+    if authority.get("backend") != "dynamodb":
+        raise ValueError("execution scope provider authority backend is invalid")
+    resource_identity_sha256 = _normalize_sha256(
+        required_str(authority, "resource_identity_sha256")
+    )
+    supplied_scope_identity_sha256 = _normalize_sha256(
+        required_str(authority, "scope_identity_sha256")
+    )
+    expected_provider = provider.strip().lower()
+    normalized_provider = required_str(authority, "provider").lower()
+    if not expected_provider or normalized_provider != expected_provider:
+        raise ValueError("execution scope provider authority provider is invalid")
+    normalized_model_key = model_key.strip()
+    model_provider, separator, model_id = normalized_model_key.partition(":")
+    if (
+        not model_provider
+        or not separator
+        or not model_id
+        or ":" in model_id
+        or model_provider.lower() != expected_provider
+    ):
+        raise ValueError("execution scope model key is invalid")
+    normalized_cycle_id = cycle_id.strip()
+    if not normalized_cycle_id:
+        raise ValueError("execution scope cycle id is invalid")
+    account = required_str(authority, "account")
+    cap = required_int(authority, "cap_microusd")
+    if cap <= 0:
+        raise ValueError("execution scope provider authority cap is invalid")
+    projected = _scope_money(projected_cost_usd, "execution scope projected cost")
+    ceiling = _scope_money(owner_ceiling_usd, "execution scope owner ceiling")
+    if projected > ceiling:
+        raise ValueError("execution scope projected cost exceeds owner ceiling")
+    ceiling_microusd = _scope_microusd(ceiling, "execution scope owner ceiling")
+    if cap > ceiling_microusd:
+        raise ValueError("execution scope provider authority cap exceeds owner ceiling")
+    derived_scope_identity_sha256 = hash_payload(
+        {
+            "cycle_id": normalized_cycle_id,
+            "model_key": normalized_model_key,
+            "provider": normalized_provider,
+            "account": account,
+            "resource_identity_sha256": resource_identity_sha256,
+            "cap_microusd": cap,
+            "projected_cost_usd": _scope_money_text(projected),
+            "owner_ceiling_usd": _scope_money_text(ceiling),
+        }
+    )
+    if supplied_scope_identity_sha256 != derived_scope_identity_sha256:
+        raise ValueError("execution scope provider authority scope identity is invalid")
+    return derived_scope_identity_sha256
+
+
+def _scope_money(value: str, label: str) -> Decimal:
+    if not value.strip():
+        raise ValueError(f"{label} is invalid")
+    try:
+        amount = Decimal(value)
+    except InvalidOperation as exc:
+        raise ValueError(f"{label} is invalid") from exc
+    if not amount.is_finite() or amount < 0:
+        raise ValueError(f"{label} is invalid")
+    return amount
+
+
+def _scope_money_text(value: Decimal) -> str:
+    return format(value, "f")
+
+
+def _scope_microusd(value: Decimal, label: str) -> int:
+    scaled = value * Decimal(1_000_000)
+    if scaled != scaled.to_integral_value():
+        raise ValueError(f"{label} cannot be represented in micro-USD")
+    return int(scaled)
 
 
 def _solver_for_config(
@@ -1795,7 +1987,12 @@ def _solver_for_config(
     )
     authority = DynamoDbProviderSpendAuthority(
         table_name=cast(str, config.provider_authority_table),
-        authority_identity_sha256=required_str(
+        authority_identity_sha256=(
+            required_str(attempt_policy, "authority_scope_identity_sha256")
+            if "authority_scope_identity_sha256" in attempt_policy
+            else required_str(attempt_policy, "authority_resource_identity_sha256")
+        ),
+        resource_identity_sha256=required_str(
             attempt_policy,
             "authority_resource_identity_sha256",
         ),

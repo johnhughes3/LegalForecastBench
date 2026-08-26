@@ -55,6 +55,15 @@ positional arguments:
     issue-manifest-execution-decisions-beads-observation-v2
                         Capture live Beads comments and issue a hash-pinned
                         wrapper.
+    issue-manifest-execution-policy-v3
+                        Issue a complete provider-free, non-authorizing model-
+                        scope plan.
+    issue-manifest-execution-scope
+                        Issue a separately authenticated exact-model execution
+                        scope.
+    verify-manifest-execution-scope
+                        Verify an exact-model execution scope and all source
+                        commitments.
     stage-manifest-forecast
                         Stage manifest-mode forecast inputs into immutable S3
                         prefixes.
