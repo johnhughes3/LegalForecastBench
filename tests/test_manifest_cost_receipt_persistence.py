@@ -20,8 +20,9 @@ def test_persisted_canonical_receipt_verifies_with_long_context_warning(
         tmp_path, monkeypatch, packet_input_tokens=272_001
     )
 
-    issue_manifest_cost_projection(request)
+    issued = issue_manifest_cost_projection(request)
     persisted = cast(dict[str, Any], json.loads(request.output.read_bytes()))
+    assert issued["long_context_surcharge_packet_count"] == 200
     assert persisted["long_context_surcharge_packet_count"] == 200
 
     registry_entry = next(
@@ -40,13 +41,14 @@ def test_persisted_canonical_receipt_verifies_with_long_context_warning(
         )
     }
 
-    assert (
-        verify_manifest_cost_projection_receipt(
-            persisted,
-            expected_cycle_id="cycle-1",
-            expected_model_key="openai:gpt-5.6-terra",
-            expected_common_frozen_inputs=expected_common,
-            expected_registry_entry=registry_entry.to_record(),
+    for receipt in (issued, persisted):
+        assert (
+            verify_manifest_cost_projection_receipt(
+                receipt,
+                expected_cycle_id="cycle-1",
+                expected_model_key="openai:gpt-5.6-terra",
+                expected_common_frozen_inputs=expected_common,
+                expected_registry_entry=registry_entry.to_record(),
+            )
+            == receipt["receipt_sha256"]
         )
-        == persisted["receipt_sha256"]
-    )

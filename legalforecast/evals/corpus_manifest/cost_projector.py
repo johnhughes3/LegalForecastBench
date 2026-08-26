@@ -769,7 +769,7 @@ def verify_manifest_cost_projection_receipt(
             "long_context_surcharge_packet_count does not match warning rows"
         )
     if record.get("long_context_surcharge_packets_json") != json.dumps(
-        warnings, ensure_ascii=False, separators=(",", ":")
+        warnings, ensure_ascii=False, separators=(",", ":"), sort_keys=True
     ):
         raise ManifestCostProjectionError(
             "long_context_surcharge_packets_json does not match warning rows"
