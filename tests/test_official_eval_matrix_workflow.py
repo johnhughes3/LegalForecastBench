@@ -384,7 +384,10 @@ def test_amendment_dispatch_is_new_models_only_and_aggregation_unions_runs() -> 
     )
     matrix_step = BUILD_MATRIX_JOB.index("- name: Build matrix JSON")
     assert provenance_step < matrix_step
-    assert "python -m legalforecast.publication.dispatch_provenance" in BUILD_MATRIX_JOB
+    assert (
+        "uv run python -m legalforecast.publication.dispatch_provenance"
+        in BUILD_MATRIX_JOB
+    )
     assert '--current-freeze-bundle "${FREEZE_COMMITMENT_PATH}"' in BUILD_MATRIX_JOB
     assert '--current-model-registry "${MODEL_REGISTRY_PATH}"' in BUILD_MATRIX_JOB
     assert 'model_key_args+=(--requested-model-key "${key}")' in BUILD_MATRIX_JOB
@@ -421,7 +424,12 @@ def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
     assert download_step < freeze_step < verify_step < matrix_step
     commitment_step = BUILD_MATRIX_JOB.index("- name: Verify pre-run freeze commitment")
     assert verify_step < commitment_step < matrix_step
-    assert "uses: astral-sh/setup-uv" not in BUILD_MATRIX_JOB
+    install_uv_step = BUILD_MATRIX_JOB.index("- name: Install uv")
+    assert install_uv_step < commitment_step
+    assert (
+        "uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78"
+        in BUILD_MATRIX_JOB
+    )
     assert "legalforecast.publication.run_input_manifest" not in BUILD_MATRIX_JOB
     assert "id: freeze_labels" in BUILD_MATRIX_JOB
     assert 'frozen_manifest["labels_sha256"] = labels_sha256' in BUILD_MATRIX_JOB
@@ -436,7 +444,7 @@ def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
     assert 'output.write(f"labels_sha256={labels_sha256}\\n")' in BUILD_MATRIX_JOB
     assert 'f"frozen_manifest_sha256={frozen_manifest_sha256}\\n"' in BUILD_MATRIX_JOB
     assert "official-run-input-manifest" not in WORKFLOW
-    assert "python -m legalforecast.protocol.freeze verify" in BUILD_MATRIX_JOB
+    assert "uv run python -m legalforecast.protocol.freeze verify" in BUILD_MATRIX_JOB
     assert '--bundle "${FREEZE_COMMITMENT_PATH}"' in BUILD_MATRIX_JOB
     assert '--cycle-id "${CYCLE_ID}"' in BUILD_MATRIX_JOB
     assert '--root "${FREEZE_ROOT}"' in BUILD_MATRIX_JOB
