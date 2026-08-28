@@ -328,18 +328,11 @@ def build_manifest_cost_projection(
             f"matrix has {len(include)} rows; GitHub limit is {request.matrix_limit}"
         )
     recommended_ceiling = projected_cost * 2
-    requested_ceiling = _optional_ceiling(request.max_projected_model_cost_usd)
-    if requested_ceiling is not None:
-        if projected_cost > requested_ceiling:
-            raise ManifestCostProjectionError(
-                f"projected model cost ${projected_cost:.2f} exceeds budget "
-                f"${requested_ceiling:.2f}"
-            )
-        if requested_ceiling > recommended_ceiling:
-            raise ManifestCostProjectionError(
-                f"budget ${requested_ceiling:.2f} exceeds the 2x projected "
-                f"early-warning ceiling ${recommended_ceiling:.2f}"
-            )
+    _enforce_dispatch_ceiling(
+        projected_cost=projected_cost,
+        recommended_ceiling=recommended_ceiling,
+        requested_raw=request.max_projected_model_cost_usd,
+    )
 
     provider_matrices: dict[str, dict[str, list[dict[str, Any]]]] = {}
     provider_counts: dict[str, int] = {}
@@ -376,8 +369,8 @@ def build_manifest_cost_projection(
         "shard_only": request.shard_only,
         "max_projected_model_cost_usd": (
             request.max_projected_model_cost_usd.strip()
-            if requested_ceiling is not None
-            and request.max_projected_model_cost_usd is not None
+            if request.max_projected_model_cost_usd is not None
+            and request.max_projected_model_cost_usd.strip()
             else None
         ),
         "matrix": {"include": include},
@@ -1109,6 +1102,38 @@ def _required_nonnegative_float(record: Mapping[str, Any], field_name: str) -> f
             f"model registry {field_name} must be non-negative"
         )
     return number
+
+
+def _enforce_dispatch_ceiling(
+    *,
+    projected_cost: float,
+    recommended_ceiling: float,
+    requested_raw: str | None,
+) -> None:
+    """Bound an optional operator cap between exact projection and exact 2x.
+
+    The advertised ``recommended_max_projected_model_cost_usd`` is the 6-decimal
+    rendering of ``2 * projection``. Copying that string into a live dispatch
+    can parse to a binary float just above exact 2x. Accept that exact
+    advertised spelling; keep unrounded compares for every other cap.
+    """
+
+    advertised = _format_usd(recommended_ceiling)
+    _optional_ceiling(advertised)
+    requested_ceiling = _optional_ceiling(requested_raw)
+    if requested_ceiling is None:
+        return
+    if projected_cost > requested_ceiling:
+        raise ManifestCostProjectionError(
+            f"projected model cost ${projected_cost:.2f} exceeds budget "
+            f"${requested_ceiling:.2f}"
+        )
+    requested_text = requested_raw.strip() if requested_raw is not None else ""
+    if requested_text != advertised and requested_ceiling > recommended_ceiling:
+        raise ManifestCostProjectionError(
+            f"budget ${requested_ceiling:.2f} exceeds the 2x projected "
+            f"early-warning ceiling ${recommended_ceiling:.2f}"
+        )
 
 
 def _optional_ceiling(raw: str | None) -> float | None:
