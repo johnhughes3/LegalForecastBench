@@ -756,6 +756,17 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
         "BASELINE_TRAINING_EXAMPLES_URI: ${{ inputs.baseline_training_examples_uri }}"
         in WORKFLOW
     )
+    # Secure-gate materializes YAML defaults into the dispatch payload. The
+    # deployed run-benchmark input contract rejects an empty URI, so this
+    # optional field must not declare default: "". Omitting the input still
+    # leaves the GitHub Actions value empty.
+    baseline_input = WORKFLOW[
+        WORKFLOW.index("      baseline_training_examples_uri:") : WORKFLOW.index(
+            "      elapsed_days:"
+        )
+    ]
+    assert 'default: ""' not in baseline_input
+    assert "required: false" in baseline_input
     assert (
         "optional_args+=(--baseline-training-examples /tmp/lfb-baseline-training.jsonl)"
         in WORKFLOW
