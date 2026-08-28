@@ -809,6 +809,11 @@ def _assert_eval_trust_refs_satisfiable(
         "run-gemini": ("gemini", cell_environment),
     }
     caller_lanes: dict[str, tuple[str, str]] = {}
+    expected_secret_inputs = {
+        "run-openai": ("ai_gateway_api_key", "openai_api_key"),
+        "run-anthropic": ("anthropic_api_key",),
+        "run-gemini": ("gemini_api_key",),
+    }
     for job_id, block in workflow_jobs(
         workflow_texts[RUN_BENCHMARK_WORKFLOW.name]
     ).items():
@@ -826,6 +831,11 @@ def _assert_eval_trust_refs_satisfiable(
         )
         assert provider_match is not None, job_id
         assert environment_match is not None, job_id
+        assert not re.search(
+            r"uses: ./\.github/actions/official-provider-cell\s+env:", block
+        ), job_id
+        for input_name in expected_secret_inputs[job_id]:
+            assert f"{input_name}: ${{{{ secrets." in block, job_id
         caller_lanes[job_id] = (provider_match.group(1), environment_match.group(1))
     assert caller_lanes == expected_provider_lanes
 

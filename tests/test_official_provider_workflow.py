@@ -121,7 +121,14 @@ def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
     assert "secrets.OPENAI_API_KEY" not in anthropic_job
     assert gemini_job.count("secrets.GEMINI_API_KEY") == 1
     assert "secrets.OPENAI_API_KEY" not in gemini_job
-    assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in openai_job
+    assert "openai_api_key: ${{ secrets.OPENAI_API_KEY }}" in openai_job
+    assert "ai_gateway_api_key: ${{ secrets.AI_GATEWAY_API_KEY }}" in openai_job
+    assert "anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}" in anthropic_job
+    assert "gemini_api_key: ${{ secrets.GEMINI_API_KEY }}" in gemini_job
+    for job in (openai_job, anthropic_job, gemini_job):
+        assert not re.search(
+            r"uses: ./\.github/actions/official-provider-cell\s+env:", job
+        )
     assert "&& secrets." not in DISPATCHER
     credential_step = WORKFLOW[
         WORKFLOW.index("- name: Validate provider credential") : WORKFLOW.index(
@@ -133,6 +140,26 @@ def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
             "- name: Finish per-case cycle mutation"
         )
     ]
+    input_bindings = {
+        "AI_GATEWAY_API_KEY": "ai_gateway_api_key",
+        "ANTHROPIC_API_KEY": "anthropic_api_key",
+        "GEMINI_API_KEY": "gemini_api_key",
+        "OPENAI_API_KEY": "openai_api_key",
+    }
+    for env_name, input_name in input_bindings.items():
+        assert f'{input_name}:\n    required: false\n    default: ""' in WORKFLOW
+        expected_binding = f"{env_name}: ${{{{ inputs.{input_name} }}}}"
+        assert expected_binding in credential_step
+        assert expected_binding in provider_step
+    action_steps = re.findall(
+        r"^  - name: .*?(?=^  - name: |\Z)", WORKFLOW, flags=re.MULTILINE | re.DOTALL
+    )
+    uses_steps = [
+        step for step in action_steps if re.search(r"^    uses:", step, re.MULTILINE)
+    ]
+    assert uses_steps
+    for step in uses_steps:
+        assert not any(env_name in step for env_name in input_bindings)
     assert 'LFB_PROVIDER_API_KEY="${OPENAI_API_KEY:-}"' in credential_step
     assert 'LFB_PROVIDER_API_KEY="${OPENAI_API_KEY:-}"' in provider_step
     assert '"${LFB_PROVIDER_API_KEY}" == "false"' in credential_step

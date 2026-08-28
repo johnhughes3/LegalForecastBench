@@ -961,11 +961,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/official-provider-cell
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         with:
           ablation: ${{ matrix.ablation }}
+          ai_gateway_api_key: ${{ secrets.AI_GATEWAY_API_KEY }}
           artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
           case_id: ${{ matrix.case_id }}
           case_id_slug: ${{ matrix.case_id_slug }}
@@ -979,6 +977,7 @@ jobs:
           freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
           model_key: ${{ matrix.model_key }}
           model_key_slug: ${{ matrix.model_key_slug }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           packet_object_key: ${{ matrix.packet_object_key }}
           packet_sha256: ${{ matrix.packet_sha256 }}
           provider: openai
@@ -1013,10 +1012,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/official-provider-cell
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
           ablation: ${{ matrix.ablation }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
           case_id: ${{ matrix.case_id }}
           case_id_slug: ${{ matrix.case_id_slug }}
@@ -1064,8 +1062,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/official-provider-cell
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           ablation: ${{ matrix.ablation }}
           artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
@@ -1079,6 +1075,7 @@ jobs:
           execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
           execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
           freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           model_key: ${{ matrix.model_key }}
           model_key_slug: ${{ matrix.model_key_slug }}
           packet_object_key: ${{ matrix.packet_object_key }}

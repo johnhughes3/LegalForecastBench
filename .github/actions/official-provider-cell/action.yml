@@ -1,13 +1,19 @@
 name: Official provider cell
 description: Run one official eval provider cell against a frozen packet.
 
-# Provider API keys must be injected by the caller job that binds
-# environment: legalforecastbench-official-eval. Reusable workflow_call
-# jobs do not receive those environment secrets in the secrets context.
+# Provider API keys arrive as composite inputs from the caller job that binds
+# environment: legalforecastbench-official-eval. They are exposed as environment
+# variables only on the credential-consuming shell steps below.
 
 inputs:
   ablation:
     required: true
+  ai_gateway_api_key:
+    required: false
+    default: ""
+  anthropic_api_key:
+    required: false
+    default: ""
   artifact_retention_days:
     required: true
   case_id:
@@ -28,6 +34,9 @@ inputs:
     required: true
   freeze_bundle_sha256:
     required: true
+  gemini_api_key:
+    required: false
+    default: ""
   execution_scope_sha256:
     required: false
     default: ""
@@ -35,6 +44,9 @@ inputs:
     required: true
   model_key_slug:
     required: true
+  openai_api_key:
+    required: false
+    default: ""
   packet_object_key:
     required: true
   packet_sha256:
@@ -284,8 +296,12 @@ runs:
     if: ${{ inputs.dry_run != 'true' }}
     shell: bash
     env:
+      AI_GATEWAY_API_KEY: ${{ inputs.ai_gateway_api_key }}
+      ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+      GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
       LFB_OPENAI_USE_VERCEL_GATEWAY: ${{ steps.openai_transport.outputs.use_vercel_gateway }}
       MODEL_KEY: ${{ inputs.model_key }}
+      OPENAI_API_KEY: ${{ inputs.openai_api_key }}
       PROVIDER: ${{ inputs.provider }}
     run: |
       set -euo pipefail
@@ -378,6 +394,8 @@ runs:
     shell: bash
     env:
       ABLATION: ${{ inputs.ablation }}
+      AI_GATEWAY_API_KEY: ${{ inputs.ai_gateway_api_key }}
+      ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
       CASE_ID: ${{ inputs.case_id }}
       CASE_ID_SLUG: ${{ inputs.case_id_slug }}
       CYCLE_ID: ${{ inputs.cycle_id }}
@@ -385,9 +403,11 @@ runs:
       EXPECTED_EXECUTION_SCOPE_SHA256: ${{ inputs.execution_scope_sha256 }}
       EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}
       EXPECTED_PACKET_SHA256: ${{ inputs.packet_sha256 }}
+      GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
       LFB_OPENAI_USE_VERCEL_GATEWAY: ${{ steps.openai_transport.outputs.use_vercel_gateway }}
       MODEL_KEY: ${{ inputs.model_key }}
       MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
+      OPENAI_API_KEY: ${{ inputs.openai_api_key }}
       PROVIDER: ${{ inputs.provider }}
       REPEAT_COUNT: ${{ inputs.repeat_count }}
       RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}
