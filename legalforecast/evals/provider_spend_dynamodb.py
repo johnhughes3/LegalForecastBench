@@ -720,7 +720,60 @@ class DynamoDbProviderSpendAuthority:
                 existing = self._get_required(_LEDGER_RECORD_KEY)
             else:
                 existing = self._get_required(_LEDGER_RECORD_KEY)
-        self._verify_ledger(existing)
+        self._raise_stored_failure_threshold_if_needed(existing)
+        self._verify_ledger(self._get_required(_LEDGER_RECORD_KEY))
+
+    def _raise_stored_failure_threshold_if_needed(
+        self,
+        item: Mapping[str, AttributeValue],
+    ) -> None:
+        """One-way raise of a still-matching ledger's breaker threshold.
+
+        Official v3 cells originally persisted ``failure_threshold=1``.  A later
+        runner may use the provider-cycle-caps value of 3.  Lowering is refused
+        by ``_verify_ledger``.
+        """
+
+        stored = _number(item, "failure_threshold")
+        desired = self.policy.failure_threshold
+        if stored >= desired:
+            return
+        if _text(item, "authority_identity_sha256") != self.authority_identity_sha256:
+            return
+        if _number(item, "authority_poisoned") == 1:
+            return
+        try:
+            self._runner(
+                "transact-write-items",
+                _with_client_token(
+                    {
+                        "TransactItems": [
+                            {
+                                "Update": {
+                                    "TableName": self.table_name,
+                                    "Key": self._key(_LEDGER_RECORD_KEY),
+                                    "UpdateExpression": (
+                                        "SET failure_threshold = :desired"
+                                    ),
+                                    "ConditionExpression": (
+                                        "authority_identity_sha256 = :identity AND "
+                                        "failure_threshold = :stored AND "
+                                        "authority_poisoned = :zero"
+                                    ),
+                                    "ExpressionAttributeValues": {
+                                        ":desired": _n(desired),
+                                        ":identity": _s(self.authority_identity_sha256),
+                                        ":stored": _n(stored),
+                                        ":zero": _n(0),
+                                    },
+                                }
+                            }
+                        ]
+                    }
+                ),
+            )
+        except DynamoDbConditionalError:
+            return
 
     def _initial_ledger(self) -> AttributeMap:
         empty_events = _canonical_json([])

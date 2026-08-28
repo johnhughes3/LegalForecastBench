@@ -4681,10 +4681,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "DynamoDbProviderSpendAuthority",
-        "largest_symbol_lines": 1073,
+        "largest_symbol_lines": 1128,
         "layer": "application",
-        "line_count": 1283,
-        "nonblank_line_count": 1207,
+        "line_count": 1338,
+        "nonblank_line_count": 1259,
         "top_level_definition_count": 18
       },
       "legalforecast/evals/response_verification.py": {
