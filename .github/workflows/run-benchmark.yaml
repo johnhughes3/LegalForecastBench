@@ -91,8 +91,10 @@ on:
           baseline-training corpus. When set, global, court/NOS/motion,
           metadata-only, and judge-history baselines are scored as pseudo-model
           rows. Leave empty for run-1 until a baseline corpus is frozen.
+          Do not declare an empty YAML default: secure-gate materializes
+          defaults into the dispatch payload, and the deployed input contract
+          rejects an empty URI.
         required: false
-        default: ""
         type: string
       elapsed_days:
         description: Optional elapsed days for rapid-cycle power classification.
