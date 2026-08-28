@@ -982,3 +982,13 @@ def test_remote_authority_raises_stored_failure_threshold() -> None:
     raised.authorize_attempt(_key(case_id="still-open"), reservation_microusd=1)
     with pytest.raises(AuthorityIdentityMismatchError, match="failure_threshold"):
         _authority(runner, failure_threshold=1)
+
+
+def test_remote_authority_does_not_raise_threshold_on_other_policy_drift() -> None:
+    from tests.test_provider_spend_dynamodb import InMemoryDynamoRunner, _authority
+
+    runner = InMemoryDynamoRunner()
+    _authority(runner, failure_threshold=1)
+    with pytest.raises(AuthorityIdentityMismatchError):
+        _authority(runner, failure_threshold=3, cap_microusd=2_000_000)
+    assert runner.items["LEDGER"]["failure_threshold"] == {"N": "1"}

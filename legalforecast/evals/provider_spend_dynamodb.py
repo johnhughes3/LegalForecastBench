@@ -727,20 +727,11 @@ class DynamoDbProviderSpendAuthority:
         self,
         item: Mapping[str, AttributeValue],
     ) -> None:
-        """One-way raise of a still-matching ledger's breaker threshold.
-
-        Official v3 cells originally persisted ``failure_threshold=1``.  A later
-        runner may use the provider-cycle-caps value of 3.  Lowering is refused
-        by ``_verify_ledger``.
-        """
+        """Raise stored failure_threshold only if other frozen fields match."""
 
         stored = _number(item, "failure_threshold")
         desired = self.policy.failure_threshold
-        if stored >= desired:
-            return
-        if _text(item, "authority_identity_sha256") != self.authority_identity_sha256:
-            return
-        if _number(item, "authority_poisoned") == 1:
+        if stored >= desired or _number(item, "authority_poisoned") == 1:
             return
         try:
             self._runner(
@@ -757,12 +748,31 @@ class DynamoDbProviderSpendAuthority:
                                     ),
                                     "ConditionExpression": (
                                         "authority_identity_sha256 = :identity AND "
+                                        "cycle_id = :cycle AND provider = :provider "
+                                        "AND account_sha256 = :account AND "
+                                        "reservation_ledger_sha256 = :ledger AND "
+                                        "cap_microusd = :cap AND "
+                                        "max_billable_attempts = :attempts AND "
+                                        "failure_window_seconds = :window AND "
                                         "failure_threshold = :stored AND "
                                         "authority_poisoned = :zero"
                                     ),
                                     "ExpressionAttributeValues": {
                                         ":desired": _n(desired),
                                         ":identity": _s(self.authority_identity_sha256),
+                                        ":cycle": _s(self.cycle_id),
+                                        ":provider": _s(self.provider),
+                                        ":account": _s(self.account_sha256),
+                                        ":ledger": _s(
+                                            self.policy.reservation_ledger_sha256
+                                        ),
+                                        ":cap": _n(self.cap_microusd),
+                                        ":attempts": _n(
+                                            self.policy.max_billable_attempts
+                                        ),
+                                        ":window": _n(
+                                            self.policy.failure_window_seconds
+                                        ),
                                         ":stored": _n(stored),
                                         ":zero": _n(0),
                                     },
