@@ -24,6 +24,7 @@ from legalforecast.evals.per_case_runner import (
     _scope_provider_authority,
     _verified_execution_policy_for_config,
 )
+from legalforecast.evals.provider_spend_control import AuthorityIdentityMismatchError
 from legalforecast.protocol.manifest import hash_payload
 
 
@@ -959,3 +960,25 @@ def test_live_v3_policy_verifier_reads_scope_projected_cost_usd_key(
         verified.runtime_binding["authority_scope_identity_sha256"]
         == scope["scope"]["provider_authority"]["scope_identity_sha256"]
     )
+    assert verified.attempt_policy["failure_threshold"] == 3
+    assert verified.runtime_binding["failure_threshold"] == 3
+
+
+def test_remote_authority_raises_stored_failure_threshold() -> None:
+    from tests.test_provider_spend_dynamodb import (
+        InMemoryDynamoRunner,
+        _authority,
+        _key,
+    )
+
+    runner = InMemoryDynamoRunner()
+    _authority(runner, failure_threshold=1)
+    raised = _authority(runner, failure_threshold=3)
+    assert runner.items["LEDGER"]["failure_threshold"] == {"N": "3"}
+    lease = raised.authorize_attempt(
+        _key(case_id="isolated-failure"), reservation_microusd=1
+    )
+    raised.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+    raised.authorize_attempt(_key(case_id="still-open"), reservation_microusd=1)
+    with pytest.raises(AuthorityIdentityMismatchError, match="failure_threshold"):
+        _authority(runner, failure_threshold=1)

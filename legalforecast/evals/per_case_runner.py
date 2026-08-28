@@ -1777,7 +1777,7 @@ def _verified_execution_policy_for_config(
             attempt_policy = {
                 "reservation_ledger_sha256": scope_sha256,
                 "max_billable_attempts": 1,
-                "failure_threshold": 1,
+                "failure_threshold": 3,
                 "failure_window_seconds": 900,
                 "authority_resource_identity_sha256": authority[
                     "resource_identity_sha256"
@@ -1799,7 +1799,7 @@ def _verified_execution_policy_for_config(
                 "account": authority["account"],
                 "cap_microusd": authority["cap_microusd"],
                 "max_billable_attempts": 1,
-                "failure_threshold": 1,
+                "failure_threshold": 3,
                 "failure_window_seconds": 900,
             }
         else:

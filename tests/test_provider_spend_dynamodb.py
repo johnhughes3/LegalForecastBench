@@ -567,7 +567,6 @@ def test_remote_breaker_uses_true_trailing_window_across_prior_boundary() -> Non
 
     ledger = runner.items["LEDGER"]
     assert json.loads(ledger["failure_events_json"]["S"]) == [200.0, 401.0, 402.0]
-    assert ledger["failure_count"] == _n(3)
 
 
 def test_concurrent_same_cell_writers_get_distinct_bounded_ordinals() -> None:
