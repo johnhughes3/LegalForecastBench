@@ -18,7 +18,12 @@ from legalforecast.evals.corpus_manifest.execution_scope import (
     verify_execution_scope_runtime,
 )
 from legalforecast.evals.model_registry import load_model_registry
-from legalforecast.evals.per_case_runner import _scope_provider_authority
+from legalforecast.evals.per_case_runner import (
+    PerCaseExecutionBackend,
+    PerCaseRunnerConfig,
+    _scope_provider_authority,
+    _verified_execution_policy_for_config,
+)
 from legalforecast.protocol.manifest import hash_payload
 
 
@@ -899,3 +904,58 @@ def test_runtime_provider_authority_rejects_scope_identity_drift(
             projected_cost_usd="1.00",
             owner_ceiling_usd="1.50",
         )
+
+
+def test_live_v3_policy_verifier_reads_scope_projected_cost_usd_key(
+    tmp_path: Path,
+) -> None:
+    plan_path, registry_path, run_input_path, cost_path, _evidence_path, model_key = (
+        _write_scope_inputs(tmp_path)
+    )
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        owner_ceiling_usd="1.50",
+        owner_bead_id="scope-test",
+        provider_authority=_authority(),
+    )
+    assert "projected_cost_usd" in scope["scope"]
+    assert "execution scope projected_cost_usd" not in scope["scope"]
+    scope_path = tmp_path / "scope.json"
+    scope_path.write_text(json.dumps(scope, sort_keys=True) + "\n", encoding="utf-8")
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    registry = load_model_registry(registry_path)
+    verified = _verified_execution_policy_for_config(
+        PerCaseRunnerConfig(
+            manifest_uri=str(tmp_path / "manifest.json"),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            backend=PerCaseExecutionBackend.LIVE,
+            model_registry_uri=str(registry_path),
+            model_key=model_key,
+            expected_packet_object_key=(
+                "model-packets/cycle-1/case-1/full_packet.json"
+            ),
+            expected_packet_sha256="a" * 64,
+            execution_policy_uri=str(plan_path),
+            expected_execution_policy_sha256=plan["policy_sha256"],
+            execution_scope_uri=str(scope_path),
+            expected_execution_scope_sha256=scope["scope_sha256"],
+            workflow_run_id="123",
+            workflow_run_attempt=1,
+            provider_authority_table="authority-table",
+            provider_account="test-account",
+        ),
+        registry_entry=registry.entries[0],
+        cycle_id="cycle-scope-test",
+    )
+    assert verified is not None
+    assert verified.runtime_binding["execution_scope_sha256"] == scope["scope_sha256"]
+    assert (
+        verified.runtime_binding["authority_scope_identity_sha256"]
+        == scope["scope"]["provider_authority"]["scope_identity_sha256"]
+    )

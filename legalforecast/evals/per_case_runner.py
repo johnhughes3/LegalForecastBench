@@ -1771,12 +1771,8 @@ def _verified_execution_policy_for_config(
                 provider=registry_entry.provider,
                 model_key=cast(str, config.model_key),
                 cycle_id=cycle_id,
-                projected_cost_usd=required_str(
-                    scope_record, "execution scope projected_cost_usd"
-                ),
-                owner_ceiling_usd=required_str(
-                    scope_record, "execution scope owner_ceiling_usd"
-                ),
+                projected_cost_usd=required_str(scope_record, "projected_cost_usd"),
+                owner_ceiling_usd=required_str(scope_record, "owner_ceiling_usd"),
             )
             attempt_policy = {
                 "reservation_ledger_sha256": scope_sha256,
