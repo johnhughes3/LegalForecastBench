@@ -5,9 +5,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/run-benchmark.yaml").read_text(encoding="utf-8")
-PROVIDER_WORKFLOW = (ROOT / ".github/workflows/official-provider-cell.yaml").read_text(
-    encoding="utf-8"
-)
+PROVIDER_WORKFLOW = (
+    ROOT / ".github/actions/official-provider-cell/action.yml"
+).read_text(encoding="utf-8")
 BUILD_MATRIX_JOB = WORKFLOW[
     WORKFLOW.index("  build-matrix:") : WORKFLOW.index("  run-openai:")
 ]
@@ -138,7 +138,7 @@ def test_cycle_mutation_intent_brackets_every_result_writer() -> None:
     assert "legalforecast.publication.cycle_closure finish" in RUN_CASE_JOB
     assert RUN_CASE_JOB.count('--run-attempt "${GITHUB_RUN_ATTEMPT}"') == 2
     assert "--attempt" not in RUN_CASE_JOB
-    assert "always() && !inputs.dry_run" in RUN_CASE_JOB
+    assert "always() && inputs.dry_run != 'true'" in RUN_CASE_JOB
     assert "steps.begin_cycle_mutation.outcome == 'success'" in RUN_CASE_JOB
     assert "LFB_GITHUB_FAN_IN_ROLE_ARN" not in RUN_CASE_JOB
 
@@ -242,7 +242,7 @@ def test_finalize_shard_requires_every_matrix_cell_and_writes_once() -> None:
     assert '--source-release-sha "${SOURCE_RELEASE_SHA}"' in FINALIZE_SHARD_JOB
     assert '--receipt-root "s3://${LFB_RESULTS_BUCKET}"' in FINALIZE_SHARD_JOB
     assert "if-no-files-found: error" in RUN_CASE_JOB
-    assert "if: ${{ !inputs.dry_run && success() }}" in RUN_CASE_JOB
+    assert "if: ${{ success() && inputs.dry_run != 'true' }}" in RUN_CASE_JOB
     provenance_source = (
         ROOT / "legalforecast" / "publication" / "dispatch_provenance.py"
     ).read_text(encoding="utf-8")
@@ -297,7 +297,7 @@ def test_run_case_uses_transported_frozen_execution_policy() -> None:
     download = RUN_CASE_JOB.index("- name: Download frozen dispatch inputs")
     evaluate = RUN_CASE_JOB.index("- name: Run isolated case evaluation")
     assert checkout < download < evaluate
-    assert "if: ${{ !inputs.dry_run }}" in RUN_CASE_JOB[download:evaluate]
+    assert "if: ${{ inputs.dry_run != 'true' }}" in RUN_CASE_JOB[download:evaluate]
     assert (
         "name: official-dispatch-provenance-${{ github.run_id }}-"
         "${{ inputs.dispatch_run_attempt }}" in RUN_CASE_JOB[download:evaluate]
@@ -601,21 +601,22 @@ def test_official_eval_provider_credentials_are_isolated_by_environment() -> Non
     assert "missing_provider_values" not in BUILD_MATRIX_JOB
     assert "LFB_PROVIDER_AUTHORITY_TABLE" not in BUILD_MATRIX_JOB
     assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in BUILD_MATRIX_JOB
-    assert PROVIDER_WORKFLOW.count("secrets.OPENAI_API_KEY") == 2
-    assert PROVIDER_WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 2
-    assert PROVIDER_WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 2
-    assert PROVIDER_WORKFLOW.count("secrets.GEMINI_API_KEY") == 2
+    assert "secrets." not in PROVIDER_WORKFLOW
     assert "secrets: inherit" not in WORKFLOW
     assert "secrets: inherit" not in PROVIDER_WORKFLOW
+    assert WORKFLOW.count("environment: legalforecastbench-official-eval") >= 4
     assert WORKFLOW.count("environment_name: legalforecastbench-official-eval") == 3
-    for secret_name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
-        assert f"secrets.{secret_name}" not in WORKFLOW
+    assert WORKFLOW.count("secrets.OPENAI_API_KEY") == 1
+    assert WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 1
+    assert WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 1
+    assert WORKFLOW.count("secrets.GEMINI_API_KEY") == 1
+    assert "&& secrets." not in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> None:
     assert WORKFLOW.count("id-token: write") == 6
-    assert PROVIDER_WORKFLOW.count("id-token: write") == 1
-    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in PROVIDER_WORKFLOW
+    assert PROVIDER_WORKFLOW.count("id-token: write") == 0
+    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in WORKFLOW
     assert "secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN" not in WORKFLOW
     assert "secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN" not in PROVIDER_WORKFLOW
     configure_aws_pins = re.findall(
@@ -687,35 +688,23 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "model_key_slug: ${{ matrix.model_key_slug }}" in WORKFLOW
     assert "EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}" in RUN_CASE_JOB
     assert "EXPECTED_PACKET_SHA256: ${{ inputs.packet_sha256 }}" in RUN_CASE_JOB
-    assert "LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars." in RUN_CASE_JOB
+    assert "LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars." in WORKFLOW
     assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in RUN_CASE_JOB
-    selector = (
-        "LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && "
-        "steps.openai_transport.outputs.use_vercel_gateway == 'true' && "
-        "secrets.AI_GATEWAY_API_KEY || inputs.provider == 'openai' && "
-        "steps.openai_transport.outputs.use_vercel_gateway != 'true' && "
-        "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
-        '!contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
-        "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
-        "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}"
-    )
-    assert RUN_CASE_JOB.count(selector) == 2
+    assert 'LFB_PROVIDER_API_KEY="${OPENAI_API_KEY:-}"' in RUN_CASE_JOB
     assert '"${LFB_PROVIDER_API_KEY}" == "false"' in RUN_CASE_JOB
     assert '"${LFB_PROVIDER_API_KEY}" == "true"' in RUN_CASE_JOB
     assert "- name: Validate provider credential" in RUN_CASE_JOB
     assert RUN_CASE_JOB.index(
         "- name: Validate provider credential"
     ) < RUN_CASE_JOB.index("- name: Begin per-case cycle mutation")
-    assert "secrets.AI_GATEWAY_API_KEY" in RUN_CASE_JOB
+    assert "secrets.AI_GATEWAY_API_KEY" in WORKFLOW
     assert "OPENAI_TRANSPORT_CONTRACT_VERSION" in RUN_CASE_JOB
     assert "vercel-sol-flex-v1" in RUN_CASE_JOB
     assert '"$(date -u +%F)" < "2026-09-19"' in RUN_CASE_JOB
-    assert (
-        "LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}" in PROVIDER_WORKFLOW
-    )
+    assert "LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}" in WORKFLOW
     assert (
         "LFB_ANTHROPIC_BEDROCK_MODEL_ID: "
-        "${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}" in PROVIDER_WORKFLOW
+        "${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}" in WORKFLOW
     )
     assert "bedrock|aws-bedrock|aws_bedrock)" in PROVIDER_WORKFLOW
     assert "export OPENAI_API_KEY=" in RUN_CASE_JOB
@@ -778,8 +767,8 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
 
 def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> None:
     assert "Dry run: validated the frozen provider lane" in PROVIDER_WORKFLOW
-    assert "if: ${{ inputs.dry_run }}" in PROVIDER_WORKFLOW
-    assert "if: ${{ !inputs.dry_run }}" in PROVIDER_WORKFLOW
+    assert "if: ${{ inputs.dry_run == 'true' }}" in PROVIDER_WORKFLOW
+    assert "if: ${{ inputs.dry_run != 'true' }}" in PROVIDER_WORKFLOW
     assert (
         "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
         in WORKFLOW + PROVIDER_WORKFLOW

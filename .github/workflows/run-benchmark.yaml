@@ -935,103 +935,158 @@ jobs:
     name: OpenAI provider cells
     needs: build-matrix
     if: ${{ !inputs.dry_run && needs.build-matrix.outputs.openai_count != '0' }}
+    # Environment secrets are only in secrets.* on a normal job that binds
+    # environment:. A uses: reusable workflow cannot set environment on the
+    # caller, and the callee's environment injects vars/OIDC but not secrets.
+    environment: legalforecastbench-official-eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
     permissions:
       contents: read
       id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
+      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
       matrix: ${{ fromJSON(needs.build-matrix.outputs.openai_matrix) }}
-    uses: ./.github/workflows/official-provider-cell.yaml
-    with:
-      ablation: ${{ matrix.ablation }}
-      artifact_retention_days: ${{ fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}
-      case_id: ${{ matrix.case_id }}
-      case_id_slug: ${{ matrix.case_id_slug }}
-      cell_index: ${{ strategy.job-index }}
-      cycle_id: ${{ inputs.cycle_id }}
-      dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
-      dry_run: ${{ inputs.dry_run }}
-      environment_name: legalforecastbench-official-eval
-      execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
-      execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
-      freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
-      model_key: ${{ matrix.model_key }}
-      model_key_slug: ${{ matrix.model_key_slug }}
-      packet_object_key: ${{ matrix.packet_object_key }}
-      packet_sha256: ${{ matrix.packet_sha256 }}
-      provider: openai
-      release_sha: ${{ needs.build-matrix.outputs.release_sha }}
-      repeat_count: ${{ matrix.repeat_count }}
-      resume_existing_results: ${{ inputs.resume_existing_results }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/official-provider-cell
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+        with:
+          ablation: ${{ matrix.ablation }}
+          artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
+          case_id: ${{ matrix.case_id }}
+          case_id_slug: ${{ matrix.case_id_slug }}
+          cell_index: ${{ strategy.job-index }}
+          cycle_id: ${{ inputs.cycle_id }}
+          dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
+          dry_run: ${{ inputs.dry_run }}
+          environment_name: legalforecastbench-official-eval
+          execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
+          execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
+          freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
+          model_key: ${{ matrix.model_key }}
+          model_key_slug: ${{ matrix.model_key_slug }}
+          packet_object_key: ${{ matrix.packet_object_key }}
+          packet_sha256: ${{ matrix.packet_sha256 }}
+          provider: openai
+          release_sha: ${{ needs.build-matrix.outputs.release_sha }}
+          repeat_count: ${{ matrix.repeat_count }}
+          resume_existing_results: ${{ inputs.resume_existing_results }}
 
   run-anthropic:
     name: Anthropic provider cells
     needs: build-matrix
     if: ${{ !inputs.dry_run && needs.build-matrix.outputs.anthropic_count != '0' }}
+    environment: legalforecastbench-official-eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
     permissions:
       contents: read
       id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
+      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
       matrix: ${{ fromJSON(needs.build-matrix.outputs.anthropic_matrix) }}
-    uses: ./.github/workflows/official-provider-cell.yaml
-    with:
-      ablation: ${{ matrix.ablation }}
-      artifact_retention_days: ${{ fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}
-      case_id: ${{ matrix.case_id }}
-      case_id_slug: ${{ matrix.case_id_slug }}
-      cell_index: ${{ strategy.job-index }}
-      cycle_id: ${{ inputs.cycle_id }}
-      dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
-      dry_run: ${{ inputs.dry_run }}
-      environment_name: legalforecastbench-official-eval
-      execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
-      execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
-      freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
-      model_key: ${{ matrix.model_key }}
-      model_key_slug: ${{ matrix.model_key_slug }}
-      packet_object_key: ${{ matrix.packet_object_key }}
-      packet_sha256: ${{ matrix.packet_sha256 }}
-      provider: anthropic
-      release_sha: ${{ needs.build-matrix.outputs.release_sha }}
-      repeat_count: ${{ matrix.repeat_count }}
-      resume_existing_results: ${{ inputs.resume_existing_results }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/official-provider-cell
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          ablation: ${{ matrix.ablation }}
+          artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
+          case_id: ${{ matrix.case_id }}
+          case_id_slug: ${{ matrix.case_id_slug }}
+          cell_index: ${{ strategy.job-index }}
+          cycle_id: ${{ inputs.cycle_id }}
+          dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
+          dry_run: ${{ inputs.dry_run }}
+          environment_name: legalforecastbench-official-eval
+          execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
+          execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
+          freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
+          model_key: ${{ matrix.model_key }}
+          model_key_slug: ${{ matrix.model_key_slug }}
+          packet_object_key: ${{ matrix.packet_object_key }}
+          packet_sha256: ${{ matrix.packet_sha256 }}
+          provider: anthropic
+          release_sha: ${{ needs.build-matrix.outputs.release_sha }}
+          repeat_count: ${{ matrix.repeat_count }}
+          resume_existing_results: ${{ inputs.resume_existing_results }}
 
   run-gemini:
     name: Gemini provider cells
     needs: build-matrix
     if: ${{ !inputs.dry_run && needs.build-matrix.outputs.gemini_count != '0' }}
+    environment: legalforecastbench-official-eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
     permissions:
       contents: read
       id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
+      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
       matrix: ${{ fromJSON(needs.build-matrix.outputs.gemini_matrix) }}
-    uses: ./.github/workflows/official-provider-cell.yaml
-    with:
-      ablation: ${{ matrix.ablation }}
-      artifact_retention_days: ${{ fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}
-      case_id: ${{ matrix.case_id }}
-      case_id_slug: ${{ matrix.case_id_slug }}
-      cell_index: ${{ strategy.job-index }}
-      cycle_id: ${{ inputs.cycle_id }}
-      dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
-      dry_run: ${{ inputs.dry_run }}
-      environment_name: legalforecastbench-official-eval
-      execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
-      execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
-      freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
-      model_key: ${{ matrix.model_key }}
-      model_key_slug: ${{ matrix.model_key_slug }}
-      packet_object_key: ${{ matrix.packet_object_key }}
-      packet_sha256: ${{ matrix.packet_sha256 }}
-      provider: gemini
-      release_sha: ${{ needs.build-matrix.outputs.release_sha }}
-      repeat_count: ${{ matrix.repeat_count }}
-      resume_existing_results: ${{ inputs.resume_existing_results }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/official-provider-cell
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        with:
+          ablation: ${{ matrix.ablation }}
+          artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
+          case_id: ${{ matrix.case_id }}
+          case_id_slug: ${{ matrix.case_id_slug }}
+          cell_index: ${{ strategy.job-index }}
+          cycle_id: ${{ inputs.cycle_id }}
+          dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
+          dry_run: ${{ inputs.dry_run }}
+          environment_name: legalforecastbench-official-eval
+          execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
+          execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
+          freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
+          model_key: ${{ matrix.model_key }}
+          model_key_slug: ${{ matrix.model_key_slug }}
+          packet_object_key: ${{ matrix.packet_object_key }}
+          packet_sha256: ${{ matrix.packet_sha256 }}
+          provider: gemini
+          release_sha: ${{ needs.build-matrix.outputs.release_sha }}
+          repeat_count: ${{ matrix.repeat_count }}
+          resume_existing_results: ${{ inputs.resume_existing_results }}
   finalize-shard:
     name: Finalize immutable shard receipt
     needs:

@@ -23,7 +23,9 @@ INFRA_ROOT = ROOT / "infra" / "official-eval"
 POLICY_ROOT = INFRA_ROOT / "policies"
 ENVIRONMENT_MANIFEST = INFRA_ROOT / "github-environments.json"
 RUN_BENCHMARK_WORKFLOW = ROOT / ".github" / "workflows" / "run-benchmark.yaml"
-PROVIDER_CELL_WORKFLOW = ROOT / ".github" / "workflows" / "official-provider-cell.yaml"
+PROVIDER_CELL_WORKFLOW = (
+    ROOT / ".github" / "actions" / "official-provider-cell" / "action.yml"
+)
 FAN_IN_WORKFLOW = ROOT / ".github" / "workflows" / "fan-in-publish.yaml"
 WORKFLOW_ROOT = ROOT / ".github" / "workflows"
 
@@ -798,23 +800,9 @@ def _assert_eval_trust_refs_satisfiable(
     assert isinstance(branch, str)
     assert ref == f"refs/heads/{branch}"
 
-    # The provider-cell reusable workflow uses the single provisioned evaluation
-    # environment. Validate that binding once, then validate every dispatcher
-    # caller maps one provider to that same environment. A called workflow
-    # cannot inherit the caller's job-level environment, so the called job's
-    # literal binding is the actual OIDC claim source.
-    provider_cell_name = PROVIDER_CELL_WORKFLOW.name
-    provider_cell_text = workflow_texts.get(provider_cell_name)
-    assert provider_cell_text is not None
-    assert re.search(
-        r"^      environment_name:\s*$\n"
-        r"        required: true\s*$\n"
-        r"        type: string\s*$",
-        provider_cell_text,
-        flags=re.MULTILINE,
-    )
-    assert "    environment: legalforecastbench-official-eval" in provider_cell_text
-
+    # Provider cells must be normal jobs that bind the evaluation environment.
+    # A uses: reusable workflow cannot set environment on the caller, and the
+    # callee's environment injects vars/OIDC but not secrets.OPENAI_API_KEY.
     expected_provider_lanes = {
         "run-openai": ("openai", cell_environment),
         "run-anthropic": ("anthropic", cell_environment),
@@ -824,11 +812,17 @@ def _assert_eval_trust_refs_satisfiable(
     for job_id, block in workflow_jobs(
         workflow_texts[RUN_BENCHMARK_WORKFLOW.name]
     ).items():
-        if "uses: ./.github/workflows/official-provider-cell.yaml" not in block:
+        if "uses: ./.github/actions/official-provider-cell" not in block:
             continue
-        provider_match = re.search(r"^      provider: (\S+)\s*$", block, re.MULTILINE)
+        provider_match = re.search(
+            r"^          provider: (\S+)\s*$", block, re.MULTILINE
+        )
+        if provider_match is None:
+            provider_match = re.search(
+                r"^      provider: (\S+)\s*$", block, re.MULTILINE
+            )
         environment_match = re.search(
-            r"^      environment_name: (\S+)\s*$", block, re.MULTILINE
+            r"^    environment: (\S+)\s*$", block, re.MULTILINE
         )
         assert provider_match is not None, job_id
         assert environment_match is not None, job_id
@@ -857,11 +851,7 @@ def _assert_eval_trust_refs_satisfiable(
                 if variable not in role_environments:
                     continue
                 environment = job_environment(block)
-                if workflow_name == provider_cell_name:
-                    assert variable == "LFB_GITHUB_PACKET_READ_ROLE_ARN", label
-                    assert environment == role_environments[variable], label
-                else:
-                    assert environment == role_environments[variable], label
+                assert environment == role_environments[variable], label
                 assert job_grants_id_token_write(block), label
                 producers[variable] += 1
     for variable, count in producers.items():
@@ -1063,7 +1053,7 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in run_workflow
     assert "environment: legalforecastbench-official-eval-fan-in" in run_workflow
     assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in run_workflow
-    assert "environment: legalforecastbench-official-eval" in provider_workflow
+    assert "environment: legalforecastbench-official-eval" in run_workflow
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in provider_workflow
     assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in provider_workflow
     assert (

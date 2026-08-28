@@ -1,0 +1,552 @@
+name: Official provider cell
+description: Run one official eval provider cell against a frozen packet.
+
+# Provider API keys must be injected by the caller job that binds
+# environment: legalforecastbench-official-eval. Reusable workflow_call
+# jobs do not receive those environment secrets in the secrets context.
+
+inputs:
+  ablation:
+    required: true
+  artifact_retention_days:
+    required: true
+  case_id:
+    required: true
+  case_id_slug:
+    required: true
+  cell_index:
+    required: true
+  cycle_id:
+    required: true
+  dispatch_run_attempt:
+    required: true
+  dry_run:
+    required: true
+  environment_name:
+    required: true
+  execution_policy_sha256:
+    required: true
+  freeze_bundle_sha256:
+    required: true
+  execution_scope_sha256:
+    required: false
+    default: ""
+  model_key:
+    required: true
+  model_key_slug:
+    required: true
+  packet_object_key:
+    required: true
+  packet_sha256:
+    required: true
+  provider:
+    required: true
+  release_sha:
+    required: true
+  repeat_count:
+    required: true
+  resume_existing_results:
+    required: true
+
+runs:
+  using: composite
+  steps:
+  - name: Validate provider-cell boundary
+    shell: bash
+    env:
+      ARTIFACT_RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
+      CASE_ID_SLUG: ${{ inputs.case_id_slug }}
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      EXECUTION_POLICY_SHA256: ${{ inputs.execution_policy_sha256 }}
+      EXECUTION_SCOPE_SHA256: ${{ inputs.execution_scope_sha256 }}
+      FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}
+      MODEL_KEY: ${{ inputs.model_key }}
+      MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
+      CELL_INDEX: ${{ inputs.cell_index }}
+      PROVIDER: ${{ inputs.provider }}
+      REPEAT_COUNT: ${{ inputs.repeat_count }}
+    run: |
+      set -euo pipefail
+      case "${PROVIDER}:${ENVIRONMENT_NAME}" in
+        "openai:legalforecastbench-official-eval"|\
+        "anthropic:legalforecastbench-official-eval"|\
+        "gemini:legalforecastbench-official-eval") ;;
+        *)
+          echo "Provider/environment pair is outside the official cell allowlist." >&2
+          exit 1
+          ;;
+      esac
+      case "${PROVIDER}:${MODEL_KEY}" in
+        openai:openai:*|anthropic:anthropic:*|gemini:gemini:*|gemini:google:*) ;;
+        *)
+          echo "Model key does not belong to the selected provider boundary." >&2
+          exit 1
+          ;;
+      esac
+      if [[ ! "${MODEL_KEY_SLUG}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        echo "model_key_slug contains unsafe path characters." >&2
+        exit 1
+      fi
+      if ! [[ "${CELL_INDEX}" =~ ^[0-9]+$ ]]; then
+        echo "cell_index must be a non-negative integer." >&2
+        exit 1
+      fi
+      if ! [[ "${CASE_ID_SLUG}" =~ ^[a-z0-9][a-z0-9-]{0,47}-[0-9a-f]{12}$ ]] || [[ "${CASE_ID_SLUG}" == *--* ]]; then
+        echo "case_id_slug is outside the collision-resistant artifact grammar." >&2
+        exit 1
+      fi
+      if [[ ! "${EXECUTION_POLICY_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "execution_policy_sha256 must be lowercase SHA-256." >&2
+        exit 1
+      fi
+      if [[ ! "${FREEZE_BUNDLE_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "freeze_bundle_sha256 must be lowercase SHA-256." >&2
+        exit 1
+      fi
+      if [[ -n "${EXECUTION_SCOPE_SHA256}" ]] && ! [[ "${EXECUTION_SCOPE_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "execution_scope_sha256 must be lowercase SHA-256." >&2
+        exit 1
+      fi
+      if ! [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "repeat_count must be a positive integer." >&2
+        exit 1
+      fi
+      if (( REPEAT_COUNT > 1 )); then
+        echo "Repeat samples are not supported in one provider cell; use repeat_count=1 until repeat fan-out and AWS-session coordination land." >&2
+        exit 1
+      fi
+      retention_days="${ARTIFACT_RETENTION_DAYS}"
+      if ! [[ "${retention_days}" =~ ^[0-9]+$ ]] || (( retention_days < 1 || retention_days > 90 )); then
+        echo "Sanitized Actions artifact retention must be from 1 through 90 days." >&2
+        exit 1
+      fi
+
+  - name: Checkout trusted release
+    uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    with:
+      persist-credentials: false
+      ref: ${{ inputs.release_sha }}
+
+  - name: Dry-run provider cell
+    if: ${{ inputs.dry_run == 'true' }}
+    shell: bash
+    run: |
+      set -euo pipefail
+      echo "Dry run: validated the frozen provider lane without loading provider credentials."
+
+  - name: Download frozen dispatch inputs
+    if: ${{ inputs.dry_run != 'true' }}
+    uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+    with:
+      name: official-dispatch-provenance-${{ github.run_id }}-${{ inputs.dispatch_run_attempt }}
+      path: /tmp/lfb-provider-cell-inputs
+
+  - name: Install uv
+    if: ${{ inputs.dry_run != 'true' }}
+    uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
+    with:
+      enable-cache: true
+
+  - name: Verify frozen provider-cell inputs
+    if: ${{ inputs.dry_run != 'true' }}
+    shell: bash
+    env:
+      ABLATION: ${{ inputs.ablation }}
+      EXPECTED_EXECUTION_POLICY_SHA256: ${{ inputs.execution_policy_sha256 }}
+      EXPECTED_EXECUTION_SCOPE_SHA256: ${{ inputs.execution_scope_sha256 }}
+      EXPECTED_FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}
+      CYCLE_ID: ${{ inputs.cycle_id }}
+      MODEL_KEY: ${{ inputs.model_key }}
+    run: |
+      set -euo pipefail
+      uv run python - <<'PY'
+      import hashlib
+      import json
+      import os
+      import re
+      from pathlib import Path
+
+      root = Path("/tmp/lfb-provider-cell-inputs")
+      required = {
+          "dispatch provenance": root / "lfb-dispatch-provenance.json",
+          "frozen run-input manifest": root / "lfb-run-inputs-frozen.json",
+          "labels": root / "lfb-labels.jsonl",
+          "model registry": root / "lfb-model-registry.json",
+          "execution policy": root / "lfb-execution-policy.json",
+      }
+      missing = [label for label, path in required.items() if not path.is_file()]
+      if missing:
+          raise SystemExit(f"frozen dispatch artifact is incomplete: {missing}")
+      expected = os.environ["EXPECTED_EXECUTION_POLICY_SHA256"]
+      expected_scope = os.environ["EXPECTED_EXECUTION_SCOPE_SHA256"]
+      if re.fullmatch(r"[0-9a-f]{64}", expected) is None:
+          raise SystemExit("expected execution-policy hash is invalid")
+      policy = json.loads(required["execution policy"].read_text(encoding="utf-8"))
+      from legalforecast.protocol.policy_artifacts import verify_official_execution_policy
+      try:
+          verify_official_execution_policy(
+              policy,
+              expected_cycle_id=os.environ["CYCLE_ID"],
+              expected_sha256=expected,
+          )
+      except ValueError as exc:
+          raise SystemExit(
+              "downloaded execution policy differs from matrix commitment"
+          ) from exc
+      provenance = json.loads(required["dispatch provenance"].read_text(encoding="utf-8"))
+      if provenance.get("execution_policy_sha256") != expected:
+          raise SystemExit("dispatch provenance execution-policy commitment differs")
+      plan = json.loads(required["execution policy"].read_text(encoding="utf-8"))
+      if plan.get("schema_version") in {
+          "legalforecast.execution_policy.v3",
+          "legalforecast.execution_policy.v4",
+      }:
+          if re.fullmatch(r"[0-9a-f]{64}", expected_scope) is None:
+              raise SystemExit("v3/v4 execution policy requires an execution-scope hash")
+          scope_path = root / "lfb-execution-scope.json"
+          if not scope_path.is_file():
+              raise SystemExit("v3/v4 execution policy requires an execution-scope artifact")
+          scope = json.loads(scope_path.read_text(encoding="utf-8"))
+          from legalforecast.evals.corpus_manifest.execution_scope import verify_execution_scope_runtime
+          from legalforecast.evals.model_registry import load_model_registry
+          registry_path = required["model registry"]
+          verify_execution_scope_runtime(
+              scope,
+              common_plan=plan,
+              model_registry=load_model_registry(registry_path),
+              model_registry_sha256=hashlib.sha256(registry_path.read_bytes()).hexdigest(),
+              expected_model_key=os.environ["MODEL_KEY"],
+              expected_ablation=os.environ["ABLATION"],
+              expected_scope_sha256=expected_scope,
+              expected_freeze_bundle_sha256=os.environ[
+                  "EXPECTED_FREEZE_BUNDLE_SHA256"
+              ],
+          )
+      PY
+
+  - name: Validate protected environment values
+    if: ${{ inputs.dry_run != 'true' }}
+    shell: bash
+    env:
+      PROVIDER: ${{ inputs.provider }}
+    run: |
+      set -euo pipefail
+      missing=()
+      for name in \
+        LFB_GITHUB_PACKET_READ_ROLE_ARN \
+        LFB_PACKET_BUCKET \
+        LFB_PROVIDER_AUTHORITY_TABLE \
+        LFB_RESULTS_BUCKET; do
+        if [[ -z "${!name:-}" ]]; then
+          missing+=("${name}")
+        fi
+      done
+      if [[ "${PROVIDER}" == "anthropic" ]]; then
+        case "${LFB_ANTHROPIC_RUNTIME:-}" in
+          bedrock|aws-bedrock|aws_bedrock)
+            [[ -n "${LFB_ANTHROPIC_BEDROCK_MODEL_ID:-}" ]] || missing+=(LFB_ANTHROPIC_BEDROCK_MODEL_ID)
+            ;;
+        esac
+      fi
+      if (( ${#missing[@]} > 0 )); then
+        printf 'Missing required provider-cell environment values:\n' >&2
+        printf '  - %s\n' "${missing[@]}" >&2
+        exit 1
+      fi
+      if [[ ! "${LFB_GITHUB_PACKET_READ_ROLE_ARN}" =~ ^arn:aws[a-zA-Z-]*:iam::[0-9]{12}:role/.+ ]]; then
+        echo "LFB_GITHUB_PACKET_READ_ROLE_ARN must be an IAM role ARN." >&2
+        exit 1
+      fi
+
+  - name: Select OpenAI transport
+    id: openai_transport
+    if: ${{ inputs.dry_run != 'true' && inputs.provider == 'openai' }}
+    shell: bash
+    env:
+      MODEL_KEY: ${{ inputs.model_key }}
+    run: |
+      set -euo pipefail
+      if [[ "${MODEL_KEY}" == "openai:gpt-5.6-sol" && "$(date -u +%F)" < "2026-09-19" ]]; then
+        transport_contract="$(uv run python -c 'from legalforecast.openai_transport import OPENAI_TRANSPORT_CONTRACT_VERSION; print(OPENAI_TRANSPORT_CONTRACT_VERSION)' 2>/dev/null)" || {
+          echo "Selected release does not support the Vercel Sol transport contract." >&2
+          exit 1
+        }
+        [[ "${transport_contract}" == "vercel-sol-flex-v1" ]] || {
+          echo "Selected release has an unsupported Vercel Sol transport contract." >&2
+          exit 1
+        }
+        echo "use_vercel_gateway=true" >> "${GITHUB_OUTPUT}"
+      else
+        echo "use_vercel_gateway=false" >> "${GITHUB_OUTPUT}"
+      fi
+
+  - name: Validate provider credential
+    if: ${{ inputs.dry_run != 'true' }}
+    shell: bash
+    env:
+      LFB_OPENAI_USE_VERCEL_GATEWAY: ${{ steps.openai_transport.outputs.use_vercel_gateway }}
+      MODEL_KEY: ${{ inputs.model_key }}
+      PROVIDER: ${{ inputs.provider }}
+    run: |
+      set -euo pipefail
+      case "${PROVIDER}" in
+        openai)
+          if [[ "${LFB_OPENAI_USE_VERCEL_GATEWAY}" == "true" ]]; then
+            LFB_PROVIDER_API_KEY="${AI_GATEWAY_API_KEY:-}"
+          else
+            LFB_PROVIDER_API_KEY="${OPENAI_API_KEY:-}"
+          fi
+          ;;
+        anthropic)
+          LFB_PROVIDER_API_KEY="${ANTHROPIC_API_KEY:-}"
+          ;;
+        gemini)
+          LFB_PROVIDER_API_KEY="${GEMINI_API_KEY:-}"
+          ;;
+        *)
+          LFB_PROVIDER_API_KEY=""
+          ;;
+      esac
+      case "${PROVIDER}" in
+        openai)
+          expected_gateway="false"
+          if [[ "${MODEL_KEY}" == "openai:gpt-5.6-sol" && "$(date -u +%F)" < "2026-09-19" ]]; then
+            expected_gateway="true"
+          fi
+          [[ "${LFB_OPENAI_USE_VERCEL_GATEWAY}" == "${expected_gateway}" ]] || { echo "OpenAI transport selection expired before launch." >&2; exit 1; }
+          if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+            echo "A non-boolean OPENAI_API_KEY or AI_GATEWAY_API_KEY is required in legalforecastbench-official-eval before cycle mutation." >&2
+            exit 1
+          fi
+          ;;
+        anthropic)
+          case "${LFB_ANTHROPIC_RUNTIME:-}" in
+            bedrock|aws-bedrock|aws_bedrock) ;;
+            *)
+              if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+                echo "A non-boolean ANTHROPIC_API_KEY is required in legalforecastbench-official-eval before cycle mutation." >&2
+                exit 1
+              fi
+              ;;
+          esac
+          ;;
+        gemini)
+          if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+            echo "A non-boolean GEMINI_API_KEY is required in legalforecastbench-official-eval before cycle mutation." >&2
+            exit 1
+          fi
+          ;;
+      esac
+
+  - name: Configure AWS authority for cycle begin
+    if: ${{ inputs.dry_run != 'true' }}
+    uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+    with:
+      aws-region: ${{ env.AWS_REGION }}
+      role-session-name: lfb-cell-begin-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
+      role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      role-duration-seconds: 3600
+
+  - name: Begin per-case cycle mutation
+    id: begin_cycle_mutation
+    if: ${{ inputs.dry_run != 'true' }}
+    shell: bash
+    env:
+      CELL_INDEX: ${{ inputs.cell_index }}
+      CYCLE_ID: ${{ inputs.cycle_id }}
+      PROVIDER: ${{ inputs.provider }}
+    run: |
+      set -euo pipefail
+      writer_id="${GITHUB_RUN_ID}-case-${PROVIDER}-${CELL_INDEX}"
+      uv run python -m legalforecast.publication.cycle_closure begin \
+        --root "s3://${LFB_RESULTS_BUCKET}" \
+        --cycle-id "${CYCLE_ID}" \
+        --writer-id "${writer_id}" \
+        --run-attempt "${GITHUB_RUN_ATTEMPT}"
+
+  - name: Refresh AWS authority for case evaluation
+    if: ${{ inputs.dry_run != 'true' }}
+    uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+    with:
+      aws-region: ${{ env.AWS_REGION }}
+      role-session-name: lfb-cell-eval-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
+      role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      role-duration-seconds: 3600
+
+  - name: Run isolated case evaluation
+    if: ${{ inputs.dry_run != 'true' }}
+    shell: bash
+    env:
+      ABLATION: ${{ inputs.ablation }}
+      CASE_ID: ${{ inputs.case_id }}
+      CASE_ID_SLUG: ${{ inputs.case_id_slug }}
+      CYCLE_ID: ${{ inputs.cycle_id }}
+      EXPECTED_EXECUTION_POLICY_SHA256: ${{ inputs.execution_policy_sha256 }}
+      EXPECTED_EXECUTION_SCOPE_SHA256: ${{ inputs.execution_scope_sha256 }}
+      EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}
+      EXPECTED_PACKET_SHA256: ${{ inputs.packet_sha256 }}
+      LFB_OPENAI_USE_VERCEL_GATEWAY: ${{ steps.openai_transport.outputs.use_vercel_gateway }}
+      MODEL_KEY: ${{ inputs.model_key }}
+      MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
+      PROVIDER: ${{ inputs.provider }}
+      REPEAT_COUNT: ${{ inputs.repeat_count }}
+      RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}
+    run: |
+      set -euo pipefail
+      case "${PROVIDER}" in
+        openai)
+          if [[ "${LFB_OPENAI_USE_VERCEL_GATEWAY}" == "true" ]]; then
+            LFB_PROVIDER_API_KEY="${AI_GATEWAY_API_KEY:-}"
+          else
+            LFB_PROVIDER_API_KEY="${OPENAI_API_KEY:-}"
+          fi
+          ;;
+        anthropic)
+          LFB_PROVIDER_API_KEY="${ANTHROPIC_API_KEY:-}"
+          ;;
+        gemini)
+          LFB_PROVIDER_API_KEY="${GEMINI_API_KEY:-}"
+          ;;
+        *)
+          LFB_PROVIDER_API_KEY=""
+          ;;
+      esac
+      case "${PROVIDER}" in
+        openai)
+          expected_gateway="false"
+          if [[ "${MODEL_KEY}" == "openai:gpt-5.6-sol" && "$(date -u +%F)" < "2026-09-19" ]]; then
+            expected_gateway="true"
+          fi
+          [[ "${LFB_OPENAI_USE_VERCEL_GATEWAY}" == "${expected_gateway}" ]] || { echo "OpenAI transport selection expired before launch." >&2; exit 1; }
+          if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+            echo "A non-boolean PROVIDER_API_KEY is required for the OpenAI cell." >&2
+            exit 1
+          fi
+          export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"
+          ;;
+        anthropic)
+          case "${LFB_ANTHROPIC_RUNTIME:-}" in
+            bedrock|aws-bedrock|aws_bedrock) ;;
+            *)
+              if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+                echo "A non-boolean PROVIDER_API_KEY is required for the Anthropic cell." >&2
+                exit 1
+              fi
+              export ANTHROPIC_API_KEY="${LFB_PROVIDER_API_KEY}"
+              ;;
+          esac
+          ;;
+        gemini)
+          if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+            echo "A non-boolean PROVIDER_API_KEY is required for the Gemini cell." >&2
+            exit 1
+          fi
+          export GEMINI_API_KEY="${LFB_PROVIDER_API_KEY}"
+          ;;
+      esac
+      resume_args=()
+      if [[ "${RESUME_EXISTING_RESULTS}" == "true" ]]; then
+        resume_args+=(--resume-existing)
+      fi
+      scope_args=()
+      if [[ -s /tmp/lfb-provider-cell-inputs/lfb-execution-scope.json ]] && [[ "$(tr -d '[:space:]' < /tmp/lfb-provider-cell-inputs/lfb-execution-scope.json)" != "{}" ]]; then
+        scope_args+=(
+          --execution-scope /tmp/lfb-provider-cell-inputs/lfb-execution-scope.json
+          --expected-execution-scope-sha256 "${EXPECTED_EXECUTION_SCOPE_SHA256}"
+        )
+      fi
+      output_dir="tmp/official-eval/${PROVIDER}/${CASE_ID_SLUG}/${ABLATION}/${MODEL_KEY_SLUG}"
+      uv run legalforecast eval run-case \
+        --manifest /tmp/lfb-provider-cell-inputs/lfb-run-inputs-frozen.json \
+        --packet-store-root "s3://${LFB_PACKET_BUCKET}" \
+        --expected-packet-object-key "${EXPECTED_PACKET_OBJECT_KEY}" \
+        --expected-packet-sha256 "${EXPECTED_PACKET_SHA256}" \
+        --results-store-root "s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}" \
+        --repeat-count "${REPEAT_COUNT}" \
+        --case-id "${CASE_ID}" \
+        --ablation "${ABLATION}" \
+        --output-dir "${output_dir}" \
+        --backend live \
+        --no-docket-tool \
+        --model-registry /tmp/lfb-provider-cell-inputs/lfb-model-registry.json \
+        --model-key "${MODEL_KEY}" \
+        --execution-policy /tmp/lfb-provider-cell-inputs/lfb-execution-policy.json \
+        --expected-execution-policy-sha256 "${EXPECTED_EXECUTION_POLICY_SHA256}" \
+        --workflow-run-id "${GITHUB_RUN_ID}" \
+        --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+        --provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}" \
+        --provider-authority-region "${AWS_REGION}" \
+        "${resume_args[@]}" \
+        "${scope_args[@]}"
+
+  - name: Refresh AWS authority for cycle finish
+    if: ${{ always() && inputs.dry_run != 'true' && steps.begin_cycle_mutation.outcome == 'success' }}
+    uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+    with:
+      aws-region: ${{ env.AWS_REGION }}
+      role-session-name: lfb-cell-finish-${{ inputs.provider }}-${{ github.run_id }}-${{ github.run_attempt }}
+      role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      role-duration-seconds: 3600
+
+  - name: Finish per-case cycle mutation
+    if: ${{ always() && inputs.dry_run != 'true' && steps.begin_cycle_mutation.outcome == 'success' }}
+    shell: bash
+    env:
+      CELL_INDEX: ${{ inputs.cell_index }}
+      CYCLE_ID: ${{ inputs.cycle_id }}
+      PROVIDER: ${{ inputs.provider }}
+    run: |
+      set -euo pipefail
+      writer_id="${GITHUB_RUN_ID}-case-${PROVIDER}-${CELL_INDEX}"
+      uv run python -m legalforecast.publication.cycle_closure finish \
+        --root "s3://${LFB_RESULTS_BUCKET}" \
+        --cycle-id "${CYCLE_ID}" \
+        --writer-id "${writer_id}" \
+        --run-attempt "${GITHUB_RUN_ATTEMPT}"
+
+  - name: Clear temporary AWS credentials
+    if: ${{ always() && inputs.dry_run != 'true' }}
+    shell: bash
+    run: |
+      set -euo pipefail
+      {
+        echo 'AWS_ACCESS_KEY_ID='
+        echo 'AWS_SECRET_ACCESS_KEY='
+        echo 'AWS_SESSION_TOKEN='
+      } >> "${GITHUB_ENV}"
+
+  - name: Stage receipt-only completion artifact
+    if: ${{ success() && inputs.dry_run != 'true' }}
+    shell: bash
+    env:
+      ABLATION: ${{ inputs.ablation }}
+      CASE_ID_SLUG: ${{ inputs.case_id_slug }}
+      MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
+      PROVIDER: ${{ inputs.provider }}
+    run: |
+      set -euo pipefail
+      source_dir="tmp/official-eval/${PROVIDER}/${CASE_ID_SLUG}/${ABLATION}/${MODEL_KEY_SLUG}"
+      destination="tmp/official-eval-completion/${PROVIDER}/${CASE_ID_SLUG}/${ABLATION}/${MODEL_KEY_SLUG}"
+      mkdir -p "${destination}"
+      for name in cell-completion.json accounting.jsonl metrics.json; do
+        if [[ -f "${source_dir}/${name}" ]]; then
+          install -m 0600 "${source_dir}/${name}" "${destination}/${name}"
+        fi
+      done
+      [[ -f "${destination}/cell-completion.json" ]] || {
+        echo "cell-completion.json is required for shard receipt finalization." >&2
+        exit 1
+      }
+      if find tmp/official-eval-completion -type f -name '*runs.jsonl' -print -quit | grep -q .; then
+        echo "runs.jsonl must remain only in private versioned S3." >&2
+        exit 1
+      fi
+
+  - name: Upload receipt-only completion artifact
+    if: ${{ success() && inputs.dry_run != 'true' }}
+    uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+    with:
+      name: official-eval-completion-${{ inputs.provider }}-${{ github.run_attempt }}-${{ inputs.case_id_slug }}-${{ inputs.ablation }}-${{ inputs.model_key_slug }}
+      path: tmp/official-eval-completion
+      if-no-files-found: error
+      retention-days: ${{ inputs.artifact_retention_days }}
