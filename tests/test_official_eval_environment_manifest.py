@@ -13,7 +13,7 @@ INFRA_WORKFLOW = (
 RUNTIME_WORKFLOWS = (
     ROOT / ".github" / "workflows" / "official-s3-access-validation.yaml",
     ROOT / ".github" / "workflows" / "run-benchmark.yaml",
-    ROOT / ".github" / "workflows" / "official-provider-cell.yaml",
+    ROOT / ".github" / "actions" / "official-provider-cell" / "action.yml",
     ROOT / ".github" / "workflows" / "fan-in-publish.yaml",
 )
 

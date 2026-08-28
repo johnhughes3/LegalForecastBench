@@ -10,9 +10,9 @@ from legalforecast.evals.corpus_manifest.cost_projector import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW = (ROOT / ".github" / "workflows" / "official-provider-cell.yaml").read_text(
-    encoding="utf-8"
-)
+WORKFLOW = (
+    ROOT / ".github" / "actions" / "official-provider-cell" / "action.yml"
+).read_text(encoding="utf-8")
 DISPATCHER = (ROOT / ".github" / "workflows" / "run-benchmark.yaml").read_text(
     encoding="utf-8"
 )
@@ -36,7 +36,7 @@ def test_dispatcher_partitions_the_matrix_into_exact_provider_lanes() -> None:
             in DISPATCHER
         )
         assert "environment_name: legalforecastbench-official-eval" in DISPATCHER
-        assert "uses: ./.github/workflows/official-provider-cell.yaml" in DISPATCHER
+        assert "uses: ./.github/actions/official-provider-cell" in DISPATCHER
 
 
 def test_dry_run_never_enters_a_provider_bearing_environment() -> None:
@@ -53,6 +53,7 @@ def test_dry_run_never_enters_a_provider_bearing_environment() -> None:
             f"if: ${{{{ !inputs.dry_run && "
             f"needs.build-matrix.outputs.{provider}_count != '0' }}}}" in job
         )
+        assert "environment: legalforecastbench-official-eval" in job
         assert "environment_name: legalforecastbench-official-eval" in job
     build_matrix = DISPATCHER[
         DISPATCHER.index("  build-matrix:") : DISPATCHER.index("  run-openai:")
@@ -100,25 +101,28 @@ def test_provider_environment_and_model_pair_are_closed_before_secrets() -> None
 
 
 def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
-    assert WORKFLOW.count("secrets.OPENAI_API_KEY") == 2
-    assert WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 2
-    assert WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 2
-    assert WORKFLOW.count("secrets.GEMINI_API_KEY") == 2
+    assert "secrets." not in WORKFLOW
     assert "secrets: inherit" not in WORKFLOW
     assert "secrets: inherit" not in DISPATCHER
-    assert "secrets.OPENAI_API_KEY" not in DISPATCHER
-    assert "secrets.ANTHROPIC_API_KEY" not in DISPATCHER
-    assert "secrets.GEMINI_API_KEY" not in DISPATCHER
-    selector = (
-        "LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && "
-        "steps.openai_transport.outputs.use_vercel_gateway == 'true' && "
-        "secrets.AI_GATEWAY_API_KEY || inputs.provider == 'openai' && "
-        "steps.openai_transport.outputs.use_vercel_gateway != 'true' && "
-        "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
-        '!contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
-        "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
-        "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}"
-    )
+    openai_job = DISPATCHER[
+        DISPATCHER.index("  run-openai:") : DISPATCHER.index("  run-anthropic:")
+    ]
+    anthropic_job = DISPATCHER[
+        DISPATCHER.index("  run-anthropic:") : DISPATCHER.index("  run-gemini:")
+    ]
+    gemini_job = DISPATCHER[
+        DISPATCHER.index("  run-gemini:") : DISPATCHER.index("  finalize-shard:")
+    ]
+    assert openai_job.count("secrets.OPENAI_API_KEY") == 1
+    assert openai_job.count("secrets.AI_GATEWAY_API_KEY") == 1
+    assert "secrets.ANTHROPIC_API_KEY" not in openai_job
+    assert "secrets.GEMINI_API_KEY" not in openai_job
+    assert anthropic_job.count("secrets.ANTHROPIC_API_KEY") == 1
+    assert "secrets.OPENAI_API_KEY" not in anthropic_job
+    assert gemini_job.count("secrets.GEMINI_API_KEY") == 1
+    assert "secrets.OPENAI_API_KEY" not in gemini_job
+    assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in openai_job
+    assert "&& secrets." not in DISPATCHER
     credential_step = WORKFLOW[
         WORKFLOW.index("- name: Validate provider credential") : WORKFLOW.index(
             "- name: Configure AWS authority for cycle begin"
@@ -129,12 +133,10 @@ def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
             "- name: Finish per-case cycle mutation"
         )
     ]
-    assert credential_step.count(selector) == 1
-    assert provider_step.count(selector) == 1
+    assert 'LFB_PROVIDER_API_KEY="${OPENAI_API_KEY:-}"' in credential_step
+    assert 'LFB_PROVIDER_API_KEY="${OPENAI_API_KEY:-}"' in provider_step
     assert '"${LFB_PROVIDER_API_KEY}" == "false"' in credential_step
     assert '"${LFB_PROVIDER_API_KEY}" == "true"' in credential_step
-    assert '"${LFB_PROVIDER_API_KEY}" == "false"' in provider_step
-    assert '"${LFB_PROVIDER_API_KEY}" == "true"' in provider_step
     assert "before cycle mutation." in credential_step
     selection_step = WORKFLOW[
         WORKFLOW.index("- name: Select OpenAI transport") : WORKFLOW.index(
@@ -188,9 +190,12 @@ def test_provider_cell_refreshes_one_hour_aws_sessions_for_three_hour_deadline()
     None
 ):
     iam = (ROOT / "infra" / "official-eval" / "iam.tf").read_text(encoding="utf-8")
-    timeout_match = re.search(r"(?m)^    timeout-minutes: (\d+)$", WORKFLOW)
+    timeout_match = re.search(
+        r"(?m)^    timeout-minutes: (180)$",
+        DISPATCHER[DISPATCHER.index("  run-openai:") :],
+    )
     role_duration_matches = re.findall(
-        r"(?m)^          role-duration-seconds: (\d+)$", WORKFLOW
+        r"(?m)^      role-duration-seconds: (\d+)$", WORKFLOW
     )
     cell_role = iam[
         iam.index('resource "aws_iam_role" "cell"') : iam.index(
@@ -260,7 +265,7 @@ def test_official_workflow_actions_are_full_sha_pinned_with_provenance_comments(
 
     for workflow_name, workflow in (
         ("run-benchmark.yaml", DISPATCHER),
-        ("official-provider-cell.yaml", WORKFLOW),
+        ("official-provider-cell/action.yml", WORKFLOW),
         ("official-s3-access-validation.yaml", S3_VALIDATION),
     ):
         references = re.findall(

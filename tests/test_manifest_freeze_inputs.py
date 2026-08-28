@@ -57,7 +57,7 @@ _RUNTIME_PATHS = (
     "legalforecast/evals/model_registry.py",
     "legalforecast/publication/official_aggregate.py",
     ".github/workflows/run-benchmark.yaml",
-    ".github/workflows/official-provider-cell.yaml",
+    ".github/actions/official-provider-cell/action.yml",
 )
 
 

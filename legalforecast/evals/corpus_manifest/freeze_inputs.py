@@ -87,7 +87,7 @@ _RUNTIME_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
         "legalforecast/evals/live_model_solver.py",
         "legalforecast/evals/model_registry.py",
         ".github/workflows/run-benchmark.yaml",
-        ".github/workflows/official-provider-cell.yaml",
+        ".github/actions/official-provider-cell/action.yml",
     ),
 }
 
