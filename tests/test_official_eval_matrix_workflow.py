@@ -601,9 +601,10 @@ def test_official_eval_provider_credentials_are_isolated_by_environment() -> Non
     assert "missing_provider_values" not in BUILD_MATRIX_JOB
     assert "LFB_PROVIDER_AUTHORITY_TABLE" not in BUILD_MATRIX_JOB
     assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in BUILD_MATRIX_JOB
-    assert PROVIDER_WORKFLOW.count("secrets.OPENAI_API_KEY") == 1
-    assert PROVIDER_WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 1
-    assert PROVIDER_WORKFLOW.count("secrets.GEMINI_API_KEY") == 1
+    assert PROVIDER_WORKFLOW.count("secrets.OPENAI_API_KEY") == 2
+    assert PROVIDER_WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 2
+    assert PROVIDER_WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 2
+    assert PROVIDER_WORKFLOW.count("secrets.GEMINI_API_KEY") == 2
     assert "secrets: inherit" not in WORKFLOW
     assert "secrets: inherit" not in PROVIDER_WORKFLOW
     assert WORKFLOW.count("environment_name: legalforecastbench-official-eval") == 3
@@ -698,9 +699,13 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
         "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
         "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}"
     )
-    assert selector in RUN_CASE_JOB
+    assert RUN_CASE_JOB.count(selector) == 2
     assert '"${LFB_PROVIDER_API_KEY}" == "false"' in RUN_CASE_JOB
     assert '"${LFB_PROVIDER_API_KEY}" == "true"' in RUN_CASE_JOB
+    assert "- name: Validate provider credential" in RUN_CASE_JOB
+    assert RUN_CASE_JOB.index(
+        "- name: Validate provider credential"
+    ) < RUN_CASE_JOB.index("- name: Begin per-case cycle mutation")
     assert "secrets.AI_GATEWAY_API_KEY" in RUN_CASE_JOB
     assert "OPENAI_TRANSPORT_CONTRACT_VERSION" in RUN_CASE_JOB
     assert "vercel-sol-flex-v1" in RUN_CASE_JOB

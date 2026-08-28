@@ -100,20 +100,15 @@ def test_provider_environment_and_model_pair_are_closed_before_secrets() -> None
 
 
 def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
-    assert WORKFLOW.count("secrets.OPENAI_API_KEY") == 1
-    assert WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 1
-    assert WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 1
-    assert WORKFLOW.count("secrets.GEMINI_API_KEY") == 1
+    assert WORKFLOW.count("secrets.OPENAI_API_KEY") == 2
+    assert WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 2
+    assert WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 2
+    assert WORKFLOW.count("secrets.GEMINI_API_KEY") == 2
     assert "secrets: inherit" not in WORKFLOW
     assert "secrets: inherit" not in DISPATCHER
     assert "secrets.OPENAI_API_KEY" not in DISPATCHER
     assert "secrets.ANTHROPIC_API_KEY" not in DISPATCHER
     assert "secrets.GEMINI_API_KEY" not in DISPATCHER
-    provider_step = WORKFLOW[
-        WORKFLOW.index("- name: Run isolated case evaluation") : WORKFLOW.index(
-            "- name: Finish per-case cycle mutation"
-        )
-    ]
     selector = (
         "LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && "
         "steps.openai_transport.outputs.use_vercel_gateway == 'true' && "
@@ -124,12 +119,26 @@ def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
         "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
         "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}"
     )
+    credential_step = WORKFLOW[
+        WORKFLOW.index("- name: Validate provider credential") : WORKFLOW.index(
+            "- name: Configure AWS authority for cycle begin"
+        )
+    ]
+    provider_step = WORKFLOW[
+        WORKFLOW.index("- name: Run isolated case evaluation") : WORKFLOW.index(
+            "- name: Finish per-case cycle mutation"
+        )
+    ]
+    assert credential_step.count(selector) == 1
     assert provider_step.count(selector) == 1
+    assert '"${LFB_PROVIDER_API_KEY}" == "false"' in credential_step
+    assert '"${LFB_PROVIDER_API_KEY}" == "true"' in credential_step
     assert '"${LFB_PROVIDER_API_KEY}" == "false"' in provider_step
     assert '"${LFB_PROVIDER_API_KEY}" == "true"' in provider_step
+    assert "before cycle mutation." in credential_step
     selection_step = WORKFLOW[
         WORKFLOW.index("- name: Select OpenAI transport") : WORKFLOW.index(
-            "- name: Run isolated case evaluation"
+            "- name: Validate provider credential"
         )
     ]
     assert "secrets." not in selection_step
@@ -165,10 +174,12 @@ def test_provider_cell_preserves_frozen_dispatch_and_cycle_bindings() -> None:
     assert "expected_freeze_bundle_sha256=os.environ[" in WORKFLOW
     assert '--workflow-run-id "${GITHUB_RUN_ID}"' in WORKFLOW
     assert '--workflow-run-attempt "${GITHUB_RUN_ATTEMPT}"' in WORKFLOW
+    transport = WORKFLOW.index("- name: Select OpenAI transport")
+    credential = WORKFLOW.index("- name: Validate provider credential")
     begin = WORKFLOW.index("- name: Begin per-case cycle mutation")
     evaluate = WORKFLOW.index("- name: Run isolated case evaluation")
     finish = WORKFLOW.index("- name: Finish per-case cycle mutation")
-    assert begin < evaluate < finish
+    assert transport < credential < begin < evaluate < finish
     assert WORKFLOW.count("legalforecast.publication.cycle_closure") == 2
     assert 'writer_id="${GITHUB_RUN_ID}-case-${PROVIDER}-${CELL_INDEX}"' in WORKFLOW
 
