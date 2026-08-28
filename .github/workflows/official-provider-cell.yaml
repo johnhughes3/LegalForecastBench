@@ -369,7 +369,7 @@ jobs:
           EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}
           EXPECTED_PACKET_SHA256: ${{ inputs.packet_sha256 }}
           LFB_OPENAI_USE_VERCEL_GATEWAY: ${{ steps.openai_transport.outputs.use_vercel_gateway }}
-          LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && steps.openai_transport.outputs.use_vercel_gateway == 'true' && secrets.AI_GATEWAY_API_KEY || inputs.provider == 'openai' && steps.openai_transport.outputs.use_vercel_gateway != 'true' && secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && !contains(fromJSON('["bedrock","aws-bedrock","aws_bedrock"]'), vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}
+          LFB_PROVIDER_API_KEY: ${{ inputs.provider == 'openai' && steps.openai_transport.outputs.use_vercel_gateway == 'true' && secrets.AI_GATEWAY_API_KEY || inputs.provider == 'openai' && steps.openai_transport.outputs.use_vercel_gateway != 'true' && secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && !contains(fromJSON('["bedrock","aws-bedrock","aws_bedrock"]'), vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
           MODEL_KEY: ${{ inputs.model_key }}
           MODEL_KEY_SLUG: ${{ inputs.model_key_slug }}
           PROVIDER: ${{ inputs.provider }}
@@ -384,20 +384,29 @@ jobs:
                 expected_gateway="true"
               fi
               [[ "${LFB_OPENAI_USE_VERCEL_GATEWAY}" == "${expected_gateway}" ]] || { echo "OpenAI transport selection expired before launch." >&2; exit 1; }
-              [[ -n "${LFB_PROVIDER_API_KEY:-}" ]] || { echo "PROVIDER_API_KEY is required for the OpenAI cell." >&2; exit 1; }
+              if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+                echo "A non-boolean PROVIDER_API_KEY is required for the OpenAI cell." >&2
+                exit 1
+              fi
               export OPENAI_API_KEY="${LFB_PROVIDER_API_KEY}"
               ;;
             anthropic)
               case "${LFB_ANTHROPIC_RUNTIME:-}" in
                 bedrock|aws-bedrock|aws_bedrock) ;;
                 *)
-                  [[ -n "${LFB_PROVIDER_API_KEY:-}" ]] || { echo "PROVIDER_API_KEY is required for the Anthropic cell." >&2; exit 1; }
+                  if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+                    echo "A non-boolean PROVIDER_API_KEY is required for the Anthropic cell." >&2
+                    exit 1
+                  fi
                   export ANTHROPIC_API_KEY="${LFB_PROVIDER_API_KEY}"
                   ;;
               esac
               ;;
             gemini)
-              [[ -n "${LFB_PROVIDER_API_KEY:-}" ]] || { echo "PROVIDER_API_KEY is required for the Gemini cell." >&2; exit 1; }
+              if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+                echo "A non-boolean PROVIDER_API_KEY is required for the Gemini cell." >&2
+                exit 1
+              fi
               export GEMINI_API_KEY="${LFB_PROVIDER_API_KEY}"
               ;;
           esac

@@ -122,9 +122,11 @@ def test_provider_secret_is_generic_step_scoped_and_never_inherited() -> None:
         "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
         '!contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
         "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
-        "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}"
+        "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}"
     )
     assert provider_step.count(selector) == 1
+    assert '"${LFB_PROVIDER_API_KEY}" == "false"' in provider_step
+    assert '"${LFB_PROVIDER_API_KEY}" == "true"' in provider_step
     selection_step = WORKFLOW[
         WORKFLOW.index("- name: Select OpenAI transport") : WORKFLOW.index(
             "- name: Run isolated case evaluation"

@@ -696,9 +696,11 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
         "secrets.OPENAI_API_KEY || inputs.provider == 'anthropic' && "
         '!contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
         "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || "
-        "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY }}"
+        "inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}"
     )
     assert selector in RUN_CASE_JOB
+    assert '"${LFB_PROVIDER_API_KEY}" == "false"' in RUN_CASE_JOB
+    assert '"${LFB_PROVIDER_API_KEY}" == "true"' in RUN_CASE_JOB
     assert "secrets.AI_GATEWAY_API_KEY" in RUN_CASE_JOB
     assert "OPENAI_TRANSPORT_CONTRACT_VERSION" in RUN_CASE_JOB
     assert "vercel-sol-flex-v1" in RUN_CASE_JOB
