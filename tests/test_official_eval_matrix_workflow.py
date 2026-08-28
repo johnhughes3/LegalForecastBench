@@ -610,6 +610,19 @@ def test_official_eval_provider_credentials_are_isolated_by_environment() -> Non
     assert WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 1
     assert WORKFLOW.count("secrets.ANTHROPIC_API_KEY") == 1
     assert WORKFLOW.count("secrets.GEMINI_API_KEY") == 1
+    assert "openai_api_key: ${{ secrets.OPENAI_API_KEY }}" in WORKFLOW
+    assert "ai_gateway_api_key: ${{ secrets.AI_GATEWAY_API_KEY }}" in WORKFLOW
+    assert "anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}" in WORKFLOW
+    assert "gemini_api_key: ${{ secrets.GEMINI_API_KEY }}" in WORKFLOW
+    for env_name, input_name in (
+        ("OPENAI_API_KEY", "openai_api_key"),
+        ("AI_GATEWAY_API_KEY", "ai_gateway_api_key"),
+        ("ANTHROPIC_API_KEY", "anthropic_api_key"),
+        ("GEMINI_API_KEY", "gemini_api_key"),
+    ):
+        assert (
+            PROVIDER_WORKFLOW.count(f"{env_name}: ${{{{ inputs.{input_name} }}}}") == 2
+        )
     assert "&& secrets." not in WORKFLOW
 
 
