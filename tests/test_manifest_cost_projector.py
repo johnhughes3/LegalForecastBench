@@ -32,6 +32,7 @@ from legalforecast.evals.corpus_manifest.cost_projector import (
     PROVIDER_LANES,
     ManifestCostProjectionError,
     ManifestCostProjectionRequest,
+    _enforce_dispatch_ceiling,
     build_manifest_cost_projection,
     issue_manifest_cost_projection,
 )
@@ -309,6 +310,52 @@ def test_projector_preserves_exact_binary_float_ceiling_boundaries(
 
     with pytest.raises(ManifestCostProjectionError, match=message):
         _build(tmp_path, [_packet_row("case-1", input_tokens=35_259)], **arguments)
+
+
+def test_enforce_dispatch_ceiling_accepts_advertised_2x_despite_binary_float() -> None:
+    projected = 79.6700003
+    recommended = projected * 2
+    advertised = f"{recommended:.6f}"
+    assert float(advertised) > recommended
+    _enforce_dispatch_ceiling(
+        projected_cost=projected,
+        recommended_ceiling=recommended,
+        requested_raw=advertised,
+    )
+    with pytest.raises(ManifestCostProjectionError, match="exceeds the 2x"):
+        _enforce_dispatch_ceiling(
+            projected_cost=projected,
+            recommended_ceiling=recommended,
+            requested_raw=f"{float(advertised) + 1e-6:.6f}",
+        )
+
+
+def test_projector_accepts_its_own_recommended_live_cap(tmp_path: Path) -> None:
+    terra = [
+        {
+            "input_token_price": 2.5,
+            "max_output_tokens": 16_000,
+            "model_id": "gpt-5.6-terra",
+            "output_token_price": 15.0,
+            "provider": "openai",
+        }
+    ]
+    packets = [_packet_row("case-1", input_tokens=35_259)]
+    dry = _build(
+        tmp_path / "dry",
+        packets,
+        registry=terra,
+        model_keys=("openai:gpt-5.6-terra",),
+    )
+    recommended = dry["recommended_max_projected_model_cost_usd"]
+    live = _build(
+        tmp_path / "live",
+        packets,
+        registry=terra,
+        model_keys=("openai:gpt-5.6-terra",),
+        max_projected_model_cost_usd=recommended,
+    )
+    assert live["max_projected_model_cost_usd"] == recommended
 
 
 def test_projector_multiplies_repeat_cost_and_partitions_provider_matrices(
