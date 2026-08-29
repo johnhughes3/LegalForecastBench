@@ -59,6 +59,14 @@ inputs:
     required: true
   resume_existing_results:
     required: true
+  supplementary:
+    description: >-
+      Run this cell as a post-anchor supplementary shard. The release-anchor
+      gate inverts rather than switching off, so an official-classed model is
+      refused here. Empty or "false" leaves the invocation identical to an
+      official cell.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -411,6 +419,7 @@ runs:
       PROVIDER: ${{ inputs.provider }}
       REPEAT_COUNT: ${{ inputs.repeat_count }}
       RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}
+      SUPPLEMENTARY: ${{ inputs.supplementary }}
     run: |
       set -euo pipefail
       case "${PROVIDER}" in
@@ -476,6 +485,12 @@ runs:
         )
       fi
       output_dir="tmp/official-eval/${PROVIDER}/${CASE_ID_SLUG}/${ABLATION}/${MODEL_KEY_SLUG}"
+      # An unset or false input leaves the argument list byte-identical to an
+      # official cell, so the official four's invocation does not change.
+      supplementary_args=()
+      if [[ "${SUPPLEMENTARY}" == "true" ]]; then
+        supplementary_args+=(--supplementary)
+      fi
       uv run legalforecast eval run-case \
         --manifest /tmp/lfb-provider-cell-inputs/lfb-run-inputs-frozen.json \
         --packet-store-root "s3://${LFB_PACKET_BUCKET}" \
@@ -497,7 +512,8 @@ runs:
         --provider-authority-table "${LFB_PROVIDER_AUTHORITY_TABLE}" \
         --provider-authority-region "${AWS_REGION}" \
         "${resume_args[@]}" \
-        "${scope_args[@]}"
+        "${scope_args[@]}" \
+        "${supplementary_args[@]}"
 
   - name: Refresh AWS authority for cycle finish
     if: ${{ always() && inputs.dry_run != 'true' && steps.begin_cycle_mutation.outcome == 'success' }}

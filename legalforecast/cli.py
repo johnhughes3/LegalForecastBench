@@ -3316,6 +3316,16 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
         help="Disable the controlled docket tool for this packet shard.",
     )
     parser.add_argument(
+        "--supplementary",
+        action="store_true",
+        help=(
+            "Run a post-anchor supplementary shard. The release-anchor gate "
+            "inverts rather than switching off: this shard requires a model "
+            "released after the packet's decision date, and an official-classed "
+            "model is refused here."
+        ),
+    )
+    parser.add_argument(
         "--evaluation-timestamp",
         help="Deterministic UTC timestamp for accounting artifacts.",
     )
@@ -11953,6 +11963,7 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             expected_packet_sha256=cast(str | None, args.expected_packet_sha256),
             max_tool_calls=cast(int, args.max_tool_calls),
             use_docket_tool=not cast(bool, args.no_docket_tool),
+            supplementary=cast(bool, args.supplementary),
             evaluation_timestamp=(
                 _parse_datetime(timestamp_text) if timestamp_text is not None else None
             ),
