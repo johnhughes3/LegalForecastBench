@@ -417,7 +417,8 @@ def _require_stage_registry_mode(
             "supplementary sibling: manifest-mode-run-record.json has no "
             "evaluation_models"
         )
-    if committed == frozen_record:
+    committed_rows = cast(list[object], committed)
+    if committed_rows == frozen_record:
         if supplementary:
             raise ManifestForecastStageError(
                 "stage-manifest-forecast refuses --supplementary for a freeze "
@@ -431,7 +432,8 @@ def _require_stage_registry_mode(
             "stage-manifest-forecast refuses to stage a freeze whose model "
             f"registry ({', '.join(frozen_keys)}) differs from the registry "
             "manifest-mode-run-record.json committed to "
-            f"({', '.join(_committed_registry_keys(committed))}) into the shared "
+            f"({', '.join(_committed_registry_keys(committed_rows))}) into the "
+            "shared "
             f"{MANIFEST_FORECAST_PREFIX}/<manifest_digest> prefix, which already "
             "backs dispatched official shards and cannot be pruned; re-run with "
             f"--supplementary to stage under {MANIFEST_FORECAST_PREFIX}/"
