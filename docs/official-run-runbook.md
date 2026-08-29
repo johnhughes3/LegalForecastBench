@@ -2019,7 +2019,30 @@ uv run legalforecast acquisition project-manifest-cost \
 
 5. Obtain the owner approval comment. The grammar is unchanged and has no supplementary wording — one comment, exactly:
 
-   **Why this step and the next stay on the operator's machine.** Scope issuance reads live owner-approval comments by shelling out to `bd comments`, and the beads Dolt server is bound to loopback on the operator's own host; a GitHub-hosted runner cannot reach it. That is a permanent property of where the approval evidence lives, not a plumbing gap. The split for the whole chain is therefore: everything that writes to S3 runs in Actions under OIDC (staging, above), and everything that reads owner evidence runs locally and needs no AWS credentials at all — `project-manifest-cost` takes a local `--manifest-run-root`, and the scope reaches the dispatch as a checked-out `path#sha256`, which `run-benchmark.yaml` already accepts. Commit the issued scope to `main` and pass its repository-relative path; there is no S3 upload step for it.
+   **Why this step and the next stay on the operator's machine.** Scope issuance reads live owner-approval comments by shelling out to `bd comments`, and the beads Dolt server is bound to loopback on the operator's own host; a GitHub-hosted runner cannot reach it. That is a permanent property of where the approval evidence lives, not a plumbing gap. The split for the whole chain is therefore: everything that writes to S3 runs in Actions under OIDC (staging, above), and everything that reads owner evidence runs locally and needs no AWS credentials at all — `project-manifest-cost` takes a local `--manifest-run-root`, and the scope reaches the dispatch as a checked-out `path#sha256`, which `run-benchmark.yaml` already accepts. So the scope needs no S3 upload step: commit it and pass its repository-relative path.
+
+   **Check the scope for repository hygiene before committing it — this repository is public.** Most of the scope is digests, counts, and money, but `owner_evidence.raw_observation_base64` embeds the *complete* raw `bd comments <bead> --json` payload for the approval bead, not just the approval sentence, so it publishes every other comment on that bead verbatim. Base64 is encoding, not redaction. Agents routinely paste absolute paths and host addresses into bead comments, and [CLAUDE.md](/CLAUDE.md)'s hygiene rule bans exactly those. Decode and scan before `git add`:
+
+```bash
+uv run python - <<'PY' artifacts/<cycle_id>/supplementary-execution-scope.json
+import base64, json, re, sys
+scope = json.loads(open(sys.argv[1]).read())["scope"]
+raw = base64.b64decode(scope["owner_evidence"]["raw_observation_base64"]).decode("utf-8")
+patterns = {
+    "absolute path": r"/(?:work|home|Users|tmp|var)/[A-Za-z0-9._/-]+",
+    "private address": r"\b(?:127\.0\.0\.1|localhost|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)\b",
+    "s3 uri": r"s3://[A-Za-z0-9._/-]+",
+    "aws arn": r"arn:aws[a-z-]*:[a-z0-9-]+:",
+    "email": r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+}
+findings = {label: sorted(set(re.findall(p, raw))) for label, p in patterns.items()}
+findings = {k: v for k, v in findings.items() if v}
+print(json.dumps(findings, indent=2) if findings else "clean")
+sys.exit(1 if findings else 0)
+PY
+```
+
+   If it reports anything, do **not** commit the scope. Either keep the approval bead free of such comments (raise the approval on a bead used only for that purpose), or fall back to uploading the scope to `cycle-1/manifest-runs/...` under the staging role — the evaluation cell can already read that prefix — and pass an `s3://...#sha256` URI instead. The choice is per-run, because it depends on what is on that specific bead.
 
 
    `I approve up to USD <ceiling> of provider spend for model <model_key> in the Cycle 1 forecast run, estimated USD <estimate>.`
