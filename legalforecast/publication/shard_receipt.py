@@ -316,7 +316,7 @@ def build_shard_receipt(
             {"objects": sorted(object_records, key=_object_sort_key)}
         ),
     }
-    receipt["receipt_key"] = receipt_key(receipt)
+    receipt["receipt_key"] = receipt_key(receipt, supplementary=supplementary)
     if execution_scope is not None:
         from legalforecast.evals.corpus_manifest.execution_scope import (
             select_model_scope,
@@ -341,16 +341,46 @@ def build_shard_receipt(
                 "common_plan_sha256": _required_sha256(scope, "common_plan_sha256"),
             }
         )
-        receipt["receipt_key"] = receipt_key(receipt)
+        receipt["receipt_key"] = receipt_key(receipt, supplementary=supplementary)
     receipt["receipt_sha256"] = hash_payload(receipt)
     return receipt
 
 
-def receipt_key(receipt: Mapping[str, Any]) -> str:
-    """Return the immutable path for one workflow run attempt."""
+SHARD_RECEIPT_PREFIX = "shard-receipts"
+SUPPLEMENTARY_RECEIPT_SEGMENT = "supplementary"
 
-    cycle_id = safe_path_component(
-        _required_str(receipt, "cycle_id"), field_name="cycle_id"
+
+def receipt_prefix(cycle_id: str, *, supplementary: bool) -> str:
+    """Return the receipt namespace for one lane of one cycle.
+
+    The two lanes must not share a namespace.  Fan-in discovery lists a whole
+    prefix and hard-fails on any receipt outside the freeze's declared shard
+    schedule, so one supplementary receipt under the official prefix would
+    permanently break official fan-in for the cycle -- receipts are create-once
+    and no role can delete them.  The supplementary segment sits beside the
+    cycle rather than beneath it so neither listing can ever see the other.
+    """
+
+    safe_cycle_id = safe_path_component(cycle_id, field_name="cycle_id")
+    if safe_cycle_id == SUPPLEMENTARY_RECEIPT_SEGMENT:
+        raise ShardReceiptError(
+            f"cycle_id must not be {SUPPLEMENTARY_RECEIPT_SEGMENT!r}: it would "
+            "collapse the supplementary receipt namespace into a cycle"
+        )
+    if not supplementary:
+        return f"{SHARD_RECEIPT_PREFIX}/{safe_cycle_id}/"
+    return f"{SHARD_RECEIPT_PREFIX}/{SUPPLEMENTARY_RECEIPT_SEGMENT}/{safe_cycle_id}/"
+
+
+def receipt_key(receipt: Mapping[str, Any], *, supplementary: bool = False) -> str:
+    """Return the immutable path for one workflow run attempt.
+
+    Defaults to the official lane, so a caller that has not opted into the
+    supplementary lane writes and reads exactly where it always did.
+    """
+
+    prefix = receipt_prefix(
+        _required_str(receipt, "cycle_id"), supplementary=supplementary
     )
     model_key = _required_str(receipt, "model_key")
     ablation = _required_str(receipt, "ablation")
@@ -363,7 +393,7 @@ def receipt_key(receipt: Mapping[str, Any]) -> str:
         _required_str(receipt, "workflow_run_id"), field_name="workflow_run_id"
     )
     attempt = _positive_int(receipt, "workflow_run_attempt")
-    return f"shard-receipts/{cycle_id}/{shard_slug}/{run_id}/{attempt}.json"
+    return f"{prefix}{shard_slug}/{run_id}/{attempt}.json"
 
 
 def verify_shard_receipt(
@@ -374,8 +404,13 @@ def verify_shard_receipt(
     expected_identity: Mapping[str, str],
     expected_shard: tuple[str, str],
     actual_receipt_key: str | None = None,
+    supplementary: bool = False,
 ) -> JsonRecord:
-    """Strictly revalidate an untrusted receipt against frozen shard inputs."""
+    """Strictly revalidate an untrusted receipt against frozen shard inputs.
+
+    ``supplementary`` selects the receipt namespace the key is derived in, so a
+    receipt recovered from one lane's prefix cannot validate as the other's.
+    """
 
     record = dict(receipt)
     schema_version = record.get("schema_version")
@@ -399,7 +434,7 @@ def verify_shard_receipt(
     if hash_payload(without_hash) != supplied_hash:
         raise ShardReceiptError("receipt_sha256 does not match receipt content")
 
-    derived_key = receipt_key(record)
+    derived_key = receipt_key(record, supplementary=supplementary)
     if record.get("receipt_key") != derived_key:
         raise ShardReceiptError("receipt_key does not match receipt identity")
     if actual_receipt_key is not None and actual_receipt_key != derived_key:
@@ -572,7 +607,9 @@ def verify_committed_payload(
         _verify_metrics_identity(payload, cell)
 
 
-def write_receipt_once(root: str, receipt: Mapping[str, Any]) -> str:
+def write_receipt_once(
+    root: str, receipt: Mapping[str, Any], *, supplementary: bool = False
+) -> str:
     """Write a receipt with atomic create-only semantics."""
 
     if receipt.get("schema_version") not in {
@@ -585,7 +622,7 @@ def write_receipt_once(root: str, receipt: Mapping[str, Any]) -> str:
     without_hash.pop("receipt_sha256")
     if hash_payload(without_hash) != supplied_hash:
         raise ShardReceiptError("receipt_sha256 does not match receipt content")
-    key = receipt_key(receipt)
+    key = receipt_key(receipt, supplementary=supplementary)
     if receipt.get("receipt_key") != key:
         raise ShardReceiptError("receipt_key does not match receipt identity")
     payload = (
@@ -891,7 +928,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     verify_committed_objects(receipt)
-    destination = write_receipt_once(cast(str, args.receipt_root), receipt)
+    destination = write_receipt_once(
+        cast(str, args.receipt_root),
+        receipt,
+        supplementary=bool(args.supplementary),
+    )
     print(json.dumps({"receipt": destination}, sort_keys=True))
     return 0
 

@@ -183,7 +183,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
+  group: run-benchmark-${{ inputs.cycle_id }}-${{ inputs.supplementary && 'supplementary' || 'official' }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
   cancel-in-progress: false
 
 jobs:
@@ -432,6 +432,15 @@ jobs:
           done
           if [[ "${DRY_RUN_INPUT}" != "true" && "${SHARD_ONLY_INPUT}" != "true" ]]; then
             echo "Non-dry-run official evaluation requires shard_only=true; canonical aggregation occurs only through immutable shard receipts and provider-free fan-in." >&2
+            exit 1
+          fi
+          # The aggregate-results job is official-only: it never reads
+          # inputs.supplementary, so a supplementary matrix reaching it would
+          # aggregate a post-anchor model as official. Require the shard path
+          # directly rather than leaning on the non-dry rule above, which does
+          # not constrain a dry run.
+          if [[ "${SUPPLEMENTARY_INPUT}" == "true" && "${SHARD_ONLY_INPUT}" != "true" ]]; then
+            echo "supplementary=true requires shard_only=true; the in-workflow aggregate is official-only and a supplementary shard aggregates through provider-free fan-in with --supplementary." >&2
             exit 1
           fi
           if [[ "${SHARD_ONLY_INPUT}" == "true" ]]; then
@@ -791,7 +800,7 @@ jobs:
         shell: bash
         env:
           ABLATIONS: ${{ inputs.ablations }}
-          CONCURRENCY_GROUP: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
+          CONCURRENCY_GROUP: run-benchmark-${{ inputs.cycle_id }}-${{ inputs.supplementary && 'supplementary' || 'official' }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           DRY_RUN: ${{ inputs.dry_run }}
           EXECUTION_SCOPE_SPEC: ${{ inputs.execution_scope_uri }}

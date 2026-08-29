@@ -11,6 +11,7 @@ same commitment.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -21,21 +22,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from legalforecast.evals.corpus_manifest.records import registry_record
-from legalforecast.evals.model_registry import load_model_registry_bytes
 from legalforecast.protocol.freeze import (
     FreezeBundle,
     FreezeProtocolError,
     FrozenArtifact,
-    FrozenArtifactName,
     load_freeze_bundle,
     sha256_file,
-    verify_freeze_bundle,
+    verify_freeze_bundle_bytes,
     write_hash_bundle,
+)
+from legalforecast.publication.manifest_forecast_stage_lane import (
+    MANIFEST_FORECAST_PREFIX,
+    ManifestForecastStageError,
+    classify_stage_lane,
+    load_json_object,
 )
 
 MANIFEST_FORECAST_STAGE_SCHEMA_VERSION = "legalforecast-manifest-forecast-stage-v1"
-MANIFEST_FORECAST_PREFIX = "cycle-1/manifest-runs"
 # One literal segment, never a 64-hex digest, so a supplementary root can never
 # collide with an official ``<manifest_digest>`` root and is a sibling of it
 # rather than a child: the official fan-in syncs only its own digest prefix.
@@ -45,10 +48,6 @@ MANIFEST_FORECAST_SUPPLEMENTARY_STAGE_SCHEMA_VERSION = (
 )
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _SAFE_S3_KEY = re.compile(r"^[A-Za-z0-9._/-]+\Z")
-
-
-class ManifestForecastStageError(ValueError):
-    """Raised when a manifest forecast cannot be staged safely."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +60,8 @@ class ManifestForecastStageConfig:
     manifest_digest: str
     results_bucket: str
     packet_bucket: str
+    official_freeze_bundle: Path
+    official_freeze_bundle_sha256: str
     amendment_bundles: tuple[Path, ...] = ()
     dry_run: bool = False
     supplementary: bool = False
@@ -68,14 +69,22 @@ class ManifestForecastStageConfig:
     def __post_init__(self) -> None:
         if self.supplementary and self.amendment_bundles:
             raise ManifestForecastStageError(
-                "stage-manifest-forecast refuses --supplementary with "
-                "--amendment-bundle: a supplementary sibling freeze binds its own "
-                "registry and caps and can never be an amendment of the official "
-                "bundle"
+                "stage-manifest-forecast refuses --amendment-bundle in "
+                "supplementary mode: a sibling freeze binds its own registry and "
+                "caps, so it is never an amendment of the official bundle. Stage "
+                "an amended official freeze without --supplementary"
             )
         if _SHA256.fullmatch(self.manifest_digest) is None:
             raise ManifestForecastStageError(
                 "manifest_digest must be a lowercase SHA-256 hex digest"
+            )
+        if _SHA256.fullmatch(self.official_freeze_bundle_sha256) is None:
+            raise ManifestForecastStageError(
+                "official_freeze_bundle_sha256 must be a lowercase SHA-256 hex digest"
+            )
+        if not self.official_freeze_bundle.is_file():
+            raise ManifestForecastStageError(
+                f"official freeze bundle is missing: {self.official_freeze_bundle}"
             )
         if not self.output_dir.is_dir():
             raise ManifestForecastStageError(
@@ -126,40 +135,51 @@ def stage_manifest_forecast(
 
     output_dir = config.output_dir.resolve()
     artifact_root = config.artifact_root.resolve()
+    # One read of the candidate freeze: the digest that keys the prefix and the
+    # record the identity checks validate come from the same bytes, so a
+    # replacement between the two cannot record a hash that was never verified.
     try:
-        bundle = verify_freeze_bundle(
-            config.freeze_bundle,
+        candidate_bytes = config.freeze_bundle.read_bytes()
+    except OSError as exc:
+        raise ManifestForecastStageError(
+            f"freeze bundle is unreadable: {config.freeze_bundle}"
+        ) from exc
+    source_freeze_digest = hashlib.sha256(candidate_bytes).hexdigest()
+    try:
+        bundle = verify_freeze_bundle_bytes(
+            candidate_bytes,
             root_path=artifact_root,
             amendment_bundle_paths=config.amendment_bundles,
         )
     except (FreezeProtocolError, OSError, ValueError) as exc:
         raise ManifestForecastStageError(f"freeze bundle is not valid: {exc}") from exc
 
-    run_record = _load_object(
+    run_record = load_json_object(
         output_dir / "manifest-mode-run-record.json", "run record"
     )
     if run_record.get("manifest_sha256") != config.manifest_digest:
         raise ManifestForecastStageError(
             "run record manifest_sha256 does not match --manifest-digest"
         )
-    model_keys, registry_sha256 = _require_stage_registry_mode(
-        bundle=bundle, run_record=run_record, supplementary=config.supplementary
-    )
-    # The raw SHA-256 of the freeze file exactly as supplied.  Staging rewrites
-    # every relative artifact path, so the staged bundle has different bytes and
-    # a different hash; keying the prefix on this pre-staging digest keeps the
-    # location computable by the operator before the tool runs.
-    source_freeze_digest = sha256_file(config.freeze_bundle)
-    prefix = _prefix(
-        config.manifest_digest,
-        source_freeze_digest=(source_freeze_digest if config.supplementary else None),
-    )
     run_inputs_path = output_dir / "run-inputs.json"
-    run_inputs = _load_object(run_inputs_path, "run-inputs manifest")
+    run_inputs = load_json_object(run_inputs_path, "run-inputs manifest")
     if run_inputs.get("cycle_id") != bundle.cycle_id:
         raise ManifestForecastStageError(
             "run-inputs cycle_id does not match the freeze bundle cycle_id"
         )
+    lane = classify_stage_lane(
+        bundle=bundle,
+        source_freeze_digest=source_freeze_digest,
+        run_inputs=run_inputs,
+        config=config,
+    )
+    # Staging rewrites every relative artifact path, so the staged bundle has
+    # different bytes and a different hash; keying the prefix on the pre-staging
+    # digest keeps the location computable by the operator before the tool runs.
+    prefix = _prefix(
+        config.manifest_digest,
+        source_freeze_digest=(source_freeze_digest if config.supplementary else None),
+    )
     packet_objects = _packet_objects(
         output_dir, run_inputs, bucket=config.packet_bucket
     )
@@ -168,6 +188,7 @@ def stage_manifest_forecast(
         staged_bundle_path,
         amendment_objects,
         staged_bundle_paths,
+        staged_bundle_sha256,
     ) = _freeze_chain_objects(
         bundle=bundle,
         amendment_paths=config.amendment_bundles,
@@ -194,8 +215,8 @@ def stage_manifest_forecast(
                 manifest_digest=config.manifest_digest,
                 source_freeze_digest=source_freeze_digest,
                 staged_bundle_path=staged_bundle_path,
-                model_keys=model_keys,
-                registry_sha256=registry_sha256,
+                staged_bundle_sha256=staged_bundle_sha256,
+                binding=lane.binding,
             )
         return _build_stage_result(
             config=config,
@@ -327,6 +348,26 @@ def add_manifest_forecast_stage_arguments(
     parser.add_argument("--results-bucket", required=True)
     parser.add_argument("--packet-bucket", required=True)
     parser.add_argument(
+        "--official-freeze-bundle",
+        type=Path,
+        required=True,
+        help=(
+            "Official freeze bundle this staging is classified against. In "
+            "official mode it is the freeze being staged; in supplementary mode "
+            "it is the official freeze the sibling must match on every artifact "
+            "except registry, caps, and execution policy."
+        ),
+    )
+    parser.add_argument(
+        "--official-freeze-bundle-sha256",
+        required=True,
+        help=(
+            "Raw-file SHA-256 pinning --official-freeze-bundle. Supply it "
+            "explicitly rather than computing it from the bundle being passed: "
+            "an unpinned reference can be fabricated to agree with itself."
+        ),
+    )
+    parser.add_argument(
         "--amendment-bundle",
         type=Path,
         action="append",
@@ -366,6 +407,8 @@ def run_manifest_forecast_stage(args: argparse.Namespace) -> int:
             manifest_digest=cast(str, args.manifest_digest),
             results_bucket=cast(str, args.results_bucket),
             packet_bucket=cast(str, args.packet_bucket),
+            official_freeze_bundle=cast(Path, args.official_freeze_bundle),
+            official_freeze_bundle_sha256=cast(str, args.official_freeze_bundle_sha256),
             amendment_bundles=tuple(cast(list[Path], args.amendment_bundle)),
             dry_run=bool(args.dry_run),
             supplementary=bool(args.supplementary),
@@ -393,98 +436,6 @@ def _prefix(manifest_digest: str, *, source_freeze_digest: str | None = None) ->
     )
 
 
-def _require_stage_registry_mode(
-    *,
-    bundle: FreezeBundle,
-    run_record: Mapping[str, Any],
-    supplementary: bool,
-) -> tuple[tuple[str, ...], str]:
-    """Bind the staged prefix to the registry the manifest run committed to.
-
-    The bare ``cycle-1/manifest-runs/<manifest_digest>`` prefix is keyed by the
-    corpus alone, so every sibling freeze over one corpus maps to it.  The
-    manifest-mode run record that pins that digest also names the models the run
-    was built for, which makes it the authority available here for telling the
-    official freeze from a supplementary sibling.  Objects are written
-    create-once and neither OIDC role can delete, so a wrong prefix is
-    unrecoverable: refuse before the first upload rather than after it.
-    """
-
-    frozen_keys, frozen_record, registry_sha256 = _frozen_registry_identity(bundle)
-    committed = run_record.get("evaluation_models")
-    if not isinstance(committed, list) or not committed:
-        raise ManifestForecastStageError(
-            "stage-manifest-forecast cannot tell an official freeze from a "
-            "supplementary sibling: manifest-mode-run-record.json has no "
-            "evaluation_models"
-        )
-    committed_rows = cast(list[object], committed)
-    if committed_rows == frozen_record:
-        if supplementary:
-            raise ManifestForecastStageError(
-                "stage-manifest-forecast refuses --supplementary for a freeze "
-                "whose model registry is the official registry this manifest run "
-                f"committed to ({', '.join(frozen_keys)}); stage it without "
-                "--supplementary so it keeps the official manifest-run prefix"
-            )
-        return frozen_keys, registry_sha256
-    if not supplementary:
-        raise ManifestForecastStageError(
-            "stage-manifest-forecast refuses to stage a freeze whose model "
-            f"registry ({', '.join(frozen_keys)}) differs from the registry "
-            "manifest-mode-run-record.json committed to "
-            f"({', '.join(_committed_registry_keys(committed_rows))}) into the "
-            "shared "
-            f"{MANIFEST_FORECAST_PREFIX}/<manifest_digest> prefix, which already "
-            "backs dispatched official shards and cannot be pruned; re-run with "
-            f"--supplementary to stage under {MANIFEST_FORECAST_PREFIX}/"
-            f"{MANIFEST_FORECAST_SUPPLEMENTARY_SEGMENT}/<manifest_digest>/"
-            "<freeze_digest>/"
-        )
-    return frozen_keys, registry_sha256
-
-
-def _frozen_registry_identity(
-    bundle: FreezeBundle,
-) -> tuple[tuple[str, ...], list[dict[str, str]], str]:
-    """Read the verified freeze's registry as the run record records models."""
-
-    artifacts = [
-        artifact
-        for artifact in bundle.artifacts
-        if artifact.name is FrozenArtifactName.MODEL_REGISTRY
-    ]
-    if len(artifacts) != 1:
-        raise ManifestForecastStageError(
-            "stage-manifest-forecast requires exactly one model_registry "
-            "artifact in the freeze bundle"
-        )
-    try:
-        registry = load_model_registry_bytes(artifacts[0].path.read_bytes())
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        raise ManifestForecastStageError(
-            f"frozen model registry is not valid: {exc}"
-        ) from exc
-    return (
-        tuple(entry.registry_key for entry in registry.entries),
-        registry_record(registry.entries),
-        artifacts[0].sha256,
-    )
-
-
-def _committed_registry_keys(committed: Sequence[object]) -> tuple[str, ...]:
-    keys: list[str] = []
-    for raw in committed:
-        if not isinstance(raw, Mapping):
-            continue
-        record = cast(Mapping[str, Any], raw)
-        provider = record.get("provider")
-        model_id = record.get("model_id")
-        if isinstance(provider, str) and isinstance(model_id, str):
-            keys.append(f"{provider}:{model_id}")
-    return tuple(keys)
-
-
 def _supplementary_stage_object(
     *,
     path: Path,
@@ -493,8 +444,8 @@ def _supplementary_stage_object(
     manifest_digest: str,
     source_freeze_digest: str,
     staged_bundle_path: Path,
-    model_keys: Sequence[str],
-    registry_sha256: str,
+    staged_bundle_sha256: str,
+    binding: Mapping[str, Any] | None,
 ) -> _LocalObject:
     """Describe a supplementary staging inside the prefix it creates.
 
@@ -504,21 +455,24 @@ def _supplementary_stage_object(
     prefix is keyed by ``source_freeze_sha256``, the raw digest of the file
     passed to --freeze-bundle, while receipts and scope issuance bind the staged
     bundle recorded here, whose bytes differ because staging rewrote every
-    relative artifact path.  The supplementary registry digest is recorded under
-    the field name the dispatch receipt's ``supplementary_binding`` uses, so a
-    staged prefix and the receipt it produces can be reconciled by name.
+    relative artifact path.
+
+    ``supplementary_binding`` is the identical structure the cost-projection
+    receipt and the execution scope carry, produced by the one builder in
+    ``supplementary_mode`` rather than restated here, so a staged prefix and the
+    dispatch it authorizes cannot drift into describing different runs.
     """
 
-    staged_bundle = load_freeze_bundle(staged_bundle_path)
+    if binding is None:  # pragma: no cover - supplementary mode always binds
+        raise ManifestForecastStageError("supplementary staging has no binding")
     record = {
         "manifest_digest": manifest_digest,
         "prefix": prefix,
         "schema_version": MANIFEST_FORECAST_SUPPLEMENTARY_STAGE_SCHEMA_VERSION,
         "source_freeze_sha256": source_freeze_digest,
-        "staged_freeze_bundle_sha256": staged_bundle.bundle_sha256,
+        "staged_freeze_bundle_sha256": staged_bundle_sha256,
         "staged_freeze_sha256": sha256_file(staged_bundle_path),
-        "supplementary_model_keys": sorted(model_keys),
-        "supplementary_model_registry_sha256": registry_sha256,
+        "supplementary_binding": dict(binding),
     }
     path.write_text(
         json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -529,16 +483,6 @@ def _supplementary_stage_object(
         path,
         "application/json",
     )
-
-
-def _load_object(path: Path, label: str) -> dict[str, Any]:
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ManifestForecastStageError(f"{label} is unreadable: {path}") from exc
-    if not isinstance(raw, Mapping):
-        raise ManifestForecastStageError(f"{label} must be a JSON object: {path}")
-    return dict(cast(Mapping[str, Any], raw))
 
 
 def _packet_objects(
@@ -602,7 +546,7 @@ def _freeze_chain_objects(
     artifact_root: Path,
     results_bucket: str,
     prefix: str,
-) -> tuple[list[_LocalObject], Path, list[_LocalObject], list[Path]]:
+) -> tuple[list[_LocalObject], Path, list[_LocalObject], list[Path], str]:
     """Rewrite and stage a freeze plus its authenticated amendment chain."""
 
     try:
@@ -678,7 +622,13 @@ def _freeze_chain_objects(
             )
     if current_bundle_path is None:
         raise ManifestForecastStageError("freeze chain did not contain current bundle")
-    return current_objects, current_bundle_path, amendment_objects, staged_paths
+    return (
+        current_objects,
+        current_bundle_path,
+        amendment_objects,
+        staged_paths,
+        rewritten_hashes[bundle.bundle_sha256],
+    )
 
 
 def _freeze_objects(

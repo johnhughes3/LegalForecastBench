@@ -897,3 +897,31 @@ def test_official_eval_matrix_workflow_rejects_private_manifest_prefixes() -> No
     )
     assert "labels_uri must not point at private packet prefixes." in WORKFLOW
     assert "model_registry_uri must not point at private packet prefixes." in WORKFLOW
+
+
+def test_supplementary_dispatch_requires_the_shard_path() -> None:
+    """The in-workflow aggregate is official-only, so it must be unreachable.
+
+    aggregate-results never reads inputs.supplementary, and the pre-existing
+    non-dry rule does not constrain a dry run, so the coupling is stated
+    directly rather than inferred from it.
+    """
+
+    coupling = (
+        'if [[ "${SUPPLEMENTARY_INPUT}" == "true" '
+        '&& "${SHARD_ONLY_INPUT}" != "true" ]]; then'
+    )
+    assert coupling in BUILD_MATRIX_JOB
+    assert "supplementary=true requires shard_only=true" in BUILD_MATRIX_JOB
+    assert "supplementary" not in AGGREGATE_RESULTS_JOB
+
+
+def test_concurrency_group_separates_the_two_lanes() -> None:
+    """One cycle can have an official and a supplementary shard for one model."""
+
+    group = WORKFLOW.split("concurrency:\n  group: ", maxsplit=1)[1].split("\n", 1)[0]
+    assert "inputs.supplementary && 'supplementary' || 'official'" in group
+    assert "inputs.cycle_id" in group
+    # The dispatch-provenance step re-materializes the same expression; they
+    # must not drift apart or provenance would record a different group.
+    assert WORKFLOW.count(group) == 2

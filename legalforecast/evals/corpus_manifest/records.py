@@ -10,7 +10,7 @@ import json
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from legalforecast.contracts.schemas import MANIFEST_MODE_FORECAST_RUN_RECORD_V1
 from legalforecast.evals.corpus_manifest.coercion import CorpusManifestError
@@ -27,6 +27,28 @@ def registry_record(entries: Sequence[Any]) -> list[dict[str, str]]:
         }
         for entry in entries
     ]
+
+
+def committed_registry_keys(committed: Sequence[Any]) -> tuple[str, ...]:
+    """Read ``provider:model_id`` keys back out of a recorded registry record.
+
+    The inverse of the identifying half of :func:`registry_record`, kept beside
+    it so the round trip is defined once.  Callers compare these keys across
+    lanes and print them in refusals, so a row missing either half is dropped
+    rather than guessed at: the identity checks are digest equality on the whole
+    record, and this is only the human-readable projection of it.
+    """
+
+    keys: list[str] = []
+    for raw in committed:
+        if not isinstance(raw, Mapping):
+            continue
+        record = cast(Mapping[str, Any], raw)
+        provider = record.get("provider")
+        model_id = record.get("model_id")
+        if isinstance(provider, str) and isinstance(model_id, str):
+            keys.append(f"{provider}:{model_id}")
+    return tuple(keys)
 
 
 def run_record(

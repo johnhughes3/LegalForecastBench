@@ -2079,10 +2079,12 @@ uv run python -m legalforecast.publication.shard_fan_in \
   --freeze-bundle /tmp/lfb-supplementary-run/freeze.json \
   --freeze-root /tmp/lfb-supplementary-run \
   --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --receipt-root s3://<results-bucket>/receipts/<cycle_id>/ \
+  --receipt-root s3://<results-bucket> \
   --output-dir tmp/supplementary-fan-in \
   --supplementary
 ```
+
+   `--receipt-root` is the bare bucket root, exactly as the official fan-in above passes it: discovery appends the lane's own receipt prefix itself. With `--supplementary` that prefix is `shard-receipts/supplementary/<cycle_id>/`, which is where the supplementary `finalize-shard` wrote. The two lanes never list each other: receipt selection hard-fails on any receipt outside the freeze's declared shard schedule, so a shared namespace would let one lane's first completed receipt permanently break the other's fan-in.
 
    `fan-in-publish.yaml` stays on the official manifest-run root: its `freeze_bundle_path` accepts only `cycle-1/manifest-runs/<manifest_digest>/freeze.json` and refuses the supplementary shape, because it builds the official bundle. The supplementary bundle reaches the gated publication through `supplementary_artifacts_dir`, below.
 
