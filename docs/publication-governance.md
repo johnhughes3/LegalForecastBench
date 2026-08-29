@@ -42,6 +42,14 @@ This tier requires the exact-100 freeze, dispatch, authenticated receipts, fan-i
 
 It may compare frozen Cycle 1 model configurations on the shared cohort. It may not claim absolute legal intelligence, infer capability gains across cycles with different case mixes, rank official Brier scores against Harvey LAB rubric scores, imply affiliation, or combine official and community rows into an overall winner.
 
+## Supplementary presentation on official surfaces
+
+A model released after the cycle's corpus decision window closed runs through the official pipeline but publishes as supplementary, not official. It is aggregated separately and merged into the official surface only at render time, so it never enters the official set or any official set-equality gate.
+
+Supplementary rows appear beside official rows on the official surface, after them and ordered by model id, marked with a dagger and the standard supplementary caveat. They are never ranked: no rank position, no best-model claim, no delta-vs-best interval. On the Hugging Face distribution surface they occupy their own config and split. A supplementary row may not be presented, cited, or linked as an official LegalForecastBench result, and its presence on an official surface does not promote it.
+
+This is not the four-tier result classification the project declined to adopt. It is a two-value presentation flag, `official` or `supplementary_post_anchor`, derived mechanically from a release date against the corpus anchor, plus one fail-closed gate that refuses a post-anchor model inside an official bundle.
+
 ## Canonical public surfaces
 
 | Surface | Canonical destination | Track | Tier |

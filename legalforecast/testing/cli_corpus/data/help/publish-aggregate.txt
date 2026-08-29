@@ -7,7 +7,8 @@ usage: legalforecast [-h] --per-case-dir PER_CASE_DIR
                      [--model-key MODEL_KEY] [--model-registry MODEL_REGISTRY]
                      [--baseline-training-examples BASELINE_TRAINING_EXAMPLES]
                      [--dispatch-provenance DISPATCH_PROVENANCE]
-                     [--allow-incomplete-model-set] [--allow-no-baselines]
+                     [--allow-incomplete-model-set] [--supplementary]
+                     [--allow-no-baselines]
                      [--deferred-ablation DEFERRED_ABLATION]
                      [--elapsed-days ELAPSED_DAYS]
                      [--official-window-days OFFICIAL_WINDOW_DAYS]
@@ -49,6 +50,11 @@ options:
                         Permit aggregation without a registry or explicit
                         expected model keys. Intended only for partial/debug
                         bundles and recorded in the run card.
+  --supplementary       Aggregate a supplementary bundle of models released
+                        after the corpus decision window closed. Every model
+                        in the registry must classify as supplementary; an
+                        official model here is refused, as is a supplementary
+                        model in an official bundle.
   --allow-no-baselines  Permit aggregation without baseline-training examples.
                         Intended only for partial/debug or explicitly
                         disclosed first-cycle bundles and recorded in the run

@@ -219,6 +219,121 @@ def _preliminary_contamination_note(
     return f"<p class='notice'>{html.escape(caveat, quote=False)}</p>"
 
 
+def _supplementary_note(entries: Sequence[_TableRow]) -> str:
+    """Render the dagger footnote, and only when a supplementary row exists.
+
+    It sits directly under the results table rather than in the interpretation
+    section so that the marker and its explanation stay adjacent.
+    """
+
+    caveat = supplementary_caveat_if_needed(entry.result_class for entry in entries)
+    if caveat is None:
+        return ""
+    marker = result_class_marker(ResultClass.SUPPLEMENTARY_POST_ANCHOR)
+    return (
+        "<p class='notice supplementary-notice'>"
+        f"{html.escape(marker, quote=False)} {html.escape(caveat, quote=False)}</p>"
+    )
+
+
+def _require_official_result_classes(
+    rows: Sequence[Mapping[str, Any]],
+    result_classes: Mapping[str, ResultClass] | None,
+) -> None:
+    """Refuse to render an official bundle that contains a supplementary row.
+
+    The authoritative refusal lives in the official aggregate gate; this is the
+    render-path restatement, so a supplementary row can never reach the official
+    table even if it somehow reached the official bundle.
+    """
+
+    if not result_classes:
+        return
+    offending = sorted(
+        model_id
+        for row in rows
+        if (
+            result_classes.get(
+                model_id := _first_str(row, ("model_id", "model_key", "solver_id"))
+            )
+            is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+        )
+    )
+    if offending:
+        raise ResultClassError(
+            f"official bundle contains supplementary-classed rows: {offending}"
+        )
+
+
+def _official_table_rows(
+    rows: Sequence[Mapping[str, Any]],
+    score_rows_by_model: Mapping[str, Mapping[str, Any]],
+) -> tuple[_TableRow, ...]:
+    return tuple(
+        _TableRow(
+            row=row,
+            score_row=score_rows_by_model[
+                _first_str(row, ("model_id", "model_key", "solver_id"))
+            ],
+            result_class=ResultClass.OFFICIAL,
+        )
+        for row in rows
+    )
+
+
+def _supplementary_table_rows(
+    bundle: OfficialBundle,
+    *,
+    official_cycle_id: str,
+    result_classes: Mapping[str, ResultClass] | None,
+) -> tuple[_TableRow, ...]:
+    """Build the supplementary model rows from a separately aggregated bundle.
+
+    Membership in this bundle is what makes a row supplementary; the sidecar can
+    only contradict it, never downgrade it, so a missing sidecar cannot silently
+    publish a post-anchor model as official. Rows are ordered by ``model_id`` so
+    the table is deterministic and never interleaves into the official ranking.
+    """
+
+    cycle_id = _first_str(bundle.report, ("cycle_id",))
+    if cycle_id != official_cycle_id:
+        raise ResultClassError(
+            f"supplementary bundle cycle_id {cycle_id} differs from official "
+            f"cycle {official_cycle_id}"
+        )
+    score_rows_by_model = {
+        _required_text(row, "model_id", label="supplementary score summary"): row
+        for row in _mapping_rows(bundle.scores.get("summaries", ()))
+    }
+    model_rows, _ = _partition_official_rows(
+        _mapping_rows(bundle.report.get("rows", ()))
+    )
+    entries: list[_TableRow] = []
+    for row in sorted(model_rows, key=lambda item: _first_str(item, ("model_id",))):
+        model_id = _required_text(
+            row,
+            "model_id",
+            label="supplementary leaderboard row",
+        )
+        if (result_classes or {}).get(model_id) is ResultClass.OFFICIAL:
+            raise ResultClassError(
+                f"supplementary bundle row {model_id} is classed official"
+            )
+        score_row = score_rows_by_model.get(model_id)
+        if score_row is None:
+            raise ValueError(
+                f"supplementary score summary is missing model_id={model_id}"
+            )
+        entries.append(
+            _TableRow(
+                row=row,
+                score_row=score_row,
+                result_class=ResultClass.SUPPLEMENTARY_POST_ANCHOR,
+            )
+        )
+    return tuple(entries)
+
+
 def _partition_official_rows(
     rows: Sequence[Mapping[str, Any]],
 ) -> tuple[tuple[Mapping[str, Any], ...], tuple[Mapping[str, Any], ...]]:
@@ -300,18 +415,31 @@ def _headline_cards(
 
 
 def _official_table(
-    rows: Sequence[Mapping[str, Any]],
+    entries: Sequence[_TableRow],
     *,
-    score_rows_by_model: Mapping[str, Mapping[str, Any]],
     caption: str,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> str:
-    if not rows:
+    # The <tr> below and the <thead> at the bottom of this function are separate
+    # string literals with no shared column list. Any column change must edit
+    # both; they silently desync otherwise.
+    if not entries:
         return "<p>No official score rows were found in the supplied artifacts.</p>"
     table_rows: list[str] = []
-    for row in rows:
+    for entry in entries:
+        row = entry.row
+        score_row = entry.score_row
         model = _first_str(row, ("model_id", "model_key", "solver_id"))
-        score_row = score_rows_by_model[model]
+        supplementary = entry.result_class is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+        marker = result_class_marker(entry.result_class)
+        label = _display_model_label(model, contamination_tiers) + marker
+        tier_label = f"Supplementary{marker}" if supplementary else "Official"
+        badge_class = "tier-badge supplementary" if supplementary else "tier-badge"
+        # A supplementary bundle is aggregated against a one-model registry, so
+        # its own row is trivially "best" inside it. Rendering that interval here
+        # would read as a rank against the official set, so the cell is
+        # neutralized instead.
+        delta = "Not ranked" if supplementary else _delta_interval(row)
         score = _optional_number(row, "micro_brier")
         invalid_rate = _optional_number(row, "invalid_output_rate")
         refusal_rate = _optional_number(row, "refusal_rate")
@@ -319,15 +447,14 @@ def _official_table(
         latency = _fmt_latency(_optional_number(score_row, "mean_latency_ms"))
         table_rows.append(
             "<tr>"
-            f"<th scope='row'>"
-            f"{html.escape(_display_model_label(model, contamination_tiers))}"
-            "</th>"
-            "<td><span class='tier-badge'>Official</span></td>"
+            f"<th scope='row'>{html.escape(label, quote=False)}</th>"
+            f"<td><span class='{badge_class}'>"
+            f"{html.escape(tier_label, quote=False)}</span></td>"
             f"<td>{html.escape(_provider_snapshot(score_row))}</td>"
             f"<td>{_required_int(score_row, 'case_count', label='score summary')}</td>"
             f"<td>{_required_int(score_row, 'unit_count', label='score summary')}</td>"
             f"<td>{html.escape(_fmt_number(score))}</td>"
-            f"<td>{html.escape(_delta_interval(row))}</td>"
+            f"<td>{html.escape(delta)}</td>"
             f"<td>{html.escape(_fmt_number(_optional_number(row, 'ece')))}</td>"
             f"<td>{html.escape(_fmt_percent(invalid_rate))}</td>"
             f"<td>{html.escape(_fmt_percent(refusal_rate))}</td>"
@@ -514,11 +641,10 @@ def _operational_summary(best_model: Mapping[str, Any] | None) -> str:
 
 
 def _baseline_context(
-    rows: Sequence[Mapping[str, Any]],
+    entries: Sequence[_TableRow],
     *,
     prevalence: float | None,
     run_card: Mapping[str, Any],
-    score_rows_by_model: Mapping[str, Mapping[str, Any]],
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> str:
     prevalence_copy = (
@@ -526,7 +652,7 @@ def _baseline_context(
         if prevalence is not None
         else "Realized prevalence is not reported in the supplied aggregate."
     )
-    if not rows:
+    if not entries:
         return (
             f"<p>{html.escape(prevalence_copy)}</p>"
             "<p class='notice baseline-notice'>No frozen empirical baseline is "
@@ -566,8 +692,7 @@ def _baseline_context(
         f"<p>{html.escape(prevalence_copy)} {html.escape(reference_copy)}</p>"
         f"<p>{html.escape(training_copy)}</p>"
         + _official_table(
-            rows,
-            score_rows_by_model=score_rows_by_model,
+            entries,
             caption="Frozen empirical baseline context",
             contamination_tiers=contamination_tiers,
         )

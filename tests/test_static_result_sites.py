@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Mapping
+from datetime import date
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, cast
@@ -21,6 +23,16 @@ from legalforecast.publication.publication_guardrails import PublicationGuardrai
 from legalforecast.publication.static_sites import (
     render_community_results_site,
     render_official_results_site,
+)
+from legalforecast.reporting.contamination_tiers import frozen_result_digest
+from legalforecast.reporting.result_class import (
+    SUPPLEMENTARY_CAVEAT,
+    SUPPLEMENTARY_MARKER,
+    ResultClass,
+    ResultClassError,
+    ResultClassRow,
+    ResultClassSidecar,
+    write_result_class_sidecar,
 )
 
 JsonRecord = dict[str, Any]
@@ -767,12 +779,173 @@ def _write_community_aggregate(tmp_path: Path) -> Path:
     return aggregate_dir
 
 
+SUPPLEMENTARY_MODEL_ID = "supp-model"
+
+
+def write_supplementary_report_fixture(tmp_path: Path) -> Path:
+    """A one-model post-anchor bundle that outscores every official model.
+
+    The lower micro-Brier is deliberate: if supplementary rows could leak into
+    ranking, this bundle would take rank 1, so the ranking assertions have
+    something to detect.
+    """
+
+    return write_official_report_fixture(
+        tmp_path,
+        include_baseline=False,
+        model_probabilities={SUPPLEMENTARY_MODEL_ID: (0.9, 0.9, 0.1, 0.1, 0.1)},
+        directory_name="supplementary",
+    )
+
+
+def write_result_class_sidecar_for(
+    artifacts_dir: Path,
+    classes: Mapping[str, ResultClass],
+) -> None:
+    """Bind a result-class sidecar to one bundle's frozen leaderboard bytes."""
+
+    digest = frozen_result_digest(
+        (artifacts_dir / "report" / "leaderboard.json").read_bytes()
+    )
+    write_result_class_sidecar(
+        artifacts_dir / "result-class-sidecar.json",
+        ResultClassSidecar(
+            result_digest=digest,
+            corpus_anchor=date(2026, 1, 1),
+            rows=tuple(
+                ResultClassRow(model_id=model_id, result_class=result_class)
+                for model_id, result_class in sorted(classes.items())
+            ),
+        ),
+    )
+
+
+def _render_site_with_supplementary(tmp_path: Path) -> str:
+    official_dir = write_official_report_fixture(tmp_path)
+    supplementary_dir = write_supplementary_report_fixture(tmp_path)
+    write_result_class_sidecar_for(
+        official_dir,
+        {
+            "model-a": ResultClass.OFFICIAL,
+            "model-b": ResultClass.OFFICIAL,
+            "global_base_rate": ResultClass.OFFICIAL,
+        },
+    )
+    write_result_class_sidecar_for(
+        supplementary_dir,
+        {SUPPLEMENTARY_MODEL_ID: ResultClass.SUPPLEMENTARY_POST_ANCHOR},
+    )
+    result = render_official_results_site(
+        official_artifacts_dir=official_dir,
+        output_dir=tmp_path / "official-site",
+        supplementary_artifacts_dir=supplementary_dir,
+    )
+    return result.index_path.read_text(encoding="utf-8")
+
+
+def _table_row_html(rendered: str, label: str) -> str:
+    start = rendered.index(f"<th scope='row'>{label}</th>")
+    return rendered[start : rendered.index("</tr>", start)]
+
+
+def _section_html(rendered: str, heading: str) -> str:
+    start = rendered.index(heading)
+    return rendered[start : rendered.index("</section>", start)]
+
+
+def test_official_site_marks_supplementary_rows_and_publishes_the_caveat(
+    tmp_path: Path,
+) -> None:
+    rendered = _render_site_with_supplementary(tmp_path)
+
+    supplementary_label = f"{SUPPLEMENTARY_MODEL_ID}{SUPPLEMENTARY_MARKER}"
+    assert f"<th scope='row'>{supplementary_label}</th>" in rendered
+    assert f"Supplementary{SUPPLEMENTARY_MARKER}" in rendered
+    assert SUPPLEMENTARY_CAVEAT in rendered
+    # Supplementary rows sit in the same table, after every official row.
+    assert rendered.index("<th scope='row'>model-a</th>") < rendered.index(
+        f"<th scope='row'>{supplementary_label}</th>"
+    )
+    assert rendered.index("<th scope='row'>model-b</th>") < rendered.index(
+        f"<th scope='row'>{supplementary_label}</th>"
+    )
+
+
+def test_supplementary_row_never_receives_best_model_or_rank_treatment(
+    tmp_path: Path,
+) -> None:
+    rendered = _render_site_with_supplementary(tmp_path)
+
+    headline = _section_html(rendered, "<h2 id='headline-title'>")
+    assert SUPPLEMENTARY_MODEL_ID not in headline
+    assert "model-a" in headline
+    # model-a's micro-Brier, not the supplementary model's lower 0.0100.
+    assert "<p class='metric'>0.0880</p>" in headline
+
+    supplementary_row = _table_row_html(
+        rendered,
+        f"{SUPPLEMENTARY_MODEL_ID}{SUPPLEMENTARY_MARKER}",
+    )
+    assert "0.0100" in supplementary_row
+    assert "Not ranked" in supplementary_row
+    assert "Reference (best observed model)" not in supplementary_row
+
+    deltas = _section_html(rendered, "Paired micro-Brier difference intervals")
+    assert SUPPLEMENTARY_MODEL_ID not in deltas
+
+
+def test_official_site_omits_the_supplementary_caveat_without_a_supplementary_bundle(
+    tmp_path: Path,
+) -> None:
+    official_dir = write_official_report_fixture(tmp_path)
+
+    result = render_official_results_site(
+        official_artifacts_dir=official_dir,
+        output_dir=tmp_path / "official-site",
+    )
+
+    rendered = result.index_path.read_text(encoding="utf-8")
+    assert SUPPLEMENTARY_CAVEAT not in rendered
+    assert SUPPLEMENTARY_MARKER not in rendered
+    assert "Supplementary" not in rendered
+
+
+def test_official_site_refuses_a_supplementary_classed_row_in_the_official_bundle(
+    tmp_path: Path,
+) -> None:
+    official_dir = write_official_report_fixture(tmp_path)
+    write_result_class_sidecar_for(
+        official_dir,
+        {
+            "model-a": ResultClass.OFFICIAL,
+            "model-b": ResultClass.SUPPLEMENTARY_POST_ANCHOR,
+            "global_base_rate": ResultClass.OFFICIAL,
+        },
+    )
+
+    with pytest.raises(ResultClassError, match="supplementary-classed rows"):
+        render_official_results_site(
+            official_artifacts_dir=official_dir,
+            output_dir=tmp_path / "official-site",
+        )
+
+
 def write_official_report_fixture(
     tmp_path: Path,
     *,
     include_baseline: bool = True,
+    model_probabilities: Mapping[str, tuple[float, ...]] | None = None,
+    directory_name: str = "official",
 ) -> Path:
-    official_dir = tmp_path / "official"
+    """Write one official-shaped bundle.
+
+    ``model_probabilities`` and ``directory_name`` let the same builder produce a
+    supplementary bundle: a different model set, aggregated separately, under its
+    own directory. The cycle, cohort, and outcomes stay identical so the two
+    bundles describe the same scored cases.
+    """
+
+    official_dir = tmp_path / directory_name
     cycle_id = "fixture-cycle"
     cycle_power_record = {
         "cycle_id": cycle_id,
@@ -783,9 +956,12 @@ def write_official_report_fixture(
         "warnings": ["Fixture intervals are not publication evidence."],
     }
     outcomes = (1, 1, 0, 0, 0)
-    probabilities = {
+    evaluated = model_probabilities or {
         "model-a": (0.8, 0.6, 0.4, 0.2, 0.2),
         "model-b": (0.7, 0.5, 0.3, 0.3, 0.3),
+    }
+    probabilities = {
+        **evaluated,
         **({"global_base_rate": (0.4,) * 5} if include_baseline else {}),
     }
     unit_records = [
@@ -809,19 +985,28 @@ def write_official_report_fixture(
         )
         for model_id in probabilities
     ]
-    inference = paired_clustered_bootstrap(
-        tuple(
-            ModelScoreInput(
-                model_id=model_id,
-                unit_scores=tuple(
-                    _unit_score_from_record(record)
-                    for record in unit_records
-                    if record["model_id"] == model_id
-                ),
-            )
-            for model_id in probabilities
+    bootstrap_inputs = tuple(
+        ModelScoreInput(
+            model_id=model_id,
+            unit_scores=tuple(
+                _unit_score_from_record(record)
+                for record in unit_records
+                if record["model_id"] == model_id
+            ),
         )
+        for model_id in probabilities
     )
+    # A one-model supplementary bundle has no pair to bootstrap; the paired
+    # bootstrap requires at least two score inputs.
+    pairwise_deltas = (
+        paired_clustered_bootstrap(bootstrap_inputs).pairwise_deltas
+        if len(bootstrap_inputs) >= 2
+        else ()
+    )
+    best_model_id = min(
+        (row for row in score_rows if row["row_type"] == "model"),
+        key=lambda row: cast(float, row["micro_brier"]),
+    )["model_id"]
     report_rows: list[JsonRecord] = []
     for rank, score_row in enumerate(score_rows, start=1):
         model_id = cast(str, score_row["model_id"])
@@ -850,13 +1035,15 @@ def write_official_report_fixture(
             )
         }
         row.update({"rank": rank, "rank_tier": None})
-        if model_id == "model-b":
+        # Only a non-best evaluated model carries a delta-vs-best interval;
+        # baseline rows must keep null interval fields.
+        if score_row["row_type"] == "model" and model_id != best_model_id:
             delta = next(
                 item
-                for item in inference.pairwise_deltas
-                if {item.model_a, item.model_b} == {"model-a", "model-b"}
+                for item in pairwise_deltas
+                if {item.model_a, item.model_b} == {model_id, best_model_id}
             )
-            direction = 1.0 if delta.model_a == "model-b" else -1.0
+            direction = 1.0 if delta.model_a == model_id else -1.0
             row.update(
                 {
                     "delta_vs_best": direction * delta.observed_delta,
@@ -885,9 +1072,7 @@ def write_official_report_fixture(
             "cycle_id": cycle_id,
             "cycle_power": cycle_power_record,
             "rows": report_rows,
-            "pairwise_deltas": [
-                delta.to_record() for delta in inference.pairwise_deltas
-            ],
+            "pairwise_deltas": [delta.to_record() for delta in pairwise_deltas],
             "calibration_tables": [
                 {
                     "model_id": row["model_id"],
@@ -918,12 +1103,12 @@ def write_official_report_fixture(
             "schema_version": "legalforecast-official-aggregate-v1",
             "cycle_id": cycle_id,
             "run_type": "official",
-            "model_keys": ["fixture:model-a", "fixture:model-b"],
-            "registry_model_keys": ["fixture:model-a", "fixture:model-b"],
-            "expected_model_keys": ["fixture:model-a", "fixture:model-b"],
+            "model_keys": [f"fixture:{model_id}" for model_id in evaluated],
+            "registry_model_keys": [f"fixture:{model_id}" for model_id in evaluated],
+            "expected_model_keys": [f"fixture:{model_id}" for model_id in evaluated],
             "allow_incomplete_model_set": False,
             "allow_no_baselines": not include_baseline,
-            "expected_matrix_rows": 10,
+            "expected_matrix_rows": 5 * len(evaluated),
             "case_count": 5,
             "ablation_count": 1,
             "model_count": len(score_rows),

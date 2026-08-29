@@ -903,6 +903,19 @@
           "action": "store_true",
           "choices": null,
           "default": false,
+          "dest": "supplementary",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--supplementary"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
           "dest": "allow_no_baselines",
           "metavar": null,
           "nargs": 0,

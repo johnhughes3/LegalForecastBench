@@ -30,9 +30,25 @@ from legalforecast.publication.publication_guardrails import (
     enforce_publication_guardrails,
 )
 from legalforecast.publication.static_sites import render_official_results_site
+from legalforecast.reporting.result_class import (
+    SUPPLEMENTARY_CAVEAT,
+    SUPPLEMENTARY_MARKER,
+)
 
 OFFICIAL_HF_PUBLICATION_SCHEMA_VERSION = "legalforecast-official-hf-publication-v1"
+OFFICIAL_HF_PUBLICATION_SUPPLEMENTARY_SCHEMA_VERSION = (
+    "legalforecast-official-hf-publication-v2"
+)
+"""Manifest shape that additionally commits to a supplementary release path.
+
+Cycle 1 change control freezes the bytes of every emitted schema id, so the
+supplementary commitment fields are a new schema id rather than optional fields
+on ``-v1``. A publication without supplementary models still emits ``-v1``, byte
+for byte as before.
+"""
+
 OFFICIAL_HF_UPLOAD_PLAN_SCHEMA_VERSION = "legalforecast-official-hf-upload-plan-v1"
+_SUPPLEMENTARY_DIRECTORY = "supplementary"
 _MUTABLE_REVISIONS = frozenset(
     {"default", "develop", "head", "latest", "main", "master", "trunk"}
 )
@@ -53,6 +69,7 @@ class OfficialHFPublicationConfig:
     output_dir: Path
     release_version: str
     dataset_repository: str
+    supplementary_artifacts_dir: Path | None = None
 
     def __post_init__(self) -> None:
         _validate_release_version(self.release_version)
@@ -76,6 +93,7 @@ class OfficialHFPublicationResult:
     artifact_count: int
     aggregate_artifact_index_sha256: str
     site_artifact_index_sha256: str
+    supplementary_artifact_index_sha256: str | None = None
 
 
 def build_official_hf_publication(
@@ -99,24 +117,40 @@ def build_official_hf_publication(
     ) as directory:
         root = Path(directory)
         aggregate_root = root / release_path / "aggregate"
-        for relative in bundle.artifact_paths:
-            _safe_relative(relative, "official aggregate artifact")
-            source = config.official_artifacts_dir / relative
-            destination = aggregate_root / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                payload = read_single_link_file(source, label="official aggregate")
-            except ImmutableIOError as exc:
-                raise OfficialHFPublicationError(str(exc)) from exc
-            destination.write_bytes(payload)
+        _copy_bundle(
+            bundle,
+            source_root=config.official_artifacts_dir,
+            destination_root=aggregate_root,
+            label="official aggregate",
+        )
+
+        supplementary_root: Path | None = None
+        if config.supplementary_artifacts_dir is not None:
+            supplementary_bundle = load_official_bundle(
+                config.supplementary_artifacts_dir
+            )
+            _require_disjoint_model_ids(bundle, supplementary_bundle)
+            supplementary_root = root / release_path / _SUPPLEMENTARY_DIRECTORY
+            _copy_bundle(
+                supplementary_bundle,
+                source_root=config.supplementary_artifacts_dir,
+                destination_root=supplementary_root,
+                label="supplementary aggregate",
+            )
 
         site_root = root / release_path / "site"
         render_official_results_site(
             official_artifacts_dir=aggregate_root,
             output_dir=site_root,
+            supplementary_artifacts_dir=supplementary_root,
         )
         aggregate_digest = _prefixed_digest(aggregate_root / "artifact-index.json")
         site_digest = _prefixed_digest(site_root / "artifact-index.json")
+        supplementary_digest = (
+            None
+            if supplementary_root is None
+            else _prefixed_digest(supplementary_root / "artifact-index.json")
+        )
         (root / "eval.yaml").write_text(
             _eval_yaml(cycle_id, config.release_version), encoding="utf-8"
         )
@@ -128,6 +162,7 @@ def build_official_hf_publication(
                 dataset_repository=config.dataset_repository,
                 aggregate_digest=aggregate_digest,
                 site_digest=site_digest,
+                supplementary_digest=supplementary_digest,
             ),
             encoding="utf-8",
         )
@@ -144,25 +179,31 @@ def build_official_hf_publication(
             },
         )
         records = _artifact_records(root)
-        write_json_object(
-            root / "publication-manifest.json",
-            {
-                "schema_version": OFFICIAL_HF_PUBLICATION_SCHEMA_VERSION,
-                "cycle_id": cycle_id,
-                "release_version": config.release_version,
-                "release_path": release_path,
-                "dataset_repository": config.dataset_repository,
-                "revision_policy": "immutable-release-path",
-                "manual_gate": {
-                    "mode": "manual",
-                    "scope": "dataset_repository",
-                    "repository_setting_required": True,
-                },
-                "aggregate_artifact_index_sha256": aggregate_digest,
-                "site_artifact_index_sha256": site_digest,
-                "artifacts": records,
+        manifest: dict[str, object] = {
+            "schema_version": OFFICIAL_HF_PUBLICATION_SCHEMA_VERSION,
+            "cycle_id": cycle_id,
+            "release_version": config.release_version,
+            "release_path": release_path,
+            "dataset_repository": config.dataset_repository,
+            "revision_policy": "immutable-release-path",
+            "manual_gate": {
+                "mode": "manual",
+                "scope": "dataset_repository",
+                "repository_setting_required": True,
             },
-        )
+            "aggregate_artifact_index_sha256": aggregate_digest,
+            "site_artifact_index_sha256": site_digest,
+            "artifacts": records,
+        }
+        if supplementary_digest is not None:
+            manifest["schema_version"] = (
+                OFFICIAL_HF_PUBLICATION_SUPPLEMENTARY_SCHEMA_VERSION
+            )
+            manifest["supplementary_path"] = (
+                f"{release_path}/{_SUPPLEMENTARY_DIRECTORY}"
+            )
+            manifest["supplementary_artifact_index_sha256"] = supplementary_digest
+        write_json_object(root / "publication-manifest.json", manifest)
         enforce_publication_guardrails(PublicationGuardrailConfig(public_paths=(root,)))
         payloads = {
             path.relative_to(root).as_posix(): path.read_bytes()
@@ -182,8 +223,15 @@ def validate_official_hf_publication(root: Path) -> OfficialHFPublicationResult:
 
     manifest_path = root / "publication-manifest.json"
     manifest = _read_json(manifest_path, "publication manifest")
-    if manifest.get("schema_version") != OFFICIAL_HF_PUBLICATION_SCHEMA_VERSION:
+    schema_version = manifest.get("schema_version")
+    if schema_version not in {
+        OFFICIAL_HF_PUBLICATION_SCHEMA_VERSION,
+        OFFICIAL_HF_PUBLICATION_SUPPLEMENTARY_SCHEMA_VERSION,
+    }:
         raise OfficialHFPublicationError("publication manifest has an unknown schema")
+    declares_supplementary = (
+        schema_version == OFFICIAL_HF_PUBLICATION_SUPPLEMENTARY_SCHEMA_VERSION
+    )
     cycle_id = _required_text(manifest, "cycle_id")
     release_version = _required_text(manifest, "release_version")
     _validate_release_version(release_version)
@@ -227,9 +275,17 @@ def validate_official_hf_publication(root: Path) -> OfficialHFPublicationResult:
         raise OfficialHFPublicationError("aggregate artifact index digest mismatch")
     if site_digest != manifest.get("site_artifact_index_sha256"):
         raise OfficialHFPublicationError("site artifact index digest mismatch")
-    load_official_bundle(aggregate_index.parent)
+    official_bundle = load_official_bundle(aggregate_index.parent)
     if not (site_index.parent / "index.html").is_file():
         raise OfficialHFPublicationError("rendered site is missing index.html")
+    supplementary_digest = _validate_supplementary_split(
+        root,
+        manifest,
+        official_bundle=official_bundle,
+        release_path=release_path,
+        listed=listed,
+        declares_supplementary=declares_supplementary,
+    )
     enforce_publication_guardrails(PublicationGuardrailConfig(public_paths=(root,)))
     return OfficialHFPublicationResult(
         output_dir=root,
@@ -242,7 +298,92 @@ def validate_official_hf_publication(root: Path) -> OfficialHFPublicationResult:
         artifact_count=len(actual),
         aggregate_artifact_index_sha256=aggregate_digest,
         site_artifact_index_sha256=site_digest,
+        supplementary_artifact_index_sha256=supplementary_digest,
     )
+
+
+def _validate_supplementary_split(
+    root: Path,
+    manifest: Mapping[str, Any],
+    *,
+    official_bundle: OfficialBundle,
+    release_path: str,
+    listed: set[str],
+    declares_supplementary: bool,
+) -> str | None:
+    """Verify the supplementary split, or that the tree has none at all.
+
+    Both directions matter: a ``-v2`` manifest must actually commit to the
+    supplementary tree it names, and a ``-v1`` manifest must not smuggle
+    supplementary files into a package that claims to carry only official
+    results.
+    """
+
+    prefix = f"{release_path}/{_SUPPLEMENTARY_DIRECTORY}/"
+    carries_files = any(relative.startswith(prefix) for relative in listed)
+    if not declares_supplementary:
+        if carries_files or "supplementary_path" in manifest:
+            raise OfficialHFPublicationError(
+                "official-only publication manifest carries supplementary artifacts"
+            )
+        return None
+    if _required_text(manifest, "supplementary_path") != prefix.rstrip("/"):
+        raise OfficialHFPublicationError(
+            "publication supplementary_path does not match its release path"
+        )
+    if not carries_files:
+        raise OfficialHFPublicationError(
+            "supplementary publication manifest lists no supplementary artifacts"
+        )
+    supplementary_root = root / release_path / _SUPPLEMENTARY_DIRECTORY
+    digest = _prefixed_digest(supplementary_root / "artifact-index.json")
+    if digest != manifest.get("supplementary_artifact_index_sha256"):
+        raise OfficialHFPublicationError("supplementary artifact index digest mismatch")
+    _require_disjoint_model_ids(
+        official_bundle, load_official_bundle(supplementary_root)
+    )
+    return digest
+
+
+def _require_disjoint_model_ids(
+    official_bundle: OfficialBundle,
+    supplementary_bundle: OfficialBundle,
+) -> None:
+    """Refuse a supplementary model that also appears in the official split."""
+
+    shared = sorted(
+        _bundle_model_ids(official_bundle) & _bundle_model_ids(supplementary_bundle)
+    )
+    if shared:
+        raise OfficialHFPublicationError(
+            f"supplementary models must not appear in the official split: {shared}"
+        )
+
+
+def _bundle_model_ids(bundle: OfficialBundle) -> set[str]:
+    return {
+        _required_text(row, "model_id")
+        for row in _mapping_rows(bundle.report.get("rows"))
+        if row.get("row_type") == "model"
+    }
+
+
+def _copy_bundle(
+    bundle: OfficialBundle,
+    *,
+    source_root: Path,
+    destination_root: Path,
+    label: str,
+) -> None:
+    for relative in bundle.artifact_paths:
+        _safe_relative(relative, f"{label} artifact")
+        destination = destination_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            payload = read_single_link_file(source_root / relative, label=label)
+        except ImmutableIOError as exc:
+            raise OfficialHFPublicationError(str(exc)) from exc
+        destination.write_bytes(payload)
 
 
 def _validate_arithmetic(bundle: OfficialBundle) -> None:
@@ -314,7 +455,36 @@ def _dataset_card(
     dataset_repository: str,
     aggregate_digest: str,
     site_digest: str,
+    supplementary_digest: str | None = None,
 ) -> str:
+    supplementary_config = (
+        ""
+        if supplementary_digest is None
+        else f"""
+- config_name: {cycle_id}_supplementary
+  data_files:
+  - split: supplementary
+    path: {release_path}/{_SUPPLEMENTARY_DIRECTORY}/unit-scores.jsonl"""
+    )
+    supplementary_section = (
+        ""
+        if supplementary_digest is None
+        else f"""
+## Supplementary (unofficial) results
+
+{SUPPLEMENTARY_CAVEAT}
+
+Supplementary rows are published in their own `{cycle_id}_supplementary` config
+and `supplementary` split, under `{release_path}/{_SUPPLEMENTARY_DIRECTORY}` with
+artifact-index commitment `{supplementary_digest}`. They are never present in
+the official `{cycle_id}` config or its `test` split.
+
+They carry the `{SUPPLEMENTARY_MARKER}` marker on the rendered result page and
+are excluded from ranking, from the best-model figure, and from every
+delta-vs-best interval. They must not be reported as official
+LegalForecastBench results.
+"""
+    )
     return f"""---
 pretty_name: LegalForecastBench Official Results
 tags:
@@ -328,7 +498,7 @@ configs:
 - config_name: {cycle_id}
   data_files:
   - split: test
-    path: {release_path}/aggregate/unit-scores.jsonl
+    path: {release_path}/aggregate/unit-scores.jsonl{supplementary_config}
 extra_gated_prompt: >-
   By requesting access, you agree to the Controlled-Access Terms below.
 extra_gated_fields:
@@ -346,7 +516,7 @@ The immutable release path is `{release_path}`. Its aggregate artifact-index
 commitment is `{aggregate_digest}` and its site commitment is `{site_digest}`.
 The target repository is `{dataset_repository}`. It must remain public and
 discoverable with Hugging Face manual approval required for file access.
-
+{supplementary_section}
 ## Controlled-Access Terms
 
 By requesting or using access, you agree that, for each court record in the
@@ -424,6 +594,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--release-version", required=True)
     parser.add_argument("--dataset-repository", required=True)
+    parser.add_argument(
+        "--supplementary-artifacts-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Separately aggregated bundle of post-anchor models. Published under "
+            "a supplementary/ path and its own dataset config; never merged into "
+            "the official split."
+        ),
+    )
     args = parser.parse_args(argv)
     result = build_official_hf_publication(
         OfficialHFPublicationConfig(
@@ -431,6 +611,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             output_dir=args.output_dir,
             release_version=args.release_version,
             dataset_repository=args.dataset_repository,
+            supplementary_artifacts_dir=args.supplementary_artifacts_dir,
         )
     )
     print(
