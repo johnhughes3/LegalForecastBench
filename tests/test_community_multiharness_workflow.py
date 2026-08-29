@@ -5,6 +5,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = ROOT / ".github/workflows/community-multiharness-validation.yaml"
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
+CI_RUNNER_CLAMP = (
+    "runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || "
+    "startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || "
+    "'ubicloud-standard-2' }}"
+)
+
+
+def test_community_workflow_uses_ci_runner_clamp_with_ubicloud_fallback() -> None:
+    assert WORKFLOW.count(CI_RUNNER_CLAMP) == 2
+    assert "runs-on: ubuntu-latest" not in WORKFLOW
+    assert "runs-on: ${{ vars.CI_RUNNER }}" not in WORKFLOW
 
 
 def test_community_workflow_triggers_on_relevant_public_surfaces() -> None:

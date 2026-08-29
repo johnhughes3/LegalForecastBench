@@ -4,6 +4,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/ci.yaml").read_text(encoding="utf-8")
+CI_RUNNER_CLAMP = (
+    "runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || "
+    "startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || "
+    "'ubicloud-standard-2' }}"
+)
+
+
+def test_ci_workflow_uses_ci_runner_clamp_with_ubicloud_fallback() -> None:
+    assert CI_RUNNER_CLAMP in WORKFLOW
+    assert "runs-on: ubuntu-latest" not in WORKFLOW
+    assert "runs-on: ${{ vars.CI_RUNNER }}" not in WORKFLOW
 
 
 def test_ci_workflow_runs_contract_ratchet_before_typecheck() -> None:

@@ -1,5 +1,10 @@
 name: CodeQL
 
+# Advanced setup. Do not re-enable GitHub CodeQL default setup.
+# The clamp selects vars.CI_RUNNER when it is ubuntu-latest or ubicloud-*,
+# and falls back to ubicloud-standard-2 when the private org variable is
+# unset (public johnhughes3 repos and Dependabot).
+
 on:
   push:
     branches: [main]
@@ -20,8 +25,7 @@ concurrency:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
-    # Public johnhughes3 repos cannot see the private org CI_RUNNER variable, so CodeQL is pinned to ubicloud-standard-2.
-    runs-on: ubicloud-standard-2
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
