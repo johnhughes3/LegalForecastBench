@@ -11122,6 +11122,19 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "official_freeze_bundle_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--official-freeze-bundle-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "output",
           "metavar": null,
           "nargs": null,

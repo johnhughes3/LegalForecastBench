@@ -448,6 +448,15 @@ def register(
             "its recorded artifact digests."
         ),
     )
+    cost.add_argument(
+        "--official-freeze-bundle-sha256",
+        help=(
+            "Independent lowercase SHA-256 pin for --official-freeze-bundle, from "
+            "the staged official freeze's recorded raw-file digest. Required with "
+            "--supplementary: without it a fabricated bundle copying the sibling's "
+            "own artifact digests would satisfy every identity check."
+        ),
+    )
     cost.add_argument("--output", type=Path, required=True)
     cost.set_defaults(handler=run_project_manifest_cost)
 
@@ -785,6 +794,9 @@ def run_project_manifest_cost(args: argparse.Namespace) -> int:
         output=cast(Path, args.output),
         supplementary=cast(bool, args.supplementary),
         official_freeze_bundle=cast("Path | None", args.official_freeze_bundle),
+        official_freeze_bundle_sha256=cast(
+            "str | None", args.official_freeze_bundle_sha256
+        ),
     )
     issue = cast(_CostProjectionCommand, _PROJECT_MANIFEST_COST.load())
     receipt = issue(request)

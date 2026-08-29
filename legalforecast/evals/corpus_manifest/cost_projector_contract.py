@@ -126,16 +126,29 @@ class ManifestCostProjectionRequest:
     present -- the comparability claim is verified, not waived.
     """
 
+    official_freeze_bundle_sha256: str | None = None
+    """Independent digest pin for ``official_freeze_bundle``.
+
+    Without it the reference bundle would be trusted for being self-consistent,
+    and a fabricated bundle copying its shared-artifact digests from the sibling
+    would satisfy every identity check -- the sibling's own prompt bytes would be
+    doing the grounding.  The operator supplies this at dispatch from the staged
+    official freeze's recorded digest.
+    """
+
     def __post_init__(self) -> None:
         if not self.cycle_id.strip():
             raise ManifestCostProjectionError("cycle_id is required")
-        if self.supplementary and self.official_freeze_bundle is None:
+        supplied = (self.official_freeze_bundle, self.official_freeze_bundle_sha256)
+        if self.supplementary and None in supplied:
             raise ManifestCostProjectionError(
-                "supplementary projection requires --official-freeze-bundle"
+                "supplementary projection requires --official-freeze-bundle and "
+                "--official-freeze-bundle-sha256"
             )
-        if not self.supplementary and self.official_freeze_bundle is not None:
+        if not self.supplementary and supplied != (None, None):
             raise ManifestCostProjectionError(
-                "official projection does not accept --official-freeze-bundle"
+                "official projection does not accept --official-freeze-bundle or "
+                "--official-freeze-bundle-sha256"
             )
         if not 1 <= self.repeat_count <= 10:
             raise ManifestCostProjectionError(

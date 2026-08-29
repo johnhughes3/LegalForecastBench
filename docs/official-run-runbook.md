@@ -1965,6 +1965,10 @@ uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
 
 3. Project the cost against the sibling freeze in supplementary mode. This step and the next are what a paid dispatch additionally requires; a dry-run dispatch needs neither. The sibling freeze reuses the official prompt bytes on purpose, so its prompt contract commits the *official* registry — the projector therefore inverts that one identity check rather than dropping it, and records both bindings in the receipt: `supplementary_binding.official_model_registry_sha256` (the contract being reused) and `supplementary_binding.supplementary_model_registry_sha256` (the registry under evaluation), plus the corpus anchor it derived and the official freeze it matched. Supplementary mode refuses a registry whose models classify official against that corpus-derived anchor, mirroring the aggregate gate, and official mode refuses the sibling freeze exactly as before.
 
+   **Where the digest pin comes from.** `--official-freeze-bundle-sha256` is the raw-file SHA-256 of the staged official freeze — the same digest the official lane's execution scope and the workflow's pre-credential check bind, recorded when that freeze was staged. Supply it explicitly; do not compute it from whatever bundle you happen to be passing, which would defeat the point. Without an independent pin, a fabricated "official" bundle could copy its shared-artifact digests straight from the sibling and satisfy every identity check, with the sibling's own prompt bytes doing the grounding. Note again the two distinct digests: this is the **raw file** SHA-256, not the freeze protocol's canonical `hash_bundle_sha256`.
+
+   The receipt this emits is a distinct card, `legalforecast.manifest_cost_projection_supplementary_receipt.v1`, not the official receipt with an extra field. Cycle 1 change control freezes whole-card authenticated bytes, so the supplementary lane carries its own schema identifier and its own field set; official receipts are byte-for-byte what they were. The identifier is inside the hashed payload, so a receipt cannot be re-labelled into the other lane without breaking its own digest.
+
 ```bash
 uv run legalforecast acquisition project-manifest-cost \
   --freeze-bundle <supplementary-freeze>.freeze.json \
@@ -1978,6 +1982,7 @@ uv run legalforecast acquisition project-manifest-cost \
   --matrix-limit 800 \
   --supplementary \
   --official-freeze-bundle <official-staged-freeze>.json \
+  --official-freeze-bundle-sha256 <official-staged-freeze-raw-sha256> \
   --output artifacts/<cycle_id>/supplementary-cost-projection.json
 ```
 
@@ -1987,7 +1992,7 @@ uv run legalforecast acquisition project-manifest-cost \
 
    Set `<ceiling>` at the receipt's `recommended_max_projected_model_cost_usd` (2x the projection) and `<estimate>` at or above `projected_model_cost_usd`.
 
-5. Issue and verify the execution scope with `--supplementary`. The mode is bound into the scope artifact and checked at consumption in both directions: a supplementary scope cannot authorize an official shard, and an official scope cannot authorize a supplementary one, in the workflow's pre-credential check, in the provider cell, and at fan-in.
+5. Issue and verify the execution scope with `--supplementary`. The scope is likewise its own card, `legalforecast.execution_scope_supplementary.v1`, so a supplementary scope does not parse as an official one at all. The lane is checked at every consumption point in both directions — the workflow's pre-credential check, the provider cell, the shard-receipt writer, and fan-in — and every one of them defaults to official, so a caller that has not opted into this lane refuses a supplementary scope without being changed. The shard-receipt writer matters most: its receipts are write-once per attempt, so a wrong-lane scope accepted there would burn the slot and surface only at fan-in, after the run is paid for.
 
 ```bash
 uv run legalforecast acquisition issue-manifest-execution-scope \
@@ -2018,7 +2023,7 @@ uv run legalforecast acquisition verify-manifest-execution-scope \
   --supplementary
 ```
 
-6. Dispatch `run-benchmark.yaml` with `supplementary: true`, `shard_only: true`, `freeze_bundle_path` set to the staged supplementary freeze URI, `official_freeze_bundle_uri` set to the staged official freeze the sibling must match, `model_registry_uri` set to the supplementary registry, `model_keys` set to the supplementary key alone, and `execution_scope_uri` set to `<scope URI>#<scope sha256>`. The `gemini` provider lane already accepts `google:*` keys. `official_freeze_bundle_uri` is required for a supplementary dispatch and refused for an official one, so the identity check cannot be skipped by omitting it. Note the two distinct digests: the scope and the workflow's pre-credential check bind the freeze's **raw file** sha256, while shard receipts and fan-in use the freeze protocol's canonical `hash_bundle_sha256`; never substitute one for the other.
+6. Dispatch `run-benchmark.yaml` with `supplementary: true`, `shard_only: true`, `freeze_bundle_path` set to the staged supplementary freeze URI, `official_freeze_bundle_uri` set to `<official staged freeze URI>#<its raw sha256>`, `model_registry_uri` set to the supplementary registry, `model_keys` set to the supplementary key alone, and `execution_scope_uri` set to `<scope URI>#<scope sha256>`. The `gemini` provider lane already accepts `google:*` keys. `official_freeze_bundle_uri` is content-addressed exactly like `execution_scope_uri`, is required for a supplementary dispatch and refused for an official one, and is verified against its digest immediately after download — so the identity check cannot be skipped by omitting it or subverted by substituting the object. Note the two distinct digests: the scope, the pre-credential check, and this pin all bind the freeze's **raw file** sha256, while shard receipts and fan-in use the freeze protocol's canonical `hash_bundle_sha256`; never substitute one for the other.
 
 7. Aggregate the shard into its own bundle with `--supplementary`. That flag is a declaration of which bundle is being built, not a claim about any model: an official bundle refuses a model released after the corpus anchor, and a supplementary bundle refuses one released on or before it, so the two sets can never blend. The anchor is the earliest decision the cycle scores, taken from the run-input manifest, so the check cannot be satisfied by supplying a registry that vouches for itself.
 

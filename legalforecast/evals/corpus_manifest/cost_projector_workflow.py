@@ -22,13 +22,19 @@ def issue_manifest_cost_projection_from_workflow_environment(
 
     supplementary = _optional_environment_bool(environment, "SUPPLEMENTARY")
     official_freeze_bundle = environment.get("OFFICIAL_FREEZE_BUNDLE_PATH", "").strip()
-    if supplementary and not official_freeze_bundle:
+    official_freeze_sha256 = environment.get(
+        "OFFICIAL_FREEZE_BUNDLE_SHA256", ""
+    ).strip()
+    supplied = (official_freeze_bundle, official_freeze_sha256)
+    if supplementary and not all(supplied):
         raise ManifestCostProjectionError(
-            "OFFICIAL_FREEZE_BUNDLE_PATH is required when SUPPLEMENTARY is true"
+            "OFFICIAL_FREEZE_BUNDLE_PATH and OFFICIAL_FREEZE_BUNDLE_SHA256 are "
+            "required when SUPPLEMENTARY is true"
         )
-    if not supplementary and official_freeze_bundle:
+    if not supplementary and any(supplied):
         raise ManifestCostProjectionError(
-            "OFFICIAL_FREEZE_BUNDLE_PATH is only valid when SUPPLEMENTARY is true"
+            "OFFICIAL_FREEZE_BUNDLE_PATH and OFFICIAL_FREEZE_BUNDLE_SHA256 are "
+            "only valid when SUPPLEMENTARY is true"
         )
     request = ManifestCostProjectionRequest(
         freeze_bundle=Path(_required_env(environment, "FREEZE_BUNDLE_PATH")),
@@ -56,6 +62,7 @@ def issue_manifest_cost_projection_from_workflow_environment(
         official_freeze_bundle=(
             Path(official_freeze_bundle) if official_freeze_bundle else None
         ),
+        official_freeze_bundle_sha256=official_freeze_sha256 or None,
     )
     receipt = issue_manifest_cost_projection(request)
     _append_github_outputs(Path(_required_env(environment, "GITHUB_OUTPUT")), receipt)
@@ -94,12 +101,9 @@ def _optional_environment_bool(environment: Mapping[str, str], name: str) -> boo
     caller written before this lane existed, projects officially.
     """
 
-    raw = environment.get(name, "").strip()
-    if not raw:
+    if not environment.get(name, "").strip():
         return False
-    if raw not in {"true", "false"}:
-        raise ManifestCostProjectionError(f"{name} must be true or false")
-    return raw == "true"
+    return _environment_bool(environment, name)
 
 
 def _split_csv(raw: str) -> list[str]:

@@ -38,7 +38,7 @@ from legalforecast.evals.corpus_manifest.schema import load_signed_manifest_byte
 from legalforecast.evals.corpus_manifest.supplementary_mode import (
     build_supplementary_binding,
     corpus_anchor_from_packet_rows,
-    load_reference_freeze_bundle,
+    load_pinned_reference_freeze_bundle,
     require_sibling_freeze_identity,
     require_supplementary_registry,
 )
@@ -372,15 +372,19 @@ def _authenticate_supplementary_registry(
     derived from the corpus itself.
     """
 
-    official_path = request.official_freeze_bundle
-    if official_path is None:  # Guarded by ManifestCostProjectionRequest.
-        raise ManifestCostProjectionError(
-            "supplementary projection requires --official-freeze-bundle"
-        )
+    # Both are non-None by ManifestCostProjectionRequest.__post_init__; the
+    # casts keep the guarantee local rather than restating it as a branch that
+    # can never be taken.
+    official_path = cast(Path, request.official_freeze_bundle)
+    expected_official_sha256 = cast(str, request.official_freeze_bundle_sha256)
+    # Snapshotted once, then hashed and parsed from those same bytes: reading
+    # twice would let an A->B->A flip record a digest the identity checks below
+    # never validated. require_inputs_unchanged rechecks it before commit.
     official_bytes = _snapshot(official_path, snapshots, "official freeze bundle")
-    official = load_reference_freeze_bundle(
-        normalized_absolute(official_path),
+    official = load_pinned_reference_freeze_bundle(
+        official_bytes,
         cycle_id=request.cycle_id,
+        expected_sha256=expected_official_sha256,
         error_type=ManifestCostProjectionError,
     )
     require_sibling_freeze_identity(
@@ -434,7 +438,7 @@ def _authenticate_supplementary_registry(
         error_type=ManifestCostProjectionError,
     )
     binding = build_supplementary_binding(
-        official_freeze_bundle_sha256=hashlib.sha256(official_bytes).hexdigest(),
+        official_freeze_bundle_sha256=expected_official_sha256,
         official_model_registry_sha256=official_registry_sha256,
         official_evaluation_release_anchor=official_anchor,
         corpus_anchor=corpus_anchor,

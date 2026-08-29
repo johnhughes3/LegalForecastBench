@@ -191,6 +191,93 @@ def require_official_result_classes(
         )
 
 
+def require_lane_result_classes(
+    entries: Sequence[ModelRegistryEntry],
+    *,
+    corpus_anchor: date,
+    supplementary: bool,
+) -> None:
+    """Refuse a registry that does not belong to the lane being executed.
+
+    Both directions refuse, from one place, so the pre-dispatch authorization
+    chain and the aggregate cannot drift into disagreeing about which set a model
+    belongs to.  A caller declares which bundle or dispatch it is building; it
+    never gets to declare how a model classifies.
+    """
+
+    if supplementary and not entries:
+        # Checked before anything else: without it an empty registry would make a
+        # supplementary lane skip the separation entirely rather than refuse.
+        raise ResultClassError(
+            "a supplementary result set requires a model registry to classify"
+        )
+    if not supplementary:
+        require_official_result_classes(entries, corpus_anchor=corpus_anchor)
+        return
+    supplementary_keys = set(
+        supplementary_model_ids(entries, corpus_anchor=corpus_anchor)
+    )
+    official = sorted(
+        entry.registry_key
+        for entry in entries
+        if entry.registry_key not in supplementary_keys
+    )
+    if official:
+        raise ResultClassError(
+            "a supplementary result set refuses models released on or before the "
+            f"corpus anchor {corpus_anchor.isoformat()}: {official}"
+        )
+
+
+def corpus_anchor_from_decision_rows(
+    rows: Iterable[tuple[str, Mapping[str, Any]]],
+    *,
+    required: bool,
+) -> date | None:
+    """Derive the corpus anchor from labelled run-input rows, or refuse.
+
+    ``rows`` are ``(label, record)`` pairs in the caller's own deterministic
+    order; the label appears only in the partial-dating refusal.
+
+    Rows carrying no ``decision_date`` are collected rather than skipped so a
+    manifest with no dates at all -- older fixtures, where the anchor is simply
+    unavailable -- stays distinguishable from a partially dated one.  A partial
+    set is always refused: an anchor taken from the dated rows alone can only be
+    later than the true earliest decision, and a later anchor can only
+    under-report supplementary models.  ``required`` makes the all-absent case a
+    refusal too, which is what any supplementary lane passes.
+    """
+
+    dates: list[date] = []
+    undated: list[str] = []
+    for label, record in rows:
+        raw = record.get("decision_date")
+        if raw is None:
+            undated.append(label)
+            continue
+        if not isinstance(raw, str) or not raw.strip():
+            raise ResultClassError("run-input decision_date must be an ISO date string")
+        try:
+            dates.append(date.fromisoformat(raw))
+        except ValueError as exc:
+            raise ResultClassError(
+                f"run-input decision_date is not an ISO date: {raw}"
+            ) from exc
+    if undated and dates:
+        raise ResultClassError(
+            "run-input rows disagree on decision_date presence; the corpus anchor "
+            f"cannot be derived from a partial set: {undated}"
+        )
+    if not dates:
+        if required:
+            raise ResultClassError(
+                "a supplementary result set requires run-input decision dates to "
+                "derive the corpus anchor"
+            )
+        return None
+    return corpus_anchor_from_decision_dates(dates)
+
+
 @dataclass(frozen=True, slots=True)
 class ResultClassRow:
     """One sidecar row: the non-authoritative result class for a model."""

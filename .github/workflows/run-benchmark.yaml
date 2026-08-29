@@ -157,8 +157,12 @@ on:
         description: >-
           Official freeze bundle a supplementary sibling freeze must match, byte
           for byte, on every frozen artifact except the model registry, provider
-          caps, and execution policy. Required for a supplementary dispatch and
-          refused otherwise; read only for its recorded artifact digests.
+          caps, and execution policy, followed by # and its lowercase SHA-256
+          (URI#sha256). Required for a supplementary dispatch and refused
+          otherwise. The digest is the pin: without it a fabricated bundle could
+          copy its shared-artifact digests from the sibling and pass every
+          identity check. Take it from the staged official freeze's recorded
+          raw-file digest.
         required: false
         default: ""
         type: string
@@ -225,6 +229,7 @@ jobs:
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      OFFICIAL_FREEZE_BUNDLE_PATH: /tmp/lfb-official-freeze.json
       MODEL_KEYS: ${{ inputs.model_keys }}
       MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
       RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
@@ -358,20 +363,34 @@ jobs:
             echo "freeze_bundle_path must not contain '..'." >&2
             exit 1
           fi
-          official_freeze_uri="${OFFICIAL_FREEZE_BUNDLE_URI_INPUT//[[:space:]]/}"
+          official_freeze_spec="${OFFICIAL_FREEZE_BUNDLE_URI_INPUT//[[:space:]]/}"
+          official_freeze_uri=""
+          official_freeze_sha256=""
           if [[ "${SUPPLEMENTARY_INPUT}" == "true" ]]; then
             # The sibling freeze reuses the official prompt and corpus bytes on
             # purpose; the cost projector verifies that identity rather than
-            # assuming it, so it needs the official bundle it must match.
-            if [[ -z "${official_freeze_uri}" ]]; then
+            # assuming it, so it needs the official bundle it must match -- and
+            # an independent digest, or a fabricated bundle copying the sibling's
+            # own digests would satisfy every identity check.
+            if [[ -z "${official_freeze_spec}" ]]; then
               echo "official_freeze_bundle_uri is required for a supplementary dispatch." >&2
               exit 1
             fi
-            if [[ ! "${official_freeze_uri}" =~ ^s3://[^/]+/[A-Za-z0-9._/-]+\.json$ ]]; then
-              echo "official_freeze_bundle_uri must be an s3:// JSON object URI." >&2
+            official_freeze_uri="${official_freeze_spec%#*}"
+            official_freeze_sha256="${official_freeze_spec##*#}"
+            if [[ "${official_freeze_uri}" == "${official_freeze_spec}" ]] || ! [[ "${official_freeze_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "official_freeze_bundle_uri must be URI#<lowercase SHA-256>." >&2
               exit 1
             fi
-          elif [[ -n "${official_freeze_uri}" ]]; then
+            if [[ ! "${official_freeze_uri}" =~ ^s3://[^/]+/[A-Za-z0-9._/-]+\.json$ ]]; then
+              echo "official_freeze_bundle_uri must be an s3:// JSON object URI followed by #<sha256>." >&2
+              exit 1
+            fi
+            if [[ "${official_freeze_uri}" == *".."* ]]; then
+              echo "official_freeze_bundle_uri must not contain '..'." >&2
+              exit 1
+            fi
+          elif [[ -n "${official_freeze_spec}" ]]; then
             echo "official_freeze_bundle_uri is only valid for a supplementary dispatch." >&2
             exit 1
           fi
@@ -466,6 +485,8 @@ jobs:
             echo "freeze_root=${freeze_root}"
             echo "max_parallel=${MAX_PARALLEL_INPUT}"
             echo "release_sha=${release_sha}"
+            echo "official_freeze_bundle_uri=${official_freeze_uri}"
+            echo "official_freeze_bundle_sha256=${official_freeze_sha256}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Configure AWS OIDC credentials
@@ -481,7 +502,9 @@ jobs:
         shell: bash
         env:
           FREEZE_BUNDLE_URI: ${{ inputs.freeze_bundle_path }}
-          OFFICIAL_FREEZE_BUNDLE_URI: ${{ inputs.official_freeze_bundle_uri }}
+          OFFICIAL_FREEZE_BUNDLE_PATH: ${{ env.OFFICIAL_FREEZE_BUNDLE_PATH }}
+          OFFICIAL_FREEZE_BUNDLE_SHA256: ${{ steps.validate.outputs.official_freeze_bundle_sha256 }}
+          OFFICIAL_FREEZE_BUNDLE_URI: ${{ steps.validate.outputs.official_freeze_bundle_uri }}
           SUPPLEMENTARY: ${{ inputs.supplementary }}
         run: |
           set -euo pipefail
@@ -499,7 +522,12 @@ jobs:
           }
           if [[ "${SUPPLEMENTARY}" == "true" ]]; then
             aws s3 cp "${OFFICIAL_FREEZE_BUNDLE_URI}" \
-              /tmp/lfb-official-freeze.json --only-show-errors
+              "${OFFICIAL_FREEZE_BUNDLE_PATH}" --only-show-errors
+            observed="$(sha256sum "${OFFICIAL_FREEZE_BUNDLE_PATH}" | cut -d ' ' -f1)"
+            if [[ "${observed}" != "${OFFICIAL_FREEZE_BUNDLE_SHA256}" ]]; then
+              echo "official freeze bundle does not match its dispatched digest pin." >&2
+              exit 1
+            fi
           fi
 
       - name: Download run-input manifest
@@ -923,7 +951,8 @@ jobs:
           MODEL_KEYS: ${{ inputs.model_keys }}
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
-          OFFICIAL_FREEZE_BUNDLE_PATH: ${{ inputs.supplementary && '/tmp/lfb-official-freeze.json' || '' }}
+          OFFICIAL_FREEZE_BUNDLE_PATH: ${{ inputs.supplementary && env.OFFICIAL_FREEZE_BUNDLE_PATH || '' }}
+          OFFICIAL_FREEZE_BUNDLE_SHA256: ${{ steps.validate.outputs.official_freeze_bundle_sha256 }}
           SHARD_ONLY: ${{ inputs.shard_only }}
           SUPPLEMENTARY: ${{ inputs.supplementary }}
         run: |
@@ -1220,11 +1249,15 @@ jobs:
         env:
           SOURCE_DISPATCH_RUN_ATTEMPT: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
           SOURCE_RELEASE_SHA: ${{ needs.build-matrix.outputs.release_sha }}
+          SUPPLEMENTARY: ${{ inputs.supplementary }}
         run: |
           set -euo pipefail
           scope_args=()
           if [[ -s /tmp/lfb-shard-inputs/lfb-execution-scope.json ]] && [[ "$(tr -d '[:space:]' < /tmp/lfb-shard-inputs/lfb-execution-scope.json)" != "{}" ]]; then
             scope_args+=(--execution-scope /tmp/lfb-shard-inputs/lfb-execution-scope.json)
+          fi
+          if [[ "${SUPPLEMENTARY}" == "true" ]]; then
+            scope_args+=(--supplementary)
           fi
           uv run python -m legalforecast.publication.shard_receipt \
             --dispatch-provenance /tmp/lfb-shard-inputs/lfb-dispatch-provenance.json \

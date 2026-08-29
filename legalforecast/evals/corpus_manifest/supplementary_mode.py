@@ -2,9 +2,9 @@
 
 PR #1003 inverted the release-anchor gate from the provider cell forward.  This
 module is the same inversion one stage earlier, for the authorization chain that
-runs *before* dispatch: cost projection, execution-scope issuance, and immutable
-staging.  Nothing here is a waiver.  Every check either stays exactly as it is in
-official mode or is replaced by its mirror image, so both modes fail closed.
+runs *before* dispatch: cost projection and execution-scope issuance.  Nothing
+here is a waiver.  Every check either stays exactly as it is in official mode or
+is replaced by its mirror image, so both modes fail closed.
 
 The comparability property the supplementary lane rests on is that a post-anchor
 model runs against byte-identical corpus and prompt bytes.  That property is
@@ -15,37 +15,43 @@ must disagree on the registry.  A supplementary artifact therefore records both
 bindings explicitly: which official contract it reuses, and which registry it
 evaluates.
 
-Mode is carried as a plain ``supplementary: bool`` (the convention PR #1003 set
-on ``PerCaseRunnerConfig``, ``ForecastBuildRequest``, ``FanInConfig`` and
-``OfficialAggregationConfig``), and never as a claim about a model: which class a
-model belongs to is always derived from its frozen ``release_timestamp`` against
-a corpus-derived anchor.
+The official freeze is a *reference commitment*, so it is pinned by an
+independently supplied digest rather than trusted for being self-consistent.
+Without that pin a fabricated bundle could copy its shared-artifact digests from
+the sibling itself and satisfy every identity check, since the sibling's own
+prompt bytes would be doing the grounding.
+
+Classification is never restated here.  Which lane a model belongs to comes from
+``legalforecast.reporting.result_class``, the same module the aggregate uses, so
+the pre-dispatch chain and the aggregate cannot drift into disagreeing about it.
+Mode itself is carried as a plain ``supplementary: bool`` -- the convention PR
+#1003 set on ``PerCaseRunnerConfig``, ``ForecastBuildRequest``, ``FanInConfig``
+and ``OfficialAggregationConfig``.
 """
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from datetime import date
-from pathlib import Path
 from typing import Any, Final, cast
 
+from legalforecast._hashing import is_lowercase_sha256
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.protocol.freeze import (
-    REQUIRED_FREEZE_ARTIFACTS,
     FreezeBundle,
     FreezeProtocolError,
     FrozenArtifactName,
-    load_freeze_bundle,
+    load_freeze_bundle_bytes,
 )
 from legalforecast.reporting.result_class import (
     ResultClass,
-    corpus_anchor_from_decision_dates,
-    expected_result_class,
-    supplementary_model_ids,
+    ResultClassError,
+    corpus_anchor_from_decision_rows,
+    require_lane_result_classes,
 )
 
 SUPPLEMENTARY_MODE: Final = ResultClass.SUPPLEMENTARY_POST_ANCHOR.value
-OFFICIAL_MODE: Final = ResultClass.OFFICIAL.value
 
 SIBLING_REPLACEABLE_ARTIFACTS: Final = frozenset(
     {
@@ -80,41 +86,42 @@ class SupplementaryModeError(ValueError):
     """Raised when a supplementary or official mode binding does not hold."""
 
 
-def execution_mode(*, supplementary: bool) -> str:
-    """Return the mode name one execution declares."""
-
-    return expected_result_class(supplementary=supplementary).value
-
-
-def load_reference_freeze_bundle(
-    path: Path,
+def load_pinned_reference_freeze_bundle(
+    payload: bytes,
     *,
     cycle_id: str,
+    expected_sha256: str,
     error_type: type[Exception] = SupplementaryModeError,
 ) -> FreezeBundle:
-    """Load an official freeze bundle used purely as a reference commitment.
+    """Parse an official freeze bundle from caller-pinned bytes.
+
+    The caller supplies bytes it has already snapshotted, and the digest it
+    expects them to have.  Hashing and parsing the same bytes is what stops an
+    A->B->A replacement from recording a digest the identity checks never
+    validated, and the independent digest is what stops a fabricated bundle from
+    passing merely by being internally consistent.
 
     Only the bundle's own recorded artifact digests are read, so the official
-    artifact *bytes* are not required to be present.  That is what keeps the
-    identity check cheap enough to run inside a provider cell's preflight: one
-    small JSON file, not a second copy of the corpus.
+    artifact *bytes* need not be present.  That keeps the identity check to one
+    small JSON file rather than a second copy of the corpus.
     """
 
+    if not is_lowercase_sha256(expected_sha256):
+        raise error_type(
+            "official freeze bundle digest must be a lowercase SHA-256 hex digest"
+        )
+    if hashlib.sha256(payload).hexdigest() != expected_sha256:
+        raise error_type(
+            "official freeze bundle bytes do not match the supplied digest pin"
+        )
     try:
-        bundle = load_freeze_bundle(path)
-    except (FreezeProtocolError, OSError, ValueError) as exc:
+        bundle = load_freeze_bundle_bytes(payload)
+    except (FreezeProtocolError, ValueError) as exc:
         raise error_type(f"official freeze bundle is not valid: {exc}") from exc
     if bundle.cycle_id != cycle_id:
         raise error_type(
             "official freeze bundle cycle_id does not match dispatch input"
         )
-    missing = sorted(
-        name.value
-        for name in REQUIRED_FREEZE_ARTIFACTS
-        if name not in {artifact.name for artifact in bundle.artifacts}
-    )
-    if missing:
-        raise error_type(f"official freeze bundle is missing artifacts: {missing}")
     return bundle
 
 
@@ -177,27 +184,14 @@ def require_supplementary_registry(
     corpus_anchor: date,
     error_type: type[Exception] = SupplementaryModeError,
 ) -> None:
-    """Refuse a supplementary registry whose models classify official.
+    """Refuse a supplementary registry whose models classify official."""
 
-    This mirrors ``official_aggregate._require_result_class_separation`` so the
-    pre-dispatch chain and the aggregate cannot disagree about which set a model
-    belongs to.  A caller chooses which lane it is dispatching; it does not get
-    to choose how a model classifies.
-    """
-
-    if not entries:
-        raise error_type("supplementary mode requires a model registry to classify")
-    supplementary = set(supplementary_model_ids(entries, corpus_anchor=corpus_anchor))
-    official = sorted(
-        entry.registry_key
-        for entry in entries
-        if entry.registry_key not in supplementary
-    )
-    if official:
-        raise error_type(
-            "supplementary mode refuses models released on or before the corpus "
-            f"anchor {corpus_anchor.isoformat()}: {official}"
+    try:
+        require_lane_result_classes(
+            entries, corpus_anchor=corpus_anchor, supplementary=True
         )
+    except ResultClassError as exc:
+        raise error_type(str(exc)) from exc
 
 
 def corpus_anchor_from_packet_rows(
@@ -207,41 +201,26 @@ def corpus_anchor_from_packet_rows(
 ) -> date:
     """Derive the corpus anchor from authenticated run-input packet rows.
 
-    Deriving it from the corpus rather than from the registry under evaluation is
-    what makes the classification non-vacuous: a registry containing only
-    post-anchor models would otherwise supply its own anchor and certify itself.
-    Partial dating is refused rather than tolerated, because an anchor taken from
-    the dated rows alone can only be later than the true earliest decision, and a
-    later anchor can only under-report supplementary models.
+    Delegates to the shared derivation the aggregate uses, so the two cannot
+    disagree about the anchor or about which dating states are refused.
     """
 
-    dates: list[date] = []
-    undated: list[str] = []
-    for row in rows:
-        raw = row.get("decision_date")
-        label = str(row.get("packet_object_key", row.get("case_id", "<unknown>")))
-        if raw is None:
-            undated.append(label)
-            continue
-        if not isinstance(raw, str) or not raw.strip():
-            raise error_type("run-input decision_date must be an ISO date string")
-        try:
-            dates.append(date.fromisoformat(raw))
-        except ValueError as exc:
-            raise error_type(
-                f"run-input decision_date is not an ISO date: {raw}"
-            ) from exc
-    if undated and dates:
-        raise error_type(
-            "run-input rows disagree on decision_date presence; the corpus anchor "
-            f"cannot be derived from a partial set: {sorted(undated)}"
+    try:
+        anchor = corpus_anchor_from_decision_rows(
+            (
+                (
+                    str(row.get("packet_object_key", row.get("case_id", "<unknown>"))),
+                    row,
+                )
+                for row in rows
+            ),
+            required=True,
         )
-    if not dates:
-        raise error_type(
-            "supplementary mode requires run-input decision dates to derive the "
-            "corpus anchor"
-        )
-    return corpus_anchor_from_decision_dates(dates)
+    except ResultClassError as exc:
+        raise error_type(str(exc)) from exc
+    if anchor is None:  # pragma: no cover - required=True never returns None
+        raise error_type("corpus anchor could not be derived")
+    return anchor
 
 
 def build_supplementary_binding(
@@ -291,7 +270,7 @@ def require_binding_shape(
         "supplementary_model_registry_sha256",
     ):
         digest = record.get(field)
-        if not isinstance(digest, str) or not _is_sha256(digest):
+        if not isinstance(digest, str) or not is_lowercase_sha256(digest):
             raise error_type(f"{label}.{field} must be a lowercase SHA-256 digest")
     if (
         record["official_model_registry_sha256"]
@@ -301,13 +280,9 @@ def require_binding_shape(
             f"{label} must bind a supplementary registry distinct from the official one"
         )
     for field in ("official_evaluation_release_anchor", "corpus_anchor"):
-        raw = record.get(field)
-        if not isinstance(raw, str):
-            raise error_type(f"{label}.{field} must be an ISO date string")
-        try:
-            date.fromisoformat(raw)
-        except ValueError as exc:
-            raise error_type(f"{label}.{field} must be an ISO date string") from exc
+        _require_canonical_iso_date(
+            record.get(field), label=f"{label}.{field}", error_type=error_type
+        )
     keys = record.get("supplementary_model_keys")
     if (
         not isinstance(keys, list)
@@ -322,42 +297,23 @@ def require_binding_shape(
     return record
 
 
-def require_mode_match(
-    record: Mapping[str, Any],
-    *,
-    field: str,
-    supplementary: bool,
-    label: str,
-    error_type: type[Exception] = SupplementaryModeError,
-) -> Mapping[str, Any] | None:
-    """Require a recorded mode to be exactly the mode the caller is executing.
+def _require_canonical_iso_date(
+    value: object, *, label: str, error_type: type[Exception]
+) -> date:
+    """Require the exact canonical ``YYYY-MM-DD`` spelling, not merely parseable.
 
-    An official artifact never carries the binding block, so its bytes are
-    unchanged by this lane; presence of the block *is* the supplementary
-    declaration.  Refusing in both directions is what stops a supplementary scope
-    from authorizing an official shard, and an official scope from authorizing a
-    supplementary one.
+    ``date.fromisoformat`` also accepts compact and week-date forms on the pinned
+    Python, and every comparison against these recorded fields elsewhere is plain
+    string equality -- so a non-canonical spelling would compare unequal to the
+    same date written canonically.
     """
 
-    present = field in record
-    if supplementary and not present:
-        raise error_type(
-            f"{label} was issued in official mode and cannot authorize a "
-            "supplementary execution"
-        )
-    if not supplementary and present:
-        raise error_type(
-            f"{label} was issued in supplementary mode and cannot authorize an "
-            "official execution"
-        )
-    if not present:
-        return None
-    return require_binding_shape(
-        record[field], label=f"{label}.{field}", error_type=error_type
-    )
-
-
-def _is_sha256(value: str) -> bool:
-    return len(value) == 64 and all(
-        character in "0123456789abcdef" for character in value
-    )
+    if not isinstance(value, str):
+        raise error_type(f"{label} must be an ISO date string")
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise error_type(f"{label} must be an ISO date string") from exc
+    if parsed.isoformat() != value:
+        raise error_type(f"{label} must use the canonical YYYY-MM-DD spelling")
+    return parsed

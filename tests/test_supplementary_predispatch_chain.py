@@ -34,6 +34,7 @@ from legalforecast.evals.corpus_manifest.cost_projector import (
     ManifestCostProjectionError,
     ManifestCostProjectionRequest,
     issue_manifest_cost_projection,
+    verify_manifest_cost_projection_receipt,
 )
 from legalforecast.evals.corpus_manifest.cost_projector_workflow import (
     issue_manifest_cost_projection_from_workflow_environment,
@@ -54,9 +55,15 @@ from legalforecast.evals.model_registry import (
 )
 from legalforecast.protocol.freeze import (
     FreezeBundle,
+    FreezeProtocolError,
     FrozenArtifact,
     FrozenArtifactName,
+    load_freeze_bundle,
     write_hash_bundle,
+)
+from legalforecast.reporting.result_class import (
+    ResultClass,
+    classify_registry_entry,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -313,7 +320,7 @@ def _chain(
     supplementary_policy.write_bytes(_json_bytes({"policy": "supplementary"}))
 
     official_freeze = root / "official.freeze.json"
-    official_bundle = _freeze(
+    _freeze(
         official_freeze,
         registry_path=official_registry_path,
         prompt_path=prompt_path,
@@ -323,7 +330,7 @@ def _chain(
         policy_path=official_policy,
     )
     sibling_freeze = root / "sibling.freeze.json"
-    sibling_bundle = _freeze(
+    _freeze(
         sibling_freeze,
         registry_path=supplementary_registry_path,
         prompt_path=prompt_path,
@@ -333,12 +340,31 @@ def _chain(
         policy_path=supplementary_policy,
     )
 
-    bundles = {official_freeze: official_bundle, sibling_freeze: sibling_bundle}
+    def _verify(path: Any, **kwargs: Any) -> FreezeBundle:
+        """Run the real loader, then skip only the policy-artifact validation.
 
-    def _verify(path: Any, **_kwargs: Any) -> FreezeBundle:
-        # Stubs only the policy-artifact validation, which needs a full set of
-        # real Cycle 1 policy documents and is not what these tests exercise.
-        return bundles[Path(path)]
+        ``verify_freeze_bundle`` does three things: it loads and hash-checks the
+        bundle, it re-reads every artifact's bytes, and it validates the Cycle 1
+        policy documents. Only the last needs a full set of real policy artifacts
+        and is unrelated to this lane, so it is the only part stubbed -- the
+        bundle's own commitment hash, cycle_id, and per-artifact byte digests are
+        all still checked by the code under test.
+        """
+
+        bundle = load_freeze_bundle(Path(path))
+        expected_cycle_id = kwargs.get("cycle_id")
+        if expected_cycle_id is not None and bundle.cycle_id != expected_cycle_id:
+            raise FreezeProtocolError("freeze cycle_id does not match")
+        for artifact in bundle.artifacts:
+            payload = artifact.path.read_bytes()
+            if (
+                hashlib.sha256(payload).hexdigest() != artifact.sha256
+                or len(payload) != artifact.size_bytes
+            ):
+                raise FreezeProtocolError(
+                    f"frozen artifact bytes differ: {artifact.name.value}"
+                )
+        return bundle
 
     monkeypatch.setattr(auth_module, "verify_freeze_bundle", _verify)
     monkeypatch.setattr(
@@ -391,7 +417,14 @@ def _request(
         output=chain.root / output_name,
         supplementary=supplementary,
         official_freeze_bundle=chain.official_freeze if supplementary else None,
+        official_freeze_bundle_sha256=(
+            _sha256_file(chain.official_freeze) if supplementary else None
+        ),
     )
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 # --- The gap itself -------------------------------------------------------
@@ -558,12 +591,36 @@ def test_supplementary_mode_refuses_an_unrelated_official_bundle(
         policy_path=shared[FrozenArtifactName.EXECUTION_POLICY],
     )
     request = replace(
-        _request(chain, supplementary=True), official_freeze_bundle=forged
+        _request(chain, supplementary=True),
+        official_freeze_bundle=forged,
+        official_freeze_bundle_sha256=_sha256_file(forged),
     )
 
     with pytest.raises(
         ManifestCostProjectionError,
         match="does not bind the registry the frozen prompt contract commits",
+    ):
+        issue_manifest_cost_projection(request)
+
+
+def test_supplementary_mode_refuses_an_unpinned_reference_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The reference bundle is pinned, not trusted for self-consistency.
+
+    A fabricated bundle can copy its shared-artifact digests straight from the
+    sibling, so every identity check would be grounded in the sibling's own
+    prompt bytes. The independent digest is what breaks that circle.
+    """
+
+    chain = _chain(tmp_path, monkeypatch)
+    request = replace(
+        _request(chain, supplementary=True), official_freeze_bundle_sha256="a" * 64
+    )
+
+    with pytest.raises(
+        ManifestCostProjectionError,
+        match="do not match the supplied digest pin",
     ):
         issue_manifest_cost_projection(request)
 
@@ -623,6 +680,10 @@ def test_request_requires_the_official_freeze_in_supplementary_mode(
         ManifestCostProjectionError, match="requires --official-freeze-bundle"
     ):
         replace(_request(chain, supplementary=True), official_freeze_bundle=None)
+    with pytest.raises(
+        ManifestCostProjectionError, match="official-freeze-bundle-sha256"
+    ):
+        replace(_request(chain, supplementary=True), official_freeze_bundle_sha256=None)
 
 
 def test_request_refuses_the_official_freeze_in_official_mode(
@@ -636,6 +697,13 @@ def test_request_refuses_the_official_freeze_in_official_mode(
         replace(
             _request(chain, supplementary=False),
             official_freeze_bundle=chain.official_freeze,
+        )
+    with pytest.raises(
+        ManifestCostProjectionError, match="does not accept --official-freeze-bundle"
+    ):
+        replace(
+            _request(chain, supplementary=False),
+            official_freeze_bundle_sha256="f" * 64,
         )
 
 
@@ -657,6 +725,7 @@ def _workflow_environment(
         "MATRIX_LIMIT": "800",
         "MODEL_KEYS": SUPPLEMENTARY_MODEL_KEY,
         "OFFICIAL_FREEZE_BUNDLE_PATH": str(chain.official_freeze),
+        "OFFICIAL_FREEZE_BUNDLE_SHA256": _sha256_file(chain.official_freeze),
         "REPEAT_COUNT": "1",
         "SHARD_ONLY": "false",
         "SUPPLEMENTARY": "true",
@@ -699,6 +768,7 @@ def test_workflow_environment_defaults_to_official_when_unset(
     )
     del environment["SUPPLEMENTARY"]
     del environment["OFFICIAL_FREEZE_BUNDLE_PATH"]
+    del environment["OFFICIAL_FREEZE_BUNDLE_SHA256"]
 
     receipt = issue_manifest_cost_projection_from_workflow_environment(environment)
 
@@ -711,9 +781,7 @@ def test_workflow_environment_refuses_supplementary_without_official_freeze(
     chain = _chain(tmp_path, monkeypatch)
     environment = _workflow_environment(chain, tmp_path, OFFICIAL_FREEZE_BUNDLE_PATH="")
 
-    with pytest.raises(
-        ManifestCostProjectionError, match="OFFICIAL_FREEZE_BUNDLE_PATH is required"
-    ):
+    with pytest.raises(ManifestCostProjectionError, match="are required"):
         issue_manifest_cost_projection_from_workflow_environment(environment)
 
 
@@ -723,11 +791,90 @@ def test_workflow_environment_refuses_official_freeze_in_official_mode(
     chain = _chain(tmp_path, monkeypatch)
     environment = _workflow_environment(chain, tmp_path, SUPPLEMENTARY="false")
 
+    with pytest.raises(ManifestCostProjectionError, match="are only valid"):
+        issue_manifest_cost_projection_from_workflow_environment(environment)
+
+
+def test_receipt_verifier_refuses_the_other_lane_in_both_directions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Direct coverage of the receipt gate, which the scope gate would mask.
+
+    ``verify_manifest_cost_projection_receipt`` is reachable on its own, and in
+    the scope path the scope-level check always trips first -- so without this the
+    receipt's own lane selection would be asserted by nothing.
+    """
+
+    chain = _chain(tmp_path, monkeypatch)
+    supplementary = issue_manifest_cost_projection(_chain_request(chain))
+    official = issue_manifest_cost_projection(
+        _request(chain, supplementary=False, output_name="official-receipt.json")
+    )
+    common_inputs = {
+        "freeze_bundle_sha256": _sha256_file(chain.sibling_freeze),
+        "manifest_sha256": _sha256_file(chain.root / "owner-manifest.json"),
+        "run_input_manifest_sha256": _sha256_file(chain.run_inputs),
+        "model_registry_sha256": _sha256_file(chain.supplementary_registry),
+        "run_card_sha256": "c" * 64,
+    }
+
     with pytest.raises(
         ManifestCostProjectionError,
-        match="OFFICIAL_FREEZE_BUNDLE_PATH is only valid",
+        match=r"schema is not the expected lane: expected "
+        r"legalforecast\.manifest_cost_projection_receipt\.v1",
     ):
-        issue_manifest_cost_projection_from_workflow_environment(environment)
+        verify_manifest_cost_projection_receipt(
+            supplementary,
+            expected_cycle_id=CYCLE_ID,
+            expected_model_key=SUPPLEMENTARY_MODEL_KEY,
+            expected_common_frozen_inputs=common_inputs,
+            expected_registry_entry={},
+        )
+
+    with pytest.raises(
+        ManifestCostProjectionError,
+        match=r"schema is not the expected lane: expected "
+        r"legalforecast\.manifest_cost_projection_supplementary_receipt\.v1",
+    ):
+        verify_manifest_cost_projection_receipt(
+            official,
+            expected_cycle_id=CYCLE_ID,
+            expected_model_key=OFFICIAL_MODEL_KEY,
+            expected_common_frozen_inputs=common_inputs,
+            expected_registry_entry={},
+            expected_supplementary=True,
+        )
+
+
+def test_official_and_supplementary_receipts_are_distinct_cards(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Change control: the binding is a new card, not a field on the old one."""
+
+    chain = _chain(tmp_path, monkeypatch)
+
+    supplementary = issue_manifest_cost_projection(_chain_request(chain))
+    official = issue_manifest_cost_projection(
+        _request(chain, supplementary=False, output_name="official-receipt.json")
+    )
+
+    assert official["schema_version"] == (
+        "legalforecast.manifest_cost_projection_receipt.v1"
+    )
+    assert supplementary["schema_version"] == (
+        "legalforecast.manifest_cost_projection_supplementary_receipt.v1"
+    )
+    # The identifier is inside the hashed payload, so the lane cannot be swapped
+    # without breaking the receipt digest.
+    assert "schema_version" not in {"receipt_sha256"}
+    swapped = dict(supplementary)
+    swapped["schema_version"] = official["schema_version"]
+    from legalforecast.protocol.manifest import hash_payload
+
+    without_hash = {
+        key: value for key, value in swapped.items() if key != "receipt_sha256"
+    }
+    assert hash_payload(without_hash) != swapped["receipt_sha256"]
 
 
 # --- Execution scope: mode is bound into the artifact ---------------------
@@ -838,15 +985,23 @@ def test_supplementary_scope_records_the_binding_and_verifies(
 def test_supplementary_scope_cannot_authorize_an_official_shard(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The default at consumption is official, so an unchanged caller refuses."""
+    """The default at consumption is official, so an unchanged caller refuses.
+
+    The refusal is by schema identifier: a supplementary scope is a different
+    card, so it does not parse as an official one at all.
+    """
 
     chain = _chain(tmp_path, monkeypatch)
     scope, plan, _receipt = _scope(chain, tmp_path, monkeypatch)
+    assert scope["schema_version"] == "legalforecast.execution_scope_supplementary.v1"
     registry = load_model_registry(chain.supplementary_registry)
 
     with pytest.raises(
         ExecutionScopeError,
-        match="was issued in supplementary mode and cannot authorize an official",
+        match=(
+            r"schema is not the expected lane: expected "
+            r"legalforecast\.execution_scope\.v1"
+        ),
     ):
         verify_execution_scope_runtime(
             scope,
@@ -889,7 +1044,7 @@ def test_official_scope_cannot_authorize_a_supplementary_shard(
     chain = _chain(tmp_path, monkeypatch)
     scope, plan, _receipt = _scope(chain, tmp_path, monkeypatch)
     official_shape = {
-        "schema_version": scope["schema_version"],
+        "schema_version": "legalforecast.execution_scope.v1",
         "scope": {
             key: value
             for key, value in cast(dict[str, Any], scope["scope"]).items()
@@ -903,7 +1058,10 @@ def test_official_scope_cannot_authorize_a_supplementary_shard(
 
     with pytest.raises(
         ExecutionScopeError,
-        match="was issued in official mode and cannot authorize a supplementary",
+        match=(
+            r"schema is not the expected lane: expected "
+            r"legalforecast\.execution_scope_supplementary\.v1"
+        ),
     ):
         verify_execution_scope_runtime(
             official_shape,
@@ -934,7 +1092,7 @@ def test_workflow_threads_supplementary_into_the_matrix_and_scope_steps() -> Non
     assert "SUPPLEMENTARY: ${{ inputs.supplementary }}" in workflow
     assert (
         "OFFICIAL_FREEZE_BUNDLE_PATH: ${{ inputs.supplementary && "
-        "'/tmp/lfb-official-freeze.json' || '' }}"
+        "env.OFFICIAL_FREEZE_BUNDLE_PATH || '' }}"
     ) in workflow
     assert 'expected_supplementary=os.environ["SUPPLEMENTARY"] == "true",' in workflow
     # Both directions at dispatch validation, mirroring the library refusal.
@@ -946,6 +1104,21 @@ def test_workflow_threads_supplementary_into_the_matrix_and_scope_steps() -> Non
         "official_freeze_bundle_uri is only valid for a supplementary dispatch."
         in workflow
     )
+    # Content-addressed like its siblings: URI#sha256, '..' rejected, and the
+    # validated value -- not the raw input -- is what the download consumes.
+    assert "official_freeze_bundle_uri must be URI#<lowercase SHA-256>." in workflow
+    assert "official_freeze_bundle_uri must not contain '..'." in workflow
+    assert 'echo "official_freeze_bundle_uri=${official_freeze_uri}"' in workflow
+    assert (
+        "OFFICIAL_FREEZE_BUNDLE_URI: ${{ steps.validate.outputs."
+        "official_freeze_bundle_uri }}" in workflow
+    )
+    assert (
+        "official freeze bundle does not match its dispatched digest pin." in workflow
+    )
+    # The shard-receipt writer declares its lane before consuming the write-once
+    # slot, instead of inferring it from the transported scope.
+    assert "scope_args+=(--supplementary)" in workflow
 
 
 def test_corpus_anchor_is_the_earliest_scored_decision(
@@ -958,5 +1131,15 @@ def test_corpus_anchor_is_the_earliest_scored_decision(
 
     receipt = issue_manifest_cost_projection(_chain_request(chain))
 
-    assert receipt["supplementary_binding"]["corpus_anchor"] == CORPUS_ANCHOR
-    assert date.fromisoformat(CORPUS_ANCHOR) < date(2026, 8, 13)
+    binding = receipt["supplementary_binding"]
+    assert binding["corpus_anchor"] == CORPUS_ANCHOR
+    # The anchor the projector recorded is the one that actually classifies this
+    # registry, and it classifies it supplementary -- not merely an earlier date.
+    entry = load_model_registry(chain.supplementary_registry).entries[0]
+    assert (
+        classify_registry_entry(
+            entry, corpus_anchor=date.fromisoformat(binding["corpus_anchor"])
+        )
+        is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+    )
+    assert binding["supplementary_model_keys"] == [entry.registry_key]
