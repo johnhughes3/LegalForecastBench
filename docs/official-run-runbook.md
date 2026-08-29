@@ -1943,6 +1943,69 @@ uv run legalforecast publish aggregate \
 
 Re-render the site from that complete union bundle and publish it to the same cycle report location. The new run card marks this as `additive_supersession` and points to the report it supersedes. Do not use the withdrawal path: the original model rows remain canonical and the amended publication only adds the new rows.
 
+## Run A Post-Anchor Supplementary Model
+
+A model released after the cycle's corpus decision window closed cannot join the frozen cycle. `freeze amend` refuses it twice over: an amendment may change only `model_registry`, so the frozen `provider_cycle_caps` cannot gain the new provider, and an added model whose release postdates the prior anchor is rejected outright. Both refusals are correct — admitting the model would move the anchor under decisions that have already been scored.
+
+Such a model still runs through this same pipeline. It binds its own registry and caps in a sibling freeze over the identical corpus artifacts, and its results publish beside the official rows marked supplementary. Nothing about the harness, packet builder, blinding, prompts, docket tool, or spend control differs.
+
+1. Issue a supplementary execution policy from the supplementary registry. The plan issuer is unmodified: it requires at least one registry entry, not exactly four, so a one-model registry produces the standard two-ablation shard schedule.
+
+```bash
+uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
+  --cycle-id <cycle_id> \
+  --manifest manifests/<cycle_id>.manifest.json \
+  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
+  --run-card artifacts/<cycle_id>/manifest-forecast/<run-record>.json \
+  --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
+  --output artifacts/<cycle_id>/supplementary-execution-policy.json
+```
+
+2. Freeze a sibling bundle. Pass the *same* manifest, units, labels, prompt, scorer, harness, baselines, exclusion ledger, labeling policy, and cohort policy the official freeze used, and the supplementary registry, caps, and execution policy in place of the official ones. This is a new freeze, never an amendment of the official bundle, which stays untouched at its committed path.
+
+3. Dispatch `run-benchmark.yaml` with `freeze_bundle_path` set to the supplementary freeze, `model_registry_uri` set to the supplementary registry, and `model_keys` set to the supplementary key alone. The `gemini` provider lane already accepts `google:*` keys, so no workflow change is required.
+
+4. Aggregate the shard into its own bundle with `--supplementary`. That flag is a declaration of which bundle is being built, not a claim about any model: an official bundle refuses a model released after the corpus anchor, and a supplementary bundle refuses one released on or before it, so the two sets can never blend. The anchor is the earliest decision the cycle scores, taken from the run-input manifest, so the check cannot be satisfied by supplying a registry that vouches for itself.
+
+```bash
+uv run legalforecast publish aggregate \
+  --per-case-dir tmp/official-downloads/<cycle_id>/supplementary \
+  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
+  --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
+  --labels private/labels/<cycle_id>.labels.jsonl \
+  --output-dir tmp/supplementary-aggregate/<cycle_id> \
+  --cycle-id <cycle_id> \
+  --cycle-series official \
+  --supplementary \
+  --clean-motion-count <count> \
+  --prediction-unit-count <count> \
+  --allow-no-baselines
+```
+
+5. Fan in the supplementary shard with the same receipt verification the official shards get, then publish. Receipts are verified identically; `--supplementary` only selects which bundle the aggregate builds.
+
+```bash
+uv run python -m legalforecast.publication.shard_fan_in \
+  --freeze-bundle manifests/<cycle_id>.supplementary-<model>.freeze.json \
+  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
+  --receipt-root s3://<results-bucket>/receipts/<cycle_id>/ \
+  --output-dir tmp/supplementary-fan-in \
+  --supplementary
+```
+
+6. Render one merged page. Both the local site and the Hugging Face package take the supplementary bundle as an optional input, so the two render the same rows:
+
+```bash
+uv run legalforecast publish site \
+  --official-artifacts-dir tmp/official-fan-in/public \
+  --supplementary-artifacts-dir tmp/supplementary-fan-in/public \
+  --output-dir tmp/official-site/<cycle_id>
+```
+
+For the gated Hugging Face publication, dispatch `fan-in-publish.yaml` with `supplementary_artifacts_dir` set to the checked-out supplementary bundle. Leaving that input empty invokes the package build exactly as an official-only publication does.
+
+The aggregate writes `result-class-sidecar.json` beside the leaderboard. It is a non-authoritative reporting overlay bound to the leaderboard bytes; the site renderer reads it to mark supplementary rows. Approval for a supplementary run is the ordinary spend path: the provider cap in the dated caps artifact plus one owner spend comment. No separate authority chain applies.
+
 ## Staged-Rollout Rehearsal Drill
 
 Extend the staged-rollout fixture rehearsal with this sequence before the real amendment dispatch:

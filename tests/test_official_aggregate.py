@@ -35,6 +35,10 @@ from legalforecast.publication.official_aggregate import (
 )
 from legalforecast.publication.static_sites import render_official_results_site
 from legalforecast.reporting.cadence import CycleSeries
+from legalforecast.reporting.result_class import (
+    SUPPLEMENTARY_CAVEAT,
+    SUPPLEMENTARY_MARKER,
+)
 
 
 def test_publication_reader_preserves_partial_and_material_survival_resolution() -> (
@@ -117,6 +121,79 @@ def test_production_official_aggregate_renders_through_reader_contract(
     assert "display-model-a" in rendered
     assert "display-model-b" in rendered
     assert "fixture:solver-a" not in rendered
+
+
+def test_official_render_loads_the_sidecar_the_aggregate_wrote(
+    tmp_path: Path,
+) -> None:
+    """Exercise the production path end to end: aggregate writes, render loads.
+
+    Every other fixture omits ``decision_date``, so the aggregate derives no
+    corpus anchor and writes no sidecar, and the render never opens one. The
+    real Cycle 1 corpus does carry decision dates, so the official publication
+    will hit the digest-bound load on every render. This pins that chain: a
+    failure here would break the *official* site, not just a supplementary one.
+    """
+
+    manifest_path = _write_run_input_manifest(tmp_path, decision_date="2026-06-26")
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:solver-a", "fixture:solver-b"),
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-model-a",
+        solver_id="fixture:solver-a",
+        model_id="display-model-a",
+        dismissed_probability=0.9,
+    )
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-model-b",
+        solver_id="fixture:solver-b",
+        model_id="display-model-b",
+        dismissed_probability=0.7,
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["cycle_id"] = "production-shape-smoke"
+    _write_json(manifest_path, manifest)
+    for metrics_path in per_case_dir.glob("*/metrics.json"):
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        metrics["cycle_id"] = "production-shape-smoke"
+        _write_json(metrics_path, metrics)
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="production-shape-smoke",
+            cycle_series=CycleSeries.OFFICIAL,
+            clean_motion_count=1,
+            prediction_unit_count=2,
+            model_registry_path=registry_path,
+            allow_no_baselines=True,
+            ablation="full_packet",
+            generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+        )
+    )
+
+    sidecar_path = result.public_dir / "result-class-sidecar.json"
+    assert sidecar_path.is_file(), "aggregate must write the sidecar it renders from"
+
+    site = render_official_results_site(
+        official_artifacts_dir=result.public_dir,
+        output_dir=tmp_path / "official-site",
+    )
+    rendered = site.index_path.read_text(encoding="utf-8")
+    assert "display-model-a" in rendered
+    assert "display-model-b" in rendered
+    # An all-official bundle carries no supplementary marker or caveat.
+    assert SUPPLEMENTARY_MARKER not in rendered
+    assert SUPPLEMENTARY_CAVEAT not in rendered
 
 
 def test_official_aggregate_writes_public_bundle_and_private_debug(
@@ -945,6 +1022,171 @@ def test_official_aggregate_allows_explicit_partial_debug_bundle(
     assert run_card["expected_model_keys"] == ["fixture:model-a"]
 
 
+def test_official_bundle_refuses_a_model_released_after_the_corpus_anchor(
+    tmp_path: Path,
+) -> None:
+    """The fail-closed property: a post-anchor model cannot be published official.
+
+    The anchor is the earliest decision the corpus scores, so a model that did
+    not exist when that case was decided cannot claim the official contamination
+    posture no matter how the aggregate is invoked.
+    """
+
+    manifest_path = _write_run_input_manifest(tmp_path, decision_date="2026-06-26")
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("google:model-a",),
+        release_timestamp="2026-08-13T00:00:00Z",
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet-model-a",
+        solver_id="google:model-a",
+        model_id="model-a",
+    )
+
+    with pytest.raises(
+        OfficialAggregationError, match="released after the corpus anchor"
+    ):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                allow_no_baselines=True,
+                ablation="full_packet",
+            )
+        )
+
+
+def test_supplementary_bundle_refuses_an_official_model(tmp_path: Path) -> None:
+    """Separation runs both ways so the two sets never blend into one bundle."""
+
+    manifest_path = _write_run_input_manifest(tmp_path, decision_date="2026-06-26")
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:model-a",),
+        release_timestamp="2026-05-14T09:00:00Z",
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet-model-a",
+        solver_id="fixture:model-a",
+        model_id="model-a",
+    )
+
+    with pytest.raises(
+        OfficialAggregationError, match="released on or before the corpus anchor"
+    ):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                supplementary=True,
+                allow_no_baselines=True,
+                ablation="full_packet",
+            )
+        )
+
+
+def test_supplementary_bundle_writes_a_flagged_result_class_sidecar(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path, decision_date="2026-06-26")
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("google:model-a",),
+        release_timestamp="2026-08-13T00:00:00Z",
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet-model-a",
+        solver_id="google:model-a",
+        model_id="model-a",
+    )
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "supplementary-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=1,
+            model_registry_path=registry_path,
+            supplementary=True,
+            allow_no_baselines=True,
+            ablation="full_packet",
+        )
+    )
+
+    sidecar = json.loads(
+        (result.public_dir / "result-class-sidecar.json").read_text(encoding="utf-8")
+    )
+    assert sidecar["authoritative"] is False
+    assert sidecar["corpus_anchor"] == "2026-06-26"
+    assert sidecar["rows"] == [
+        {"model_id": "model-a", "result_class": "supplementary_post_anchor"}
+    ]
+
+
+def test_official_bundle_writes_an_official_result_class_sidecar(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path, decision_date="2026-06-26")
+    registry_path = _write_model_registry(tmp_path, ("fixture:model-a",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet-model-a",
+        solver_id="fixture:model-a",
+        model_id="model-a",
+    )
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=1,
+            model_registry_path=registry_path,
+            allow_no_baselines=True,
+            ablation="full_packet",
+        )
+    )
+
+    sidecar = json.loads(
+        (result.public_dir / "result-class-sidecar.json").read_text(encoding="utf-8")
+    )
+    assert sidecar["rows"] == [{"model_id": "model-a", "result_class": "official"}]
+
+
 def test_official_aggregate_requires_expected_model_set_by_default(
     tmp_path: Path,
 ) -> None:
@@ -1495,6 +1737,7 @@ def _write_run_input_manifest(
     labels_sha256: str | None = None,
     packet_hash_field: str | None = "sha256",
     packet_sha256: str = "a" * 64,
+    decision_date: str | None = None,
 ) -> Path:
     manifest_path = tmp_path / "run-inputs.json"
     packet_rows: list[dict[str, Any]] = []
@@ -1505,6 +1748,8 @@ def _write_run_input_manifest(
             "object_key": f"model-packets/cycle-1/case-1/{ablation}.json",
             "packet_size_bytes": packet_size_bytes,
         }
+        if decision_date is not None:
+            packet_row["decision_date"] = decision_date
         if packet_hash_field is not None:
             packet_row[packet_hash_field] = packet_sha256
         if estimated_input_tokens is not None:
@@ -1586,6 +1831,7 @@ def _write_model_registry(
     *,
     context_limit: int = 200_000,
     long_context_surcharge_threshold: int | None = None,
+    release_timestamp: str = "2026-05-14T09:00:00Z",
 ) -> Path:
     registry_path = tmp_path / "model-registry.json"
     records: list[dict[str, Any]] = []
@@ -1597,7 +1843,7 @@ def _write_model_registry(
                 "model_id": model_id,
                 "display_name": model_id,
                 "model_version_or_snapshot": "2026-05-14",
-                "release_timestamp": "2026-05-14T09:00:00Z",
+                "release_timestamp": release_timestamp,
                 "release_timestamp_source": "fixture release note",
                 "provider_training_cutoff_status": "known",
                 "provider_training_cutoff": "2026-04-01",

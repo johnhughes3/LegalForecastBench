@@ -140,6 +140,13 @@ class FanInConfig:
     elapsed_days: int | None = None
     official_window_days: int | None = None
     deferred_ablations: tuple[str, ...] = ("judge_removed",)
+    supplementary: bool = False
+    """Aggregate a post-anchor supplementary shard.
+
+    A supplementary shard is receipt-verified exactly like an official one; this
+    only selects which bundle the aggregate builds, and the aggregate refuses a
+    registry whose classification disagrees with the flag in either direction.
+    """
     verify_only: bool = False
 
 
@@ -1297,6 +1304,7 @@ def _validate_aggregate(
             deferred_ablations=config.deferred_ablations,
             elapsed_days=config.elapsed_days,
             official_window_days=config.official_window_days,
+            supplementary=config.supplementary,
         )
     )
     return result, union_inventory_sha256
@@ -1894,6 +1902,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--elapsed-days", type=int)
     parser.add_argument("--official-window-days", type=int)
     parser.add_argument("--deferred-ablation", action="append", default=[])
+    parser.add_argument(
+        "--supplementary",
+        action="store_true",
+        help=(
+            "Aggregate a post-anchor supplementary shard. Receipt verification "
+            "is identical to an official shard; this only selects which bundle "
+            "the aggregate builds."
+        ),
+    )
     parser.add_argument("--verify-only", action="store_true")
     return parser
 
@@ -1929,6 +1946,7 @@ def config_from_args(args: argparse.Namespace, *, verify_only: bool) -> FanInCon
         elapsed_days=cast(int | None, args.elapsed_days),
         official_window_days=cast(int | None, args.official_window_days),
         deferred_ablations=deferred or ("judge_removed",),
+        supplementary=cast(bool, args.supplementary),
         verify_only=verify_only,
     )
 

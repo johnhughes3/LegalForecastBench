@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import html
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -14,14 +14,22 @@ from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.spec import ArtifactRecord
 from legalforecast.multiharness.validation import require_schema_version
 from legalforecast.publication.official_report_site import build_official_report_page
-from legalforecast.publication.official_report_validation import load_official_bundle
+from legalforecast.publication.official_report_validation import (
+    OfficialBundle,
+    load_official_bundle,
+)
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
     enforce_publication_guardrails,
 )
 from legalforecast.reporting.contamination_tiers import (
+    ContaminationTier,
     frozen_result_digest,
     load_contamination_tier_sidecar,
+)
+from legalforecast.reporting.result_class import (
+    ResultClass,
+    load_result_class_sidecar,
 )
 
 OFFICIAL_RESULTS_SITE_SCHEMA_VERSION = "legalforecast.official_results_site.v1"
@@ -107,6 +115,10 @@ summary:focus-visible {
   border-left-color: var(--baseline);
   background: var(--baseline-soft);
 }
+.supplementary-notice {
+  border-left-color: var(--baseline);
+  background: var(--baseline-soft);
+}
 .report-nav ul {
   display: flex;
   flex-wrap: wrap;
@@ -172,6 +184,11 @@ caption {
   font-weight: 750;
   padding: 2px 8px;
 }
+.tier-badge.supplementary {
+  background: var(--baseline-soft);
+  border-color: var(--baseline);
+  color: var(--baseline);
+}
 .muted {
   color: var(--muted);
 }
@@ -210,13 +227,33 @@ class StaticSiteResult:
     artifact_index_path: Path
 
 
+@dataclass(frozen=True, slots=True)
+class _SidecarSource:
+    """One bundle's sidecar inputs: its bytes on disk and the rows it may key.
+
+    Pairing the directory with the already-validated bundle is what lets a
+    sidecar be checked against the leaderboard it claims to annotate.
+    """
+
+    artifacts_dir: Path
+    bundle: OfficialBundle
+
+
 def render_official_results_site(
     *,
     official_artifacts_dir: Path,
     output_dir: Path,
     contamination_sidecar_path: Path | None = None,
+    supplementary_artifacts_dir: Path | None = None,
+    result_class_sidecar_path: Path | None = None,
 ) -> StaticSiteResult:
-    """Render an official-only static site from official aggregate artifacts."""
+    """Render an official-only static site from official aggregate artifacts.
+
+    ``supplementary_artifacts_dir`` names a separately aggregated, official-shaped
+    bundle of post-anchor models. Its rows are merged into the rendered page only;
+    the official aggregate artifacts, and therefore the leaderboard bytes the
+    contamination sidecar is keyed to, are never rewritten.
+    """
 
     output_dir.mkdir(parents=True, exist_ok=True)
     bundle = load_official_bundle(official_artifacts_dir)
@@ -225,24 +262,43 @@ def render_official_results_site(
         href_base=output_dir,
         allowed_paths=bundle.artifact_paths,
     )
-    sidecar_path = contamination_sidecar_path or (
-        official_artifacts_dir / "contamination-tier-sidecar.json"
-    )
-    contamination_tiers = None
-    if sidecar_path.is_file():
-        leaderboard_bytes = (
-            official_artifacts_dir / "report" / "leaderboard.json"
-        ).read_bytes()
-        sidecar = load_contamination_tier_sidecar(
-            sidecar_path,
-            expected_digest=frozen_result_digest(leaderboard_bytes),
+    official_source = _SidecarSource(official_artifacts_dir, bundle)
+    supplementary_bundle: OfficialBundle | None = None
+    supplementary_source: _SidecarSource | None = None
+    if supplementary_artifacts_dir is not None:
+        supplementary_bundle = load_official_bundle(supplementary_artifacts_dir)
+        supplementary_source = _SidecarSource(
+            supplementary_artifacts_dir,
+            supplementary_bundle,
         )
-        contamination_tiers = sidecar.tier_by_model_id()
+    # Each sidecar stays bound to the leaderboard bytes of its own bundle. Adding
+    # supplementary rows changes only the rendered page, so the official
+    # sidecar's frozen_result_digest binding is unaffected.
+    contamination_tiers = _merged_sidecar_overlay(
+        official_source,
+        supplementary_source,
+        official_path=contamination_sidecar_path,
+        filename="contamination-tier-sidecar.json",
+        load=lambda path, digest: load_contamination_tier_sidecar(
+            path, expected_digest=digest
+        ).tier_by_model_id(),
+    )
+    result_classes = _merged_sidecar_overlay(
+        official_source,
+        supplementary_source,
+        official_path=result_class_sidecar_path,
+        filename="result-class-sidecar.json",
+        load=lambda path, digest: load_result_class_sidecar(
+            path, expected_digest=digest
+        ).result_class_by_model_id(),
+    )
     page = build_official_report_page(
         official_artifacts_dir=official_artifacts_dir,
         artifact_links=artifact_links,
         bundle=bundle,
         contamination_tiers=contamination_tiers,
+        result_classes=result_classes,
+        supplementary_bundle=supplementary_bundle,
     )
     _write_site(
         output_dir,
@@ -324,6 +380,72 @@ def _write_site(
     enforce_publication_guardrails(
         PublicationGuardrailConfig(public_paths=(output_dir,))
     )
+
+
+def _merged_sidecar_overlay[OverlayValue: (ContaminationTier, ResultClass)](
+    official: _SidecarSource,
+    supplementary: _SidecarSource | None,
+    *,
+    official_path: Path | None,
+    filename: str,
+    load: Callable[[Path, str], dict[str, OverlayValue]],
+) -> dict[str, OverlayValue] | None:
+    """Load one reporting sidecar per bundle and merge them for rendering.
+
+    A sidecar is keyed to the frozen leaderboard bytes of its own bundle, so the
+    supplementary bundle needs its own file. Official entries win any collision:
+    a supplementary sidecar must never be able to restate an official row.
+    Returns ``None`` when neither sidecar exists, which renders unannotated.
+    """
+
+    def overlay(source: _SidecarSource, path: Path) -> dict[str, OverlayValue]:
+        if not path.is_file():
+            return {}
+        digest = frozen_result_digest(
+            (source.artifacts_dir / "report" / "leaderboard.json").read_bytes()
+        )
+        rows = load(path, digest)
+        # Refuse, rather than ignore, rows outside the sidecar's own bundle.
+        # Winning the collision is not enough on its own: when the official
+        # bundle ships no sidecar there is nothing to win against, so a
+        # supplementary sidecar keyed to official model_ids would otherwise
+        # decide how official rows render -- or veto the render entirely.
+        # Refusing costs no valid render: the digest above already rejects a
+        # stale sidecar, so a sidecar that reaches this line was built against
+        # exactly these leaderboard bytes and still names a model they do not
+        # contain, which is an inconsistency no correct writer produces.
+        outside = sorted(set(rows) - _bundle_model_ids(source.bundle))
+        if outside:
+            raise ValueError(
+                f"{filename} keys rows outside its own bundle's leaderboard: {outside}"
+            )
+        return rows
+
+    official_overlay = overlay(
+        official,
+        official_path or (official.artifacts_dir / filename),
+    )
+    supplementary_overlay = (
+        {}
+        if supplementary is None
+        else overlay(supplementary, supplementary.artifacts_dir / filename)
+    )
+    if not official_overlay and not supplementary_overlay:
+        return None
+    return {**supplementary_overlay, **official_overlay}
+
+
+def _bundle_model_ids(bundle: OfficialBundle) -> set[str]:
+    """Return every model_id the bundle's frozen leaderboard publishes.
+
+    Baseline rows are included: a sidecar legitimately annotates them too.
+    """
+
+    return {
+        model_id
+        for row in _mapping_rows(bundle.report.get("rows", ()))
+        if isinstance(model_id := row.get("model_id"), str)
+    }
 
 
 def _site_result(output_dir: Path) -> StaticSiteResult:

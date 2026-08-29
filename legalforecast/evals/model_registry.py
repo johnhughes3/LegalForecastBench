@@ -31,6 +31,25 @@ class OpenAIReasoningEffort(StrEnum):
     MAX = "max"
 
 
+class GoogleThinkingLevel(StrEnum):
+    """Google ``generationConfig.thinkingConfig.thinkingLevel`` values.
+
+    That nesting is the generateContent API's shape, which is the endpoint this
+    repo calls. Google's separate Interactions API spells the same setting flat
+    as ``generation_config.thinking_level``; do not copy that form here.
+
+    Gemini 3 replaced the numeric ``thinkingBudget`` with this string enum.
+    ``minimal`` is accepted by some Gemini 3 models but is rejected by
+    Gemini 3.7 Flash, so a registry that requests it will fail loudly at the
+    provider rather than silently degrading.
+    """
+
+    MINIMAL = "minimal"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 @dataclass(frozen=True, slots=True)
 class LongContextSurcharge:
     """Provider-declared token threshold and price multipliers."""
@@ -65,7 +84,10 @@ class ModelRegistryEntry:
     """One frozen model/run configuration used by all benchmark components.
 
     ``reasoning_effort`` is an optional OpenAI-only request setting and is part
-    of the entry's canonical record and hash. ``temperature`` and ``top_p`` are
+    of the entry's canonical record and hash. ``thinking_level`` is the
+    equivalent Google-only setting and is likewise canonical. Each provider
+    accepts only its own knob, so an entry can never request reasoning through a
+    control the served provider will ignore. ``temperature`` and ``top_p`` are
     optional legacy provenance fields. They remain readable and are
     round-tripped when present so existing frozen registry bytes and their
     hashes stay stable. New registries should omit the sampling fields: live
@@ -87,6 +109,7 @@ class ModelRegistryEntry:
     input_token_price: float
     output_token_price: float
     reasoning_effort: OpenAIReasoningEffort | None = None
+    thinking_level: GoogleThinkingLevel | None = None
     temperature: float | None = None
     top_p: float | None = None
     release_timestamp: datetime | None = None
@@ -130,6 +153,11 @@ class ModelRegistryEntry:
             and self.provider.strip().lower() != "openai"
         ):
             raise ValueError("reasoning_effort is supported only for OpenAI models")
+        if self.thinking_level is not None and self.provider.strip().lower() not in {
+            "google",
+            "gemini",
+        }:
+            raise ValueError("thinking_level is supported only for Google models")
         _require_positive_int(self.max_output_tokens, "max_output_tokens")
         _require_positive_int(self.context_limit, "context_limit")
         _require_non_negative(self.input_token_price, "input_token_price")
@@ -187,6 +215,8 @@ class ModelRegistryEntry:
             record["top_p"] = self.top_p
         if self.reasoning_effort is not None:
             record["reasoning_effort"] = self.reasoning_effort.value
+        if self.thinking_level is not None:
+            record["thinking_level"] = self.thinking_level.value
         if self.long_context_surcharge is not None:
             record["long_context_surcharge"] = self.long_context_surcharge.to_record()
         return record
@@ -219,6 +249,7 @@ class ModelRegistryEntry:
             ),
             long_context_surcharge=_optional_long_context_surcharge(record),
             reasoning_effort=_optional_openai_reasoning_effort(record),
+            thinking_level=_optional_google_thinking_level(record),
             temperature=_optional_number(record, "temperature"),
             top_p=_optional_number(record, "top_p"),
         )
@@ -458,6 +489,21 @@ def _optional_openai_reasoning_effort(
     except ValueError as exc:
         allowed = ", ".join(effort.value for effort in OpenAIReasoningEffort)
         raise ValueError(f"reasoning_effort must be one of: {allowed}") from exc
+
+
+def _optional_google_thinking_level(
+    record: Mapping[str, Any],
+) -> GoogleThinkingLevel | None:
+    value = record.get("thinking_level")
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("thinking_level must be a string")
+    try:
+        return GoogleThinkingLevel(value)
+    except ValueError as exc:
+        allowed = ", ".join(level.value for level in GoogleThinkingLevel)
+        raise ValueError(f"thinking_level must be one of: {allowed}") from exc
 
 
 def _parse_datetime(value: str, field_name: str) -> datetime:

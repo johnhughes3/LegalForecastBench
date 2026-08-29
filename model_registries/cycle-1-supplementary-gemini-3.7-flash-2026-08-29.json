@@ -1,0 +1,29 @@
+[
+  {
+    "context_limit": 1048576,
+    "display_name": "Gemini 3.7 Flash",
+    "input_token_price": 0.75,
+    "known_cutoff_publicity_caveats": [
+      "Google does not publish an exact training-data cutoff for Gemini 3.7 Flash; the structured cutoff remains unknown.",
+      "Gemini 3.7 Flash reached general availability on 2026-08-13, after the Cycle 1 corpus decision window closed and after the frozen Cycle 1 release anchor of 2026-06-26. This entry is supplementary: it must never be substituted into the frozen Cycle 1 registry, and its rows publish as supplementary_post_anchor rather than official.",
+      "This revision supersedes cycle-1-supplementary-gemini-3.7-flash-2026-08-24.json for official-parity execution. The prior revision remains immutable and records the completed local 16000-token no-tools comparison.",
+      "Execution settings mirror the frozen official four wherever the provider allows it: controlled_docket_tool_only, an explicit maximum reasoning setting, and provider-default sampling.",
+      "max_output_tokens is 65536, not the official four's 128000, because 65,536 is Gemini 3.7 Flash's provider output-token limit and a higher registry value is unreachable. Source: https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash, output token limit 65,536 and input token limit 1,048,576, checked 2026-08-29. This is a documented provider-imposed deviation from official parity, not a discretionary choice.",
+      "thinking_level 'high' is the Gemini 3 successor to the deprecated numeric thinkingBudget and is the Google-side equivalent of the official OpenAI reasoning_effort 'high'. Source: https://ai.google.dev/gemini-api/docs/generate-content/thinking (generateContent API; the setting is sent as generationConfig.thinkingConfig.thinkingLevel) and https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash (supported levels low, medium, high; 'minimal' returns an error), both checked 2026-08-29."
+    ],
+    "max_output_tokens": 65536,
+    "model_id": "gemini-3.7-flash",
+    "model_version_or_snapshot": "gemini-3.7-flash",
+    "network_disabled": true,
+    "output_token_price": 3.75,
+    "pricing_source": "https://ai.google.dev/gemini-api/docs/pricing, standard prices through 2026-12-31: USD 0.75/M input and USD 3.75/M output, checked 2026-08-24",
+    "provider": "google",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-08-13T00:00:00Z",
+    "release_timestamp_source": "https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash, GA release 2026-08-13, checked 2026-08-24",
+    "search_disabled": true,
+    "thinking_level": "high",
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

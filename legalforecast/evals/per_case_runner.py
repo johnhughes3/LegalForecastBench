@@ -65,6 +65,10 @@ from legalforecast.protocol.policy_artifacts import (
     official_execution_repeat_policy_sha256,
     verify_official_execution_policy,
 )
+from legalforecast.reporting.result_class import (
+    classify_decision_against_anchor,
+    expected_result_class,
+)
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     DefendantGrouping,
@@ -152,6 +156,7 @@ class PerCaseRunnerConfig:
     evaluation_timestamp: datetime | None = None
     timeout_seconds: float = 120.0
     resume_existing: bool = False
+    supplementary: bool = False
     provider_authority_table: str | None = None
     provider_account: str | None = None
     provider_authority_region: str = "us-east-1"
@@ -457,6 +462,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 packet,
                 packet_object=packet_object,
                 release_anchor_date=registry_release_anchor_date,
+                supplementary=config.supplementary,
             )
 
             samples = build_inspect_samples(
@@ -1556,8 +1562,14 @@ def _validate_packet_release_anchor(
     *,
     packet_object: ModelPacketObject,
     release_anchor_date: date | None,
+    supplementary: bool = False,
 ) -> None:
-    """Re-verify packet decision-date eligibility against the frozen registry."""
+    """Re-verify packet decision-date eligibility against the frozen registry.
+
+    Official mode is unchanged. Supplementary mode inverts the comparison
+    instead of dropping it, so the refusal stays fail-closed in both
+    directions.
+    """
 
     if release_anchor_date is None:
         return
@@ -1566,12 +1578,26 @@ def _validate_packet_release_anchor(
         raise PerCaseRunnerError(
             "model packet decision_date is required when model_registry_uri is set"
         )
-    if packet_decision_date < release_anchor_date:
+    observed = classify_decision_against_anchor(
+        decision_date=packet_decision_date,
+        release_anchor=release_anchor_date,
+    )
+    if observed is expected_result_class(supplementary=supplementary):
+        return
+    if supplementary:
+        # Being post-anchor is why a run is supplementary, so the gate inverts
+        # rather than switching off: an official-classed model routed through
+        # the supplementary lane is refused right here.
         raise PerCaseRunnerError(
-            "model packet decision_date precedes release anchor: "
-            f"decision_date={packet_decision_date.isoformat()}, "
+            "supplementary run requires a post-anchor model, but packet "
+            f"decision_date={packet_decision_date.isoformat()} does not precede "
             f"release_anchor={release_anchor_date.isoformat()}"
         )
+    raise PerCaseRunnerError(
+        "model packet decision_date precedes release anchor: "
+        f"decision_date={packet_decision_date.isoformat()}, "
+        f"release_anchor={release_anchor_date.isoformat()}"
+    )
 
 
 def _packet_decision_date(

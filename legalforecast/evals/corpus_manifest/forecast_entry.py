@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Final, cast
 
@@ -65,6 +65,10 @@ from legalforecast.ingestion.provenance import (
     DocumentRole,
     SourceDocumentProvenance,
     sha256_text,
+)
+from legalforecast.reporting.result_class import (
+    classify_decision_against_anchor,
+    expected_result_class,
 )
 from legalforecast.unitization.schemas import (
     PredictionUnit,
@@ -135,6 +139,13 @@ class ForecastBuildRequest:
     model_registry_path: Path
     output_dir: Path
     generated_at: datetime
+    supplementary: bool = False
+    """Build for post-anchor models, whose rows publish as supplementary.
+
+    Set only for a registry whose models were all released after the corpus
+    decision window closed. The release-anchor gate inverts rather than relaxes,
+    so this cannot be used to route an official model around the official path.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,7 +182,11 @@ def build_manifest_mode_forecast(
     packet_rows: list[dict[str, Any]] = []
     prompt_commitments: dict[str, str] = {}
     for case in manifest.cases:
-        _require_release_anchor(case, release_anchor=release_anchor)
+        _require_release_anchor(
+            case,
+            release_anchor=release_anchor,
+            supplementary=request.supplementary,
+        )
         units = units_by_candidate.get(case.candidate_id)
         if not units:
             raise ManifestForecastError(
@@ -482,14 +497,46 @@ def _prediction_units_from_bytes(
     return units
 
 
-def _require_release_anchor(case: ManifestCase, *, release_anchor: object) -> None:
+def _require_release_anchor(
+    case: ManifestCase,
+    *,
+    release_anchor: date,
+    supplementary: bool = False,
+) -> None:
+    """Require every case to match the execution mode's contamination posture.
+
+    Official mode is unchanged: a decision must postdate the evaluated models'
+    release, or the run cannot claim the model could not have trained on the
+    outcome.
+
+    Supplementary mode inverts the same comparison rather than dropping it.
+    Being post-anchor is *why* a run is supplementary, so requiring
+    ``decision_date >= release_anchor`` there is not a passable condition. The
+    inverted gate stays fail-closed in the other direction: a pre-anchor
+    (official-classed) model run in supplementary mode is refused here, so the
+    supplementary lane cannot be used to route an official model around the
+    official gates.
+    """
+
     if not case.decision_date:
         raise ManifestForecastError(
             f"{case.candidate_id}: decision_date is required to clear the "
             "evaluation-registry release anchor"
         )
-    if case.decision_date < str(release_anchor):
+    observed = classify_decision_against_anchor(
+        decision_date=date.fromisoformat(case.decision_date),
+        release_anchor=release_anchor,
+    )
+    expected = expected_result_class(supplementary=supplementary)
+    if observed is expected:
+        return
+    if supplementary:
         raise ManifestForecastError(
-            f"{case.candidate_id}: decision_date {case.decision_date} precedes "
-            f"the evaluation-registry release anchor {release_anchor}"
+            f"{case.candidate_id}: decision_date {case.decision_date} does not "
+            f"precede the evaluation-registry release anchor {release_anchor}; a "
+            "supplementary run requires post-anchor models"
         )
+    raise ManifestForecastError(
+        f"{case.candidate_id}: decision_date {case.decision_date} precedes "
+        f"the evaluation-registry release anchor {release_anchor}"
+    )

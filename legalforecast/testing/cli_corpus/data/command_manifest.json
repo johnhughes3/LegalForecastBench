@@ -903,6 +903,19 @@
           "action": "store_true",
           "choices": null,
           "default": false,
+          "dest": "supplementary",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--supplementary"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
           "dest": "allow_no_baselines",
           "metavar": null,
           "nargs": 0,
@@ -2602,6 +2615,19 @@
           "type": null
         },
         {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
+          "dest": "supplementary",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--supplementary"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
           "action": "store",
           "choices": null,
           "default": null,
@@ -3507,6 +3533,19 @@
             "--output-dir"
           ],
           "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "supplementary_artifacts_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--supplementary-artifacts-dir"
+          ],
+          "required": false,
           "type": "pathlib.Path"
         }
       ],

@@ -30,7 +30,11 @@ This benchmark is intentionally **not** adopting:
 - Preregistration protocols
 - Result-tier classification (official / verified-community / community-unverified / alpha-non-canonical)
 
-Legacy references to those concepts have been removed from the supported tree; do not add new dependencies on them. The **acquisition** and **withdrawal** code paths are kept — acquisition is core pipeline, withdrawal handles sealed/redacted cases.
+Legacy references to those concepts have been removed from the supported tree; do not add new dependencies on them.
+
+One narrow carve-out, per the owner directive of 2026-08-29 (bead `legalforecastbench-38gh`): results carry a two-value classification, `official` or `supplementary_post_anchor`, derived mechanically from a model's `release_timestamp` against the cycle's corpus anchor. It exists so a model released after the corpus decision window can run through the same pipeline and publish beside the official four with a dagger marker and a caveat, without ever entering the official set. The dagger is distinct from the contamination-tier asterisk, which marks official models whose training cutoff is undisclosed. It is a presentation flag plus one fail-closed gate (`legalforecast/reporting/result_class.py`), not the four-tier scheme above, which stays unadopted.
+
+The **acquisition** and **withdrawal** code paths are kept — acquisition is core pipeline, withdrawal handles sealed/redacted cases.
 
 ## Quick Reference
 

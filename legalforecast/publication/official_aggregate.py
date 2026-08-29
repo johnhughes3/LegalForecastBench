@@ -35,7 +35,11 @@ from legalforecast.evals.bootstrap import (
     ModelScoreInput,
     paired_clustered_bootstrap,
 )
-from legalforecast.evals.model_registry import ModelRegistryEntry, load_model_registry
+from legalforecast.evals.model_registry import (
+    ModelRegistry,
+    ModelRegistryEntry,
+    load_model_registry,
+)
 from legalforecast.evals.output_parser import parse_model_output
 from legalforecast.evals.response_verification import (
     RESPONSE_GROUNDING_ARTIFACTS_DETECTED_FIELD,
@@ -75,10 +79,20 @@ from legalforecast.reporting.cadence import (
     CycleSeries,
     classify_cycle_power,
 )
+from legalforecast.reporting.contamination_tiers import frozen_result_digest
 from legalforecast.reporting.leaderboard import (
     AccountingLeaderboardRow,
     build_benchmark_leaderboard_report,
     summarize_accounting_leaderboard,
+)
+from legalforecast.reporting.result_class import (
+    ResultClassError,
+    build_result_class_sidecar,
+    corpus_anchor_from_decision_dates,
+    expected_result_class,
+    require_official_result_classes,
+    supplementary_model_ids,
+    write_result_class_sidecar,
 )
 
 OFFICIAL_AGGREGATE_SCHEMA_VERSION = "legalforecast-official-aggregate-v1"
@@ -131,6 +145,7 @@ class OfficialAggregationConfig:
     dispatch_provenance_path: Path | None = None
     baseline_training_examples_path: Path | None = None
     model_keys: tuple[str, ...] = ()
+    supplementary: bool = False
     allow_incomplete_model_set: bool = False
     allow_no_baselines: bool = False
     deferred_ablations: tuple[str, ...] = ()
@@ -250,6 +265,11 @@ def aggregate_official_results(
     expected_model_keys, registry_model_keys = _expected_model_key_sets(
         config,
         registry_entries=registry_entries,
+    )
+    corpus_anchor = _require_result_class_separation(
+        config,
+        registry_entries=registry_entries,
+        expected_packet_rows=expected_packet_rows,
     )
     dispatch_provenance = _dispatch_provenance(
         config,
@@ -423,6 +443,21 @@ def aggregate_official_results(
             "cycle_power": cycle_power_record,
             **report.to_record(),
         },
+    )
+    _write_result_class_sidecar(
+        public_dir,
+        leaderboard_path=leaderboard_path,
+        registry_entries=registry_entries,
+        # A published model_id is a display label; solver_id is the registry key.
+        model_rows=tuple(
+            (
+                _required_str(record, "model_id"),
+                _optional_str(record, "solver_id") or _required_str(record, "model_id"),
+            )
+            for record in score_records
+            if record.get("row_type") == "model"
+        ),
+        corpus_anchor=corpus_anchor,
     )
     (report_dir / "leaderboard.csv").write_text(report.to_csv(), encoding="utf-8")
     (report_dir / "leaderboard.md").write_text(report.to_markdown(), encoding="utf-8")
@@ -1109,6 +1144,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--supplementary",
+        action="store_true",
+        help=(
+            "Aggregate a supplementary bundle of models released after the "
+            "corpus decision window closed. Every model in the registry must "
+            "classify as supplementary; an official model here is refused, as "
+            "is a supplementary model in an official bundle."
+        ),
+    )
+    parser.add_argument(
         "--allow-no-baselines",
         action="store_true",
         help=(
@@ -1182,6 +1227,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             model_keys=tuple(cast(Sequence[str], args.model_key)),
             allow_incomplete_model_set=cast(bool, args.allow_incomplete_model_set),
+            supplementary=cast(bool, args.supplementary),
             allow_no_baselines=cast(bool, args.allow_no_baselines),
             deferred_ablations=tuple(cast(Sequence[str], args.deferred_ablation)),
             ablation=cast(str | None, args.ablation),
@@ -1242,6 +1288,136 @@ def _expected_rows(
             f"run-input manifest has no model packets for ablation={ablation}"
         )
     return rows
+
+
+def _write_result_class_sidecar(
+    public_dir: Path,
+    *,
+    leaderboard_path: Path,
+    registry_entries: Sequence[ModelRegistryEntry],
+    model_rows: Sequence[tuple[str, str]],
+    corpus_anchor: date | None,
+) -> None:
+    """Emit the non-authoritative result-class overlay beside the leaderboard.
+
+    Cycle 1 change control keeps published whole-card bytes frozen, so the
+    official/supplementary flag ships as a sidecar rather than as a new field on
+    the aggregate schema. The sidecar only tells a renderer which rows to mark;
+    the separation itself is enforced by ``_require_result_class_separation``.
+    """
+
+    if corpus_anchor is None or not registry_entries or not model_rows:
+        return
+    write_result_class_sidecar(
+        public_dir / "result-class-sidecar.json",
+        build_result_class_sidecar(
+            model_rows,
+            result_digest=frozen_result_digest(leaderboard_path.read_bytes()),
+            registry=ModelRegistry(tuple(registry_entries)),
+            corpus_anchor=corpus_anchor,
+        ),
+    )
+
+
+def _require_result_class_separation(
+    config: OfficialAggregationConfig,
+    *,
+    registry_entries: Sequence[ModelRegistryEntry],
+    expected_packet_rows: Mapping[PacketKey, JsonRecord],
+) -> date | None:
+    """Keep official and post-anchor supplementary results in separate bundles.
+
+    This is the one integrity property the supplementary lane must never be able
+    to defeat, so it is derived rather than declared: the anchor comes from the
+    corpus the bundle scores, and the classification comes from each model's
+    frozen ``release_timestamp``. A caller can choose which bundle it is
+    building, but it cannot choose how a model classifies.
+
+    An official bundle therefore refuses any model released after the corpus
+    anchor, and a bundle declared supplementary refuses any model released on or
+    before it. A model that has slipped into the wrong bundle fails here rather
+    than being published under a claim it cannot support.
+    """
+
+    if config.supplementary and not registry_entries:
+        # Checked before the empty-registry exit below: without this, an empty
+        # registry would make a supplementary bundle silently skip the entire
+        # separation check rather than refuse.
+        raise OfficialAggregationError(
+            "a supplementary bundle requires a model registry to classify"
+        )
+    if not registry_entries:
+        return None
+    decision_dates, undated_rows = _packet_decision_dates(expected_packet_rows)
+    if undated_rows and decision_dates:
+        # A partially dated manifest would derive the anchor from the dated rows
+        # alone, which can only be later than the true earliest decision and so
+        # can only under-report supplementary models.
+        raise OfficialAggregationError(
+            "run-input rows disagree on decision_date presence; the corpus "
+            f"anchor cannot be derived from a partial set: {undated_rows}"
+        )
+    if not decision_dates:
+        if config.supplementary:
+            raise OfficialAggregationError(
+                "a supplementary bundle requires run-input decision dates to "
+                "derive the corpus anchor"
+            )
+        return None
+    corpus_anchor = corpus_anchor_from_decision_dates(decision_dates)
+    supplementary = set(
+        supplementary_model_ids(registry_entries, corpus_anchor=corpus_anchor)
+    )
+    if config.supplementary:
+        official = sorted(
+            entry.registry_key
+            for entry in registry_entries
+            if entry.registry_key not in supplementary
+        )
+        if official:
+            raise OfficialAggregationError(
+                "a supplementary bundle refuses models released on or before the "
+                f"corpus anchor {corpus_anchor.isoformat()}: {official}"
+            )
+        return corpus_anchor
+    try:
+        require_official_result_classes(registry_entries, corpus_anchor=corpus_anchor)
+    except ResultClassError as exc:
+        raise OfficialAggregationError(str(exc)) from exc
+    return corpus_anchor
+
+
+def _packet_decision_dates(
+    expected_packet_rows: Mapping[PacketKey, JsonRecord],
+) -> tuple[tuple[date, ...], tuple[str, ...]]:
+    """Collect corpus decision dates, and name any rows that declare none.
+
+    Rows with no ``decision_date`` are returned rather than skipped so the caller
+    can distinguish a manifest that carries no dates at all -- older fixtures,
+    where the anchor check is simply unavailable -- from a partially dated one,
+    which would silently yield a too-late anchor. Freeze-validated Cycle 1
+    inputs always carry dates on every row, so only fixtures reach the
+    all-absent case.
+    """
+
+    dates: list[date] = []
+    undated: list[str] = []
+    for (case_id, ablation), row in sorted(expected_packet_rows.items()):
+        raw = row.get("decision_date")
+        if raw is None:
+            undated.append(f"{case_id}:{ablation}")
+            continue
+        if not isinstance(raw, str) or not raw.strip():
+            raise OfficialAggregationError(
+                "run-input decision_date must be an ISO date string"
+            )
+        try:
+            dates.append(date.fromisoformat(raw))
+        except ValueError as exc:
+            raise OfficialAggregationError(
+                f"run-input decision_date is not an ISO date: {raw}"
+            ) from exc
+    return tuple(dates), tuple(undated)
 
 
 def _expected_model_key_sets(
@@ -2405,6 +2581,10 @@ def _aggregate_run_card(
             dict(dispatch_provenance) if dispatch_provenance is not None else None
         ),
         "allow_incomplete_model_set": config.allow_incomplete_model_set,
+        # In-band so the authenticated run-card bytes themselves say which set
+        # this bundle belongs to. A reader must not have to consult the
+        # non-authoritative sidecar to learn that a bundle is unofficial.
+        "result_class": expected_result_class(supplementary=config.supplementary).value,
         "allow_no_baselines": config.allow_no_baselines,
         "deferred_ablations": list(config.deferred_ablations),
         "cycle_baseline_training_example_count": (

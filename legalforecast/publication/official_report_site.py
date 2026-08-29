@@ -18,6 +18,12 @@ from legalforecast.reporting.contamination_tiers import (
     preliminary_caveat_if_needed,
     reported_model_label,
 )
+from legalforecast.reporting.result_class import (
+    ResultClass,
+    ResultClassError,
+    result_class_marker,
+    supplementary_caveat_if_needed,
+)
 
 ArtifactLink = tuple[str, str]
 
@@ -30,24 +36,56 @@ class OfficialReportPage:
     title: str
 
 
+@dataclass(frozen=True, slots=True)
+class _TableRow:
+    """One rendered table row bound to its score summary and result class.
+
+    The leaderboard row and the score summary come from the same bundle, so
+    pairing them here is what lets official and supplementary rows share a
+    single rendering path without a second lookup table.
+    """
+
+    row: Mapping[str, Any]
+    score_row: Mapping[str, Any]
+    result_class: ResultClass
+
+
 def build_official_report_page(
     *,
     official_artifacts_dir: Path,
     artifact_links: Sequence[ArtifactLink],
     bundle: OfficialBundle | None = None,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    result_classes: Mapping[str, ResultClass] | None = None,
+    supplementary_bundle: OfficialBundle | None = None,
 ) -> OfficialReportPage:
-    """Build the official report body from canonical public aggregate fields."""
+    """Build the official report body from canonical public aggregate fields.
+
+    ``supplementary_bundle`` is a separately aggregated, official-shaped bundle
+    for post-anchor models. It is merged here, at render time, so that none of
+    the official set-equality gates in ``official_report_validation`` ever see a
+    supplementary row.
+    """
 
     validated_bundle = bundle or load_official_bundle(official_artifacts_dir)
     report = validated_bundle.report
     rows = _mapping_rows(report.get("rows", ()))
+    _require_official_result_classes(rows, result_classes)
     model_rows, baseline_rows = _partition_official_rows(rows)
     score_rows = _mapping_rows(validated_bundle.scores.get("summaries", ()))
     score_rows_by_model = {
         _required_text(row, "model_id", label="score summary"): row
         for row in score_rows
     }
+    supplementary_entries = (
+        ()
+        if supplementary_bundle is None
+        else _supplementary_table_rows(
+            supplementary_bundle,
+            official_cycle_id=_first_str(report, ("cycle_id",)),
+            result_classes=result_classes,
+        )
+    )
     run_card = validated_bundle.run_card
     cycle_power = validated_bundle.cycle_power
     prevalence = validate_official_arithmetic(
@@ -59,7 +97,12 @@ def build_official_report_page(
         cycle_power=cycle_power,
     )
     title = _display_title(report)
+    # Supplementary rows are excluded here by construction: only the official
+    # bundle's model rows can win "best model", the headline cards, or a
+    # delta-vs-best interval.
     best_model = _best_model_row(model_rows)
+    model_entries = _official_table_rows(model_rows, score_rows_by_model)
+    baseline_entries = _official_table_rows(baseline_rows, score_rows_by_model)
     body = [
         "<a class='skip-link' href='#main-content'>Skip to results</a>",
         "<main id='main-content'>",
@@ -89,25 +132,29 @@ def build_official_report_page(
         "<section id='results' aria-labelledby='results-title'>",
         "<h2 id='results-title'>Evaluated models</h2>",
         _official_table(
-            model_rows,
-            score_rows_by_model=score_rows_by_model,
+            (*model_entries, *supplementary_entries),
             caption="Evaluated model results",
             contamination_tiers=contamination_tiers,
         ),
+        _supplementary_note(supplementary_entries),
         _uncertainty(report, contamination_tiers=contamination_tiers),
         "</section>",
         "<section id='calibration' aria-labelledby='calibration-title'>",
         "<h2 id='calibration-title'>Calibration and operational reliability</h2>",
         _calibration_summary(report, contamination_tiers=contamination_tiers),
+        _supplementary_calibration(
+            supplementary_bundle,
+            supplementary_entries,
+            contamination_tiers=contamination_tiers,
+        ),
         _operational_summary(best_model),
         "</section>",
         "<section id='baseline' aria-labelledby='baseline-title'>",
         "<h2 id='baseline-title'>Prevalence and baseline context</h2>",
         _baseline_context(
-            baseline_rows,
+            baseline_entries,
             prevalence=prevalence,
             run_card=run_card,
-            score_rows_by_model=score_rows_by_model,
             contamination_tiers=contamination_tiers,
         ),
         "</section>",
@@ -175,6 +222,134 @@ def _preliminary_contamination_note(
     if caveat is None:
         return ""
     return f"<p class='notice'>{html.escape(caveat, quote=False)}</p>"
+
+
+def _supplementary_note(entries: Sequence[_TableRow]) -> str:
+    """Render the dagger footnote, and only when a supplementary row exists.
+
+    It sits directly under the results table rather than in the interpretation
+    section so that the marker and its explanation stay adjacent.
+    """
+
+    caveat = supplementary_caveat_if_needed(entry.result_class for entry in entries)
+    if caveat is None:
+        return ""
+    marker = result_class_marker(ResultClass.SUPPLEMENTARY_POST_ANCHOR)
+    return (
+        "<p class='notice supplementary-notice'>"
+        f"{html.escape(marker, quote=False)} {html.escape(caveat, quote=False)}</p>"
+    )
+
+
+def _require_official_result_classes(
+    rows: Sequence[Mapping[str, Any]],
+    result_classes: Mapping[str, ResultClass] | None,
+) -> None:
+    """Refuse to render an official bundle that contains a supplementary row.
+
+    The authoritative refusal lives in the official aggregate gate; this is the
+    render-path restatement, so a supplementary row can never reach the official
+    table even if it somehow reached the official bundle.
+    """
+
+    if not result_classes:
+        return
+    offending = sorted(
+        model_id
+        for row in rows
+        if (
+            result_classes.get(
+                model_id := _first_str(row, ("model_id", "model_key", "solver_id"))
+            )
+            is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+        )
+    )
+    if offending:
+        raise ResultClassError(
+            f"official bundle contains supplementary-classed rows: {offending}"
+        )
+
+
+def _official_table_rows(
+    rows: Sequence[Mapping[str, Any]],
+    score_rows_by_model: Mapping[str, Mapping[str, Any]],
+) -> tuple[_TableRow, ...]:
+    return tuple(
+        _TableRow(
+            row=row,
+            score_row=score_rows_by_model[
+                _first_str(row, ("model_id", "model_key", "solver_id"))
+            ],
+            result_class=ResultClass.OFFICIAL,
+        )
+        for row in rows
+    )
+
+
+def _supplementary_table_rows(
+    bundle: OfficialBundle,
+    *,
+    official_cycle_id: str,
+    result_classes: Mapping[str, ResultClass] | None,
+) -> tuple[_TableRow, ...]:
+    """Build the supplementary model rows from a separately aggregated bundle.
+
+    Membership in this bundle is what makes a row supplementary; the sidecar can
+    only contradict it, never downgrade it, so a missing sidecar cannot silently
+    publish a post-anchor model as official. Rows are ordered by ``model_id`` so
+    the table is deterministic and never interleaves into the official ranking.
+    """
+
+    cycle_id = _first_str(bundle.report, ("cycle_id",))
+    if cycle_id != official_cycle_id:
+        raise ResultClassError(
+            f"supplementary bundle cycle_id {cycle_id} differs from official "
+            f"cycle {official_cycle_id}"
+        )
+    # A supplementary bundle is published from these bytes, so it earns the same
+    # arithmetic and set-consistency validation as the official one. The single
+    # exemption is the pairwise bootstrap, which a genuine one-model bundle has
+    # no pair to draw; nothing else is relaxed.
+    validate_official_arithmetic(
+        _mapping_rows(bundle.report.get("rows", ())),
+        report=bundle.report,
+        score_summary=bundle.scores,
+        unit_scores=bundle.unit_scores,
+        run_card=bundle.run_card,
+        cycle_power=bundle.cycle_power,
+        allow_single_model_bundle=True,
+    )
+    score_rows_by_model = {
+        _required_text(row, "model_id", label="supplementary score summary"): row
+        for row in _mapping_rows(bundle.scores.get("summaries", ()))
+    }
+    model_rows, _ = _partition_official_rows(
+        _mapping_rows(bundle.report.get("rows", ()))
+    )
+    entries: list[_TableRow] = []
+    for row in sorted(model_rows, key=lambda item: _first_str(item, ("model_id",))):
+        model_id = _required_text(
+            row,
+            "model_id",
+            label="supplementary leaderboard row",
+        )
+        if (result_classes or {}).get(model_id) is ResultClass.OFFICIAL:
+            raise ResultClassError(
+                f"supplementary bundle row {model_id} is classed official"
+            )
+        score_row = score_rows_by_model.get(model_id)
+        if score_row is None:
+            raise ValueError(
+                f"supplementary score summary is missing model_id={model_id}"
+            )
+        entries.append(
+            _TableRow(
+                row=row,
+                score_row=score_row,
+                result_class=ResultClass.SUPPLEMENTARY_POST_ANCHOR,
+            )
+        )
+    return tuple(entries)
 
 
 def _partition_official_rows(
@@ -258,18 +433,31 @@ def _headline_cards(
 
 
 def _official_table(
-    rows: Sequence[Mapping[str, Any]],
+    entries: Sequence[_TableRow],
     *,
-    score_rows_by_model: Mapping[str, Mapping[str, Any]],
     caption: str,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> str:
-    if not rows:
+    # The <tr> below and the <thead> at the bottom of this function are separate
+    # string literals with no shared column list. Any column change must edit
+    # both; they silently desync otherwise.
+    if not entries:
         return "<p>No official score rows were found in the supplied artifacts.</p>"
     table_rows: list[str] = []
-    for row in rows:
+    for entry in entries:
+        row = entry.row
+        score_row = entry.score_row
         model = _first_str(row, ("model_id", "model_key", "solver_id"))
-        score_row = score_rows_by_model[model]
+        supplementary = entry.result_class is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+        marker = result_class_marker(entry.result_class)
+        label = _display_model_label(model, contamination_tiers) + marker
+        tier_label = f"Supplementary{marker}" if supplementary else "Official"
+        badge_class = "tier-badge supplementary" if supplementary else "tier-badge"
+        # A supplementary bundle is aggregated against a one-model registry, so
+        # its own row is trivially "best" inside it. Rendering that interval here
+        # would read as a rank against the official set, so the cell is
+        # neutralized instead.
+        delta = "Not ranked" if supplementary else _delta_interval(row)
         score = _optional_number(row, "micro_brier")
         invalid_rate = _optional_number(row, "invalid_output_rate")
         refusal_rate = _optional_number(row, "refusal_rate")
@@ -277,15 +465,14 @@ def _official_table(
         latency = _fmt_latency(_optional_number(score_row, "mean_latency_ms"))
         table_rows.append(
             "<tr>"
-            f"<th scope='row'>"
-            f"{html.escape(_display_model_label(model, contamination_tiers))}"
-            "</th>"
-            "<td><span class='tier-badge'>Official</span></td>"
+            f"<th scope='row'>{html.escape(label, quote=False)}</th>"
+            f"<td><span class='{badge_class}'>"
+            f"{html.escape(tier_label, quote=False)}</span></td>"
             f"<td>{html.escape(_provider_snapshot(score_row))}</td>"
             f"<td>{_required_int(score_row, 'case_count', label='score summary')}</td>"
             f"<td>{_required_int(score_row, 'unit_count', label='score summary')}</td>"
             f"<td>{html.escape(_fmt_number(score))}</td>"
-            f"<td>{html.escape(_delta_interval(row))}</td>"
+            f"<td>{html.escape(delta)}</td>"
             f"<td>{html.escape(_fmt_number(_optional_number(row, 'ece')))}</td>"
             f"<td>{html.escape(_fmt_percent(invalid_rate))}</td>"
             f"<td>{html.escape(_fmt_percent(refusal_rate))}</td>"
@@ -358,18 +545,80 @@ def _calibration_summary(
     tables = _mapping_rows(report.get("calibration_tables", ()))
     if not tables:
         return "<p>No calibration table is available in this aggregate.</p>"
+    return _calibration_tables(
+        tables,
+        caption="Calibration summary",
+        contamination_tiers=contamination_tiers,
+    )
+
+
+def _supplementary_calibration(
+    bundle: OfficialBundle | None,
+    entries: Sequence[_TableRow],
+    *,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+) -> str:
+    """Publish the supplementary bundle's own calibration, never merged.
+
+    Silence would misinform rather than protect: the results table above already
+    publishes an ECE for every supplementary row, so a reader who found no bins
+    could not tell whether the figure was unsupported or merely unshown. These
+    tables therefore come from the supplementary bundle's own frozen leaderboard
+    bytes, stay under their own heading, and carry the supplementary marker.
+    """
+
+    if bundle is None or not entries:
+        return ""
+    model_ids = {_first_str(entry.row, ("model_id",)) for entry in entries}
+    tables = tuple(
+        table
+        for table in _mapping_rows(bundle.report.get("calibration_tables", ()))
+        if _first_str(table, ("model_id",)) in model_ids
+    )
+    if not tables:
+        return ""
+    marker = result_class_marker(ResultClass.SUPPLEMENTARY_POST_ANCHOR)
+    return (
+        f"<h3>Supplementary calibration{html.escape(marker, quote=False)}</h3>"
+        "<p class='muted'>These tables are reconstructed from the supplementary "
+        "bundle and are never merged into the official calibration above. They "
+        "are not official LegalForecastBench results.</p>"
+        + _calibration_tables(
+            tables,
+            caption="Supplementary calibration summary",
+            contamination_tiers=contamination_tiers,
+            marker=marker,
+        )
+    )
+
+
+def _calibration_tables(
+    tables: Sequence[Mapping[str, Any]],
+    *,
+    caption: str,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    marker: str = "",
+) -> str:
     rows = "".join(
-        _calibration_summary_row(table, contamination_tiers=contamination_tiers)
+        _calibration_summary_row(
+            table,
+            contamination_tiers=contamination_tiers,
+            marker=marker,
+        )
         for table in tables
     )
     bin_tables = "".join(
-        _calibration_bin_table(table, contamination_tiers=contamination_tiers)
+        _calibration_bin_table(
+            table,
+            contamination_tiers=contamination_tiers,
+            marker=marker,
+        )
         for table in tables
     )
     return (
         "<div class='table-scroll' role='region' tabindex='0' "
-        "aria-label='Calibration summary table'><table>"
-        "<caption>Calibration summary</caption>"
+        f"aria-label='{html.escape(caption)} table'><table>"
+        f"<caption>{html.escape(caption)}</caption>"
         "<thead><tr><th scope='col'>Model</th>"
         "<th scope='col'>Expected calibration error</th>"
         "<th scope='col'>Populated bins</th></tr></thead>"
@@ -381,6 +630,7 @@ def _calibration_summary_row(
     table: Mapping[str, Any],
     *,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    marker: str = "",
 ) -> str:
     populated = sum(
         1
@@ -388,11 +638,10 @@ def _calibration_summary_row(
         if _optional_number(item, "unit_count") != 0
     )
     model_id = _first_str(table, ("model_id",))
+    label = _display_model_label(model_id, contamination_tiers) + marker
     return (
         "<tr>"
-        f"<th scope='row'>"
-        f"{html.escape(_display_model_label(model_id, contamination_tiers))}"
-        "</th>"
+        f"<th scope='row'>{html.escape(label, quote=False)}</th>"
         f"<td>{html.escape(_fmt_number(_optional_number(table, 'ece')))}</td>"
         f"<td>{populated}</td>"
         "</tr>"
@@ -403,10 +652,14 @@ def _calibration_bin_table(
     table: Mapping[str, Any],
     *,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    marker: str = "",
 ) -> str:
-    model_id = _display_model_label(
-        _required_text(table, "model_id", label="calibration table"),
-        contamination_tiers,
+    model_id = (
+        _display_model_label(
+            _required_text(table, "model_id", label="calibration table"),
+            contamination_tiers,
+        )
+        + marker
     )
     bins = _mapping_rows(table.get("bins", ()))
     body = "".join(_calibration_bin_row(item) for item in bins)
@@ -472,11 +725,10 @@ def _operational_summary(best_model: Mapping[str, Any] | None) -> str:
 
 
 def _baseline_context(
-    rows: Sequence[Mapping[str, Any]],
+    entries: Sequence[_TableRow],
     *,
     prevalence: float | None,
     run_card: Mapping[str, Any],
-    score_rows_by_model: Mapping[str, Mapping[str, Any]],
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> str:
     prevalence_copy = (
@@ -484,7 +736,7 @@ def _baseline_context(
         if prevalence is not None
         else "Realized prevalence is not reported in the supplied aggregate."
     )
-    if not rows:
+    if not entries:
         return (
             f"<p>{html.escape(prevalence_copy)}</p>"
             "<p class='notice baseline-notice'>No frozen empirical baseline is "
@@ -524,8 +776,7 @@ def _baseline_context(
         f"<p>{html.escape(prevalence_copy)} {html.escape(reference_copy)}</p>"
         f"<p>{html.escape(training_copy)}</p>"
         + _official_table(
-            rows,
-            score_rows_by_model=score_rows_by_model,
+            entries,
             caption="Frozen empirical baseline context",
             contamination_tiers=contamination_tiers,
         )

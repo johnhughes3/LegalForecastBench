@@ -1530,6 +1530,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Public directory written by publish aggregate.",
     )
     publish_site.add_argument("--output-dir", type=Path, required=True)
+    publish_site.add_argument(
+        "--supplementary-artifacts-dir",
+        type=Path,
+        help=(
+            "Optional public directory of an aggregated supplementary bundle. "
+            "Its post-anchor rows render beside the official rows, flagged and "
+            "never ranked. Omit for an official-only site."
+        ),
+    )
     publish_site.set_defaults(handler=_cmd_publish_site)
 
     fixture_alias = subparsers.add_parser(
@@ -3305,6 +3314,16 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
         "--no-docket-tool",
         action="store_true",
         help="Disable the controlled docket tool for this packet shard.",
+    )
+    parser.add_argument(
+        "--supplementary",
+        action="store_true",
+        help=(
+            "Run a post-anchor supplementary shard. The release-anchor gate "
+            "inverts rather than switching off: this shard requires a model "
+            "released after the packet's decision date, and an official-classed "
+            "model is refused here."
+        ),
     )
     parser.add_argument(
         "--evaluation-timestamp",
@@ -11590,6 +11609,9 @@ def _cmd_publish_site(args: argparse.Namespace) -> int:
     result = render_official_results_site(
         official_artifacts_dir=cast(Path, args.official_artifacts_dir),
         output_dir=cast(Path, args.output_dir),
+        supplementary_artifacts_dir=cast(
+            "Path | None", args.supplementary_artifacts_dir
+        ),
     )
     print(
         json.dumps(
@@ -11941,6 +11963,7 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             expected_packet_sha256=cast(str | None, args.expected_packet_sha256),
             max_tool_calls=cast(int, args.max_tool_calls),
             use_docket_tool=not cast(bool, args.no_docket_tool),
+            supplementary=cast(bool, args.supplementary),
             evaluation_timestamp=(
                 _parse_datetime(timestamp_text) if timestamp_text is not None else None
             ),

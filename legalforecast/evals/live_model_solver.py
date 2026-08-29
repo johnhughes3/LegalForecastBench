@@ -696,6 +696,8 @@ def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
 def _reasoning_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
     if entry.reasoning_effort is not None:
         return {"requested_reasoning_effort": entry.reasoning_effort.value}
+    if entry.thinking_level is not None:
+        return {"requested_thinking_level": entry.thinking_level.value}
     if _uses_anthropic_adaptive_thinking(entry):
         return {
             "requested_thinking_type": "adaptive",
@@ -790,12 +792,22 @@ def _gemini_request(
     response_json_schema: Mapping[str, object] | None,
 ) -> urllib.request.Request:
     model = urllib.parse.quote(entry.model_id, safe="")
+    generation: dict[str, object] = {
+        "maxOutputTokens": entry.max_output_tokens,
+        "responseMimeType": "application/json",
+    }
+    if entry.thinking_level is not None:
+        # Gemini 3 replaced the numeric thinkingBudget with this string enum.
+        # generateContent nests it at generationConfig.thinkingConfig.thinkingLevel;
+        # the flat generationConfig.thinkingLevel spelling belongs to the separate
+        # Interactions API and 400s here. An unknown field name is a loud 400 from
+        # the API, so a wrong spelling fails loudly instead of silently reverting
+        # to the provider default reasoning budget. Never pair this with the
+        # legacy thinkingBudget: sending both in one request is also a 400.
+        generation["thinkingConfig"] = {"thinkingLevel": entry.thinking_level.value}
     payload: dict[str, object] = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "maxOutputTokens": entry.max_output_tokens,
-            "responseMimeType": "application/json",
-        },
+        "generationConfig": generation,
         "tools": [],
     }
     if response_json_schema is not None:
@@ -1451,9 +1463,13 @@ def _anthropic_usage(payload: JsonRecord) -> tuple[int, int]:
 
 def _gemini_usage(payload: JsonRecord) -> tuple[int, int]:
     usage = _mapping_or_empty(payload.get("usageMetadata"))
+    # Gemini reports thinking tokens separately from candidatesTokenCount but
+    # bills them at the output rate, so omitting them under-reports spend
+    # against the provider cap. Non-thinking responses omit the field entirely.
+    thoughts_tokens = _optional_int_field(usage, "thoughtsTokenCount") or 0
     return (
         _int_field(usage, "promptTokenCount"),
-        _int_field(usage, "candidatesTokenCount"),
+        _int_field(usage, "candidatesTokenCount") + thoughts_tokens,
     )
 
 
@@ -1486,6 +1502,15 @@ def _int_field(record: JsonRecord, *field_names: str) -> int:
     raise LiveModelResponseError(
         f"provider usage field is missing or invalid: {' or '.join(field_names)}"
     )
+
+
+def _optional_int_field(record: JsonRecord, field_name: str) -> int | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise LiveModelResponseError(f"provider usage field is invalid: {field_name}")
+    return value
 
 
 def _estimated_cost(

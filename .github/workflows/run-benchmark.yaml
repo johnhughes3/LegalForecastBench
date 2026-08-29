@@ -143,6 +143,16 @@ on:
         required: false
         default: ""
         type: string
+      supplementary:
+        description: >-
+          Dispatch a post-anchor supplementary shard. Requires a supplementary
+          model registry and its own sibling freeze bundle; the release-anchor
+          gate inverts rather than switching off, so an official-classed model
+          is refused. Leave false for every official dispatch, which is then
+          invoked exactly as before.
+        required: true
+        default: false
+        type: boolean
       execution_scope_uri:
         description: >-
           Authenticated exact-model execution-scope artifact followed by # and
@@ -986,6 +996,7 @@ jobs:
           release_sha: ${{ needs.build-matrix.outputs.release_sha }}
           repeat_count: ${{ matrix.repeat_count }}
           resume_existing_results: ${{ inputs.resume_existing_results }}
+          supplementary: ${{ inputs.supplementary }}
 
   run-anthropic:
     name: Anthropic provider cells
@@ -1036,6 +1047,7 @@ jobs:
           release_sha: ${{ needs.build-matrix.outputs.release_sha }}
           repeat_count: ${{ matrix.repeat_count }}
           resume_existing_results: ${{ inputs.resume_existing_results }}
+          supplementary: ${{ inputs.supplementary }}
 
   run-gemini:
     name: Gemini provider cells
@@ -1086,6 +1098,7 @@ jobs:
           release_sha: ${{ needs.build-matrix.outputs.release_sha }}
           repeat_count: ${{ matrix.repeat_count }}
           resume_existing_results: ${{ inputs.resume_existing_results }}
+          supplementary: ${{ inputs.supplementary }}
   finalize-shard:
     name: Finalize immutable shard receipt
     needs:

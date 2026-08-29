@@ -1,0 +1,10 @@
+{
+  "cycle_id": "cycle-1-target-100-2026-07-25",
+  "providers": [
+    {
+      "cycle_reservation_cap_usd": "110.00",
+      "provider": "google"
+    }
+  ],
+  "schema_version": "legalforecast.provider_cycle_caps.v1"
+}

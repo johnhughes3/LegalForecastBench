@@ -1875,6 +1875,7 @@ def _write_model_registry(
     max_output_tokens: int = 4_096,
     output_token_price: float = 1.0,
     long_context_surcharge: dict[str, int | float] | None = None,
+    release_timestamp: str = "2026-05-14T09:00:00Z",
 ) -> None:
     prices = input_price_by_model or {}
     records: list[dict[str, Any]] = []
@@ -1884,7 +1885,7 @@ def _write_model_registry(
             "model_id": model_id,
             "display_name": model_id,
             "model_version_or_snapshot": f"{model_id}-2026-05-14",
-            "release_timestamp": "2026-05-14T09:00:00Z",
+            "release_timestamp": release_timestamp,
             "release_timestamp_source": "fixture release note",
             "provider_training_cutoff_status": "not_disclosed",
             "provider_training_cutoff": None,
@@ -2060,3 +2061,120 @@ def _snapshot_files(root: Path) -> dict[Path, bytes]:
         for path in sorted(root.rglob("*"))
         if path.is_file()
     }
+
+
+def test_supplementary_mode_executes_a_post_anchor_model_end_to_end(
+    tmp_path: Path,
+) -> None:
+    """Drive the REAL execution path with a post-anchor registry.
+
+    This is the execution proof for the supplementary lane. It runs
+    ``run_per_case_evaluation`` -- the same entry the Actions provider cell
+    calls -- against a registry whose model was released after the packet's
+    decision date, which is precisely the configuration the official
+    release-anchor gate refuses. It must produce a complete run record.
+
+    Provider-free: ``mock_output`` stands in for the provider response, so no
+    HTTP call and no spend occur.
+    """
+
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(decision_date="2026-05-13"),
+    )
+    registry_path = tmp_path / "model-registry.json"
+    _write_model_registry(
+        registry_path,
+        ("example-model",),
+        release_timestamp="2026-08-13T00:00:00Z",
+    )
+
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            mock_output=_mock_output(),
+            model_registry_uri=str(registry_path),
+            model_key="example-provider:example-model",
+            supplementary=True,
+        )
+    )
+
+    runs = _read_jsonl(tmp_path / "runner-output" / "runs.jsonl")
+    assert runs[0]["solver_id"] == "example-provider:example-model"
+    metrics = json.loads(
+        (tmp_path / "runner-output" / "metrics.json").read_text(encoding="utf-8")
+    )
+    assert metrics["model_key"] == "example-provider:example-model"
+    assert metrics["model_registry_sha256"] == sha256_file(registry_path)
+
+
+def test_official_mode_still_refuses_the_same_post_anchor_registry(
+    tmp_path: Path,
+) -> None:
+    """The identical inputs without the flag must still be refused."""
+
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(decision_date="2026-05-13"),
+    )
+    registry_path = tmp_path / "model-registry.json"
+    _write_model_registry(
+        registry_path,
+        ("example-model",),
+        release_timestamp="2026-08-13T00:00:00Z",
+    )
+
+    with pytest.raises(PerCaseRunnerError, match="precedes release anchor"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "runner-output",
+                mock_output=_mock_output(),
+                model_registry_uri=str(registry_path),
+                model_key="example-provider:example-model",
+            )
+        )
+
+
+def test_supplementary_mode_refuses_an_official_classed_model(
+    tmp_path: Path,
+) -> None:
+    """The inverted gate is fail-closed the other way too.
+
+    A pre-anchor (official-classed) model must not be routable through the
+    supplementary lane, or the lane would become a way around the official
+    gates.
+    """
+
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(decision_date="2026-05-17"),
+    )
+    registry_path = tmp_path / "model-registry.json"
+    _write_model_registry(
+        registry_path,
+        ("example-model",),
+        release_timestamp="2026-05-14T09:00:00Z",
+    )
+
+    with pytest.raises(PerCaseRunnerError, match="requires a post-anchor model"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "runner-output",
+                mock_output=_mock_output(),
+                model_registry_uri=str(registry_path),
+                model_key="example-provider:example-model",
+                supplementary=True,
+            )
+        )

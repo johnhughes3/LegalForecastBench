@@ -36,6 +36,16 @@ It then uploads the validated tree through HF Trusted Publishing. Leaving `huggi
 
 After publication, record the resulting full HF commit SHA in every model repository result entry and in the LegalForecastBench evidence bundle. Do not treat a successful upload, the HF leaderboard UI, or HF's `verified` presentation as proof that a result satisfied the benchmark's official controls.
 
+## Supplementary (unofficial) models
+
+A model released after the cycle's corpus decision window closed cannot claim the contamination protection an official row claims, so it is published as *supplementary* rather than official. It runs through the same pipeline and is aggregated into its own official-shaped bundle against a one-model registry, then merged into the published page at render time. It never enters the official aggregate, so no official set-equality or matrix gate ever sees it.
+
+Pass the supplementary bundle to the publisher with `--supplementary-artifacts-dir`. The package then writes it under `releases/<version>/<cycle>/supplementary/`, alongside but separate from `aggregate/`, and the Dataset Card gains a second config, `<cycle>_supplementary`, whose `supplementary` split points at those rows. The official `<cycle>` config and its `test` split remain official-only.
+
+A publication that carries a supplementary split uses the `legalforecast-official-hf-publication-v2` manifest, which additionally commits to `supplementary_path` and `supplementary_artifact_index_sha256`. A publication without supplementary models still emits `legalforecast-official-hf-publication-v1` unchanged, and validation refuses a `-v1` package that carries supplementary files.
+
+On the rendered page a supplementary model appears in the same table as the official models, after them, ordered by model id, badged `Supplementary†` and labelled with a trailing `†`. It is never ranked: it cannot be the best model, does not appear in the headline figures, and its delta-vs-best cell reads "Not ranked". The dagger is deliberately distinct from the contamination-tier asterisk, which marks an *official* model whose training cutoff is undisclosed; a supplementary row can legitimately carry both.
+
 ## Controlled access
 
 The generated Dataset Card uses the following short terms:

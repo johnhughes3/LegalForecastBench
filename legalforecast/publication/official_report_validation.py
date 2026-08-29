@@ -388,6 +388,7 @@ def validate_official_arithmetic(
     unit_scores: Sequence[Mapping[str, Any]],
     run_card: Mapping[str, Any],
     cycle_power: Mapping[str, Any],
+    allow_single_model_bundle: bool = False,
 ) -> float | None:
     report_scores = _micro_briers_by_model(rows, label="leaderboard")
     score_rows = _mapping_rows(
@@ -490,7 +491,16 @@ def validate_official_arithmetic(
             f"scores={summary_prevalence} unit_scores={observed_prevalence}"
         )
     _validate_calibration_report(report, summary_by_model)
-    _validate_bootstrap_intervals(report, rows, reconstructed)
+    if allow_single_model_bundle and len(reconstructed) < 2:
+        # Only the pairwise step is skipped, and only when there is no pair to
+        # draw: paired_clustered_bootstrap requires two scored models. Every
+        # other arithmetic and set-consistency check above still ran, and the
+        # bundle still may not publish an interval it cannot support.
+        if _mapping_rows(report.get("pairwise_deltas", ())):
+            raise ValueError("single-model bundle must not publish pairwise deltas")
+        _validate_row_intervals(rows, ())
+    else:
+        _validate_bootstrap_intervals(report, rows, reconstructed)
     return observed_prevalence
 
 

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
 import pytest
 from legalforecast.hugging_face_publication import (
+    OFFICIAL_HF_PUBLICATION_SCHEMA_VERSION,
+    OFFICIAL_HF_PUBLICATION_SUPPLEMENTARY_SCHEMA_VERSION,
     OfficialHFPublicationConfig,
     OfficialHFPublicationError,
     build_official_hf_publication,
@@ -20,7 +23,18 @@ from legalforecast.publication.publication_guardrails import (
 from legalforecast.publication.publication_guardrails import (
     main as publication_guardrails_main,
 )
-from tests.test_static_result_sites import write_official_report_fixture
+from legalforecast.reporting.result_class import (
+    SUPPLEMENTARY_CAVEAT,
+    SUPPLEMENTARY_MARKER,
+)
+from tests.test_static_result_sites import (
+    SUPPLEMENTARY_MODEL_ID,
+    _refresh_official_artifact_manifests,
+    write_official_report_fixture,
+    write_supplementary_report_fixture,
+)
+
+_RELEASE_PATH = "releases/cycle-1.0.0/fixture-cycle"
 
 
 def test_publication_guardrails_accept_public_safe_outputs(tmp_path: Path) -> None:
@@ -136,7 +150,255 @@ def test_builds_native_manually_gated_hf_package(tmp_path: Path) -> None:
     assert 'id: "legalforecast_mtd_fixture_cycle"' in evaluation
     assert manifest["release_path"] == "releases/cycle-1.0.0/fixture-cycle"
     assert manifest["manual_gate"]["mode"] == "manual"
+    # An official-only package keeps the frozen -v1 manifest shape exactly.
+    assert manifest["schema_version"] == OFFICIAL_HF_PUBLICATION_SCHEMA_VERSION
+    assert "supplementary_path" not in manifest
+    assert result.supplementary_artifact_index_sha256 is None
     assert validate_official_hf_publication(result.output_dir) == result
+
+
+def test_hf_publication_separates_the_supplementary_split_and_carries_the_caveat(
+    tmp_path: Path,
+) -> None:
+    official = write_official_report_fixture(tmp_path)
+    supplementary = write_supplementary_report_fixture(tmp_path)
+    release_path = "releases/cycle-1.0.0/fixture-cycle"
+
+    result = build_official_hf_publication(
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=official,
+            output_dir=tmp_path / "hugging-face",
+            release_version="cycle-1.0.0",
+            dataset_repository="example/legalforecastbench",
+            supplementary_artifacts_dir=supplementary,
+        )
+    )
+
+    manifest = json.loads(result.publication_manifest_path.read_text(encoding="utf-8"))
+    card = result.readme_path.read_text(encoding="utf-8")
+    assert (
+        manifest["schema_version"]
+        == OFFICIAL_HF_PUBLICATION_SUPPLEMENTARY_SCHEMA_VERSION
+    )
+    assert manifest["supplementary_path"] == f"{release_path}/supplementary"
+    assert (
+        result.supplementary_artifact_index_sha256
+        == manifest["supplementary_artifact_index_sha256"]
+    )
+
+    official_units = (
+        result.output_dir / release_path / "aggregate" / "unit-scores.jsonl"
+    ).read_text(encoding="utf-8")
+    supplementary_units = (
+        result.output_dir / release_path / "supplementary" / "unit-scores.jsonl"
+    ).read_text(encoding="utf-8")
+    assert SUPPLEMENTARY_MODEL_ID not in official_units
+    assert SUPPLEMENTARY_MODEL_ID in supplementary_units
+
+    assert SUPPLEMENTARY_CAVEAT in card
+    assert "config_name: fixture-cycle_supplementary" in card
+    assert "split: supplementary" in card
+    assert "gated: manual" in card
+    assert "I agree to the Controlled-Access Terms: checkbox" in card
+    assert "submit to the jurisdiction of the court" in card
+
+    site = (result.output_dir / release_path / "site" / "index.html").read_text(
+        encoding="utf-8"
+    )
+    assert f"{SUPPLEMENTARY_MODEL_ID}{SUPPLEMENTARY_MARKER}" in site
+    assert validate_official_hf_publication(result.output_dir) == result
+
+
+def test_hf_publication_refuses_supplementary_files_under_an_official_only_manifest(
+    tmp_path: Path,
+) -> None:
+    official = write_official_report_fixture(tmp_path)
+    result = build_official_hf_publication(
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=official,
+            output_dir=tmp_path / "hugging-face",
+            release_version="cycle-1.0.0",
+            dataset_repository="example/legalforecastbench",
+        )
+    )
+    relative = "releases/cycle-1.0.0/fixture-cycle/supplementary/unit-scores.jsonl"
+    smuggled = result.output_dir / relative
+    smuggled.parent.mkdir(parents=True, exist_ok=True)
+    smuggled.write_text(
+        f'{{"model_id": "{SUPPLEMENTARY_MODEL_ID}"}}\n', encoding="utf-8"
+    )
+    manifest = json.loads(result.publication_manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"].append(
+        {
+            "path": relative,
+            "sha256": "sha256:" + hashlib.sha256(smuggled.read_bytes()).hexdigest(),
+            "size_bytes": smuggled.stat().st_size,
+        }
+    )
+    result.publication_manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True), encoding="utf-8"
+    )
+
+    with pytest.raises(
+        OfficialHFPublicationError,
+        match="carries supplementary artifacts",
+    ):
+        validate_official_hf_publication(result.output_dir)
+
+
+def test_hf_publication_refuses_a_supplementary_solver_reused_under_a_new_label(
+    tmp_path: Path,
+) -> None:
+    official = write_official_report_fixture(tmp_path)
+    supplementary = write_supplementary_report_fixture(tmp_path)
+    # A published model_id is a display label, so relabelling the official solver
+    # fixture:model-a hides the collision from every model_id comparison. Only a
+    # solver_id comparison -- the registry identity -- still sees it.
+    scores_path = supplementary / "scores.json"
+    scores = json.loads(scores_path.read_text(encoding="utf-8"))
+    scores["summaries"][0]["solver_id"] = "fixture:model-a"
+    _write_json(scores_path, scores)
+    run_card_path = supplementary / "run-cards" / "aggregate-run-card.json"
+    run_card = json.loads(run_card_path.read_text(encoding="utf-8"))
+    for key in ("model_keys", "registry_model_keys", "expected_model_keys"):
+        run_card[key] = ["fixture:model-a"]
+    _write_json(run_card_path, run_card)
+    _refresh_official_artifact_manifests(supplementary)
+
+    with pytest.raises(
+        OfficialHFPublicationError,
+        match="supplementary solvers must not appear in the official split",
+    ):
+        build_official_hf_publication(
+            OfficialHFPublicationConfig(
+                official_artifacts_dir=official,
+                output_dir=tmp_path / "hugging-face",
+                release_version="cycle-1.0.0",
+                dataset_repository="example/legalforecastbench",
+                supplementary_artifacts_dir=supplementary,
+            )
+        )
+
+
+def test_hf_publication_refuses_a_supplementary_bundle_from_another_cycle(
+    tmp_path: Path,
+) -> None:
+    result = build_official_hf_publication(
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=write_official_report_fixture(tmp_path),
+            output_dir=tmp_path / "hugging-face",
+            release_version="cycle-1.0.0",
+            dataset_repository="example/legalforecastbench",
+            supplementary_artifacts_dir=write_supplementary_report_fixture(tmp_path),
+        )
+    )
+    supplementary_root = result.output_dir / _RELEASE_PATH / "supplementary"
+    for relative in (
+        "report/leaderboard.json",
+        "scores.json",
+        "run-cards/aggregate-run-card.json",
+        "cycle-power.json",
+    ):
+        path = supplementary_root / relative
+        record = json.loads(path.read_text(encoding="utf-8"))
+        record["cycle_id"] = "other-cycle"
+        nested = record.get("cycle_power")
+        if isinstance(nested, dict):
+            nested["cycle_id"] = "other-cycle"
+        _write_json(path, record)
+    # The swapped bundle stays internally consistent and fully committed, so only
+    # a cross-bundle cycle check can refuse it.
+    _refresh_official_artifact_manifests(supplementary_root)
+    _recommit_publication_manifest(
+        result.output_dir,
+        supplementary_artifact_index_sha256=_digest(
+            supplementary_root / "artifact-index.json"
+        ),
+    )
+
+    with pytest.raises(
+        OfficialHFPublicationError,
+        match="supplementary bundle cycle_id differs from the official bundle",
+    ):
+        validate_official_hf_publication(result.output_dir)
+
+
+def test_hf_publication_bounds_the_supplementary_split_by_path_segment(
+    tmp_path: Path,
+) -> None:
+    official = write_official_report_fixture(tmp_path)
+    sibling_package = build_official_hf_publication(
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=official,
+            output_dir=tmp_path / "sibling-package",
+            release_version="cycle-1.0.0",
+            dataset_repository="example/legalforecastbench",
+        )
+    )
+    # A sibling directory shares the supplementary path's string prefix but is
+    # not inside it, so it can never stand in for the supplementary split.
+    sibling = sibling_package.output_dir / _RELEASE_PATH / "supplementary-extra"
+    sibling.mkdir(parents=True)
+    _write_text(sibling / "unit-scores.jsonl", '{"model_id": "supp-model"}\n')
+    _recommit_publication_manifest(
+        sibling_package.output_dir,
+        schema_version=OFFICIAL_HF_PUBLICATION_SUPPLEMENTARY_SCHEMA_VERSION,
+        supplementary_path=f"{_RELEASE_PATH}/supplementary",
+        supplementary_artifact_index_sha256="sha256:" + "0" * 64,
+    )
+    with pytest.raises(
+        OfficialHFPublicationError,
+        match="lists no supplementary artifacts",
+    ):
+        validate_official_hf_publication(sibling_package.output_dir)
+
+    # The supplementary path itself is inside the split even when it is occupied
+    # by a file rather than a directory, so an official-only manifest may not
+    # carry it.
+    occupied_package = build_official_hf_publication(
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=official,
+            output_dir=tmp_path / "occupied-package",
+            release_version="cycle-1.0.0",
+            dataset_repository="example/legalforecastbench",
+        )
+    )
+    _write_text(
+        occupied_package.output_dir / _RELEASE_PATH / "supplementary",
+        '{"model_id": "supp-model"}\n',
+    )
+    _recommit_publication_manifest(occupied_package.output_dir)
+
+    with pytest.raises(
+        OfficialHFPublicationError,
+        match="carries supplementary artifacts",
+    ):
+        validate_official_hf_publication(occupied_package.output_dir)
+
+
+def test_hf_publication_refuses_a_dangling_supplementary_digest_under_v1(
+    tmp_path: Path,
+) -> None:
+    result = build_official_hf_publication(
+        OfficialHFPublicationConfig(
+            official_artifacts_dir=write_official_report_fixture(tmp_path),
+            output_dir=tmp_path / "hugging-face",
+            release_version="cycle-1.0.0",
+            dataset_repository="example/legalforecastbench",
+        )
+    )
+    manifest = json.loads(result.publication_manifest_path.read_text(encoding="utf-8"))
+    manifest["supplementary_artifact_index_sha256"] = "sha256:" + "0" * 64
+    result.publication_manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True), encoding="utf-8"
+    )
+
+    assert manifest["schema_version"] == OFFICIAL_HF_PUBLICATION_SCHEMA_VERSION
+    with pytest.raises(
+        OfficialHFPublicationError,
+        match="declares a supplementary digest",
+    ):
+        validate_official_hf_publication(result.output_dir)
 
 
 def test_hf_package_rejects_mutable_version_and_existing_output(
@@ -203,3 +465,33 @@ def test_hf_package_validation_binds_release_identity(tmp_path: Path) -> None:
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _write_json(path: Path, payload: object) -> None:
+    _write_text(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def _digest(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _recommit_publication_manifest(root: Path, **updates: object) -> None:
+    """Re-derive a package manifest over the edited tree, then apply ``updates``.
+
+    Every per-file commitment is rebuilt, so a test that edits package bytes is
+    left arguing about the check it targets rather than about stale digests.
+    """
+
+    manifest_path = root / "publication-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.update(updates)
+    manifest["artifacts"] = [
+        {
+            "path": path.relative_to(root).as_posix(),
+            "sha256": _digest(path),
+            "size_bytes": path.stat().st_size,
+        }
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.name != "publication-manifest.json"
+    ]
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
