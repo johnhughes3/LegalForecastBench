@@ -696,6 +696,8 @@ def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
 def _reasoning_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
     if entry.reasoning_effort is not None:
         return {"requested_reasoning_effort": entry.reasoning_effort.value}
+    if entry.thinking_level is not None:
+        return {"requested_thinking_level": entry.thinking_level.value}
     if _uses_anthropic_adaptive_thinking(entry):
         return {
             "requested_thinking_type": "adaptive",
@@ -790,12 +792,19 @@ def _gemini_request(
     response_json_schema: Mapping[str, object] | None,
 ) -> urllib.request.Request:
     model = urllib.parse.quote(entry.model_id, safe="")
+    generation: dict[str, object] = {
+        "maxOutputTokens": entry.max_output_tokens,
+        "responseMimeType": "application/json",
+    }
+    if entry.thinking_level is not None:
+        # Gemini 3 replaced the numeric thinkingBudget with this string enum on
+        # generationConfig. An unknown field name is a 400 from the API, so a
+        # wrong spelling fails loudly instead of silently reverting to the
+        # provider default reasoning budget.
+        generation["thinkingLevel"] = entry.thinking_level.value
     payload: dict[str, object] = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "maxOutputTokens": entry.max_output_tokens,
-            "responseMimeType": "application/json",
-        },
+        "generationConfig": generation,
         "tools": [],
     }
     if response_json_schema is not None:

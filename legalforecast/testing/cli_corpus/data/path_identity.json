@@ -303,7 +303,6 @@
     "tests/test_courtlistener_bot_challenge.py",
     "tests/test_courtlistener_client.py",
     "tests/test_cycle1_disclosure_review_model_registry.py",
-    "tests/test_cycle1_gemini_local_runner.py",
     "tests/test_cycle1_labeling_model_registry.py",
     "tests/test_cycle1_model_registry.py",
     "tests/test_cycle_acquisition_config.py",
