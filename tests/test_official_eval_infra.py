@@ -1120,10 +1120,29 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
         closure_source,
         "seal_key",
     )
-    assert 'return f"shard-receipts/{cycle_id}/' in _function_source(
-        receipt_source,
-        "receipt_key",
+    # The two lanes must not share a receipt namespace: selection hard-fails on
+    # any receipt outside the freeze's declared shard schedule, and receipts are
+    # create-once with no delete grant, so one lane's receipt landing in the
+    # other's listing permanently breaks that lane's fan-in for the cycle. Pin
+    # both branches, and pin that the key derives from this one definition
+    # rather than rebuilding the prefix itself.
+    receipt_text = receipt_source.read_text(encoding="utf-8")
+    assert 'SHARD_RECEIPT_PREFIX = "shard-receipts"' in receipt_text
+    assert 'SUPPLEMENTARY_RECEIPT_SEGMENT = "supplementary"' in receipt_text
+    receipt_prefix_source = _function_source(receipt_source, "receipt_prefix")
+    assert 'return f"{SHARD_RECEIPT_PREFIX}/{safe_cycle_id}/"' in receipt_prefix_source
+    assert (
+        'f"{SHARD_RECEIPT_PREFIX}/{SUPPLEMENTARY_RECEIPT_SEGMENT}/{safe_cycle_id}/"'
+        in receipt_prefix_source
     )
+    assert "if not supplementary:" in receipt_prefix_source
+    receipt_key_source = _function_source(receipt_source, "receipt_key")
+    assert "receipt_prefix(" in receipt_key_source
+    assert "supplementary=supplementary" in receipt_key_source
+    assert (
+        'return f"{prefix}{shard_slug}/{run_id}/{attempt}.json"' in receipt_key_source
+    )
+    assert "shard-receipts" not in receipt_key_source
     assert 'f"reports/{cycle_id}/multi-ablation"' in _function_source(
         publish_source,
         "_require_canonical_publish_root",
