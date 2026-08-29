@@ -8297,10 +8297,10 @@
         ],
         "lane_owner": "publication",
         "largest_symbol": "aggregate_official_results",
-        "largest_symbol_lines": 251,
+        "largest_symbol_lines": 259,
         "layer": "application",
-        "line_count": 2826,
-        "nonblank_line_count": 2560,
+        "line_count": 2834,
+        "nonblank_line_count": 2568,
         "top_level_definition_count": 111
       },
       "legalforecast/publication/official_report_site.py": {
@@ -10990,9 +10990,9 @@
         "largest_symbol": "test_official_aggregate_writes_public_bundle_and_private_debug",
         "largest_symbol_lines": 131,
         "layer": "test",
-        "line_count": 2020,
-        "nonblank_line_count": 1841,
-        "top_level_definition_count": 53
+        "line_count": 2097,
+        "nonblank_line_count": 1911,
+        "top_level_definition_count": 54
       },
       "tests/test_official_eval_bootstrap_infra.py": {
         "cycle_id": "",

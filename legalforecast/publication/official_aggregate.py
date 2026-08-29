@@ -447,7 +447,15 @@ def aggregate_official_results(
         public_dir,
         leaderboard_path=leaderboard_path,
         registry_entries=registry_entries,
-        model_ids=tuple(row.model_id for row in report.rows if row.row_type == "model"),
+        # A published model_id is a display label; solver_id is the registry key.
+        model_rows=tuple(
+            (
+                _required_str(record, "model_id"),
+                _optional_str(record, "solver_id") or _required_str(record, "model_id"),
+            )
+            for record in score_records
+            if record.get("row_type") == "model"
+        ),
         corpus_anchor=corpus_anchor,
     )
     (report_dir / "leaderboard.csv").write_text(report.to_csv(), encoding="utf-8")
@@ -1286,7 +1294,7 @@ def _write_result_class_sidecar(
     *,
     leaderboard_path: Path,
     registry_entries: Sequence[ModelRegistryEntry],
-    model_ids: Sequence[str],
+    model_rows: Sequence[tuple[str, str]],
     corpus_anchor: date | None,
 ) -> None:
     """Emit the non-authoritative result-class overlay beside the leaderboard.
@@ -1297,12 +1305,12 @@ def _write_result_class_sidecar(
     the separation itself is enforced by ``_require_result_class_separation``.
     """
 
-    if corpus_anchor is None or not registry_entries or not model_ids:
+    if corpus_anchor is None or not registry_entries or not model_rows:
         return
     write_result_class_sidecar(
         public_dir / "result-class-sidecar.json",
         build_result_class_sidecar(
-            model_ids,
+            model_rows,
             result_digest=frozen_result_digest(leaderboard_path.read_bytes()),
             registry=ModelRegistry(tuple(registry_entries)),
             corpus_anchor=corpus_anchor,

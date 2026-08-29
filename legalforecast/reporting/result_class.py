@@ -247,22 +247,33 @@ class ResultClassSidecar:
 
 
 def build_result_class_sidecar(
-    model_ids: Sequence[str],
+    model_rows: Sequence[tuple[str, str]],
     *,
     result_digest: str,
     registry: ModelRegistry,
     corpus_anchor: date,
 ) -> ResultClassSidecar:
-    """Derive a sidecar for the named leaderboard models from registry bytes."""
+    """Derive a sidecar for the named leaderboard models from registry bytes.
+
+    Each entry of ``model_rows`` is ``(model_id, lookup_key)``: the leaderboard
+    label to key the row by, and the identifier to resolve against the registry.
+    A published ``model_id`` is a display label chosen by the solver run and need
+    not match any registry field, so the caller supplies the ``solver_id`` --
+    which is the registry key -- as the lookup rather than letting this function
+    guess from the label.
+    """
 
     by_model_id = {entry.model_id: entry for entry in registry.entries}
     by_registry_key = {entry.registry_key: entry for entry in registry.entries}
     by_display_name = {entry.display_name: entry for entry in registry.entries}
     rows: list[ResultClassRow] = []
-    for model_id in model_ids:
+    for model_id, lookup_key in model_rows:
         require_non_empty(model_id, "model_id")
         entry = (
-            by_model_id.get(model_id)
+            by_registry_key.get(lookup_key)
+            or by_model_id.get(lookup_key)
+            or by_display_name.get(lookup_key)
+            or by_model_id.get(model_id)
             or by_registry_key.get(model_id)
             or by_display_name.get(model_id)
         )

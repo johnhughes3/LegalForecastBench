@@ -182,7 +182,10 @@ def test_sidecar_round_trips_and_binds_to_the_frozen_leaderboard_bytes(
         )
     )
     sidecar = build_result_class_sidecar(
-        ["model-a", "gemini-3.7-flash"],
+        [
+            ("model-a", "fixture:model-a"),
+            ("gemini-3.7-flash", "google:gemini-3.7-flash"),
+        ],
         result_digest=digest,
         registry=registry,
         corpus_anchor=CORPUS_ANCHOR,
@@ -205,7 +208,7 @@ def test_sidecar_refuses_a_mismatched_result_digest(tmp_path: Path) -> None:
     write_result_class_sidecar(
         path,
         build_result_class_sidecar(
-            ["model-a"],
+            [("model-a", "fixture:model-a")],
             result_digest=digest,
             registry=ModelRegistry((_entry("model-a"),)),
             corpus_anchor=CORPUS_ANCHOR,

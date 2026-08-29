@@ -35,6 +35,10 @@ from legalforecast.publication.official_aggregate import (
 )
 from legalforecast.publication.static_sites import render_official_results_site
 from legalforecast.reporting.cadence import CycleSeries
+from legalforecast.reporting.result_class import (
+    SUPPLEMENTARY_CAVEAT,
+    SUPPLEMENTARY_MARKER,
+)
 
 
 def test_publication_reader_preserves_partial_and_material_survival_resolution() -> (
@@ -117,6 +121,79 @@ def test_production_official_aggregate_renders_through_reader_contract(
     assert "display-model-a" in rendered
     assert "display-model-b" in rendered
     assert "fixture:solver-a" not in rendered
+
+
+def test_official_render_loads_the_sidecar_the_aggregate_wrote(
+    tmp_path: Path,
+) -> None:
+    """Exercise the production path end to end: aggregate writes, render loads.
+
+    Every other fixture omits ``decision_date``, so the aggregate derives no
+    corpus anchor and writes no sidecar, and the render never opens one. The
+    real Cycle 1 corpus does carry decision dates, so the official publication
+    will hit the digest-bound load on every render. This pins that chain: a
+    failure here would break the *official* site, not just a supplementary one.
+    """
+
+    manifest_path = _write_run_input_manifest(tmp_path, decision_date="2026-06-26")
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:solver-a", "fixture:solver-b"),
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-model-a",
+        solver_id="fixture:solver-a",
+        model_id="display-model-a",
+        dismissed_probability=0.9,
+    )
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-model-b",
+        solver_id="fixture:solver-b",
+        model_id="display-model-b",
+        dismissed_probability=0.7,
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["cycle_id"] = "production-shape-smoke"
+    _write_json(manifest_path, manifest)
+    for metrics_path in per_case_dir.glob("*/metrics.json"):
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        metrics["cycle_id"] = "production-shape-smoke"
+        _write_json(metrics_path, metrics)
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="production-shape-smoke",
+            cycle_series=CycleSeries.OFFICIAL,
+            clean_motion_count=1,
+            prediction_unit_count=2,
+            model_registry_path=registry_path,
+            allow_no_baselines=True,
+            ablation="full_packet",
+            generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+        )
+    )
+
+    sidecar_path = result.public_dir / "result-class-sidecar.json"
+    assert sidecar_path.is_file(), "aggregate must write the sidecar it renders from"
+
+    site = render_official_results_site(
+        official_artifacts_dir=result.public_dir,
+        output_dir=tmp_path / "official-site",
+    )
+    rendered = site.index_path.read_text(encoding="utf-8")
+    assert "display-model-a" in rendered
+    assert "display-model-b" in rendered
+    # An all-official bundle carries no supplementary marker or caveat.
+    assert SUPPLEMENTARY_MARKER not in rendered
+    assert SUPPLEMENTARY_CAVEAT not in rendered
 
 
 def test_official_aggregate_writes_public_bundle_and_private_debug(
