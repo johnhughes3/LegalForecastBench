@@ -142,6 +142,11 @@ def build_official_report_page(
         "<section id='calibration' aria-labelledby='calibration-title'>",
         "<h2 id='calibration-title'>Calibration and operational reliability</h2>",
         _calibration_summary(report, contamination_tiers=contamination_tiers),
+        _supplementary_calibration(
+            supplementary_bundle,
+            supplementary_entries,
+            contamination_tiers=contamination_tiers,
+        ),
         _operational_summary(best_model),
         "</section>",
         "<section id='baseline' aria-labelledby='baseline-title'>",
@@ -301,6 +306,19 @@ def _supplementary_table_rows(
             f"supplementary bundle cycle_id {cycle_id} differs from official "
             f"cycle {official_cycle_id}"
         )
+    # A supplementary bundle is published from these bytes, so it earns the same
+    # arithmetic and set-consistency validation as the official one. The single
+    # exemption is the pairwise bootstrap, which a genuine one-model bundle has
+    # no pair to draw; nothing else is relaxed.
+    validate_official_arithmetic(
+        _mapping_rows(bundle.report.get("rows", ())),
+        report=bundle.report,
+        score_summary=bundle.scores,
+        unit_scores=bundle.unit_scores,
+        run_card=bundle.run_card,
+        cycle_power=bundle.cycle_power,
+        allow_single_model_bundle=True,
+    )
     score_rows_by_model = {
         _required_text(row, "model_id", label="supplementary score summary"): row
         for row in _mapping_rows(bundle.scores.get("summaries", ()))
@@ -527,18 +545,80 @@ def _calibration_summary(
     tables = _mapping_rows(report.get("calibration_tables", ()))
     if not tables:
         return "<p>No calibration table is available in this aggregate.</p>"
+    return _calibration_tables(
+        tables,
+        caption="Calibration summary",
+        contamination_tiers=contamination_tiers,
+    )
+
+
+def _supplementary_calibration(
+    bundle: OfficialBundle | None,
+    entries: Sequence[_TableRow],
+    *,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+) -> str:
+    """Publish the supplementary bundle's own calibration, never merged.
+
+    Silence would misinform rather than protect: the results table above already
+    publishes an ECE for every supplementary row, so a reader who found no bins
+    could not tell whether the figure was unsupported or merely unshown. These
+    tables therefore come from the supplementary bundle's own frozen leaderboard
+    bytes, stay under their own heading, and carry the supplementary marker.
+    """
+
+    if bundle is None or not entries:
+        return ""
+    model_ids = {_first_str(entry.row, ("model_id",)) for entry in entries}
+    tables = tuple(
+        table
+        for table in _mapping_rows(bundle.report.get("calibration_tables", ()))
+        if _first_str(table, ("model_id",)) in model_ids
+    )
+    if not tables:
+        return ""
+    marker = result_class_marker(ResultClass.SUPPLEMENTARY_POST_ANCHOR)
+    return (
+        f"<h3>Supplementary calibration{html.escape(marker, quote=False)}</h3>"
+        "<p class='muted'>These tables are reconstructed from the supplementary "
+        "bundle and are never merged into the official calibration above. They "
+        "are not official LegalForecastBench results.</p>"
+        + _calibration_tables(
+            tables,
+            caption="Supplementary calibration summary",
+            contamination_tiers=contamination_tiers,
+            marker=marker,
+        )
+    )
+
+
+def _calibration_tables(
+    tables: Sequence[Mapping[str, Any]],
+    *,
+    caption: str,
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    marker: str = "",
+) -> str:
     rows = "".join(
-        _calibration_summary_row(table, contamination_tiers=contamination_tiers)
+        _calibration_summary_row(
+            table,
+            contamination_tiers=contamination_tiers,
+            marker=marker,
+        )
         for table in tables
     )
     bin_tables = "".join(
-        _calibration_bin_table(table, contamination_tiers=contamination_tiers)
+        _calibration_bin_table(
+            table,
+            contamination_tiers=contamination_tiers,
+            marker=marker,
+        )
         for table in tables
     )
     return (
         "<div class='table-scroll' role='region' tabindex='0' "
-        "aria-label='Calibration summary table'><table>"
-        "<caption>Calibration summary</caption>"
+        f"aria-label='{html.escape(caption)} table'><table>"
+        f"<caption>{html.escape(caption)}</caption>"
         "<thead><tr><th scope='col'>Model</th>"
         "<th scope='col'>Expected calibration error</th>"
         "<th scope='col'>Populated bins</th></tr></thead>"
@@ -550,6 +630,7 @@ def _calibration_summary_row(
     table: Mapping[str, Any],
     *,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    marker: str = "",
 ) -> str:
     populated = sum(
         1
@@ -557,11 +638,10 @@ def _calibration_summary_row(
         if _optional_number(item, "unit_count") != 0
     )
     model_id = _first_str(table, ("model_id",))
+    label = _display_model_label(model_id, contamination_tiers) + marker
     return (
         "<tr>"
-        f"<th scope='row'>"
-        f"{html.escape(_display_model_label(model_id, contamination_tiers))}"
-        "</th>"
+        f"<th scope='row'>{html.escape(label, quote=False)}</th>"
         f"<td>{html.escape(_fmt_number(_optional_number(table, 'ece')))}</td>"
         f"<td>{populated}</td>"
         "</tr>"
@@ -572,10 +652,14 @@ def _calibration_bin_table(
     table: Mapping[str, Any],
     *,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    marker: str = "",
 ) -> str:
-    model_id = _display_model_label(
-        _required_text(table, "model_id", label="calibration table"),
-        contamination_tiers,
+    model_id = (
+        _display_model_label(
+            _required_text(table, "model_id", label="calibration table"),
+            contamination_tiers,
+        )
+        + marker
     )
     bins = _mapping_rows(table.get("bins", ()))
     body = "".join(_calibration_bin_row(item) for item in bins)

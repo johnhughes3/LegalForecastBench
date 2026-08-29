@@ -1,9 +1,9 @@
 {
   "cli_metrics": {
     "command_handler_count": 168,
-    "command_handler_lines": 27196,
-    "line_count": 74410,
-    "nonblank_line_count": 71605,
+    "command_handler_lines": 27197,
+    "line_count": 74421,
+    "nonblank_line_count": 71616,
     "parser_line_count": 1813,
     "top_level_class_count": 20,
     "top_level_definition_count": 1019,
@@ -122,6 +122,7 @@
       "tests/test_successor_attorney_packet.py",
       "tests/test_successor_ledger_rehearsal.py",
       "tests/test_successor_rerun_impact.py",
+      "tests/test_supplementary_dispatch_parity.py",
       "tests/test_supporting_document_successor.py",
       "tests/test_target_100_acquisition.py",
       "tests/test_target_cohort_projection.py",
@@ -272,6 +273,7 @@
       "tests/test_successor_attorney_packet.py",
       "tests/test_successor_ledger_rehearsal.py",
       "tests/test_successor_rerun_impact.py",
+      "tests/test_supplementary_dispatch_parity.py",
       "tests/test_supporting_document_successor.py",
       "tests/test_target_100_acquisition.py",
       "tests/test_target_100_acquisition.py",
@@ -2778,6 +2780,7 @@
       "tests/test_stage_a_review_queue_v2.py",
       "tests/test_successor_attorney_packet.py",
       "tests/test_successor_rerun_impact.py",
+      "tests/test_supplementary_dispatch_parity.py",
       "tests/test_supporting_document_successor.py",
       "tests/test_target_100_acquisition.py",
       "tests/test_target_cohort_projection.py",
@@ -3679,6 +3682,7 @@
       "tests/test_successor_rerun_impact.py::legalforecast.cli.parser_reuse_evidence_from_authenticated_artifacts",
       "tests/test_successor_rerun_impact.py::legalforecast.cli.plan_successor_rerun_impact",
       "tests/test_successor_rerun_impact.py::legalforecast.cli.provider_reuse_evidence_from_verified_rows",
+      "tests/test_supplementary_dispatch_parity.py::legalforecast.cli.build_parser",
       "tests/test_supporting_document_successor.py::legalforecast.cli.CommandError",
       "tests/test_supporting_document_successor.py::legalforecast.cli.CommandError",
       "tests/test_supporting_document_successor.py::legalforecast.cli.CommandError",
@@ -4163,8 +4167,8 @@
         "largest_symbol": "build_parser",
         "largest_symbol_lines": 1813,
         "layer": "entrypoint",
-        "line_count": 74410,
-        "nonblank_line_count": 71605,
+        "line_count": 74421,
+        "nonblank_line_count": 71616,
         "top_level_definition_count": 1019
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -4785,8 +4789,8 @@
         "largest_symbol": "build_official_hf_publication",
         "largest_symbol_lines": 120,
         "layer": "application",
-        "line_count": 624,
-        "nonblank_line_count": 553,
+        "line_count": 656,
+        "nonblank_line_count": 583,
         "top_level_definition_count": 21
       },
       "legalforecast/ingestion/__init__.py": {
@@ -8331,11 +8335,11 @@
         ],
         "lane_owner": "publication",
         "largest_symbol": "build_official_report_page",
-        "largest_symbol_lines": 144,
+        "largest_symbol_lines": 149,
         "layer": "application",
-        "line_count": 879,
-        "nonblank_line_count": 790,
-        "top_level_definition_count": 37
+        "line_count": 963,
+        "nonblank_line_count": 868,
+        "top_level_definition_count": 39
       },
       "legalforecast/publication/official_report_validation.py": {
         "cycle_id": "",
@@ -8350,8 +8354,8 @@
         "largest_symbol": "_validate_bundle_provenance",
         "largest_symbol_lines": 167,
         "layer": "application",
-        "line_count": 1072,
-        "nonblank_line_count": 995,
+        "line_count": 1082,
+        "nonblank_line_count": 1005,
         "top_level_definition_count": 32
       },
       "legalforecast/publication/private_store_export.py": {
@@ -8466,12 +8470,12 @@
           "watch"
         ],
         "lane_owner": "publication",
-        "largest_symbol": "_community_sections",
-        "largest_symbol_lines": 65,
+        "largest_symbol": "render_official_results_site",
+        "largest_symbol_lines": 68,
         "layer": "application",
-        "line_count": 652,
-        "nonblank_line_count": 601,
-        "top_level_definition_count": 20
+        "line_count": 696,
+        "nonblank_line_count": 637,
+        "top_level_definition_count": 22
       },
       "legalforecast/reporting/contamination_tiers.py": {
         "cycle_id": "",
@@ -12042,9 +12046,9 @@
         "largest_symbol": "write_official_report_fixture",
         "largest_symbol_lines": 237,
         "layer": "test",
-        "line_count": 1385,
-        "nonblank_line_count": 1246,
-        "top_level_definition_count": 43
+        "line_count": 1468,
+        "nonblank_line_count": 1318,
+        "top_level_definition_count": 46
       },
       "tests/test_successor_attorney_packet.py": {
         "cycle_id": "",

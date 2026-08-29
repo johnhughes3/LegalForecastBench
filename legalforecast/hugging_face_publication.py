@@ -9,7 +9,7 @@ import re
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from legalforecast._json_io import read_json_object, write_json_object
@@ -129,7 +129,7 @@ def build_official_hf_publication(
             supplementary_bundle = load_official_bundle(
                 config.supplementary_artifacts_dir
             )
-            _require_disjoint_model_ids(bundle, supplementary_bundle)
+            _require_disjoint_solver_ids(bundle, supplementary_bundle)
             supplementary_root = root / release_path / _SUPPLEMENTARY_DIRECTORY
             _copy_bundle(
                 supplementary_bundle,
@@ -276,6 +276,10 @@ def validate_official_hf_publication(root: Path) -> OfficialHFPublicationResult:
     if site_digest != manifest.get("site_artifact_index_sha256"):
         raise OfficialHFPublicationError("site artifact index digest mismatch")
     official_bundle = load_official_bundle(aggregate_index.parent)
+    if _bundle_cycle_id(official_bundle) != cycle_id:
+        raise OfficialHFPublicationError(
+            "publication manifest cycle_id differs from the official bundle"
+        )
     if not (site_index.parent / "index.html").is_file():
         raise OfficialHFPublicationError("rendered site is missing index.html")
     supplementary_digest = _validate_supplementary_split(
@@ -315,19 +319,31 @@ def _validate_supplementary_split(
 
     Both directions matter: a ``-v2`` manifest must actually commit to the
     supplementary tree it names, and a ``-v1`` manifest must not smuggle
-    supplementary files into a package that claims to carry only official
-    results.
+    supplementary files, or a dangling supplementary commitment, into a package
+    that claims to carry only official results.
     """
 
-    prefix = f"{release_path}/{_SUPPLEMENTARY_DIRECTORY}/"
-    carries_files = any(relative.startswith(prefix) for relative in listed)
+    # Containment is by path segment, not by string prefix: a sibling directory
+    # such as ``supplementary-extra`` is not part of the supplementary split and
+    # must never be counted as though it were.
+    supplementary_relative = PurePosixPath(release_path) / _SUPPLEMENTARY_DIRECTORY
+    carries_files = any(
+        PurePosixPath(relative).is_relative_to(supplementary_relative)
+        for relative in listed
+    )
     if not declares_supplementary:
+        if "supplementary_artifact_index_sha256" in manifest:
+            raise OfficialHFPublicationError(
+                "official-only publication manifest declares a supplementary digest"
+            )
         if carries_files or "supplementary_path" in manifest:
             raise OfficialHFPublicationError(
                 "official-only publication manifest carries supplementary artifacts"
             )
         return None
-    if _required_text(manifest, "supplementary_path") != prefix.rstrip("/"):
+    if _required_text(manifest, "supplementary_path") != (
+        supplementary_relative.as_posix()
+    ):
         raise OfficialHFPublicationError(
             "publication supplementary_path does not match its release path"
         )
@@ -335,35 +351,51 @@ def _validate_supplementary_split(
         raise OfficialHFPublicationError(
             "supplementary publication manifest lists no supplementary artifacts"
         )
-    supplementary_root = root / release_path / _SUPPLEMENTARY_DIRECTORY
+    supplementary_root = root / supplementary_relative
+    if not supplementary_root.resolve().is_relative_to(root.resolve()):
+        raise OfficialHFPublicationError(
+            "supplementary directory escapes the publication tree"
+        )
     digest = _prefixed_digest(supplementary_root / "artifact-index.json")
     if digest != manifest.get("supplementary_artifact_index_sha256"):
         raise OfficialHFPublicationError("supplementary artifact index digest mismatch")
-    _require_disjoint_model_ids(
-        official_bundle, load_official_bundle(supplementary_root)
-    )
+    supplementary_bundle = load_official_bundle(supplementary_root)
+    if _bundle_cycle_id(supplementary_bundle) != _bundle_cycle_id(official_bundle):
+        raise OfficialHFPublicationError(
+            "supplementary bundle cycle_id differs from the official bundle"
+        )
+    _require_disjoint_solver_ids(official_bundle, supplementary_bundle)
     return digest
 
 
-def _require_disjoint_model_ids(
+def _require_disjoint_solver_ids(
     official_bundle: OfficialBundle,
     supplementary_bundle: OfficialBundle,
 ) -> None:
     """Refuse a supplementary model that also appears in the official split."""
 
     shared = sorted(
-        _bundle_model_ids(official_bundle) & _bundle_model_ids(supplementary_bundle)
+        _bundle_solver_ids(official_bundle) & _bundle_solver_ids(supplementary_bundle)
     )
     if shared:
         raise OfficialHFPublicationError(
-            f"supplementary models must not appear in the official split: {shared}"
+            f"supplementary solvers must not appear in the official split: {shared}"
         )
 
 
-def _bundle_model_ids(bundle: OfficialBundle) -> set[str]:
+def _bundle_solver_ids(bundle: OfficialBundle) -> set[str]:
+    """Return the evaluated solver ids, which are the models' stable identity.
+
+    A published ``model_id`` is a display label the solver run chooses, so two
+    different models can carry the same one; ``solver_id`` is the registry key
+    that ``load_official_bundle`` already pins to the run card's frozen model
+    set. Baseline rows are excluded: the same frozen baseline legitimately
+    appears in both bundles.
+    """
+
     return {
-        _required_text(row, "model_id")
-        for row in _mapping_rows(bundle.report.get("rows"))
+        _required_text(row, "solver_id")
+        for row in _mapping_rows(bundle.scores.get("summaries"))
         if row.get("row_type") == "model"
     }
 

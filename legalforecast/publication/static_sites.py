@@ -14,7 +14,10 @@ from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.spec import ArtifactRecord
 from legalforecast.multiharness.validation import require_schema_version
 from legalforecast.publication.official_report_site import build_official_report_page
-from legalforecast.publication.official_report_validation import load_official_bundle
+from legalforecast.publication.official_report_validation import (
+    OfficialBundle,
+    load_official_bundle,
+)
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
     enforce_publication_guardrails,
@@ -224,6 +227,18 @@ class StaticSiteResult:
     artifact_index_path: Path
 
 
+@dataclass(frozen=True, slots=True)
+class _SidecarSource:
+    """One bundle's sidecar inputs: its bytes on disk and the rows it may key.
+
+    Pairing the directory with the already-validated bundle is what lets a
+    sidecar be checked against the leaderboard it claims to annotate.
+    """
+
+    artifacts_dir: Path
+    bundle: OfficialBundle
+
+
 def render_official_results_site(
     *,
     official_artifacts_dir: Path,
@@ -247,17 +262,21 @@ def render_official_results_site(
         href_base=output_dir,
         allowed_paths=bundle.artifact_paths,
     )
-    supplementary_bundle = (
-        None
-        if supplementary_artifacts_dir is None
-        else load_official_bundle(supplementary_artifacts_dir)
-    )
+    official_source = _SidecarSource(official_artifacts_dir, bundle)
+    supplementary_bundle: OfficialBundle | None = None
+    supplementary_source: _SidecarSource | None = None
+    if supplementary_artifacts_dir is not None:
+        supplementary_bundle = load_official_bundle(supplementary_artifacts_dir)
+        supplementary_source = _SidecarSource(
+            supplementary_artifacts_dir,
+            supplementary_bundle,
+        )
     # Each sidecar stays bound to the leaderboard bytes of its own bundle. Adding
     # supplementary rows changes only the rendered page, so the official
     # sidecar's frozen_result_digest binding is unaffected.
     contamination_tiers = _merged_sidecar_overlay(
-        official_artifacts_dir,
-        supplementary_artifacts_dir,
+        official_source,
+        supplementary_source,
         official_path=contamination_sidecar_path,
         filename="contamination-tier-sidecar.json",
         load=lambda path, digest: load_contamination_tier_sidecar(
@@ -265,8 +284,8 @@ def render_official_results_site(
         ).tier_by_model_id(),
     )
     result_classes = _merged_sidecar_overlay(
-        official_artifacts_dir,
-        supplementary_artifacts_dir,
+        official_source,
+        supplementary_source,
         official_path=result_class_sidecar_path,
         filename="result-class-sidecar.json",
         load=lambda path, digest: load_result_class_sidecar(
@@ -364,8 +383,8 @@ def _write_site(
 
 
 def _merged_sidecar_overlay[OverlayValue: (ContaminationTier, ResultClass)](
-    official_artifacts_dir: Path,
-    supplementary_artifacts_dir: Path | None,
+    official: _SidecarSource,
+    supplementary: _SidecarSource | None,
     *,
     official_path: Path | None,
     filename: str,
@@ -379,29 +398,54 @@ def _merged_sidecar_overlay[OverlayValue: (ContaminationTier, ResultClass)](
     Returns ``None`` when neither sidecar exists, which renders unannotated.
     """
 
-    def overlay(artifacts_dir: Path, path: Path) -> dict[str, OverlayValue]:
+    def overlay(source: _SidecarSource, path: Path) -> dict[str, OverlayValue]:
         if not path.is_file():
             return {}
         digest = frozen_result_digest(
-            (artifacts_dir / "report" / "leaderboard.json").read_bytes()
+            (source.artifacts_dir / "report" / "leaderboard.json").read_bytes()
         )
-        return load(path, digest)
+        rows = load(path, digest)
+        # Refuse, rather than ignore, rows outside the sidecar's own bundle.
+        # Winning the collision is not enough on its own: when the official
+        # bundle ships no sidecar there is nothing to win against, so a
+        # supplementary sidecar keyed to official model_ids would otherwise
+        # decide how official rows render -- or veto the render entirely.
+        # Refusing costs no valid render: the digest above already rejects a
+        # stale sidecar, so a sidecar that reaches this line was built against
+        # exactly these leaderboard bytes and still names a model they do not
+        # contain, which is an inconsistency no correct writer produces.
+        outside = sorted(set(rows) - _bundle_model_ids(source.bundle))
+        if outside:
+            raise ValueError(
+                f"{filename} keys rows outside its own bundle's leaderboard: {outside}"
+            )
+        return rows
 
     official_overlay = overlay(
-        official_artifacts_dir,
-        official_path or (official_artifacts_dir / filename),
+        official,
+        official_path or (official.artifacts_dir / filename),
     )
     supplementary_overlay = (
         {}
-        if supplementary_artifacts_dir is None
-        else overlay(
-            supplementary_artifacts_dir,
-            supplementary_artifacts_dir / filename,
-        )
+        if supplementary is None
+        else overlay(supplementary, supplementary.artifacts_dir / filename)
     )
     if not official_overlay and not supplementary_overlay:
         return None
     return {**supplementary_overlay, **official_overlay}
+
+
+def _bundle_model_ids(bundle: OfficialBundle) -> set[str]:
+    """Return every model_id the bundle's frozen leaderboard publishes.
+
+    Baseline rows are included: a sidecar legitimately annotates them too.
+    """
+
+    return {
+        model_id
+        for row in _mapping_rows(bundle.report.get("rows", ()))
+        if isinstance(model_id := row.get("model_id"), str)
+    }
 
 
 def _site_result(output_dir: Path) -> StaticSiteResult:
