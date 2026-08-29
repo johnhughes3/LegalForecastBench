@@ -2019,9 +2019,37 @@ uv run legalforecast acquisition project-manifest-cost \
 
 5. Obtain the owner approval comment. The grammar is unchanged and has no supplementary wording — one comment, exactly:
 
-   **Why this step and the next stay on the operator's machine.** Scope issuance reads live owner-approval comments by shelling out to `bd comments`, and the beads Dolt server is bound to loopback on the operator's own host; a GitHub-hosted runner cannot reach it. That is a permanent property of where the approval evidence lives, not a plumbing gap. The split for the whole chain is therefore: everything that writes to S3 runs in Actions under OIDC (staging, above), and everything that reads owner evidence runs locally and needs no AWS credentials at all — `project-manifest-cost` takes a local `--manifest-run-root`, and the scope reaches the dispatch as a checked-out `path#sha256`, which `run-benchmark.yaml` already accepts. So the scope needs no S3 upload step: commit it and pass its repository-relative path.
+   **Why this step and the next stay on the operator's machine.** Scope issuance reads live owner-approval comments by shelling out to `bd comments`, and the beads Dolt server is bound to loopback on the operator's own host; a GitHub-hosted runner cannot reach it. That is a permanent property of where the approval evidence lives, not a plumbing gap. The split for the whole chain is therefore: everything that writes to S3 runs in Actions under OIDC (staging, above), and everything that reads owner evidence runs locally and needs no AWS credentials at all — `project-manifest-cost` takes a local `--manifest-run-root`, and the scope is uploaded to S3 and dispatched as `s3://...#<scope_sha256>`.
 
-   **Check the scope for repository hygiene before committing it — this repository is public.** Most of the scope is digests, counts, and money, but `owner_evidence.raw_observation_base64` embeds the *complete* raw `bd comments <bead> --json` payload for the approval bead, not just the approval sentence, so it publishes every other comment on that bead verbatim. Base64 is encoding, not redaction. Agents routinely paste absolute paths and host addresses into bead comments, and [CLAUDE.md](/CLAUDE.md)'s hygiene rule bans exactly those. Decode and scan before `git add`:
+   **Upload the scope to S3; do not commit it to this repository.** `run-benchmark.yaml` accepts a checked-out `path#sha256` as well, and that route is tempting because it needs no credentials — but it is the wrong shape here. `owner_evidence.raw_observation_base64` embeds the *complete* raw `bd comments <bead> --json` payload for the approval bead, not just the approval sentence, so committing a scope publishes every other comment on that bead verbatim. Base64 is encoding, not redaction. That would make publishability a per-run property of an unrelated bead's comment history, requiring a human to scan a base64 blob before every dispatch — a recurring hygiene decision on a public repo. Use S3, which is the established path and carries no such condition.
+
+   Upload it beside the manifest run it authorizes, matching where the official Cycle 1 scopes went:
+
+```bash
+# Official lane:       cycle-1/manifest-runs/<manifest_digest>/execution-scopes/<model-key-slug>.json
+# Supplementary lane:  cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/execution-scopes/<model-key-slug>.json
+scope=artifacts/<cycle_id>/supplementary-execution-scope.json
+scope_sha256="$(sha256sum "${scope}" | cut -d' ' -f1)"
+# <model-key-slug> is the registry key with ':' and '.' replaced by '-'
+# (google:gemini-3.7-flash -> google-gemini-3-7-flash). Convention only; see below.
+key="cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/execution-scopes/<model-key-slug>.json"
+
+aws s3api put-object \
+  --bucket "${LFB_RESULTS_BUCKET}" \
+  --key "${key}" \
+  --body "${scope}" \
+  --content-type application/json \
+  --metadata "sha256=${scope_sha256}" \
+  --if-none-match "*"
+
+echo "execution_scope_uri = s3://${LFB_RESULTS_BUCKET}/${key}#${scope_sha256}"
+```
+
+   `--if-none-match "*"` keeps the object create-once, matching every other manifest-run write. This upload is the one remaining operator-side S3 write in the chain; staging itself runs in Actions.
+
+   Three things make this safe and are worth knowing rather than assuming. The evaluation cell's role already has `s3:GetObject` on `cycle-1/manifest-runs/*` (`ReadManifestRunArtifacts` in `infra/official-eval/policies/cell-storage-policy.json.tftpl`), so a scope stored here is readable by the dispatch without any IAM change. The `#<scope_sha256>` suffix is a real pin, not decoration: `run-benchmark.yaml` splits it off and passes it to `verify_execution_scope_runtime(..., expected_scope_sha256=...)`, which refuses a scope whose bytes disagree, before any provider is called. And the `execution-scopes/<model-key-slug>.json` key layout is an **operator convention, not something the code enforces** — fan-in takes transported local scope paths (`verify_scoped_execution_scopes`), so nothing reads that prefix by name. Keep to it for consistency; do not expect a validator to catch a deviation.
+
+   **Defensive guard (optional).** Storing the scope in S3 removes the publication concern, but the over-capture itself is a real defect tracked separately. If you want to see what a scope is carrying before it leaves your machine:
 
 ```bash
 uv run python - <<'PY' artifacts/<cycle_id>/supplementary-execution-scope.json
@@ -2042,7 +2070,7 @@ sys.exit(1 if findings else 0)
 PY
 ```
 
-   If it reports anything, do **not** commit the scope. Either keep the approval bead free of such comments (raise the approval on a bead used only for that purpose), or fall back to uploading the scope to `cycle-1/manifest-runs/...` under the staging role — the evaluation cell can already read that prefix — and pass an `s3://...#sha256` URI instead. The choice is per-run, because it depends on what is on that specific bead.
+   It reports whatever operational detail the approval bead's other comments happen to contain. That is informational here — S3 is not a publication surface — but a noisy result is a good reason to raise future approvals on a bead kept clear of such comments.
 
 
    `I approve up to USD <ceiling> of provider spend for model <model_key> in the Cycle 1 forecast run, estimated USD <estimate>.`
