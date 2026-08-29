@@ -89,6 +89,7 @@ from legalforecast.reporting.result_class import (
     ResultClassError,
     build_result_class_sidecar,
     corpus_anchor_from_decision_dates,
+    expected_result_class,
     require_official_result_classes,
     supplementary_model_ids,
     write_result_class_sidecar,
@@ -1338,9 +1339,24 @@ def _require_result_class_separation(
     than being published under a claim it cannot support.
     """
 
+    if config.supplementary and not registry_entries:
+        # Checked before the empty-registry exit below: without this, an empty
+        # registry would make a supplementary bundle silently skip the entire
+        # separation check rather than refuse.
+        raise OfficialAggregationError(
+            "a supplementary bundle requires a model registry to classify"
+        )
     if not registry_entries:
         return None
-    decision_dates = _packet_decision_dates(expected_packet_rows)
+    decision_dates, undated_rows = _packet_decision_dates(expected_packet_rows)
+    if undated_rows and decision_dates:
+        # A partially dated manifest would derive the anchor from the dated rows
+        # alone, which can only be later than the true earliest decision and so
+        # can only under-report supplementary models.
+        raise OfficialAggregationError(
+            "run-input rows disagree on decision_date presence; the corpus "
+            f"anchor cannot be derived from a partial set: {undated_rows}"
+        )
     if not decision_dates:
         if config.supplementary:
             raise OfficialAggregationError(
@@ -1373,13 +1389,23 @@ def _require_result_class_separation(
 
 def _packet_decision_dates(
     expected_packet_rows: Mapping[PacketKey, JsonRecord],
-) -> tuple[date, ...]:
-    """Collect the corpus decision dates declared by the run-input manifest."""
+) -> tuple[tuple[date, ...], tuple[str, ...]]:
+    """Collect corpus decision dates, and name any rows that declare none.
+
+    Rows with no ``decision_date`` are returned rather than skipped so the caller
+    can distinguish a manifest that carries no dates at all -- older fixtures,
+    where the anchor check is simply unavailable -- from a partially dated one,
+    which would silently yield a too-late anchor. Freeze-validated Cycle 1
+    inputs always carry dates on every row, so only fixtures reach the
+    all-absent case.
+    """
 
     dates: list[date] = []
-    for row in expected_packet_rows.values():
+    undated: list[str] = []
+    for (case_id, ablation), row in sorted(expected_packet_rows.items()):
         raw = row.get("decision_date")
         if raw is None:
+            undated.append(f"{case_id}:{ablation}")
             continue
         if not isinstance(raw, str) or not raw.strip():
             raise OfficialAggregationError(
@@ -1391,7 +1417,7 @@ def _packet_decision_dates(
             raise OfficialAggregationError(
                 f"run-input decision_date is not an ISO date: {raw}"
             ) from exc
-    return tuple(dates)
+    return tuple(dates), tuple(undated)
 
 
 def _expected_model_key_sets(
@@ -2555,6 +2581,10 @@ def _aggregate_run_card(
             dict(dispatch_provenance) if dispatch_provenance is not None else None
         ),
         "allow_incomplete_model_set": config.allow_incomplete_model_set,
+        # In-band so the authenticated run-card bytes themselves say which set
+        # this bundle belongs to. A reader must not have to consult the
+        # non-authoritative sidecar to learn that a bundle is unofficial.
+        "result_class": expected_result_class(supplementary=config.supplementary).value,
         "allow_no_baselines": config.allow_no_baselines,
         "deferred_ablations": list(config.deferred_ablations),
         "cycle_baseline_training_example_count": (

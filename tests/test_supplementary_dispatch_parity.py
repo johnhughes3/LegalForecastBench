@@ -12,6 +12,7 @@ settings and the standard two-ablation shard schedule.
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,9 @@ SUPPLEMENTARY_REGISTRY = (
     / "cycle-1-supplementary-gemini-3.7-flash-2026-08-29.json"
 )
 SUPPLEMENTARY_KEY = "google:gemini-3.7-flash"
+# The earliest decision the Cycle 1 corpus scores. The corpus decision window
+# closed 2026-06-30; the frozen registry's latest release is 2026-06-26.
+CYCLE_1_CORPUS_ANCHOR = date(2026, 6, 30)
 
 
 def _common_frozen_inputs(registry_path: Path) -> dict[str, str]:
@@ -72,7 +76,7 @@ def test_supplementary_registry_issues_a_standard_execution_policy() -> None:
 
 @pytest.mark.parametrize(
     "field",
-    ["tool_policy", "max_output_tokens", "network_disabled", "search_disabled"],
+    ["tool_policy", "network_disabled", "search_disabled"],
 )
 def test_supplementary_entry_matches_official_harness_settings(field: str) -> None:
     """Every execution setting the official four share is shared here too."""
@@ -83,6 +87,37 @@ def test_supplementary_entry_matches_official_harness_settings(field: str) -> No
 
     supplementary = load_model_registry(SUPPLEMENTARY_REGISTRY).entries[0]
     assert getattr(supplementary, field) == official_values.pop()
+
+
+# Gemini 3.7 Flash's provider output-token limit, from
+# https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash (checked
+# 2026-08-29). A registry value above this is unreachable, so parity with the
+# official 128000 cap is not available and the deviation is documented instead.
+GEMINI_37_FLASH_PROVIDER_OUTPUT_LIMIT = 65_536
+
+
+def test_supplementary_output_cap_is_official_parity_or_the_provider_maximum() -> None:
+    """Match the official cap, or the provider ceiling where that is lower.
+
+    Parity is the rule, but a registry cannot request more output than the
+    provider will emit. Where the provider caps lower, the entry must sit
+    exactly at that ceiling -- not at some intermediate value chosen by hand --
+    and must say so in its caveats with a source.
+    """
+
+    official = load_model_registry(OFFICIAL_REGISTRY).entries
+    official_caps = {entry.max_output_tokens for entry in official}
+    assert len(official_caps) == 1, "official four disagree on max_output_tokens"
+    official_cap = official_caps.pop()
+
+    supplementary = load_model_registry(SUPPLEMENTARY_REGISTRY).entries[0]
+    expected = min(official_cap, GEMINI_37_FLASH_PROVIDER_OUTPUT_LIMIT)
+    assert supplementary.max_output_tokens == expected
+
+    if expected != official_cap:
+        caveats = " ".join(supplementary.known_cutoff_publicity_caveats)
+        assert str(GEMINI_37_FLASH_PROVIDER_OUTPUT_LIMIT) in caveats.replace(",", "")
+        assert "https://" in caveats
 
 
 def test_supplementary_entry_requests_reasoning_explicitly() -> None:
@@ -113,16 +148,24 @@ def test_supplementary_model_routes_to_the_existing_gemini_lane() -> None:
 
 
 def test_supplementary_entry_is_the_only_post_anchor_model() -> None:
-    """Parity does not extend to the anchor: this entry stays classified apart."""
+    """Parity does not extend to the anchor: this entry stays classified apart.
 
-    from legalforecast.evals.model_registry import earliest_eligible_decision_date
+    The anchor here is the CORPUS-derived one -- the earliest decision the cycle
+    scores -- which is the definition the implementation uses everywhere. The
+    Cycle 1 corpus decision window closed 2026-06-30, so 2026-06-30 stands in
+    for the earliest scored decision; the frozen registry's own latest release
+    is 2026-06-26. Both classify the four official models as official and
+    Gemini 3.7 Flash (2026-08-13) as supplementary, but only the corpus-derived
+    date is trustworthy when the registry varies.
+    """
+
     from legalforecast.reporting.result_class import (
         ResultClass,
         classify_registry_entry,
     )
 
     official = load_model_registry(OFFICIAL_REGISTRY).entries
-    anchor = earliest_eligible_decision_date(official)
+    anchor = CYCLE_1_CORPUS_ANCHOR
     supplementary = load_model_registry(SUPPLEMENTARY_REGISTRY).entries[0]
 
     assert classify_registry_entry(supplementary, corpus_anchor=anchor) is (

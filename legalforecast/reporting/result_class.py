@@ -1,16 +1,24 @@
 """Official versus post-anchor supplementary classification for result rows.
 
-A cycle's *corpus anchor* is the latest first-deployment date among the models
-the cycle froze.  Every corpus decision the cycle scores predates that anchor,
-which is what lets an official row claim the model could not have trained on the
-outcome.  A model released after the anchor cannot make that claim, so its rows
-are published as supplementary and are refused inside the official set.
+A cycle's *corpus anchor* is the **earliest decision date the cycle scores**.
+
+An official row claims the model already existed when the court decided the
+case, so every scored decision must *postdate* the evaluated models' release.
+Turned around, a model may join the official set only if it was released on or
+before the earliest decision in the corpus -- that date is the anchor.  A model
+released after it cannot support the claim for every scored case, so its rows
+publish as supplementary and are refused inside the official set.
 
 The classification is mechanical and has no override: it compares the model's
-``release_timestamp`` against an anchor supplied by the caller.  The anchor must
-come from the *official* frozen registry binding, never from the entries being
-classified -- a supplementary registry's self-derived anchor is its own release
-date, which would make every post-anchor model trivially "official".
+``release_timestamp`` against that corpus-derived anchor.  Deriving the anchor
+from the corpus rather than from the registry under evaluation is what keeps the
+check non-vacuous -- a registry containing only post-anchor models would
+otherwise supply its own anchor and trivially certify itself as official.
+
+For Cycle 1 the corpus decision window closed 2026-06-30 and the frozen
+registry's latest release is 2026-06-26, so the two candidate definitions
+happen to bracket a narrow range; the implementation uses the corpus-derived
+date throughout, and only that date can be trusted when the registry varies.
 
 This module is a classification overlay in the same spirit as
 ``contamination_tiers``, and the two dimensions are independent.  A model can be
@@ -91,6 +99,38 @@ def classify_registry_entry(
         release_timestamp=entry.release_timestamp,
         corpus_anchor=corpus_anchor,
     )
+
+
+def classify_decision_against_anchor(
+    *,
+    decision_date: date,
+    release_anchor: date,
+) -> ResultClass:
+    """Classify one scored decision against the evaluated registry's anchor.
+
+    An official row claims the model already existed when the court decided the
+    case, which is exactly ``decision_date >= release_anchor``. A decision that
+    predates the model's release cannot support that claim, and is therefore
+    supplementary.
+
+    This is the same comparison the aggregate performs, expressed per decision so
+    the corpus-build and per-case gates can share it. Both directions are
+    refusals: an official run rejects a decision that predates the anchor, and a
+    supplementary run rejects one that does not, so a pre-anchor model cannot be
+    smuggled through the supplementary lane to dodge the official gates.
+    """
+
+    if decision_date >= release_anchor:
+        return ResultClass.OFFICIAL
+    return ResultClass.SUPPLEMENTARY_POST_ANCHOR
+
+
+def expected_result_class(*, supplementary: bool) -> ResultClass:
+    """Return the only result class the named execution mode may produce."""
+
+    if supplementary:
+        return ResultClass.SUPPLEMENTARY_POST_ANCHOR
+    return ResultClass.OFFICIAL
 
 
 def corpus_anchor_from_decision_dates(decision_dates: Iterable[date]) -> date:
@@ -265,18 +305,13 @@ def build_result_class_sidecar(
 
     by_model_id = {entry.model_id: entry for entry in registry.entries}
     by_registry_key = {entry.registry_key: entry for entry in registry.entries}
-    by_display_name = {entry.display_name: entry for entry in registry.entries}
     rows: list[ResultClassRow] = []
     for model_id, lookup_key in model_rows:
         require_non_empty(model_id, "model_id")
-        entry = (
-            by_registry_key.get(lookup_key)
-            or by_model_id.get(lookup_key)
-            or by_display_name.get(lookup_key)
-            or by_model_id.get(model_id)
-            or by_registry_key.get(model_id)
-            or by_display_name.get(model_id)
-        )
+        # Two deliberate lookups, in order of trust: solver_id is the registry
+        # key on the production path, and a caller with no solver_id passes the
+        # model_id through as the lookup, which resolves against model_id.
+        entry = by_registry_key.get(lookup_key) or by_model_id.get(lookup_key)
         if entry is None:
             raise ValueError(f"no registry entry for leaderboard model_id {model_id}")
         rows.append(

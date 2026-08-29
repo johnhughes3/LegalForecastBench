@@ -863,6 +863,71 @@ def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:
     assert "Return JSON." in body["contents"][0]["parts"][0]["text"]
 
 
+def test_gemini_request_nests_thinking_level_under_thinking_config() -> None:
+    """Pin the generateContent shape: generationConfig.thinkingConfig.thinkingLevel.
+
+    The flat ``generationConfig.thinkingLevel`` spelling belongs to Google's
+    separate Interactions API and is a 400 from ``:generateContent``.
+    """
+
+    record = _registry_record("google", "gemini-test")
+    record["thinking_level"] = "high"
+    entry = ModelRegistryEntry.from_record(record)
+
+    request = live_model_solver._gemini_request(entry, "prompt", "key", None)
+
+    generation_config = _json_body(request)["generationConfig"]
+    assert generation_config["thinkingConfig"] == {"thinkingLevel": "high"}
+    assert "thinkingLevel" not in generation_config
+    assert "thinkingBudget" not in generation_config
+
+
+def test_gemini_request_omits_thinking_config_without_registry_thinking_level() -> None:
+    entry = _registry_entry("google", "gemini-test")
+
+    request = live_model_solver._gemini_request(entry, "prompt", "key", None)
+
+    assert _json_body(request)["generationConfig"] == {
+        "maxOutputTokens": 4096,
+        "responseMimeType": "application/json",
+    }
+
+
+def test_gemini_usage_bills_thinking_tokens_as_output() -> None:
+    input_tokens, output_tokens = live_model_solver._gemini_usage(
+        {
+            "usageMetadata": {
+                "promptTokenCount": 300,
+                "candidatesTokenCount": 60,
+                "thoughtsTokenCount": 900,
+            }
+        }
+    )
+
+    assert input_tokens == 300
+    assert output_tokens == 960
+
+
+@pytest.mark.parametrize(
+    "usage_metadata",
+    (
+        {"promptTokenCount": 300, "candidatesTokenCount": 60},
+        {
+            "promptTokenCount": 300,
+            "candidatesTokenCount": 60,
+            "thoughtsTokenCount": None,
+        },
+    ),
+)
+def test_gemini_usage_without_thinking_tokens_is_unchanged(
+    usage_metadata: dict[str, Any],
+) -> None:
+    assert live_model_solver._gemini_usage({"usageMetadata": usage_metadata}) == (
+        300,
+        60,
+    )
+
+
 def test_complete_live_prompt_passes_explicit_json_schema_only_to_gemini() -> None:
     transport = _FixtureTransport(
         {
