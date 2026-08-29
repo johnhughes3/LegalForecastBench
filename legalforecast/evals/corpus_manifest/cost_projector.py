@@ -19,6 +19,7 @@ from legalforecast.evals.corpus_manifest.cost_projector_contract import (
     packet_sha256_from_row,
     required_nonnegative_int,
 )
+from legalforecast.evals.corpus_manifest.supplementary_mode import require_mode_match
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.protocol.manifest import hash_payload
 from legalforecast.protocol.policy_artifacts import (
@@ -82,6 +83,17 @@ _COST_RECEIPT_FIELDS: Final = frozenset(
         "receipt_sha256",
     }
 )
+_SUPPLEMENTARY_COST_RECEIPT_FIELDS: Final = _COST_RECEIPT_FIELDS | {
+    "supplementary_binding"
+}
+"""Supplementary receipts carry one extra recorded block, official ones none.
+
+The block is additive so an official receipt's bytes -- and therefore every
+already-issued official scope that commits to one -- are unchanged by this lane.
+Presence of the block is itself the mode declaration, and exact-key checking in
+both directions turns that into a refusal rather than a convention.
+"""
+
 _COST_MATRIX_ROW_FIELDS: Final = frozenset(
     {
         "case_id",
@@ -396,6 +408,19 @@ def build_manifest_cost_projection(
     for provider in PROVIDER_LANES:
         receipt[f"{provider}_count"] = provider_counts[provider]
         receipt[f"{provider}_matrix"] = provider_matrices[provider]
+    binding = authenticated.supplementary_binding
+    if (binding is not None) is not request.supplementary:
+        raise ManifestCostProjectionError(
+            "authenticated inputs and request disagree about supplementary mode"
+        )
+    if binding is not None:
+        authorized = set(cast(list[str], binding["supplementary_model_keys"]))
+        unauthorized = sorted(set(requested_model_keys) - authorized)
+        if unauthorized:
+            raise ManifestCostProjectionError(
+                f"model_keys are not in the supplementary registry: {unauthorized}"
+            )
+        receipt["supplementary_binding"] = dict(binding)
     receipt["receipt_sha256"] = hash_payload(receipt)
     return receipt
 
@@ -408,6 +433,7 @@ def verify_manifest_cost_projection_receipt(
     expected_common_frozen_inputs: Mapping[str, Any],
     expected_registry_entry: Mapping[str, Any],
     run_input_manifest: Path | bytes | None = None,
+    expected_supplementary: bool = False,
 ) -> str:
     """Verify one exact-model receipt emitted by the canonical cost projector.
 
@@ -416,10 +442,28 @@ def verify_manifest_cost_projection_receipt(
     packet's token basis from its ``packet_size_bytes`` row.  Omitting the
     source retains the standalone compatibility path for callers that cannot
     reach execution-scope authority.
+
+    ``expected_supplementary`` defaults to official, so an existing caller
+    refuses a supplementary receipt without being changed.
     """
 
     record = dict(receipt)
-    _cost_exact_keys(record, _COST_RECEIPT_FIELDS, "cost projection receipt")
+    require_mode_match(
+        record,
+        field="supplementary_binding",
+        supplementary=expected_supplementary,
+        label="cost projection receipt",
+        error_type=ManifestCostProjectionError,
+    )
+    _cost_exact_keys(
+        record,
+        (
+            _SUPPLEMENTARY_COST_RECEIPT_FIELDS
+            if expected_supplementary
+            else _COST_RECEIPT_FIELDS
+        ),
+        "cost projection receipt",
+    )
     if record.get("schema_version") != str(MANIFEST_COST_PROJECTION_RECEIPT_V1):
         raise ManifestCostProjectionError(
             "unsupported manifest cost projection receipt schema"

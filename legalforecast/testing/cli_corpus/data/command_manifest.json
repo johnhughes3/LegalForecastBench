@@ -11093,6 +11093,32 @@
           "type": null
         },
         {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
+          "dest": "supplementary",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--supplementary"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "official_freeze_bundle",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--official-freeze-bundle"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
           "action": "store",
           "choices": null,
           "default": null,
@@ -11996,6 +12022,19 @@
           "type": "pathlib.Path"
         },
         {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
+          "dest": "supplementary",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--supplementary"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
           "action": "store",
           "choices": null,
           "default": null,
@@ -12167,6 +12206,19 @@
           "nargs": null,
           "option_strings": [
             "--model-key"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
+          "dest": "supplementary",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--supplementary"
           ],
           "required": false,
           "type": null

@@ -427,6 +427,27 @@ def register(
             "Require exactly one model/ablation cell; permits the 256-row shard limit."
         ),
     )
+    cost.add_argument(
+        "--supplementary",
+        action="store_true",
+        help=(
+            "Project a post-anchor supplementary shard. The release-anchor gate "
+            "inverts rather than switching off: the sibling freeze must reuse "
+            "every official frozen artifact except the model registry and the "
+            "provider caps and execution policy that follow from it, and every "
+            "model it names must classify post-anchor. Requires "
+            "--official-freeze-bundle."
+        ),
+    )
+    cost.add_argument(
+        "--official-freeze-bundle",
+        type=Path,
+        help=(
+            "Official freeze bundle the sibling freeze must match byte for byte; "
+            "required with --supplementary and refused without it. Read only for "
+            "its recorded artifact digests."
+        ),
+    )
     cost.add_argument("--output", type=Path, required=True)
     cost.set_defaults(handler=run_project_manifest_cost)
 
@@ -603,6 +624,15 @@ def register(
             "caller-authored authority JSON is not accepted."
         ),
     )
+    issue_scope.add_argument(
+        "--supplementary",
+        action="store_true",
+        help=(
+            "Authorize a post-anchor supplementary shard. The cost receipt must "
+            "already record the supplementary binding, and the issued scope is "
+            "refused by an official dispatch."
+        ),
+    )
     issue_scope.add_argument("--output", type=Path, required=True)
     issue_scope.set_defaults(handler=run_issue_execution_scope)
 
@@ -625,6 +655,15 @@ def register(
     verify_scope.add_argument("--owner-evidence", type=Path, required=True)
     verify_scope.add_argument("--provider-cycle-caps", type=Path, required=True)
     verify_scope.add_argument("--model-key")
+    verify_scope.add_argument(
+        "--supplementary",
+        action="store_true",
+        help=(
+            "Expect a post-anchor supplementary scope. Verification fails closed "
+            "in both directions: an official scope is refused here, and a "
+            "supplementary scope is refused without this flag."
+        ),
+    )
     verify_scope.set_defaults(handler=run_verify_execution_scope)
 
     stage = subparsers.add_parser(
@@ -744,6 +783,8 @@ def run_project_manifest_cost(args: argparse.Namespace) -> int:
         matrix_limit=cast(int, args.matrix_limit),
         shard_only=cast(bool, args.shard_only),
         output=cast(Path, args.output),
+        supplementary=cast(bool, args.supplementary),
+        official_freeze_bundle=cast("Path | None", args.official_freeze_bundle),
     )
     issue = cast(_CostProjectionCommand, _PROJECT_MANIFEST_COST.load())
     receipt = issue(request)
@@ -911,6 +952,7 @@ def run_issue_execution_scope(args: argparse.Namespace) -> int:
         freeze_root=cast(Path | None, args.freeze_root),
         provider_cycle_caps=cast(Path, args.provider_cycle_caps),
         output=cast(Path, args.output),
+        supplementary=cast(bool, args.supplementary),
     )
     print(json.dumps(dict(result), indent=2, sort_keys=True))
     return 0
@@ -931,6 +973,7 @@ def run_verify_execution_scope(args: argparse.Namespace) -> int:
         freeze_root=cast(Path | None, args.freeze_root),
         provider_cycle_caps=cast(Path, args.provider_cycle_caps),
         expected_model_key=cast(str | None, args.model_key),
+        expected_supplementary=cast(bool, args.supplementary),
     )
     print(json.dumps({"scope_sha256": result}, indent=2, sort_keys=True))
     return 0

@@ -437,6 +437,7 @@ def verify_scoped_execution_scopes(
     model_registry_sha256: str,
     scope_paths: Sequence[Path],
     expected_freeze_bundle_sha256: str | None = None,
+    supplementary: bool = False,
 ) -> None:
     """Replay transported model scopes and bind them to accepted receipts.
 
@@ -531,6 +532,7 @@ def verify_scoped_execution_scopes(
                 "expected_model_key": model_key,
                 "expected_ablation": ablation,
                 "expected_scope_sha256": receipt_scope_sha256,
+                "expected_supplementary": supplementary,
             }
             if expected_freeze_bundle_sha256 is not None:
                 runtime_kwargs["expected_freeze_bundle_sha256"] = (
@@ -956,6 +958,7 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
             model_registry_sha256=frozen.context.model_registry_sha256,
             scope_paths=config.execution_scope_paths,
             expected_freeze_bundle_sha256=frozen.context.raw_freeze_bundle_sha256,
+            supplementary=config.supplementary,
         )
     counts = derive_cadence_counts(
         frozen.manifest_path,

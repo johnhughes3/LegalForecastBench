@@ -1786,6 +1786,7 @@ def _verified_execution_policy_for_config(
                 expected_model_key=cast(str, config.model_key),
                 expected_ablation=config.ablation,
                 expected_scope_sha256=config.expected_execution_scope_sha256,
+                expected_supplementary=config.supplementary,
             )
             scope_record = _mapping(scope["scope"], "execution scope")
             authority = _mapping(

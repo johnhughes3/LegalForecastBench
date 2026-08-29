@@ -20,6 +20,16 @@ def issue_manifest_cost_projection_from_workflow_environment(
 ) -> dict[str, Any]:
     """Delegate the official workflow environment to the shared issuer."""
 
+    supplementary = _optional_environment_bool(environment, "SUPPLEMENTARY")
+    official_freeze_bundle = environment.get("OFFICIAL_FREEZE_BUNDLE_PATH", "").strip()
+    if supplementary and not official_freeze_bundle:
+        raise ManifestCostProjectionError(
+            "OFFICIAL_FREEZE_BUNDLE_PATH is required when SUPPLEMENTARY is true"
+        )
+    if not supplementary and official_freeze_bundle:
+        raise ManifestCostProjectionError(
+            "OFFICIAL_FREEZE_BUNDLE_PATH is only valid when SUPPLEMENTARY is true"
+        )
     request = ManifestCostProjectionRequest(
         freeze_bundle=Path(_required_env(environment, "FREEZE_BUNDLE_PATH")),
         freeze_root=Path(_required_env(environment, "FREEZE_ROOT")),
@@ -42,6 +52,10 @@ def issue_manifest_cost_projection_from_workflow_environment(
         matrix_limit=_environment_int(environment, "MATRIX_LIMIT"),
         shard_only=_environment_bool(environment, "SHARD_ONLY"),
         output=Path(_required_env(environment, "COST_PROJECTION_RECEIPT_PATH")),
+        supplementary=supplementary,
+        official_freeze_bundle=(
+            Path(official_freeze_bundle) if official_freeze_bundle else None
+        ),
     )
     receipt = issue_manifest_cost_projection(request)
     _append_github_outputs(Path(_required_env(environment, "GITHUB_OUTPUT")), receipt)
@@ -68,6 +82,21 @@ def _environment_int(environment: Mapping[str, str], name: str) -> int:
 
 def _environment_bool(environment: Mapping[str, str], name: str) -> bool:
     raw = _required_env(environment, name)
+    if raw not in {"true", "false"}:
+        raise ManifestCostProjectionError(f"{name} must be true or false")
+    return raw == "true"
+
+
+def _optional_environment_bool(environment: Mapping[str, str], name: str) -> bool:
+    """Read a Boolean whose absence means the official lane.
+
+    Fail-closed by omission: a workflow that never sets the variable, and every
+    caller written before this lane existed, projects officially.
+    """
+
+    raw = environment.get(name, "").strip()
+    if not raw:
+        return False
     if raw not in {"true", "false"}:
         raise ManifestCostProjectionError(f"{name} must be true or false")
     return raw == "true"

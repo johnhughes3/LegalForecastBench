@@ -109,10 +109,34 @@ class ManifestCostProjectionRequest:
     matrix_limit: int
     shard_only: bool
     output: Path
+    supplementary: bool = False
+    """Project a post-anchor supplementary shard.
+
+    The release-anchor gate inverts rather than switching off: the sibling freeze
+    must reuse the official prompt and corpus bytes and replace only the model
+    registry, and every model it names must classify post-anchor.  An official
+    projection leaves every input and every receipt byte exactly as before.
+    """
+
+    official_freeze_bundle: Path | None = None
+    """Official freeze bundle the sibling freeze must match, byte for byte.
+
+    Required in supplementary mode and refused in official mode.  It is read only
+    for its recorded artifact digests, so the official artifact bytes need not be
+    present -- the comparability claim is verified, not waived.
+    """
 
     def __post_init__(self) -> None:
         if not self.cycle_id.strip():
             raise ManifestCostProjectionError("cycle_id is required")
+        if self.supplementary and self.official_freeze_bundle is None:
+            raise ManifestCostProjectionError(
+                "supplementary projection requires --official-freeze-bundle"
+            )
+        if not self.supplementary and self.official_freeze_bundle is not None:
+            raise ManifestCostProjectionError(
+                "official projection does not accept --official-freeze-bundle"
+            )
         if not 1 <= self.repeat_count <= 10:
             raise ManifestCostProjectionError(
                 "repeat_count must be an integer from 1 through 10"

@@ -1961,11 +1961,66 @@ uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
   --output artifacts/<cycle_id>/supplementary-execution-policy.json
 ```
 
-2. Freeze a sibling bundle. Pass the *same* manifest, units, labels, prompt, scorer, harness, baselines, exclusion ledger, labeling policy, and cohort policy the official freeze used, and the supplementary registry, caps, and execution policy in place of the official ones. This is a new freeze, never an amendment of the official bundle, which stays untouched at its committed path.
+2. Freeze a sibling bundle. Pass the *same* manifest, units, labels, prompt, scorer, harness, baselines, exclusion ledger, labeling policy, and cohort policy the official freeze used, and the supplementary registry, caps, and execution policy in place of the official ones. This is a new freeze, never an amendment of the official bundle, which stays untouched at its committed path. Those three replacements are exactly the set the pre-dispatch chain permits: `project-manifest-cost --supplementary` re-verifies every other frozen artifact against the official freeze byte for byte and refuses the run if any of them drifted. That identity is the comparability claim, so it is checked rather than assumed.
 
-3. Dispatch `run-benchmark.yaml` with `freeze_bundle_path` set to the supplementary freeze, `model_registry_uri` set to the supplementary registry, and `model_keys` set to the supplementary key alone. The `gemini` provider lane already accepts `google:*` keys, so no workflow change is required.
+3. Project the cost against the sibling freeze in supplementary mode. This step and the next are what a paid dispatch additionally requires; a dry-run dispatch needs neither. The sibling freeze reuses the official prompt bytes on purpose, so its prompt contract commits the *official* registry — the projector therefore inverts that one identity check rather than dropping it, and records both bindings in the receipt: `supplementary_binding.official_model_registry_sha256` (the contract being reused) and `supplementary_binding.supplementary_model_registry_sha256` (the registry under evaluation), plus the corpus anchor it derived and the official freeze it matched. Supplementary mode refuses a registry whose models classify official against that corpus-derived anchor, mirroring the aggregate gate, and official mode refuses the sibling freeze exactly as before.
 
-4. Aggregate the shard into its own bundle with `--supplementary`. That flag is a declaration of which bundle is being built, not a claim about any model: an official bundle refuses a model released after the corpus anchor, and a supplementary bundle refuses one released on or before it, so the two sets can never blend. The anchor is the earliest decision the cycle scores, taken from the run-input manifest, so the check cannot be satisfied by supplying a registry that vouches for itself.
+```bash
+uv run legalforecast acquisition project-manifest-cost \
+  --freeze-bundle <supplementary-freeze>.freeze.json \
+  --freeze-root <freeze-root> \
+  --manifest-run-root artifacts/<cycle_id>/manifest-forecast/<run-record-dir> \
+  --cycle-id <cycle_id> \
+  --model-key <supplementary-model-key> \
+  --ablation full_packet \
+  --ablation metadata_only \
+  --repeat-count 1 \
+  --matrix-limit 800 \
+  --supplementary \
+  --official-freeze-bundle <official-staged-freeze>.json \
+  --output artifacts/<cycle_id>/supplementary-cost-projection.json
+```
+
+4. Obtain the owner approval comment. The grammar is unchanged and has no supplementary wording — one comment, exactly:
+
+   `I approve up to USD <ceiling> of provider spend for model <model_key> in the Cycle 1 forecast run, estimated USD <estimate>.`
+
+   Set `<ceiling>` at the receipt's `recommended_max_projected_model_cost_usd` (2x the projection) and `<estimate>` at or above `projected_model_cost_usd`.
+
+5. Issue and verify the execution scope with `--supplementary`. The mode is bound into the scope artifact and checked at consumption in both directions: a supplementary scope cannot authorize an official shard, and an official scope cannot authorize a supplementary one, in the workflow's pre-credential check, in the provider cell, and at fan-in.
+
+```bash
+uv run legalforecast acquisition issue-manifest-execution-scope \
+  --plan artifacts/<cycle_id>/supplementary-execution-policy.json \
+  --freeze-bundle <supplementary-freeze>.freeze.json \
+  --freeze-root <freeze-root> \
+  --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
+  --model-key <supplementary-model-key> \
+  --cost-projection artifacts/<cycle_id>/supplementary-cost-projection.json \
+  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
+  --owner-ceiling-usd <ceiling> \
+  --owner-bead-id <approval-bead> \
+  --provider-cycle-caps <supplementary-provider-cycle-caps>.json \
+  --supplementary \
+  --output artifacts/<cycle_id>/supplementary-execution-scope.json
+
+uv run legalforecast acquisition verify-manifest-execution-scope \
+  --scope artifacts/<cycle_id>/supplementary-execution-scope.json \
+  --plan artifacts/<cycle_id>/supplementary-execution-policy.json \
+  --freeze-bundle <supplementary-freeze>.freeze.json \
+  --freeze-root <freeze-root> \
+  --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
+  --cost-projection artifacts/<cycle_id>/supplementary-cost-projection.json \
+  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
+  --owner-evidence <owner-observation>.json \
+  --provider-cycle-caps <supplementary-provider-cycle-caps>.json \
+  --model-key <supplementary-model-key> \
+  --supplementary
+```
+
+6. Dispatch `run-benchmark.yaml` with `supplementary: true`, `shard_only: true`, `freeze_bundle_path` set to the staged supplementary freeze URI, `official_freeze_bundle_uri` set to the staged official freeze the sibling must match, `model_registry_uri` set to the supplementary registry, `model_keys` set to the supplementary key alone, and `execution_scope_uri` set to `<scope URI>#<scope sha256>`. The `gemini` provider lane already accepts `google:*` keys. `official_freeze_bundle_uri` is required for a supplementary dispatch and refused for an official one, so the identity check cannot be skipped by omitting it. Note the two distinct digests: the scope and the workflow's pre-credential check bind the freeze's **raw file** sha256, while shard receipts and fan-in use the freeze protocol's canonical `hash_bundle_sha256`; never substitute one for the other.
+
+7. Aggregate the shard into its own bundle with `--supplementary`. That flag is a declaration of which bundle is being built, not a claim about any model: an official bundle refuses a model released after the corpus anchor, and a supplementary bundle refuses one released on or before it, so the two sets can never blend. The anchor is the earliest decision the cycle scores, taken from the run-input manifest, so the check cannot be satisfied by supplying a registry that vouches for itself.
 
 ```bash
 uv run legalforecast publish aggregate \
@@ -1982,7 +2037,7 @@ uv run legalforecast publish aggregate \
   --allow-no-baselines
 ```
 
-5. Fan in the supplementary shard with the same receipt verification the official shards get, then publish. Receipts are verified identically; `--supplementary` only selects which bundle the aggregate builds.
+8. Fan in the supplementary shard with the same receipt verification the official shards get, then publish. Receipts are verified identically; `--supplementary` only selects which bundle the aggregate builds.
 
 ```bash
 uv run python -m legalforecast.publication.shard_fan_in \
@@ -1993,7 +2048,7 @@ uv run python -m legalforecast.publication.shard_fan_in \
   --supplementary
 ```
 
-6. Render one merged page. Both the local site and the Hugging Face package take the supplementary bundle as an optional input, so the two render the same rows:
+9. Render one merged page. Both the local site and the Hugging Face package take the supplementary bundle as an optional input, so the two render the same rows:
 
 ```bash
 uv run legalforecast publish site \

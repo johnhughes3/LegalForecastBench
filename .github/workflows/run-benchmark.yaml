@@ -153,6 +153,15 @@ on:
         required: true
         default: false
         type: boolean
+      official_freeze_bundle_uri:
+        description: >-
+          Official freeze bundle a supplementary sibling freeze must match, byte
+          for byte, on every frozen artifact except the model registry, provider
+          caps, and execution policy. Required for a supplementary dispatch and
+          refused otherwise; read only for its recorded artifact digests.
+        required: false
+        default: ""
+        type: string
       execution_scope_uri:
         description: >-
           Authenticated exact-model execution-scope artifact followed by # and
@@ -259,7 +268,9 @@ jobs:
           PREDICTION_UNIT_COUNT_INPUT: ${{ inputs.prediction_unit_count }}
           REPEAT_COUNT_INPUT: ${{ inputs.repeat_count }}
           RELEASE_SHA_INPUT: ${{ inputs.release_sha }}
+          OFFICIAL_FREEZE_BUNDLE_URI_INPUT: ${{ inputs.official_freeze_bundle_uri }}
           SHARD_ONLY_INPUT: ${{ inputs.shard_only }}
+          SUPPLEMENTARY_INPUT: ${{ inputs.supplementary }}
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
@@ -345,6 +356,23 @@ jobs:
           esac
           if [[ "${freeze_bundle_path}" == *".."* ]]; then
             echo "freeze_bundle_path must not contain '..'." >&2
+            exit 1
+          fi
+          official_freeze_uri="${OFFICIAL_FREEZE_BUNDLE_URI_INPUT//[[:space:]]/}"
+          if [[ "${SUPPLEMENTARY_INPUT}" == "true" ]]; then
+            # The sibling freeze reuses the official prompt and corpus bytes on
+            # purpose; the cost projector verifies that identity rather than
+            # assuming it, so it needs the official bundle it must match.
+            if [[ -z "${official_freeze_uri}" ]]; then
+              echo "official_freeze_bundle_uri is required for a supplementary dispatch." >&2
+              exit 1
+            fi
+            if [[ ! "${official_freeze_uri}" =~ ^s3://[^/]+/[A-Za-z0-9._/-]+\.json$ ]]; then
+              echo "official_freeze_bundle_uri must be an s3:// JSON object URI." >&2
+              exit 1
+            fi
+          elif [[ -n "${official_freeze_uri}" ]]; then
+            echo "official_freeze_bundle_uri is only valid for a supplementary dispatch." >&2
             exit 1
           fi
           if [[ -z "${ABLATIONS_INPUT//[[:space:]]/}" ]]; then
@@ -453,6 +481,8 @@ jobs:
         shell: bash
         env:
           FREEZE_BUNDLE_URI: ${{ inputs.freeze_bundle_path }}
+          OFFICIAL_FREEZE_BUNDLE_URI: ${{ inputs.official_freeze_bundle_uri }}
+          SUPPLEMENTARY: ${{ inputs.supplementary }}
         run: |
           set -euo pipefail
           root="/tmp/lfb-manifest-run"
@@ -467,6 +497,10 @@ jobs:
             echo "manifest-run S3 prefix did not contain freeze.json" >&2
             exit 1
           }
+          if [[ "${SUPPLEMENTARY}" == "true" ]]; then
+            aws s3 cp "${OFFICIAL_FREEZE_BUNDLE_URI}" \
+              /tmp/lfb-official-freeze.json --only-show-errors
+          fi
 
       - name: Download run-input manifest
         shell: bash
@@ -729,6 +763,7 @@ jobs:
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
           SHARD_ONLY: ${{ inputs.shard_only }}
+          SUPPLEMENTARY: ${{ inputs.supplementary }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
           WORKFLOW_REF: ${{ github.ref }}
@@ -848,6 +883,7 @@ jobs:
                       expected_freeze_bundle_sha256=os.environ[
                           "EXPECTED_FREEZE_BUNDLE_SHA256"
                       ],
+                      expected_supplementary=os.environ["SUPPLEMENTARY"] == "true",
                   )
           elif scope is not None:
               raise SystemExit("execution scope is only valid with execution policy v3 or v4")
@@ -887,7 +923,9 @@ jobs:
           MODEL_KEYS: ${{ inputs.model_keys }}
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
+          OFFICIAL_FREEZE_BUNDLE_PATH: ${{ inputs.supplementary && '/tmp/lfb-official-freeze.json' || '' }}
           SHARD_ONLY: ${{ inputs.shard_only }}
+          SUPPLEMENTARY: ${{ inputs.supplementary }}
         run: |
           set -euo pipefail
           if [[ "${MANIFEST_RUN_ROOT}" == "." ]]; then
