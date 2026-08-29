@@ -1,0 +1,504 @@
+name: Stage Manifest Run
+
+# Staging is the last step of the Cycle 1 pre-dispatch chain that still wrote to
+# S3 from a developer machine. It now runs here, under GitHub OIDC, with no
+# long-lived credentials anywhere: the runner assumes a role that exists only to
+# create manifest-run objects, and the corpus bytes are rebuilt from the
+# immutable objects an earlier official staging already wrote rather than being
+# carried into this public repository.
+#
+# What this workflow deliberately does NOT do: issue or verify the execution
+# scope. That step reads live owner-approval comments from a loopback-only beads
+# Dolt server on the operator's machine, so it is permanently operator-side. The
+# scope reaches a dispatch as a checked-out `path#sha256`, which
+# run-benchmark.yaml already accepts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact trusted commit SHA on main; must equal the dispatched commit.
+        required: true
+        type: string
+      lane:
+        description: >-
+          Which manifest-run prefix this staging may occupy. official
+          re-verifies the already-staged official bundle; supplementary stages a
+          post-anchor sibling freeze into its own prefix.
+        required: true
+        default: supplementary
+        type: choice
+        options:
+          - official
+          - supplementary
+      manifest_digest:
+        description: Corpus manifest SHA-256 from manifest-mode-run-record.json.
+        required: true
+        type: string
+      official_freeze_bundle_sha256:
+        description: >-
+          Raw-file SHA-256 of the staged official freeze. This is the pin that
+          makes the reconstruction trustworthy and the lane decision authoritative.
+          Not the freeze protocol's canonical hash_bundle_sha256.
+        required: true
+        type: string
+      freeze_bundle_path:
+        description: >-
+          Supplementary only - checked-out path to the sibling freeze bundle.
+          Leave empty for the official lane, where the candidate is the pinned
+          official bundle and is downloaded.
+        required: false
+        default: ""
+        type: string
+      freeze_bundle_sha256:
+        description: >-
+          Supplementary only - raw-file SHA-256 of freeze_bundle_path, taken
+          before staging. This is the prefix component, not the staged freeze's
+          digest, which does not exist until this workflow has run.
+        required: false
+        default: ""
+        type: string
+      local_artifacts:
+        description: >-
+          Supplementary only - newline-separated <artifact_name>=<checked-out path>
+          for the artifacts the sibling replaces (model registry, provider caps,
+          execution policy). Refused for any artifact already staged officially.
+        required: false
+        default: ""
+        type: string
+      dry_run:
+        description: Validate and print the upload plan without writing to S3.
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage-manifest-run-${{ inputs.manifest_digest }}-${{ inputs.lane }}
+  cancel-in-progress: false
+
+jobs:
+  validate-request:
+    name: Validate staging request
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      expected_prefix: ${{ steps.request.outputs.expected_prefix }}
+    steps:
+      - name: Checkout exact main release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ inputs.release_sha }}
+
+      - name: Validate lane, pins, and checked-out inputs
+        id: request
+        shell: bash
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          FREEZE_BUNDLE_PATH: ${{ inputs.freeze_bundle_path }}
+          FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}
+          LANE: ${{ inputs.lane }}
+          LOCAL_ARTIFACTS: ${{ inputs.local_artifacts }}
+          MANIFEST_DIGEST: ${{ inputs.manifest_digest }}
+          OFFICIAL_FREEZE_BUNDLE_SHA256: ${{ inputs.official_freeze_bundle_sha256 }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]] || [[ ! "${GITHUB_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Manifest-run staging is allowed only from refs/heads/main." >&2
+            exit 1
+          fi
+          if [[ "${RELEASE_SHA}" != "${GITHUB_SHA}" ]] || [[ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]]; then
+            echo "release_sha must equal the exact main commit that triggered this workflow." >&2
+            exit 1
+          fi
+          for name in MANIFEST_DIGEST OFFICIAL_FREEZE_BUNDLE_SHA256; do
+            if [[ ! "${!name}" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "${name} must be a lowercase SHA-256 hex digest." >&2
+              exit 1
+            fi
+          done
+
+          # A checked-out path must stay inside the checkout and must not reach
+          # into gitignored operator state that a runner should never read.
+          require_tracked_file() {
+            local label="$1" candidate="$2"
+            if [[ ! "${candidate}" =~ ^[A-Za-z0-9._/-]+$ ]] ||
+              [[ "${candidate}" == /* ]] ||
+              [[ "/${candidate}/" == *"/../"* ]]; then
+              echo "${label} must be a relative path inside the checkout." >&2
+              exit 1
+            fi
+            if [[ ! -f "${candidate}" ]]; then
+              echo "${label} does not exist at the release commit: ${candidate}" >&2
+              exit 1
+            fi
+            if ! git ls-files --error-unmatch -- "${candidate}" >/dev/null 2>&1; then
+              echo "${label} is not tracked at the release commit: ${candidate}" >&2
+              exit 1
+            fi
+          }
+
+          case "${LANE}" in
+            official)
+              # The official prefix already backs dispatched shards and nothing
+              # can delete from it, so this lane exists only to re-verify. It
+              # replaces no artifact and supplies no sibling freeze.
+              if [[ -n "${FREEZE_BUNDLE_PATH}${FREEZE_BUNDLE_SHA256}${LOCAL_ARTIFACTS//[[:space:]]/}" ]]; then
+                echo "The official lane takes no freeze_bundle_path, freeze_bundle_sha256, or local_artifacts." >&2
+                exit 1
+              fi
+              expected_prefix="cycle-1/manifest-runs/${MANIFEST_DIGEST}"
+              ;;
+            supplementary)
+              if [[ ! "${FREEZE_BUNDLE_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
+                echo "The supplementary lane requires freeze_bundle_sha256." >&2
+                exit 1
+              fi
+              if [[ "${FREEZE_BUNDLE_SHA256}" == "${OFFICIAL_FREEZE_BUNDLE_SHA256}" ]]; then
+                echo "A sibling freeze that hashes to the pinned official bundle is the official freeze; it belongs in the official lane." >&2
+                exit 1
+              fi
+              require_tracked_file freeze_bundle_path "${FREEZE_BUNDLE_PATH}"
+              actual="$(sha256sum "${FREEZE_BUNDLE_PATH}" | cut -d' ' -f1)"
+              if [[ "${actual}" != "${FREEZE_BUNDLE_SHA256}" ]]; then
+                echo "freeze_bundle_path hashes to ${actual}, not the pinned ${FREEZE_BUNDLE_SHA256}." >&2
+                exit 1
+              fi
+              if [[ -z "${LOCAL_ARTIFACTS//[[:space:]]/}" ]]; then
+                echo "The supplementary lane requires local_artifacts: a sibling freeze replaces at least its own model registry." >&2
+                exit 1
+              fi
+              while IFS= read -r entry; do
+                [[ -n "${entry//[[:space:]]/}" ]] || continue
+                if [[ ! "${entry}" =~ ^[a-z0-9_]+=[A-Za-z0-9._/-]+$ ]]; then
+                  echo "local_artifacts entries must be <artifact_name>=<path>: ${entry}" >&2
+                  exit 1
+                fi
+                require_tracked_file "local_artifacts entry ${entry%%=*}" "${entry#*=}"
+              done <<< "${LOCAL_ARTIFACTS}"
+              expected_prefix="cycle-1/manifest-runs/supplementary/${MANIFEST_DIGEST}/${FREEZE_BUNDLE_SHA256}"
+              ;;
+            *)
+              echo "lane is outside the reviewed allowlist." >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ "${DRY_RUN}" != "true" && "${DRY_RUN}" != "false" ]]; then
+            echo "dry_run must be true or false." >&2
+            exit 1
+          fi
+          echo "expected_prefix=${expected_prefix}" >> "${GITHUB_OUTPUT}"
+
+  stage:
+    name: Stage ${{ inputs.lane }} manifest run
+    needs: validate-request
+    if: github.ref == 'refs/heads/main'
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: legalforecastbench-official-eval-manifest-staging
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      prefix: ${{ steps.stage.outputs.prefix }}
+      staged_freeze_sha256: ${{ steps.stage.outputs.staged_freeze_sha256 }}
+      staged_freeze_uri: ${{ steps.stage.outputs.staged_freeze_uri }}
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      EXPECTED_PREFIX: ${{ needs.validate-request.outputs.expected_prefix }}
+      FREEZE_BUNDLE_PATH: ${{ inputs.freeze_bundle_path }}
+      LANE: ${{ inputs.lane }}
+      LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN: ${{ vars.LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN }}
+      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      LOCAL_ARTIFACTS: ${{ inputs.local_artifacts }}
+      MANIFEST_DIGEST: ${{ inputs.manifest_digest }}
+      OFFICIAL_FREEZE_BUNDLE_SHA256: ${{ inputs.official_freeze_bundle_sha256 }}
+      OUTPUT_ROOT: ${{ github.workspace }}/.lfb-manifest-stage-output
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      WORK_ROOT: ${{ runner.temp }}/lfb-manifest-stage
+    steps:
+      - name: Confirm secure-gate protected environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "This job starts only after the legalforecastbench-official-eval-manifest-staging protected environment, including secure-gate deployment protection, approves it."
+
+      - name: Validate protected environment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          required_env=(
+            AWS_REGION
+            LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN
+            LFB_PACKET_BUCKET
+            LFB_RESULTS_BUCKET
+          )
+          for name in "${required_env[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required protected environment values:\n' >&2
+            printf '  - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+          if [[ ! "${LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN}" =~ ^arn:aws[a-zA-Z-]*:iam::[0-9]{12}:role/.+ ]]; then
+            echo "LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN must be an IAM role ARN." >&2
+            exit 1
+          fi
+          for bucket in "${LFB_PACKET_BUCKET}" "${LFB_RESULTS_BUCKET}"; do
+            if [[ ! "${bucket}" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ ]]; then
+              echo "Bucket names must be S3 bucket names, not URIs or prefixes." >&2
+              exit 1
+            fi
+          done
+
+      - name: Checkout exact main release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ inputs.release_sha }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
+        with:
+          enable-cache: true
+
+      - name: Sync Python package
+        run: uv sync --locked
+
+      - name: Prove release is still current main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(
+            gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+          )"
+          [[ "${current_main_sha}" == "${RELEASE_SHA}" ]] || {
+            echo "main advanced after dispatch or protected approval; refusing stale staging authority." >&2
+            exit 1
+          }
+
+      - name: Configure AWS OIDC credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: lfb-manifest-stage-${{ github.run_id }}-${{ github.run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN }}
+          # Nothing ambient may survive into this job: the only credentials that
+          # may act here are the ones this step just minted from the OIDC token.
+          unset-current-credentials: true
+
+      - name: Rebuild staging inputs from staged objects
+        id: materialize
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${WORK_ROOT}"
+          args=(
+            --official-freeze-bundle-sha256 "${OFFICIAL_FREEZE_BUNDLE_SHA256}"
+            --official-prefix "cycle-1/manifest-runs/${MANIFEST_DIGEST}"
+            --results-bucket "${LFB_RESULTS_BUCKET}"
+            --packet-bucket "${LFB_PACKET_BUCKET}"
+            --artifact-root "${WORK_ROOT}/artifact-root"
+            --output-dir "${WORK_ROOT}/output-dir"
+            --official-freeze-bundle-out "${WORK_ROOT}/official-freeze.json"
+            --plan-out "${WORK_ROOT}/materialize-plan.json"
+          )
+          if [[ "${LANE}" == "supplementary" ]]; then
+            args+=(--freeze-bundle "${FREEZE_BUNDLE_PATH}")
+            while IFS= read -r entry; do
+              [[ -n "${entry//[[:space:]]/}" ]] || continue
+              args+=(--local-artifact "${entry}")
+            done <<< "${LOCAL_ARTIFACTS}"
+          fi
+          # stdout is the plan JSON and may name artifact paths; the durable copy
+          # is --plan-out, which is uploaded. Nothing here prints file contents.
+          uv run python -m legalforecast.publication.manifest_run_materialize \
+            "${args[@]}" >/dev/null
+          candidate="$(jq -r '.candidate_freeze_bundle' "${WORK_ROOT}/materialize-plan.json")"
+          echo "candidate_freeze_bundle=${candidate}" >> "${GITHUB_OUTPUT}"
+
+      - name: Prove the upload plan stays inside its own lane
+        id: plan
+        shell: bash
+        env:
+          CANDIDATE_FREEZE_BUNDLE: ${{ steps.materialize.outputs.candidate_freeze_bundle }}
+        run: |
+          set -euo pipefail
+          args=(
+            --output-dir "${WORK_ROOT}/output-dir"
+            --freeze-bundle "${CANDIDATE_FREEZE_BUNDLE}"
+            --artifact-root "${WORK_ROOT}/artifact-root"
+            --manifest-digest "${MANIFEST_DIGEST}"
+            --results-bucket "${LFB_RESULTS_BUCKET}"
+            --packet-bucket "${LFB_PACKET_BUCKET}"
+            --official-freeze-bundle "${WORK_ROOT}/official-freeze.json"
+            --official-freeze-bundle-sha256 "${OFFICIAL_FREEZE_BUNDLE_SHA256}"
+            --dry-run
+          )
+          if [[ "${LANE}" == "supplementary" ]]; then
+            args+=(--supplementary)
+          fi
+          uv run legalforecast acquisition stage-manifest-forecast "${args[@]}" \
+            > "${WORK_ROOT}/stage-plan.json"
+
+          # The load-bearing fence, and the reason it runs before any write:
+          # manifest-run objects are created once and no role can delete them, so
+          # a single object placed in the wrong lane's prefix is unrecoverable.
+          jq -e \
+            --arg prefix "${EXPECTED_PREFIX}" \
+            --arg results "${LFB_RESULTS_BUCKET}" \
+            --arg packets "${LFB_PACKET_BUCKET}" '
+              (.objects | length) > 0 and
+              (.prefix == $prefix) and
+              all(.objects[];
+                (.bucket == $results and (.key | startswith($prefix + "/"))) or
+                (.bucket == $packets and (.key | startswith("model-packets/")))
+              )
+            ' "${WORK_ROOT}/stage-plan.json" >/dev/null || {
+            echo "The upload plan names an object outside ${EXPECTED_PREFIX}; refusing to write." >&2
+            exit 1
+          }
+          if [[ "${LANE}" == "official" ]]; then
+            jq -e 'all(.objects[]; (.key | contains("/supplementary/")) | not)' \
+              "${WORK_ROOT}/stage-plan.json" >/dev/null || {
+              echo "An official staging plan names a supplementary key; refusing to write." >&2
+              exit 1
+            }
+          fi
+
+      - name: Stage the manifest run
+        id: stage
+        shell: bash
+        env:
+          CANDIDATE_FREEZE_BUNDLE: ${{ steps.materialize.outputs.candidate_freeze_bundle }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${OUTPUT_ROOT}"
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            cp -f "${WORK_ROOT}/stage-plan.json" "${OUTPUT_ROOT}/stage-record.json"
+          else
+            args=(
+              --output-dir "${WORK_ROOT}/output-dir"
+              --freeze-bundle "${CANDIDATE_FREEZE_BUNDLE}"
+              --artifact-root "${WORK_ROOT}/artifact-root"
+              --manifest-digest "${MANIFEST_DIGEST}"
+              --results-bucket "${LFB_RESULTS_BUCKET}"
+              --packet-bucket "${LFB_PACKET_BUCKET}"
+              --official-freeze-bundle "${WORK_ROOT}/official-freeze.json"
+              --official-freeze-bundle-sha256 "${OFFICIAL_FREEZE_BUNDLE_SHA256}"
+            )
+            if [[ "${LANE}" == "supplementary" ]]; then
+              args+=(--supplementary)
+            fi
+            uv run legalforecast acquisition stage-manifest-forecast "${args[@]}" \
+              > "${OUTPUT_ROOT}/stage-record.json"
+          fi
+
+          prefix="$(jq -r '.prefix' "${OUTPUT_ROOT}/stage-record.json")"
+          [[ "${prefix}" == "${EXPECTED_PREFIX}" ]] || {
+            echo "The staged prefix is not the validated one." >&2
+            exit 1
+          }
+          # The staged freeze's RAW SHA-256, which is an output of staging and
+          # cannot be computed beforehand: staging rewrites every relative
+          # artifact path, so the bundle it writes has different bytes from the
+          # one it was given. Execution-scope issuance binds THIS digest. It is
+          # neither the pre-staging raw digest (the supplementary prefix
+          # component) nor the freeze protocol's canonical hash_bundle_sha256;
+          # substituting either silently breaks scope verification.
+          staged_freeze_sha256="$(
+            jq -r --arg key "${prefix}/freeze.json" \
+              '.objects[] | select(.bucket == $ENV.LFB_RESULTS_BUCKET and .key == $key) | .sha256' \
+              "${OUTPUT_ROOT}/stage-record.json"
+          )"
+          [[ "${staged_freeze_sha256}" =~ ^[0-9a-f]{64}$ ]] || {
+            echo "The stage record carries no staged freeze.json digest." >&2
+            exit 1
+          }
+          staged_freeze_uri="s3://${LFB_RESULTS_BUCKET}/${prefix}/freeze.json"
+          {
+            echo "prefix=${prefix}"
+            echo "staged_freeze_sha256=${staged_freeze_sha256}"
+            echo "staged_freeze_uri=${staged_freeze_uri}"
+          } >> "${GITHUB_OUTPUT}"
+          {
+            echo "### Staged manifest run (${LANE}${DRY_RUN:+, dry_run=${DRY_RUN}})"
+            echo
+            echo "| field | value |"
+            echo "| --- | --- |"
+            echo "| prefix | \`${prefix}\` |"
+            echo "| staged freeze URI | \`${staged_freeze_uri}\` |"
+            echo "| **staged freeze raw sha256** | \`${staged_freeze_sha256}\` |"
+            echo "| objects | $(jq -r '.objects | length' "${OUTPUT_ROOT}/stage-record.json") |"
+            echo "| packets | $(jq -r '.packet_count' "${OUTPUT_ROOT}/stage-record.json") |"
+            echo
+            echo "Bind the staged freeze raw sha256 when issuing the execution scope."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Verify the staged freeze reads back byte-identical
+        if: inputs.dry_run == false
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3api get-object \
+            --bucket "${LFB_RESULTS_BUCKET}" \
+            --key "${{ steps.stage.outputs.prefix }}/freeze.json" \
+            "${WORK_ROOT}/readback-freeze.json" >/dev/null
+          printf '%s  %s\n' \
+            "${{ steps.stage.outputs.staged_freeze_sha256 }}" \
+            "${WORK_ROOT}/readback-freeze.json" | sha256sum --check --strict
+
+      - name: Clear reconstructed corpus bytes and AWS credentials
+        id: clear_sensitive
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The rebuilt tree holds model packets and frozen corpus artifacts. This
+          # is a public repository: those bytes must not reach an uploaded run
+          # artifact, which any viewer can download.
+          rm -rf "${WORK_ROOT}"
+          {
+            echo 'AWS_ACCESS_KEY_ID='
+            echo 'AWS_SECRET_ACCESS_KEY='
+            echo 'AWS_SESSION_TOKEN='
+            echo 'AWS_SECURITY_TOKEN='
+          } >> "${GITHUB_ENV}"
+          unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
+          test ! -e "${WORK_ROOT}"
+
+      - name: Upload stage record
+        if: steps.stage.outcome == 'success' && steps.clear_sensitive.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          # Digests and S3 keys only. Never the reconstructed packets, labels, or
+          # frozen corpus artifacts: run artifacts on a public repository are
+          # publicly downloadable.
+          name: stage-manifest-run-${{ inputs.lane }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.OUTPUT_ROOT }}/stage-record.json
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+          retention-days: 30

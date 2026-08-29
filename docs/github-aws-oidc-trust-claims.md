@@ -55,6 +55,16 @@ The conditions are not merely legal — every one of them matches at runtime, be
 | `:ref` | `refs/heads/main` | Each environment's deployment branch policy is `custom_branch_policies: ["main"]` in `infra/official-eval/github-environments.json`, so an environment-bound job cannot run from any other ref. The infra and validation workflows additionally guard `refs/heads/main` themselves. |
 | `:environment` | the bound environment name | AWS notes that if the `environment` condition is used, "an environment must be configured and provided in the GitHub workflow". The bootstrap operator job binds `legalforecastbench-official-provider-authority-infra`. |
 
+The `infra/official-eval` root renders this same template for three environment-bound roles, each with its own subject and its own protected environment:
+
+| Role | Environment | Role ARN variable | Grant |
+|---|---|---|---|
+| `aws_iam_role.cell` | `legalforecastbench-official-eval` | `LFB_GITHUB_PACKET_READ_ROLE_ARN` | Read packets and frozen inputs; write per-case results. |
+| `aws_iam_role.fan_in` | `legalforecastbench-official-eval-fan-in` | `LFB_GITHUB_FAN_IN_ROLE_ARN` | Read per-case results; create shard receipts and canonical publications. |
+| `aws_iam_role.manifest_staging` | `legalforecastbench-official-eval-manifest-staging` | `LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN` | Create-only writes under `cycle-1/manifest-runs/*` and `model-packets/*`, plus the exact-key reads its readback and input reconstruction need. No `s3:ListBucket`. |
+
+Staging is a separate role rather than a widened existing one because the separation is the point: the cell must not be able to create objects in the prefix that backs its own dispatched shards, and fan-in must not be able to create the inputs it later attests to.
+
 The failure mode of getting this wrong is fail-closed in one direction only: an unmatchable condition denies `AssumeRoleWithWebIdentity` (bootstrap cannot run), while a *removed* condition silently widens the trust surface. Removal is the dangerous direction, which is why the conditions are fenced by tests rather than left to review.
 
 ## Forward risk: immutable subject claims
@@ -67,4 +77,4 @@ If this repository is ever migrated to immutable subject claims, or the official
 
 ## Do not remove these conditions
 
-`tests/test_official_eval_infra.py` and `tests/test_official_eval_bootstrap_infra.py` assert the exact rendered trust policies, and additionally assert satisfiability against the production inputs themselves: the `github_ref`/subject locals in `infra/official-eval/locals.tf` and `infra/official-eval-bootstrap/locals.tf`, the environment manifest, and the specific workflow jobs that assume each role (environment binding plus `id-token: write` on the assuming job, not merely somewhere in the workflow). A change that drops or loosens a condition, repoints a local at a branch the manifest forbids, or moves the environment binding off the role-assuming job fails those tests. Companion mutation tests in each file drift the real production bytes (via `tests/official_infra_trust_helpers.py`) and require the fences to redden, so the guards are proven to discriminate rather than validating copies of themselves. Re-read this note before proposing a change.
+`tests/test_official_eval_infra.py`, `tests/test_stage_manifest_run_lane.py`, and `tests/test_official_eval_bootstrap_infra.py` assert the exact rendered trust policies, and additionally assert satisfiability against the production inputs themselves: the `github_ref`/subject locals in `infra/official-eval/locals.tf` and `infra/official-eval-bootstrap/locals.tf`, the environment manifest, and the specific workflow jobs that assume each role (environment binding plus `id-token: write` on the assuming job, not merely somewhere in the workflow). A change that drops or loosens a condition, repoints a local at a branch the manifest forbids, or moves the environment binding off the role-assuming job fails those tests. Companion mutation tests in each file drift the real production bytes (via `tests/official_infra_trust_helpers.py`) and require the fences to redden, so the guards are proven to discriminate rather than validating copies of themselves. Re-read this note before proposing a change.

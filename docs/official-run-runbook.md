@@ -1967,25 +1967,30 @@ uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
 
    The official prefix `cycle-1/manifest-runs/<manifest_digest>/` is keyed by the corpus digest alone, which a sibling freeze over the identical corpus shares. Staging without `--supplementary` would write supplementary-only objects into the prefix that already backs dispatched official shards; those writes are create-once and no role can delete them. Classification is not left to the flag: staging takes the same pinned official reference the cost projector does, and derives the lane from it.
 
+   **Staging runs in GitHub Actions, never from a workstation.** Dispatch `stage-manifest-run.yaml`; it assumes the `legalforecastbench-official-eval-manifest-staging` role over OIDC inside a protected environment, so no AWS credentials exist locally at any point. The results and packet bucket names are protected environment variables the workflow reads natively and a developer box cannot read at all.
+
+   Commit the sibling freeze bundle and the three artifacts it replaces to `main` first: the workflow refuses any path that is not tracked at the dispatched commit, and the role's OIDC trust pins `refs/heads/main`. Everything else — the frozen corpus artifacts and every model packet — is rebuilt inside the run from the objects the official staging already wrote, located by SHA-256 and verified against the sibling freeze's own commitments. Those bytes are the un-run evaluation corpus and must never be committed to this public repository.
+
 ```bash
-uv run legalforecast acquisition stage-manifest-forecast \
-  --output-dir <staged manifest-mode output root> \
-  --freeze-bundle <cycle_id>.supplementary-<model>.freeze.json \
-  --artifact-root <common root of the frozen artifact paths> \
-  --manifest-digest <manifest_sha256 from manifest-mode-run-record.json> \
-  --results-bucket "${LFB_RESULTS_BUCKET}" \
-  --packet-bucket "${LFB_PACKET_BUCKET}" \
-  --official-freeze-bundle <official-staged-freeze>.json \
-  --official-freeze-bundle-sha256 <official-staged-freeze-raw-sha256> \
-  --supplementary \
-  --dry-run
+gh workflow run stage-manifest-run.yaml --ref main \
+  -f release_sha="$(git rev-parse origin/main)" \
+  -f lane=supplementary \
+  -f manifest_digest=<manifest_sha256 from manifest-mode-run-record.json> \
+  -f official_freeze_bundle_sha256=<official-staged-freeze-raw-sha256> \
+  -f freeze_bundle_path=<tracked path to the sibling freeze bundle> \
+  -f freeze_bundle_sha256=<raw sha256 of that file, taken before staging> \
+  -f local_artifacts="$(printf 'model_registry=%s\nprovider_cycle_caps=%s\nexecution_policy=%s' \
+      model_registries/<supplementary-registry>.json \
+      model_registries/<supplementary-caps>.json \
+      <tracked supplementary execution policy>.json)" \
+  -f dry_run=true
 ```
 
-   Drop `--dry-run` to write. The staged prefix is
+   Run it once with `dry_run=true`. The run prints the full upload plan and proves, before any object is created, that every key it would write lies inside this lane's own prefix. Re-dispatch with `dry_run=false` to write. The staged prefix is
 
    `cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/`
 
-   **Two different freeze digests are in play; use the right one.** `<freeze_digest>` is the raw `sha256sum` of the file passed to `--freeze-bundle`, taken *before* staging, which is why the destination is computable up front. Staging rewrites every relative artifact path, so the `freeze.json` it writes has different bytes and a different `hash_bundle_sha256`; that staged bundle is what receipts and execution-scope issuance bind. The prefix records both in `supplementary-stage.json`: `source_freeze_sha256` (the prefix component), `staged_freeze_sha256`, and `staged_freeze_bundle_sha256`. This sidecar is non-authoritative reporting metadata and is written only in supplementary mode, so the official layout is unchanged. The packet-bucket keys stay the shared `model-packets/...` keys the official run already staged.
+   **Two different freeze digests are in play; use the right one.** `<freeze_digest>` is the raw `sha256sum` of the file passed as `freeze_bundle_sha256`, taken *before* staging, which is why the destination is computable up front. Staging rewrites every relative artifact path, so the `freeze.json` it writes has different bytes and a different `hash_bundle_sha256`; that staged bundle is what receipts and execution-scope issuance bind. **The staged bundle's raw SHA-256 is an output of the workflow, not something you can compute beforehand.** Take it from the run's job summary and its `stage-manifest-run-*` artifact, both of which report it as `staged freeze raw sha256`; the workflow also reads the object back from S3 and re-checks it against that digest before it finishes. The prefix records both in `supplementary-stage.json`: `source_freeze_sha256` (the prefix component), `staged_freeze_sha256`, and `staged_freeze_bundle_sha256`. This sidecar is non-authoritative reporting metadata and is written only in supplementary mode, so the official layout is unchanged. The packet-bucket keys stay the shared `model-packets/...` keys the official run already staged.
 
    `--official-freeze-bundle` / `--official-freeze-bundle-sha256` are the same pinned reference and raw-file digest step 4 uses, and carry the same warning: supply the digest explicitly rather than computing it from the bundle you are passing. Official mode requires the candidate freeze to **be** that pinned bundle; supplementary mode requires its registry keys to be disjoint from the pinned registry's. A candidate that shares the official model keys but not its bytes is refused in both modes rather than routed to either prefix.
 
@@ -2013,6 +2018,9 @@ uv run legalforecast acquisition project-manifest-cost \
 ```
 
 5. Obtain the owner approval comment. The grammar is unchanged and has no supplementary wording — one comment, exactly:
+
+   **Why this step and the next stay on the operator's machine.** Scope issuance reads live owner-approval comments by shelling out to `bd comments`, and the beads Dolt server is bound to loopback on the operator's own host; a GitHub-hosted runner cannot reach it. That is a permanent property of where the approval evidence lives, not a plumbing gap. The split for the whole chain is therefore: everything that writes to S3 runs in Actions under OIDC (staging, above), and everything that reads owner evidence runs locally and needs no AWS credentials at all — `project-manifest-cost` takes a local `--manifest-run-root`, and the scope reaches the dispatch as a checked-out `path#sha256`, which `run-benchmark.yaml` already accepts. Commit the issued scope to `main` and pass its repository-relative path; there is no S3 upload step for it.
+
 
    `I approve up to USD <ceiling> of provider spend for model <model_key> in the Cycle 1 forecast run, estimated USD <estimate>.`
 

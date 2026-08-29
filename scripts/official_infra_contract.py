@@ -26,6 +26,7 @@ OUTSIDE_AUTHORITY_CANARY_TABLE = (
 LABELING_ROLE = "legalforecastbench-official-labeling-authority"
 EVAL_CELL_ROLE = "legalforecastbench-official-eval"
 EVAL_FAN_IN_ROLE = f"{EVAL_CELL_ROLE}-fan-in"
+EVAL_MANIFEST_STAGING_ROLE = f"{EVAL_CELL_ROLE}-manifest-staging"
 
 PLAN_ADDRESSES: dict[str, frozenset[str]] = {
     "provider-authority": frozenset(
@@ -46,8 +47,12 @@ PLAN_ADDRESSES: dict[str, frozenset[str]] = {
             "aws_iam_role_policy.fan_in_storage",
             "aws_iam_role_policies_exclusive.cell",
             "aws_iam_role_policies_exclusive.fan_in",
+            "aws_iam_role.manifest_staging",
+            "aws_iam_role_policy.manifest_staging_storage",
+            "aws_iam_role_policies_exclusive.manifest_staging",
             "aws_iam_role_policy_attachments_exclusive.cell",
             "aws_iam_role_policy_attachments_exclusive.fan_in",
+            "aws_iam_role_policy_attachments_exclusive.manifest_staging",
         }
     ),
 }
@@ -74,10 +79,18 @@ _EVAL_FIXED_IMPORT_IDS: dict[str, str] = {
     "aws_iam_role_policy.fan_in_storage": (
         f"{EVAL_FAN_IN_ROLE}:official-eval-fan-in-storage"
     ),
+    "aws_iam_role.manifest_staging": EVAL_MANIFEST_STAGING_ROLE,
+    "aws_iam_role_policy.manifest_staging_storage": (
+        f"{EVAL_MANIFEST_STAGING_ROLE}:official-eval-manifest-staging-storage"
+    ),
     "aws_iam_role_policies_exclusive.cell": EVAL_CELL_ROLE,
     "aws_iam_role_policies_exclusive.fan_in": EVAL_FAN_IN_ROLE,
+    "aws_iam_role_policies_exclusive.manifest_staging": EVAL_MANIFEST_STAGING_ROLE,
     "aws_iam_role_policy_attachments_exclusive.cell": EVAL_CELL_ROLE,
     "aws_iam_role_policy_attachments_exclusive.fan_in": EVAL_FAN_IN_ROLE,
+    "aws_iam_role_policy_attachments_exclusive.manifest_staging": (
+        EVAL_MANIFEST_STAGING_ROLE
+    ),
 }
 
 _SAFE_ACTIONS = (["no-op"], ["create"], ["update"])

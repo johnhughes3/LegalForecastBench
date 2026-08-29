@@ -44,6 +44,7 @@ REPOSITORY = "johnhughes3/LegalForecastBench"
 REF = "refs/heads/main"
 CELL_ENVIRONMENT = "legalforecastbench-official-eval"
 FAN_IN_ENVIRONMENT = "legalforecastbench-official-eval-fan-in"
+MANIFEST_STAGING_ENVIRONMENT = "legalforecastbench-official-eval-manifest-staging"
 SUBJECT_PREFIX = f"repo:{REPOSITORY}"
 
 JsonObject = dict[str, object]
@@ -432,7 +433,7 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
     }
 
 
-def test_exact_two_role_topology_and_policy_attachments() -> None:
+def test_exact_three_role_topology_and_policy_attachments() -> None:
     terraform = "\n".join(
         path.read_text(encoding="utf-8") for path in sorted(INFRA_ROOT.glob("*.tf"))
     )
@@ -441,30 +442,36 @@ def test_exact_two_role_topology_and_policy_attachments() -> None:
         re.findall(r'resource "aws_iam_role_policy" "([^"]+)"', terraform)
     )
 
-    assert roles == {"cell", "fan_in"}
+    assert roles == {"cell", "fan_in", "manifest_staging"}
     assert inline_policies == {
         "cell_storage",
         "cell_provider_authority",
         "cell_bedrock",
         "fan_in_storage",
+        "manifest_staging_storage",
     }
     assert set(
         re.findall(
             r'resource "aws_iam_role_policies_exclusive" "([^"]+)"',
             terraform,
         )
-    ) == {"cell", "fan_in"}
+    ) == {"cell", "fan_in", "manifest_staging"}
     assert set(
         re.findall(
             r'resource "aws_iam_role_policy_attachments_exclusive" "([^"]+)"',
             terraform,
         )
-    ) == {"cell", "fan_in"}
+    ) == {"cell", "fan_in", "manifest_staging"}
     assert 'resource "aws_iam_policy"' not in terraform
     assert 'resource "aws_iam_role_policy_attachment"' not in terraform
     assert "aws_dynamodb" not in terraform
     assert "assume_role_policy   = local.cell_trust_policy_json" in terraform
     assert "assume_role_policy   = local.fan_in_trust_policy_json" in terraform
+    assert (
+        "assume_role_policy   = local.manifest_staging_trust_policy_json" in terraform
+    )
+    assert "role   = aws_iam_role.manifest_staging.id" in terraform
+    assert "policy = local.manifest_staging_storage_policy_json" in terraform
     assert "role   = aws_iam_role.cell.id" in terraform
     assert "policy = local.cell_storage_policy_json" in terraform
     assert "policy = local.cell_provider_authority_policy_json" in terraform
@@ -488,6 +495,7 @@ def test_exact_two_role_topology_and_policy_attachments() -> None:
         "cell-storage-policy.json.tftpl",
         "fan-in-storage-policy.json.tftpl",
         "github-oidc-trust.json.tftpl",
+        "manifest-staging-policy.json.tftpl",
     }
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in (INFRA_ROOT / "outputs.tf").read_text(
         encoding="utf-8"
@@ -502,7 +510,7 @@ def test_exact_two_role_topology_and_policy_attachments() -> None:
 
 @pytest.mark.parametrize(
     "environment",
-    [CELL_ENVIRONMENT, FAN_IN_ENVIRONMENT],
+    [CELL_ENVIRONMENT, FAN_IN_ENVIRONMENT, MANIFEST_STAGING_ENVIRONMENT],
 )
 def test_oidc_trust_is_exact_for_repository_ref_and_environment(
     environment: str,
@@ -752,6 +760,9 @@ def _assert_eval_trust_refs_satisfiable(
     repository = terraform_local_string(locals_text, "github_repository")
     cell_environment = terraform_local_string(locals_text, "cell_environment_name")
     fan_in_environment = terraform_local_string(locals_text, "fan_in_environment_name")
+    manifest_staging_environment = terraform_local_string(
+        locals_text, "manifest_staging_environment_name"
+    )
 
     # Both trust renders must be fed from these exact locals, and the pinned
     # subjects must be built from the same repository and environment names;
@@ -761,7 +772,7 @@ def _assert_eval_trust_refs_satisfiable(
         locals_text,
         flags=re.MULTILINE,
     )
-    assert len(wirings) == 2
+    assert len(wirings) == 3
     assert (
         terraform_local_string(locals_text, "github_subject_prefix")
         == "repo:${local.github_repository}"
@@ -769,6 +780,8 @@ def _assert_eval_trust_refs_satisfiable(
     for subject_template in (
         '"${local.github_subject_prefix}:environment:${local.cell_environment_name}"',
         '"${local.github_subject_prefix}:environment:${local.fan_in_environment_name}"',
+        '"${local.github_subject_prefix}:environment:'
+        '${local.manifest_staging_environment_name}"',
     ):
         assert subject_template in locals_text
 
@@ -784,7 +797,11 @@ def _assert_eval_trust_refs_satisfiable(
         cast(JsonObject, row)["name"]: cast(JsonObject, row)["aws_oidc_subject"]
         for row in cast(list[object], rows)
     }
-    for environment in (cell_environment, fan_in_environment):
+    for environment in (
+        cell_environment,
+        fan_in_environment,
+        manifest_staging_environment,
+    ):
         assert environment in subjects
         assert subjects[environment] == f"repo:{repository}:environment:{environment}"
 
@@ -848,6 +865,7 @@ def _assert_eval_trust_refs_satisfiable(
     role_environments = {
         "LFB_GITHUB_PACKET_READ_ROLE_ARN": cell_environment,
         "LFB_GITHUB_FAN_IN_ROLE_ARN": fan_in_environment,
+        "LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN": manifest_staging_environment,
     }
     producers = {variable: 0 for variable in role_environments}
     for workflow_name, workflow_text in workflow_texts.items():
@@ -903,6 +921,9 @@ def test_trust_ref_condition_is_satisfiable_from_the_only_deployable_branch() ->
     )
     assert FAN_IN_ENVIRONMENT == terraform_local_string(
         locals_text, "fan_in_environment_name"
+    )
+    assert MANIFEST_STAGING_ENVIRONMENT == terraform_local_string(
+        locals_text, "manifest_staging_environment_name"
     )
 
 

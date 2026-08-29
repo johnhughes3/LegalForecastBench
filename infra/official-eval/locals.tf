@@ -3,14 +3,18 @@ locals {
   github_ref            = "refs/heads/main"
   github_subject_prefix = "repo:${local.github_repository}"
 
-  cell_environment_name   = "legalforecastbench-official-eval"
-  fan_in_environment_name = "legalforecastbench-official-eval-fan-in"
+  cell_environment_name             = "legalforecastbench-official-eval"
+  fan_in_environment_name           = "legalforecastbench-official-eval-fan-in"
+  manifest_staging_environment_name = "legalforecastbench-official-eval-manifest-staging"
 
   cell_subject = (
     "${local.github_subject_prefix}:environment:${local.cell_environment_name}"
   )
   fan_in_subject = (
     "${local.github_subject_prefix}:environment:${local.fan_in_environment_name}"
+  )
+  manifest_staging_subject = (
+    "${local.github_subject_prefix}:environment:${local.manifest_staging_environment_name}"
   )
   computed_provider_authority_resource_identity_sha256 = sha256(
     var.provider_authority_table_arn
@@ -35,6 +39,15 @@ locals {
       github_repository        = local.github_repository
       github_ref               = local.github_ref
       github_subject           = local.fan_in_subject
+    },
+  )
+  manifest_staging_trust_policy_json = templatefile(
+    "${path.module}/policies/github-oidc-trust.json.tftpl",
+    {
+      github_oidc_provider_arn = var.github_oidc_provider_arn
+      github_repository        = local.github_repository
+      github_ref               = local.github_ref
+      github_subject           = local.manifest_staging_subject
     },
   )
 
@@ -98,6 +111,17 @@ locals {
     "${path.module}/policies/fan-in-storage-policy.json.tftpl",
     {
       artifacts_kms_key_arn = var.artifacts_kms_key_arn
+      results_bucket_arn    = local.results_bucket_arn
+    },
+  )
+  # Create-only, and deliberately without any s3:ListBucket grant: staging reads
+  # and writes every object by exact key, so a list grant would only widen what a
+  # compromised run could enumerate.
+  manifest_staging_storage_policy_json = templatefile(
+    "${path.module}/policies/manifest-staging-policy.json.tftpl",
+    {
+      artifacts_kms_key_arn = var.artifacts_kms_key_arn
+      packet_bucket_arn     = local.packet_bucket_arn
       results_bucket_arn    = local.results_bucket_arn
     },
   )
