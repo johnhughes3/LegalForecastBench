@@ -1952,8 +1952,11 @@ Such a model still runs through this same pipeline. It binds its own registry an
 1. Issue a supplementary execution policy from the supplementary registry. The plan issuer is unmodified: it requires at least one registry entry, not exactly four, so a one-model registry produces the standard two-ablation shard schedule.
 
 ```bash
-uv run legalforecast corpus-manifest issue-execution-plan-v4 \
+uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
   --cycle-id <cycle_id> \
+  --manifest manifests/<cycle_id>.manifest.json \
+  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
+  --run-card artifacts/<cycle_id>/manifest-forecast/<run-record>.json \
   --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
   --output artifacts/<cycle_id>/supplementary-execution-policy.json
 ```
