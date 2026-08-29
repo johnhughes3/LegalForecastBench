@@ -175,3 +175,30 @@ def test_supplementary_entry_is_the_only_post_anchor_model() -> None:
         assert (
             classify_registry_entry(entry, corpus_anchor=anchor) is ResultClass.OFFICIAL
         )
+
+
+def test_run_case_cli_flag_reaches_the_runner_config() -> None:
+    """The dispatch flag must actually land on the config the gate reads.
+
+    The provider cell reaches the runner through ``eval run-case``, so an
+    unwired flag would leave supplementary mode unreachable from Actions even
+    though the Python API supports it. Parsing the real argv guards that seam.
+    """
+
+    from legalforecast.cli import build_parser
+
+    parser = build_parser()
+    base = [
+        "eval",
+        "run-case",
+        "--manifest",
+        "run-inputs.json",
+        "--case-id",
+        "case-1",
+        "--ablation",
+        "full_packet",
+        "--output-dir",
+        "out",
+    ]
+    assert parser.parse_args([*base, "--supplementary"]).supplementary is True
+    assert parser.parse_args(base).supplementary is False

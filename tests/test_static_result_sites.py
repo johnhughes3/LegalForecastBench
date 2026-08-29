@@ -930,6 +930,89 @@ def test_official_site_refuses_a_supplementary_classed_row_in_the_official_bundl
         )
 
 
+def test_supplementary_sidecar_cannot_class_a_row_of_the_official_bundle(
+    tmp_path: Path,
+) -> None:
+    official_dir = write_official_report_fixture(tmp_path)
+    supplementary_dir = write_supplementary_report_fixture(tmp_path)
+    # No official sidecar: without the subset check the supplementary sidecar is
+    # the only overlay, so its model-a row would decide how model-a renders --
+    # here, by vetoing the official render outright.
+    write_result_class_sidecar_for(
+        supplementary_dir,
+        {
+            SUPPLEMENTARY_MODEL_ID: ResultClass.SUPPLEMENTARY_POST_ANCHOR,
+            "model-a": ResultClass.SUPPLEMENTARY_POST_ANCHOR,
+        },
+    )
+
+    with pytest.raises(ValueError, match="outside its own bundle's leaderboard"):
+        render_official_results_site(
+            official_artifacts_dir=official_dir,
+            output_dir=tmp_path / "refused-site",
+            supplementary_artifacts_dir=supplementary_dir,
+        )
+
+    # The same bundles render normally once the sidecar keys only its own rows,
+    # and model-a is published unmarked.
+    write_result_class_sidecar_for(
+        supplementary_dir,
+        {SUPPLEMENTARY_MODEL_ID: ResultClass.SUPPLEMENTARY_POST_ANCHOR},
+    )
+    result = render_official_results_site(
+        official_artifacts_dir=official_dir,
+        output_dir=tmp_path / "official-site",
+        supplementary_artifacts_dir=supplementary_dir,
+    )
+
+    rendered = result.index_path.read_text(encoding="utf-8")
+    assert "<th scope='row'>model-a</th>" in rendered
+    assert f"model-a{SUPPLEMENTARY_MARKER}" not in rendered
+
+
+def test_supplementary_bundle_is_arithmetically_validated_before_it_renders(
+    tmp_path: Path,
+) -> None:
+    official_dir = write_official_report_fixture(tmp_path)
+    supplementary_dir = write_supplementary_report_fixture(tmp_path)
+    # Drift only the supplementary leaderboard: load_official_bundle compares
+    # model sets, so nothing but the arithmetic validator catches this.
+    path = supplementary_dir / "report" / "leaderboard.json"
+    report = _read_json(path)
+    cast(list[JsonRecord], report["rows"])[0]["micro_brier"] = 0.99
+    _write_json(path, report)
+    _refresh_official_artifact_manifests(supplementary_dir)
+
+    with pytest.raises(
+        ValueError,
+        match=f"micro-Brier mismatch for {SUPPLEMENTARY_MODEL_ID}",
+    ):
+        render_official_results_site(
+            official_artifacts_dir=official_dir,
+            output_dir=tmp_path / "official-site",
+            supplementary_artifacts_dir=supplementary_dir,
+        )
+
+
+def test_official_site_publishes_supplementary_calibration_separately(
+    tmp_path: Path,
+) -> None:
+    rendered = _render_site_with_supplementary(tmp_path)
+
+    assert f"<h3>Supplementary calibration{SUPPLEMENTARY_MARKER}</h3>" in rendered
+    assert "<caption>Supplementary calibration summary</caption>" in rendered
+    assert (
+        f"<caption>Calibration bins for {SUPPLEMENTARY_MODEL_ID}"
+        f"{SUPPLEMENTARY_MARKER}</caption>" in rendered
+    )
+    official_start = rendered.index("<caption>Calibration summary</caption>")
+    official_table = rendered[
+        official_start : rendered.index("</table>", official_start)
+    ]
+    assert "model-a" in official_table
+    assert SUPPLEMENTARY_MODEL_ID not in official_table
+
+
 def write_official_report_fixture(
     tmp_path: Path,
     *,
