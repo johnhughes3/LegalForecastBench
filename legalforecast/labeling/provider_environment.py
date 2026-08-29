@@ -160,3 +160,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ProviderEnvironmentError as exc:
         parser.exit(status=2, message=f"{parser.prog}: error: {exc}\n")
     return 2  # pragma: no cover
+
+
+# Without this guard ``python -m legalforecast.labeling.provider_environment``
+# imports the module, runs no child, and exits 0 -- a silent no-op that reports
+# success while skipping both the provider key isolation and the wrapped work.
+if __name__ == "__main__":
+    raise SystemExit(main())
