@@ -65,6 +65,16 @@ on:
         required: false
         default: ""
         type: string
+      supplementary_artifacts_dir:
+        description: >-
+          Optional checked-out path to an already-aggregated supplementary
+          bundle for post-anchor models. When set, its rows publish beside the
+          official rows, flagged and separately split. Leave empty for an
+          official-only publication, which then invokes the build exactly as
+          before.
+        required: false
+        default: ""
+        type: string
 
 permissions:
   actions: read
@@ -693,17 +703,29 @@ jobs:
         env:
           HF_RELEASE_VERSION: ${{ inputs.hugging_face_release_version }}
           HF_REPOSITORY: ${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}
+          SUPPLEMENTARY_ARTIFACTS_DIR: ${{ inputs.supplementary_artifacts_dir }}
         run: |
           set -euo pipefail
           [[ -n "${HF_REPOSITORY:-}" ]] || {
             echo "LFB_HF_OFFICIAL_DATASET_REPO must be configured on the protected environment." >&2
             exit 1
           }
+          # An empty input leaves the argument list byte-identical to the
+          # official-only invocation, so an official publication is unchanged.
+          supplementary_args=()
+          if [[ -n "${SUPPLEMENTARY_ARTIFACTS_DIR//[[:space:]]/}" ]]; then
+            [[ -d "${SUPPLEMENTARY_ARTIFACTS_DIR}" ]] || {
+              echo "supplementary_artifacts_dir is not a directory: ${SUPPLEMENTARY_ARTIFACTS_DIR}" >&2
+              exit 1
+            }
+            supplementary_args+=(--supplementary-artifacts-dir "${SUPPLEMENTARY_ARTIFACTS_DIR}")
+          fi
           uv run python -m legalforecast.hugging_face_publication \
             --official-artifacts-dir tmp/official-fan-in/public \
             --output-dir tmp/hugging-face-benchmark \
             --release-version "${HF_RELEASE_VERSION}" \
-            --dataset-repository "${HF_REPOSITORY}"
+            --dataset-repository "${HF_REPOSITORY}" \
+            "${supplementary_args[@]}"
 
       - name: Publish benchmark to manually gated Hugging Face Dataset
         if: ${{ !inputs.verify_only && inputs.hugging_face_release_version != '' }}

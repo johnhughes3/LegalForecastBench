@@ -1530,6 +1530,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Public directory written by publish aggregate.",
     )
     publish_site.add_argument("--output-dir", type=Path, required=True)
+    publish_site.add_argument(
+        "--supplementary-artifacts-dir",
+        type=Path,
+        help=(
+            "Optional public directory of an aggregated supplementary bundle. "
+            "Its post-anchor rows render beside the official rows, flagged and "
+            "never ranked. Omit for an official-only site."
+        ),
+    )
     publish_site.set_defaults(handler=_cmd_publish_site)
 
     fixture_alias = subparsers.add_parser(
@@ -11590,6 +11599,9 @@ def _cmd_publish_site(args: argparse.Namespace) -> int:
     result = render_official_results_site(
         official_artifacts_dir=cast(Path, args.official_artifacts_dir),
         output_dir=cast(Path, args.output_dir),
+        supplementary_artifacts_dir=cast(
+            "Path | None", args.supplementary_artifacts_dir
+        ),
     )
     print(
         json.dumps(

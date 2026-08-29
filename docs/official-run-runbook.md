@@ -1982,6 +1982,28 @@ uv run legalforecast publish aggregate \
   --allow-no-baselines
 ```
 
+5. Fan in the supplementary shard with the same receipt verification the official shards get, then publish. Receipts are verified identically; `--supplementary` only selects which bundle the aggregate builds.
+
+```bash
+uv run python -m legalforecast.publication.shard_fan_in \
+  --freeze-bundle manifests/<cycle_id>.supplementary-<model>.freeze.json \
+  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
+  --receipt-root s3://<results-bucket>/receipts/<cycle_id>/ \
+  --output-dir tmp/supplementary-fan-in \
+  --supplementary
+```
+
+6. Render one merged page. Both the local site and the Hugging Face package take the supplementary bundle as an optional input, so the two render the same rows:
+
+```bash
+uv run legalforecast publish site \
+  --official-artifacts-dir tmp/official-fan-in/public \
+  --supplementary-artifacts-dir tmp/supplementary-fan-in/public \
+  --output-dir tmp/official-site/<cycle_id>
+```
+
+For the gated Hugging Face publication, dispatch `fan-in-publish.yaml` with `supplementary_artifacts_dir` set to the checked-out supplementary bundle. Leaving that input empty invokes the package build exactly as an official-only publication does.
+
 The aggregate writes `result-class-sidecar.json` beside the leaderboard. It is a non-authoritative reporting overlay bound to the leaderboard bytes; the site renderer reads it to mark supplementary rows. Approval for a supplementary run is the ordinary spend path: the provider cap in the dated caps artifact plus one owner spend comment. No separate authority chain applies.
 
 ## Staged-Rollout Rehearsal Drill

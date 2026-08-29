@@ -32,7 +32,11 @@ class OpenAIReasoningEffort(StrEnum):
 
 
 class GoogleThinkingLevel(StrEnum):
-    """Google ``generationConfig.thinkingLevel`` values for Gemini 3 models.
+    """Google ``generationConfig.thinkingConfig.thinkingLevel`` values.
+
+    That nesting is the generateContent API's shape, which is the endpoint this
+    repo calls. Google's separate Interactions API spells the same setting flat
+    as ``generation_config.thinking_level``; do not copy that form here.
 
     Gemini 3 replaced the numeric ``thinkingBudget`` with this string enum.
     ``minimal`` is accepted by some Gemini 3 models but is rejected by

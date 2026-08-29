@@ -1,10 +1,10 @@
 {
   "cli_metrics": {
     "command_handler_count": 168,
-    "command_handler_lines": 27193,
-    "line_count": 74398,
-    "nonblank_line_count": 71593,
-    "parser_line_count": 1804,
+    "command_handler_lines": 27196,
+    "line_count": 74410,
+    "nonblank_line_count": 71605,
+    "parser_line_count": 1813,
     "top_level_class_count": 20,
     "top_level_definition_count": 1019,
     "verifier_family_count": 164,
@@ -4161,10 +4161,10 @@
         ],
         "lane_owner": "cli",
         "largest_symbol": "build_parser",
-        "largest_symbol_lines": 1804,
+        "largest_symbol_lines": 1813,
         "layer": "entrypoint",
-        "line_count": 74398,
-        "nonblank_line_count": 71593,
+        "line_count": 74410,
+        "nonblank_line_count": 71605,
         "top_level_definition_count": 1019
       },
       "legalforecast/cli_commands/attachment_pages.py": {
@@ -4462,6 +4462,23 @@
         "nonblank_line_count": 1428,
         "top_level_definition_count": 45
       },
+      "legalforecast/evals/corpus_manifest/forecast_entry.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "evals",
+        "fan_in": 2,
+        "fan_out": 11,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "evals",
+        "largest_symbol": "build_manifest_mode_forecast",
+        "largest_symbol_lines": 95,
+        "layer": "application",
+        "line_count": 542,
+        "nonblank_line_count": 483,
+        "top_level_definition_count": 15
+      },
       "legalforecast/evals/corpus_manifest/freeze_inputs.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
@@ -4580,9 +4597,9 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 158,
         "layer": "application",
-        "line_count": 1522,
-        "nonblank_line_count": 1330,
-        "top_level_definition_count": 70
+        "line_count": 1538,
+        "nonblank_line_count": 1344,
+        "top_level_definition_count": 71
       },
       "legalforecast/evals/model_registry.py": {
         "cycle_id": "",
@@ -4597,8 +4614,8 @@
         "largest_symbol": "ModelRegistryEntry",
         "largest_symbol_lines": 173,
         "layer": "application",
-        "line_count": 544,
-        "nonblank_line_count": 444,
+        "line_count": 548,
+        "nonblank_line_count": 447,
         "top_level_definition_count": 35
       },
       "legalforecast/evals/output_parser.py": {
@@ -4623,17 +4640,17 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
         "fan_in": 3,
-        "fan_out": 18,
+        "fan_out": 19,
         "flags": [
           "cycle",
           "monolith"
         ],
         "lane_owner": "evals",
         "largest_symbol": "run_per_case_evaluation",
-        "largest_symbol_lines": 269,
+        "largest_symbol_lines": 270,
         "layer": "application",
-        "line_count": 2419,
-        "nonblank_line_count": 2193,
+        "line_count": 2445,
+        "nonblank_line_count": 2218,
         "top_level_definition_count": 95
       },
       "legalforecast/evals/provider_spend_attempt_handler.py": {
@@ -8299,8 +8316,8 @@
         "largest_symbol": "aggregate_official_results",
         "largest_symbol_lines": 259,
         "layer": "application",
-        "line_count": 2834,
-        "nonblank_line_count": 2568,
+        "line_count": 2864,
+        "nonblank_line_count": 2597,
         "top_level_definition_count": 111
       },
       "legalforecast/publication/official_report_site.py": {
@@ -8401,8 +8418,8 @@
         "largest_symbol": "verify_fan_in",
         "largest_symbol_lines": 160,
         "layer": "application",
-        "line_count": 2030,
-        "nonblank_line_count": 1859,
+        "line_count": 2048,
+        "nonblank_line_count": 1876,
         "top_level_definition_count": 63
       },
       "legalforecast/publication/shard_fan_in_publish.py": {
@@ -10452,9 +10469,9 @@
         "largest_symbol": "test_anthropic_solver_can_use_bedrock_runtime_without_api_key",
         "largest_symbol_lines": 71,
         "layer": "test",
-        "line_count": 1611,
-        "nonblank_line_count": 1400,
-        "top_level_definition_count": 52
+        "line_count": 1676,
+        "nonblank_line_count": 1450,
+        "top_level_definition_count": 56
       },
       "tests/test_live_parse_plan_role_gate.py": {
         "cycle_id": "",
@@ -11233,9 +11250,9 @@
         "largest_symbol": "test_live_solver_binds_frozen_account_cap_breaker_and_repeat_identity",
         "largest_symbol_lines": 78,
         "layer": "test",
-        "line_count": 2062,
-        "nonblank_line_count": 1868,
-        "top_level_definition_count": 49
+        "line_count": 2180,
+        "nonblank_line_count": 1970,
+        "top_level_definition_count": 52
       },
       "tests/test_plan_public_authenticated_snapshot_buffers.py": {
         "cycle_id": "",
