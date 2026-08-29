@@ -28,9 +28,9 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.name != 'Dependabot auto-merge' &&
       github.event.workflow_run.head_repository.full_name == github.repository
-    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
-    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
-    runs-on: ubuntu-latest
+    # Dependabot often cannot see the private org CI_RUNNER variable, so the
+    # fallback must be ubicloud-standard-2 rather than ubuntu-latest.
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
     timeout-minutes: 10
     permissions:
       actions: read

@@ -189,8 +189,7 @@ concurrency:
 jobs:
   build-matrix:
     name: Build benchmark matrix
-    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
-    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    # Protected environment: stay on GitHub-hosted ubuntu-latest.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: legalforecastbench-official-eval
@@ -1202,8 +1201,7 @@ jobs:
       (needs.run-openai.result == 'success' || needs.run-openai.result == 'skipped') &&
       (needs.run-anthropic.result == 'success' || needs.run-anthropic.result == 'skipped') &&
       (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') }}
-    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
-    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    # Protected environment: stay on GitHub-hosted ubuntu-latest.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: legalforecastbench-official-eval-fan-in
@@ -1321,8 +1319,7 @@ jobs:
       (needs.run-openai.result == 'success' || needs.run-openai.result == 'skipped') &&
       (needs.run-anthropic.result == 'success' || needs.run-anthropic.result == 'skipped') &&
       (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') }}
-    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
-    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    # Protected environment: stay on GitHub-hosted ubuntu-latest.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: legalforecastbench-official-eval

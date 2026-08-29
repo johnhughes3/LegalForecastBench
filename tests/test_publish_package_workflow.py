@@ -7,6 +7,11 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = ROOT / ".github/workflows/publish-package.yaml"
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
 TRUSTED_PUBLISHING_DOC = ROOT / "docs/security/pypi-trusted-publishing.md"
+CI_RUNNER_CLAMP = (
+    "runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || "
+    "startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || "
+    "'ubicloud-standard-2' }}"
+)
 
 
 def test_publish_package_workflow_is_tag_triggered() -> None:
@@ -16,6 +21,14 @@ def test_publish_package_workflow_is_tag_triggered() -> None:
     assert '"v*"' in WORKFLOW
     assert "workflow_dispatch:" not in WORKFLOW
     assert "inputs.publish" not in WORKFLOW
+
+
+def test_publish_package_keeps_protected_pypi_job_on_github_hosted() -> None:
+    assert CI_RUNNER_CLAMP in WORKFLOW
+    assert "environment:\n      name: pypi" in WORKFLOW
+    publish_job = WORKFLOW.split("  publish:\n", maxsplit=1)[1]
+    assert "runs-on: ubuntu-latest" in publish_job
+    assert "vars.CI_RUNNER" not in publish_job
 
 
 def test_publish_package_runs_only_after_release_check() -> None:

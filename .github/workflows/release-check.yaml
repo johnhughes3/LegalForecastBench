@@ -13,9 +13,9 @@ concurrency:
 jobs:
   release-check:
     name: Release check
-    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
-    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
-    runs-on: ubuntu-latest
+    # Unset CI_RUNNER (Dependabot and public johnhughes3 repos cannot see the
+    # private org variable) must fall back to ubicloud-standard-2, not ubuntu-latest.
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
     timeout-minutes: 45
 
     steps:

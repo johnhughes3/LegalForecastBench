@@ -15,6 +15,11 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/dependabot-auto-merge.yaml").read_text(
     encoding="utf-8",
 )
+CI_RUNNER_CLAMP = (
+    "runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || "
+    "startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || "
+    "'ubicloud-standard-2' }}"
+)
 DEPENDABOT = (ROOT / ".github/dependabot.yml").read_text(encoding="utf-8")
 FETCH_METADATA_SHA = "25dd0e34f4fe68f24cc83900b1fe3fe149efef98"
 
@@ -128,9 +133,10 @@ def test_dependabot_auto_merge_workflow_uses_default_branch_workflow_run() -> No
         "github.event.workflow_run.head_repository.full_name == github.repository"
         in WORKFLOW
     )
-    assert "runs-on: ubuntu-latest" in WORKFLOW
+    assert CI_RUNNER_CLAMP in WORKFLOW
     assert "vars.CI_RUNNER" in WORKFLOW
     assert "runs-on: ${{ vars.CI_RUNNER }}" not in WORKFLOW
+    assert "runs-on: ubuntu-latest" not in WORKFLOW
     assert "actions/checkout" not in WORKFLOW
     assert "--admin" not in WORKFLOW
     assert "gh pr merge --admin" not in WORKFLOW
