@@ -142,8 +142,16 @@ def build_shard_receipt(
     current_workflow_run_id: str | None = None,
     current_workflow_run_attempt: int | None = None,
     execution_scope: Mapping[str, Any] | None = None,
+    supplementary: bool = False,
 ) -> JsonRecord:
-    """Validate an exact successful matrix and build its current-attempt receipt."""
+    """Validate an exact successful matrix and build its current-attempt receipt.
+
+    ``supplementary`` is the lane this shard executed, and is checked against the
+    transported scope before anything is written.  Receipts are write-once per
+    attempt, so a wrong-lane scope accepted here burns the slot and surfaces only
+    at fan-in -- after the paid run.  It defaults to official, so a caller that
+    has not opted into the supplementary lane refuses a supplementary scope.
+    """
 
     if provenance.get("dispatch_mode") != "shard_only":
         raise ShardReceiptError("finalize-shard requires shard_only provenance")
@@ -315,11 +323,12 @@ def build_shard_receipt(
             verify_scope_shape,
         )
 
-        verify_scope_shape(execution_scope)
+        verify_scope_shape(execution_scope, supplementary=supplementary)
         select_model_scope(
             execution_scope,
             model_key=model_key,
             ablation=ablation,
+            supplementary=supplementary,
         )
         scope = _mapping(execution_scope.get("scope"), "execution scope")
         receipt.update(
@@ -848,6 +857,15 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--source-dispatch-run-attempt", type=int, required=True)
     parser.add_argument("--source-release-sha", required=True)
     parser.add_argument("--receipt-root", required=True)
+    parser.add_argument(
+        "--supplementary",
+        action="store_true",
+        help=(
+            "Finalize a post-anchor supplementary shard. The transported scope "
+            "must belong to the same lane; an official scope is refused here "
+            "rather than at fan-in, after the run is already paid for."
+        ),
+    )
     return parser
 
 
@@ -865,6 +883,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_release_sha=cast(str, args.source_release_sha),
         current_workflow_run_id=cast(str, args.workflow_run_id),
         current_workflow_run_attempt=cast(int, args.workflow_run_attempt),
+        supplementary=bool(args.supplementary),
         execution_scope=(
             _load_json(cast(Path, args.execution_scope))
             if args.execution_scope is not None

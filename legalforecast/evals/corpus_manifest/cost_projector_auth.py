@@ -35,7 +35,15 @@ from legalforecast.evals.corpus_manifest.cost_projector_contract import (
 from legalforecast.evals.corpus_manifest.cost_projector_io import normalized_absolute
 from legalforecast.evals.corpus_manifest.records import registry_record
 from legalforecast.evals.corpus_manifest.schema import load_signed_manifest_bytes
+from legalforecast.evals.corpus_manifest.supplementary_mode import (
+    build_supplementary_binding,
+    corpus_anchor_from_packet_rows,
+    load_pinned_reference_freeze_bundle,
+    require_sibling_freeze_identity,
+    require_supplementary_registry,
+)
 from legalforecast.evals.model_registry import (
+    ModelRegistryEntry,
     earliest_eligible_decision_date,
     load_model_registry_bytes,
     require_official_registry_entries,
@@ -45,6 +53,7 @@ from legalforecast.ingestion.cohort_document_materializer import (
     require_materializer_artifact,
 )
 from legalforecast.protocol.freeze import (
+    FreezeBundle,
     FreezeProtocolError,
     FrozenArtifactName,
     verify_freeze_bundle,
@@ -66,6 +75,12 @@ class AuthenticatedManifestCostInputs:
     packet_payloads: Mapping[str, bytes]
     snapshots: Mapping[Path, bytes]
     input_commitments: Mapping[str, Any]
+    supplementary_binding: Mapping[str, Any] | None = None
+    """Both bindings of a supplementary projection, or ``None`` in official mode.
+
+    Recorded rather than inferred: which official contract the sibling freeze
+    reuses, and which registry it evaluates.
+    """
 
 
 def authenticate_manifest_cost_inputs(
@@ -175,18 +190,31 @@ def authenticate_manifest_cost_inputs(
             f"frozen model registry is not valid: {exc}"
         ) from exc
     raw_registry_records = _json_array(registry_bytes, "model registry")
-    expected_registry_record = registry_record(entries)
-    if (
-        run_record.get("evaluation_models") != expected_registry_record
-        or prompt_replay.get("evaluation_models") != expected_registry_record
-        or run_record.get("evaluation_release_anchor")
-        != earliest_eligible_decision_date(entries).isoformat()
-        or prompt_replay.get("evaluation_release_anchor")
-        != earliest_eligible_decision_date(entries).isoformat()
-    ):
-        raise ManifestCostProjectionError(
-            "manifest run registry identity differs from frozen successor registry"
+    supplementary_binding: dict[str, Any] | None = None
+    if request.supplementary:
+        supplementary_binding = _authenticate_supplementary_registry(
+            request=request,
+            bundle=bundle,
+            entries=entries,
+            registry_bytes=registry_bytes,
+            prompt_replay=prompt_replay,
+            run_inputs=run_inputs,
+            run_record=run_record,
+            snapshots=snapshots,
         )
+    else:
+        expected_registry_record = registry_record(entries)
+        if (
+            run_record.get("evaluation_models") != expected_registry_record
+            or prompt_replay.get("evaluation_models") != expected_registry_record
+            or run_record.get("evaluation_release_anchor")
+            != earliest_eligible_decision_date(entries).isoformat()
+            or prompt_replay.get("evaluation_release_anchor")
+            != earliest_eligible_decision_date(entries).isoformat()
+        ):
+            raise ManifestCostProjectionError(
+                "manifest run registry identity differs from frozen successor registry"
+            )
 
     raw_packets = run_inputs.get("model_packets")
     if not isinstance(raw_packets, list):
@@ -318,7 +346,106 @@ def authenticate_manifest_cost_inputs(
         packet_payloads=packet_payloads,
         snapshots=snapshots,
         input_commitments=input_commitments,
+        supplementary_binding=supplementary_binding,
     )
+
+
+def _authenticate_supplementary_registry(
+    *,
+    request: ManifestCostProjectionRequest,
+    bundle: FreezeBundle,
+    entries: Sequence[ModelRegistryEntry],
+    registry_bytes: bytes,
+    prompt_replay: Mapping[str, Any],
+    run_inputs: Mapping[str, Any],
+    run_record: Mapping[str, Any],
+    snapshots: dict[Path, bytes],
+) -> dict[str, Any]:
+    """Authenticate one sibling freeze evaluating a post-anchor registry.
+
+    Official mode is untouched by this branch.  Here the four identity equalities
+    are replaced by their mirror images rather than dropped: the run record and
+    prompt replay must still agree with each other on the *official* registry and
+    anchor, the sibling freeze must reuse every official frozen artifact except
+    the registry and the two artifacts that follow from it, and every model in
+    the registry under evaluation must classify post-anchor against the anchor
+    derived from the corpus itself.
+    """
+
+    # Both are non-None by ManifestCostProjectionRequest.__post_init__; the
+    # casts keep the guarantee local rather than restating it as a branch that
+    # can never be taken.
+    official_path = cast(Path, request.official_freeze_bundle)
+    expected_official_sha256 = cast(str, request.official_freeze_bundle_sha256)
+    # Snapshotted once, then hashed and parsed from those same bytes: reading
+    # twice would let an A->B->A flip record a digest the identity checks below
+    # never validated. require_inputs_unchanged rechecks it before commit.
+    official_bytes = _snapshot(official_path, snapshots, "official freeze bundle")
+    official = load_pinned_reference_freeze_bundle(
+        official_bytes,
+        cycle_id=request.cycle_id,
+        expected_sha256=expected_official_sha256,
+        error_type=ManifestCostProjectionError,
+    )
+    require_sibling_freeze_identity(
+        sibling=bundle,
+        official=official,
+        error_type=ManifestCostProjectionError,
+    )
+    official_registry_sha256 = _required_sha256(
+        prompt_replay, "model_registry_sha256", "prompt replay"
+    )
+    if (
+        official.artifact(FrozenArtifactName.MODEL_REGISTRY).sha256
+        != official_registry_sha256
+    ):
+        # Without this, the supplied bundle could share the ten identical
+        # artifacts yet bind some third registry, and the recorded
+        # official_model_registry_sha256 would then name a freeze the shared
+        # prompt contract does not actually commit. The refusals below do not
+        # need this to hold, but the recorded binding does.
+        raise ManifestCostProjectionError(
+            "official freeze bundle does not bind the registry the frozen prompt "
+            "contract commits"
+        )
+    official_anchor = run_record.get("evaluation_release_anchor")
+    if (
+        run_record.get("evaluation_models") != prompt_replay.get("evaluation_models")
+        or official_anchor != prompt_replay.get("evaluation_release_anchor")
+        or not isinstance(official_anchor, str)
+    ):
+        raise ManifestCostProjectionError(
+            "manifest run registry identity differs from frozen prompt replay "
+            "commitment"
+        )
+    if run_record.get("evaluation_models") == registry_record(entries):
+        raise ManifestCostProjectionError(
+            "supplementary mode requires a registry distinct from the frozen "
+            "official evaluation registry"
+        )
+    raw_rows = run_inputs.get("model_packets")
+    rows = [
+        cast(Mapping[str, Any], row)
+        for row in cast(list[object], raw_rows if isinstance(raw_rows, list) else [])
+        if isinstance(row, Mapping)
+    ]
+    corpus_anchor = corpus_anchor_from_packet_rows(
+        rows, error_type=ManifestCostProjectionError
+    )
+    require_supplementary_registry(
+        entries,
+        corpus_anchor=corpus_anchor,
+        error_type=ManifestCostProjectionError,
+    )
+    binding = build_supplementary_binding(
+        official_freeze_bundle_sha256=expected_official_sha256,
+        official_model_registry_sha256=official_registry_sha256,
+        official_evaluation_release_anchor=official_anchor,
+        corpus_anchor=corpus_anchor,
+        supplementary_model_registry_sha256=hashlib.sha256(registry_bytes).hexdigest(),
+        supplementary_model_keys=[entry.registry_key for entry in entries],
+    )
+    return binding
 
 
 def require_inputs_unchanged(snapshots: Mapping[Path, bytes]) -> None:
@@ -385,12 +512,20 @@ def _verify_manifest_chain(
             "freeze prompt artifact is not the manifest runtime contract"
         )
     digest = _required_sha256(prompt_replay, "manifest_sha256", "prompt replay")
-    commitments = (
+    commitments = [
         (manifest_bytes, "owner_manifest_bytes_sha256", "owner manifest"),
-        (registry_bytes, "model_registry_sha256", "model registry"),
         (run_input_bytes, "run_inputs_sha256", "run-input manifest"),
         (run_record_bytes, "run_record_sha256", "manifest run record"),
-    )
+    ]
+    if not request.supplementary:
+        # A supplementary sibling freeze deliberately replaces the registry while
+        # reusing the official prompt bytes, so this one commitment cannot hold
+        # by construction. It is not dropped: the same relation is checked in its
+        # inverted form, plus full artifact identity against the official freeze,
+        # by _authenticate_supplementary_registry.
+        commitments.insert(
+            1, (registry_bytes, "model_registry_sha256", "model registry")
+        )
     for payload, field_name, label in commitments:
         if hashlib.sha256(payload).hexdigest() != _required_sha256(
             prompt_replay, field_name, "prompt replay"

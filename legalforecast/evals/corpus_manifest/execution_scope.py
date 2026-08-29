@@ -23,12 +23,16 @@ from legalforecast.contracts import RAW_BYTES_RAW_SHA256_V1
 from legalforecast.contracts.schemas import (
     EXECUTION_POLICY_V3,
     EXECUTION_POLICY_V4,
+    EXECUTION_SCOPE_SUPPLEMENTARY_V1,
     EXECUTION_SCOPE_V1,
     RAW_BYTES_RAW_SHA256_COMMITMENT_V1,
 )
 from legalforecast.evals.corpus_manifest.cost_projector import (
     ManifestCostProjectionError,
     verify_manifest_cost_projection_receipt,
+)
+from legalforecast.evals.corpus_manifest.supplementary_mode import (
+    require_binding_shape,
 )
 from legalforecast.evals.model_registry import (
     ModelRegistry,
@@ -52,6 +56,9 @@ from legalforecast.protocol.manifest import hash_payload
 EXECUTION_POLICY_V3_SCHEMA_VERSION: Final = str(EXECUTION_POLICY_V3)
 EXECUTION_POLICY_V4_SCHEMA_VERSION: Final = str(EXECUTION_POLICY_V4)
 EXECUTION_SCOPE_SCHEMA_VERSION: Final = str(EXECUTION_SCOPE_V1)
+EXECUTION_SCOPE_SUPPLEMENTARY_SCHEMA_VERSION: Final = str(
+    EXECUTION_SCOPE_SUPPLEMENTARY_V1
+)
 OFFICIAL_SCOPE_ABLATIONS: Final = ("full_packet", "metadata_only")
 OFFICIAL_CASE_COUNT: Final = 100
 OFFICIAL_CALL_COUNT: Final = 200
@@ -111,6 +118,53 @@ _SCOPE_FIELDS: Final = frozenset(
         "provider_authority",
     }
 )
+_SUPPLEMENTARY_SCOPE_FIELDS: Final = _SCOPE_FIELDS | {"supplementary_binding"}
+"""A supplementary scope is a distinct card, not an official one with a field.
+
+Cycle 1 change control freezes whole-card authenticated bytes, so the
+supplementary variant carries its own schema identifier and its own field set.
+The four frozen models' scopes are live mid-cycle and keep byte-identical bytes,
+and a supplementary scope cannot be presented as an official one: the identifier
+selects the expected field set, and the field set is inside the hashed scope.
+"""
+
+
+def _scope_fields(*, supplementary: bool) -> set[str]:
+    return set(_SUPPLEMENTARY_SCOPE_FIELDS if supplementary else _SCOPE_FIELDS)
+
+
+def _scope_schema_version(*, supplementary: bool) -> str:
+    if supplementary:
+        return EXECUTION_SCOPE_SUPPLEMENTARY_SCHEMA_VERSION
+    return EXECUTION_SCOPE_SCHEMA_VERSION
+
+
+def _require_scope_lane(
+    artifact: Mapping[str, Any], *, supplementary: bool
+) -> Mapping[str, Any]:
+    """Select the scope card by schema identifier, refusing the other lane.
+
+    The identifier sits outside the hashed ``scope`` object, so it is checked
+    together with the lane's exact field set, which is inside it: a scope cannot
+    claim one lane in its identifier and carry the other lane's body.
+    """
+
+    _exact_keys(artifact, {"schema_version", "scope", "scope_sha256"}, "scope artifact")
+    expected = _scope_schema_version(supplementary=supplementary)
+    if artifact.get("schema_version") != expected:
+        raise ExecutionScopeError(
+            "execution scope schema is not the expected lane: "
+            f"expected {expected}, found {artifact.get('schema_version')!r}"
+        )
+    scope = _mapping(artifact.get("scope"), "scope")
+    _exact_keys(scope, _scope_fields(supplementary=supplementary), "scope")
+    if supplementary:
+        require_binding_shape(
+            scope.get("supplementary_binding"),
+            label="scope.supplementary_binding",
+            error_type=ExecutionScopeError,
+        )
+    return scope
 
 
 class ExecutionScopeError(ValueError):
@@ -383,12 +437,18 @@ def issue_model_execution_scope(
     freeze_root: Path | None = None,
     provider_cycle_caps: Path | None = None,
     output: Path | None = None,
+    supplementary: bool = False,
 ) -> dict[str, Any]:
     """Issue one exact-model scope against a complete v3 plan.
 
     The cost receipt must be the exact one-model/two-ablation 100x2 matrix.
     The scope is therefore reusable by both paid ablation shards, while no
     second model can consume it.
+
+    ``supplementary`` selects which lane is being authorized.  It is a
+    declaration, not a claim about the model: the mode must already be recorded
+    in the cost receipt, which only the authenticated projector can write, and
+    the resulting scope is refused by the other lane at consumption.
     """
 
     plan_artifact = _load_json_source(common_plan, "common plan")
@@ -438,6 +498,7 @@ def issue_model_execution_scope(
         common_frozen_inputs=common_inputs,
         registry_entry=entry.to_record(),
         run_input_manifest=run_input_manifest,
+        supplementary=supplementary,
     )
     ceiling = _money(owner_ceiling_usd, "owner_ceiling_usd")
     projected = _money(
@@ -490,8 +551,21 @@ def issue_model_execution_scope(
         "owner_evidence": evidence,
         "provider_authority": authority,
     }
+    if supplementary:
+        # Copied verbatim from the authenticated receipt so the scope records
+        # both bindings itself rather than making a consumer re-derive them.
+        # Deep-copied so the scope and the receipt cannot alias one list.
+        scope["supplementary_binding"] = json.loads(
+            json.dumps(
+                _mapping(
+                    cost_artifact.get("supplementary_binding"),
+                    "cost projection supplementary_binding",
+                ),
+                sort_keys=True,
+            )
+        )
     artifact = {
-        "schema_version": EXECUTION_SCOPE_SCHEMA_VERSION,
+        "schema_version": _scope_schema_version(supplementary=supplementary),
         "scope": scope,
         "scope_sha256": hash_payload(scope),
     }
@@ -508,6 +582,7 @@ def issue_model_execution_scope(
         provider_cycle_caps=provider_cycle_caps,
         provider_cycle_caps_bytes=caps_snapshot,
         expected_model_key=key,
+        expected_supplementary=supplementary,
     )
     if caps_snapshot is not None and provider_cycle_caps is not None:
         _require_snapshot_unchanged(
@@ -537,14 +612,15 @@ def verify_execution_scope(
     provider_cycle_caps_bytes: bytes | None = None,
     expected_model_key: str | None = None,
     expected_ablation: str | None = None,
+    expected_supplementary: bool = False,
 ) -> str:
-    """Verify a scope and all source bytes it authenticates."""
+    """Verify a scope and all source bytes it authenticates.
 
-    _exact_keys(artifact, {"schema_version", "scope", "scope_sha256"}, "scope artifact")
-    if artifact.get("schema_version") != EXECUTION_SCOPE_SCHEMA_VERSION:
-        raise ExecutionScopeError("unsupported execution scope schema")
-    scope = _mapping(artifact.get("scope"), "scope")
-    _exact_keys(scope, set(_SCOPE_FIELDS), "scope")
+    ``expected_supplementary`` defaults to official, so every caller that has not
+    opted into the supplementary lane refuses a supplementary scope unchanged.
+    """
+
+    scope = _require_scope_lane(artifact, supplementary=expected_supplementary)
     actual = hash_payload(scope)
     if _sha(artifact.get("scope_sha256"), "scope_sha256") != actual:
         raise ExecutionScopeError("scope_sha256 does not match scope content")
@@ -615,9 +691,14 @@ def verify_execution_scope(
         common_frozen_inputs=_mapping(common_inputs, "common_frozen_inputs"),
         registry_entry=entry.to_record(),
         run_input_manifest=run_input_manifest,
+        supplementary=expected_supplementary,
     )
     if scope.get("cost_projection_receipt_sha256") != cost_digest:
         raise ExecutionScopeError("scope cost projection drift")
+    if expected_supplementary and scope.get(
+        "supplementary_binding"
+    ) != cost_artifact.get("supplementary_binding"):
+        raise ExecutionScopeError("scope supplementary binding drift")
     projected = _money(
         _text(scope.get("projected_cost_usd"), "projected_cost_usd"),
         "projected_cost_usd",
@@ -679,10 +760,17 @@ def select_model_scope(
     *,
     model_key: str,
     ablation: str,
+    supplementary: bool,
 ) -> Mapping[str, Any]:
-    """Select one paid shard only when this scope authorizes it."""
+    """Select one paid shard only when this scope authorizes it.
 
-    verify_scope_shape(scope)
+    ``supplementary`` is the lane the caller is executing, and is required: the
+    shard-receipt writer reaches this selector without having run the runtime
+    verifier, so an inferred lane would let a wrong-lane scope burn a write-once
+    receipt slot and surface only at fan-in, after the paid run.
+    """
+
+    verify_scope_shape(scope, supplementary=supplementary)
     if scope["scope"]["model_key"] != model_key:
         raise ExecutionScopeError("scope model_key is not the selected registry model")
     if ablation not in scope["scope"]["selected_ablations"]:
@@ -690,14 +778,16 @@ def select_model_scope(
     return scope
 
 
-def verify_scope_shape(artifact: Mapping[str, Any]) -> None:
-    """Verify only the self-hash and shape, for pre-credential dispatch checks."""
+def verify_scope_shape(artifact: Mapping[str, Any], *, supplementary: bool) -> None:
+    """Verify only the self-hash and shape, for pre-credential dispatch checks.
 
-    _exact_keys(artifact, {"schema_version", "scope", "scope_sha256"}, "scope artifact")
-    if artifact.get("schema_version") != EXECUTION_SCOPE_SCHEMA_VERSION:
-        raise ExecutionScopeError("unsupported execution scope schema")
-    scope = _mapping(artifact.get("scope"), "scope")
-    _exact_keys(scope, set(_SCOPE_FIELDS), "scope")
+    The lane is always declared by the caller and never inferred from the
+    artifact.  Self-inference would let a wrong-lane scope satisfy every local
+    check and surface only downstream -- for the shard-receipt writer, only at
+    fan-in, after the paid run.
+    """
+
+    scope = _require_scope_lane(artifact, supplementary=supplementary)
     if _sha(artifact.get("scope_sha256"), "scope_sha256") != hash_payload(scope):
         raise ExecutionScopeError("scope_sha256 does not match scope content")
     _text(scope.get("cycle_id"), "scope.cycle_id")
@@ -755,6 +845,24 @@ def verify_scope_shape(artifact: Mapping[str, Any]) -> None:
         cycle_id=_text(scope.get("cycle_id"), "scope.cycle_id"),
         model_key=key,
     )
+    if supplementary:
+        binding = _mapping(
+            scope.get("supplementary_binding"), "scope.supplementary_binding"
+        )
+        if key not in binding.get("supplementary_model_keys", ()):
+            raise ExecutionScopeError(
+                "scope model_key is not in the bound supplementary registry"
+            )
+        # The binding names the registry under evaluation; the common frozen
+        # inputs commit it. Reconciled here so the two cannot diverge by issuer
+        # discipline alone.
+        if binding.get("supplementary_model_registry_sha256") != _mapping(
+            scope.get("common_frozen_inputs"), "scope.common_frozen_inputs"
+        ).get("model_registry_sha256"):
+            raise ExecutionScopeError(
+                "scope supplementary registry digest does not match its frozen "
+                "model_registry_sha256"
+            )
 
 
 def verify_execution_scope_runtime(
@@ -767,6 +875,7 @@ def verify_execution_scope_runtime(
     expected_ablation: str,
     expected_scope_sha256: str | None = None,
     expected_freeze_bundle_sha256: str | None = None,
+    expected_supplementary: bool = False,
 ) -> str:
     """Verify scope bindings available before provider credentials are opened.
 
@@ -774,9 +883,14 @@ def verify_execution_scope_runtime(
     and provider-authority source records.  A dispatched provider cell does not
     need those source files, but it must prove that its transported scope still
     binds the selected plan, registry entry, model, and ablation first.
+
+    ``expected_supplementary`` is the lane the caller is executing.  It defaults
+    to official so an unchanged official dispatch refuses a supplementary scope,
+    and a supplementary dispatch refuses an official one -- the same both-way
+    refusal the per-case release-anchor gate applies to the model itself.
     """
 
-    verify_scope_shape(artifact)
+    verify_scope_shape(artifact, supplementary=expected_supplementary)
     scope = _mapping(artifact["scope"], "scope")
     plan_digest = _verify_common_plan(common_plan)
     if scope.get("common_plan_sha256") != plan_digest:
@@ -845,8 +959,16 @@ def compose_model_scopes(
     *,
     plan: Mapping[str, Any],
     model_keys: Sequence[str] | None = None,
+    supplementary: bool = False,
 ) -> tuple[Mapping[str, Any], ...]:
-    """Require one authorized scope per model while allowing two shards/scope."""
+    """Require one authorized scope per model while allowing two shards/scope.
+
+    Every composed scope must belong to the one lane the caller declares.  A
+    mixed set would compose official and supplementary authorizations into a
+    single authority, which is exactly the blending the lane split exists to
+    prevent; the default keeps a caller that has not opted in composing official
+    scopes only, as before this lane existed.
+    """
 
     plan_digest = _verify_common_plan(plan)
     policy = _mapping(plan["policy"], "plan policy")
@@ -856,7 +978,7 @@ def compose_model_scopes(
     )
     by_model: dict[str, Mapping[str, Any]] = {}
     for artifact in scopes:
-        verify_scope_shape(artifact)
+        verify_scope_shape(artifact, supplementary=supplementary)
         scope = _mapping(artifact["scope"], "scope")
         key = _text(scope.get("model_key"), "scope.model_key")
         if key not in declared:
@@ -997,6 +1119,7 @@ def _verify_cost_receipt(
     common_frozen_inputs: Mapping[str, Any],
     registry_entry: Mapping[str, Any],
     run_input_manifest: Path | bytes,
+    supplementary: bool = False,
 ) -> str:
     try:
         return verify_manifest_cost_projection_receipt(
@@ -1006,6 +1129,7 @@ def _verify_cost_receipt(
             expected_common_frozen_inputs=common_frozen_inputs,
             expected_registry_entry=registry_entry,
             run_input_manifest=run_input_manifest,
+            expected_supplementary=supplementary,
         )
     except ManifestCostProjectionError as exc:
         raise ExecutionScopeError(str(exc)) from exc

@@ -88,10 +88,9 @@ from legalforecast.reporting.leaderboard import (
 from legalforecast.reporting.result_class import (
     ResultClassError,
     build_result_class_sidecar,
-    corpus_anchor_from_decision_dates,
+    corpus_anchor_from_decision_rows,
     expected_result_class,
-    require_official_result_classes,
-    supplementary_model_ids,
+    require_lane_result_classes,
     write_result_class_sidecar,
 )
 
@@ -1339,85 +1338,34 @@ def _require_result_class_separation(
     than being published under a claim it cannot support.
     """
 
-    if config.supplementary and not registry_entries:
-        # Checked before the empty-registry exit below: without this, an empty
-        # registry would make a supplementary bundle silently skip the entire
-        # separation check rather than refuse.
-        raise OfficialAggregationError(
-            "a supplementary bundle requires a model registry to classify"
-        )
-    if not registry_entries:
+    if not registry_entries and not config.supplementary:
         return None
-    decision_dates, undated_rows = _packet_decision_dates(expected_packet_rows)
-    if undated_rows and decision_dates:
-        # A partially dated manifest would derive the anchor from the dated rows
-        # alone, which can only be later than the true earliest decision and so
-        # can only under-report supplementary models.
-        raise OfficialAggregationError(
-            "run-input rows disagree on decision_date presence; the corpus "
-            f"anchor cannot be derived from a partial set: {undated_rows}"
-        )
-    if not decision_dates:
-        if config.supplementary:
-            raise OfficialAggregationError(
-                "a supplementary bundle requires run-input decision dates to "
-                "derive the corpus anchor"
-            )
-        return None
-    corpus_anchor = corpus_anchor_from_decision_dates(decision_dates)
-    supplementary = set(
-        supplementary_model_ids(registry_entries, corpus_anchor=corpus_anchor)
-    )
-    if config.supplementary:
-        official = sorted(
-            entry.registry_key
-            for entry in registry_entries
-            if entry.registry_key not in supplementary
-        )
-        if official:
-            raise OfficialAggregationError(
-                "a supplementary bundle refuses models released on or before the "
-                f"corpus anchor {corpus_anchor.isoformat()}: {official}"
-            )
-        return corpus_anchor
     try:
-        require_official_result_classes(registry_entries, corpus_anchor=corpus_anchor)
+        corpus_anchor = corpus_anchor_from_decision_rows(
+            _packet_decision_rows(expected_packet_rows),
+            required=config.supplementary,
+        )
+        if corpus_anchor is None:
+            return None
+        require_lane_result_classes(
+            registry_entries,
+            corpus_anchor=corpus_anchor,
+            supplementary=config.supplementary,
+        )
     except ResultClassError as exc:
         raise OfficialAggregationError(str(exc)) from exc
     return corpus_anchor
 
 
-def _packet_decision_dates(
+def _packet_decision_rows(
     expected_packet_rows: Mapping[PacketKey, JsonRecord],
-) -> tuple[tuple[date, ...], tuple[str, ...]]:
-    """Collect corpus decision dates, and name any rows that declare none.
+) -> list[tuple[str, JsonRecord]]:
+    """Label each run-input row for the shared corpus-anchor derivation."""
 
-    Rows with no ``decision_date`` are returned rather than skipped so the caller
-    can distinguish a manifest that carries no dates at all -- older fixtures,
-    where the anchor check is simply unavailable -- from a partially dated one,
-    which would silently yield a too-late anchor. Freeze-validated Cycle 1
-    inputs always carry dates on every row, so only fixtures reach the
-    all-absent case.
-    """
-
-    dates: list[date] = []
-    undated: list[str] = []
-    for (case_id, ablation), row in sorted(expected_packet_rows.items()):
-        raw = row.get("decision_date")
-        if raw is None:
-            undated.append(f"{case_id}:{ablation}")
-            continue
-        if not isinstance(raw, str) or not raw.strip():
-            raise OfficialAggregationError(
-                "run-input decision_date must be an ISO date string"
-            )
-        try:
-            dates.append(date.fromisoformat(raw))
-        except ValueError as exc:
-            raise OfficialAggregationError(
-                f"run-input decision_date is not an ISO date: {raw}"
-            ) from exc
-    return tuple(dates), tuple(undated)
+    return [
+        (f"{case_id}:{ablation}", row)
+        for (case_id, ablation), row in sorted(expected_packet_rows.items())
+    ]
 
 
 def _expected_model_key_sets(

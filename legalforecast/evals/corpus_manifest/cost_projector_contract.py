@@ -109,10 +109,47 @@ class ManifestCostProjectionRequest:
     matrix_limit: int
     shard_only: bool
     output: Path
+    supplementary: bool = False
+    """Project a post-anchor supplementary shard.
+
+    The release-anchor gate inverts rather than switching off: the sibling freeze
+    must reuse the official prompt and corpus bytes and replace only the model
+    registry, and every model it names must classify post-anchor.  An official
+    projection leaves every input and every receipt byte exactly as before.
+    """
+
+    official_freeze_bundle: Path | None = None
+    """Official freeze bundle the sibling freeze must match, byte for byte.
+
+    Required in supplementary mode and refused in official mode.  It is read only
+    for its recorded artifact digests, so the official artifact bytes need not be
+    present -- the comparability claim is verified, not waived.
+    """
+
+    official_freeze_bundle_sha256: str | None = None
+    """Independent digest pin for ``official_freeze_bundle``.
+
+    Without it the reference bundle would be trusted for being self-consistent,
+    and a fabricated bundle copying its shared-artifact digests from the sibling
+    would satisfy every identity check -- the sibling's own prompt bytes would be
+    doing the grounding.  The operator supplies this at dispatch from the staged
+    official freeze's recorded digest.
+    """
 
     def __post_init__(self) -> None:
         if not self.cycle_id.strip():
             raise ManifestCostProjectionError("cycle_id is required")
+        supplied = (self.official_freeze_bundle, self.official_freeze_bundle_sha256)
+        if self.supplementary and None in supplied:
+            raise ManifestCostProjectionError(
+                "supplementary projection requires --official-freeze-bundle and "
+                "--official-freeze-bundle-sha256"
+            )
+        if not self.supplementary and supplied != (None, None):
+            raise ManifestCostProjectionError(
+                "official projection does not accept --official-freeze-bundle or "
+                "--official-freeze-bundle-sha256"
+            )
         if not 1 <= self.repeat_count <= 10:
             raise ManifestCostProjectionError(
                 "repeat_count must be an integer from 1 through 10"

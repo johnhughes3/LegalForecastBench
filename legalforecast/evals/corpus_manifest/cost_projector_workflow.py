@@ -20,6 +20,22 @@ def issue_manifest_cost_projection_from_workflow_environment(
 ) -> dict[str, Any]:
     """Delegate the official workflow environment to the shared issuer."""
 
+    supplementary = _optional_environment_bool(environment, "SUPPLEMENTARY")
+    official_freeze_bundle = environment.get("OFFICIAL_FREEZE_BUNDLE_PATH", "").strip()
+    official_freeze_sha256 = environment.get(
+        "OFFICIAL_FREEZE_BUNDLE_SHA256", ""
+    ).strip()
+    supplied = (official_freeze_bundle, official_freeze_sha256)
+    if supplementary and not all(supplied):
+        raise ManifestCostProjectionError(
+            "OFFICIAL_FREEZE_BUNDLE_PATH and OFFICIAL_FREEZE_BUNDLE_SHA256 are "
+            "required when SUPPLEMENTARY is true"
+        )
+    if not supplementary and any(supplied):
+        raise ManifestCostProjectionError(
+            "OFFICIAL_FREEZE_BUNDLE_PATH and OFFICIAL_FREEZE_BUNDLE_SHA256 are "
+            "only valid when SUPPLEMENTARY is true"
+        )
     request = ManifestCostProjectionRequest(
         freeze_bundle=Path(_required_env(environment, "FREEZE_BUNDLE_PATH")),
         freeze_root=Path(_required_env(environment, "FREEZE_ROOT")),
@@ -42,6 +58,11 @@ def issue_manifest_cost_projection_from_workflow_environment(
         matrix_limit=_environment_int(environment, "MATRIX_LIMIT"),
         shard_only=_environment_bool(environment, "SHARD_ONLY"),
         output=Path(_required_env(environment, "COST_PROJECTION_RECEIPT_PATH")),
+        supplementary=supplementary,
+        official_freeze_bundle=(
+            Path(official_freeze_bundle) if official_freeze_bundle else None
+        ),
+        official_freeze_bundle_sha256=official_freeze_sha256 or None,
     )
     receipt = issue_manifest_cost_projection(request)
     _append_github_outputs(Path(_required_env(environment, "GITHUB_OUTPUT")), receipt)
@@ -71,6 +92,18 @@ def _environment_bool(environment: Mapping[str, str], name: str) -> bool:
     if raw not in {"true", "false"}:
         raise ManifestCostProjectionError(f"{name} must be true or false")
     return raw == "true"
+
+
+def _optional_environment_bool(environment: Mapping[str, str], name: str) -> bool:
+    """Read a Boolean whose absence means the official lane.
+
+    Fail-closed by omission: a workflow that never sets the variable, and every
+    caller written before this lane existed, projects officially.
+    """
+
+    if not environment.get(name, "").strip():
+        return False
+    return _environment_bool(environment, name)
 
 
 def _split_csv(raw: str) -> list[str]:

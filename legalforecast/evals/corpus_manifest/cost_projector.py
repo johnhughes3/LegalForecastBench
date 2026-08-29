@@ -11,13 +11,19 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, cast
 
-from legalforecast.contracts.schemas import MANIFEST_COST_PROJECTION_RECEIPT_V1
+from legalforecast.contracts.schemas import (
+    MANIFEST_COST_PROJECTION_RECEIPT_V1,
+    MANIFEST_COST_PROJECTION_SUPPLEMENTARY_RECEIPT_V1,
+)
 from legalforecast.evals.corpus_manifest.cost_projector_contract import (
     ManifestCostProjectionError,
     ManifestCostProjectionRequest,
     packet_object_key_from_row,
     packet_sha256_from_row,
     required_nonnegative_int,
+)
+from legalforecast.evals.corpus_manifest.supplementary_mode import (
+    require_binding_shape,
 )
 from legalforecast.ingestion.canonical_json import canonical_json_bytes
 from legalforecast.protocol.manifest import hash_payload
@@ -82,6 +88,31 @@ _COST_RECEIPT_FIELDS: Final = frozenset(
         "receipt_sha256",
     }
 )
+_SUPPLEMENTARY_COST_RECEIPT_FIELDS: Final = _COST_RECEIPT_FIELDS | {
+    "supplementary_binding"
+}
+"""A supplementary receipt is a distinct card, not an official one with a field.
+
+Cycle 1 change control freezes whole-card authenticated bytes and forbids adding
+optional fields to them, so the supplementary variant carries its own schema
+identifier and its own field set. An official receipt is byte-for-byte what it
+was, and a supplementary receipt cannot be presented as one: the identifier lives
+inside the hashed payload, so swapping it breaks the receipt digest.
+"""
+
+
+def _receipt_schema_version(*, supplementary: bool) -> str:
+    if supplementary:
+        return str(MANIFEST_COST_PROJECTION_SUPPLEMENTARY_RECEIPT_V1)
+    return str(MANIFEST_COST_PROJECTION_RECEIPT_V1)
+
+
+def _receipt_fields(*, supplementary: bool) -> Set[str]:
+    if supplementary:
+        return _SUPPLEMENTARY_COST_RECEIPT_FIELDS
+    return _COST_RECEIPT_FIELDS
+
+
 _COST_MATRIX_ROW_FIELDS: Final = frozenset(
     {
         "case_id",
@@ -357,7 +388,7 @@ def build_manifest_cost_projection(
         for ablation in requested_ablations
     )
     receipt: dict[str, Any] = {
-        "schema_version": str(MANIFEST_COST_PROJECTION_RECEIPT_V1),
+        "schema_version": _receipt_schema_version(supplementary=request.supplementary),
         "cycle_id": request.cycle_id,
         "input_commitments": dict(authenticated.input_commitments),
         "requested_model_keys": requested_model_keys,
@@ -396,6 +427,13 @@ def build_manifest_cost_projection(
     for provider in PROVIDER_LANES:
         receipt[f"{provider}_count"] = provider_counts[provider]
         receipt[f"{provider}_matrix"] = provider_matrices[provider]
+    binding = authenticated.supplementary_binding
+    if (binding is not None) is not request.supplementary:
+        raise ManifestCostProjectionError(
+            "authenticated inputs and request disagree about supplementary mode"
+        )
+    if binding is not None:
+        receipt["supplementary_binding"] = dict(binding)
     receipt["receipt_sha256"] = hash_payload(receipt)
     return receipt
 
@@ -408,6 +446,7 @@ def verify_manifest_cost_projection_receipt(
     expected_common_frozen_inputs: Mapping[str, Any],
     expected_registry_entry: Mapping[str, Any],
     run_input_manifest: Path | bytes | None = None,
+    expected_supplementary: bool = False,
 ) -> str:
     """Verify one exact-model receipt emitted by the canonical cost projector.
 
@@ -416,13 +455,31 @@ def verify_manifest_cost_projection_receipt(
     packet's token basis from its ``packet_size_bytes`` row.  Omitting the
     source retains the standalone compatibility path for callers that cannot
     reach execution-scope authority.
+
+    ``expected_supplementary`` defaults to official, so an existing caller
+    refuses a supplementary receipt without being changed.
     """
 
     record = dict(receipt)
-    _cost_exact_keys(record, _COST_RECEIPT_FIELDS, "cost projection receipt")
-    if record.get("schema_version") != str(MANIFEST_COST_PROJECTION_RECEIPT_V1):
+    expected_schema = _receipt_schema_version(supplementary=expected_supplementary)
+    if record.get("schema_version") != expected_schema:
+        # The lane is selected by schema identifier, and the identifier is inside
+        # the hashed payload, so a supplementary receipt cannot be presented as an
+        # official one or the reverse.
         raise ManifestCostProjectionError(
-            "unsupported manifest cost projection receipt schema"
+            "cost projection receipt schema is not the expected lane: "
+            f"expected {expected_schema}, found {record.get('schema_version')!r}"
+        )
+    _cost_exact_keys(
+        record,
+        _receipt_fields(supplementary=expected_supplementary),
+        "cost projection receipt",
+    )
+    if expected_supplementary:
+        require_binding_shape(
+            record.get("supplementary_binding"),
+            label="cost projection receipt.supplementary_binding",
+            error_type=ManifestCostProjectionError,
         )
     supplied = _cost_sha(record.get("receipt_sha256"), "receipt_sha256")
     without_hash = dict(record)

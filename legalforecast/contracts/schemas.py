@@ -103,6 +103,9 @@ EXECUTION_POLICY_RUNTIME_BINDING_V1 = SchemaIdentifier(
     "legalforecast.execution_policy_runtime_binding.v1"
 )
 EXECUTION_SCOPE_V1 = SchemaIdentifier("legalforecast.execution_scope.v1")
+EXECUTION_SCOPE_SUPPLEMENTARY_V1 = SchemaIdentifier(
+    "legalforecast.execution_scope_supplementary.v1"
+)
 LOCAL_LUNA_PLAN_V1 = SchemaIdentifier("legalforecast.local_luna_plan.v1")
 LOCAL_LUNA_RESULT_V1 = SchemaIdentifier("legalforecast.local_luna_result.v1")
 LOCAL_MODEL_PLAN_V1 = SchemaIdentifier("legalforecast.local_model_plan.v1")
@@ -172,6 +175,9 @@ MANIFEST_MODE_FORECAST_RUN_RECORD_V1 = SchemaIdentifier(
 )
 MANIFEST_COST_PROJECTION_RECEIPT_V1 = SchemaIdentifier(
     "legalforecast.manifest_cost_projection_receipt.v1"
+)
+MANIFEST_COST_PROJECTION_SUPPLEMENTARY_RECEIPT_V1 = SchemaIdentifier(
+    "legalforecast.manifest_cost_projection_supplementary_receipt.v1"
 )
 MANIFEST_FORECAST_BUNDLE_V1 = SchemaIdentifier(
     "legalforecast.manifest_forecast_bundle.v1"

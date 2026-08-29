@@ -354,7 +354,47 @@ def load_freeze_bundle(
         ) from exc
     if not isinstance(raw_record, Mapping):
         raise FreezeProtocolError("pre-run freeze commitment must be a JSON object")
-    record = cast(Mapping[str, Any], raw_record)
+    return load_freeze_bundle_record(
+        cast(Mapping[str, Any], raw_record),
+        root_path=root_path,
+        artifact_path_overrides=artifact_path_overrides,
+    )
+
+
+def load_freeze_bundle_bytes(
+    payload: bytes,
+    *,
+    root_path: str | Path | None = None,
+    artifact_path_overrides: ArtifactPathMap | None = None,
+) -> FreezeBundle:
+    """Load a freeze bundle from bytes already read and pinned by the caller.
+
+    Identical to :func:`load_freeze_bundle` except that the caller owns the read.
+    A caller that must both hash and parse one bundle uses this so the digest it
+    records and the record it validates come from the same bytes; reading twice
+    lets an A->B->A replacement record a hash that was never validated.
+    """
+
+    try:
+        raw_record = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise FreezeProtocolError("pre-run freeze commitment is invalid JSON") from exc
+    if not isinstance(raw_record, Mapping):
+        raise FreezeProtocolError("pre-run freeze commitment must be a JSON object")
+    return load_freeze_bundle_record(
+        cast(Mapping[str, Any], raw_record),
+        root_path=root_path,
+        artifact_path_overrides=artifact_path_overrides,
+    )
+
+
+def load_freeze_bundle_record(
+    record: Mapping[str, Any],
+    *,
+    root_path: str | Path | None = None,
+    artifact_path_overrides: ArtifactPathMap | None = None,
+) -> FreezeBundle:
+    """Validate one decoded freeze-bundle record and its own commitment hash."""
 
     _verify_bundle_commitment_hash(record)
     cycle_id = _required_string(record, "cycle_id")
