@@ -263,11 +263,70 @@ def test_supplementary_stage_marker_records_both_freeze_digests(
     assert isinstance(record, dict)
     assert record["source_freeze_sha256"] == source_digest
     assert record["prefix"] == result.prefix
-    assert record["model_keys"] == ["google:gemini-3.7-flash"]
+    assert record["supplementary_model_keys"] == ["google:gemini-3.7-flash"]
+    registry_artifact = next(
+        artifact
+        for artifact in bundle.artifacts
+        if artifact.name is FrozenArtifactName.MODEL_REGISTRY
+    )
+    # Recorded under the field name the dispatch receipt's supplementary_binding
+    # uses, so a staged prefix and its receipt reconcile by name.
+    assert record["supplementary_model_registry_sha256"] == registry_artifact.sha256
+    # The prefix is keyed by the freeze file, not the registry: two sibling
+    # freezes that share a registry but differ in caps or execution policy must
+    # not land in one create-once prefix.
+    assert record["supplementary_model_registry_sha256"] not in result.prefix
     # Staging rewrites relative artifact paths, so the staged bundle is a
     # different commitment from the source file that keys the prefix.
     assert record["staged_freeze_sha256"] != source_digest
     assert record["staged_freeze_bundle_sha256"] != record["staged_freeze_sha256"]
+
+
+def test_two_sibling_freezes_sharing_a_registry_get_distinct_prefixes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Why the prefix is keyed by the freeze file and not by the registry digest.
+
+    A sibling freeze can be re-issued over the same corpus and the same model
+    registry with a different execution policy or provider caps artifact — the
+    supplementary lane materialized both separately. Keying on the registry
+    digest would map those two freezes to one create-once prefix, where the
+    second staging creates its differing artifact objects and then fails on
+    freeze.json, leaving objects no role can delete. Keying on the freeze file
+    makes every distinct freeze a distinct prefix.
+    """
+
+    first, bundle = _fixture(
+        tmp_path / "a", registry_models=_SUPPLEMENTARY_MODELS, supplementary=True
+    )
+    monkeypatch.setattr(
+        "legalforecast.publication.manifest_forecast_stage.verify_freeze_bundle",
+        lambda *args, **kwargs: bundle,
+    )
+    first_result = stage_manifest_forecast(first)
+
+    # Same registry bytes, different freeze bytes: a re-issued freeze.
+    second_bundle_path = tmp_path / "a" / "freeze-reissued.json"
+    second_bundle_path.write_text('{"reissued": true}\n', encoding="utf-8")
+    second = ManifestForecastStageConfig(
+        output_dir=first.output_dir,
+        freeze_bundle=second_bundle_path,
+        artifact_root=first.artifact_root,
+        manifest_digest=first.manifest_digest,
+        results_bucket=first.results_bucket,
+        packet_bucket=first.packet_bucket,
+        dry_run=True,
+        supplementary=True,
+    )
+    second_result = stage_manifest_forecast(second)
+
+    assert first_result.prefix != second_result.prefix
+    first_keys = {item["key"] for item in first_result.stage_record["objects"]}
+    second_keys = {item["key"] for item in second_result.stage_record["objects"]}
+    shared = first_keys & second_keys
+    # Only the shared packet-bucket keys overlap, and those are byte-identical
+    # create-once no-ops by design.
+    assert all(key.startswith("model-packets/") for key in shared)
 
 
 def test_official_staging_writes_no_supplementary_marker(

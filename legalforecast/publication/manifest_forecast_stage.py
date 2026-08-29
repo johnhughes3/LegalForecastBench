@@ -142,7 +142,7 @@ def stage_manifest_forecast(
         raise ManifestForecastStageError(
             "run record manifest_sha256 does not match --manifest-digest"
         )
-    model_keys = _require_stage_registry_mode(
+    model_keys, registry_sha256 = _require_stage_registry_mode(
         bundle=bundle, run_record=run_record, supplementary=config.supplementary
     )
     # The raw SHA-256 of the freeze file exactly as supplied.  Staging rewrites
@@ -195,6 +195,7 @@ def stage_manifest_forecast(
                 source_freeze_digest=source_freeze_digest,
                 staged_bundle_path=staged_bundle_path,
                 model_keys=model_keys,
+                registry_sha256=registry_sha256,
             )
         return _build_stage_result(
             config=config,
@@ -397,7 +398,7 @@ def _require_stage_registry_mode(
     bundle: FreezeBundle,
     run_record: Mapping[str, Any],
     supplementary: bool,
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], str]:
     """Bind the staged prefix to the registry the manifest run committed to.
 
     The bare ``cycle-1/manifest-runs/<manifest_digest>`` prefix is keyed by the
@@ -409,7 +410,7 @@ def _require_stage_registry_mode(
     unrecoverable: refuse before the first upload rather than after it.
     """
 
-    frozen_keys, frozen_record = _frozen_registry_identity(bundle)
+    frozen_keys, frozen_record, registry_sha256 = _frozen_registry_identity(bundle)
     committed = run_record.get("evaluation_models")
     if not isinstance(committed, list) or not committed:
         raise ManifestForecastStageError(
@@ -426,7 +427,7 @@ def _require_stage_registry_mode(
                 f"committed to ({', '.join(frozen_keys)}); stage it without "
                 "--supplementary so it keeps the official manifest-run prefix"
             )
-        return frozen_keys
+        return frozen_keys, registry_sha256
     if not supplementary:
         raise ManifestForecastStageError(
             "stage-manifest-forecast refuses to stage a freeze whose model "
@@ -440,12 +441,12 @@ def _require_stage_registry_mode(
             f"{MANIFEST_FORECAST_SUPPLEMENTARY_SEGMENT}/<manifest_digest>/"
             "<freeze_digest>/"
         )
-    return frozen_keys
+    return frozen_keys, registry_sha256
 
 
 def _frozen_registry_identity(
     bundle: FreezeBundle,
-) -> tuple[tuple[str, ...], list[dict[str, str]]]:
+) -> tuple[tuple[str, ...], list[dict[str, str]], str]:
     """Read the verified freeze's registry as the run record records models."""
 
     artifacts = [
@@ -467,6 +468,7 @@ def _frozen_registry_identity(
     return (
         tuple(entry.registry_key for entry in registry.entries),
         registry_record(registry.entries),
+        artifacts[0].sha256,
     )
 
 
@@ -492,6 +494,7 @@ def _supplementary_stage_object(
     source_freeze_digest: str,
     staged_bundle_path: Path,
     model_keys: Sequence[str],
+    registry_sha256: str,
 ) -> _LocalObject:
     """Describe a supplementary staging inside the prefix it creates.
 
@@ -501,18 +504,21 @@ def _supplementary_stage_object(
     prefix is keyed by ``source_freeze_sha256``, the raw digest of the file
     passed to --freeze-bundle, while receipts and scope issuance bind the staged
     bundle recorded here, whose bytes differ because staging rewrote every
-    relative artifact path.
+    relative artifact path.  The supplementary registry digest is recorded under
+    the field name the dispatch receipt's ``supplementary_binding`` uses, so a
+    staged prefix and the receipt it produces can be reconciled by name.
     """
 
     staged_bundle = load_freeze_bundle(staged_bundle_path)
     record = {
         "manifest_digest": manifest_digest,
-        "model_keys": list(model_keys),
         "prefix": prefix,
         "schema_version": MANIFEST_FORECAST_SUPPLEMENTARY_STAGE_SCHEMA_VERSION,
         "source_freeze_sha256": source_freeze_digest,
         "staged_freeze_bundle_sha256": staged_bundle.bundle_sha256,
         "staged_freeze_sha256": sha256_file(staged_bundle_path),
+        "supplementary_model_keys": sorted(model_keys),
+        "supplementary_model_registry_sha256": registry_sha256,
     }
     path.write_text(
         json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
