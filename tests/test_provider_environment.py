@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import json
+import os
 import subprocess
-from collections.abc import Mapping
+import sys
+from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -346,3 +350,95 @@ def test_main_returns_parser_error_for_provider_environment_refusal(
     assert exit_calls == [(2, exit_calls[0][1])]
     assert exit_calls[0][1] is not None
     assert exit_calls[0][1].endswith(": error: provider child command is required\n")
+
+
+# The ``python -m`` invocation seam cannot be exercised in process: calling
+# ``main`` directly still passes when the module has no ``__main__`` entry, which
+# is how a silent no-op reached an operator. These tests therefore spawn the real
+# module invocation and read the child's own view of its environment.
+_MODULE_ENTRY_POINT = "legalforecast.labeling.provider_environment"
+_CHILD_EXIT_CODE = 7
+_CHILD_ENVIRONMENT_REPORT = (
+    "import json, os, sys\n"
+    "sys.stdout.write("
+    "json.dumps({name: os.environ.get(name) for name in sys.argv[1:]})"
+    ")\n"
+    f"raise SystemExit({_CHILD_EXIT_CODE})\n"
+)
+
+
+def _run_module_entry(
+    arguments: Sequence[str],
+    *,
+    env: Mapping[str, str],
+    cwd: Path,
+) -> subprocess.CompletedProcess[str]:
+    """Invoke the wrapper exactly as an operator does, through ``python -m``."""
+
+    return subprocess.run(
+        [sys.executable, "-m", _MODULE_ENTRY_POINT, *arguments],
+        capture_output=True,
+        check=False,
+        cwd=cwd,
+        env=dict(env),
+        text=True,
+        timeout=120,
+    )
+
+
+def test_module_entry_point_runs_isolated_child_and_propagates_exit_code(
+    tmp_path: Path,
+) -> None:
+    reported_names = [
+        OPENAI_API_KEY_ENV,
+        ANTHROPIC_API_KEY_ENV,
+        GEMINI_API_KEY_ENV,
+        GENERIC_PROVIDER_API_KEY_ENV,
+        "UV_NO_ENV_FILE",
+    ]
+
+    completed = _run_module_entry(
+        [
+            "--provider",
+            "google",
+            "--",
+            sys.executable,
+            "-c",
+            _CHILD_ENVIRONMENT_REPORT,
+            *reported_names,
+        ],
+        env={
+            "PATH": os.defpath,
+            GEMINI_API_KEY_ENV: "google-subprocess-fixture",
+            "UV_ENV_FILE": "inherited-env-file-fixture",
+        },
+        cwd=tmp_path,
+    )
+
+    assert completed.returncode == _CHILD_EXIT_CODE, completed.stderr
+    assert json.loads(completed.stdout) == {
+        OPENAI_API_KEY_ENV: None,
+        ANTHROPIC_API_KEY_ENV: None,
+        GEMINI_API_KEY_ENV: "google-subprocess-fixture",
+        GENERIC_PROVIDER_API_KEY_ENV: None,
+        "UV_NO_ENV_FILE": "1",
+    }
+
+
+def test_module_entry_point_refuses_missing_provider_key(tmp_path: Path) -> None:
+    completed = _run_module_entry(
+        [
+            "--provider",
+            "google",
+            "--",
+            sys.executable,
+            "-c",
+            "print('provider child ran')",
+        ],
+        env={"PATH": os.defpath},
+        cwd=tmp_path,
+    )
+
+    assert completed.returncode == 2
+    assert "provider child ran" not in completed.stdout
+    assert f"{GEMINI_API_KEY_ENV} must be present and nonempty" in completed.stderr
