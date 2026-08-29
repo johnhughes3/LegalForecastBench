@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import shlex
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -568,6 +570,86 @@ def test_manifest_cost_projection_requires_immutable_manifest_run_uri() -> None:
     )
     assert 'freeze_root="/tmp/lfb-manifest-run"' in BUILD_MATRIX_JOB
     assert "issue_manifest_cost_projection_from_workflow_environment" in WORKFLOW
+
+
+_OFFICIAL_FREEZE_URI = (
+    "s3://results-bucket/cycle-1/manifest-runs/" + "a" * 64 + "/freeze.json"
+)
+_SUPPLEMENTARY_FREEZE_URI = (
+    "s3://results-bucket/cycle-1/manifest-runs/supplementary/"
+    + "a" * 64
+    + "/"
+    + "b" * 64
+    + "/freeze.json"
+)
+
+
+def _freeze_uri_validation_block() -> str:
+    """Extract the workflow's own freeze-URI case block, verbatim.
+
+    Running the real bytes through bash is the only way to test the deployed
+    ``[[ =~ ]]`` semantics rather than a Python transcription of them. The block
+    reads only ``freeze_bundle_path`` and ``SUPPLEMENTARY_INPUT``, so it is
+    self-contained.
+    """
+
+    marker = 'case "${freeze_bundle_path}" in'
+    body = BUILD_MATRIX_JOB[BUILD_MATRIX_JOB.index(marker) :]
+    return body[: body.index("\n          esac\n") + len("\n          esac\n")]
+
+
+def _validate_freeze_uri(
+    uri: str, *, supplementary: bool
+) -> subprocess.CompletedProcess[str]:
+    script = "\n".join(
+        (
+            "set -euo pipefail",
+            f"freeze_bundle_path={shlex.quote(uri)}",
+            f"SUPPLEMENTARY_INPUT={shlex.quote('true' if supplementary else 'false')}",
+            _freeze_uri_validation_block(),
+        )
+    )
+    return subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, check=False
+    )
+
+
+def test_official_dispatch_refuses_a_supplementary_prefix_freeze_uri() -> None:
+    accepted = _validate_freeze_uri(_OFFICIAL_FREEZE_URI, supplementary=False)
+    assert accepted.returncode == 0, accepted.stderr
+
+    refused = _validate_freeze_uri(_SUPPLEMENTARY_FREEZE_URI, supplementary=False)
+    assert refused.returncode == 1
+    assert "immutable manifest-run S3 prefix contract" in refused.stderr
+
+
+def test_supplementary_dispatch_refuses_a_bare_official_prefix_freeze_uri() -> None:
+    accepted = _validate_freeze_uri(_SUPPLEMENTARY_FREEZE_URI, supplementary=True)
+    assert accepted.returncode == 0, accepted.stderr
+
+    refused = _validate_freeze_uri(_OFFICIAL_FREEZE_URI, supplementary=True)
+    assert refused.returncode == 1
+    assert "supplementary manifest-run S3 prefix contract" in refused.stderr
+
+
+def test_freeze_uri_validation_still_refuses_non_s3_and_malformed_prefixes() -> None:
+    for supplementary in (False, True):
+        committed = _validate_freeze_uri(
+            "manifests/cycle-1.freeze.json", supplementary=supplementary
+        )
+        assert committed.returncode == 1
+        assert "authenticated manifest-run root" in committed.stderr
+        truncated = _validate_freeze_uri(
+            "s3://results-bucket/cycle-1/manifest-runs/supplementary/"
+            + "a" * 64
+            + "/freeze.json",
+            supplementary=supplementary,
+        )
+        assert truncated.returncode == 1
+    assert (
+        SUPPLEMENTARY_ENV := "SUPPLEMENTARY_INPUT: ${{ inputs.supplementary }}"
+    ) in BUILD_MATRIX_JOB
+    assert SUPPLEMENTARY_ENV in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_flags_long_context_surcharge_packets() -> None:

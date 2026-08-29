@@ -45,8 +45,12 @@ on:
       freeze_bundle_path:
         description: >-
           Current authenticated manifest-run freeze bundle. Use only an immutable
-          s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI;
-          the cost projector requires the corresponding downloaded manifest-run root.
+          s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI, or, when
+          supplementary is true, the immutable
+          s3://.../cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/freeze.json
+          URI for the sibling freeze; the two shapes are not interchangeable and each
+          mode refuses the other's. The cost projector requires the corresponding
+          downloaded manifest-run root.
         required: false
         default: ""
         type: string
@@ -347,7 +351,17 @@ jobs:
           fi
           case "${freeze_bundle_path}" in
             s3://*)
-              if [[ ! "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]]; then
+              # Both directions fail closed. The official manifest-run prefix is
+              # keyed by the corpus digest alone, so a supplementary sibling freeze
+              # over the same corpus is staged under a distinct prefix; accepting
+              # either shape for either mode would let a supplementary dispatch run
+              # against the official prefix, or the reverse.
+              if [[ "${SUPPLEMENTARY_INPUT}" == "true" ]]; then
+                if [[ ! "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/supplementary/[0-9a-f]{64}/[0-9a-f]{64}/freeze\.json$ ]]; then
+                  echo "supplementary=true requires the supplementary manifest-run S3 prefix contract: s3://<bucket>/cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/freeze.json" >&2
+                  exit 1
+                fi
+              elif [[ ! "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]]; then
                 echo "freeze_bundle_path must use the immutable manifest-run S3 prefix contract." >&2
                 exit 1
               fi

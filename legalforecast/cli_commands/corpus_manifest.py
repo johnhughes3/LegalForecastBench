@@ -681,9 +681,13 @@ def register(
         description=(
             "Authenticate the manifest forecast output and the complete frozen "
             "artifact bundle, then write them under the immutable "
-            "cycle-1/manifest-runs/<manifest-digest>/ prefix. No provider call "
-            "is made. Existing S3 objects are accepted only when their bytes "
-            "match the same commitments."
+            "cycle-1/manifest-runs/<manifest-digest>/ prefix. That prefix is "
+            "keyed by the corpus alone, so a supplementary sibling freeze over "
+            "the same corpus must pass --supplementary and is staged under "
+            "cycle-1/manifest-runs/supplementary/<manifest-digest>/"
+            "<freeze-digest>/ instead; staging refuses either mode against the "
+            "other's prefix. No provider call is made. Existing S3 objects are "
+            "accepted only when their bytes match the same commitments."
         ),
     )
     add_manifest_forecast_stage_arguments(stage)

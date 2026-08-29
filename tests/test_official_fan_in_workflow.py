@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 WORKFLOW_PATH = Path(".github/workflows/fan-in-publish.yaml")
@@ -64,6 +65,32 @@ def test_workflow_downloads_the_immutable_staged_manifest_run() -> None:
     assert 'aws s3 sync "s3://${bucket}/${prefix}/" "${root}/"' in download
     assert 'root="/tmp/lfb-manifest-run"' in download
     assert '[[ -f "${root}/freeze.json" ]]' in download
+
+
+def test_fan_in_freeze_uri_refuses_the_supplementary_manifest_run_prefix() -> None:
+    """This workflow builds the official bundle, so it takes only the official root.
+
+    A supplementary shard is aggregated by a local ``shard_fan_in --supplementary``
+    run and reaches this workflow as ``supplementary_artifacts_dir``; the freeze
+    URI here must stay the official manifest-run root. The existing pattern
+    already refuses the supplementary shape, and this pins that it keeps doing so.
+    """
+
+    pattern = re.compile(
+        r"^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$"
+    )
+    assert pattern.pattern.replace("\\.", "\\.") in WORKFLOW
+    official = "s3://results-bucket/cycle-1/manifest-runs/" + "a" * 64 + "/freeze.json"
+    supplementary = (
+        "s3://results-bucket/cycle-1/manifest-runs/supplementary/"
+        + "a" * 64
+        + "/"
+        + "b" * 64
+        + "/freeze.json"
+    )
+    assert pattern.match(official)
+    assert pattern.match(supplementary) is None
+    assert "supplementary_artifacts_dir:" in WORKFLOW
 
 
 def test_workflow_binds_source_dispatch_run_record_to_exact_attempt() -> None:
