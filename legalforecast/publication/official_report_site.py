@@ -18,6 +18,12 @@ from legalforecast.reporting.contamination_tiers import (
     preliminary_caveat_if_needed,
     reported_model_label,
 )
+from legalforecast.reporting.result_class import (
+    ResultClass,
+    ResultClassError,
+    result_class_marker,
+    supplementary_caveat_if_needed,
+)
 
 ArtifactLink = tuple[str, str]
 
@@ -30,24 +36,56 @@ class OfficialReportPage:
     title: str
 
 
+@dataclass(frozen=True, slots=True)
+class _TableRow:
+    """One rendered table row bound to its score summary and result class.
+
+    The leaderboard row and the score summary come from the same bundle, so
+    pairing them here is what lets official and supplementary rows share a
+    single rendering path without a second lookup table.
+    """
+
+    row: Mapping[str, Any]
+    score_row: Mapping[str, Any]
+    result_class: ResultClass
+
+
 def build_official_report_page(
     *,
     official_artifacts_dir: Path,
     artifact_links: Sequence[ArtifactLink],
     bundle: OfficialBundle | None = None,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    result_classes: Mapping[str, ResultClass] | None = None,
+    supplementary_bundle: OfficialBundle | None = None,
 ) -> OfficialReportPage:
-    """Build the official report body from canonical public aggregate fields."""
+    """Build the official report body from canonical public aggregate fields.
+
+    ``supplementary_bundle`` is a separately aggregated, official-shaped bundle
+    for post-anchor models. It is merged here, at render time, so that none of
+    the official set-equality gates in ``official_report_validation`` ever see a
+    supplementary row.
+    """
 
     validated_bundle = bundle or load_official_bundle(official_artifacts_dir)
     report = validated_bundle.report
     rows = _mapping_rows(report.get("rows", ()))
+    _require_official_result_classes(rows, result_classes)
     model_rows, baseline_rows = _partition_official_rows(rows)
     score_rows = _mapping_rows(validated_bundle.scores.get("summaries", ()))
     score_rows_by_model = {
         _required_text(row, "model_id", label="score summary"): row
         for row in score_rows
     }
+    supplementary_entries = (
+        ()
+        if supplementary_bundle is None
+        else _supplementary_table_rows(
+            supplementary_bundle,
+            official_cycle_id=_first_str(report, ("cycle_id",)),
+            result_classes=result_classes,
+        )
+    )
     run_card = validated_bundle.run_card
     cycle_power = validated_bundle.cycle_power
     prevalence = validate_official_arithmetic(
@@ -59,7 +97,12 @@ def build_official_report_page(
         cycle_power=cycle_power,
     )
     title = _display_title(report)
+    # Supplementary rows are excluded here by construction: only the official
+    # bundle's model rows can win "best model", the headline cards, or a
+    # delta-vs-best interval.
     best_model = _best_model_row(model_rows)
+    model_entries = _official_table_rows(model_rows, score_rows_by_model)
+    baseline_entries = _official_table_rows(baseline_rows, score_rows_by_model)
     body = [
         "<a class='skip-link' href='#main-content'>Skip to results</a>",
         "<main id='main-content'>",
@@ -89,11 +132,11 @@ def build_official_report_page(
         "<section id='results' aria-labelledby='results-title'>",
         "<h2 id='results-title'>Evaluated models</h2>",
         _official_table(
-            model_rows,
-            score_rows_by_model=score_rows_by_model,
+            (*model_entries, *supplementary_entries),
             caption="Evaluated model results",
             contamination_tiers=contamination_tiers,
         ),
+        _supplementary_note(supplementary_entries),
         _uncertainty(report, contamination_tiers=contamination_tiers),
         "</section>",
         "<section id='calibration' aria-labelledby='calibration-title'>",
@@ -104,10 +147,9 @@ def build_official_report_page(
         "<section id='baseline' aria-labelledby='baseline-title'>",
         "<h2 id='baseline-title'>Prevalence and baseline context</h2>",
         _baseline_context(
-            baseline_rows,
+            baseline_entries,
             prevalence=prevalence,
             run_card=run_card,
-            score_rows_by_model=score_rows_by_model,
             contamination_tiers=contamination_tiers,
         ),
         "</section>",

@@ -20,12 +20,20 @@ supplementary model normally carries both markers.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+import json
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from enum import StrEnum
+from pathlib import Path
+from typing import Any, cast
 
-from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast._hashing import is_sha256_digest
+from legalforecast._record_validation import require_non_empty
+from legalforecast.evals.model_registry import ModelRegistry, ModelRegistryEntry
 
+SIDECAR_KIND = "result_class_sidecar"
+_SHA256_PREFIX = "sha256:"
 SUPPLEMENTARY_MARKER = "†"
 """Dagger, deliberately distinct from the contamination-tier asterisk.
 
@@ -85,16 +93,25 @@ def classify_registry_entry(
     )
 
 
-def official_corpus_anchor(entries: Sequence[ModelRegistryEntry]) -> date:
-    """Derive the corpus anchor from the *official* frozen registry entries.
+def corpus_anchor_from_decision_dates(decision_dates: Iterable[date]) -> date:
+    """Derive a cycle's corpus anchor from the decision dates it scores.
 
-    Callers must pass the official registry.  Passing the registry under
-    evaluation would make the comparison self-referential and therefore vacuous.
+    Every official row rests on the claim that the model already existed when the
+    court decided the case, which the per-packet gate enforces as
+    ``decision_date >= release_anchor``.  Turned around, a model may join the
+    official set only if it was released on or before the *earliest* decision in
+    the corpus.  That earliest decision date is the corpus anchor.
+
+    Deriving the anchor from the corpus rather than from the models under
+    evaluation is what makes the classification non-vacuous: a registry
+    containing only post-anchor models would otherwise supply its own anchor and
+    trivially certify itself as official.
     """
 
-    from legalforecast.evals.model_registry import earliest_eligible_decision_date
-
-    return earliest_eligible_decision_date(entries)
+    dates = sorted(decision_dates)
+    if not dates:
+        raise ResultClassError("corpus anchor requires at least one decision date")
+    return dates[0]
 
 
 def supplementary_model_ids(
@@ -132,6 +149,184 @@ def require_official_result_classes(
             "official results refuse models released after the corpus anchor "
             f"{corpus_anchor.isoformat()}: {list(supplementary)}"
         )
+
+
+@dataclass(frozen=True, slots=True)
+class ResultClassRow:
+    """One sidecar row: the non-authoritative result class for a model."""
+
+    model_id: str
+    result_class: ResultClass
+
+    def __post_init__(self) -> None:
+        require_non_empty(self.model_id, "model_id")
+
+    def to_record(self) -> dict[str, Any]:
+        return {"model_id": self.model_id, "result_class": self.result_class.value}
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> ResultClassRow:
+        return cls(
+            model_id=_required_str(record, "model_id"),
+            result_class=ResultClass(_required_str(record, "result_class")),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ResultClassSidecar:
+    """Non-authoritative result-class overlay keyed by a frozen result digest.
+
+    Cycle 1 change control keeps published whole-card bytes frozen, so this
+    presentation flag lives in a sidecar rather than as a new field on
+    ``legalforecast-official-aggregate-v1``. The sidecar is a rendering
+    convenience: the authoritative property is the aggregate gate that refuses a
+    post-anchor model inside an official bundle, which no sidecar can relax.
+    """
+
+    result_digest: str
+    corpus_anchor: date
+    rows: tuple[ResultClassRow, ...]
+    kind: str = SIDECAR_KIND
+    authoritative: bool = False
+
+    def __post_init__(self) -> None:
+        if self.kind != SIDECAR_KIND:
+            raise ValueError(f"unsupported result-class sidecar kind: {self.kind}")
+        if self.authoritative:
+            raise ValueError("result-class sidecar must not be authoritative")
+        if not is_sha256_digest(self.result_digest, allow_prefix=True):
+            raise ValueError("result_digest must be a sha256: hex digest")
+        if not self.result_digest.startswith(_SHA256_PREFIX):
+            raise ValueError("result_digest must use the sha256: prefix")
+        if not self.rows:
+            raise ValueError("result-class sidecar requires at least one row")
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for row in self.rows:
+            if row.model_id in seen:
+                duplicates.add(row.model_id)
+            seen.add(row.model_id)
+        if duplicates:
+            raise ValueError(
+                f"duplicate result-class sidecar model_id values: {sorted(duplicates)}"
+            )
+
+    def result_class_by_model_id(self) -> dict[str, ResultClass]:
+        return {row.model_id: row.result_class for row in self.rows}
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "authoritative": False,
+            "corpus_anchor": self.corpus_anchor.isoformat(),
+            "kind": SIDECAR_KIND,
+            "result_digest": self.result_digest,
+            "rows": [row.to_record() for row in self.rows],
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> ResultClassSidecar:
+        if "schema_version" in record:
+            raise ValueError(
+                "result-class sidecar must not declare a schema_version family"
+            )
+        raw_rows = record.get("rows")
+        if not isinstance(raw_rows, Sequence) or isinstance(raw_rows, str | bytes):
+            raise ValueError("result-class sidecar rows must be an array")
+        row_values = cast(Sequence[object], raw_rows)
+        rows = tuple(
+            ResultClassRow.from_record(_mapping_record(item, index))
+            for index, item in enumerate(row_values)
+        )
+        return cls(
+            result_digest=_required_str(record, "result_digest"),
+            corpus_anchor=date.fromisoformat(_required_str(record, "corpus_anchor")),
+            rows=rows,
+            kind=_required_str(record, "kind"),
+            authoritative=_required_false(record, "authoritative"),
+        )
+
+
+def build_result_class_sidecar(
+    model_ids: Sequence[str],
+    *,
+    result_digest: str,
+    registry: ModelRegistry,
+    corpus_anchor: date,
+) -> ResultClassSidecar:
+    """Derive a sidecar for the named leaderboard models from registry bytes."""
+
+    by_model_id = {entry.model_id: entry for entry in registry.entries}
+    by_registry_key = {entry.registry_key: entry for entry in registry.entries}
+    by_display_name = {entry.display_name: entry for entry in registry.entries}
+    rows: list[ResultClassRow] = []
+    for model_id in model_ids:
+        require_non_empty(model_id, "model_id")
+        entry = (
+            by_model_id.get(model_id)
+            or by_registry_key.get(model_id)
+            or by_display_name.get(model_id)
+        )
+        if entry is None:
+            raise ValueError(f"no registry entry for leaderboard model_id {model_id}")
+        rows.append(
+            ResultClassRow(
+                model_id=model_id,
+                result_class=classify_registry_entry(
+                    entry, corpus_anchor=corpus_anchor
+                ),
+            )
+        )
+    return ResultClassSidecar(
+        result_digest=result_digest,
+        corpus_anchor=corpus_anchor,
+        rows=tuple(sorted(rows, key=lambda row: row.model_id)),
+    )
+
+
+def write_result_class_sidecar(path: Path, sidecar: ResultClassSidecar) -> None:
+    """Write the sidecar as non-canonical reporting JSON."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(sidecar.to_record(), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def load_result_class_sidecar(
+    path: Path,
+    *,
+    expected_digest: str,
+) -> ResultClassSidecar:
+    """Load a sidecar and fail closed unless it matches the frozen result digest."""
+
+    payload: object = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("result-class sidecar must be a JSON object")
+    sidecar = ResultClassSidecar.from_record(cast(Mapping[str, Any], payload))
+    if sidecar.result_digest != expected_digest:
+        raise ValueError("result-class sidecar result_digest does not match")
+    return sidecar
+
+
+def _required_str(record: Mapping[str, Any], field_name: str) -> str:
+    value = record.get(field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return value
+
+
+def _required_false(record: Mapping[str, Any], field_name: str) -> bool:
+    value = record.get(field_name)
+    if value is not False:
+        raise ValueError(f"{field_name} must be false")
+    return False
+
+
+def _mapping_record(value: object, index: int) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"result-class sidecar row {index} must be an object")
+    return cast(Mapping[str, Any], value)
 
 
 def result_class_marker(result_class: ResultClass) -> str:
