@@ -1967,7 +1967,7 @@ uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
 
    The official prefix `cycle-1/manifest-runs/<manifest_digest>/` is keyed by the corpus digest alone, which a sibling freeze over the identical corpus shares. Staging without `--supplementary` would write supplementary-only objects into the prefix that already backs dispatched official shards; those writes are create-once and no role can delete them. Classification is not left to the flag: staging takes the same pinned official reference the cost projector does, and derives the lane from it.
 
-   **Staging runs in GitHub Actions, never from a workstation.** Dispatch `stage-manifest-run.yaml`; it assumes the `legalforecastbench-official-eval-manifest-staging` role over OIDC inside a protected environment, so no AWS credentials exist locally at any point. The results and packet bucket names are protected environment variables the workflow reads natively and a developer box cannot read at all.
+   **Staging runs in GitHub Actions, and cannot run anywhere else.** Dispatch `stage-manifest-run.yaml`; it assumes the `legalforecastbench-official-eval-manifest-staging` role over OIDC inside a protected environment, so no AWS credentials exist locally at any point. This is a structural fact, not a preference: the buckets and their KMS key are governed by *resource* policies naming only the OIDC roles, so even break-glass `AdministratorAccess` is denied — `PutObject` fails on `kms:GenerateDataKey`, `ListObjectsV2` reports "no resource-based policy allows `s3:ListBucket`", and `HeadObject` on the existing official freeze returns 403. `AdministratorAccess` is an identity policy and cannot override a resource policy that never granted the principal. If staging appears to need local credentials, the answer is never to find a stronger local credential. The results and packet bucket names are protected environment variables the workflow reads natively and a developer box cannot read at all.
 
    Commit the sibling freeze bundle and the three artifacts it replaces to `main` first: the workflow refuses any path that is not tracked at the dispatched commit, and the role's OIDC trust pins `refs/heads/main`. Everything else — the frozen corpus artifacts and every model packet — is rebuilt inside the run from the objects the official staging already wrote, located by SHA-256 and verified against the sibling freeze's own commitments. Those bytes are the un-run evaluation corpus and must never be committed to this public repository.
 
@@ -2019,37 +2019,24 @@ uv run legalforecast acquisition project-manifest-cost \
 
 5. Obtain the owner approval comment. The grammar is unchanged and has no supplementary wording — one comment, exactly:
 
-   **Why this step and the next stay on the operator's machine.** Scope issuance reads live owner-approval comments by shelling out to `bd comments`, and the beads Dolt server is bound to loopback on the operator's own host; a GitHub-hosted runner cannot reach it. That is a permanent property of where the approval evidence lives, not a plumbing gap. The split for the whole chain is therefore: everything that writes to S3 runs in Actions under OIDC (staging, above), and everything that reads owner evidence runs locally and needs no AWS credentials at all — `project-manifest-cost` takes a local `--manifest-run-root`, and the scope is uploaded to S3 and dispatched as `s3://...#<scope_sha256>`.
+   **Why this step and the next stay on the operator's machine.** Scope issuance reads live owner-approval comments by shelling out to `bd comments`, and the beads Dolt server is bound to loopback on the operator's own host; a GitHub-hosted runner cannot reach it. That is a permanent property of where the approval evidence lives, not a plumbing gap. The split for the whole chain is therefore: everything that writes to S3 runs in Actions under OIDC (staging, above), and everything that reads owner evidence runs locally and needs no AWS credentials at all — `project-manifest-cost` takes a local `--manifest-run-root`, and the scope travels to the dispatch as a **committed file**, passed as `path#<scope_sha256>`.
 
-   **Upload the scope to S3; do not commit it to this repository.** `run-benchmark.yaml` accepts a checked-out `path#sha256` as well, and that route is tempting because it needs no credentials — but it is the wrong shape here. `owner_evidence.raw_observation_base64` embeds the *complete* raw `bd comments <bead> --json` payload for the approval bead, not just the approval sentence, so committing a scope publishes every other comment on that bead verbatim. Base64 is encoding, not redaction. That would make publishability a per-run property of an unrelated bead's comment history, requiring a human to scan a base64 blob before every dispatch — a recurring hygiene decision on a public repo. Use S3, which is the established path and carries no such condition.
+   **The operator cannot write to these buckets at all, so committing is the only route.** This was established empirically, not assumed: break-glass `AdministratorAccess` was denied on all three probes inside the authorized paths — `PutObject` fails on `kms:GenerateDataKey`, `ListObjectsV2` reports "no resource-based policy allows `s3:ListBucket`", and `HeadObject` on the existing official freeze returns 403. `AdministratorAccess` is an *identity* policy; the buckets and their KMS key are governed by *resource* policies that name only the OIDC roles. No local credential can ever write a scope to S3, and none should be sought.
 
-   Upload it beside the manifest run it authorizes, matching where the official Cycle 1 scopes went:
+   **Because every operator-to-S3 route now runs through this public repository, the scope must be public-safe on its own merits.** It travels as a commit, and a workflow input would be just as public in the run log. `owner_evidence.raw_observation_base64` embeds the *complete* raw `bd comments <bead> --json` payload — every comment on the approval bead, verbatim, base64 being encoding rather than redaction. The fix is to make the scope clean, not to route an unsafe artifact around the problem; the supplementary scope schema drops that field in favour of a digest (tracked on `legalforecastbench-sy7t`). **Do not commit a scope that still carries it** — use the guard below to check.
+
+   Commit the scope to a tracked path and dispatch `execution_scope_uri` as `<path>#<scope_sha256>`:
 
 ```bash
-# Official lane:       cycle-1/manifest-runs/<manifest_digest>/execution-scopes/<model-key-slug>.json
-# Supplementary lane:  cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/execution-scopes/<model-key-slug>.json
-scope=artifacts/<cycle_id>/supplementary-execution-scope.json
-scope_sha256="$(sha256sum "${scope}" | cut -d' ' -f1)"
-# <model-key-slug> is the registry key with ':' and '.' replaced by '-'
-# (google:gemini-3.7-flash -> google-gemini-3-7-flash). Convention only; see below.
-key="cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/execution-scopes/<model-key-slug>.json"
-
-aws s3api put-object \
-  --bucket "${LFB_RESULTS_BUCKET}" \
-  --key "${key}" \
-  --body "${scope}" \
-  --content-type application/json \
-  --metadata "sha256=${scope_sha256}" \
-  --if-none-match "*"
-
-echo "execution_scope_uri = s3://${LFB_RESULTS_BUCKET}/${key}#${scope_sha256}"
+scope=model_registries/<cycle_id>.supplementary-execution-scope.json
+sha256sum "${scope}" | cut -d' ' -f1   # this is the #<scope_sha256> suffix
 ```
 
-   `--if-none-match "*"` keeps the object create-once, matching every other manifest-run write. This upload is the one remaining operator-side S3 write in the chain; staging itself runs in Actions.
+   **Do not put it under `manifests/`.** That prefix is not a checkout path to `run-benchmark.yaml`: its download step routes `manifests/*` to `aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${scope_uri}"`, so a committed `manifests/...` scope is fetched from S3 rather than read from the checkout, and the dispatch fails on an object that was never uploaded. Only the default branch does `cp` from the checkout, so any tracked path that is neither `s3://` nor `manifests/` works. `model_registries/` already holds this lane's registry and caps, so it is the consistent home. `artifacts/` is gitignored and therefore not an option.
 
-   Three things make this safe and are worth knowing rather than assuming. The evaluation cell's role already has `s3:GetObject` on `cycle-1/manifest-runs/*` (`ReadManifestRunArtifacts` in `infra/official-eval/policies/cell-storage-policy.json.tftpl`), so a scope stored here is readable by the dispatch without any IAM change. The `#<scope_sha256>` suffix is a real pin, not decoration: `run-benchmark.yaml` splits it off and passes it to `verify_execution_scope_runtime(..., expected_scope_sha256=...)`, which refuses a scope whose bytes disagree, before any provider is called. And the `execution-scopes/<model-key-slug>.json` key layout is an **operator convention, not something the code enforces** — fan-in takes transported local scope paths (`verify_scoped_execution_scopes`), so nothing reads that prefix by name. Keep to it for consistency; do not expect a validator to catch a deviation.
+   Two further things verified against the code rather than assumed. The `#<scope_sha256>` suffix is a real pin: `run-benchmark.yaml` splits it off and passes it to `verify_execution_scope_runtime(..., expected_scope_sha256=...)`, which refuses a scope whose bytes disagree before any provider is called — so a stale or substituted checkout cannot be run. And the scope URI is deliberately *not* subject to the private-packet-prefix guard that `run_input_manifest_uri`, `labels_uri`, and `model_registry_uri` carry; the digest pin is what protects it, so keep the pin exact.
 
-   **Defensive guard (optional).** Storing the scope in S3 removes the publication concern, but the over-capture itself is a real defect tracked separately. If you want to see what a scope is carrying before it leaves your machine:
+   **Check the scope before committing it — this repository is public.**
 
 ```bash
 uv run python - <<'PY' artifacts/<cycle_id>/supplementary-execution-scope.json
@@ -2070,7 +2057,7 @@ sys.exit(1 if findings else 0)
 PY
 ```
 
-   It reports whatever operational detail the approval bead's other comments happen to contain. That is informational here — S3 is not a publication surface — but a noisy result is a good reason to raise future approvals on a bead kept clear of such comments.
+   Anything it reports would be published by the commit. Once the scope schema carries only a digest of the observation, this returns `clean` and the check is a cheap regression guard; until then, treat a non-empty result as a hard stop.
 
 
    `I approve up to USD <ceiling> of provider spend for model <model_key> in the Cycle 1 forecast run, estimated USD <estimate>.`
