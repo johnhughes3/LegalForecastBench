@@ -391,6 +391,19 @@ def _authenticate_supplementary_registry(
     official_registry_sha256 = _required_sha256(
         prompt_replay, "model_registry_sha256", "prompt replay"
     )
+    if (
+        official.artifact(FrozenArtifactName.MODEL_REGISTRY).sha256
+        != official_registry_sha256
+    ):
+        # Without this, the supplied bundle could share the ten identical
+        # artifacts yet bind some third registry, and the recorded
+        # official_model_registry_sha256 would then name a freeze the shared
+        # prompt contract does not actually commit. The refusals below do not
+        # need this to hold, but the recorded binding does.
+        raise ManifestCostProjectionError(
+            "official freeze bundle does not bind the registry the frozen prompt "
+            "contract commits"
+        )
     official_anchor = run_record.get("evaluation_release_anchor")
     if (
         run_record.get("evaluation_models") != prompt_replay.get("evaluation_models")

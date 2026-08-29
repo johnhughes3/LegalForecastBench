@@ -8,7 +8,7 @@ reach a paid dispatch at all.
 
 Every test here therefore drives the *dispatch chain* -- the request contract, the
 authenticator, the receipt, the workflow-environment entry point, the scope, and
-and the workflow wiring -- rather than the runner.  Refusals are asserted in
+the workflow wiring -- rather than the runner.  Refusals are asserted in
 both directions, because a lane that only fails one way can be entered from the
 other.
 """
@@ -512,6 +512,66 @@ def test_supplementary_mode_refuses_a_registry_that_classifies_official(
         match="refuses models released on or before the corpus anchor",
     ):
         issue_manifest_cost_projection(request)
+
+
+def test_supplementary_mode_refuses_an_unrelated_official_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The recorded official binding must name the freeze the prompt commits.
+
+    A fabricated reference bundle can share the ten identical artifacts and
+    still bind some third registry.  It cannot game the lane -- the registry
+    inequality and the classification gate refuse independently -- but the
+    receipt would then record an ``official_freeze_bundle_sha256`` naming a
+    freeze the shared prompt contract does not commit.  Requirement: recorded,
+    not inferred.
+    """
+
+    chain = _chain(tmp_path, monkeypatch)
+    forged_registry = chain.root / "third-registry.json"
+    forged_registry.write_bytes(
+        _json_bytes(json.loads(OFFICIAL_REGISTRY.read_text())[:3])
+    )
+    forged = chain.root / "forged-official.freeze.json"
+    shared = {
+        artifact.name: artifact.path
+        for artifact in _freeze_bundle_artifacts(chain.official_freeze)
+    }
+    _freeze(
+        forged,
+        registry_path=forged_registry,
+        prompt_path=shared[FrozenArtifactName.PROMPT],
+        manifest_path=shared[FrozenArtifactName.MANIFEST],
+        shared={
+            name: path
+            for name, path in shared.items()
+            if name
+            not in {
+                FrozenArtifactName.PROMPT,
+                FrozenArtifactName.MANIFEST,
+                FrozenArtifactName.MODEL_REGISTRY,
+                FrozenArtifactName.PROVIDER_CYCLE_CAPS,
+                FrozenArtifactName.EXECUTION_POLICY,
+            }
+        },
+        caps_path=shared[FrozenArtifactName.PROVIDER_CYCLE_CAPS],
+        policy_path=shared[FrozenArtifactName.EXECUTION_POLICY],
+    )
+    request = replace(
+        _request(chain, supplementary=True), official_freeze_bundle=forged
+    )
+
+    with pytest.raises(
+        ManifestCostProjectionError,
+        match="does not bind the registry the frozen prompt contract commits",
+    ):
+        issue_manifest_cost_projection(request)
+
+
+def _freeze_bundle_artifacts(path: Path) -> tuple[FrozenArtifact, ...]:
+    from legalforecast.protocol.freeze import load_freeze_bundle
+
+    return load_freeze_bundle(path).artifacts
 
 
 def test_supplementary_mode_refuses_a_drifted_shared_artifact(

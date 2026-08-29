@@ -4393,8 +4393,8 @@
         "largest_symbol": "authenticate_manifest_cost_inputs",
         "largest_symbol_lines": 265,
         "layer": "application",
-        "line_count": 624,
-        "nonblank_line_count": 582,
+        "line_count": 637,
+        "nonblank_line_count": 595,
         "top_level_definition_count": 13
       },
       "legalforecast/evals/corpus_manifest/cost_projector_contract.py": {
@@ -4533,8 +4533,8 @@
         "largest_symbol": "require_binding_shape",
         "largest_symbol_lines": 54,
         "layer": "application",
-        "line_count": 355,
-        "nonblank_line_count": 312,
+        "line_count": 363,
+        "nonblank_line_count": 320,
         "top_level_definition_count": 10
       },
       "legalforecast/evals/corpus_manifest/unitizer.py": {
@@ -12117,9 +12117,9 @@
         "largest_symbol": "_chain",
         "largest_symbol_lines": 212,
         "layer": "test",
-        "line_count": 902,
-        "nonblank_line_count": 767,
-        "top_level_definition_count": 31
+        "line_count": 962,
+        "nonblank_line_count": 819,
+        "top_level_definition_count": 33
       },
       "tests/test_supporting_document_successor.py": {
         "cycle_id": "",

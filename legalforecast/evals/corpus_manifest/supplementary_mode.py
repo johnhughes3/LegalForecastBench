@@ -31,6 +31,7 @@ from typing import Any, Final, cast
 
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.protocol.freeze import (
+    REQUIRED_FREEZE_ARTIFACTS,
     FreezeBundle,
     FreezeProtocolError,
     FrozenArtifactName,
@@ -107,6 +108,13 @@ def load_reference_freeze_bundle(
         raise error_type(
             "official freeze bundle cycle_id does not match dispatch input"
         )
+    missing = sorted(
+        name.value
+        for name in REQUIRED_FREEZE_ARTIFACTS
+        if name not in {artifact.name for artifact in bundle.artifacts}
+    )
+    if missing:
+        raise error_type(f"official freeze bundle is missing artifacts: {missing}")
     return bundle
 
 
