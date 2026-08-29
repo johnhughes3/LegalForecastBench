@@ -681,9 +681,9 @@ def register(
         description=(
             "Authenticate the manifest forecast output and the complete frozen "
             "artifact bundle, then write them under the immutable "
-            "cycle-1/manifest-runs/<manifest-digest>/ prefix. No provider call "
-            "is made. Existing S3 objects are accepted only when their bytes "
-            "match the same commitments."
+            "cycle-1/manifest-runs/<manifest-digest>/ prefix, or the supplementary "
+            "sibling with --supplementary. No provider call is made. Existing S3 "
+            "objects are accepted only when their bytes match the same commitments."
         ),
     )
     add_manifest_forecast_stage_arguments(stage)

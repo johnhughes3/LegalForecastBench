@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import legalforecast.publication.shard_receipt as shard_receipt_module
 import pytest
 from legalforecast.protocol.freeze import FrozenArtifactName
 from legalforecast.protocol.manifest import hash_payload
@@ -746,12 +747,12 @@ def test_publisher_rechecks_inventory_before_canonical_write(
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_receipt_inventory_sha256",
-        lambda _root, _cycle: "0" * 64,
+        lambda _root, _cycle, **_lane: "0" * 64,
     )
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
-        lambda _root, _cycle: report.union_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.union_inventory_sha256,
     )
     destination = tmp_path / "reports" / "cycle-1" / "multi-ablation"
 
@@ -764,12 +765,12 @@ def test_publisher_rechecks_inventory_before_canonical_write(
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_receipt_inventory_sha256",
-        lambda _root, _cycle: report.receipt_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.receipt_inventory_sha256,
     )
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
-        lambda _root, _cycle: "0" * 64,
+        lambda _root, _cycle, **_lane: "0" * 64,
     )
     with pytest.raises(shard_fan_in.FanInError, match="object versions changed"):
         shard_fan_in_publish.publish_fan_in(
@@ -779,7 +780,7 @@ def test_publisher_rechecks_inventory_before_canonical_write(
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
-        lambda _root, _cycle: report.union_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.union_inventory_sha256,
     )
     shard_fan_in_publish.publish_fan_in(
         config, publish_root=str(destination), publication_cycle_id="cycle-1"
@@ -818,12 +819,12 @@ def test_publisher_verifies_cycle_before_permanent_seal(
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_receipt_inventory_sha256",
-        lambda _root, _cycle: report.receipt_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.receipt_inventory_sha256,
     )
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
-        lambda _root, _cycle: report.union_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.union_inventory_sha256,
     )
 
     shard_fan_in_publish.publish_fan_in(
@@ -892,12 +893,12 @@ def test_late_inventory_change_prevents_local_atomic_commit(
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_receipt_inventory_sha256",
-        lambda _root, _cycle: next(inventories),
+        lambda _root, _cycle, **_lane: next(inventories),
     )
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
-        lambda _root, _cycle: report.union_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.union_inventory_sha256,
     )
     destination = tmp_path / "reports" / "cycle-1" / "multi-ablation"
 
@@ -933,12 +934,12 @@ def test_publisher_writes_from_a_protected_snapshot(
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_receipt_inventory_sha256",
-        lambda _root, _cycle: report.receipt_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.receipt_inventory_sha256,
     )
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
-        lambda _root, _cycle: report.union_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.union_inventory_sha256,
     )
     real_copytree = shard_fan_in_publish.shutil.copytree
     copy_sources: list[Path] = []
@@ -994,12 +995,12 @@ def test_local_publication_failure_leaves_no_partial_destination(
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_receipt_inventory_sha256",
-        lambda _root, _cycle: report.receipt_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.receipt_inventory_sha256,
     )
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
-        lambda _root, _cycle: report.union_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.union_inventory_sha256,
     )
     real_copytree = shard_fan_in_publish.shutil.copytree
     calls = 0
@@ -1047,12 +1048,12 @@ def test_s3_publication_claims_and_conditionally_writes_protected_snapshot(
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_receipt_inventory_sha256",
-        lambda _root, _cycle: report.receipt_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.receipt_inventory_sha256,
     )
     monkeypatch.setattr(
         shard_fan_in_publish,
         "current_union_inventory_sha256",
-        lambda _root, _cycle: report.union_inventory_sha256,
+        lambda _root, _cycle, **_lane: report.union_inventory_sha256,
     )
     stored: dict[str, bytes] = {}
     uploaded_report: str | None = None
@@ -1828,3 +1829,62 @@ def _report(*, aggregate_output_dir: Path) -> shard_fan_in.FanInReport:
         prediction_unit_count=1,
         aggregate_output_dir=aggregate_output_dir,
     )
+
+
+def _write_lane_receipt(root: Path, *, supplementary: bool, model_key: str) -> Path:
+    """Write one receipt-shaped object into the lane's own namespace."""
+
+    prefix = shard_receipt_module.receipt_prefix("cycle-1", supplementary=supplementary)
+    path = (
+        root
+        / prefix
+        / f"{model_key.replace(':', '-')}-full_packet-0"
+        / "1001"
+        / "1.json"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"cycle_id": "cycle-1", "model_key": model_key}, sort_keys=True),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_official_discovery_never_lists_a_supplementary_receipt(tmp_path: Path) -> None:
+    """Selection hard-fails on an undeclared receipt, so the lanes must not mix.
+
+    A supplementary receipt landing in the official listing would abort official
+    fan-in for the whole cycle -- receipts are create-once and no role deletes.
+    """
+
+    root = tmp_path / "store"
+    official = _write_lane_receipt(root, supplementary=False, model_key="openai:luna")
+    supplementary = _write_lane_receipt(
+        root, supplementary=True, model_key="google:gemini-3.7-flash"
+    )
+
+    discovered = shard_fan_in._discover_receipts(
+        str(root), "cycle-1", supplementary=False
+    )
+
+    keys = {artifact.actual_key for artifact in discovered}
+    assert keys == {official.relative_to(root).as_posix()}
+    assert supplementary.relative_to(root).as_posix() not in keys
+
+
+def test_supplementary_discovery_never_lists_an_official_receipt(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "store"
+    _write_lane_receipt(root, supplementary=False, model_key="openai:luna")
+    supplementary = _write_lane_receipt(
+        root, supplementary=True, model_key="google:gemini-3.7-flash"
+    )
+
+    discovered = shard_fan_in._discover_receipts(
+        str(root), "cycle-1", supplementary=True
+    )
+
+    assert {artifact.actual_key for artifact in discovered} == {
+        supplementary.relative_to(root).as_posix()
+    }

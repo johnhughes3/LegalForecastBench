@@ -799,3 +799,45 @@ def _completion(
             {"objects": sorted(objects, key=lambda value: str(value["name"]))}
         ),
     }
+
+
+def test_receipt_prefix_partitions_the_two_lanes() -> None:
+    official = shard_receipt_module.receipt_prefix("cycle-1", supplementary=False)
+    supplementary = shard_receipt_module.receipt_prefix("cycle-1", supplementary=True)
+
+    assert official == "shard-receipts/cycle-1/"
+    assert supplementary == "shard-receipts/supplementary/cycle-1/"
+    # Neither listing can reach the other: an official fan-in lists the official
+    # prefix and hard-fails on any receipt outside its declared schedule, so a
+    # shared namespace would let one lane permanently break the other.
+    assert not supplementary.startswith(official)
+    assert not official.startswith(supplementary)
+
+
+def test_receipt_prefix_refuses_a_cycle_named_supplementary() -> None:
+    with pytest.raises(
+        shard_receipt_module.ShardReceiptError, match="collapse the supplementary"
+    ):
+        shard_receipt_module.receipt_prefix("supplementary", supplementary=False)
+
+
+def test_receipt_key_defaults_to_the_official_lane() -> None:
+    receipt = {
+        "cycle_id": "cycle-1",
+        "model_key": "google:gemini-3.7-flash",
+        "ablation": "full_packet",
+        "workflow_run_id": "1001",
+        "workflow_run_attempt": 1,
+    }
+
+    official = shard_receipt_module.receipt_key(receipt)
+    supplementary = shard_receipt_module.receipt_key(receipt, supplementary=True)
+
+    assert official.startswith("shard-receipts/cycle-1/")
+    assert supplementary.startswith("shard-receipts/supplementary/cycle-1/")
+    assert official != supplementary
+    # Same shard identity in both lanes: without the partition these would be
+    # one create-once key.
+    assert official.removeprefix("shard-receipts/cycle-1/") == (
+        supplementary.removeprefix("shard-receipts/supplementary/cycle-1/")
+    )

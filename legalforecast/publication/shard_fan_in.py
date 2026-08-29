@@ -39,6 +39,7 @@ from legalforecast.publication.official_aggregate import (
 from legalforecast.publication.shard_receipt import (
     SCOPED_RECEIPT_SCHEMA_VERSION,
     ShardReceiptError,
+    receipt_prefix,
     verify_committed_payload,
     verify_shard_receipt,
 )
@@ -303,6 +304,7 @@ def validate_receipt_against_freeze(
     run_input_manifest: Mapping[str, Any],
     repeat_policy: Mapping[str, Any],
     actual_receipt_key: str | None = None,
+    supplementary: bool = False,
 ) -> Mapping[str, Any]:
     """Delegate complete receipt validation to the canonical strict verifier."""
 
@@ -331,6 +333,7 @@ def validate_receipt_against_freeze(
                 _required_str(receipt, "ablation"),
             ),
             actual_receipt_key=actual_receipt_key,
+            supplementary=supplementary,
         )
     except ShardReceiptError as exc:
         raise FanInError(f"invalid shard receipt: {exc}") from exc
@@ -346,6 +349,7 @@ def select_and_validate_receipts(
     shard_schedule_sha256: str,
     scope_required: bool = False,
     accepted_attempt_map: Mapping[str, Any] | None = None,
+    supplementary: bool = False,
 ) -> ReceiptSelection:
     """Select attempts first, then strictly verify only the accepted receipts."""
 
@@ -371,6 +375,7 @@ def select_and_validate_receipts(
                 run_input_manifest=run_input_manifest,
                 repeat_policy=repeat_policy,
                 actual_receipt_key=artifact.actual_key,
+                supplementary=supplementary,
             )
         )
     if scope_required:
@@ -779,10 +784,18 @@ def require_publishable_cycle(*, cycle_id: str, cycle_series: str) -> None:
         )
 
 
-def current_receipt_inventory_sha256(root: str, cycle_id: str) -> str:
-    """Hash the complete current receipt inventory for a publication race check."""
+def current_receipt_inventory_sha256(
+    root: str, cycle_id: str, *, supplementary: bool = False
+) -> str:
+    """Hash the complete current receipt inventory for a publication race check.
 
-    return _receipt_inventory_sha256(_discover_receipts(root, cycle_id))
+    Scoped to one lane, so the re-read compares the same namespace the
+    verification listed rather than a union of both.
+    """
+
+    return _receipt_inventory_sha256(
+        _discover_receipts(root, cycle_id, supplementary=supplementary)
+    )
 
 
 def current_union_inventory_sha256(root: str, cycle_id: str) -> str:
@@ -917,7 +930,11 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
     )
     if _required_str(run_input_manifest, "cycle_id") != frozen.context.cycle_id:
         raise FanInError("run-input manifest cycle_id does not match freeze")
-    receipt_artifacts = _discover_receipts(config.receipt_root, frozen.context.cycle_id)
+    receipt_artifacts = _discover_receipts(
+        config.receipt_root,
+        frozen.context.cycle_id,
+        supplementary=config.supplementary,
+    )
     accepted_map = (
         None
         if config.accepted_attempt_map_path is None
@@ -940,6 +957,7 @@ def verify_fan_in(config: FanInConfig) -> FanInReport:
         shard_schedule_sha256=schedule_sha256,
         scope_required=receipt_policy.get("scope_required") is True,
         accepted_attempt_map=accepted_map,
+        supplementary=config.supplementary,
     )
     require_source_dispatch_identity(
         selection.receipts,
@@ -1502,8 +1520,17 @@ def _union_commitment_sha256(
     )
 
 
-def _discover_receipts(root: str, cycle_id: str) -> tuple[ReceiptArtifact, ...]:
-    prefix = f"shard-receipts/{cycle_id}/"
+def _discover_receipts(
+    root: str, cycle_id: str, *, supplementary: bool
+) -> tuple[ReceiptArtifact, ...]:
+    """List exactly one lane's receipts.
+
+    Selection hard-fails on any receipt outside the freeze's declared shard
+    schedule, so listing both lanes would let either one abort the other. The
+    prefix comes from the receipt writer's own definition, not a second literal.
+    """
+
+    prefix = receipt_prefix(cycle_id, supplementary=supplementary)
     artifacts: list[ReceiptArtifact] = []
     if root.startswith("s3://"):
         keys = _list_s3_keys(root, prefix)

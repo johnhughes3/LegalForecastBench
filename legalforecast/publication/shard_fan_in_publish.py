@@ -87,7 +87,7 @@ def publish_fan_in(
 
 def _require_stable_inventories(config: FanInConfig, report: FanInReport) -> None:
     current_inventory = current_receipt_inventory_sha256(
-        config.receipt_root, report.cycle_id
+        config.receipt_root, report.cycle_id, supplementary=config.supplementary
     )
     if current_inventory != report.receipt_inventory_sha256:
         raise FanInError(

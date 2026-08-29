@@ -421,11 +421,52 @@ def verify_freeze_bundle(
 ) -> FreezeBundle:
     """Load a freeze bundle and raise if any required artifact has drifted."""
 
-    bundle = load_freeze_bundle(
-        path,
+    return _verify_loaded_freeze_bundle(
+        load_freeze_bundle(
+            path,
+            root_path=root_path,
+            artifact_path_overrides=artifact_path_overrides,
+        ),
+        cycle_id=cycle_id,
         root_path=root_path,
-        artifact_path_overrides=artifact_path_overrides,
+        amendment_bundle_paths=amendment_bundle_paths,
     )
+
+
+def verify_freeze_bundle_bytes(
+    payload: bytes,
+    *,
+    cycle_id: str | None = None,
+    root_path: str | Path | None = None,
+    artifact_path_overrides: ArtifactPathMap | None = None,
+    amendment_bundle_paths: Sequence[str | Path] = (),
+) -> FreezeBundle:
+    """Verify a freeze bundle from bytes already read and pinned by the caller.
+
+    Identical to :func:`verify_freeze_bundle` except that the caller owns the
+    read, so a caller that must both hash and verify one bundle validates the
+    same bytes it recorded a digest for.
+    """
+
+    return _verify_loaded_freeze_bundle(
+        load_freeze_bundle_bytes(
+            payload,
+            root_path=root_path,
+            artifact_path_overrides=artifact_path_overrides,
+        ),
+        cycle_id=cycle_id,
+        root_path=root_path,
+        amendment_bundle_paths=amendment_bundle_paths,
+    )
+
+
+def _verify_loaded_freeze_bundle(
+    bundle: FreezeBundle,
+    *,
+    cycle_id: str | None,
+    root_path: str | Path | None,
+    amendment_bundle_paths: Sequence[str | Path],
+) -> FreezeBundle:
     if cycle_id is not None and bundle.cycle_id != cycle_id:
         raise FreezeProtocolError(
             "pre-run freeze commitment cycle_id does not match dispatch input"

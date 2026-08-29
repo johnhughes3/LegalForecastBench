@@ -1963,7 +1963,33 @@ uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
 
 2. Freeze a sibling bundle. Pass the *same* manifest, units, labels, prompt, scorer, harness, baselines, exclusion ledger, labeling policy, and cohort policy the official freeze used, and the supplementary registry, caps, and execution policy in place of the official ones. This is a new freeze, never an amendment of the official bundle, which stays untouched at its committed path. Those three replacements are exactly the set the pre-dispatch chain permits: `project-manifest-cost --supplementary` re-verifies every other frozen artifact against the official freeze byte for byte and refuses the run if any of them drifted. That identity is the comparability claim, so it is checked rather than assumed.
 
-3. Project the cost against the sibling freeze in supplementary mode. This step and the next are what a paid dispatch additionally requires; a dry-run dispatch needs neither. The sibling freeze reuses the official prompt bytes on purpose, so its prompt contract commits the *official* registry — the projector therefore inverts that one identity check rather than dropping it, and records both bindings in the receipt: `supplementary_binding.official_model_registry_sha256` (the contract being reused) and `supplementary_binding.supplementary_model_registry_sha256` (the registry under evaluation), plus the corpus anchor it derived and the official freeze it matched. Supplementary mode refuses a registry whose models classify official against that corpus-derived anchor, mirroring the aggregate gate, and official mode refuses the sibling freeze exactly as before.
+3. Stage the sibling freeze to its own immutable S3 prefix with `--supplementary`. Staging must precede the cost projection: the workflow accepts only a staged manifest-run URI, and the execution scope binds the **staged** freeze's raw SHA-256, which does not exist until staging has rewritten the bundle's artifact paths.
+
+   The official prefix `cycle-1/manifest-runs/<manifest_digest>/` is keyed by the corpus digest alone, which a sibling freeze over the identical corpus shares. Staging without `--supplementary` would write supplementary-only objects into the prefix that already backs dispatched official shards; those writes are create-once and no role can delete them. Classification is not left to the flag: staging takes the same pinned official reference the cost projector does, and derives the lane from it.
+
+```bash
+uv run legalforecast acquisition stage-manifest-forecast \
+  --output-dir <staged manifest-mode output root> \
+  --freeze-bundle <cycle_id>.supplementary-<model>.freeze.json \
+  --artifact-root <common root of the frozen artifact paths> \
+  --manifest-digest <manifest_sha256 from manifest-mode-run-record.json> \
+  --results-bucket "${LFB_RESULTS_BUCKET}" \
+  --packet-bucket "${LFB_PACKET_BUCKET}" \
+  --official-freeze-bundle <official-staged-freeze>.json \
+  --official-freeze-bundle-sha256 <official-staged-freeze-raw-sha256> \
+  --supplementary \
+  --dry-run
+```
+
+   Drop `--dry-run` to write. The staged prefix is
+
+   `cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/`
+
+   **Two different freeze digests are in play; use the right one.** `<freeze_digest>` is the raw `sha256sum` of the file passed to `--freeze-bundle`, taken *before* staging, which is why the destination is computable up front. Staging rewrites every relative artifact path, so the `freeze.json` it writes has different bytes and a different `hash_bundle_sha256`; that staged bundle is what receipts and execution-scope issuance bind. The prefix records both in `supplementary-stage.json`: `source_freeze_sha256` (the prefix component), `staged_freeze_sha256`, and `staged_freeze_bundle_sha256`. This sidecar is non-authoritative reporting metadata and is written only in supplementary mode, so the official layout is unchanged. The packet-bucket keys stay the shared `model-packets/...` keys the official run already staged.
+
+   `--official-freeze-bundle` / `--official-freeze-bundle-sha256` are the same pinned reference and raw-file digest step 4 uses, and carry the same warning: supply the digest explicitly rather than computing it from the bundle you are passing. Official mode requires the candidate freeze to **be** that pinned bundle; supplementary mode requires its registry keys to be disjoint from the pinned registry's. A candidate that shares the official model keys but not its bytes is refused in both modes rather than routed to either prefix.
+
+4. Project the cost against the sibling freeze in supplementary mode. This step and the next are what a paid dispatch additionally requires; a dry-run dispatch needs neither. The sibling freeze reuses the official prompt bytes on purpose, so its prompt contract commits the *official* registry — the projector therefore inverts that one identity check rather than dropping it, and records both bindings in the receipt: `supplementary_binding.official_model_registry_sha256` (the contract being reused) and `supplementary_binding.supplementary_model_registry_sha256` (the registry under evaluation), plus the corpus anchor it derived and the official freeze it matched. Supplementary mode refuses a registry whose models classify official against that corpus-derived anchor, mirroring the aggregate gate, and official mode refuses the sibling freeze exactly as before.
 
    **Where the digest pin comes from.** `--official-freeze-bundle-sha256` is the raw-file SHA-256 of the staged official freeze — the same digest the official lane's execution scope and the workflow's pre-credential check bind, recorded when that freeze was staged. Supply it explicitly; do not compute it from whatever bundle you happen to be passing, which would defeat the point. Without an independent pin, a fabricated "official" bundle could copy its shared-artifact digests straight from the sibling and satisfy every identity check, with the sibling's own prompt bytes doing the grounding. Note again the two distinct digests: this is the **raw file** SHA-256, not the freeze protocol's canonical `hash_bundle_sha256`.
 
@@ -1986,13 +2012,13 @@ uv run legalforecast acquisition project-manifest-cost \
   --output artifacts/<cycle_id>/supplementary-cost-projection.json
 ```
 
-4. Obtain the owner approval comment. The grammar is unchanged and has no supplementary wording — one comment, exactly:
+5. Obtain the owner approval comment. The grammar is unchanged and has no supplementary wording — one comment, exactly:
 
    `I approve up to USD <ceiling> of provider spend for model <model_key> in the Cycle 1 forecast run, estimated USD <estimate>.`
 
    Set `<ceiling>` at the receipt's `recommended_max_projected_model_cost_usd` (2x the projection) and `<estimate>` at or above `projected_model_cost_usd`.
 
-5. Issue and verify the execution scope with `--supplementary`. The scope is likewise its own card, `legalforecast.execution_scope_supplementary.v1`, so a supplementary scope does not parse as an official one at all. The lane is checked at every consumption point in both directions — the workflow's pre-credential check, the provider cell, the shard-receipt writer, and fan-in — and every one of them defaults to official, so a caller that has not opted into this lane refuses a supplementary scope without being changed. The shard-receipt writer matters most: its receipts are write-once per attempt, so a wrong-lane scope accepted there would burn the slot and surface only at fan-in, after the run is paid for.
+6. Issue and verify the execution scope with `--supplementary`. The scope is likewise its own card, `legalforecast.execution_scope_supplementary.v1`, so a supplementary scope does not parse as an official one at all. The lane is checked at every consumption point in both directions — the workflow's pre-credential check, the provider cell, the shard-receipt writer, and fan-in — and every one of them defaults to official, so a caller that has not opted into this lane refuses a supplementary scope without being changed. The shard-receipt writer matters most: its receipts are write-once per attempt, so a wrong-lane scope accepted there would burn the slot and surface only at fan-in, after the run is paid for.
 
 ```bash
 uv run legalforecast acquisition issue-manifest-execution-scope \
@@ -2023,9 +2049,9 @@ uv run legalforecast acquisition verify-manifest-execution-scope \
   --supplementary
 ```
 
-6. Dispatch `run-benchmark.yaml` with `supplementary: true`, `shard_only: true`, `freeze_bundle_path` set to the staged supplementary freeze URI, `official_freeze_bundle_uri` set to `<official staged freeze URI>#<its raw sha256>`, `model_registry_uri` set to the supplementary registry, `model_keys` set to the supplementary key alone, and `execution_scope_uri` set to `<scope URI>#<scope sha256>`. The `gemini` provider lane already accepts `google:*` keys. `official_freeze_bundle_uri` is content-addressed exactly like `execution_scope_uri`, is required for a supplementary dispatch and refused for an official one, and is verified against its digest immediately after download — so the identity check cannot be skipped by omitting it or subverted by substituting the object. Note the two distinct digests: the scope, the pre-credential check, and this pin all bind the freeze's **raw file** sha256, while shard receipts and fan-in use the freeze protocol's canonical `hash_bundle_sha256`; never substitute one for the other.
+7. Dispatch `run-benchmark.yaml` with `supplementary: true`, `shard_only: true`, `freeze_bundle_path` set to the staged supplementary freeze URI, `official_freeze_bundle_uri` set to `<official staged freeze URI>#<its raw sha256>`, `model_registry_uri` set to the supplementary registry, `model_keys` set to the supplementary key alone, and `execution_scope_uri` set to `<scope URI>#<scope sha256>`. The `gemini` provider lane already accepts `google:*` keys. `official_freeze_bundle_uri` is content-addressed exactly like `execution_scope_uri`, is required for a supplementary dispatch and refused for an official one, and is verified against its digest immediately after download — so the identity check cannot be skipped by omitting it or subverted by substituting the object. Note the two distinct digests: the scope, the pre-credential check, and this pin all bind the freeze's **raw file** sha256, while shard receipts and fan-in use the freeze protocol's canonical `hash_bundle_sha256`; never substitute one for the other.
 
-7. Aggregate the shard into its own bundle with `--supplementary`. That flag is a declaration of which bundle is being built, not a claim about any model: an official bundle refuses a model released after the corpus anchor, and a supplementary bundle refuses one released on or before it, so the two sets can never blend. The anchor is the earliest decision the cycle scores, taken from the run-input manifest, so the check cannot be satisfied by supplying a registry that vouches for itself.
+8. Aggregate the shard into its own bundle with `--supplementary`. That flag is a declaration of which bundle is being built, not a claim about any model: an official bundle refuses a model released after the corpus anchor, and a supplementary bundle refuses one released on or before it, so the two sets can never blend. The anchor is the earliest decision the cycle scores, taken from the run-input manifest, so the check cannot be satisfied by supplying a registry that vouches for itself.
 
 ```bash
 uv run legalforecast publish aggregate \
@@ -2042,18 +2068,27 @@ uv run legalforecast publish aggregate \
   --allow-no-baselines
 ```
 
-8. Fan in the supplementary shard with the same receipt verification the official shards get, then publish. Receipts are verified identically; `--supplementary` only selects which bundle the aggregate builds.
+9. Fan in the supplementary shard with the same receipt verification the official shards get, then publish. Receipts are verified identically; `--supplementary` selects which bundle the aggregate builds *and* which receipt namespace is listed. Fan in against the *staged* supplementary manifest-run root, never the committed sibling freeze: receipts bind the staged `freeze_bundle_sha256`, and the committed file has different bytes.
 
 ```bash
+aws s3 sync \
+  "s3://<results-bucket>/cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/" \
+  /tmp/lfb-supplementary-run/ --only-show-errors
+
 uv run python -m legalforecast.publication.shard_fan_in \
-  --freeze-bundle manifests/<cycle_id>.supplementary-<model>.freeze.json \
+  --freeze-bundle /tmp/lfb-supplementary-run/freeze.json \
+  --freeze-root /tmp/lfb-supplementary-run \
   --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --receipt-root s3://<results-bucket>/receipts/<cycle_id>/ \
+  --receipt-root s3://<results-bucket> \
   --output-dir tmp/supplementary-fan-in \
   --supplementary
 ```
 
-9. Render one merged page. Both the local site and the Hugging Face package take the supplementary bundle as an optional input, so the two render the same rows:
+   `--receipt-root` is the bare bucket root, exactly as the official fan-in above passes it: discovery appends the lane's own receipt prefix itself. With `--supplementary` that prefix is `shard-receipts/supplementary/<cycle_id>/`, which is where the supplementary `finalize-shard` wrote. The two lanes never list each other: receipt selection hard-fails on any receipt outside the freeze's declared shard schedule, so a shared namespace would let one lane's first completed receipt permanently break the other's fan-in.
+
+   `fan-in-publish.yaml` stays on the official manifest-run root: its `freeze_bundle_path` accepts only `cycle-1/manifest-runs/<manifest_digest>/freeze.json` and refuses the supplementary shape, because it builds the official bundle. The supplementary bundle reaches the gated publication through `supplementary_artifacts_dir`, below.
+
+10. Render one merged page. Both the local site and the Hugging Face package take the supplementary bundle as an optional input, so the two render the same rows:
 
 ```bash
 uv run legalforecast publish site \
