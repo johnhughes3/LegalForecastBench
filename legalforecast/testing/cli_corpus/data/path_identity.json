@@ -404,6 +404,8 @@
     "tests/test_release_check.py",
     "tests/test_scripts_docs.py",
     "tests/test_snapshot_replay_cli.py",
+    "tests/test_stage_manifest_run_lane.py",
+    "tests/test_stage_manifest_run_validation.py",
     "tests/test_stageb_advisory_recovery.py",
     "tests/test_successor_rerun_impact.py",
     "tests/test_supplementary_dispatch_parity.py",
