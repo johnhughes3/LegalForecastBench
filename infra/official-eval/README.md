@@ -54,16 +54,17 @@ The external storage boundary follows one ordered path:
 6. Dispatch the remaining official shards only after that validation passes;
    fan-in remains provider-free and consumes only accepted immutable receipts.
 
-## Exact two-role contract
+## Exact three-role contract
 
-The two managed roles are:
+The three managed roles are:
 
 | Role | Boundary |
 | --- | --- |
 | `legalforecastbench-official-eval` | GitHub OIDC trust, exact provider-authority DynamoDB data-plane policy, and the cell S3/KMS policy rendered from the verified external inputs. |
 | `legalforecastbench-official-eval-fan-in` | GitHub OIDC trust and the provider-free fan-in S3/KMS policy rendered from the verified results bucket and KMS inputs. |
+| `legalforecastbench-official-eval-manifest-staging` | GitHub OIDC trust and the create-only manifest-staging S3/KMS policy: exact-key reads and `if-none-match` writes under `cycle-1/manifest-runs/*` and `model-packets/*`, with no `s3:ListBucket`. |
 
-Both roles use exclusive inline-policy and managed-policy-attachment
+All three roles use exclusive inline-policy and managed-policy-attachment
 resources. Inventory any existing role policies before an import or apply;
 the exclusive resources deliberately remove unlisted policy surfaces.
 Bedrock is disabled by default and remains a separately reviewed cell-only
@@ -96,14 +97,27 @@ official-eval import addresses are:
 ```text
 aws_iam_role.cell
 aws_iam_role.fan_in
+aws_iam_role.manifest_staging
 aws_iam_role_policy.cell_provider_authority
 aws_iam_role_policy.cell_storage
 aws_iam_role_policy.fan_in_storage
+aws_iam_role_policy.manifest_staging_storage
 aws_iam_role_policies_exclusive.cell
 aws_iam_role_policies_exclusive.fan_in
+aws_iam_role_policies_exclusive.manifest_staging
 aws_iam_role_policy_attachments_exclusive.cell
 aws_iam_role_policy_attachments_exclusive.fan_in
+aws_iam_role_policy_attachments_exclusive.manifest_staging
 ```
+
+Every one of these roles is created by a human admin and then imported here.
+The routine OIDC operator holds only `GetRole`, `GetRolePolicy`,
+`ListRolePolicies`, `ListAttachedRolePolicies`, and `UpdateRole` on each exact
+role ARN, so it can import and converge them but cannot create a role or issue
+a policy. A plan against this root that shows a *create* for any address above
+means the role does not exist yet in AWS, and the apply will fail closed with
+`AccessDenied`; the fix is the one-time human-admin provisioning described in
+`infra/official-eval-bootstrap/README.md`, never a widened operator grant.
 
 The protected workflow resolves those addresses to fixed reviewed role and
 inline-policy IDs using `terraform import`. Bucket names are never import IDs

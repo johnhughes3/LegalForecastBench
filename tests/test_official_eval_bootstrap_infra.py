@@ -55,6 +55,7 @@ EVAL_CELL_ROLE_ARN = (
     f"arn:{PARTITION}:iam::{ACCOUNT_ID}:role/legalforecastbench-official-eval"
 )
 EVAL_FAN_IN_ROLE_ARN = f"{EVAL_CELL_ROLE_ARN}-fan-in"
+EVAL_MANIFEST_STAGING_ROLE_ARN = f"{EVAL_CELL_ROLE_ARN}-manifest-staging"
 
 
 def _terraform() -> str:
@@ -478,6 +479,7 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
         "ManageExactOfficialLabelingRole",
         "ManageExactOfficialEvalCellRole",
         "ManageExactOfficialEvalFanInRole",
+        "ManageExactOfficialEvalManifestStagingRole",
     }
     state = statements["ReadWriteExactRuntimeState"]
     assert state["Action"] == ["s3:GetObject", "s3:PutObject"]
@@ -590,14 +592,29 @@ def test_operator_policy_cannot_broaden_its_bootstrap_authority() -> None:
     eval_fan_in = statements["ManageExactOfficialEvalFanInRole"]
     assert eval_fan_in["Action"] == eval_cell["Action"]
     assert eval_fan_in["Resource"] == EVAL_FAN_IN_ROLE_ARN
-    assert {eval_cell["Resource"], eval_fan_in["Resource"]} == {
+
+    # The manifest-staging role writes create-once objects into the official
+    # results prefix and holds KMS use on the artifacts key, so it sits on the
+    # cell/fan-in side of the blast-radius line, not the labeling side whose
+    # authority is one DynamoDB spend-ledger table. It therefore gets the same
+    # read-only refresh set: enough for `terraform import` plus a converged
+    # no-op plan, and nothing that could rewrite its trust or its policy.
+    eval_manifest_staging = statements["ManageExactOfficialEvalManifestStagingRole"]
+    assert eval_manifest_staging["Action"] == eval_cell["Action"]
+    assert eval_manifest_staging["Resource"] == EVAL_MANIFEST_STAGING_ROLE_ARN
+    assert {
+        eval_cell["Resource"],
+        eval_fan_in["Resource"],
+        eval_manifest_staging["Resource"],
+    } == {
         EVAL_CELL_ROLE_ARN,
         EVAL_FAN_IN_ROLE_ARN,
+        EVAL_MANIFEST_STAGING_ROLE_ARN,
     }
 
     eval_granted_actions = {
         action
-        for statement in (eval_cell, eval_fan_in)
+        for statement in (eval_cell, eval_fan_in, eval_manifest_staging)
         for action in cast(list[object], statement["Action"])
     }
     assert eval_granted_actions.isdisjoint(
