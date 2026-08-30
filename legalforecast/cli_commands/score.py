@@ -110,6 +110,8 @@ def run(args: argparse.Namespace) -> int:
     output_path = cast(Path, args.output)
     run_records = _cli_ns._read_records(runs_path)
     labels_release = None
+    forecast = None
+    loaded_manifest = None
     if labels_path is None and labels_release_path is None:
         raise ValueError("one of --labels or --labels-release is required")
     if labels_release_path is not None:
@@ -137,6 +139,7 @@ def run(args: argparse.Namespace) -> int:
                     forecast_release_path,
                     artifact_root=artifact_root,
                 )
+                forecast = execution.release
                 validate_manifest_against_forecast(
                     loaded_manifest.manifest,
                     execution.release,
@@ -171,6 +174,10 @@ def run(args: argparse.Namespace) -> int:
             labels_release,
             base_rate=cast(float | None, args.base_rate),
             include_ablation_in_model_id=cast(bool, args.include_ablation_in_model_id),
+            forecast_release=(forecast if loaded_manifest is not None else None),
+            manifest=(
+                loaded_manifest.manifest if loaded_manifest is not None else None
+            ),
         )
     else:
         summaries = score_run_records(
@@ -179,13 +186,25 @@ def run(args: argparse.Namespace) -> int:
             base_rate=cast(float | None, args.base_rate),
             include_ablation_in_model_id=cast(bool, args.include_ablation_in_model_id),
         )
-    _cli_ns._write_json(
-        output_path,
-        {
-            "generated_at": _cli_ns._iso_datetime(datetime.now(UTC)),
-            "summaries": [summary.to_record() for summary in summaries],
-        },
-    )
+    output: dict[str, object] = {
+        "generated_at": _cli_ns._iso_datetime(datetime.now(UTC)),
+        "summaries": [summary.to_record() for summary in summaries],
+    }
+    if (
+        labels_release is not None
+        and forecast is not None
+        and loaded_manifest is not None
+    ):
+        output["identity"] = {
+            "run_manifest_id": str(loaded_manifest.manifest.run_id),
+            "run_manifest_sha256": loaded_manifest.sha256,
+            "forecast_release_id": forecast.release_id,
+            "forecast_release_digest": forecast.release_digest,
+            "labels_release_id": labels_release.release_id,
+            "labels_release_digest": labels_release.release_digest,
+            "labels_forecast_release_digest": labels_release.forecast_release_digest,
+        }
+    _cli_ns._write_json(output_path, output)
     _cli_ns._log_event("score", "artifact_written", output_path, len(summaries))
     if unit_scores_output is not None:
         unit_score_records = [

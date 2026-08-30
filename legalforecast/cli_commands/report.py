@@ -5,11 +5,15 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from legalforecast.release import (
+    ForecastRelease,
+    LabelsRelease,
+    LoadedRunManifest,
     load_run_manifest,
     validate_manifest_against_forecast,
     validate_release,
@@ -70,9 +74,18 @@ def run(args: argparse.Namespace) -> int:
 
     scores_path = cast(Path, args.scores)
     output_dir = cast(Path, args.output_dir)
-    _validate_contract_inputs(args)
     score_payload = _cli_ns._read_json_object(scores_path)
     summary_records = _cli_ns._required_record_sequence(score_payload, "summaries")
+    contract = _validate_contract_inputs(args)
+    if contract is not None:
+        loaded_manifest, forecast, labels = contract
+        _validate_score_payload_identity(
+            score_payload,
+            summary_records,
+            loaded_manifest=loaded_manifest,
+            forecast=forecast,
+            labels=labels,
+        )
     accounting_records = (
         _cli_ns._read_records(cast(Path, args.accounting))
         if cast(Path | None, args.accounting) is not None
@@ -169,27 +182,81 @@ def run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _validate_contract_inputs(args: argparse.Namespace) -> None:
+def _validate_contract_inputs(
+    args: argparse.Namespace,
+) -> tuple[LoadedRunManifest, ForecastRelease, LabelsRelease] | None:
     """Validate optional official provenance inputs before rendering output."""
 
-    manifest_path = cast(Path | None, args.manifest)
-    forecast_path = cast(Path | None, args.forecast_release)
-    labels_path = cast(Path | None, args.labels_release)
-    artifact_root = cast(Path | None, args.artifact_root)
+    manifest_path = cast(Path | None, getattr(args, "manifest", None))
+    forecast_path = cast(Path | None, getattr(args, "forecast_release", None))
+    labels_path = cast(Path | None, getattr(args, "labels_release", None))
+    artifact_root = cast(Path | None, getattr(args, "artifact_root", None))
     if not any((manifest_path, forecast_path, labels_path, artifact_root)):
-        return
+        return None
     if None in (manifest_path, forecast_path, labels_path, artifact_root):
         raise ValueError(
             "--manifest, --forecast-release, --labels-release, and "
             "--artifact-root must be passed together"
         )
     loaded_manifest = load_run_manifest(cast(Path, manifest_path))
-    forecast, _labels = validate_release(
+    forecast, labels = validate_release(
         cast(Path, forecast_path),
         cast(Path, labels_path),
         artifact_root=cast(Path, artifact_root),
     )
     validate_manifest_against_forecast(loaded_manifest.manifest, forecast)
+    return loaded_manifest, forecast, labels
+
+
+def _validate_score_payload_identity(
+    score_payload: Mapping[str, Any],
+    summary_records: Sequence[Mapping[str, Any]],
+    *,
+    loaded_manifest: LoadedRunManifest,
+    forecast: ForecastRelease,
+    labels: LabelsRelease,
+) -> None:
+    """Ensure a report renders the exact material produced by strict scoring."""
+
+    expected_identity = {
+        "run_manifest_id": str(loaded_manifest.manifest.run_id),
+        "run_manifest_sha256": loaded_manifest.sha256,
+        "forecast_release_id": forecast.release_id,
+        "forecast_release_digest": forecast.release_digest,
+        "labels_release_id": labels.release_id,
+        "labels_release_digest": labels.release_digest,
+        "labels_forecast_release_digest": labels.forecast_release_digest,
+    }
+    identity = score_payload.get("identity")
+    if not isinstance(identity, Mapping):
+        raise ValueError("score artifact identity does not match report inputs")
+    if dict(cast(Mapping[str, Any], identity)) != expected_identity:
+        raise ValueError("score artifact identity does not match report inputs")
+
+    expected_case_by_unit = {
+        unit.unit_id: unit.case_id
+        for unit in forecast.prediction_units
+        if unit.should_score
+    }
+    expected_units = set(expected_case_by_unit)
+    for summary in summary_records:
+        unit_scores = summary.get("unit_scores")
+        if not isinstance(unit_scores, list):
+            raise ValueError("score summary lacks its unit scores")
+        unit_ids: list[str] = []
+        score_records = cast(list[Mapping[str, Any]], unit_scores)
+        for score in score_records:
+            unit_id = score.get("unit_id")
+            case_id = score.get("case_id")
+            if not isinstance(unit_id, str) or not isinstance(case_id, str):
+                raise ValueError("score summary unit score lacks identity")
+            if expected_case_by_unit.get(unit_id) != case_id:
+                raise ValueError("score summary unit-to-case identity differs")
+            unit_ids.append(unit_id)
+        if set(unit_ids) != expected_units or len(unit_ids) != len(set(unit_ids)):
+            raise ValueError("score summary unit set differs from labels release")
+        if summary.get("unit_count") != len(score_records):
+            raise ValueError("score summary unit_count differs from unit scores")
 
 
 def _contamination_inputs(

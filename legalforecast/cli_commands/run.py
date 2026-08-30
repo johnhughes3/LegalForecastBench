@@ -93,8 +93,10 @@ def register(
     )
     execute.add_argument(
         "--approval-reference",
-        required=True,
-        help="Nonempty plain reference to the owner approval covering this ceiling.",
+        help=(
+            "Optional community-run approval reference.  Manifest-bound official "
+            "runs use the numeric ceiling and ledger identity directly."
+        ),
     )
     execute.add_argument(
         "--harness",
@@ -173,7 +175,7 @@ def run_execute(args: argparse.Namespace) -> int:
         ledger_path=cast(Path, args.ledger),
         receipts_dir=cast(Path, args.receipts_dir),
         ceiling_microusd=cast(int, args.ceiling_microusd),
-        approval_reference=cast(str, args.approval_reference),
+        approval_reference=cast(str | None, args.approval_reference),
         harness=cast(str, args.harness),
         ablation=cast(str, args.ablation),
         repeat_count=cast(int, args.repeat_count),

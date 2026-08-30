@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID
 
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.immutable_io import publish_tree_create_only
@@ -12,11 +15,22 @@ from .models import (
     CaseDraft,
     DocumentDraft,
     ForecastDraft,
+    ForecastManifestBinding,
     LabelsDraft,
     ModelVisibleRole,
     PredictionUnitDraft,
     ScoringPolicy,
     UnitOutcome,
+)
+from .run_manifest import (
+    BenchmarkRunManifest,
+    DocumentRole,
+    OpaqueObjectLocator,
+    OppositionStatus,
+    QCStatus,
+    RoleObjectLocator,
+    SelectedCase,
+    serialize_run_manifest,
 )
 from .service import IssuedRelease, issue_release
 
@@ -142,6 +156,7 @@ def _synthetic_inputs() -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
         policy_digest="1" * 64,
         code_version="synthetic-code-v1",
         packet_builder_version="synthetic-packet-builder-v1",
+        run_manifest_binding=_synthetic_manifest_binding(),
         cases=tuple(
             CaseDraft(case_id=case_id, documents=documents)
             for case_id, documents in documents_by_case.items()
@@ -157,3 +172,46 @@ def _synthetic_inputs() -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
         ),
     )
     return payloads, forecast, labels
+
+
+def _synthetic_manifest_binding() -> ForecastManifestBinding:
+    """Bind the provider-free fixture to its stable locked manifest sample."""
+
+    manifest = BenchmarkRunManifest(
+        run_id=UUID("12345678-1234-5678-1234-567812345678"),
+        selected_cases=tuple(
+            SelectedCase(
+                case_id=case_id,
+                provider_id="corpus-store",
+                qc_status=QCStatus.ACCEPTED,
+                role_locators=tuple(
+                    RoleObjectLocator(
+                        role=role,
+                        locator=OpaqueObjectLocator(
+                            provider_id="object-store",
+                            object_locator=f"cases/{case_id}/{role.value}",
+                            version_id=f"version-{case_id}-{role.value}",
+                        ),
+                    )
+                    for role in (
+                        DocumentRole.DECISION,
+                        DocumentRole.MOTION,
+                        DocumentRole.COMPLAINT,
+                    )
+                ),
+                opposition_status=OppositionStatus.CONFIRMED_UNOPPOSED,
+            )
+            for case_id in ("case-001", "case-002", "case-003")
+        ),
+        policy_version="federal-mtd-v1",
+        code_revision="a" * 40,
+        created_at=datetime(2026, 8, 30, 12, tzinfo=UTC),
+        locked_at=datetime(2026, 8, 30, 12, 1, tzinfo=UTC),
+    )
+    return ForecastManifestBinding(
+        release_id="synthetic-three-case-v1",
+        run_id=manifest.run_id,
+        policy_version=manifest.policy_version,
+        code_revision=manifest.code_revision,
+        manifest_sha256=hashlib.sha256(serialize_run_manifest(manifest)).hexdigest(),
+    )

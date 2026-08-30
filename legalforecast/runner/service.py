@@ -75,7 +75,7 @@ class RunConfig:
     ledger_path: Path
     receipts_dir: Path
     ceiling_microusd: int
-    approval_reference: str
+    approval_reference: str | None = None
     harness: str = "native"
     ablation: str = "none"
     repeat_count: int = 1
@@ -147,9 +147,14 @@ def execute_release_run(
 ) -> RunSummary:
     """Execute or resume every exact cell in a validated forecast release."""
 
-    approval_reference = _non_empty(
-        config.approval_reference,
-        "approval reference",
+    manifest_mode = config.manifest_path is not None
+    approval_reference = (
+        ""
+        if manifest_mode
+        else _non_empty(
+            config.approval_reference or "",
+            "approval reference",
+        )
     )
     harness = _non_empty(config.harness, "harness")
     if harness != "native":
@@ -215,7 +220,6 @@ def execute_release_run(
         "schema_version": str(PUBLIC_RUN_IDENTITY_V1),
         "ablation": ablation,
         "account": account,
-        "approval_reference": approval_reference,
         "ceiling_microusd": config.ceiling_microusd,
         "forecast_release_digest": execution.release.release_digest,
         "harness": harness,
@@ -224,6 +228,8 @@ def execute_release_run(
         "model_registry_sha256": registry_sha256,
         "repeat_count": config.repeat_count,
     }
+    if not manifest_mode:
+        identity["approval_reference"] = approval_reference
     if run_inputs is not None:
         identity.update(
             {

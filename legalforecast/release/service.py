@@ -184,6 +184,7 @@ def issue_release(
         policy_digest=forecast_draft.policy_digest,
         code_version=forecast_draft.code_version,
         packet_builder_version=forecast_draft.packet_builder_version,
+        run_manifest_binding=forecast_draft.run_manifest_binding,
         case_count=len(cases),
         unit_count=len(units),
         cases=cases,
