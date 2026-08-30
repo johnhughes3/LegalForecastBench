@@ -1,8 +1,8 @@
 # Official Run Runbook
 
-For the remainder of Cycle 1, gate-changing work follows [cycle-1-change-control.md](cycle-1-change-control.md) (frozen byte contracts, single integration lane, emergency-migration path).
+For the remainder of Cycle 1, gate-changing work follows [cycle-1-change-control.md](cycle-1-change-control.md) for the single integration lane and emergency-migration path.
 
-This is the operator checklist for `.github/workflows/run-benchmark.yaml` and the provider-free `.github/workflows/fan-in-publish.yaml` on the current `main` branch. Shard dispatches run isolated provider cells and finalize one immutable receipt per workflow attempt. Fan-in selects accepted receipts, reads only their exact committed S3 versions, derives cadence counts from frozen artifacts, delegates Cartesian completeness to `official_aggregate`, and publishes only the verified public directory.
+This is the operator checklist for `.github/workflows/run-benchmark.yaml` and the protected `.github/workflows/fan-in-publish.yaml` on the current `main` branch. The forecast invocation is outcome-blinded; a later protected fan-in invocation obtains labels, validates the durable forecast artifact, scores, reports, and optionally publishes.
 Angle-bracket values such as `<cycle_id>` are placeholders, not literal shell input. Replace every such value before running a command.
 The paired flags `--llm-unitization-run-card` / `--llm-unitize-run-card` and `--llm-review-stage-a-run-card` / `--stage-a-review-run-card` intentionally name the same authenticated card when both appear in one command. Substitute the same exact path for each pair; the different flag names describe validation roles, not different artifacts.
 
@@ -16,7 +16,7 @@ The paired flags `--llm-unitization-run-card` / `--llm-unitize-run-card` and `--
 - [Before dispatch](#before-dispatch)
 - [Dispatch sequence](#dispatch-sequence)
 - [Aggregation](#aggregation)
-- [Add models to a frozen cycle](#add-models-to-a-frozen-cycle)
+- [Add models to a cycle](#add-models-to-a-cycle)
 - [Staged-rollout rehearsal drill](#staged-rollout-rehearsal-drill)
 - [Render and review the site](#render-and-review-the-site)
 - [Recovery acceptance criteria](#recovery-acceptance-criteria)
@@ -1743,452 +1743,160 @@ Do not pass terminal Stage A paths to `summarize-corpus`. It derives them only f
 
 ## Before Dispatch
 
-Run the release gate at the exact SHA you intend to dispatch:
+The only official evaluation path is one manifest-first forecast run followed by
+one protected labels fan-in. The benchmark manifest is locked and tracked
+immediately before the forecast run starts. It names the forecast release,
+public artifacts, model registry, and expected prediction units; it never
+contains labels or a labels-storage locator. Replies and other optional
+artifacts do not become run blockers unless the manifest explicitly requires
+them.
+
+Run the release check at the exact commit that will be dispatched, then retain
+that full 40-character SHA and the forecast run ID and attempt:
 
 ```bash
 uv run scripts/release_check.py
 ```
 
-For the model-scoped official path, issue the provider-free pre-freeze execution plan with `issue-manifest-execution-policy-v4`. The v4 successor is deliberately non-authorizing and omits only the final freeze commitment because the final freeze contains the plan. The existing v3 issuer remains strict and requires `--freeze-bundle`; do not reinterpret v3 as a pre-freeze contract. Create and verify the final freeze containing the v4 plan, then run `project-manifest-cost` against the final or staged freeze for exactly one registry model and both official ablations. Issue the model scope with the final `--freeze-bundle`, its `--freeze-root`, and the frozen `--provider-cycle-caps`; scope issuance derives provider authority from those authenticated caps, so caller-authored provider-authority JSON is not a production input. Stage the immutable manifest-run root before dispatching one model/ablation shard at a time.
+The forecast workflow uses the dedicated read-only preparation role output
+`prepare_inputs_role_arn`, configured as
+`LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN` on the protected
+`legalforecastbench-official-eval-prepare-inputs` environment. That role may
+read only the configured results-bucket `manifests/*`,
+`cycle-1/manifest-runs/*`, and `forecast-runs/*` prefixes (plus the required
+KMS decrypt operation). It cannot write objects, mutate markers, read labels,
+use provider authority, or invoke a model. Provider cells continue to use the
+cell role and their individual provider credentials.
 
-The scope and cost receipt bind the raw SHA-256 of the final freeze file because those bytes are the authenticated input. Shard receipts and fan-in continue to use the freeze protocol's canonical `bundle_sha256` for receipt identity; these are distinct commitments and must not be substituted for one another. The provider workflow compares the transported raw freeze hash before it opens provider credentials, and fan-in repeats that check against the staged freeze file.
+The forecast workflow writes one durable artifact named
+`official-forecast-results-<run_id>-<attempt>`. Its public interface is:
 
-Prepare the frozen run-input manifest, locked labels, model registry, and packet objects. The run-input manifest must use the same `cycle_id` as the dispatch and either omit `labels_sha256` or contain the SHA-256 of the exact labels JSONL. Generate and commit the hash-only freeze commitment before dispatch:
+- `forecast-run.json`, with the exact run ID, attempt, release SHA, manifest,
+  forecast-release, artifact-root, model-registry, model key, run identity, and
+  repeat count;
+- byte-identical `run-manifest.json`, `forecast-release.json`, and
+  `model-registry.json` copies;
+- `run-summary.json`, `ledger/ledger.sqlite3`, and one or more JSON receipts
+  under `receipts/`.
 
-```bash
-uv run legalforecast freeze <cycle_id> \
-  --bundle-output manifests/<cycle_id>.freeze.json \
-  --manifest <cycle-manifest> \
-  --units <prediction-units.jsonl> \
-  --labels <labels.jsonl> \
-  --exclusion-ledger <exclusion-ledger.jsonl> \
-  --prompt <prompt-artifact> \
-  --scorer <scorer-artifact> \
-  --harness <harness-artifact> \
-  --model-registry <model-registry.json> \
-  --baselines manifests/<cycle_id>.no-baselines.json \
-  --provider-cycle-caps <provider-cycle-caps.json> \
-  --execution-policy <execution-policy.json> \
-  --labeling-policy <labeling-policy.json> \
-  --cohort-policy <cohort-policy.json>
-```
-
-`--baselines` is required even when the frozen execution policy sets `allow_no_baselines` to `true`. The current freeze implementation requires an existing regular file and hash-binds its bytes, but it does not parse or schema-validate the baselines artifact. For Cycle 1, which has no frozen historical baseline corpus, use a reviewed, committed JSON sentinel rather than a zero-byte file:
-
-```json
-{
-  "schema_version": "legalforecast.no_baselines.v1",
-  "cycle_id": "<cycle_id>",
-  "status": "unavailable",
-  "reason": "No frozen historical baseline corpus exists for Cycle 1."
-}
-```
-
-The sentinel is a hash-bound disclosure, not the enforcement authority; `execution-policy.json` remains authoritative for `allow_no_baselines`, and the dispatch input must match it. Replace the sentinel with the frozen baseline artifact only in a later cycle that has one.
-
-Use `uv run legalforecast freeze --help` for the exact argument shape. The workflow verifies the committed freeze commitment, substituting the downloaded labels and model registry for their checkout paths, before matrix fan-out. The separately downloaded run-input manifest is validated and label-bound by the workflow's manifest-freeze step; it is not substituted for the cycle manifest recorded in the freeze bundle.
-
-The intended AWS boundary is defined, but not applied, under [`infra/official-eval/`](../infra/official-eval/README.md). Its canonical protected-environment contract is [`infra/official-eval/github-environments.json`](../infra/official-eval/github-environments.json), which defines the infrastructure bootstrap, evaluation cell, and fan-in environments with closed variable and secret-name inventories. The infrastructure operation requires the exact existing artifact-bucket KMS key ARN plus verified external packet/results bucket names (`LFB_ARTIFACTS_KMS_KEY_ARN`, `LFB_PACKET_BUCKET`, and `LFB_RESULTS_BUCKET`); lifecycle IDs and storage-management inputs are deliberately absent. The role bindings use the current `legalforecastbench-official-eval` cell environment with `LFB_AWS_REGION`, `LFB_GITHUB_PACKET_READ_ROLE_ARN`, and `LFB_PROVIDER_AUTHORITY_TABLE`, plus the `legalforecastbench-official-eval-fan-in` environment with the same reviewed `LFB_AWS_REGION`, `LFB_GITHUB_FAN_IN_ROLE_ARN`, and `LFB_PACKET_BUCKET`; do not recreate the obsolete five-environment topology. The runner derives each provider's account alias from its unique cap in the verified frozen execution policy. Before live acceptance, verify that both runtime environments exist and are protected for `main`, ensure fan-in has no secrets or provider role, verify that the COS CloudFormation stack remains the sole owner of both buckets and storage subresources, and follow the first-shard validation order below. Assign the reviewed applied IAM outputs through the human-approved server-side configuration path.
-
-The packet/result role used by each case writer has only the current packet, manifest, per-case, closure, and exact provider-attempt authority operations. It may create and read the two explicit resource patterns `cycle-publication-state/*/runs/*/*/intent.json` and `cycle-publication-state/*/runs/*/*/done.json`, has read-only GetObject authority for `cycle-publication-state/*/seal.json`, and has prefix-conditioned `s3:ListBucket` authority only for the exact seal-key pattern and current packet/per-case validation paths. `begin` uses this exact-key ListObjectsV2 probe before GetObject because S3 otherwise returns 403 rather than 404 for an absent object when ListBucket is denied. Immutable writes are separate from reads and require the `If-None-Match: *` request header; ordinary versioned per-case writes remain unconditional. The cell role may call only `ConditionCheckItem`, `DescribeTable`, `GetItem`, `PutItem`, and `UpdateItem` on the one DynamoDB table whose exact ARN hash is frozen in the provider-caps artifact. The workflow supplies the protected table name and region to every live runner; each runner derives its public account alias from the verified frozen provider cap and re-verifies the actual table ARN and key schema before a provider call. The cell role has no broader marker listing, seal write, receipt, or report-prefix authority. It also has no DynamoDB table administration, scan, or delete authority and no S3 delete, ACL, or version-list authority. The provider-free fan-in role has prefix-conditioned `s3:ListBucketVersions` authority only for `per-case/<cycle_id>/`, owns exact-version per-case reads, marker read/list and seal authority, finalizer marker and receipt writes, and exclusive canonical publication under `reports/<cycle_id>/multi-ablation/`, with the same create-once precondition on every immutable write.
-
-Both roles use `aws_iam_role_policies_exclusive` and `aws_iam_role_policy_attachments_exclusive`, so the first apply is a reconciliation boundary: inventory and import existing role policies, account for every legitimate inline policy, and verify the planned managed-policy set is empty before apply. Unlisted policies will be removed.
-
-Bedrock invocation is disabled by default. Verify the protected `LFB_ANTHROPIC_RUNTIME` value through the approved operator path before provisioning or enabling Bedrock; never infer or guess it. Keep the direct Anthropic path with both `bedrock_direct_foundation_model_arns = []` and `bedrock_geographic_inference_profiles = {}`, or deliberately enable the cell-only Bedrock policy with a structured contract that matches `LFB_ANTHROPIC_BEDROCK_MODEL_ID`. Direct foundation-model ARNs receive their own unconditional statement. Every reviewed `us.*`, `eu.*`, or `apac.*` geographic inference profile follows AWS's two-statement contract: an unconditional statement grants only its exact profile ARN, while a separate statement grants its complete reviewed source-and-destination foundation-model ARN set conditioned by exact equality on `bedrock:InferenceProfileArn`. Those conditioned model grants cannot be used for direct model invocation. Global inference profiles are rejected because their distinct three-part policy is not modeled here. Fan-in never receives provider authority.
-
-The private versioned result bucket retains the noncurrent objects named by receipt `VersionId` commitments; there is no blanket 30-day deletion rule. Per-case data can include PII, so any future destructive retention is an explicit review against the receipt audit horizon. Reserve `reports/security-negative-controls/` for live denied-write canaries and administrator/lifecycle cleanup; never aim a negative control at a canonical report path.
-
-Terraform format, initialization, validation, tests, and even a reviewed plan prove only the code shape. This root manages IAM only: do not import the existing buckets or any S3 storage subresource into its remote state. If an older official-eval state already contains S3 addresses from the prior storage-owning revision, inspect it before planning and never accept the resulting configuration-deletion destroy plan. Dispatch `.github/workflows/official-provider-authority-infra.yaml` from `main` with `operation=detach-external-storage-state`, `module=official-eval`, and the exact current `release_sha`; the protected operation encrypts the pre-migration state, detaches only the closed obsolete S3 addresses that are present, proves that no other state address changed, and does not mutate live S3. If the reviewed backend is provably fresh and contains no state, no detachment run is needed. Verify the COS-owned bucket configuration separately. The final plan must contain no S3 address and no destroy action. The S3 validation workflow requires a known existing packet, manifest, exact-version per-case metrics object, and shard receipt; dry-run and fixture outputs cannot produce those inputs. Dispatch one explicitly approved bounded non-dry-run shard, capture its exact per-case `VersionId` and immutable shard-receipt key, then require a passing `official-s3-access-validation.yaml` run from `main` before dispatching remaining shards. It proves the fan-in role can read the committed per-case version and receipt, then reassumes the cell role and proves that the same existing receipt is denied. The workflow proves only the specific S3 reads, lists, denied mutations, and DynamoDB `DescribeTable` call it actually performs; it does not establish the cell role's successful DynamoDB item writes or transactions. Acceptance requires a post-provision first-shard validation dispatch, a bounded provider-authority smoke that exercises the item-level DynamoDB contract, and a provider-free fan-in verification dispatch from `main`. Always set `max_projected_model_cost_usd` to an explicit non-empty limit for a live run.
-
-## Provider-free S3 validation input order
-
-The S3 validation workflow cannot run until a real official shard has created
-the objects it validates. A dry run validates schedule, hashes, identity, and
-projected cost without provider calls; fixtures validate only provider-free
-rehearsal machinery. Neither can issue an admissible per-case `VersionId` or
-immutable shard receipt, and no canary seeder is implied.
-
-After the read-only CloudFormation/bucket inventory and the protected
-state-detach/import/plan/approved-apply sequence:
-
-1. Dispatch one explicitly approved bounded non-dry-run shard from the exact
-   trusted `main` SHA.
-2. Capture the exact packet, manifest, per-case, and shard-receipt object keys
-   plus the per-case `VersionId` from that shard's immutable evidence.
-3. Dispatch `official-s3-access-validation.yaml` with those exact inputs and
-   require its provider-free checks to pass.
-4. Dispatch the remaining official shards only after validation passes.
+This artifact must contain no labels, label locator, or provider secret. The
+sibling forecast lane may implement the identity-aware scorer interface with a
+placeholder while this workflow is integrated; the interface is
+`--model-registry <path>` plus `--expected-run-identity <digest>`.
 
 ## Dispatch Sequence
 
-Dispatch the canonical `Run Benchmark` workflow from the exact `main`-reachable `release_sha`. Supply the locked `manifest_uri`, outcome-blinded `forecast_release_uri`, separate `labels_release_uri`, forecast `artifact_root_uri`, frozen `model_registry_uri`, one `model_key`, and the positive numeric `ceiling_microusd`. The workflow materializes only the paths declared by the forecast release, gives each provider cell only its own credential, and reserves labels for the protected fan-in job. Keep `max_parallel` at the smallest useful value and retain the exact workflow run ID and attempt.
+Dispatch the forecast workflow from `main` with only public, outcome-blinded
+inputs. Do not pass a labels locator to this invocation:
 
-1. Confirm the release and model registry are public, immutable, and reachable from `main`; the workflow repeats the exact-source and main-ancestry checks before credentials are opened.
-2. Dispatch the bounded run with the same manifest, forecast release, artifact root, registry, model key, account, and ceiling when recovering a failed or canceled cell. The durable ledger and receipts are uploaded even on failure, so a resume cannot redispatch completed cells.
-3. Let the protected fan-in job fetch `labels_release_uri`, validate the public contract pair, score durable provider receipts, and publish the report. Forecast jobs must never receive labels or a label-storage role.
-4. The deleted parallel manifest workflow and retired legacy dispatch interface are unsupported. Do not use matrix/shard or fabricated approval-reference inputs with the canonical boundary.
+```bash
+gh workflow run run-benchmark.yaml --ref main \
+  -f release_sha=<full-main-sha> \
+  -f manifest_uri=manifests/<cycle-id>.run-manifest.json \
+  -f forecast_release_uri=manifests/<cycle-id>.forecast-release.json \
+  -f artifact_root_uri=s3://<results-bucket>/forecast-runs/<forecast-artifact-prefix>/ \
+  -f model_registry_uri=manifests/<cycle-id>.model-registry.json \
+  -f model_key=<provider:model-id> \
+  -f ceiling_microusd=<positive-microusd-ceiling> \
+  -f artifact_retention_days=14
+```
 
-Every non-dry-run result writer creates its own immutable `cycle-publication-state/<cycle_id>/runs/<writer_id>/<run_attempt>/intent.json` before writing and creates the matching `done.json` afterward. Matrix cells use `<run_id>-case-<strategy_job_index>` and the shard finalizer uses `<run_id>-finalize-shard`, so GitHub's **Re-run failed jobs** path opens new attempt-scoped intents even when successful jobs from the prior attempt are not rerun. After creating its intent, a writer probes exactly `cycle-publication-state/<cycle_id>/seal.json`; an API error, malformed listing, or unexpected key fails closed, while an exact seal match is read and causes the late writer to abort before provider work. If a workflow is canceled before cleanup, do not fabricate completion evidence: inspect the run, prove that exact writer is no longer active, then use `cycle_closure finish --writer-id <exact-writer-id>` with the exact run attempt under the matching protected role before retrying publication.
+The exact release SHA must be full length and reachable from `main`. Wait for
+the run to complete successfully, record its exact run ID and attempt, and
+confirm that its named durable artifact exists. A rerun is a new attempt; pass
+that new attempt to fan-in rather than mixing receipts from attempts.
 
-The resume identity includes the case, ablation, packet hash, solver/model identity, registry content, and repeat count. Current results bind to the canonical per-model registry-entry hash, so an unchanged model can resume across a registry amendment. Pre-amendment durable metrics that lack that field instead validate against the exact whole-registry hash recorded by their freeze in the provenance chain; supply that historical registry when recovering those cells. An unknown or mismatched registry hash fails closed rather than re-evaluating and overwriting durable outputs. Failed cells do not become canonical score rows. Preserve failed logs for audit.
+Forecast execution is outcome-blinded. It may read the public manifest,
+forecast release, model registry, and declared forecast artifacts, and each
+provider cell may read only its own provider credential. It must not read the
+labels release or receive a labels locator. A missing or incomplete receipt
+fails the run; do not repair a receipt by hand.
 
 ## Aggregation
 
-After every declared shard has a receipt, dispatch `Fan In Official Shards` at the exact 40-character trusted release SHA with `source_dispatch_runs_json`, not the singular `source_dispatch_run_id`/`source_dispatch_run_attempt` fields. Supply one `{run_id, run_attempt}` object for each of the eight successful shard dispatches:
-
-```json
-[
-  {"run_id": "<openai-sol-full-packet-run-id>", "run_attempt": <openai-sol-full-packet-attempt>},
-  {"run_id": "<openai-sol-metadata-only-run-id>", "run_attempt": <openai-sol-metadata-only-attempt>},
-  {"run_id": "<openai-terra-full-packet-run-id>", "run_attempt": <openai-terra-full-packet-attempt>},
-  {"run_id": "<openai-terra-metadata-only-run-id>", "run_attempt": <openai-terra-metadata-only-attempt>},
-  {"run_id": "<openai-luna-full-packet-run-id>", "run_attempt": <openai-luna-full-packet-attempt>},
-  {"run_id": "<openai-luna-metadata-only-run-id>", "run_attempt": <openai-luna-metadata-only-attempt>},
-  {"run_id": "<anthropic-opus-full-packet-run-id>", "run_attempt": <anthropic-opus-full-packet-attempt>},
-  {"run_id": "<anthropic-opus-metadata-only-run-id>", "run_attempt": <anthropic-opus-metadata-only-attempt>}
-]
-```
-
-Pass that array as the single workflow input (with the singular source-dispatch inputs left at their defaults):
+After the successful forecast artifact is available and the labels release has
+been issued, dispatch the protected labels fan-in from the same exact `main`
+commit. This is the only invocation that accepts a labels locator and the only
+job that can read labels. It validates the source workflow path, exact run ID
+and attempt, main-reachable release SHA, locked release bytes, run identity,
+ledger completion, receipt coverage, and durable object state before scoring.
+The fan-in reads the documents/results needed for quality control and reports
+counts for motions, oppositions, replies, and decisions; a missing reply is
+acceptable only when the docket confirms that no reply was filed. A missing
+motion, opposition, or decision is flagged for human review.
 
 ```bash
 gh workflow run fan-in-publish.yaml --ref main \
-  -f release_sha=<release_sha> \
-  -f cycle_id=<cycle_id> \
-  -f freeze_bundle_path=s3://<results-bucket>/cycle-1/manifest-runs/<manifest-digest>/freeze.json \
-  -f source_dispatch_runs_json='<the eight-entry JSON array above>' \
-  -f verify_only=true \
-  -f artifact_retention_days=30
+  -f release_sha=<same-full-main-sha> \
+  -f cycle_id=<cycle-id> \
+  -f forecast_run_id=<forecast-run-id> \
+  -f forecast_run_attempt=<forecast-run-attempt> \
+  -f manifest_uri=manifests/<cycle-id>.run-manifest.json \
+  -f forecast_release_uri=manifests/<cycle-id>.forecast-release.json \
+  -f artifact_root_uri=s3://<results-bucket>/forecast-runs/<forecast-artifact-prefix>/ \
+  -f model_registry_uri=manifests/<cycle-id>.model-registry.json \
+  -f labels_release_uri=manifests/<cycle-id>.labels-release.json \
+  -f model_key=<provider:model-id> \
+  -f publish=true
 ```
 
-The workflow validates every exact completed `run-benchmark.yaml` attempt through GitHub's attempt-specific API and requires each attempt's `Build benchmark matrix` job to have succeeded; an overall attempt may have failed before a later **Re-run failed jobs** attempt completed its shard. It downloads each source attempt's non-overwritable `official-dispatch-provenance-<run_id>-<run_attempt>` artifact and uses the exact frozen run-input manifest, labels, and model registry bytes. The artifact binds each run ID, source dispatch attempt, and release SHA; every accepted receipt must bind the same release SHA, and the accepted set must account for all eight declared shard identities. A single model execution scope authorizes both of that model's ablations, so the same byte-identical scope artifact is expected to arrive from the two corresponding dispatches and is deduplicated as one authorization; conflicting scope bytes for one model fail closed. Fan-in auto-selects singleton shards and refuses any multi-receipt shard until a committed [accepted-attempt map](schemas/accepted-attempt-map-v1.md) selects exactly one receipt for each ambiguity. It verifies that the current union contains no uncommitted or stale object, fetches each accepted object by its exact S3 `VersionId`, verifies its size and SHA-256, and materializes only those bytes for `official_aggregate`.
+The protected environment is
+`legalforecastbench-official-eval-fan-in`; it supplies only the fan-in role,
+region, and results bucket. The labels release is fetched only after the source
+forecast attempt and all public release bytes have been verified. The fan-in
+must reject any forecast artifact containing labels, any source workflow other
+than `.github/workflows/run-benchmark.yaml`, any source attempt whose head SHA
+or branch does not match the request, and any artifact whose receipt identity
+or model registry differs from `forecast-run.json`.
 
-The fan-in workflow consumes the exact staged manifest-run root, not a source checkout freeze. Set `freeze_bundle_path` to the immutable `s3://<results-bucket>/cycle-1/manifest-runs/<manifest-digest>/freeze.json` URI. After assuming the fan-in role, the workflow downloads that entire prefix, passes `/tmp/lfb-manifest-run/freeze.json` with `--freeze-root /tmp/lfb-manifest-run`, and discovers any staged amendment bundles under `/tmp/lfb-manifest-run/amendments/`. The staged bundle's hash is authoritative: staging rewrites relative artifact paths, so receipts must bind the staged `freeze_bundle_sha256`, never the source or committed bundle hash. The fan-in role must have read/list authority for this exact immutable prefix.
+`publish=false` is a provider-free verification/score run that leaves the
+canonical report prefix untouched. Set `publish=true` only once the score and
+report pass review. Publishing is create-once under
+`reports/<cycle-id>/multi-ablation/`; an existing object causes a fail-closed
+refusal rather than an overwrite. The fan-in uploads only sanitized score,
+unit-score, and report outputs. It does not create certificates, replay
+lineage, extra attestations, or approval chains.
 
-For an amended freeze, the staging operation must include every authenticated ancestor. The staged prefix contains the current bundle at `freeze.json`, its rewritten artifacts under `artifacts/`, and each ancestor bundle plus artifacts under `amendments/`; do not substitute committed `manifests/*.freeze.json` paths for that chain.
+### Legacy Cycle 1 chain note
 
-Leave `clean_motion_count` and `prediction_unit_count` empty unless using them as assertions. Fan-in derives the authoritative counts from the frozen included manifest, finalized units, and run-input case set; a supplied mismatch fails closed. Publishing first creates the permanent `cycle-publication-state/<cycle_id>/seal.json` and waits for every pre-existing mutation intent to have a matching completion. It then requires a non-smoke identifier with frozen `cycle_series: official`, stable receipt and current union-VersionId inventories through the final commit boundary, an empty canonical destination prefix, and any accepted-attempt map to match a tracked `manifests/` file in the release checkout.
-
-The publishing entry point conditionally creates only the verified public directory under the canonical prefix. It claims the exact snapshot, writes every payload with create-only preconditions, rechecks the sealed receipt and union inventories immediately before commit, and creates `.publication-complete.json` as the final successful operation:
-
-```text
-s3://$LFB_RESULTS_BUCKET/reports/<cycle_id>/multi-ablation/
-```
-
-For a local audit with read authority to the durable result bucket, use the nonpublishing entry point. Strict receipt verification intentionally requires the canonical S3 object identities; local fixture stores are appropriate for unit tests, not a full official verification rehearsal.
-
-```bash
-uv run python -m legalforecast.publication.shard_fan_in \
-  --verify-only \
-  --freeze-bundle tmp/manifest-run/<cycle_id>/freeze.json \
-  --freeze-root tmp/manifest-run/<cycle_id> \
-  --amendment-bundle tmp/manifest-run/<cycle_id>/amendments/<ancestor>.freeze.json \
-  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --receipt-root s3://$LFB_RESULTS_BUCKET \
-  --output-dir tmp/fan-in-verification/<cycle_id> \
-  --accepted-attempt-map manifests/<cycle_id>.accepted-attempts.json
-```
-
-Omit `--amendment-bundle` for an unamended root freeze and repeat it for every required ancestor of an amended freeze. Omit `--accepted-attempt-map` when every declared shard has exactly one receipt. Verification-only writes only `fan-in-report.json` to the requested output directory; its temporary materialized union, private debug output, and aggregate bundle are destroyed after aggregate validation. The report records the complete accepted map when present, every accepted receipt, the discovered inventory hash, frozen artifact hashes, derived counts, verified union commitment, and aggregate completeness facts.
-
-When the frozen execution policy requires a training baseline corpus, pass its exact bytes with `--baseline-training-examples <frozen-corpus.json>`; fan-in accepts the override only when its SHA-256 matches the freeze. Leave the option absent for an `allow_no_baselines: true` cycle whose required baselines artifact is metadata rather than a training corpus.
-
-## Add Models To A Frozen Cycle
-
-Treat a staged model addition as an amendment to the existing freeze, not as a new cycle and never as an edit to the original bundle. Preserve the original freeze and registry at their committed paths, write the superset registry at a new path, and create a new bundle that points to the freeze it amends:
-
-```bash
-uv run legalforecast freeze amend \
-  --prior-bundle manifests/<cycle_id>.freeze.json \
-  --model-registry model_registries/<cycle_id>.amendment-1.json \
-  --root . \
-  --bundle-output manifests/<cycle_id>.amendment-1.freeze.json
-```
-
-For a second or later amendment, repeat `--amendment-bundle <ancestor.freeze.json>` for every earlier ancestor needed to reach the original freeze. Commit the new registry and amendment bundle before dispatch. The amendment command fails closed unless the registry is a strict superset, every existing model entry has the same canonical entry hash, the cycle and all non-registry artifact hashes are unchanged, and the added models do not move the original release anchor.
-
-Dispatch the canonical workflow with the new public `forecast_release_uri`, `manifest_uri`, and `model_registry_uri`, and set `model_key` to the one newly added registry entry. Do not include a previously dispatched model in that run. The release and registry digests, numeric budget ceiling, account identity, and exact source revision are the complete run identity; there is no amendment or prior-dispatch input on this boundary.
-
-```json
-[
-  {
-    "workflow_run_id": "1001",
-    "workflow_run_attempt": 1,
-    "freeze_bundle_sha256": "<original_bundle_sha256>",
-    "model_key": "provider:model-a"
-  }
-]
-```
-
-The workflow walks the committed freeze chain and rechecks the amendment invariants before matrix construction. It then rejects the dispatch unless the requested matrix keys exactly equal the models introduced by the selected freeze, so existing cells never enter the matrix. Resume remains enabled, but it is a recovery guard rather than the mechanism that protects old outputs.
-
-After the added-model cells finish, the aggregate job downloads and materializes the durable union under `s3://$LFB_RESULTS_BUCKET/per-case/<cycle_id>/`, validates coverage against every model in the superset registry, and embeds `dispatch_provenance` in the aggregate run card. For local recovery, use the same union tree and provenance artifact:
-
-```bash
-uv run legalforecast publish aggregate \
-  --per-case-dir tmp/official-downloads/<cycle_id>/union \
-  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --model-registry model_registries/<cycle_id>.amendment-1.json \
-  --dispatch-provenance tmp/official-downloads/<cycle_id>/lfb-dispatch-provenance.json \
-  --labels private/labels/<cycle_id>.labels.jsonl \
-  --output-dir tmp/official-aggregate/<cycle_id> \
-  --cycle-id <cycle_id> \
-  --cycle-series <pilot|rapid|official|annual_aggregate> \
-  --clean-motion-count <count> \
-  --prediction-unit-count <count> \
-  --allow-no-baselines
-```
-
-Re-render the site from that complete union bundle and publish it to the same cycle report location. The new run card marks this as `additive_supersession` and points to the report it supersedes. Do not use the withdrawal path: the original model rows remain canonical and the amended publication only adds the new rows.
-
-## Run A Post-Anchor Supplementary Model
-
-A model released after the cycle's corpus decision window closed cannot join the frozen cycle. `freeze amend` refuses it twice over: an amendment may change only `model_registry`, so the frozen `provider_cycle_caps` cannot gain the new provider, and an added model whose release postdates the prior anchor is rejected outright. Both refusals are correct — admitting the model would move the anchor under decisions that have already been scored.
-
-Such a model still runs through this same pipeline. It binds its own registry and caps in a sibling freeze over the identical corpus artifacts, and its results publish beside the official rows marked supplementary. Nothing about the harness, packet builder, blinding, prompts, docket tool, or spend control differs.
-
-1. Issue a supplementary execution policy from the supplementary registry. The plan issuer is unmodified: it requires at least one registry entry, not exactly four, so a one-model registry produces the standard two-ablation shard schedule.
-
-   **Write it to a tracked path, not to `artifacts/`.** The registry, the caps, and this execution policy are the three artifacts a sibling freeze replaces, so the staging workflow takes them from the checkout — and it refuses any path that is not tracked at the dispatched commit, because a file present in the working tree but absent from the release did not go through review. `artifacts/` is gitignored (`.gitignore:35`), so a policy written there cannot be staged. `model_registries/` already holds this lane's registry and caps; keep all three together. All three are small, public-safe JSON.
-
-```bash
-uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
-  --cycle-id <cycle_id> \
-  --manifest manifests/<cycle_id>.manifest.json \
-  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --run-card artifacts/<cycle_id>/manifest-forecast/<run-record>.json \
-  --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
-  --output model_registries/<cycle_id>.supplementary-execution-policy.json
-```
-
-2. Freeze a sibling bundle. Pass the *same* manifest, units, labels, prompt, scorer, harness, baselines, exclusion ledger, labeling policy, and cohort policy the official freeze used, and the supplementary registry, caps, and execution policy in place of the official ones. This is a new freeze, never an amendment of the official bundle, which stays untouched at its committed path. Those three replacements are exactly the set the pre-dispatch chain permits: `project-manifest-cost --supplementary` re-verifies every other frozen artifact against the official freeze byte for byte and refuses the run if any of them drifted. That identity is the comparability claim, so it is checked rather than assumed.
-
-3. Stage the sibling freeze to its own immutable S3 prefix with `--supplementary`. Staging must precede the cost projection: the workflow accepts only a staged manifest-run URI, and the execution scope binds the **staged** freeze's raw SHA-256, which does not exist until staging has rewritten the bundle's artifact paths.
-
-   The official prefix `cycle-1/manifest-runs/<manifest_digest>/` is keyed by the corpus digest alone, which a sibling freeze over the identical corpus shares. Staging without `--supplementary` would write supplementary-only objects into the prefix that already backs dispatched official shards; those writes are create-once and no role can delete them. Classification is not left to the flag: staging takes the same pinned official reference the cost projector does, and derives the lane from it.
-
-   **Prerequisite: the manifest-staging role must already exist in AWS.** It is provisioned by the one-time human-admin operation described in `infra/official-eval-bootstrap/README.md` and then imported into the `official-eval` root, exactly like the cell and fan-in roles; the routine OIDC infrastructure operator holds only read-only refresh verbs on it and cannot create it. Until that provisioning and import are done, an `official-eval` apply fails closed in seconds with `AccessDenied` on `iam:CreateRole` and mutates nothing, and `stage-manifest-run.yaml` cannot assume the role at all.
-
-   **Staging runs in GitHub Actions, and cannot run anywhere else.** Dispatch `stage-manifest-run.yaml`; it assumes the `legalforecastbench-official-eval-manifest-staging` role over OIDC inside a protected environment, so no AWS credentials exist locally at any point. This is a structural fact, not a preference: the buckets and their KMS key are governed by *resource* policies naming only the OIDC roles, so even break-glass `AdministratorAccess` is denied — `PutObject` fails on `kms:GenerateDataKey`, `ListObjectsV2` reports "no resource-based policy allows `s3:ListBucket`", and `HeadObject` on the existing official freeze returns 403. `AdministratorAccess` is an identity policy and cannot override a resource policy that never granted the principal. If staging appears to need local credentials, the answer is never to find a stronger local credential. The results and packet bucket names are protected environment variables the workflow reads natively and a developer box cannot read at all.
-
-   Commit the sibling freeze bundle and the three artifacts it replaces to `main` first: the workflow refuses any path that is not tracked at the dispatched commit, and the role's OIDC trust pins `refs/heads/main`. Everything else — the frozen corpus artifacts and every model packet — is rebuilt inside the run from the objects the official staging already wrote, located by SHA-256 and verified against the sibling freeze's own commitments. Those bytes are the un-run evaluation corpus and must never be committed to this public repository.
-
-```bash
-gh workflow run stage-manifest-run.yaml --ref main \
-  -f release_sha="$(git rev-parse origin/main)" \
-  -f manifest_digest=<manifest_sha256 from manifest-mode-run-record.json> \
-  -f official_freeze_bundle_sha256=<official-staged-freeze-raw-sha256> \
-  -f run_inputs_sha256=<raw sha256 of the staged run-inputs.json> \
-  -f run_record_sha256=<raw sha256 of the staged manifest-mode-run-record.json> \
-  -f freeze_bundle_path=<tracked path to the sibling freeze bundle> \
-  -f freeze_bundle_sha256=<raw sha256 of that file, taken before staging> \
-  -f local_artifacts="$(printf 'model_registry=%s\nprovider_cycle_caps=%s\nexecution_policy=%s' \
-      model_registries/<supplementary-registry>.json \
-      model_registries/<supplementary-caps>.json \
-      model_registries/<cycle_id>.supplementary-execution-policy.json)" \
-  -f dry_run=true
-```
-
-   `run_inputs_sha256` and `run_record_sha256` pin the two staged files the rebuild reads; every packet digest it trusts comes out of `run-inputs.json`, so that file is pinned rather than taken on the prefix's word. Take both from the official staging's own recorded object digests.
-
-   Run it once with `dry_run=true`. The run prints the full upload plan and proves, before any object is created, that every key it would write lies inside this lane's own prefix. Re-dispatch with `dry_run=false` to write; the same fence then re-runs against the record of what was actually written.
-
-   **If a run fails part-way through the write, re-dispatch the same inputs. Do not escalate a partial prefix as unrecoverable.** Staging is idempotent and resumable by construction: `_put_immutable` treats a 412/`PreconditionFailed` as success and falls through to `_verify_remote_object` ([`manifest_forecast_stage.py:726-733`](/legalforecast/publication/manifest_forecast_stage.py)), so a re-run re-puts every object that already exists — each one 412s and is then verified byte-for-byte against its recorded `sha256` metadata and size — and creates only the ones that are missing. A timeout or a cancelled job therefore leaves a *partial* prefix, never a *poisoned* one. This holds because the rebuild is content-addressed and deterministic: the same freeze and the same replacement artifacts produce byte-identical staged objects, hence identical digests. It is the reason the job budget is generous rather than tight — but the correct response to exhausting it is still simply to run it again with the same inputs.
-
-   **This workflow stages supplementary siblings only, and there is no Actions route for an amended official freeze.** Two gaps, both deliberate. Restaging the already-staged official freeze is not merely unsupported but actively unsafe — its artifact paths already carry the `artifacts/` segment, so restaging doubles it into keys that do not exist, every create-only put therefore *succeeds* into the immutable official prefix, and the run aborts only afterwards, leaving objects no role can delete. Official re-verification has to be a read-only head-object check against the pinned freeze's own recorded keys, which is a different operation. Separately, `--amendment-bundle` has no workflow input, so an amended official freeze still has no route here; the add-models lane is tracked as `legalforecastbench-4b6f`.
-
-   The staged prefix is
-
-   `cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/`
-
-   **Two different freeze digests are in play; use the right one.** `<freeze_digest>` is the raw `sha256sum` of the file passed as `freeze_bundle_sha256`, taken *before* staging, which is why the destination is computable up front. Staging rewrites every relative artifact path, so the `freeze.json` it writes has different bytes and a different `hash_bundle_sha256`; that staged bundle is what receipts and execution-scope issuance bind. **The staged bundle's raw SHA-256 is an output of the workflow, not something you can compute beforehand.** Take it from the run's job summary and its `stage-manifest-run-*` artifact, both of which report it as `staged freeze raw sha256`; the workflow also reads the object back from S3 and re-checks it against that digest before it finishes. The prefix records both in `supplementary-stage.json`: `source_freeze_sha256` (the prefix component), `staged_freeze_sha256`, and `staged_freeze_bundle_sha256`. This sidecar is non-authoritative reporting metadata and is written only in supplementary mode, so the official layout is unchanged. The packet-bucket keys stay the shared `model-packets/...` keys the official run already staged.
-
-   `--official-freeze-bundle` / `--official-freeze-bundle-sha256` are the same pinned reference and raw-file digest step 4 uses, and carry the same warning: supply the digest explicitly rather than computing it from the bundle you are passing. Official mode requires the candidate freeze to **be** that pinned bundle; supplementary mode requires its registry keys to be disjoint from the pinned registry's. A candidate that shares the official model keys but not its bytes is refused in both modes rather than routed to either prefix.
-
-4. Project the cost against the sibling freeze in supplementary mode. This step and the next are what a paid dispatch additionally requires; a dry-run dispatch needs neither. The sibling freeze reuses the official prompt bytes on purpose, so its prompt contract commits the *official* registry — the projector therefore inverts that one identity check rather than dropping it, and records both bindings in the receipt: `supplementary_binding.official_model_registry_sha256` (the contract being reused) and `supplementary_binding.supplementary_model_registry_sha256` (the registry under evaluation), plus the corpus anchor it derived and the official freeze it matched. Supplementary mode refuses a registry whose models classify official against that corpus-derived anchor, mirroring the aggregate gate, and official mode refuses the sibling freeze exactly as before.
-
-   **Where the digest pin comes from.** `--official-freeze-bundle-sha256` is the raw-file SHA-256 of the staged official freeze — the same digest the official lane's execution scope and the workflow's pre-credential check bind, recorded when that freeze was staged. Supply it explicitly; do not compute it from whatever bundle you happen to be passing, which would defeat the point. Without an independent pin, a fabricated "official" bundle could copy its shared-artifact digests straight from the sibling and satisfy every identity check, with the sibling's own prompt bytes doing the grounding. Note again the two distinct digests: this is the **raw file** SHA-256, not the freeze protocol's canonical `hash_bundle_sha256`.
-
-   The receipt this emits is a distinct card, `legalforecast.manifest_cost_projection_supplementary_receipt.v1`, not the official receipt with an extra field. Cycle 1 change control freezes whole-card authenticated bytes, so the supplementary lane carries its own schema identifier and its own field set; official receipts are byte-for-byte what they were. The identifier is inside the hashed payload, so a receipt cannot be re-labelled into the other lane without breaking its own digest.
-
-```bash
-uv run legalforecast acquisition project-manifest-cost \
-  --freeze-bundle <supplementary-freeze>.freeze.json \
-  --freeze-root <freeze-root> \
-  --manifest-run-root artifacts/<cycle_id>/manifest-forecast/<run-record-dir> \
-  --cycle-id <cycle_id> \
-  --model-key <supplementary-model-key> \
-  --ablation full_packet \
-  --ablation metadata_only \
-  --repeat-count 1 \
-  --matrix-limit 800 \
-  --supplementary \
-  --official-freeze-bundle <official-staged-freeze>.json \
-  --official-freeze-bundle-sha256 <official-staged-freeze-raw-sha256> \
-  --output artifacts/<cycle_id>/supplementary-cost-projection.json
-```
-
-5. Obtain the owner approval comment. The grammar is unchanged and has no supplementary wording — one comment, exactly:
+The exact-string approval requirement below is retained only for any still-running legacy Cycle 1 dispatch chain. It is not part of the supported locked-manifest workflow or the project's spend policy; new work follows the Spending Guardrails in [AGENTS.md](../.agents/AGENTS.md).
 
    > **Legacy chain only.** The exact-string approval comment below, and the hashed execution scope issued from it, are requirements of the legacy Cycle 1 dispatch chain as it stands today — keep following them for a dispatch on that chain. They are not the project's spend policy and must not be copied into new work. New work follows the Spending guardrails in [AGENTS.md](/.agents/AGENTS.md): a run ceiling enforced in code, a recorded owner approval above the threshold in whatever words the owner actually used, never re-buying what we already hold, no purchase retry loops, and one journal.
 
-   **Why this step and the next stay on the operator's machine.** Scope issuance reads live owner-approval comments by shelling out to `bd comments`, and the beads Dolt server is bound to loopback on the operator's own host; a GitHub-hosted runner cannot reach it. That is a permanent property of where the approval evidence lives, not a plumbing gap. The split for the whole chain is therefore: everything that writes to S3 runs in Actions under OIDC (staging, above), and everything that reads owner evidence runs locally and needs no AWS credentials at all — `project-manifest-cost` takes a local `--manifest-run-root`, and the scope travels to the dispatch as a **committed file**, passed as `path#<scope_sha256>`.
+## Add Models To A Cycle
 
-   **The operator cannot write to these buckets at all, so committing is the only route.** This was established empirically, not assumed: break-glass `AdministratorAccess` was denied on all three probes inside the authorized paths — `PutObject` fails on `kms:GenerateDataKey`, `ListObjectsV2` reports "no resource-based policy allows `s3:ListBucket`", and `HeadObject` on the existing official freeze returns 403. `AdministratorAccess` is an *identity* policy; the buckets and their KMS key are governed by *resource* policies that name only the OIDC roles. No local credential can ever write a scope to S3, and none should be sought.
-
-   **Because every operator-to-S3 route now runs through this public repository, the scope must be public-safe on its own merits.** It travels as a commit, and a workflow input would be just as public in the run log. `owner_evidence.raw_observation_base64` embeds the *complete* raw `bd comments <bead> --json` payload — every comment on the approval bead, verbatim, base64 being encoding rather than redaction. The fix is to make the scope clean, not to route an unsafe artifact around the problem; the supplementary scope schema drops that field in favour of a digest (tracked on `legalforecastbench-sy7t`). **Do not commit a scope that still carries it** — use the guard below to check.
-
-   Commit the scope to a tracked path for the separate staging/fan-in tooling; the canonical forecast workflow takes only the locked public release contracts and numeric budget inputs described above:
-
-```bash
-scope=model_registries/<cycle_id>.supplementary-execution-scope.json
-sha256sum "${scope}" | cut -d' ' -f1   # this is the #<scope_sha256> suffix
-```
-
-   **Do not put it under `manifests/`.** That prefix is not a checkout path to `run-benchmark.yaml`: its download step routes `manifests/*` to `aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${scope_uri}"`, so a committed `manifests/...` scope is fetched from S3 rather than read from the checkout, and the dispatch fails on an object that was never uploaded. Only the default branch does `cp` from the checkout, so any tracked path that is neither `s3://` nor `manifests/` works. `model_registries/` already holds this lane's registry and caps, so it is the consistent home. `artifacts/` is gitignored and therefore not an option.
-
-   The scope digest remains a pin for the separate staging/fan-in tooling, not a `run-benchmark.yaml` input. The canonical workflow validates the checked-out source revision, the manifest/forecast/labels release pairing, each declared artifact commitment, and the numeric budget before any provider call.
-
-   **Check the scope before committing it — this repository is public.**
-
-```bash
-uv run python - <<'PY' model_registries/<cycle_id>.supplementary-execution-scope.json
-import base64, json, re, sys
-scope = json.loads(open(sys.argv[1]).read())["scope"]
-raw = base64.b64decode(scope["owner_evidence"]["raw_observation_base64"]).decode("utf-8")
-patterns = {
-    "absolute path": r"/(?:work|home|Users|tmp|var)/[A-Za-z0-9._/-]+",
-    "private address": r"\b(?:127\.0\.0\.1|localhost|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)\b",
-    "s3 uri": r"s3://[A-Za-z0-9._/-]+",
-    "aws arn": r"arn:aws[a-z-]*:[a-z0-9-]+:",
-    "email": r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
-}
-findings = {label: sorted(set(re.findall(p, raw))) for label, p in patterns.items()}
-findings = {k: v for k, v in findings.items() if v}
-print(json.dumps(findings, indent=2) if findings else "clean")
-sys.exit(1 if findings else 0)
-PY
-```
-
-   Anything it reports would be published by the commit. Once the scope schema carries only a digest of the observation, this returns `clean` and the check is a cheap regression guard; until then, treat a non-empty result as a hard stop.
-
-
-   `I approve up to USD <ceiling> of provider spend for model <model_key> in the Cycle 1 forecast run, estimated USD <estimate>.`
-
-   Set `<ceiling>` at the receipt's `recommended_max_projected_model_cost_usd` (2x the projection) and `<estimate>` at or above `projected_model_cost_usd`.
-
-6. Issue and verify the execution scope with `--supplementary`. The scope is likewise its own card, `legalforecast.execution_scope_supplementary.v1`, so a supplementary scope does not parse as an official one at all. The lane is checked at every consumption point in both directions — the workflow's pre-credential check, the provider cell, the shard-receipt writer, and fan-in — and every one of them defaults to official, so a caller that has not opted into this lane refuses a supplementary scope without being changed. The shard-receipt writer matters most: its receipts are write-once per attempt, so a wrong-lane scope accepted there would burn the slot and surface only at fan-in, after the run is paid for.
-
-```bash
-uv run legalforecast acquisition issue-manifest-execution-scope \
-  --plan model_registries/<cycle_id>.supplementary-execution-policy.json \
-  --freeze-bundle <supplementary-freeze>.freeze.json \
-  --freeze-root <freeze-root> \
-  --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
-  --model-key <supplementary-model-key> \
-  --cost-projection artifacts/<cycle_id>/supplementary-cost-projection.json \
-  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --owner-ceiling-usd <ceiling> \
-  --owner-bead-id <approval-bead> \
-  --provider-cycle-caps <supplementary-provider-cycle-caps>.json \
-  --supplementary \
-  --output model_registries/<cycle_id>.supplementary-execution-scope.json
-
-uv run legalforecast acquisition verify-manifest-execution-scope \
-  --scope model_registries/<cycle_id>.supplementary-execution-scope.json \
-  --plan model_registries/<cycle_id>.supplementary-execution-policy.json \
-  --freeze-bundle <supplementary-freeze>.freeze.json \
-  --freeze-root <freeze-root> \
-  --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
-  --cost-projection artifacts/<cycle_id>/supplementary-cost-projection.json \
-  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --owner-evidence <owner-observation>.json \
-  --provider-cycle-caps <supplementary-provider-cycle-caps>.json \
-  --model-key <supplementary-model-key> \
-  --supplementary
-```
-
-   The supplementary card's `owner_evidence` records `raw_observation_sha256`, the digest of the captured `bd comments` payload, and refuses `raw_observation_base64` by name; the official card still embeds the payload. That is what makes a supplementary scope safe to commit to this public repository — the only route by which an operator-produced one reaches S3 — because the capture is every comment on the approval bead, not just the approval line. Keep `<owner-observation>.json` on the operator machine and do not commit it: `--owner-evidence` above replays it in full against the published digest, which is the strongest available check, while the workflow's pre-credential check needs only the card.
-
-7. A supplementary or post-anchor model must use the same canonical workflow with its own public manifest, forecast release, labels release, registry entry, account, and budget ceiling. There is no supplementary flag or alternate dispatcher: the provider cell remains outcome-blinded and the protected fan-in remains the only label-consuming boundary. Keep any separate local scope/staging artifacts out of the workflow input set.
-
-8. Aggregate the shard into its own bundle with `--supplementary`. That flag is a declaration of which bundle is being built, not a claim about any model: an official bundle refuses a model released after the corpus anchor, and a supplementary bundle refuses one released on or before it, so the two sets can never blend. The anchor is the earliest decision the cycle scores, taken from the run-input manifest, so the check cannot be satisfied by supplying a registry that vouches for itself.
-
-```bash
-uv run legalforecast publish aggregate \
-  --per-case-dir tmp/official-downloads/<cycle_id>/supplementary \
-  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
-  --labels private/labels/<cycle_id>.labels.jsonl \
-  --output-dir tmp/supplementary-aggregate/<cycle_id> \
-  --cycle-id <cycle_id> \
-  --cycle-series official \
-  --supplementary \
-  --clean-motion-count <count> \
-  --prediction-unit-count <count> \
-  --allow-no-baselines
-```
-
-9. Fan in the supplementary shard with the same receipt verification the official shards get, then publish. Receipts are verified identically; `--supplementary` selects which bundle the aggregate builds *and* which receipt namespace is listed. Fan in against the *staged* supplementary manifest-run root, never the committed sibling freeze: receipts bind the staged `freeze_bundle_sha256`, and the committed file has different bytes.
-
-```bash
-aws s3 sync \
-  "s3://<results-bucket>/cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/" \
-  /tmp/lfb-supplementary-run/ --only-show-errors
-
-uv run python -m legalforecast.publication.shard_fan_in \
-  --freeze-bundle /tmp/lfb-supplementary-run/freeze.json \
-  --freeze-root /tmp/lfb-supplementary-run \
-  --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --receipt-root s3://<results-bucket> \
-  --output-dir tmp/supplementary-fan-in \
-  --supplementary
-```
-
-   `--receipt-root` is the bare bucket root, exactly as the official fan-in above passes it: discovery appends the lane's own receipt prefix itself. With `--supplementary` that prefix is `shard-receipts/supplementary/<cycle_id>/`, which is where the supplementary `finalize-shard` wrote. The two lanes never list each other: receipt selection hard-fails on any receipt outside the freeze's declared shard schedule, so a shared namespace would let one lane's first completed receipt permanently break the other's fan-in.
-
-   `fan-in-publish.yaml` stays on the official manifest-run root: its `freeze_bundle_path` accepts only `cycle-1/manifest-runs/<manifest_digest>/freeze.json` and refuses the supplementary shape, because it builds the official bundle. The supplementary bundle reaches the gated publication through `supplementary_artifacts_dir`, below.
-
-10. Render one merged page. Both the local site and the Hugging Face package take the supplementary bundle as an optional input, so the two render the same rows:
-
-```bash
-uv run legalforecast publish site \
-  --official-artifacts-dir tmp/official-fan-in/public \
-  --supplementary-artifacts-dir tmp/supplementary-fan-in/public \
-  --output-dir tmp/official-site/<cycle_id>
-```
-
-For the gated Hugging Face publication, dispatch `fan-in-publish.yaml` with `supplementary_artifacts_dir` set to the checked-out supplementary bundle. Leaving that input empty invokes the package build exactly as an official-only publication does.
-
-The aggregate writes `result-class-sidecar.json` beside the leaderboard. It is a non-authoritative reporting overlay bound to the leaderboard bytes; the site renderer reads it to mark supplementary rows. Approval for a supplementary run is the ordinary spend path: the provider cap in the dated caps artifact plus one owner spend comment. No separate authority chain applies.
+There is no separate amendment, matrix, shard, or legacy-dispatch path. For a
+new model, create a new locked public manifest/release/registry set and run the
+same outcome-blinded forecast workflow, then run the same protected labels
+fan-in with that exact source run and attempt. Existing published reports are
+immutable; a new cycle ID is required when the public contract or expected unit
+set changes.
 
 ## Staged-Rollout Rehearsal Drill
 
-Extend the staged-rollout fixture rehearsal with this sequence before the real amendment dispatch:
-
-1. Freeze and run fixture model A, aggregate it, and save SHA-256 checksums for every file in A's per-case artifact directory.
-2. Create an amendment freeze whose registry adds fixture model B, then dispatch only B with the canonical workflow's new public release and single `model_key` input.
-3. Materialize the union, aggregate against the two-model registry with `--dispatch-provenance`, and confirm the leaderboard contains exactly A and B.
-4. Recompute A's per-case artifact checksums and require an exact match with the pre-amendment checksum set. Any added, removed, or changed A artifact fails the drill as evidence of possible silent re-sampling.
-5. Confirm the amended run card lists both dispatches, both freezes in order, A mapped to the original freeze, B mapped to the amendment freeze, and publication mode `additive_supersession`.
-
-The automated rehearsal in `tests/test_official_run_runbook.py` performs the same two-generation aggregation and byte-identity assertion. The operator evidence record must still include the workflow run IDs, S3 union location, aggregate artifact, and checksum result for sign-off.
+Provider-free fixtures may exercise the forecast artifact contract and the
+fan-in's rejection cases. They are rehearsal evidence only and cannot publish,
+stand in for a labels release, or establish live AWS/provider acceptance. Keep
+the fixture artifact layout identical to the durable interface above, including
+the no-labels boundary and complete receipt coverage.
 
 ## Render And Review The Site
 
-Render only from the public aggregate directory:
-
-```bash
-uv run legalforecast publish site \
-  --official-artifacts-dir tmp/official-aggregate/<cycle_id>/public \
-  --output-dir tmp/official-site/<cycle_id>
-```
-
-Review `index.html`, `artifact-index.json`, the aggregate run card, leaderboard outputs, small-cluster warnings, model-versus-baseline row types, and the publication-guardrail result before publishing. Keep `private-debug/`, locked labels, source-document bytes, and raw provider material out of the public site.
+The protected fan-in renders the report from its verified score. Review the
+sanitized report, count summary, model identity, and public/private boundary
+from the uploaded fan-in artifact. Keep labels, source court documents,
+provider responses, ledgers, and private debug material out of the public site.
 
 ## Recovery Acceptance Criteria
 
-A recovery is complete only when every expected matrix cell is present exactly once, artifact hashes match, aggregation succeeds without incomplete-model overrides, the public/private split passes guardrails, and the rendered site refers only to public artifacts. If inputs, prompt, scorer, registry, packet hashes, repeat count, or labels change, treat that as a new frozen run rather than a retry.
+A run is complete only when the exact source attempt succeeded, its durable
+artifact is complete and label-free, the locked manifest/release/registry
+bytes match, the ledger and receipts are complete, and fan-in's score/report
+succeeds. A missing opposition, decision, or motion is a human-review finding;
+a missing reply is acceptable only with docket confirmation that no reply was
+filed. Discarding a case is allowed during corpus construction, but record the
+case and reason in the corpus artifacts; otherwise published corpus inputs are
+immutable.
 
 ## Cycle 1 Batch-002 CourtListener-First Acquisition
 

@@ -7,12 +7,16 @@ WORKFLOW_PATH = Path(".github/workflows/fan-in-publish.yaml")
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
 
 
-def test_fan_in_workflow_is_provider_free_and_role_scoped() -> None:
+def test_fan_in_is_a_single_protected_provider_free_labels_boundary() -> None:
+    assert "name: Protected Labels Fan In" in WORKFLOW
+    assert "workflow_dispatch:" in WORKFLOW
+    assert "workflow_run:" not in WORKFLOW
     assert "fan-in-results:" in WORKFLOW
+    assert "environment: legalforecastbench-official-eval-fan-in" in WORKFLOW
+    assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in WORKFLOW
+    assert "id-token: write" in WORKFLOW
     assert "run-case:" not in WORKFLOW
     assert "finalize-shard:" not in WORKFLOW
-    assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in WORKFLOW
-    assert "legalforecastbench-official-eval-fan-in" in WORKFLOW
     for provider_secret in (
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
@@ -22,177 +26,150 @@ def test_fan_in_workflow_is_provider_free_and_role_scoped() -> None:
         assert provider_secret not in WORKFLOW
 
 
-def test_workflow_downloads_exact_cross_run_dispatch_artifact() -> None:
-    assert "source_dispatch_run_id:" in WORKFLOW
-    assert "source_dispatch_run_attempt:" in WORKFLOW
-    assert "actions: read" in WORKFLOW
-    assert (
-        "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c" in WORKFLOW
-    )
-    assert (
-        "official-dispatch-provenance-${{ inputs.source_dispatch_run_id }}-"
-        "${{ inputs.source_dispatch_run_attempt }}" in WORKFLOW
-    )
-    assert "/tmp/lfb-source-dispatch/lfb-dispatch-release.json" in WORKFLOW
-    assert "/tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json" in WORKFLOW
-    assert "lfb-execution-scope*.json" in WORKFLOW
-    assert "--execution-scope" in WORKFLOW
-    assert "--labels /tmp/lfb-source-dispatch/lfb-labels.jsonl" in WORKFLOW
-    assert (
-        "--model-registry /tmp/lfb-source-dispatch/lfb-model-registry.json" in WORKFLOW
-    )
-    assert '--source-dispatch-run-id "${SOURCE_DISPATCH_RUN_ID}"' in WORKFLOW
-    assert '--source-dispatch-run-attempt "${SOURCE_DISPATCH_RUN_ATTEMPT}"' in WORKFLOW
-    assert '--source-release-sha "${RELEASE_SHA}"' in WORKFLOW
+def test_dispatch_contract_has_exact_source_run_and_locked_release_inputs() -> None:
+    for input_name in (
+        "release_sha:",
+        "cycle_id:",
+        "forecast_run_id:",
+        "forecast_run_attempt:",
+        "manifest_uri:",
+        "forecast_release_uri:",
+        "artifact_root_uri:",
+        "model_registry_uri:",
+        "labels_release_uri:",
+        "model_key:",
+        "publish:",
+    ):
+        assert input_name in WORKFLOW
+    for retired_input in (
+        "source_dispatch_run_id:",
+        "source_dispatch_runs_json:",
+        "freeze_bundle_path:",
+        "supplementary_artifacts_dir:",
+        "accepted_attempt_map:",
+        "official-dispatch-provenance",
+        "lfb-run-inputs-frozen",
+    ):
+        assert retired_input not in WORKFLOW
 
 
-def test_workflow_downloads_the_immutable_staged_manifest_run() -> None:
-    validation = WORKFLOW[
-        WORKFLOW.index("- name: Validate trusted immutable inputs") : WORKFLOW.index(
-            "- name: Validate source dispatch workflow run"
-        )
-    ]
-    download = WORKFLOW[
-        WORKFLOW.index(
-            "- name: Download immutable manifest-run bundle"
-        ) : WORKFLOW.index(
-            "- name: Verify receipts and aggregate accepted exact versions"
-        )
-    ]
-
-    assert "^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\\.json$" in validation
-    assert "freeze_bundle_path must use the configured LFB_RESULTS_BUCKET" in validation
-    assert 'aws s3 sync "s3://${bucket}/${prefix}/" "${root}/"' in download
-    assert 'root="/tmp/lfb-manifest-run"' in download
-    assert '[[ -f "${root}/freeze.json" ]]' in download
-
-
-def test_fan_in_freeze_uri_refuses_the_supplementary_manifest_run_prefix() -> None:
-    """This workflow builds the official bundle, so it takes only the official root.
-
-    A supplementary shard is aggregated by a local ``shard_fan_in --supplementary``
-    run and reaches this workflow as ``supplementary_artifacts_dir``; the freeze
-    URI here must stay the official manifest-run root. The existing pattern
-    already refuses the supplementary shape, and this pins that it keeps doing so.
-    """
-
-    pattern = re.compile(
-        r"^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$"
-    )
-    assert pattern.pattern.replace("\\.", "\\.") in WORKFLOW
-    official = "s3://results-bucket/cycle-1/manifest-runs/" + "a" * 64 + "/freeze.json"
-    supplementary = (
-        "s3://results-bucket/cycle-1/manifest-runs/supplementary/"
-        + "a" * 64
-        + "/"
-        + "b" * 64
-        + "/freeze.json"
-    )
-    assert pattern.match(official)
-    assert pattern.match(supplementary) is None
-    assert "supplementary_artifacts_dir:" in WORKFLOW
-
-
-def test_workflow_binds_source_dispatch_run_record_to_exact_attempt() -> None:
+def test_source_attempt_is_bound_to_the_exact_main_workflow_path() -> None:
     validation = WORKFLOW[
         WORKFLOW.index(
-            "- name: Validate source dispatch workflow run"
-        ) : WORKFLOW.index("- name: Download exact frozen dispatch inputs")
+            "- name: Validate exact forecast workflow attempt"
+        ) : WORKFLOW.index("- name: Download exact durable forecast result artifact")
     ]
-
     assert "GITHUB_TOKEN: ${{ github.token }}" in validation
     assert "GITHUB_REPOSITORY_NAME: ${{ github.repository }}" in validation
-    assert 'run["id"] != int(source_dispatch_run_id)' in validation
-    assert 'run["run_attempt"] != int(source_dispatch_run_attempt)' in validation
-    assert 'f"attempts/{source_dispatch_run_attempt}"' in validation
-    assert 'run["head_sha"] != expected_release_sha' in validation
-    assert 'run["head_branch"] != "main"' in validation
-    assert 'run["event"] != "workflow_dispatch"' in validation
-    assert 'run["path"] != ".github/workflows/run-benchmark.yaml"' in validation
-    assert 'run["status"] != "completed"' in validation
-    assert 'run["conclusion"] != "success"' not in validation
-    assert 'f"{attempt_path}/jobs?filter=all&per_page=100&page={page}"' in validation
-    assert 'job.get("name") == "Build benchmark matrix"' in validation
-    assert 'build_jobs[0].get("conclusion") != "success"' in validation
-    assert "source dispatch workflow jobs response is incomplete" in validation
+    for required in (
+        'run.get("id") == run_id',
+        'run.get("run_attempt") == attempt',
+        'run.get("head_sha") == expected_sha',
+        'run.get("head_branch") == "main"',
+        'run.get("event") == "workflow_dispatch"',
+        'run.get("path") == ".github/workflows/run-benchmark.yaml"',
+        'run.get("status") == "completed"',
+        'run.get("conclusion") == "success"',
+    ):
+        assert required in validation
 
 
-def test_workflow_binds_source_dispatch_artifact_to_requested_release() -> None:
+def test_forecast_artifact_is_durable_complete_and_cannot_transport_labels() -> None:
+    download = WORKFLOW[
+        WORKFLOW.index(
+            "- name: Download exact durable forecast result artifact"
+        ) : WORKFLOW.index("- name: Configure protected fan-in storage access")
+    ]
+    assert "official-forecast-results-{run_id}-{attempt}" in download
+    assert "archive_download_url" in download
+    assert "expired" in download
+    assert "ledger/ledger.sqlite3" in download
+    for required in (
+        "forecast-run.json",
+        "run-manifest.json",
+        "forecast-release.json",
+        "model-registry.json",
+        "run-summary.json",
+        "receipts",
+        "is_symlink",
+        "duplicate path",
+        "unsafe path",
+        "must not contain labels",
+    ):
+        assert required in download
+    assert "official-dispatch-provenance" not in download
+
+
+def test_labels_are_fetched_only_after_public_and_source_checks() -> None:
+    fetch_start = WORKFLOW.index("- name: Fetch and bind locked releases")
+    validation_end = WORKFLOW.index("- name: Validate exact forecast workflow attempt")
+    fetch = WORKFLOW[fetch_start:]
+    assert "LABELS_RELEASE_URI" in fetch
+    assert 'fetch_locked "${LABELS_RELEASE_URI}"' in fetch
+    assert (
+        "This is the only step in the repository that reads the label locator." in fetch
+    )
+    assert validation_end < fetch_start
+    assert 'fetch_locked "${LABELS_RELEASE_URI}"' not in WORKFLOW[:fetch_start]
+
+
+def test_run_identity_and_receipt_coverage_are_bound_before_scoring() -> None:
     validation = WORKFLOW[
-        WORKFLOW.index("- name: Validate frozen dispatch artifact") : WORKFLOW.index(
-            "- name: Install uv"
+        WORKFLOW.index(
+            "- name: Validate run identity, model registry"
+        ) : WORKFLOW.index(
+            "- name: Validate releases and score complete forecast receipts"
         )
     ]
+    for required in (
+        "legalforecast.forecast-run.v1",
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "run_identity_sha256",
+        "model_registry_sha256",
+        "repeat_count",
+        "PRAGMA integrity_check",
+        "SELECT status FROM runs",
+        "completed",
+        "required_unit_ids",
+        "seen_units",
+        "no durable forecast receipts",
+    ):
+        assert required in validation
+    scoring = WORKFLOW[
+        WORKFLOW.index(
+            "- name: Validate releases and score complete forecast receipts"
+        ) :
+    ]
+    assert "--model-registry" in scoring
+    assert "--expected-run-identity" in scoring
+    assert "--labels-release" in scoring
 
-    assert "RELEASE_SHA: ${{ inputs.release_sha }}" in validation
-    assert "SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}" in validation
+
+def test_publish_is_create_once_and_uploads_only_sanitized_outputs() -> None:
+    publish = WORKFLOW[WORKFLOW.index("- name: Publish verified report once") :]
+    assert "inputs.publish" in publish
+    assert "list-objects-v2" in publish
+    assert "refusing to overwrite existing immutable report prefix" in publish
+    assert "scores.json" in publish
+    assert "unit-scores.jsonl" in publish
+    assert "/tmp/lfb-report" in publish
+    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in publish
+    assert "private" not in publish
+
+
+def test_workflow_uses_immutable_action_pins_and_rejects_unsafe_locators() -> None:
+    assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in WORKFLOW
     assert (
-        "SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}"
-        in validation
+        "aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c"
+        in WORKFLOW
     )
-    assert '"legalforecast.dispatch_release.v2"' in validation
-    assert 'release["workflow_run_id"] != source_dispatch_run_id' in validation
-    assert (
-        'release["workflow_run_attempt"] != source_dispatch_run_attempt' in validation
-    )
-    assert 'release["release_sha"] != expected_release_sha' in validation
-    assert "source dispatch release provenance fields mismatch" in validation
-
-
-def test_verify_only_and_publish_use_structurally_distinct_entrypoints() -> None:
-    assert "legalforecast.publication.shard_fan_in \\\n" in WORKFLOW
-    assert "--verify-only" in WORKFLOW
-    assert "legalforecast.publication.shard_fan_in_publish \\\n" in WORKFLOW
-    assert "--publish-root" in WORKFLOW
-    assert '--publication-cycle-id "${CYCLE_ID}"' in WORKFLOW
-    assert "per-case/${CYCLE_ID}" not in WORKFLOW
-
-
-def test_publish_map_must_come_from_trusted_checkout() -> None:
-    assert 'case "${ACCEPTED_MAP}" in' in WORKFLOW
-    assert "manifests/*" in WORKFLOW
-    assert "git ls-files --error-unmatch" in WORKFLOW
-    assert "git diff --quiet HEAD" in WORKFLOW
-    assert "git merge-base --is-ancestor" in WORKFLOW
-
-
-def test_workflow_executes_only_the_requested_full_main_ancestor_sha() -> None:
-    assert '[[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]' in WORKFLOW
-    assert 'checked_out_sha="$(git rev-parse HEAD)"' in WORKFLOW
-    assert '[[ "${checked_out_sha}" == "${RELEASE_SHA}" ]]' in WORKFLOW
-    assert 'git merge-base --is-ancestor "${checked_out_sha}" origin/main' in WORKFLOW
-
-
-def test_oidc_workflow_uses_immutable_action_pins_and_safe_shell_inputs() -> None:
-    assert "astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78" in WORKFLOW
     assert (
         "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in WORKFLOW
     )
-    assert "uses: astral-sh/setup-uv@v" not in WORKFLOW
-    assert "uses: actions/upload-artifact@v" not in WORKFLOW
-    assert '[[ "${CYCLE_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]' in WORKFLOW
-    assert "reports/${{ inputs.cycle_id }}" not in WORKFLOW
-    assert "reports/${CYCLE_ID}/multi-ablation/" in WORKFLOW
-
-
-def test_workflow_supplies_staged_freeze_ancestors() -> None:
-    fan_in = WORKFLOW[
-        WORKFLOW.index(
-            "- name: Verify receipts and aggregate accepted exact versions"
-        ) : WORKFLOW.index("- name: Upload sanitized fan-in verification report")
-    ]
-
-    assert "--freeze-bundle /tmp/lfb-manifest-run/freeze.json" in fan_in
-    assert "--freeze-root /tmp/lfb-manifest-run" in fan_in
-    assert (
-        "find /tmp/lfb-manifest-run/amendments -type f -name '*.freeze.json'" in fan_in
-    )
-    assert 'args+=(--amendment-bundle "${bundle_path}")' in fan_in
-    assert "find manifests -type f -name '*.freeze.json'" not in fan_in
-    assert "freeze_bundle_path is not a checked-out file" not in WORKFLOW
-
-
-def test_workflow_uploads_only_sanitized_verification_report() -> None:
-    assert "tmp/official-fan-in/fan-in-report.json" in WORKFLOW
-    assert "tmp/official-fan-in/aggregate" not in WORKFLOW
-    assert "tmp/official-fan-in/per-case" not in WORKFLOW
+    assert '[[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]' in WORKFLOW
+    assert 'git merge-base --is-ancestor "${RELEASE_SHA}" origin/main' in WORKFLOW
+    assert "${locator}" in WORKFLOW
+    assert "unsafe path" in WORKFLOW
+    assert "artifact_root_uri must be a prefix ending in /" in WORKFLOW
+    assert re.search(r"reports/\$\{CYCLE_ID\}/multi-ablation", WORKFLOW)

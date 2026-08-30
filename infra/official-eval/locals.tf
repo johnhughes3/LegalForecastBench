@@ -4,11 +4,15 @@ locals {
   github_subject_prefix = "repo:${local.github_repository}"
 
   cell_environment_name             = "legalforecastbench-official-eval"
+  prepare_inputs_environment_name   = "legalforecastbench-official-eval-prepare-inputs"
   fan_in_environment_name           = "legalforecastbench-official-eval-fan-in"
   manifest_staging_environment_name = "legalforecastbench-official-eval-manifest-staging"
 
   cell_subject = (
     "${local.github_subject_prefix}:environment:${local.cell_environment_name}"
+  )
+  prepare_inputs_subject = (
+    "${local.github_subject_prefix}:environment:${local.prepare_inputs_environment_name}"
   )
   fan_in_subject = (
     "${local.github_subject_prefix}:environment:${local.fan_in_environment_name}"
@@ -39,6 +43,15 @@ locals {
       github_repository        = local.github_repository
       github_ref               = local.github_ref
       github_subject           = local.fan_in_subject
+    },
+  )
+  prepare_inputs_trust_policy_json = templatefile(
+    "${path.module}/policies/github-oidc-trust.json.tftpl",
+    {
+      github_oidc_provider_arn = var.github_oidc_provider_arn
+      github_repository        = local.github_repository
+      github_ref               = local.github_ref
+      github_subject           = local.prepare_inputs_subject
     },
   )
   manifest_staging_trust_policy_json = templatefile(
@@ -109,6 +122,13 @@ locals {
   )
   fan_in_storage_policy_json = templatefile(
     "${path.module}/policies/fan-in-storage-policy.json.tftpl",
+    {
+      artifacts_kms_key_arn = var.artifacts_kms_key_arn
+      results_bucket_arn    = local.results_bucket_arn
+    },
+  )
+  prepare_inputs_storage_policy_json = templatefile(
+    "${path.module}/policies/prepare-inputs-storage-policy.json.tftpl",
     {
       artifacts_kms_key_arn = var.artifacts_kms_key_arn
       results_bucket_arn    = local.results_bucket_arn

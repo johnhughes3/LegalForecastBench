@@ -50,6 +50,44 @@ def test_import_ids_are_derived_from_one_closed_module_address_mapping() -> None
     contract = _load_contract()
     protected: dict[str, str] = {}
 
+    expected_eval_import_ids = {
+        "aws_iam_role.cell": "legalforecastbench-official-eval",
+        "aws_iam_role.prepare_inputs": (
+            "legalforecastbench-official-eval-prepare-inputs"
+        ),
+        "aws_iam_role.fan_in": "legalforecastbench-official-eval-fan-in",
+        "aws_iam_role_policy.cell_provider_authority": (
+            "legalforecastbench-official-eval:"
+            "official-eval-cell-exact-provider-authority"
+        ),
+        "aws_iam_role_policy.cell_storage": (
+            "legalforecastbench-official-eval:official-eval-cell-storage"
+        ),
+        "aws_iam_role_policy.prepare_inputs_storage": (
+            "legalforecastbench-official-eval-prepare-inputs:"
+            "official-eval-prepare-inputs-storage"
+        ),
+        "aws_iam_role_policy.fan_in_storage": (
+            "legalforecastbench-official-eval-fan-in:official-eval-fan-in-storage"
+        ),
+        "aws_iam_role_policies_exclusive.cell": "legalforecastbench-official-eval",
+        "aws_iam_role_policies_exclusive.prepare_inputs": (
+            "legalforecastbench-official-eval-prepare-inputs"
+        ),
+        "aws_iam_role_policies_exclusive.fan_in": (
+            "legalforecastbench-official-eval-fan-in"
+        ),
+        "aws_iam_role_policy_attachments_exclusive.cell": (
+            "legalforecastbench-official-eval"
+        ),
+        "aws_iam_role_policy_attachments_exclusive.prepare_inputs": (
+            "legalforecastbench-official-eval-prepare-inputs"
+        ),
+        "aws_iam_role_policy_attachments_exclusive.fan_in": (
+            "legalforecastbench-official-eval-fan-in"
+        ),
+    }
+
     assert (
         contract.resolve_import_id(
             "provider-authority", "aws_dynamodb_table.provider_authority", protected
@@ -81,12 +119,29 @@ def test_import_ids_are_derived_from_one_closed_module_address_mapping() -> None
         for address in contract.PLAN_ADDRESSES["official-eval"]
     }
     assert resolved_eval_addresses.keys() == contract.PLAN_ADDRESSES["official-eval"]
+    assert resolved_eval_addresses == {
+        **expected_eval_import_ids,
+        "aws_iam_role.manifest_staging": (
+            "legalforecastbench-official-eval-manifest-staging"
+        ),
+        "aws_iam_role_policy.manifest_staging_storage": (
+            "legalforecastbench-official-eval-manifest-staging:"
+            "official-eval-manifest-staging-storage"
+        ),
+        "aws_iam_role_policies_exclusive.manifest_staging": (
+            "legalforecastbench-official-eval-manifest-staging"
+        ),
+        "aws_iam_role_policy_attachments_exclusive.manifest_staging": (
+            "legalforecastbench-official-eval-manifest-staging"
+        ),
+    }
 
     for module, address in (
         ("../official-eval", "aws_iam_role.cell"),
         ("official-eval", "aws_s3_bucket.unrelated"),
         ("official-eval", "module.other.aws_s3_bucket.packet"),
         ("official-eval", "aws_iam_role_policy.cell_bedrock[0]"),
+        ("official-eval", "aws_iam_role_policy.prepare_inputs"),
         ("provider-authority", "aws_s3_bucket.packet"),
     ):
         with pytest.raises(ValueError, match="reviewed import allowlist"):

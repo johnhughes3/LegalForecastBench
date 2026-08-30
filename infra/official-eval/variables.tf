@@ -5,7 +5,7 @@ variable "aws_region" {
 }
 
 variable "name_prefix" {
-  description = "Stable prefix for the two official-evaluation IAM roles."
+  description = "Stable prefix for the official-evaluation IAM roles."
   type        = string
   default     = "legalforecastbench-official-eval"
 
