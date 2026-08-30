@@ -308,6 +308,7 @@ RELEASE_HARNESS_RECEIPT_V1 = SchemaIdentifier(
 )
 PUBLIC_RUN_IDENTITY_V1 = SchemaIdentifier("legalforecast.public-run-identity.v1")
 PUBLIC_RUN_RECEIPT_V1 = SchemaIdentifier("legalforecast.public-run-receipt.v1")
+PUBLIC_RUN_MANIFEST_V1 = SchemaIdentifier("legalforecast.public-run-manifest.v1")
 SHARD_RECEIPT_V3 = SchemaIdentifier("legalforecast.shard_receipt.v3")
 FREE_SUPPORT_MEMORANDUM_RECOVERY_PLAN_V1 = SchemaIdentifier(
     "legalforecast.free_support_memorandum_recovery_plan.v1"
