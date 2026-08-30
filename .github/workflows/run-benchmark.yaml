@@ -44,13 +44,16 @@ on:
         type: string
       freeze_bundle_path:
         description: >-
-          Current authenticated manifest-run freeze bundle. Use only an immutable
-          s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI, or, when
-          supplementary is true, the immutable
+          Current authenticated manifest-run freeze bundle, and the input the
+          official/supplementary lane is derived from. Use only an immutable
+          s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI for an
+          official dispatch, or the immutable
           s3://.../cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/freeze.json
-          URI for the sibling freeze; the two shapes are not interchangeable and each
-          mode refuses the other's. The cost projector requires the corresponding
-          downloaded manifest-run root.
+          URI for a supplementary sibling freeze. The two shapes are disjoint --
+          the literal "supplementary" segment can never be a 64-hex digest -- so
+          the staged prefix names the lane and anything matching neither shape is
+          refused. The cost projector requires the corresponding downloaded
+          manifest-run root.
         required: false
         default: ""
         type: string
@@ -100,16 +103,6 @@ on:
           rejects an empty URI.
         required: false
         type: string
-      elapsed_days:
-        description: Optional elapsed days for rapid-cycle power classification.
-        required: false
-        default: ""
-        type: string
-      official_window_days:
-        description: Optional official window length in days.
-        required: false
-        default: ""
-        type: string
       repeat_sample_case_ids:
         description: Optional comma-separated case IDs to run with repeat_count for within-model variance measurement.
         required: false
@@ -147,26 +140,18 @@ on:
         required: false
         default: ""
         type: string
-      supplementary:
-        description: >-
-          Dispatch a post-anchor supplementary shard. Requires a supplementary
-          model registry and its own sibling freeze bundle; the release-anchor
-          gate inverts rather than switching off, so an official-classed model
-          is refused. Leave false for every official dispatch, which is then
-          invoked exactly as before.
-        required: true
-        default: false
-        type: boolean
       official_freeze_bundle_uri:
         description: >-
           Official freeze bundle a supplementary sibling freeze must match, byte
           for byte, on every frozen artifact except the model registry, provider
           caps, and execution policy, followed by # and its lowercase SHA-256
           (URI#sha256). Required for a supplementary dispatch and refused
-          otherwise. The digest is the pin: without it a fabricated bundle could
-          copy its shared-artifact digests from the sibling and pass every
-          identity check. Take it from the staged official freeze's recorded
-          raw-file digest.
+          otherwise; the lane is derived from freeze_bundle_path, so this is
+          required exactly when that URI uses the supplementary prefix. The
+          digest is the pin: without it a fabricated bundle could copy its
+          shared-artifact digests from the sibling and pass every identity
+          check. Take it from the staged official freeze's recorded raw-file
+          digest.
         required: false
         default: ""
         type: string
@@ -174,7 +159,10 @@ on:
         description: >-
           Authenticated exact-model execution-scope artifact followed by # and
           its lowercase SHA-256 (URI#sha256). Required for a non-dry paid shard;
-          the scope covers both official ablations for one registry model.
+          the scope covers both official ablations for one registry model. The
+          digest after # pins the scope's own scope_sha256 field -- the canonical
+          hash of the inner scope object -- and NOT the sha256 of the scope file,
+          which differs. Take it from the issuer's recorded scope_sha256.
         required: false
         default: ""
         type: string
@@ -183,7 +171,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: run-benchmark-${{ inputs.cycle_id }}-${{ inputs.supplementary && 'supplementary' || 'official' }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
+  # The frozen execution policy declares concurrency_policy.identity_fields as
+  # exactly (cycle_id, model_key, ablation), and dispatch_provenance rebuilds
+  # this string from that policy and refuses a shard whose group differs. Any
+  # extra segment here is a dispatch-time refusal, not a naming preference; a
+  # lane segment is also redundant, since a model key classifies into exactly
+  # one of official/supplementary and never both.
+  group: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
   cancel-in-progress: false
 
 jobs:
@@ -227,6 +221,7 @@ jobs:
       projected_model_cost_usd: ${{ steps.matrix.outputs.projected_model_cost_usd }}
       recommended_max_projected_model_cost_usd: ${{ steps.matrix.outputs.recommended_max_projected_model_cost_usd }}
       release_sha: ${{ steps.validate.outputs.release_sha }}
+      supplementary: ${{ steps.validate.outputs.supplementary }}
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
@@ -266,19 +261,16 @@ jobs:
           CLEAN_MOTION_COUNT_INPUT: ${{ inputs.clean_motion_count }}
           CYCLE_ID_INPUT: ${{ inputs.cycle_id }}
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
-          ELAPSED_DAYS_INPUT: ${{ inputs.elapsed_days }}
           EXECUTION_SCOPE_URI_INPUT: ${{ inputs.execution_scope_uri }}
           FREEZE_BUNDLE_PATH_INPUT: ${{ inputs.freeze_bundle_path }}
           LABELS_URI: ${{ inputs.labels_uri }}
           MAX_PROJECTED_MODEL_COST_USD_INPUT: ${{ inputs.max_projected_model_cost_usd }}
           MAX_PARALLEL_INPUT: ${{ inputs.max_parallel }}
-          OFFICIAL_WINDOW_DAYS_INPUT: ${{ inputs.official_window_days }}
           PREDICTION_UNIT_COUNT_INPUT: ${{ inputs.prediction_unit_count }}
           REPEAT_COUNT_INPUT: ${{ inputs.repeat_count }}
           RELEASE_SHA_INPUT: ${{ inputs.release_sha }}
           OFFICIAL_FREEZE_BUNDLE_URI_INPUT: ${{ inputs.official_freeze_bundle_uri }}
           SHARD_ONLY_INPUT: ${{ inputs.shard_only }}
-          SUPPLEMENTARY_INPUT: ${{ inputs.supplementary }}
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
@@ -350,18 +342,24 @@ jobs:
           fi
           case "${freeze_bundle_path}" in
             s3://*)
-              # Both directions fail closed. The official manifest-run prefix is
-              # keyed by the corpus digest alone, so a supplementary sibling freeze
-              # over the same corpus is staged under a distinct prefix; accepting
-              # either shape for either mode would let a supplementary dispatch run
-              # against the official prefix, or the reverse.
-              if [[ "${SUPPLEMENTARY_INPUT}" == "true" ]]; then
-                if [[ ! "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/supplementary/[0-9a-f]{64}/[0-9a-f]{64}/freeze\.json$ ]]; then
-                  echo "supplementary=true requires the supplementary manifest-run S3 prefix contract: s3://<bucket>/cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/freeze.json" >&2
-                  exit 1
-                fi
-              elif [[ ! "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]]; then
-                echo "freeze_bundle_path must use the immutable manifest-run S3 prefix contract." >&2
+              # The lane is DERIVED from the staged prefix rather than declared.
+              # The official manifest-run prefix is keyed by the corpus digest
+              # alone, so a supplementary sibling freeze over the same corpus is
+              # staged under a distinct prefix whose literal "supplementary"
+              # segment can never be a 64-hex digest: the two shapes are
+              # disjoint, so exactly one matches and anything else is refused.
+              # Deriving removes the operator error where a declared flag
+              # disagrees with the freeze it presents, and every downstream
+              # refusal -- the official_freeze_bundle_uri requirement, the
+              # shard_only coupling, and the execution scope's own lane
+              # identifier -- is then checked against the staged artifact
+              # instead of against a checkbox.
+              if [[ "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]]; then
+                supplementary="false"
+              elif [[ "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/supplementary/[0-9a-f]{64}/[0-9a-f]{64}/freeze\.json$ ]]; then
+                supplementary="true"
+              else
+                echo "freeze_bundle_path must use the immutable manifest-run S3 prefix contract: s3://<bucket>/cycle-1/manifest-runs/<manifest_digest>/freeze.json for an official dispatch, or s3://<bucket>/cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/freeze.json for a supplementary one." >&2
                 exit 1
               fi
               freeze_bundle_path="/tmp/lfb-manifest-run/freeze.json"
@@ -379,7 +377,7 @@ jobs:
           official_freeze_spec="${OFFICIAL_FREEZE_BUNDLE_URI_INPUT//[[:space:]]/}"
           official_freeze_uri=""
           official_freeze_sha256=""
-          if [[ "${SUPPLEMENTARY_INPUT}" == "true" ]]; then
+          if [[ "${supplementary}" == "true" ]]; then
             # The sibling freeze reuses the official prompt and corpus bytes on
             # purpose; the cost projector verifies that identity rather than
             # assuming it, so it needs the official bundle it must match -- and
@@ -433,13 +431,13 @@ jobs:
             echo "Non-dry-run official evaluation requires shard_only=true; canonical aggregation occurs only through immutable shard receipts and provider-free fan-in." >&2
             exit 1
           fi
-          # The aggregate-results job is official-only: it never reads
-          # inputs.supplementary, so a supplementary matrix reaching it would
-          # aggregate a post-anchor model as official. Require the shard path
-          # directly rather than leaning on the non-dry rule above, which does
-          # not constrain a dry run.
-          if [[ "${SUPPLEMENTARY_INPUT}" == "true" && "${SHARD_ONLY_INPUT}" != "true" ]]; then
-            echo "supplementary=true requires shard_only=true; the in-workflow aggregate is official-only and a supplementary shard aggregates through provider-free fan-in with --supplementary." >&2
+          # The aggregate-results job is official-only: it never reads the
+          # derived lane, so a supplementary matrix reaching it would aggregate
+          # a post-anchor model as official. Require the shard path directly
+          # rather than leaning on the non-dry rule above, which does not
+          # constrain a dry run.
+          if [[ "${supplementary}" == "true" && "${SHARD_ONLY_INPUT}" != "true" ]]; then
+            echo "a supplementary freeze_bundle_path requires shard_only=true; the in-workflow aggregate is official-only and a supplementary shard aggregates through provider-free fan-in with --supplementary." >&2
             exit 1
           fi
           if [[ "${SHARD_ONLY_INPUT}" == "true" ]]; then
@@ -468,16 +466,6 @@ jobs:
           if ! [[ "${PREDICTION_UNIT_COUNT_INPUT}" =~ ^[0-9]+$ ]]; then
             echo "prediction_unit_count must be a non-negative integer." >&2
             exit 1
-          fi
-          if [[ -n "${ELAPSED_DAYS_INPUT//[[:space:]]/}" ]] && ! [[ "${ELAPSED_DAYS_INPUT}" =~ ^[0-9]+$ ]]; then
-            echo "elapsed_days must be blank or a non-negative integer." >&2
-            exit 1
-          fi
-          if [[ -n "${OFFICIAL_WINDOW_DAYS_INPUT//[[:space:]]/}" ]]; then
-            if ! [[ "${OFFICIAL_WINDOW_DAYS_INPUT}" =~ ^[0-9]+$ ]] || [[ "${OFFICIAL_WINDOW_DAYS_INPUT}" == "0" ]]; then
-              echo "official_window_days must be blank or a positive integer." >&2
-              exit 1
-            fi
           fi
           if ! [[ "${REPEAT_COUNT_INPUT}" =~ ^[0-9]+$ ]] || (( REPEAT_COUNT_INPUT < 1 || REPEAT_COUNT_INPUT > 10 )); then
             echo "repeat_count must be an integer from 1 through 10." >&2
@@ -509,6 +497,7 @@ jobs:
             echo "release_sha=${release_sha}"
             echo "official_freeze_bundle_uri=${official_freeze_uri}"
             echo "official_freeze_bundle_sha256=${official_freeze_sha256}"
+            echo "supplementary=${supplementary}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Configure AWS OIDC credentials
@@ -527,7 +516,7 @@ jobs:
           OFFICIAL_FREEZE_BUNDLE_PATH: ${{ env.OFFICIAL_FREEZE_BUNDLE_PATH }}
           OFFICIAL_FREEZE_BUNDLE_SHA256: ${{ steps.validate.outputs.official_freeze_bundle_sha256 }}
           OFFICIAL_FREEZE_BUNDLE_URI: ${{ steps.validate.outputs.official_freeze_bundle_uri }}
-          SUPPLEMENTARY: ${{ inputs.supplementary }}
+          SUPPLEMENTARY: ${{ steps.validate.outputs.supplementary }}
         run: |
           set -euo pipefail
           root="/tmp/lfb-manifest-run"
@@ -799,7 +788,7 @@ jobs:
         shell: bash
         env:
           ABLATIONS: ${{ inputs.ablations }}
-          CONCURRENCY_GROUP: run-benchmark-${{ inputs.cycle_id }}-${{ inputs.supplementary && 'supplementary' || 'official' }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
+          CONCURRENCY_GROUP: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           DRY_RUN: ${{ inputs.dry_run }}
           EXECUTION_SCOPE_SPEC: ${{ inputs.execution_scope_uri }}
@@ -813,7 +802,7 @@ jobs:
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
           SHARD_ONLY: ${{ inputs.shard_only }}
-          SUPPLEMENTARY: ${{ inputs.supplementary }}
+          SUPPLEMENTARY: ${{ steps.validate.outputs.supplementary }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
           WORKFLOW_REF: ${{ github.ref }}
@@ -973,10 +962,10 @@ jobs:
           MODEL_KEYS: ${{ inputs.model_keys }}
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
-          OFFICIAL_FREEZE_BUNDLE_PATH: ${{ inputs.supplementary && env.OFFICIAL_FREEZE_BUNDLE_PATH || '' }}
+          OFFICIAL_FREEZE_BUNDLE_PATH: ${{ steps.validate.outputs.supplementary == 'true' && env.OFFICIAL_FREEZE_BUNDLE_PATH || '' }}
           OFFICIAL_FREEZE_BUNDLE_SHA256: ${{ steps.validate.outputs.official_freeze_bundle_sha256 }}
           SHARD_ONLY: ${{ inputs.shard_only }}
-          SUPPLEMENTARY: ${{ inputs.supplementary }}
+          SUPPLEMENTARY: ${{ steps.validate.outputs.supplementary }}
         run: |
           set -euo pipefail
           if [[ "${MANIFEST_RUN_ROOT}" == "." ]]; then
@@ -1085,7 +1074,7 @@ jobs:
           release_sha: ${{ needs.build-matrix.outputs.release_sha }}
           repeat_count: ${{ matrix.repeat_count }}
           resume_existing_results: ${{ inputs.resume_existing_results }}
-          supplementary: ${{ inputs.supplementary }}
+          supplementary: ${{ needs.build-matrix.outputs.supplementary }}
 
   run-anthropic:
     name: Anthropic provider cells
@@ -1136,7 +1125,7 @@ jobs:
           release_sha: ${{ needs.build-matrix.outputs.release_sha }}
           repeat_count: ${{ matrix.repeat_count }}
           resume_existing_results: ${{ inputs.resume_existing_results }}
-          supplementary: ${{ inputs.supplementary }}
+          supplementary: ${{ needs.build-matrix.outputs.supplementary }}
 
   run-gemini:
     name: Gemini provider cells
@@ -1187,7 +1176,7 @@ jobs:
           release_sha: ${{ needs.build-matrix.outputs.release_sha }}
           repeat_count: ${{ matrix.repeat_count }}
           resume_existing_results: ${{ inputs.resume_existing_results }}
-          supplementary: ${{ inputs.supplementary }}
+          supplementary: ${{ needs.build-matrix.outputs.supplementary }}
   finalize-shard:
     name: Finalize immutable shard receipt
     needs:
@@ -1270,7 +1259,7 @@ jobs:
         env:
           SOURCE_DISPATCH_RUN_ATTEMPT: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
           SOURCE_RELEASE_SHA: ${{ needs.build-matrix.outputs.release_sha }}
-          SUPPLEMENTARY: ${{ inputs.supplementary }}
+          SUPPLEMENTARY: ${{ needs.build-matrix.outputs.supplementary }}
         run: |
           set -euo pipefail
           scope_args=()
@@ -1335,7 +1324,6 @@ jobs:
       CLEAN_MOTION_COUNT: ${{ inputs.clean_motion_count }}
       CYCLE_ID: ${{ inputs.cycle_id }}
       CYCLE_SERIES: ${{ inputs.cycle_series }}
-      ELAPSED_DAYS: ${{ inputs.elapsed_days }}
       EXPECTED_FROZEN_MANIFEST_SHA256: ${{ needs.build-matrix.outputs.frozen_manifest_sha256 }}
       EXPECTED_LABELS_SHA256: ${{ needs.build-matrix.outputs.labels_sha256 }}
       LABELS_URI: ${{ inputs.labels_uri }}
@@ -1343,7 +1331,6 @@ jobs:
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
       MODEL_KEYS: ${{ inputs.model_keys }}
       MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
-      OFFICIAL_WINDOW_DAYS: ${{ inputs.official_window_days }}
       PREDICTION_UNIT_COUNT: ${{ inputs.prediction_unit_count }}
       RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
     steps:
@@ -1522,12 +1509,6 @@ jobs:
         run: |
           set -euo pipefail
           optional_args=()
-          if [[ -n "${ELAPSED_DAYS//[[:space:]]/}" ]]; then
-            optional_args+=(--elapsed-days "${ELAPSED_DAYS}")
-          fi
-          if [[ -n "${OFFICIAL_WINDOW_DAYS//[[:space:]]/}" ]]; then
-            optional_args+=(--official-window-days "${OFFICIAL_WINDOW_DAYS}")
-          fi
           if [[ -n "${BASELINE_TRAINING_EXAMPLES_URI//[[:space:]]/}" ]]; then
             optional_args+=(--baseline-training-examples /tmp/lfb-baseline-training.jsonl)
           fi

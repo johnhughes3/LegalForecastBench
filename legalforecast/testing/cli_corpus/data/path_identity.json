@@ -315,6 +315,7 @@
     "tests/test_disclosure_model_review_authority.py",
     "tests/test_disclosure_model_review_schema.py",
     "tests/test_disclosure_review_bundle_cli.py",
+    "tests/test_dispatch_provenance.py",
     "tests/test_docs_index_coverage.py",
     "tests/test_document_need_protocol.py",
     "tests/test_document_repair_paid_clearance.py",

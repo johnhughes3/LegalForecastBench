@@ -733,10 +733,39 @@ def _workflow_group(
     cycle_id: str = "cycle-1",
     workflow_ref: str = "refs/heads/main",
 ) -> str:
-    return (
-        f"run-benchmark-{cycle_id}-{workflow_ref}-"
-        f"{','.join(model_keys)}-{','.join(ablations)}"
+    """Resolve the deployed workflow's concurrency expression, not a copy of it.
+
+    Transcribing the expression here is what let the workflow drift: a lane
+    segment was added to ``run-benchmark.yaml`` while this helper kept
+    producing the old string, so every test agreed with itself and none of them
+    saw that a shard-only dispatch would be refused for a group mismatch.
+    Reading the real expression means the refusal tests below exercise the
+    string the workflow actually sends.
+    """
+
+    workflow = (
+        Path(__file__).resolve().parents[1] / ".github/workflows/run-benchmark.yaml"
+    ).read_text(encoding="utf-8")
+    expression = workflow.split("concurrency:\n", maxsplit=1)[1]
+    expression = expression.split("  group: ", maxsplit=1)[1].split("\n", 1)[0]
+    resolved = (
+        expression.replace("${{ inputs.cycle_id }}", cycle_id)
+        .replace("${{ github.ref }}", workflow_ref)
+        .replace(
+            "${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}",
+            ",".join(model_keys),
+        )
+        .replace(
+            "${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}",
+            ",".join(ablations),
+        )
     )
+    assert "${{" not in resolved, (
+        "run-benchmark.yaml's concurrency group grew an unrecognized segment; "
+        "dispatch_provenance rebuilds this string from the frozen execution "
+        f"policy and will refuse the dispatch: {resolved}"
+    )
+    return resolved
 
 
 def _registry_entry(model_id: str) -> dict[str, object]:
