@@ -746,6 +746,70 @@ def test_scope_rejects_cost_matrix_row_for_wrong_model(tmp_path: Path) -> None:
         )
 
 
+def test_official_scope_bytes_are_pinned(tmp_path: Path) -> None:
+    """The official scope card is live mid-cycle; its bytes must not move.
+
+    ``legalforecast.execution_scope.v1`` artifacts are already issued for the
+    frozen registry, so under ``docs/cycle-1-change-control.md`` the official
+    card's field set and canonical bytes are frozen.  The pinned digests below
+    fail if any change reaches the official path -- including a change aimed
+    only at the supplementary card, which must diverge without touching this
+    one.  ``owner_evidence`` is pinned field-by-field because that is the
+    record the supplementary card amends.
+    """
+
+    (
+        plan_path,
+        registry_path,
+        run_input_path,
+        cost_path,
+        evidence_path,
+        model_key,
+    ) = _write_scope_inputs(tmp_path)
+
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        owner_ceiling_usd="1.50",
+        owner_bead_id="scope-test",
+        provider_authority=_authority(),
+    )
+
+    assert scope["schema_version"] == "legalforecast.execution_scope.v1"
+    assert sorted(scope["scope"]["owner_evidence"]) == [
+        "author",
+        "bead_id",
+        "ceiling_usd",
+        "comment_id",
+        "created_at",
+        "estimate_usd",
+        "model_key",
+        "raw_comment",
+        "raw_comment_sha256",
+        "raw_observation_base64",
+        "raw_observation_sha256",
+    ]
+    assert scope["scope_sha256"] == (
+        "245ba49eea20bd8a22ea187e3d6661a932c7f0307b8f58b66b259edfc16a863b"
+    )
+    assert hash_payload(scope) == (
+        "9db6f2b39d2537b515a64f79746dca4589256fb3404d5dbb2811244224b2ef91"
+    )
+    verify_execution_scope(
+        scope,
+        common_plan=plan_path,
+        model_registry=registry_path,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        owner_evidence=evidence_path,
+        provider_authority=_authority(),
+        expected_model_key=model_key,
+    )
+
+
 def test_scope_preserves_six_decimal_cost_projection(tmp_path: Path) -> None:
     (
         plan_path,

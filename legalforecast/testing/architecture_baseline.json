@@ -4462,11 +4462,11 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "issue_model_execution_scope",
-        "largest_symbol_lines": 172,
+        "largest_symbol_lines": 173,
         "layer": "application",
-        "line_count": 1680,
-        "nonblank_line_count": 1537,
-        "top_level_definition_count": 48
+        "line_count": 1778,
+        "nonblank_line_count": 1626,
+        "top_level_definition_count": 49
       },
       "legalforecast/evals/corpus_manifest/forecast_entry.py": {
         "cycle_id": "",
@@ -10307,20 +10307,20 @@
       },
       "tests/test_execution_scope.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "tests",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
         "fan_in": 0,
         "fan_out": 0,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_scope_issuance_fills_freeze_and_derives_authority_from_caps",
         "largest_symbol_lines": 136,
         "layer": "test",
-        "line_count": 994,
-        "nonblank_line_count": 908,
-        "top_level_definition_count": 26
+        "line_count": 1058,
+        "nonblank_line_count": 966,
+        "top_level_definition_count": 27
       },
       "tests/test_firecrawl_docket_pagination.py": {
         "cycle_id": "",
@@ -12169,9 +12169,9 @@
         "largest_symbol": "_chain",
         "largest_symbol_lines": 231,
         "layer": "test",
-        "line_count": 1145,
-        "nonblank_line_count": 981,
-        "top_level_definition_count": 37
+        "line_count": 1379,
+        "nonblank_line_count": 1187,
+        "top_level_definition_count": 42
       },
       "tests/test_supporting_document_successor.py": {
         "cycle_id": "",
