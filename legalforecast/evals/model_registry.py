@@ -142,11 +142,14 @@ class LongContextSurcharge:
 class ModelRegistryEntry:
     """One frozen model/run configuration used by all benchmark components.
 
-    ``reasoning_effort`` is an optional OpenAI-only request setting and is part
-    of the entry's canonical record and hash. ``thinking_level`` is the
-    equivalent Google-only setting and is likewise canonical. Each provider
-    accepts only its own knob, so an entry can never request reasoning through a
-    control the served provider will ignore. ``temperature`` and ``top_p`` are
+    ``reasoning_effort`` is an optional request setting and is part of the
+    entry's canonical record and hash. It is accepted only for providers whose
+    API spells the control that way -- OpenAI, and the OpenAI-compatible
+    endpoints that reuse the identical top-level field -- and only for the
+    values each of those accepts; see ``_REASONING_EFFORT_PROVIDERS``.
+    ``thinking_level`` is the equivalent Google-only setting and is likewise
+    canonical. An entry can therefore never request reasoning through a control
+    the served provider will ignore. ``temperature`` and ``top_p`` are
     optional legacy provenance fields. They remain readable and are
     round-tripped when present so existing frozen registry bytes and their
     hashes stay stable. New registries should omit the sampling fields: live
