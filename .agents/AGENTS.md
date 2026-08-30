@@ -23,6 +23,12 @@ Where an older document in this tree still calls for attestations, sealed delive
 - Before building anything, run the executability audit: name the command that produces every input your work requires and the path where it exists today. If one doesn't exist, building or escalating THAT is your first task.
 - Integrity controls are not negotiable and are not the slowdown. They are exactly these: model contamination and release-anchor rules; outcome-leakage blinding; the Spending guardrails below; public-repo hygiene; and the one locked benchmark-run manifest. Anything not on this list is process, and the Standard of Rigor applies to it.
 
+This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+
+> **Architecture in one line:** Issues live in a centrally configured beads-db Dolt SQL server. The server is the durable source of truth, so no `bd dolt push/pull` is needed. Connection details come from generated local metadata. `.beads/issues.jsonl` is a passive export, not the wire protocol.
+>
+> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md) for the one-screen overview and anti-patterns (don't treat JSONL as the source of truth; don't `bd import` during normal operation; don't reach for third-party Dolt hosting before trying the default).
+
 ## Spending Guardrails
 
 Real money leaves this project in two places: PACER/RECAP document purchases and paid provider runs. On 2026-08-14 the legacy pipeline bought 152 documents (USD 273) that were never admitted to the corpus. The failure was not an unauthorized purchase — it was buying and then losing track — and no amount of approval ceremony would have caught it. These five rules are the whole spend process.
@@ -32,12 +38,6 @@ Real money leaves this project in two places: PACER/RECAP document purchases and
 3. **Never buy what we already hold.** Before any purchase, check the acquired inventory by (docket, entry) and RECAP document id. A document we already have is refused and the refusal is journaled. This is the control that would have prevented the USD 273 loss.
 4. **One attempt per document, no purchase loops.** Reserve at most the projected amount before calling a provider, and respect the per-document fee (PACER caps a document of 30 pages or fewer at USD 3.00). A failed or ambiguous purchase is journaled and surfaced to the owner, never auto-retried; realized cost above its reservation is a terminal ceiling violation that neither releases capacity nor becomes retryable.
 5. **Journal every spend** — what, why (case, role, docket entry), cost, and which approval it ran under — in one append-only journal. No sealed receipts, no signed scopes, no hashed authorization artifacts.
-
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
-
-> **Architecture in one line:** Issues live in a centrally configured beads-db Dolt SQL server. The server is the durable source of truth, so no `bd dolt push/pull` is needed. Connection details come from generated local metadata. `.beads/issues.jsonl` is a passive export, not the wire protocol.
->
-> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md) for the one-screen overview and anti-patterns (don't treat JSONL as the source of truth; don't `bd import` during normal operation; don't reach for third-party Dolt hosting before trying the default).
 
 ## Public Repository Hygiene
 
