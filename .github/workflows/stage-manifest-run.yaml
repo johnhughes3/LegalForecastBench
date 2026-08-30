@@ -207,9 +207,16 @@ jobs:
     runs-on: ubuntu-latest
     # Generous on purpose. Staging drives roughly a thousand serial aws CLI calls
     # (one create-only put and one head-object per object, plus the rebuild's
-    # exact-key gets). Every write is create-once and no role can delete, so a
-    # timeout part-way through leaves a prefix nobody can clean up: the budget
-    # must never be the thing that stops a run.
+    # exact-key gets), so the budget must never be the thing that stops a run.
+    #
+    # A timeout part-way through is recoverable, not fatal: _put_immutable treats
+    # a 412/PreconditionFailed as success and falls through to
+    # _verify_remote_object (manifest_forecast_stage.py:726-733), so re-running
+    # with the same inputs re-puts every existing object -- each 412s and is then
+    # verified byte-for-byte -- and creates only the missing ones. The rebuild is
+    # content-addressed and deterministic, so the same inputs produce the same
+    # bytes and therefore the same digests. Partial, never poisoned: the response
+    # to a timeout is to re-dispatch, not to escalate.
     timeout-minutes: 90
     environment: legalforecastbench-official-eval-manifest-staging
     permissions:
