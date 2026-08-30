@@ -21,25 +21,18 @@ from .models import (
     UnitOutcome,
 )
 from .run_manifest import (
-    MANIFEST_SCHEMA_VERSION,
     RUN_MANIFEST_SCHEMA_VERSION,
     BenchmarkRunManifest,
     DocumentRole,
     ManifestLockedError,
-    ObjectLocator,
     OpaqueObjectLocator,
     OppositionStatus,
     QCStatus,
-    RoleLocator,
     RoleObjectLocator,
-    RunManifest,
     RunManifestError,
     SelectedCase,
-    load_run_manifest,
-    run_manifest_record,
     serialize_run_manifest,
     validate_run_manifest_structure,
-    write_run_manifest,
 )
 from .service import (
     ForecastExecution,
@@ -56,7 +49,6 @@ from .synthetic import issue_synthetic_release
 
 __all__ = [
     "BRIEFING_ROLES",
-    "MANIFEST_SCHEMA_VERSION",
     "PLEADING_ROLES",
     "RUN_MANIFEST_SCHEMA_VERSION",
     "SUPPORTED_MODEL_VISIBLE_ROLES",
@@ -74,7 +66,6 @@ __all__ = [
     "LabelsRelease",
     "ManifestLockedError",
     "ModelVisibleRole",
-    "ObjectLocator",
     "OpaqueObjectLocator",
     "OppositionStatus",
     "PleadingRole",
@@ -83,9 +74,7 @@ __all__ = [
     "ReleaseCase",
     "ReleaseDocument",
     "ReleaseValidationError",
-    "RoleLocator",
     "RoleObjectLocator",
-    "RunManifest",
     "RunManifestError",
     "ScoringPolicy",
     "SelectedCase",
@@ -95,11 +84,8 @@ __all__ = [
     "load_forecast_draft",
     "load_forecast_execution",
     "load_labels_draft",
-    "load_run_manifest",
     "publish_release",
-    "run_manifest_record",
     "serialize_run_manifest",
     "validate_release",
     "validate_run_manifest_structure",
-    "write_run_manifest",
 ]
