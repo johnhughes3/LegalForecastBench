@@ -376,7 +376,17 @@ def model_registry_entry_sha256(entry: ModelRegistryEntry) -> str:
 def model_registry_sha256(payload: bytes) -> str:
     """Return the raw SHA-256 identity of one frozen registry byte snapshot."""
 
-    return hashlib.sha256(payload).hexdigest()
+    # Keep this import lazy: the contracts package imports ingestion helpers,
+    # which reach the model registry while the package is initializing.
+    from legalforecast.contracts.commitments import RAW_BYTES_RAW_SHA256_V1
+    from legalforecast.contracts.schemas import PUBLIC_RUN_MANIFEST_V1
+
+    return str(
+        RAW_BYTES_RAW_SHA256_V1.commit(
+            payload,
+            domain=PUBLIC_RUN_MANIFEST_V1,
+        ).digest
+    )
 
 
 def latest_release_timestamp(entries: Sequence[ModelRegistryEntry]) -> datetime:
