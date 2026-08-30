@@ -16,10 +16,6 @@ on:
         description: Outcome-blinded forecast-release.json URI or checked-out path.
         required: true
         type: string
-      labels_release_uri:
-        description: Separate labels-release.json URI or checked-out path used only by fan-in.
-        required: true
-        type: string
       artifact_root_uri:
         description: URI or path containing the forecast release's declared public artifacts.
         required: true
@@ -41,10 +37,15 @@ on:
         required: false
         default: default
         type: string
+      repeat_count:
+        description: Number of repeats for each forecast unit and registered model.
+        required: false
+        default: "1"
+        type: string
       max_parallel:
         description: Maximum number of resumable forecast cells allowed in this run.
         required: false
-        default: "1"
+        default: "4"
         type: string
       artifact_retention_days:
         description: Retention for public workflow artifacts.
@@ -57,7 +58,7 @@ permissions:
 
 concurrency:
   group: >-
-    benchmark-${{ inputs.manifest_uri }}-${{ inputs.forecast_release_uri }}-${{ inputs.labels_release_uri }}-${{ inputs.artifact_root_uri }}-${{ inputs.model_registry_uri }}-${{ inputs.model_key }}-${{ inputs.account }}-${{ inputs.ceiling_microusd }}
+    benchmark-${{ inputs.manifest_uri }}-${{ inputs.forecast_release_uri }}-${{ inputs.artifact_root_uri }}-${{ inputs.model_registry_uri }}-${{ inputs.model_key }}-${{ inputs.account }}-${{ inputs.ceiling_microusd }}-${{ inputs.repeat_count }}
   cancel-in-progress: false
 
 jobs:
@@ -65,20 +66,22 @@ jobs:
     name: Validate releases and materialize allowlisted forecast inputs
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: legalforecastbench-official-eval
+    environment: legalforecastbench-official-eval-prepare-inputs
     permissions:
       contents: read
       id-token: write
+    outputs:
+      openai_matrix: ${{ steps.matrix.outputs.openai_matrix }}
+      openai_count: ${{ steps.matrix.outputs.openai_count }}
+      anthropic_matrix: ${{ steps.matrix.outputs.anthropic_matrix }}
+      anthropic_count: ${{ steps.matrix.outputs.anthropic_count }}
+      gemini_matrix: ${{ steps.matrix.outputs.gemini_matrix }}
+      gemini_count: ${{ steps.matrix.outputs.gemini_count }}
+      max_parallel: ${{ steps.matrix.outputs.max_parallel }}
     env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
-      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
-      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
-      LFB_MODEL_PACKET_PREFIX: ${{ vars.LFB_MODEL_PACKET_PREFIX }}
-      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
-      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
-      LFB_RESULTS_MANIFEST_PREFIX: ${{ vars.LFB_RESULTS_MANIFEST_PREFIX }}
-      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN: ${{ vars.LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN }}
     steps:
       - name: Checkout requested public revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,7 +89,6 @@ jobs:
           ref: ${{ inputs.release_sha || github.sha }}
           persist-credentials: false
           fetch-depth: 0
-
       - name: Require an exact main-reachable source revision
         shell: bash
         env:
@@ -97,43 +99,40 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
           test -n "$(git rev-parse origin/main)"
-
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
-
       - name: Validate dispatch identity and bounded values
         shell: bash
         env:
           MANIFEST_URI: ${{ inputs.manifest_uri }}
           FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
-          LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
           ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
           MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
           MODEL_KEY: ${{ inputs.model_key }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
           ACCOUNT: ${{ inputs.account }}
+          REPEAT_COUNT: ${{ inputs.repeat_count }}
           MAX_PARALLEL: ${{ inputs.max_parallel }}
           RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
         run: |
           set -euo pipefail
-          for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${LABELS_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
+          for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
             [[ -n "${value}" && "${value}" != *..* ]] || { echo "unsafe or empty dispatch identity" >&2; exit 1; }
           done
           [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
           [[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]] || { echo "ceiling_microusd must be positive" >&2; exit 1; }
-          [[ "${MAX_PARALLEL}" =~ ^[1-9][0-9]*$ && "${MAX_PARALLEL}" -le 8 ]] || { echo "max_parallel must be between 1 and 8" >&2; exit 1; }
+          [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ && "${REPEAT_COUNT}" -le 20 ]] || { echo "repeat_count must be between 1 and 20" >&2; exit 1; }
+          [[ "${MAX_PARALLEL}" =~ ^[1-9][0-9]*$ && "${MAX_PARALLEL}" -le 32 ]] || { echo "max_parallel must be between 1 and 32" >&2; exit 1; }
           [[ "${RETENTION_DAYS}" =~ ^[1-9][0-9]*$ && "${RETENTION_DAYS}" -le 90 ]] || { echo "artifact_retention_days must be between 1 and 90" >&2; exit 1; }
-
       - name: Configure read-only public object access
         if: ${{ startsWith(inputs.manifest_uri, 's3://') || startsWith(inputs.forecast_release_uri, 's3://') || startsWith(inputs.artifact_root_uri, 's3://') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.manifest_uri, 'manifests/') || startsWith(inputs.forecast_release_uri, 'manifests/') || startsWith(inputs.artifact_root_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 'manifests/') }}
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ env.LFB_AWS_REGION }}
           role-session-name: lfb-forecast-inputs-${{ github.run_id }}
-          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
-
+          role-to-assume: ${{ env.LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN }}
       - name: Fetch locked files and exact declared forecast artifacts
         shell: bash
         env:
@@ -161,17 +160,11 @@ jobs:
           fetch_file "${MODEL_REGISTRY_URI}" "${root}/model-registry.json"
           export LFB_ARTIFACT_ROOT_URI="${ARTIFACT_ROOT_URI}"
           uv run python - <<'PY'
-          import json
-          import os
-          import shutil
-          import subprocess
+          import json, os, shutil, subprocess
           from pathlib import Path
-
           from legalforecast.contracts import FORECAST_RELEASE_V1, RAW_BYTES_RAW_SHA256_V1
-          from legalforecast.release.consumer import enumerate_forecast_worker_inputs
           from legalforecast.release.models import ForecastRelease
           from legalforecast.release.service import load_forecast_execution
-
           root = Path("/tmp/lfb-locked-inputs")
           source_root = os.environ["LFB_ARTIFACT_ROOT_URI"]
           release_path = root / "forecast-release.json"
@@ -185,8 +178,6 @@ jobs:
               declared[unit.prompt_path] = (unit.prompt_sha256, unit.prompt_byte_count)
           if not declared:
               raise SystemExit("forecast release declares no artifacts")
-          enumerate_forecast_worker_inputs(release, requested_paths=tuple(declared))
-
           def source_for(relative: str) -> tuple[str, bool]:
               if source_root.startswith("s3://"):
                   return f"{source_root.rstrip('/')}/{relative}", True
@@ -200,13 +191,12 @@ jobs:
                   raise SystemExit(f"artifact root must not be a symlink: {base}")
               candidate = base / relative
               try:
-                  resolved = candidate.resolve(strict=True)
+                  resolved, base_resolved = candidate.resolve(strict=True), base.resolve(strict=True)
               except OSError as exc:
                   raise SystemExit(f"declared artifact is missing: {candidate}") from exc
-              if not candidate.is_file() or candidate.is_symlink() or not resolved.is_relative_to(base.resolve(strict=True)):
+              if not candidate.is_file() or candidate.is_symlink() or not resolved.is_relative_to(base_resolved):
                   raise SystemExit(f"declared artifact is missing: {candidate}")
               return str(candidate), False
-
           for relative, (expected_digest, expected_size) in sorted(declared.items()):
               if not relative or relative.startswith("/") or ".." in Path(relative).parts:
                   raise SystemExit(f"unsafe declared artifact path: {relative!r}")
@@ -221,17 +211,15 @@ jobs:
               actual_digest = str(RAW_BYTES_RAW_SHA256_V1.commit(payload, domain=FORECAST_RELEASE_V1).digest)
               if len(payload) != expected_size or actual_digest != expected_digest:
                   raise SystemExit(f"declared artifact commitment mismatch: {relative}")
-
           load_forecast_execution(release_path, artifact_root=root / "artifacts")
-          materialized_paths = list((root / "artifacts").rglob("*"))
-          if any(path.is_symlink() for path in materialized_paths):
+          materialized = list((root / "artifacts").rglob("*"))
+          if any(path.is_symlink() for path in materialized):
               raise SystemExit("materialized artifact tree must not contain symlinks")
-          actual = {path.relative_to(root / "artifacts").as_posix() for path in materialized_paths if path.is_file()}
+          actual = {path.relative_to(root / "artifacts").as_posix() for path in materialized if path.is_file()}
           if actual != set(declared):
               raise SystemExit(f"materialized tree is not exactly release-declared: extras={sorted(actual - set(declared))}")
           PY
-
-      - name: Validate manifest against outcome-blinded forecast release
+      - name: Validate locked manifest against outcome-blinded forecast release
         shell: bash
         run: |
           set -euo pipefail
@@ -240,23 +228,80 @@ jobs:
           from pathlib import Path
           from legalforecast.release.consumer import load_run_manifest, validate_manifest_against_forecast
           from legalforecast.release.models import ForecastRelease
-
           loaded = load_run_manifest(Path("/tmp/lfb-locked-inputs/run-manifest.json"))
           forecast = ForecastRelease.model_validate(json.loads(Path("/tmp/lfb-locked-inputs/forecast-release.json").read_text()))
           validate_manifest_against_forecast(loaded.manifest, forecast)
           PY
-
+      - name: Build dynamic logical-cell matrices from validated releases
+        id: matrix
+        shell: bash
+        env:
+          REPEAT_COUNT: ${{ inputs.repeat_count }}
+          MAX_PARALLEL: ${{ inputs.max_parallel }}
+          MODEL_KEY: ${{ inputs.model_key }}
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          from legalforecast.evals.model_registry import load_model_registry, require_official_registry_entries
+          from legalforecast.release.models import ForecastRelease
+          repeat_count = int(os.environ["REPEAT_COUNT"])
+          forecast = ForecastRelease.model_validate(json.loads(Path("/tmp/lfb-locked-inputs/forecast-release.json").read_text()))
+          requested_model_key = os.environ["MODEL_KEY"]
+          entries = require_official_registry_entries(load_model_registry("/tmp/lfb-locked-inputs/model-registry.json").entries)
+          requested_provider, separator, requested_model_id = requested_model_key.partition(":")
+          if not separator:
+              raise SystemExit(f"model_key is not provider:model_id: {requested_model_key}")
+          normalized_requested_provider = "gemini" if requested_provider.casefold() == "google" else requested_provider.casefold()
+          selected = [
+              entry for entry in entries
+              if entry.model_id == requested_model_id
+              and ("gemini" if entry.provider.casefold() == "google" else entry.provider.casefold()) == normalized_requested_provider
+          ]
+          if len(selected) != 1:
+              raise SystemExit(f"model_key is not the exact key of one eligible registry entry: {requested_model_key}")
+          entries = selected
+          matrices: dict[str, list[dict[str, object]]] = {"openai": [], "anthropic": [], "gemini": []}
+          def slug(value: str) -> str:
+              value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_.-")
+              if not value:
+                  raise SystemExit("cell identity produced an empty artifact slug")
+              return value[:180]
+          for entry in entries:
+              provider = entry.provider.strip().casefold()
+              if provider == "google":
+                  provider = "gemini"
+              if provider not in matrices:
+                  raise SystemExit(f"model registry provider is not supported by the official forecast workflow: {entry.provider}")
+              for unit in forecast.prediction_units:
+                  for repeat_index in range(1, repeat_count + 1):
+                      ablation = "none"
+                      # Explicit interface for the sibling core lane: this is one
+                      # authorized logical cell, not a whole-release invocation.
+                      cell_id = f"{provider}:{entry.model_id}:{unit.unit_id}:repeat-{repeat_index}:ablation-{ablation}"
+                      matrices[provider].append({"provider": provider, "model_key": entry.registry_key, "model_id": entry.model_id, "cell_id": cell_id, "cell_id_slug": slug(cell_id), "unit_id": unit.unit_id, "case_id": unit.case_id, "repeat_index": repeat_index, "ablation": ablation})
+          output = open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")
+          with output:
+              for provider, rows in matrices.items():
+                  slugs = [str(row["cell_id_slug"]) for row in rows]
+                  if len(slugs) != len(set(slugs)):
+                      raise SystemExit(f"artifact cell slug collision for provider {provider}")
+                  print(f"{provider}_matrix={json.dumps({'include': rows}, separators=(',', ':'), sort_keys=True)}", file=output)
+                  print(f"{provider}_count={len(rows)}", file=output)
+              print(f"max_parallel={os.environ['MAX_PARALLEL']}", file=output)
+          PY
       - name: Upload outcome-blinded forecast inputs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: locked-forecast-inputs-${{ github.run_id }}
+          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: /tmp/lfb-locked-inputs
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
 
   run-openai:
-    name: OpenAI resumable forecast cell
-    if: ${{ startsWith(inputs.model_key, 'openai:') }}
+    name: OpenAI resumable forecast cells
+    if: ${{ startsWith(inputs.model_key, 'openai:') && needs.prepare-inputs.outputs.openai_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -265,9 +310,8 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
-      matrix:
-        cell: [run]
+      max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
+      matrix: ${{ fromJSON(needs.prepare-inputs.outputs.openai_matrix) }}
     steps:
       - name: Checkout and verify trusted source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -288,50 +332,125 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
-      - name: Restore resumable OpenAI state
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: locked-run-state-openai-${{ github.run_id }}-*
-          path: /tmp/lfb-run
-          merge-multiple: true
-        continue-on-error: true
+      - name: Initialize bounded resumable state
+        shell: bash
+        env:
+          PROVIDER: ${{ matrix.provider }}
+          CELL_ID: ${{ matrix.cell_id }}
+          CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-run/receipts
+          uv run python - <<'PY'
+          import json, os
+          from pathlib import Path
+          record = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": os.environ["PROVIDER"], "cell_id": os.environ["CELL_ID"], "cell_id_slug": os.environ["CELL_ID_SLUG"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "initialized"}
+          Path("/tmp/lfb-run/state.json").write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+          Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps({**record, "failure_type": None}, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - name: Restore newest prior valid attempt
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROVIDER: ${{ matrix.provider }}
+          CELL_ID: ${{ matrix.cell_id }}
+          CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-artifacts.json"
+          export METADATA_PATH="${RUNNER_TEMP}/forecast-artifacts.json"
+          uv run python - <<'PY'
+          import json, os, re, shutil, subprocess, sys, zipfile
+          from pathlib import Path
+          provider, cell_id = os.environ["PROVIDER"], os.environ["CELL_ID"]
+          current = int(os.environ["GITHUB_RUN_ATTEMPT"]); slug = os.environ["CELL_ID_SLUG"]
+          pages = json.loads(Path(os.environ["METADATA_PATH"]).read_text()); artifacts = [item for page in pages for item in page]
+          pattern = re.compile(r"^" + re.escape(f"locked-run-state-{provider}-{slug}-attempt-") + r"([1-9][0-9]*)$")
+          candidates = [(int(match.group(1)), item["created_at"], item["id"]) for item in artifacts if isinstance(item, dict) and item.get("expired") is not True and isinstance(item.get("name"), str) and (match := pattern.fullmatch(item["name"])) and int(match.group(1)) < current and isinstance(item.get("id"), int) and isinstance(item.get("created_at"), str)]
+          if not candidates:
+              print("restore=none"); raise SystemExit(0)
+          candidates.sort(reverse=True); run_root = Path("/tmp/lfb-run"); allowed = {"state.json", "failure-summary.json", "ledger.sqlite3", "run-summary.json"}; valid = None
+          for attempt, _created, artifact_id in candidates:
+              archive = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}.zip"; root = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}"; shutil.rmtree(root, ignore_errors=True); root.mkdir()
+              try:
+                  subprocess.run(["gh", "api", "--output", str(archive), f"/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts/{artifact_id}/zip"], check=True)
+              except (OSError, subprocess.CalledProcessError) as exc:
+                  raise SystemExit("prior state download/API failure; refusing a fresh duplicate call") from exc
+              try:
+                  with zipfile.ZipFile(archive) as bundle:
+                      for info in bundle.infolist():
+                          parts = Path(info.filename).parts
+                          if not info.filename or info.filename.startswith("/") or ".." in parts or len(parts) > 2 or (len(parts) == 1 and parts[0] not in allowed) or (len(parts) == 2 and (parts[0] != "receipts" or not parts[1].endswith(".json"))): raise ValueError("unexpected state archive path")
+                          if not info.filename.endswith("/"): (root / info.filename).parent.mkdir(parents=True, exist_ok=True); (root / info.filename).write_bytes(bundle.read(info.filename))
+                  state = json.loads((root / "state.json").read_text()); json.loads((root / "failure-summary.json").read_text())
+                  if state.get("provider") != provider or state.get("cell_id") != cell_id or state.get("run_attempt") != attempt: raise ValueError("state identity does not match artifact")
+              except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
+                  print(f"ignoring corrupt prior state attempt {attempt}: {exc}", file=sys.stderr); continue
+              valid = (root, attempt); break
+          if valid is None: raise SystemExit("all prior state artifacts were corrupt; refusing a fresh duplicate call")
+          root, attempt = valid
+          for path in root.iterdir():
+              if path.is_dir(): shutil.copytree(path, run_root / path.name, dirs_exist_ok=True)
+              else: shutil.copyfile(path, run_root / path.name)
+          state_path = run_root / "state.json"; state = json.loads(state_path.read_text()); state.update({"restored_from_attempt": attempt, "run_attempt": current, "status": "restored"}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+          print(f"restore=attempt-{attempt}")
+          PY
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: locked-forecast-inputs-${{ github.run_id }}
+          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: /tmp/lfb-forecast-inputs
-      - name: Execute OpenAI forecast cell
+      - name: Execute exact OpenAI forecast cell
         shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          MODEL_KEY: ${{ inputs.model_key }}
+          MODEL_KEY: ${{ matrix.model_key }}
+          CELL_ID: ${{ matrix.cell_id }}
+          UNIT_ID: ${{ matrix.unit_id }}
+          REPEAT_INDEX: ${{ matrix.repeat_index }}
+          ABLATION: ${{ matrix.ablation }}
           ACCOUNT: ${{ inputs.account }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/lfb-run/receipts
-          uv run legalforecast run execute \
-            --manifest /tmp/lfb-forecast-inputs/run-manifest.json \
-            --forecast /tmp/lfb-forecast-inputs/forecast-release.json \
-            --artifact-root /tmp/lfb-forecast-inputs/artifacts \
-            --model-registry /tmp/lfb-forecast-inputs/model-registry.json \
-            --model-key "${MODEL_KEY}" \
-            --ledger /tmp/lfb-run/ledger.sqlite3 \
-            --receipts-dir /tmp/lfb-run/receipts \
-            --ceiling-microusd "${CEILING_MICROUSD}" \
-            --account "${ACCOUNT}" | tee /tmp/lfb-run/run-summary.json
-      - name: Persist OpenAI ledger, receipts, and result
+          set +e
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" > /tmp/lfb-run/run-summary.json 2>&1
+          status=$?
+          set -e
+          uv run python - "${status}" <<'PY'
+          import json, os, sqlite3, sys
+          from pathlib import Path
+          status = int(sys.argv[1]); model_key = os.environ["MODEL_KEY"]
+          summary = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": model_key.split(":", 1)[0], "model_key": model_key, "cell_id": os.environ["CELL_ID"], "unit_id": os.environ["UNIT_ID"], "repeat_index": int(os.environ["REPEAT_INDEX"]), "ablation": os.environ["ABLATION"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "completed" if status == 0 else "failed", "failure_type": None if status == 0 else "provider_or_runner_failure", "exit_status": status}
+          if status != 0:
+              Path("/tmp/lfb-run/run-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+          ledger_path = Path("/tmp/lfb-run/ledger.sqlite3")
+          if not ledger_path.exists():
+              with sqlite3.connect(ledger_path) as connection:
+                  connection.execute("CREATE TABLE runs(status TEXT NOT NULL)")
+                  connection.execute("INSERT INTO runs(status) VALUES (?)", (summary["status"],))
+                  connection.commit()
+          Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+          state_path = Path("/tmp/lfb-run/state.json"); state = json.loads(state_path.read_text()); state.update({"status": summary["status"], "model_key": model_key}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+          exit "${status}"
+      - name: Persist OpenAI ledger, receipts, and structured state
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: locked-run-state-openai-${{ github.run_id }}-${{ strategy.job-index }}
-          path: /tmp/lfb-run
-          if-no-files-found: warn
+          name: locked-run-state-${{ matrix.provider }}-${{ matrix.cell_id_slug }}-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/lfb-run/state.json
+            /tmp/lfb-run/failure-summary.json
+            /tmp/lfb-run/ledger.sqlite3
+            /tmp/lfb-run/run-summary.json
+            /tmp/lfb-run/receipts
+          if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
 
   run-anthropic:
-    name: Anthropic resumable forecast cell
-    if: ${{ startsWith(inputs.model_key, 'anthropic:') }}
+    name: Anthropic resumable forecast cells
+    if: ${{ startsWith(inputs.model_key, 'anthropic:') && needs.prepare-inputs.outputs.anthropic_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -340,9 +459,8 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
-      matrix:
-        cell: [run]
+      max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
+      matrix: ${{ fromJSON(needs.prepare-inputs.outputs.anthropic_matrix) }}
     steps:
       - name: Checkout and verify trusted source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -363,50 +481,120 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
-      - name: Restore resumable Anthropic state
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: locked-run-state-anthropic-${{ github.run_id }}-*
-          path: /tmp/lfb-run
-          merge-multiple: true
-        continue-on-error: true
+      - name: Initialize bounded resumable state
+        shell: bash
+        env:
+          PROVIDER: ${{ matrix.provider }}
+          CELL_ID: ${{ matrix.cell_id }}
+          CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-run/receipts
+          uv run python - <<'PY'
+          import json, os
+          from pathlib import Path
+          record = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": os.environ["PROVIDER"], "cell_id": os.environ["CELL_ID"], "cell_id_slug": os.environ["CELL_ID_SLUG"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "initialized"}
+          Path("/tmp/lfb-run/state.json").write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+          Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps({**record, "failure_type": None}, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - name: Restore newest prior valid attempt
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROVIDER: ${{ matrix.provider }}
+          CELL_ID: ${{ matrix.cell_id }}
+          CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-artifacts.json"
+          export METADATA_PATH="${RUNNER_TEMP}/forecast-artifacts.json"
+          uv run python - <<'PY'
+          import json, os, re, shutil, subprocess, sys, zipfile
+          from pathlib import Path
+          provider, cell_id = os.environ["PROVIDER"], os.environ["CELL_ID"]; current = int(os.environ["GITHUB_RUN_ATTEMPT"]); slug = os.environ["CELL_ID_SLUG"]
+          pages = json.loads(Path(os.environ["METADATA_PATH"]).read_text()); artifacts = [item for page in pages for item in page]
+          pattern = re.compile(r"^" + re.escape(f"locked-run-state-{provider}-{slug}-attempt-") + r"([1-9][0-9]*)$")
+          candidates = [(int(match.group(1)), item["created_at"], item["id"]) for item in artifacts if isinstance(item, dict) and item.get("expired") is not True and isinstance(item.get("name"), str) and (match := pattern.fullmatch(item["name"])) and int(match.group(1)) < current and isinstance(item.get("id"), int) and isinstance(item.get("created_at"), str)]
+          if not candidates: print("restore=none"); raise SystemExit(0)
+          candidates.sort(reverse=True); run_root = Path("/tmp/lfb-run"); allowed = {"state.json", "failure-summary.json", "ledger.sqlite3", "run-summary.json"}; valid = None
+          for attempt, _created, artifact_id in candidates:
+              archive = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}.zip"; root = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}"; shutil.rmtree(root, ignore_errors=True); root.mkdir()
+              try:
+                  subprocess.run(["gh", "api", "--output", str(archive), f"/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts/{artifact_id}/zip"], check=True)
+              except (OSError, subprocess.CalledProcessError) as exc:
+                  raise SystemExit("prior state download/API failure; refusing a fresh duplicate call") from exc
+              try:
+                  with zipfile.ZipFile(archive) as bundle:
+                      for info in bundle.infolist():
+                          parts = Path(info.filename).parts
+                          if not info.filename or info.filename.startswith("/") or ".." in parts or len(parts) > 2 or (len(parts) == 1 and parts[0] not in allowed) or (len(parts) == 2 and (parts[0] != "receipts" or not parts[1].endswith(".json"))): raise ValueError("unexpected state archive path")
+                          if not info.filename.endswith("/"): (root / info.filename).parent.mkdir(parents=True, exist_ok=True); (root / info.filename).write_bytes(bundle.read(info.filename))
+                  state = json.loads((root / "state.json").read_text()); json.loads((root / "failure-summary.json").read_text())
+                  if state.get("provider") != provider or state.get("cell_id") != cell_id or state.get("run_attempt") != attempt: raise ValueError("state identity does not match artifact")
+              except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc: print(f"ignoring corrupt prior state attempt {attempt}: {exc}", file=sys.stderr); continue
+              valid = (root, attempt); break
+          if valid is None: raise SystemExit("all prior state artifacts were corrupt; refusing a fresh duplicate call")
+          root, attempt = valid
+          for path in root.iterdir(): shutil.copytree(path, run_root / path.name, dirs_exist_ok=True) if path.is_dir() else shutil.copyfile(path, run_root / path.name)
+          state_path = run_root / "state.json"; state = json.loads(state_path.read_text()); state.update({"restored_from_attempt": attempt, "run_attempt": current, "status": "restored"}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+          print(f"restore=attempt-{attempt}")
+          PY
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: locked-forecast-inputs-${{ github.run_id }}
+          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: /tmp/lfb-forecast-inputs
-      - name: Execute Anthropic forecast cell
+      - name: Execute exact Anthropic forecast cell
         shell: bash
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          MODEL_KEY: ${{ inputs.model_key }}
+          MODEL_KEY: ${{ matrix.model_key }}
+          CELL_ID: ${{ matrix.cell_id }}
+          UNIT_ID: ${{ matrix.unit_id }}
+          REPEAT_INDEX: ${{ matrix.repeat_index }}
+          ABLATION: ${{ matrix.ablation }}
           ACCOUNT: ${{ inputs.account }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/lfb-run/receipts
-          uv run legalforecast run execute \
-            --manifest /tmp/lfb-forecast-inputs/run-manifest.json \
-            --forecast /tmp/lfb-forecast-inputs/forecast-release.json \
-            --artifact-root /tmp/lfb-forecast-inputs/artifacts \
-            --model-registry /tmp/lfb-forecast-inputs/model-registry.json \
-            --model-key "${MODEL_KEY}" \
-            --ledger /tmp/lfb-run/ledger.sqlite3 \
-            --receipts-dir /tmp/lfb-run/receipts \
-            --ceiling-microusd "${CEILING_MICROUSD}" \
-            --account "${ACCOUNT}" | tee /tmp/lfb-run/run-summary.json
-      - name: Persist Anthropic ledger, receipts, and result
+          set +e
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" > /tmp/lfb-run/run-summary.json 2>&1
+          status=$?
+          set -e
+          uv run python - "${status}" <<'PY'
+          import json, os, sqlite3, sys
+          from pathlib import Path
+          status = int(sys.argv[1]); model_key = os.environ["MODEL_KEY"]
+          summary = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": model_key.split(":", 1)[0], "model_key": model_key, "cell_id": os.environ["CELL_ID"], "unit_id": os.environ["UNIT_ID"], "repeat_index": int(os.environ["REPEAT_INDEX"]), "ablation": os.environ["ABLATION"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "completed" if status == 0 else "failed", "failure_type": None if status == 0 else "provider_or_runner_failure", "exit_status": status}
+          if status != 0:
+              Path("/tmp/lfb-run/run-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+          ledger_path = Path("/tmp/lfb-run/ledger.sqlite3")
+          if not ledger_path.exists():
+              with sqlite3.connect(ledger_path) as connection:
+                  connection.execute("CREATE TABLE runs(status TEXT NOT NULL)")
+                  connection.execute("INSERT INTO runs(status) VALUES (?)", (summary["status"],))
+                  connection.commit()
+          Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+          state_path = Path("/tmp/lfb-run/state.json"); state = json.loads(state_path.read_text()); state.update({"status": summary["status"], "model_key": model_key}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+          exit "${status}"
+      - name: Persist Anthropic ledger, receipts, and structured state
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: locked-run-state-anthropic-${{ github.run_id }}-${{ strategy.job-index }}
-          path: /tmp/lfb-run
-          if-no-files-found: warn
+          name: locked-run-state-${{ matrix.provider }}-${{ matrix.cell_id_slug }}-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/lfb-run/state.json
+            /tmp/lfb-run/failure-summary.json
+            /tmp/lfb-run/ledger.sqlite3
+            /tmp/lfb-run/run-summary.json
+            /tmp/lfb-run/receipts
+          if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
 
   run-gemini:
-    name: Gemini resumable forecast cell
-    if: ${{ startsWith(inputs.model_key, 'gemini:') || startsWith(inputs.model_key, 'google:') }}
+    name: Google resumable forecast cells
+    if: ${{ (startsWith(inputs.model_key, 'gemini:') || startsWith(inputs.model_key, 'google:')) && needs.prepare-inputs.outputs.gemini_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -415,9 +603,8 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
-      matrix:
-        cell: [run]
+      max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
+      matrix: ${{ fromJSON(needs.prepare-inputs.outputs.gemini_matrix) }}
     steps:
       - name: Checkout and verify trusted source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -438,61 +625,125 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
-      - name: Restore resumable Gemini state
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: locked-run-state-gemini-${{ github.run_id }}-*
-          path: /tmp/lfb-run
-          merge-multiple: true
-        continue-on-error: true
+      - name: Initialize bounded resumable state
+        shell: bash
+        env:
+          PROVIDER: ${{ matrix.provider }}
+          CELL_ID: ${{ matrix.cell_id }}
+          CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-run/receipts
+          uv run python - <<'PY'
+          import json, os
+          from pathlib import Path
+          record = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": os.environ["PROVIDER"], "cell_id": os.environ["CELL_ID"], "cell_id_slug": os.environ["CELL_ID_SLUG"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "initialized"}
+          Path("/tmp/lfb-run/state.json").write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+          Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps({**record, "failure_type": None}, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - name: Restore newest prior valid attempt
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROVIDER: ${{ matrix.provider }}
+          CELL_ID: ${{ matrix.cell_id }}
+          CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-artifacts.json"
+          export METADATA_PATH="${RUNNER_TEMP}/forecast-artifacts.json"
+          uv run python - <<'PY'
+          import json, os, re, shutil, subprocess, sys, zipfile
+          from pathlib import Path
+          provider, cell_id = os.environ["PROVIDER"], os.environ["CELL_ID"]; current = int(os.environ["GITHUB_RUN_ATTEMPT"]); slug = os.environ["CELL_ID_SLUG"]
+          pages = json.loads(Path(os.environ["METADATA_PATH"]).read_text()); artifacts = [item for page in pages for item in page]
+          pattern = re.compile(r"^" + re.escape(f"locked-run-state-{provider}-{slug}-attempt-") + r"([1-9][0-9]*)$"); candidates = [(int(match.group(1)), item["created_at"], item["id"]) for item in artifacts if isinstance(item, dict) and item.get("expired") is not True and isinstance(item.get("name"), str) and (match := pattern.fullmatch(item["name"])) and int(match.group(1)) < current and isinstance(item.get("id"), int) and isinstance(item.get("created_at"), str)]
+          if not candidates: print("restore=none"); raise SystemExit(0)
+          candidates.sort(reverse=True); run_root = Path("/tmp/lfb-run"); allowed = {"state.json", "failure-summary.json", "ledger.sqlite3", "run-summary.json"}; valid = None
+          for attempt, _created, artifact_id in candidates:
+              archive = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}.zip"; root = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}"; shutil.rmtree(root, ignore_errors=True); root.mkdir()
+              try:
+                  subprocess.run(["gh", "api", "--output", str(archive), f"/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts/{artifact_id}/zip"], check=True)
+              except (OSError, subprocess.CalledProcessError) as exc:
+                  raise SystemExit("prior state download/API failure; refusing a fresh duplicate call") from exc
+              try:
+                  with zipfile.ZipFile(archive) as bundle:
+                      for info in bundle.infolist():
+                          parts = Path(info.filename).parts
+                          if not info.filename or info.filename.startswith("/") or ".." in parts or len(parts) > 2 or (len(parts) == 1 and parts[0] not in allowed) or (len(parts) == 2 and (parts[0] != "receipts" or not parts[1].endswith(".json"))): raise ValueError("unexpected state archive path")
+                          if not info.filename.endswith("/"): (root / info.filename).parent.mkdir(parents=True, exist_ok=True); (root / info.filename).write_bytes(bundle.read(info.filename))
+                  state = json.loads((root / "state.json").read_text()); json.loads((root / "failure-summary.json").read_text())
+                  if state.get("provider") != provider or state.get("cell_id") != cell_id or state.get("run_attempt") != attempt: raise ValueError("state identity does not match artifact")
+              except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc: print(f"ignoring corrupt prior state attempt {attempt}: {exc}", file=sys.stderr); continue
+              valid = (root, attempt); break
+          if valid is None: raise SystemExit("all prior state artifacts were corrupt; refusing a fresh duplicate call")
+          root, attempt = valid
+          for path in root.iterdir(): shutil.copytree(path, run_root / path.name, dirs_exist_ok=True) if path.is_dir() else shutil.copyfile(path, run_root / path.name)
+          state_path = run_root / "state.json"; state = json.loads(state_path.read_text()); state.update({"restored_from_attempt": attempt, "run_attempt": current, "status": "restored"}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+          print(f"restore=attempt-{attempt}")
+          PY
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: locked-forecast-inputs-${{ github.run_id }}
+          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: /tmp/lfb-forecast-inputs
-      - name: Execute Gemini forecast cell
+      - name: Execute exact Google forecast cell
         shell: bash
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          MODEL_KEY: ${{ inputs.model_key }}
+          MODEL_KEY: ${{ matrix.model_key }}
+          CELL_ID: ${{ matrix.cell_id }}
+          UNIT_ID: ${{ matrix.unit_id }}
+          REPEAT_INDEX: ${{ matrix.repeat_index }}
+          ABLATION: ${{ matrix.ablation }}
           ACCOUNT: ${{ inputs.account }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/lfb-run/receipts
-          uv run legalforecast run execute \
-            --manifest /tmp/lfb-forecast-inputs/run-manifest.json \
-            --forecast /tmp/lfb-forecast-inputs/forecast-release.json \
-            --artifact-root /tmp/lfb-forecast-inputs/artifacts \
-            --model-registry /tmp/lfb-forecast-inputs/model-registry.json \
-            --model-key "${MODEL_KEY}" \
-            --ledger /tmp/lfb-run/ledger.sqlite3 \
-            --receipts-dir /tmp/lfb-run/receipts \
-            --ceiling-microusd "${CEILING_MICROUSD}" \
-            --account "${ACCOUNT}" | tee /tmp/lfb-run/run-summary.json
-      - name: Persist Gemini ledger, receipts, and result
+          set +e
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" > /tmp/lfb-run/run-summary.json 2>&1
+          status=$?
+          set -e
+          uv run python - "${status}" <<'PY'
+          import json, os, sqlite3, sys
+          from pathlib import Path
+          status = int(sys.argv[1]); model_key = os.environ["MODEL_KEY"]
+          summary = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": model_key.split(":", 1)[0], "model_key": model_key, "cell_id": os.environ["CELL_ID"], "unit_id": os.environ["UNIT_ID"], "repeat_index": int(os.environ["REPEAT_INDEX"]), "ablation": os.environ["ABLATION"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "completed" if status == 0 else "failed", "failure_type": None if status == 0 else "provider_or_runner_failure", "exit_status": status}
+          if status != 0:
+              Path("/tmp/lfb-run/run-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+          ledger_path = Path("/tmp/lfb-run/ledger.sqlite3")
+          if not ledger_path.exists():
+              with sqlite3.connect(ledger_path) as connection:
+                  connection.execute("CREATE TABLE runs(status TEXT NOT NULL)")
+                  connection.execute("INSERT INTO runs(status) VALUES (?)", (summary["status"],))
+                  connection.commit()
+          Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+          state_path = Path("/tmp/lfb-run/state.json"); state = json.loads(state_path.read_text()); state.update({"status": summary["status"], "model_key": model_key}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+          exit "${status}"
+      - name: Persist Google ledger, receipts, and structured state
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: locked-run-state-gemini-${{ github.run_id }}-${{ strategy.job-index }}
-          path: /tmp/lfb-run
-          if-no-files-found: warn
+          name: locked-run-state-${{ matrix.provider }}-${{ matrix.cell_id_slug }}-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/lfb-run/state.json
+            /tmp/lfb-run/failure-summary.json
+            /tmp/lfb-run/ledger.sqlite3
+            /tmp/lfb-run/run-summary.json
+            /tmp/lfb-run/receipts
+          if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
 
-  score-and-report:
-    name: Score and report at labels-only fan-in
-    if: ${{ always() && needs.prepare-inputs.result == 'success' && (needs.run-openai.result == 'success' || needs.run-openai.result == 'skipped') && (needs.run-anthropic.result == 'success' || needs.run-anthropic.result == 'skipped') && (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') && (needs.run-openai.result == 'success' || needs.run-anthropic.result == 'success' || needs.run-gemini.result == 'success') }}
+  persist-forecast-results:
+    name: Persist combined forecast result
+    if: ${{ always() && needs.prepare-inputs.result == 'success' }}
     needs: [prepare-inputs, run-openai, run-anthropic, run-gemini]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: legalforecastbench-official-eval-fan-in
+    timeout-minutes: 20
     permissions:
+      actions: read
       contents: read
-      id-token: write
-    env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
-      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
-      LFB_GITHUB_FAN_IN_ROLE_ARN: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
     steps:
       - name: Checkout and verify trusted source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -513,140 +764,223 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
-      - name: Configure labels-only fan-in access
-        if: ${{ startsWith(inputs.labels_release_uri, 's3://') || startsWith(inputs.labels_release_uri, 'manifests/') }}
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lfb-labels-fan-in-${{ github.run_id }}
-          role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
-      - name: Download outcome-blinded inputs and provider state
+      - name: Download validated forecast inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: locked-*
-          path: /tmp/lfb-fan-in
+          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: /tmp/lfb-forecast-inputs
+      - name: Download per-cell durable state
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: locked-run-state-*-attempt-${{ github.run_attempt }}
+          path: /tmp/lfb-state-artifacts
           merge-multiple: false
-      - name: Fetch labels release only at fan-in
+      - name: Assemble exact protected fan-in source artifact
         shell: bash
         env:
-          LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
+          RELEASE_SHA: ${{ inputs.release_sha || github.sha }}
+          MANIFEST_URI: ${{ inputs.manifest_uri }}
+          FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
+          MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          REPEAT_COUNT: ${{ inputs.repeat_count }}
         run: |
           set -euo pipefail
-          case "${LABELS_RELEASE_URI}" in
-            s3://*) aws s3 cp "${LABELS_RELEASE_URI}" /tmp/lfb-fan-in/labels-release.json --only-show-errors ;;
-            manifests/*) aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${LABELS_RELEASE_URI}" /tmp/lfb-fan-in/labels-release.json --only-show-errors ;;
-            *) cp -- "${LABELS_RELEASE_URI}" /tmp/lfb-fan-in/labels-release.json ;;
-          esac
-      - name: Validate public contracts and project durable receipts
-        shell: bash
-        run: |
-          set -euo pipefail
-          uv run python - <<'PY'
-          import shutil
-          from pathlib import Path
-
-          root = Path("/tmp/lfb-fan-in")
-
-          def copy_one(pattern: str, destination: Path) -> None:
-              matches = sorted(root.rglob(pattern))
-              if not matches:
-                  raise SystemExit(f"missing fan-in input: {pattern}")
-              source = matches[0]
-              if source.is_dir():
-                  shutil.copytree(source, destination, dirs_exist_ok=True)
-              else:
-                  shutil.copyfile(source, destination)
-
-          copy_one("run-manifest.json", Path("/tmp/lfb-run-manifest.json"))
-          copy_one("forecast-release.json", Path("/tmp/lfb-forecast-release.json"))
-          copy_one("model-registry.json", Path("/tmp/lfb-model-registry.json"))
-          copy_one("artifacts", Path("/tmp/lfb-artifacts"))
-          PY
-          test -s /tmp/lfb-run-manifest.json -a -s /tmp/lfb-forecast-release.json -a -s /tmp/lfb-model-registry.json -a -s /tmp/lfb-fan-in/labels-release.json
-          uv run legalforecast manifest validate \
-            --manifest /tmp/lfb-run-manifest.json \
-            --forecast /tmp/lfb-forecast-release.json \
-            --labels /tmp/lfb-fan-in/labels-release.json \
-            --artifact-root /tmp/lfb-artifacts
           uv run python - <<'PY'
           import json
+          import os
+          import re
+          import shutil
+          import sqlite3
           from pathlib import Path
 
-          fan_in_root = Path("/tmp/lfb-fan-in")
-          receipt_paths = sorted(
-              path
-              for path in fan_in_root.rglob("*.json")
-              if path.parent.name == "receipts"
+          inputs = Path("/tmp/lfb-forecast-inputs")
+          state_root = Path("/tmp/lfb-state-artifacts")
+          output = Path("/tmp/lfb-forecast-results")
+          if output.exists() or output.is_symlink():
+              raise SystemExit("combined forecast result destination already exists")
+          output.mkdir()
+          (output / "receipts").mkdir()
+          for name in (
+              "run-manifest.json",
+              "forecast-release.json",
+              "model-registry.json",
+          ):
+              source = inputs / name
+              if not source.is_file() or source.is_symlink():
+                  raise SystemExit(f"validated forecast input is missing: {name}")
+              shutil.copyfile(source, output / name)
+          def read_object(path: Path) -> dict[str, object]:
+              if not path.is_file() or path.is_symlink():
+                  raise SystemExit(f"durable state file is missing: {path}")
+              try:
+                  value = json.loads(path.read_text(encoding="utf-8"))
+              except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                  raise SystemExit(f"durable state file is not JSON: {path}") from exc
+              if not isinstance(value, dict):
+                  raise SystemExit(f"durable state file is not an object: {path}")
+              return value
+
+          state_dirs = sorted(
+              path for path in state_root.iterdir()
+              if path.is_dir() and not path.is_symlink()
+          ) if state_root.is_dir() and not state_root.is_symlink() else []
+          if not state_dirs:
+              raise SystemExit("no per-cell durable state artifacts were supplied")
+
+          receipts: list[dict[str, object]] = []
+          summaries: list[dict[str, object]] = []
+          states: list[dict[str, object]] = []
+          for state_dir in state_dirs:
+              state = read_object(state_dir / "state.json")
+              states.append(state)
+              summary_path = state_dir / "run-summary.json"
+              if summary_path.is_file() and not summary_path.is_symlink():
+                  try:
+                      summary_value = json.loads(summary_path.read_text(encoding="utf-8"))
+                  except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                      summary_value = None
+                  if isinstance(summary_value, dict):
+                      summaries.append(summary_value)
+              failure = state_dir / "failure-summary.json"
+              if not failure.is_file() or failure.is_symlink():
+                  raise SystemExit(f"durable failure summary is missing: {state_dir.name}")
+              read_object(failure)
+              receipts_dir = state_dir / "receipts"
+              if receipts_dir.exists() and (not receipts_dir.is_dir() or receipts_dir.is_symlink()):
+                  raise SystemExit(f"durable receipt directory is unsafe: {state_dir.name}")
+              if not receipts_dir.exists():
+                  continue
+              for receipt_path in sorted(receipts_dir.glob("*.json")):
+                  if receipt_path.is_symlink() or not receipt_path.is_file():
+                      raise SystemExit(f"durable receipt is unsafe: {receipt_path}")
+                  receipt = read_object(receipt_path)
+                  receipts.append(receipt)
+                  safe_prefix = re.sub(r"[^A-Za-z0-9_.-]+", "_", state_dir.name)
+                  destination = output / "receipts" / f"{safe_prefix}-{receipt_path.name}"
+                  if destination.exists():
+                      raise SystemExit(f"duplicate durable receipt destination: {destination.name}")
+                  shutil.copyfile(receipt_path, destination)
+          if not receipts:
+              raise SystemExit("no provider receipts are available for the combined result")
+
+          first = receipts[0]
+          identity_fields = (
+              "run_identity_sha256",
+              "forecast_release_digest",
+              "model_key",
+              "model_registry_sha256",
           )
-          if not receipt_paths:
-              raise SystemExit("fan-in received no durable provider receipts")
-          output = Path("/tmp/lfb-run-records.jsonl")
-          with output.open("w", encoding="utf-8") as handle:
-              for path in receipt_paths:
-                  receipt = json.loads(path.read_text(encoding="utf-8"))
-                  unit_id = receipt.get("unit_id")
-                  case_id = receipt.get("case_id")
-                  model_key = receipt.get("model_key")
-                  parser_output = receipt.get("parser_output")
-                  if not all(isinstance(value, str) and value for value in (unit_id, case_id, model_key)):
-                      raise SystemExit(f"receipt lacks run-record identity: {path}")
-                  if not isinstance(parser_output, dict):
-                      raise SystemExit(f"receipt lacks parser output: {path}")
-                  required_fields = (
-                      "schema_version",
-                      "release_id",
-                      "forecast_release_digest",
-                      "run_identity_sha256",
-                      "cell_id",
-                      "unit_id",
-                      "case_id",
-                      "model_key",
-                      "harness",
-                      "ablation",
-                      "repeat_index",
-                      "model_registry_sha256",
-                      "model_registry_entry_sha256",
-                      "prompt_sha256",
-                      "request_body_sha256",
-                      "served_model_version",
+          for field in identity_fields:
+              value = first.get(field)
+              if not isinstance(value, str) or not value:
+                  raise SystemExit(f"provider receipt lacks {field}")
+          identity = {field: first[field] for field in identity_fields}
+          seen_units: set[tuple[str, int]] = set()
+          for receipt in receipts:
+              if any(receipt.get(field) != identity[field] for field in identity_fields):
+                  raise SystemExit("provider receipts disagree about frozen run identity")
+              if receipt.get("repeat_index") != 1:
+                  raise SystemExit("official fan-in source requires repeat_index 1")
+              unit_id, case_id, parser_output = receipt.get("unit_id"), receipt.get("case_id"), receipt.get("parser_output")
+              if not isinstance(unit_id, str) or not unit_id or not isinstance(case_id, str) or not case_id or not isinstance(parser_output, dict):
+                  raise SystemExit("provider receipt lacks exact prediction identity")
+              key = (unit_id, 1)
+              if key in seen_units:
+                  raise SystemExit(f"duplicate provider receipt unit: {unit_id}")
+              seen_units.add(key)
+
+          forecast_release_digest = identity["forecast_release_digest"]
+          model_registry_sha256 = identity["model_registry_sha256"]
+          run_identity_sha256 = identity["run_identity_sha256"]
+          if any(
+              not re.fullmatch(r"[0-9a-f]{64}", str(identity[field]))
+              for field in ("run_identity_sha256", "forecast_release_digest", "model_registry_sha256")
+          ):
+              raise SystemExit("provider receipt has an invalid frozen identity digest")
+          forecast_run = {
+              "schema_version": "legalforecast.forecast-run.v1",
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "release_sha": os.environ["RELEASE_SHA"],
+              "manifest_uri": os.environ["MANIFEST_URI"],
+              "forecast_release_uri": os.environ["FORECAST_RELEASE_URI"],
+              "artifact_root_uri": os.environ["ARTIFACT_ROOT_URI"],
+              "model_registry_uri": os.environ["MODEL_REGISTRY_URI"],
+              "model_key": identity["model_key"],
+              "run_identity_sha256": run_identity_sha256,
+              "forecast_release_digest": forecast_release_digest,
+              "model_registry_sha256": model_registry_sha256,
+              "repeat_count": int(os.environ["REPEAT_COUNT"]),
+          }
+          (output / "forecast-run.json").write_text(
+              json.dumps(forecast_run, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+
+          all_completed = all(state.get("status") == "completed" for state in states)
+          run_status = "completed" if all_completed and len(receipts) > 0 else "failed"
+          run_summary = {
+              "schema_version": "legalforecast.forecast-run-summary.v1",
+              "run_identity_sha256": run_identity_sha256,
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "status": run_status,
+              "completed_cells": len(receipts) if all_completed else 0,
+              "executed_cells": len(receipts) if all_completed else 0,
+              "resumed_cells": 0,
+              "state_artifact_count": len(states),
+          }
+          (output / "run-summary.json").write_text(
+              json.dumps(run_summary, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+
+          ledger_path = output / "ledger" / "ledger.sqlite3"
+          ledger_path.parent.mkdir()
+          with sqlite3.connect(ledger_path) as connection:
+              connection.executescript(
+                  """
+                  CREATE TABLE runs(
+                      run_identity_sha256 TEXT PRIMARY KEY,
+                      workflow_run_id INTEGER NOT NULL,
+                      workflow_run_attempt INTEGER NOT NULL,
+                      status TEXT NOT NULL
+                  );
+                  CREATE TABLE cells(
+                      cell_id TEXT PRIMARY KEY,
+                      case_id TEXT NOT NULL,
+                      unit_id TEXT NOT NULL,
+                      repeat_index INTEGER NOT NULL,
+                      model_key TEXT NOT NULL,
+                      status TEXT NOT NULL
+                  );
+                  """
+              )
+              connection.execute(
+                  "INSERT INTO runs VALUES (?, ?, ?, ?)",
+                  (run_identity_sha256, int(os.environ["GITHUB_RUN_ID"]), int(os.environ["GITHUB_RUN_ATTEMPT"]), run_status),
+              )
+              for receipt in receipts:
+                  connection.execute(
+                      "INSERT INTO cells VALUES (?, ?, ?, ?, ?, ?)",
+                      (str(receipt["cell_id"]), str(receipt["case_id"]), str(receipt["unit_id"]), 1, str(receipt["model_key"]), run_status),
                   )
-                  missing_fields = [field for field in required_fields if field not in receipt]
-                  if missing_fields:
-                      raise SystemExit(f"receipt lacks strict identity fields: {path}: {missing_fields}")
-                  record = {
-                      field: receipt[field] for field in required_fields
-                  }
-                  record["model_id"] = model_key
-                  record["required_unit_ids"] = [unit_id]
-                  record["parser_output"] = parser_output
-                  handle.write(json.dumps(record, sort_keys=True) + "\n")
+              connection.commit()
           PY
-      - name: Score public receipts against labels release
-        shell: bash
-        run: |
-          set -euo pipefail
-          uv run legalforecast score \
-            --runs /tmp/lfb-run-records.jsonl \
-            --labels-release /tmp/lfb-fan-in/labels-release.json \
-            --forecast-release /tmp/lfb-forecast-release.json \
-            --artifact-root /tmp/lfb-artifacts \
-            --manifest /tmp/lfb-run-manifest.json \
-            --output /tmp/lfb-score.json
-          uv run legalforecast report \
-            --scores /tmp/lfb-score.json \
-            --output-dir /tmp/lfb-report \
-            --labels-release /tmp/lfb-fan-in/labels-release.json \
-            --forecast-release /tmp/lfb-forecast-release.json \
-            --artifact-root /tmp/lfb-artifacts \
-            --manifest /tmp/lfb-run-manifest.json \
-            --title "LegalForecast official benchmark"
-      - name: Upload score and report
+      - name: Persist exact combined forecast result
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: locked-score-report-${{ github.run_id }}
+          name: official-forecast-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            /tmp/lfb-score.json
-            /tmp/lfb-report
-          if-no-files-found: warn
+            /tmp/lfb-forecast-results/forecast-run.json
+            /tmp/lfb-forecast-results/run-manifest.json
+            /tmp/lfb-forecast-results/forecast-release.json
+            /tmp/lfb-forecast-results/model-registry.json
+            /tmp/lfb-forecast-results/run-summary.json
+            /tmp/lfb-forecast-results/ledger/ledger.sqlite3
+            /tmp/lfb-forecast-results/receipts
+          if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}

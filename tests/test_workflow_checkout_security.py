@@ -117,12 +117,14 @@ def test_workflow_dispatch_input_parser_sees_the_real_declarations() -> None:
     }
     run_benchmark = counts["run-benchmark.yaml"]
     assert run_benchmark is not None
-    # Spot-check both ends of the block and a choice-typed input in the middle,
+    # Spot-check both ends of the block and the locked input fields in the middle,
     # so a parser that stops early or swallows nested keys fails here.
     assert run_benchmark[0] == "release_sha"
     assert run_benchmark[-1] == "artifact_retention_days"
     assert "manifest_uri" in run_benchmark
-    assert "labels_release_uri" in run_benchmark
+    assert "forecast_release_uri" in run_benchmark
+    assert "model_registry_uri" in run_benchmark
+    assert "labels_release_uri" not in run_benchmark
     assert "cycle_series" not in run_benchmark
     assert "options" not in run_benchmark
     assert "supplementary" not in run_benchmark, (

@@ -14,20 +14,20 @@ def _job(name: str, next_name: str | None = None) -> str:
     return WORKFLOW[start:end]
 
 
-def test_canonical_dispatcher_partitions_provider_lanes_without_legacy_action() -> None:
+def test_canonical_dispatcher_partitions_dynamic_provider_lanes() -> None:
     assert not LEGACY.exists()
+    assert "run-openai:" in WORKFLOW
+    assert "run-anthropic:" in WORKFLOW
+    assert "run-gemini:" in WORKFLOW
     for provider, next_name in (
-        ("run-openai", "run-anthropic"),
-        ("run-anthropic", "run-gemini"),
-        ("run-gemini", "score-and-report"),
+        ("openai", "run-anthropic"),
+        ("anthropic", "run-gemini"),
+        ("gemini", None),
     ):
-        job = _job(provider, next_name)
-        assert (
-            f"startsWith(inputs.model_key, '{provider.removeprefix('run-')}:')" in job
-        )
+        job = _job(f"run-{provider}", next_name)
         assert "environment: legalforecastbench-official-eval" in job
-        assert "uses: ./.github/actions/official-provider-cell" not in job
         assert "Download outcome-blinded inputs" in job
+        assert "fromJSON(needs.prepare-inputs.outputs." + provider + "_matrix)" in job
 
 
 def test_provider_credentials_are_step_scoped_and_never_inherited() -> None:
@@ -36,15 +36,13 @@ def test_provider_credentials_are_step_scoped_and_never_inherited() -> None:
         "run-anthropic": ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"),
         "run-gemini": ("GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"),
     }
+    next_names = {
+        "run-openai": "run-anthropic",
+        "run-anthropic": "run-gemini",
+        "run-gemini": None,
+    }
     for name, (own, other_a, other_b) in jobs.items():
-        block = _job(
-            name,
-            {
-                "run-openai": "run-anthropic",
-                "run-anthropic": "run-gemini",
-                "run-gemini": "score-and-report",
-            }[name],
-        )
+        block = _job(name, next_names[name])
         assert block.count(f"secrets.{own}") == 1
         assert f"secrets.{other_a}" not in block
         assert f"secrets.{other_b}" not in block
@@ -52,34 +50,39 @@ def test_provider_credentials_are_step_scoped_and_never_inherited() -> None:
         assert "LFB_GITHUB_FAN_IN_ROLE_ARN" not in block
 
 
-def test_provider_cells_have_no_label_input_or_label_storage_authority() -> None:
+def test_provider_cells_have_no_label_input_or_scoring_authority() -> None:
     for name, next_name in (
         ("run-openai", "run-anthropic"),
         ("run-anthropic", "run-gemini"),
-        ("run-gemini", "score-and-report"),
+        ("run-gemini", None),
     ):
         block = _job(name, next_name)
         assert "labels_release_uri" not in block
-        assert "labels-release" not in block
         assert "LABELS" not in block
         assert "--labels" not in block
-        assert "LFB_GITHUB_FAN_IN_ROLE_ARN" not in block
+        assert "score" not in block.lower()
+        assert "report" not in block.lower()
+        assert "GITHUB_EVENT_PATH" not in block
 
 
 def test_provider_cells_use_durable_resume_state_and_exact_source_checks() -> None:
     for name, next_name in (
         ("run-openai", "run-anthropic"),
         ("run-anthropic", "run-gemini"),
-        ("run-gemini", "score-and-report"),
+        ("run-gemini", None),
     ):
         block = _job(name, next_name)
         assert "git fetch --no-tags --depth=1 origin main" in block
         assert "git merge-base --is-ancestor origin/main HEAD" in block
-        assert "Restore resumable" in block
+        assert "Restore newest prior valid attempt" in block
         assert "Persist" in block
         assert "if: ${{ always() }}" in block
         assert "ledger.sqlite3" in block
         assert "receipts" in block
+        assert "failure-summary.json" in block
+        assert "if-no-files-found: error" in block
+        assert "--cell-id" in block
+        assert "--unit-id" in block
 
 
 def test_workflow_action_references_are_full_sha_pinned() -> None:
