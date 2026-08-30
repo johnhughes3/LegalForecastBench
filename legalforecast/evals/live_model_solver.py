@@ -1139,6 +1139,20 @@ def _json_request(
     )
 
 
+def urlopen_json(
+    request: urllib.request.Request,
+    timeout_seconds: float,
+) -> JsonRecord:
+    """Public alias for the real network transport.
+
+    Exposed so the shape probe can wrap the genuine transport rather than
+    reimplement it; a probe that used a different HTTP path would not be
+    probing what production sends.
+    """
+
+    return _urlopen_json(request, timeout_seconds)
+
+
 def _urlopen_json(
     request: urllib.request.Request,
     timeout_seconds: float,
