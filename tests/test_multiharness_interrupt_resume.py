@@ -232,36 +232,50 @@ def test_in_process_adapter_interrupt_writes_interrupted_receipt(
     output_dir = tmp_path / "run"
 
     def _interrupt() -> None:
-        time.sleep(0.2)
-        os.kill(os.getpid(), signal.SIGINT)
+        # Wait for the adapter to report that the runner is inside its guarded
+        # window rather than guessing at how long the runner's durable setup
+        # writes take.  Sleeping instead would race the setup phase: the runner
+        # only arms its SIGINT handler once row execution begins, so a signal
+        # delivered earlier reaches the default handler and kills the process.
+        if adapter.running.wait(timeout=SATURATED_HOST_TIMEOUT_SECONDS):
+            os.kill(os.getpid(), signal.SIGINT)
 
-    threading.Thread(target=_interrupt, daemon=True).start()
-    run = run_multi_harness(
-        MultiHarnessRunConfig(
-            task_index=TaskIndex(
-                index_id="fixture-index",
-                selection_namespace="fixture",
-                tasks=(_task(FAST_TASK_ID),),
-                index_sha256=SHA256,
-            ),
-            adapters=(adapter,),
-            model_configs=(
-                ModelConfig(
-                    adapter_id=adapter.manifest.adapter_id,
-                    model_key="fixture-model",
+    interrupter = threading.Thread(target=_interrupt, daemon=True)
+    interrupter.start()
+    try:
+        run = run_multi_harness(
+            MultiHarnessRunConfig(
+                task_index=TaskIndex(
+                    index_id="fixture-index",
+                    selection_namespace="fixture",
+                    tasks=(_task(FAST_TASK_ID),),
+                    index_sha256=SHA256,
                 ),
-            ),
-            sandbox_policy=sandbox_policy(
-                policy_id="fixture",
-                backend="docker",
-                image="python:3.12-slim",
-                mounts=(),
-                timeout_seconds=30,
-            ),
-            output_dir=output_dir,
+                adapters=(adapter,),
+                model_configs=(
+                    ModelConfig(
+                        adapter_id=adapter.manifest.adapter_id,
+                        model_key="fixture-model",
+                    ),
+                ),
+                sandbox_policy=sandbox_policy(
+                    policy_id="fixture",
+                    backend="docker",
+                    image="python:3.12-slim",
+                    mounts=(),
+                    timeout_seconds=30,
+                ),
+                output_dir=output_dir,
+            )
         )
-    )
+    finally:
+        # The thread signals only after ``adapter.running`` is set, and nothing
+        # can set it once this run has returned, so it cannot leak a stray
+        # SIGINT into a later test.  Join it anyway so the thread is retired
+        # with the test that owns it.
+        interrupter.join(timeout=SATURATED_HOST_TIMEOUT_SECONDS)
 
+    assert interrupter.is_alive() is False
     assert run.interrupted is True
     assert run.rows[0].result.status == "interrupted"
 
@@ -293,6 +307,11 @@ class _BlockingInProcessAdapter:
             adapter_version="0.1.0",
             command=("in-process-fixture",),
         )
+        # Set once the runner is inside the window where it converts a
+        # cancellation signal into an interrupted receipt: the runner installs
+        # its SIGINT handler before dispatching any row, so this event firing
+        # proves the handler is armed and the row is in flight.
+        self.running = threading.Event()
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
         del workspace
@@ -313,6 +332,7 @@ class _BlockingInProcessAdapter:
 
     def run(self, request: RunRequest, workspace: Path) -> RunResult:
         del request, workspace
+        self.running.set()
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             time.sleep(0.05)
