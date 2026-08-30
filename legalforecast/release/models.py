@@ -32,6 +32,10 @@ LABELS_RELEASE_SCHEMA = cast(
     ],
     str(LABELS_RELEASE_V1),
 )
+type PublicRunManifestSchema = Literal[
+    # contract-ratchet: allow imported public contract
+    "legalforecast.public-run-manifest.v1"
+]
 
 PleadingRole = Literal[
     "complaint",
@@ -155,8 +159,8 @@ class ForecastManifestBinding(ReleaseModel):
     contract or per-document hashes.
     """
 
-    schema_version: Literal["legalforecast.public-run-manifest.v1"] = cast(
-        Literal["legalforecast.public-run-manifest.v1"], str(PUBLIC_RUN_MANIFEST_V1)
+    schema_version: PublicRunManifestSchema = cast(
+        PublicRunManifestSchema, str(PUBLIC_RUN_MANIFEST_V1)
     )
     release_id: NonEmptyString
     run_id: UUID
