@@ -10670,6 +10670,23 @@
         "nonblank_line_count": 844,
         "top_level_definition_count": 36
       },
+      "tests/test_manifest_run_materialize.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "scenario",
+        "largest_symbol_lines": 86,
+        "layer": "test",
+        "line_count": 523,
+        "nonblank_line_count": 455,
+        "top_level_definition_count": 19
+      },
       "tests/test_manifest_unitizer_inputs.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",

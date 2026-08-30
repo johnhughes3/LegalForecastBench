@@ -24,8 +24,12 @@ from legalforecast.protocol.freeze import (
 from legalforecast.publication.manifest_run_materialize import (
     ManifestRunMaterializeConfig,
     ManifestRunMaterializeError,
+    _parse_local_artifacts,
     materialize_manifest_run_inputs,
 )
+
+# The production constant that causes the doubling the official lane would hit.
+STAGED_ARTIFACT_PREFIX = "artifacts"
 
 OFFICIAL_PREFIX = "cycle-1/manifest-runs/" + "a" * 64
 RESULTS_BUCKET = "results-bucket"
@@ -152,6 +156,8 @@ def scenario(tmp_path: Path) -> tuple[FakeS3, dict[str, object]]:
 
     return FakeS3(objects), {
         "official_sha256": _digest(official_bytes),
+        "run_inputs_sha256": _digest(run_inputs),
+        "run_record_sha256": _digest(b'{"manifest_sha256": "aa"}'),
         "sibling_path": sibling_path,
         "registry_checkout": registry_checkout,
         "sibling_registry": sibling_registry,
@@ -164,12 +170,16 @@ def _config(
     tmp_path: Path,
     facts: Mapping[str, object],
     *,
-    freeze_bundle: Path | None,
+    freeze_bundle: Path,
     local_artifacts: Mapping[str, Path] | None = None,
+    run_inputs_sha256: str | None = None,
+    run_record_sha256: str | None = None,
 ) -> ManifestRunMaterializeConfig:
     return ManifestRunMaterializeConfig(
         freeze_bundle=freeze_bundle,
         official_freeze_bundle_sha256=str(facts["official_sha256"]),
+        run_inputs_sha256=run_inputs_sha256 or str(facts["run_inputs_sha256"]),
+        run_record_sha256=run_record_sha256 or str(facts["run_record_sha256"]),
         official_prefix=OFFICIAL_PREFIX,
         results_bucket=RESULTS_BUCKET,
         packet_bucket=PACKET_BUCKET,
@@ -241,17 +251,107 @@ def test_rebuild_never_lists_and_reads_only_exact_keys(
     ) not in store.reads
 
 
-def test_official_reverification_uses_the_downloaded_pinned_bundle(
+def test_restaging_a_staged_official_freeze_would_double_the_artifacts_segment(
     tmp_path: Path, scenario: tuple[FakeS3, dict[str, object]]
 ) -> None:
-    store, facts = scenario
-    config = _config(tmp_path, facts, freeze_bundle=None)
-    plan = materialize_manifest_run_inputs(config, fetch=store.fetch)
+    """Why this module has no official re-verification mode.
 
-    assert plan["candidate_freeze_bundle"] == str(config.official_freeze_bundle_out)
-    assert plan["candidate_freeze_bundle_sha256"] == facts["official_sha256"]
-    rebuilt = config.artifact_root / "artifacts" / "prompt.json"
-    assert rebuilt.is_file()
+    A staged freeze's paths were already rewritten to ``artifacts/<relative>`` by
+    ``manifest_forecast_stage._freeze_objects``.  Feeding one back through
+    staging applies the segment a second time, so every artifact key becomes
+    ``artifacts/artifacts/<relative>`` -- keys that do not exist, which means
+    each create-only PutObject *succeeds* and creates junk in the immutable
+    official prefix that no role can delete, aborting only afterwards when
+    ``freeze.json`` collides.  This is arithmetic on the production constant,
+    not a mock: if the doubling ever stops happening, this test must be revisited
+    rather than deleted.
+    """
+
+    _, facts = scenario
+    staged_relative = Path("artifacts") / "prompt.json"
+    restaged = Path(STAGED_ARTIFACT_PREFIX) / staged_relative
+    assert restaged.as_posix() == "artifacts/artifacts/prompt.json"
+    # And the config that would be needed to attempt it is not constructible:
+    # freeze_bundle is required, so there is no "use the downloaded one" path.
+    with pytest.raises(TypeError):
+        ManifestRunMaterializeConfig(  # type: ignore[call-arg]
+            official_freeze_bundle_sha256=str(facts["official_sha256"]),
+            run_inputs_sha256=str(facts["run_inputs_sha256"]),
+            run_record_sha256=str(facts["run_record_sha256"]),
+            official_prefix=OFFICIAL_PREFIX,
+            results_bucket=RESULTS_BUCKET,
+            packet_bucket=PACKET_BUCKET,
+            artifact_root=tmp_path / "a",
+            output_dir=tmp_path / "o",
+            official_freeze_bundle_out=tmp_path / "f.json",
+        )
+
+
+def test_run_inputs_and_run_record_are_pinned_like_the_freeze(
+    tmp_path: Path, scenario: tuple[FakeS3, dict[str, object]]
+) -> None:
+    """Every packet digest the rebuild trusts is read out of run-inputs.json."""
+
+    store, facts = scenario
+    with pytest.raises(ManifestRunMaterializeError, match="hashes to"):
+        materialize_manifest_run_inputs(
+            _config(
+                tmp_path,
+                facts,
+                freeze_bundle=Path(str(facts["sibling_path"])),
+                local_artifacts={
+                    "model_registry": Path(str(facts["registry_checkout"]))
+                },
+                run_inputs_sha256="c" * 64,
+            ),
+            fetch=store.fetch,
+        )
+
+    with pytest.raises(ManifestRunMaterializeError, match="hashes to"):
+        materialize_manifest_run_inputs(
+            _config(
+                tmp_path,
+                facts,
+                freeze_bundle=Path(str(facts["sibling_path"])),
+                local_artifacts={
+                    "model_registry": Path(str(facts["registry_checkout"]))
+                },
+                run_record_sha256="c" * 64,
+            ),
+            fetch=store.fetch,
+        )
+
+
+def test_a_swapped_run_inputs_cannot_smuggle_in_a_different_packet_set(
+    tmp_path: Path, scenario: tuple[FakeS3, dict[str, object]]
+) -> None:
+    """The pin is what stops the packet list itself being the attack surface."""
+
+    store, facts = scenario
+    store.objects[(RESULTS_BUCKET, f"{OFFICIAL_PREFIX}/run-inputs.json")] = json.dumps(
+        {
+            "cycle_id": "cycle-1",
+            "model_packets": [
+                {
+                    "packet_object_key": "model-packets/cycle-1/case-1/swapped.json",
+                    "packet_sha256": "d" * 64,
+                }
+            ],
+        },
+        sort_keys=True,
+    ).encode("utf-8")
+    with pytest.raises(ManifestRunMaterializeError, match="hashes to"):
+        materialize_manifest_run_inputs(
+            _config(
+                tmp_path,
+                facts,
+                freeze_bundle=Path(str(facts["sibling_path"])),
+                local_artifacts={
+                    "model_registry": Path(str(facts["registry_checkout"]))
+                },
+            ),
+            fetch=store.fetch,
+        )
 
 
 def test_substituted_official_freeze_is_refused_before_any_artifact_is_fetched(
@@ -348,9 +448,28 @@ def test_packet_bytes_that_disagree_with_run_inputs_are_refused(
         )
 
 
-def test_local_artifact_naming_no_frozen_artifact_is_refused(
+def test_a_repeated_local_artifact_name_is_refused_rather_than_last_winning(
     tmp_path: Path, scenario: tuple[FakeS3, dict[str, object]]
 ) -> None:
+    """Silently taking the last one lets a paste slip choose the staged bytes."""
+
+    _, facts = scenario
+    other = tmp_path / "checkout" / "other-registry.json"
+    other.write_bytes(b'{"registry": "other"}')
+    with pytest.raises(ManifestRunMaterializeError, match="more than once"):
+        _parse_local_artifacts(
+            [
+                f"model_registry={facts['registry_checkout']}",
+                f"model_registry={other}",
+            ]
+        )
+
+
+def test_unknown_local_artifact_is_refused_before_any_download(
+    tmp_path: Path, scenario: tuple[FakeS3, dict[str, object]]
+) -> None:
+    """A typo means the operator believes they replaced something they did not."""
+
     store, facts = scenario
     stray = tmp_path / "checkout" / "stray.json"
     stray.write_bytes(b"{}")
@@ -367,19 +486,7 @@ def test_local_artifact_naming_no_frozen_artifact_is_refused(
             ),
             fetch=store.fetch,
         )
-
-
-def test_official_reverification_refuses_checkout_replacements(
-    tmp_path: Path, scenario: tuple[FakeS3, dict[str, object]]
-) -> None:
-    _, facts = scenario
-    with pytest.raises(ManifestRunMaterializeError, match="replaces no artifact"):
-        _config(
-            tmp_path,
-            facts,
-            freeze_bundle=None,
-            local_artifacts={"model_registry": Path(str(facts["registry_checkout"]))},
-        )
+    assert store.reads == []
 
 
 def test_traversal_in_a_recorded_artifact_path_is_refused(

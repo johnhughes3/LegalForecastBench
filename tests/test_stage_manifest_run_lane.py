@@ -27,6 +27,8 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY_ROOT = ROOT / "infra" / "official-eval" / "policies"
 STAGING_POLICY = POLICY_ROOT / "manifest-staging-policy.json.tftpl"
 STAGING_WORKFLOW = ROOT / ".github" / "workflows" / "stage-manifest-run.yaml"
+FENCE_SCRIPT_NAME = "assert-manifest-run-lane.sh"
+FENCE_SCRIPT = ROOT / ".github" / "scripts" / FENCE_SCRIPT_NAME
 ENVIRONMENT_MANIFEST = ROOT / "infra" / "official-eval" / "github-environments.json"
 
 PACKET_BUCKET_ARN = "arn:aws:s3:::lfb-packets"
@@ -223,47 +225,62 @@ def test_only_the_staging_job_gets_an_oidc_token_and_it_binds_its_environment() 
     assert "permissions:\n  contents: read\n" in _workflow_text()
 
 
-def test_workflow_refuses_cross_lane_requests_before_assuming_the_role() -> None:
-    """Each lane must refuse the other's shape, in the credential-free job."""
+def test_workflow_refuses_an_official_freeze_before_assuming_the_role() -> None:
+    """Restaging the official bundle is the unrecoverable mistake.
+
+    Its staged paths already carry the ``artifacts/`` segment, so restaging
+    doubles it into keys that do not exist, and every create-only put therefore
+    succeeds into the immutable official prefix before the run aborts. Refused
+    in the credential-free job rather than discovered mid-upload.
+    """
 
     validate = workflow_jobs(_workflow_text())["validate-request"]
-    # official: takes no sibling freeze and replaces no artifact.
-    assert (
-        "The official lane takes no freeze_bundle_path, freeze_bundle_sha256, "
-        "or local_artifacts." in validate
-    )
-    # supplementary: a candidate that hashes to the pinned official bundle IS
-    # the official freeze and must not reach the supplementary prefix.
     assert '"${FREEZE_BUNDLE_SHA256}" == "${OFFICIAL_FREEZE_BUNDLE_SHA256}"' in validate
-    assert "The supplementary lane requires freeze_bundle_sha256." in validate
+    assert "stages supplementary siblings only" in validate
     # Only main, and only the exact dispatched commit.
     assert '"${GITHUB_REF}" != "refs/heads/main"' in validate
     assert '"${RELEASE_SHA}" != "${GITHUB_SHA}"' in validate
+    # A path argument that could otherwise be read as a flag.
+    assert 'sha256sum -- "${FREEZE_BUNDLE_PATH}"' in validate
 
 
-def test_expected_prefixes_are_the_two_documented_lane_shapes() -> None:
+def test_the_only_expected_prefix_is_the_supplementary_shape() -> None:
     validate = workflow_jobs(_workflow_text())["validate-request"]
-    assert f'expected_prefix="{MANIFEST_RUN_PREFIX}/${{MANIFEST_DIGEST}}"' in validate
     assert (
         f'expected_prefix="{MANIFEST_RUN_PREFIX}/supplementary/'
         '${MANIFEST_DIGEST}/${FREEZE_BUNDLE_SHA256}"' in validate
     )
+    # The bare official prefix must never be produced by this workflow.
+    assert (
+        f'expected_prefix="{MANIFEST_RUN_PREFIX}/${{MANIFEST_DIGEST}}"' not in validate
+    )
 
 
-def test_lane_fence_runs_on_the_dry_run_plan_before_any_write() -> None:
-    """The fence is only worth anything before the first create-once upload."""
+def test_lane_fence_runs_before_any_write_and_again_on_what_was_written() -> None:
+    """The fence is only worth anything before the first create-once upload.
 
-    jobs = workflow_jobs(_workflow_text())
-    stage = jobs["stage"]
-    plan_index = stage.index("Prove the upload plan stays inside its own lane")
-    write_index = stage.index("Stage the manifest run")
+    It runs twice from one script: once on the dry-run plan, which is the
+    load-bearing pass, and once on the record of what was actually written,
+    because those are separate invocations and only the second describes the
+    real writes. One script rather than two inline copies, because a fence that
+    drifts between its pre- and post-write forms is worse than no fence.
+    """
+
+    stage = workflow_jobs(_workflow_text())["stage"]
+    plan_index = stage.index("Prove the upload plan stays inside its own prefix")
+    write_index = stage.index("- name: Stage the manifest run")
     assert plan_index < write_index
-    fence = stage[plan_index:write_index]
-    assert "--dry-run" in fence
+    assert "--dry-run" in stage[plan_index:write_index]
+    assert stage.count(FENCE_SCRIPT_NAME) == 2
+    assert FENCE_SCRIPT_NAME in stage[plan_index:write_index]
+    assert FENCE_SCRIPT_NAME in stage[write_index:]
+
+    fence = FENCE_SCRIPT.read_text(encoding="utf-8")
+    assert "set -euo pipefail" in fence
     assert 'startswith($prefix + "/")' in fence
     assert 'startswith("model-packets/")' in fence
-    assert "refusing to write" in fence
     assert 'contains("/supplementary/")' in fence
+    assert "refusing" in fence
 
 
 def test_workflow_emits_the_staged_freeze_raw_digest_scope_issuance_needs() -> None:
@@ -302,7 +319,16 @@ def test_uploaded_artifact_carries_only_hash_bearing_metadata() -> None:
     stage = workflow_jobs(_workflow_text())["stage"]
     upload_index = stage.index("- name: Upload stage record")
     upload = stage[upload_index:]
-    assert "path: ${{ env.OUTPUT_ROOT }}/stage-record.json" in upload
+    assert "${{ env.OUTPUT_ROOT }}/stage-record.json" in upload
+    # OUTPUT_ROOT must not be hidden: include-hidden-files is false and
+    # if-no-files-found is error, so a dot-prefixed root would hard-fail the job
+    # after the unrecoverable write had already landed.
+    assert "OUTPUT_ROOT: ${{ github.workspace }}/lfb-manifest-stage-output" in (
+        _workflow_text()
+    )
+    # always(): if staging wrote objects and a later step failed, the record of
+    # which immutable objects now exist is exactly what recovery needs.
+    assert "if: always() && steps.stage.outcome == 'success'" in upload
     assert "WORK_ROOT" not in upload
     assert "artifact-root" not in upload
     assert "model-packets" not in upload
@@ -331,8 +357,8 @@ def test_concurrency_never_cancels_a_run_that_may_have_written(
     assert "cancel-in-progress: false" in text
     assert "cancel-in-progress: true" not in text
     assert (
-        "group: stage-manifest-run-${{ inputs.manifest_digest }}-${{ inputs.lane }}"
-        in text
+        "group: stage-manifest-run-${{ inputs.manifest_digest }}"
+        "-${{ inputs.freeze_bundle_sha256 }}" in text
     )
 
 
@@ -348,11 +374,24 @@ def _dispatch_inputs(text: str) -> Mapping[str, str]:
 def test_dispatch_surface_is_the_reviewed_input_set() -> None:
     assert set(_dispatch_inputs(_workflow_text())) == {
         "release_sha",
-        "lane",
         "manifest_digest",
         "official_freeze_bundle_sha256",
+        "run_inputs_sha256",
+        "run_record_sha256",
         "freeze_bundle_path",
         "freeze_bundle_sha256",
         "local_artifacts",
         "dry_run",
     }
+
+
+def test_readback_verification_fails_safe_on_a_non_boolean_dry_run() -> None:
+    """`!= true` rather than `== false`.
+
+    An input that is not a real boolean must fail into running the readback,
+    never silently skip it after a write that cannot be undone.
+    """
+
+    stage = workflow_jobs(_workflow_text())["stage"]
+    assert "if: inputs.dry_run != true" in stage
+    assert "if: inputs.dry_run == false" not in stage

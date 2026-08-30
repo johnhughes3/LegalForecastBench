@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -35,10 +36,61 @@ if TYPE_CHECKING:
     )
 
 MANIFEST_FORECAST_PREFIX = "cycle-1/manifest-runs"
+PACKET_KEY_PREFIX = "model-packets/"
+
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
+# One rule for what may become an S3 key, shared by everything in this lane.
+# Two copies of a safety rule drift; this is the one copy.
+SAFE_S3_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._/-]+\Z")
 
 
 class ManifestForecastStageError(ValueError):
     """Raised when a manifest forecast cannot be staged safely."""
+
+
+def validate_s3_key(key: str, *, error_type: type[Exception] | None = None) -> None:
+    """Refuse any key that is not a plain, traversal-free S3 object key."""
+
+    failure = error_type or ManifestForecastStageError
+    if not SAFE_S3_KEY_PATTERN.fullmatch(key) or any(
+        part in {"", ".", ".."} for part in key.split("/")
+    ):
+        raise failure(f"unsafe S3 key: {key}")
+
+
+def iter_packet_rows(
+    run_inputs: Mapping[str, Any], *, error_type: type[Exception] | None = None
+) -> list[tuple[str, str]]:
+    """Return each run-input packet row as a validated ``(key, sha256)`` pair.
+
+    Shared because the staging uploader and the input rebuild must agree
+    exactly on which packets a run declares and on how a malformed row is
+    refused; two readings of the same list is how one lane silently stages a
+    packet set the other never checked.
+    """
+
+    failure = error_type or ManifestForecastStageError
+    packets = run_inputs.get("model_packets")
+    if not isinstance(packets, list) or not packets:
+        raise failure("run-inputs model_packets must be non-empty")
+    rows: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for raw in cast(list[object], packets):
+        if not isinstance(raw, Mapping):
+            raise failure("run-inputs packet rows must be objects")
+        packet = cast(Mapping[str, Any], raw)
+        key = packet.get("packet_object_key")
+        digest = packet.get("packet_sha256")
+        if not isinstance(key, str) or not key.startswith(PACKET_KEY_PREFIX):
+            raise failure(f"packet key must start with {PACKET_KEY_PREFIX}")
+        validate_s3_key(key, error_type=failure)
+        if not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None:
+            raise failure(f"invalid packet_sha256 for {key}")
+        if key in seen:
+            raise failure(f"duplicate packet key: {key}")
+        seen.add(key)
+        rows.append((key, digest))
+    return rows
 
 
 # The evals stack is reached through entry points, never imports: this module is

@@ -14,7 +14,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import subprocess
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -35,7 +34,14 @@ from legalforecast.publication.manifest_forecast_stage_lane import (
     MANIFEST_FORECAST_PREFIX,
     ManifestForecastStageError,
     classify_stage_lane,
+    iter_packet_rows,
     load_json_object,
+)
+from legalforecast.publication.manifest_forecast_stage_lane import (
+    SHA256_PATTERN as _SHA256,
+)
+from legalforecast.publication.manifest_forecast_stage_lane import (
+    validate_s3_key as _validate_s3_key,
 )
 
 MANIFEST_FORECAST_STAGE_SCHEMA_VERSION = "legalforecast-manifest-forecast-stage-v1"
@@ -46,8 +52,6 @@ MANIFEST_FORECAST_SUPPLEMENTARY_SEGMENT = "supplementary"
 MANIFEST_FORECAST_SUPPLEMENTARY_STAGE_SCHEMA_VERSION = (
     "legalforecast-manifest-forecast-supplementary-stage-v1"
 )
-_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
-_SAFE_S3_KEY = re.compile(r"^[A-Za-z0-9._/-]+\Z")
 
 
 @dataclass(frozen=True, slots=True)
@@ -491,28 +495,8 @@ def _packet_objects(
     *,
     bucket: str,
 ) -> list[_LocalObject]:
-    packets = run_inputs.get("model_packets")
-    if not isinstance(packets, list) or not packets:
-        raise ManifestForecastStageError("run-inputs model_packets must be non-empty")
     objects: list[_LocalObject] = []
-    seen: set[str] = set()
-    packet_rows = cast(list[object], packets)
-    for raw in packet_rows:
-        if not isinstance(raw, Mapping):
-            raise ManifestForecastStageError("run-inputs packet rows must be objects")
-        packet = cast(Mapping[str, Any], raw)
-        key = packet.get("packet_object_key")
-        digest = packet.get("packet_sha256")
-        if not isinstance(key, str) or not key.startswith("model-packets/"):
-            raise ManifestForecastStageError(
-                "packet key must start with model-packets/"
-            )
-        _validate_s3_key(key)
-        if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
-            raise ManifestForecastStageError(f"invalid packet_sha256 for {key}")
-        if key in seen:
-            raise ManifestForecastStageError(f"duplicate packet key: {key}")
-        seen.add(key)
+    for key, digest in iter_packet_rows(run_inputs):
         path = (output_dir / key).resolve()
         try:
             path.relative_to(output_dir)
@@ -700,13 +684,6 @@ def _local_object(bucket: str, key: str, path: Path, content_type: str) -> _Loca
         size_bytes=path.stat().st_size,
         content_type=content_type,
     )
-
-
-def _validate_s3_key(key: str) -> None:
-    if not _SAFE_S3_KEY.fullmatch(key) or any(
-        part in {"", ".", ".."} for part in key.split("/")
-    ):
-        raise ManifestForecastStageError(f"unsafe S3 key: {key}")
 
 
 def _verify_source_snapshots(objects: Sequence[_LocalObject]) -> None:

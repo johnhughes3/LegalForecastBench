@@ -1951,6 +1951,8 @@ Such a model still runs through this same pipeline. It binds its own registry an
 
 1. Issue a supplementary execution policy from the supplementary registry. The plan issuer is unmodified: it requires at least one registry entry, not exactly four, so a one-model registry produces the standard two-ablation shard schedule.
 
+   **Write it to a tracked path, not to `artifacts/`.** The registry, the caps, and this execution policy are the three artifacts a sibling freeze replaces, so the staging workflow takes them from the checkout — and it refuses any path that is not tracked at the dispatched commit, because a file present in the working tree but absent from the release did not go through review. `artifacts/` is gitignored (`.gitignore:35`), so a policy written there cannot be staged. `model_registries/` already holds this lane's registry and caps; keep all three together. All three are small, public-safe JSON.
+
 ```bash
 uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
   --cycle-id <cycle_id> \
@@ -1958,7 +1960,7 @@ uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
   --run-input-manifest manifests/<cycle_id>.run-inputs.json \
   --run-card artifacts/<cycle_id>/manifest-forecast/<run-record>.json \
   --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
-  --output artifacts/<cycle_id>/supplementary-execution-policy.json
+  --output model_registries/<cycle_id>.supplementary-execution-policy.json
 ```
 
 2. Freeze a sibling bundle. Pass the *same* manifest, units, labels, prompt, scorer, harness, baselines, exclusion ledger, labeling policy, and cohort policy the official freeze used, and the supplementary registry, caps, and execution policy in place of the official ones. This is a new freeze, never an amendment of the official bundle, which stays untouched at its committed path. Those three replacements are exactly the set the pre-dispatch chain permits: `project-manifest-cost --supplementary` re-verifies every other frozen artifact against the official freeze byte for byte and refuses the run if any of them drifted. That identity is the comparability claim, so it is checked rather than assumed.
@@ -1974,19 +1976,26 @@ uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
 ```bash
 gh workflow run stage-manifest-run.yaml --ref main \
   -f release_sha="$(git rev-parse origin/main)" \
-  -f lane=supplementary \
   -f manifest_digest=<manifest_sha256 from manifest-mode-run-record.json> \
   -f official_freeze_bundle_sha256=<official-staged-freeze-raw-sha256> \
+  -f run_inputs_sha256=<raw sha256 of the staged run-inputs.json> \
+  -f run_record_sha256=<raw sha256 of the staged manifest-mode-run-record.json> \
   -f freeze_bundle_path=<tracked path to the sibling freeze bundle> \
   -f freeze_bundle_sha256=<raw sha256 of that file, taken before staging> \
   -f local_artifacts="$(printf 'model_registry=%s\nprovider_cycle_caps=%s\nexecution_policy=%s' \
       model_registries/<supplementary-registry>.json \
       model_registries/<supplementary-caps>.json \
-      <tracked supplementary execution policy>.json)" \
+      model_registries/<cycle_id>.supplementary-execution-policy.json)" \
   -f dry_run=true
 ```
 
-   Run it once with `dry_run=true`. The run prints the full upload plan and proves, before any object is created, that every key it would write lies inside this lane's own prefix. Re-dispatch with `dry_run=false` to write. The staged prefix is
+   `run_inputs_sha256` and `run_record_sha256` pin the two staged files the rebuild reads; every packet digest it trusts comes out of `run-inputs.json`, so that file is pinned rather than taken on the prefix's word. Take both from the official staging's own recorded object digests.
+
+   Run it once with `dry_run=true`. The run prints the full upload plan and proves, before any object is created, that every key it would write lies inside this lane's own prefix. Re-dispatch with `dry_run=false` to write; the same fence then re-runs against the record of what was actually written.
+
+   **This workflow stages supplementary siblings only, and there is no Actions route for an amended official freeze.** Two gaps, both deliberate. Restaging the already-staged official freeze is not merely unsupported but actively unsafe — its artifact paths already carry the `artifacts/` segment, so restaging doubles it into keys that do not exist, every create-only put therefore *succeeds* into the immutable official prefix, and the run aborts only afterwards, leaving objects no role can delete. Official re-verification has to be a read-only head-object check against the pinned freeze's own recorded keys, which is a different operation. Separately, `--amendment-bundle` has no workflow input, so an amended official freeze still has no route here; the add-models lane is tracked as `legalforecastbench-4b6f`.
+
+   The staged prefix is
 
    `cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/`
 
@@ -2039,7 +2048,7 @@ sha256sum "${scope}" | cut -d' ' -f1   # this is the #<scope_sha256> suffix
    **Check the scope before committing it — this repository is public.**
 
 ```bash
-uv run python - <<'PY' artifacts/<cycle_id>/supplementary-execution-scope.json
+uv run python - <<'PY' model_registries/<cycle_id>.supplementary-execution-scope.json
 import base64, json, re, sys
 scope = json.loads(open(sys.argv[1]).read())["scope"]
 raw = base64.b64decode(scope["owner_evidence"]["raw_observation_base64"]).decode("utf-8")
@@ -2068,7 +2077,7 @@ PY
 
 ```bash
 uv run legalforecast acquisition issue-manifest-execution-scope \
-  --plan artifacts/<cycle_id>/supplementary-execution-policy.json \
+  --plan model_registries/<cycle_id>.supplementary-execution-policy.json \
   --freeze-bundle <supplementary-freeze>.freeze.json \
   --freeze-root <freeze-root> \
   --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
@@ -2079,11 +2088,11 @@ uv run legalforecast acquisition issue-manifest-execution-scope \
   --owner-bead-id <approval-bead> \
   --provider-cycle-caps <supplementary-provider-cycle-caps>.json \
   --supplementary \
-  --output artifacts/<cycle_id>/supplementary-execution-scope.json
+  --output model_registries/<cycle_id>.supplementary-execution-scope.json
 
 uv run legalforecast acquisition verify-manifest-execution-scope \
-  --scope artifacts/<cycle_id>/supplementary-execution-scope.json \
-  --plan artifacts/<cycle_id>/supplementary-execution-policy.json \
+  --scope model_registries/<cycle_id>.supplementary-execution-scope.json \
+  --plan model_registries/<cycle_id>.supplementary-execution-policy.json \
   --freeze-bundle <supplementary-freeze>.freeze.json \
   --freeze-root <freeze-root> \
   --model-registry model_registries/<cycle_id>.supplementary-<model>.json \

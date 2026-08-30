@@ -34,7 +34,7 @@ def _validation_script() -> str:
     """Extract the production validation script, dedented to column zero."""
 
     text = STAGING_WORKFLOW.read_text(encoding="utf-8")
-    start = text.index("      - name: Validate lane, pins, and checked-out inputs")
+    start = text.index("      - name: Validate pins and checked-out inputs")
     body = text[start:].split("        run: |\n", 1)[1]
     body = body.split("\n  stage:", 1)[0]
     lines = [
@@ -64,14 +64,27 @@ def _run_validation(
 
     for name, payload in tracked.items():
         _write(name, payload)
+    # Fully isolated from this machine's git configuration: the box mandates SSH
+    # commit signing, so a fixture commit that inherited the global config would
+    # try to sign and fail (or, worse, succeed slowly) for no reason.
+    git_env = {
+        "PATH": os.environ["PATH"],
+        "HOME": str(tmp_path),
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": os.devnull,
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_AUTHOR_NAME": "test",
+        "GIT_AUTHOR_EMAIL": "test@example.invalid",
+        "GIT_COMMITTER_NAME": "test",
+        "GIT_COMMITTER_EMAIL": "test@example.invalid",
+    }
     for command in (
         ["git", "init", "--quiet", "--initial-branch", "main"],
-        ["git", "config", "user.email", "test@example.invalid"],
-        ["git", "config", "user.name", "test"],
         ["git", "add", "--all"],
-        ["git", "commit", "--quiet", "-m", "fixture"],
+        ["git", "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "fixture"],
     ):
-        subprocess.run(command, cwd=repo, check=True, capture_output=True)
+        subprocess.run(command, cwd=repo, check=True, capture_output=True, env=git_env)
     # Written after the commit on purpose: present on disk, absent from the
     # release, which is the shape of the operator's gitignored artifacts/ tree.
     for name, payload in (untracked or {}).items():
@@ -82,6 +95,7 @@ def _run_validation(
         check=True,
         capture_output=True,
         text=True,
+        env=git_env,
     ).stdout.strip()
 
     environment = {
@@ -93,9 +107,10 @@ def _run_validation(
         "DRY_RUN": "true",
         "FREEZE_BUNDLE_PATH": "",
         "FREEZE_BUNDLE_SHA256": "",
-        "LANE": "supplementary",
         "LOCAL_ARTIFACTS": "",
         "MANIFEST_DIGEST": MANIFEST_DIGEST,
+        "RUN_INPUTS_SHA256": "c" * 64,
+        "RUN_RECORD_SHA256": "d" * 64,
         "OFFICIAL_FREEZE_BUNDLE_SHA256": OFFICIAL_FREEZE_DIGEST,
         "RELEASE_SHA": head,
         **inputs,
@@ -129,7 +144,6 @@ def test_a_well_formed_supplementary_request_is_accepted(
     result = _run_validation(
         tmp_path,
         tracked,
-        LANE="supplementary",
         FREEZE_BUNDLE_PATH="committed/sibling.freeze.json",
         FREEZE_BUNDLE_SHA256=digest,
         LOCAL_ARTIFACTS="model_registry=model_registries/supplementary.json",
@@ -142,88 +156,81 @@ def test_a_well_formed_supplementary_request_is_accepted(
     )
 
 
-def test_a_well_formed_official_request_is_accepted(tmp_path: Path) -> None:
-    result = _run_validation(tmp_path, {"README.md": b"fixture\n"}, LANE="official")
-    assert result.returncode == 0, result.stderr
-    written = (tmp_path / "github-output").read_text(encoding="utf-8")
-    assert f"expected_prefix={MANIFEST_RUN_PREFIX}/{MANIFEST_DIGEST}" in written
-    # The official prefix must never acquire the supplementary segment.
-    assert "supplementary" not in written
-
-
 @pytest.mark.parametrize(
     ("label", "overrides", "expected"),
     [
         (
-            "official lane carrying a sibling freeze",
-            {"LANE": "official", "FREEZE_BUNDLE_PATH": "committed/x.json"},
-            "takes no freeze_bundle_path",
-        ),
-        (
-            "official lane replacing an artifact",
-            {"LANE": "official", "LOCAL_ARTIFACTS": "model_registry=x.json"},
-            "takes no freeze_bundle_path",
-        ),
-        (
-            "official lane carrying a sibling digest",
-            {"LANE": "official", "FREEZE_BUNDLE_SHA256": "c" * 64},
-            "takes no freeze_bundle_path",
-        ),
-        (
-            "supplementary lane with no freeze digest",
-            {"LANE": "supplementary"},
-            "requires freeze_bundle_sha256",
-        ),
-        (
-            "supplementary lane pinning the official bundle itself",
-            {
-                "LANE": "supplementary",
-                "FREEZE_BUNDLE_SHA256": OFFICIAL_FREEZE_DIGEST,
-                "FREEZE_BUNDLE_PATH": "committed/sibling.freeze.json",
-            },
-            "belongs in the official lane",
-        ),
-        (
-            "an unreviewed lane",
-            {"LANE": "experimental"},
-            "outside the reviewed allowlist",
+            "a request pinning the official bundle as its own sibling freeze",
+            {"FREEZE_BUNDLE_SHA256": OFFICIAL_FREEZE_DIGEST},
+            "stages supplementary siblings only",
         ),
         (
             "a manifest digest that is not a digest",
-            {"LANE": "official", "MANIFEST_DIGEST": "not-a-digest"},
+            {"MANIFEST_DIGEST": "not-a-digest"},
             "MANIFEST_DIGEST must be a lowercase SHA-256",
         ),
         (
             "an uppercase digest",
-            {"LANE": "official", "OFFICIAL_FREEZE_BUNDLE_SHA256": "B" * 64},
+            {"OFFICIAL_FREEZE_BUNDLE_SHA256": "B" * 64},
             "OFFICIAL_FREEZE_BUNDLE_SHA256 must be a lowercase SHA-256",
         ),
         (
+            "an unpinned run-inputs",
+            {"RUN_INPUTS_SHA256": ""},
+            "RUN_INPUTS_SHA256 must be a lowercase SHA-256",
+        ),
+        (
+            "an unpinned run record",
+            {"RUN_RECORD_SHA256": "nope"},
+            "RUN_RECORD_SHA256 must be a lowercase SHA-256",
+        ),
+        (
             "a dispatch that is not the exact main commit",
-            {"LANE": "official", "RELEASE_SHA": "0" * 40},
+            {"RELEASE_SHA": "0" * 40},
             "release_sha must equal the exact main commit",
         ),
         (
             "a dispatch from a branch other than main",
-            {"LANE": "official", "GITHUB_REF": "refs/heads/feature"},
+            {"GITHUB_REF": "refs/heads/feature"},
             "allowed only from refs/heads/main",
         ),
         (
             "a dry_run value that is neither true nor false",
-            {"LANE": "official", "DRY_RUN": "maybe"},
+            {"DRY_RUN": "maybe"},
             "dry_run must be true or false",
+        ),
+        (
+            "a repeated local_artifacts name",
+            {
+                "LOCAL_ARTIFACTS": (
+                    "model_registry=model_registries/supplementary.json\n"
+                    "model_registry=committed/sibling.freeze.json"
+                )
+            },
+            "names model_registry more than once",
         ),
     ],
 )
-def test_malformed_and_cross_lane_requests_are_refused(
+def test_malformed_requests_are_refused(
     tmp_path: Path,
     tracked_supplementary: tuple[dict[str, bytes], str],
     label: str,
     overrides: Mapping[str, str],
     expected: str,
 ) -> None:
-    tracked, _ = tracked_supplementary
-    result = _run_validation(tmp_path, tracked, **overrides)
+    """Each case starts from a request that would otherwise be accepted.
+
+    Overriding one field at a time is what proves the refusal is caused by that
+    field rather than by an incidentally incomplete request.
+    """
+
+    tracked, digest = tracked_supplementary
+    accepted = {
+        "FREEZE_BUNDLE_PATH": "committed/sibling.freeze.json",
+        "FREEZE_BUNDLE_SHA256": digest,
+        "LOCAL_ARTIFACTS": "model_registry=model_registries/supplementary.json",
+    }
+    result = _run_validation(tmp_path, tracked, **{**accepted, **overrides})
     assert result.returncode != 0, f"{label} was accepted"
     assert expected in result.stderr, f"{label}: {result.stderr}"
 
@@ -247,7 +254,6 @@ def test_paths_outside_the_tracked_checkout_are_refused(
     result = _run_validation(
         tmp_path,
         tracked,
-        LANE="supplementary",
         FREEZE_BUNDLE_PATH=path,
         FREEZE_BUNDLE_SHA256=digest,
         LOCAL_ARTIFACTS="model_registry=model_registries/supplementary.json",
@@ -270,7 +276,6 @@ def test_an_untracked_working_tree_file_is_refused(
         tmp_path,
         tracked,
         untracked={"artifacts/local-only.freeze.json": payload},
-        LANE="supplementary",
         FREEZE_BUNDLE_PATH="artifacts/local-only.freeze.json",
         # The pin agrees with the bytes, so only trackedness can refuse this.
         FREEZE_BUNDLE_SHA256=hashlib.sha256(payload).hexdigest(),
@@ -294,13 +299,12 @@ def test_a_supplementary_request_replacing_nothing_is_refused(
     result = _run_validation(
         tmp_path,
         tracked,
-        LANE="supplementary",
         FREEZE_BUNDLE_PATH="committed/sibling.freeze.json",
         FREEZE_BUNDLE_SHA256=digest,
         LOCAL_ARTIFACTS="",
     )
     assert result.returncode != 0
-    assert "requires local_artifacts" in result.stderr
+    assert "local_artifacts is required" in result.stderr
 
 
 def test_local_artifact_entries_must_name_a_tracked_path(
@@ -310,7 +314,6 @@ def test_local_artifact_entries_must_name_a_tracked_path(
     result = _run_validation(
         tmp_path,
         tracked,
-        LANE="supplementary",
         FREEZE_BUNDLE_PATH="committed/sibling.freeze.json",
         FREEZE_BUNDLE_SHA256=digest,
         LOCAL_ARTIFACTS="model_registry=model_registries/absent.json",
@@ -326,7 +329,6 @@ def test_local_artifact_entries_must_be_name_equals_path(
     result = _run_validation(
         tmp_path,
         tracked,
-        LANE="supplementary",
         FREEZE_BUNDLE_PATH="committed/sibling.freeze.json",
         FREEZE_BUNDLE_SHA256=digest,
         LOCAL_ARTIFACTS="model_registries/supplementary.json",
@@ -344,7 +346,6 @@ def test_a_freeze_whose_bytes_disagree_with_its_pin_is_refused(
     result = _run_validation(
         tmp_path,
         tracked,
-        LANE="supplementary",
         FREEZE_BUNDLE_PATH="committed/sibling.freeze.json",
         FREEZE_BUNDLE_SHA256="c" * 64,
         LOCAL_ARTIFACTS="model_registry=model_registries/supplementary.json",
