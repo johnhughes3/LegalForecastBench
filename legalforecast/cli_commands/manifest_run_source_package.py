@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 """CLI adapter for the first-stage official corpus source package.
 
 Two commands, one on each side of a transport: ``build`` seals a first official
