@@ -177,6 +177,10 @@ runs:
       EXPECTED_FREEZE_BUNDLE_SHA256: ${{ inputs.freeze_bundle_sha256 }}
       CYCLE_ID: ${{ inputs.cycle_id }}
       MODEL_KEY: ${{ inputs.model_key }}
+      # The lane must be readable *here*, not only at the runner invocation
+      # below: this step is the cell's pre-credential scope gate, and a value
+      # the step cannot read cannot gate anything.
+      SUPPLEMENTARY: ${{ inputs.supplementary }}
     run: |
       set -euo pipefail
       uv run python - <<'PY'
@@ -241,6 +245,7 @@ runs:
               expected_freeze_bundle_sha256=os.environ[
                   "EXPECTED_FREEZE_BUNDLE_SHA256"
               ],
+              expected_supplementary=os.environ["SUPPLEMENTARY"] == "true",
           )
       PY
 
