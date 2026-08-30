@@ -138,6 +138,18 @@
         "iam:UpdateRole"
       ],
       "Resource": "${official_eval_cell_role_arn}-fan-in"
+    },
+    {
+      "Sid": "ManageExactOfficialEvalManifestStagingRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:UpdateRole"
+      ],
+      "Resource": "${official_eval_cell_role_arn}-manifest-staging"
     }
   ]
 }
