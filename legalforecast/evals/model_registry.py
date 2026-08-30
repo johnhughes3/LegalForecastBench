@@ -69,6 +69,23 @@ _REASONING_EFFORT_PROVIDERS: Final[Mapping[str, frozenset[OpenAIReasoningEffort]
             OpenAIReasoningEffort.XHIGH,
         }
     ),
+    # DeepInfra's endpoint accepts a wider set (none/minimal/low/medium/high/
+    # xhigh/max), but on a shared host the accepted values are a property of the
+    # MODEL, and this benchmark serves exactly one model there. Kimi K3 accepts
+    # only low, high and max -- source https://huggingface.co/moonshotai/Kimi-K3
+    # model card, checked 2026-08-30: 'Thinking effort is configured with the
+    # top-level reasoning_effort request field, which supports "low", "high",
+    # and "max" (default "max")'. The narrower set is deliberate: an unsupported
+    # non-none effort is silently remapped to the nearest supported level rather
+    # than rejected, so a request for "medium" would run at some other depth
+    # with no error. Re-derive this set before adding a second model here.
+    "deepinfra": frozenset(
+        {
+            OpenAIReasoningEffort.LOW,
+            OpenAIReasoningEffort.HIGH,
+            OpenAIReasoningEffort.MAX,
+        }
+    ),
 }
 
 

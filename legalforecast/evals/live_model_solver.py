@@ -389,6 +389,7 @@ def complete_live_prompt(
             "max_output_tokens": str(registry_entry.max_output_tokens),
             **_sampling_policy_metadata(registry_entry),
             **_reasoning_policy_metadata(registry_entry),
+            **_reasoning_token_accounting_metadata(registry_entry),
             **_openai_service_tier_metadata(
                 registry_entry,
                 used_tier=used_tier,
@@ -497,6 +498,7 @@ def _complete_bedrock_anthropic_prompt(
             "max_output_tokens": str(registry_entry.max_output_tokens),
             **_sampling_policy_metadata(registry_entry),
             **_reasoning_policy_metadata(registry_entry),
+            **_reasoning_token_accounting_metadata(registry_entry),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
             "provider_attempt_count": str(request_count),
@@ -730,6 +732,19 @@ def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
 
     del entry
     return {"provider_sampling_policy": "provider_default"}
+
+
+def _reasoning_token_accounting_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
+    """Record how this provider's reasoning tokens were billed, including doubt.
+
+    Published so a run executed against an accounting shape nobody has verified
+    against a live response cannot later be mistaken for a verified one.
+    """
+
+    spec = openai_compatible_provider(entry.provider)
+    if spec is None:
+        return {}
+    return {"reasoning_token_accounting": spec.reasoning_token_accounting.value}
 
 
 def _reasoning_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
@@ -967,17 +982,19 @@ def _openai_compatible_usage(
 ) -> tuple[int, int]:
     """Return billed (input, output) tokens including every billed field.
 
-    ``reasoning_tokens_are_additive`` is a per-provider fact read from that
+    ``reasoning_token_accounting`` is a per-provider fact read from that
     provider's documentation, not an inference from the OpenAI-style
     ``completion_tokens_details`` nesting -- which conventionally implies the
     reasoning count is already inside ``completion_tokens``, but on xAI is not.
-    Getting this wrong under-reports spend against an owner cost cap.
+    Getting this wrong under-reports spend against an owner cost cap. Where a
+    provider does not document it, the unverified state counts conservatively
+    rather than picking the convenient answer.
     """
 
     usage = _mapping_or_empty(payload.get("usage"))
     input_tokens = _int_field(usage, "prompt_tokens", "input_tokens")
     output_tokens = _int_field(usage, "completion_tokens", "output_tokens")
-    if spec.reasoning_tokens_are_additive:
+    if spec.adds_reasoning_tokens:
         details = _mapping_or_empty(usage.get("completion_tokens_details"))
         output_tokens += _optional_int_field(details, "reasoning_tokens") or 0
     return input_tokens, output_tokens

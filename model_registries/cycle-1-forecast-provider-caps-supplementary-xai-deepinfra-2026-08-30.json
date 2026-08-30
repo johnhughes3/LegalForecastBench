@@ -1,0 +1,14 @@
+{
+  "cycle_id": "cycle-1-target-100-2026-07-25",
+  "providers": [
+    {
+      "cycle_reservation_cap_usd": "384.00",
+      "provider": "deepinfra"
+    },
+    {
+      "cycle_reservation_cap_usd": "164.00",
+      "provider": "xai"
+    }
+  ],
+  "schema_version": "legalforecast.provider_cycle_caps.v1"
+}

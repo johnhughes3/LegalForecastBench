@@ -25,14 +25,20 @@ from legalforecast.evals.live_model_solver import (
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.evals.openai_compatible_provider import (
+    DEEPINFRA_API_KEY_ENV,
+    DEEPINFRA_CHAT_COMPLETIONS_URL,
+    DEEPINFRA_PROVIDER,
     XAI_API_KEY_ENV,
     XAI_CHAT_COMPLETIONS_URL,
     XAI_PROVIDER,
+    ReasoningTokenAccounting,
+    deepinfra_model_metadata_url,
     openai_compatible_provider,
     openai_compatible_provider_names,
 )
 
 XAI_ENV = {XAI_API_KEY_ENV: "xai-secret"}
+DEEPINFRA_ENV = {DEEPINFRA_API_KEY_ENV: "deepinfra-secret"}
 
 
 def test_xai_request_body_pins_every_documented_field() -> None:
@@ -263,8 +269,143 @@ def test_every_declared_provider_states_its_reasoning_accounting() -> None:
     for name in openai_compatible_provider_names():
         spec = openai_compatible_provider(name)
         assert spec is not None
-        assert isinstance(spec.reasoning_tokens_are_additive, bool)
+        assert spec.reasoning_token_accounting in set(ReasoningTokenAccounting)
         assert spec.chat_completions_url.startswith("https://")
+
+
+def test_deepinfra_request_body_pins_the_kimi_k3_shape() -> None:
+    """Different host, different URL and key, same documented reasoning spelling."""
+
+    transport = _FixtureTransport(_deepinfra_payload())
+    complete_live_prompt(
+        _kimi_entry(),
+        "Predict the case outcome.",
+        transport=transport,
+        environ=DEEPINFRA_ENV,
+    )
+
+    request = transport.only_request()
+    assert request.full_url == DEEPINFRA_CHAT_COMPLETIONS_URL
+    assert request.get_header("Authorization") == "Bearer deepinfra-secret"
+    assert _json_body(request) == {
+        "model": "moonshotai/Kimi-K3",
+        "messages": [{"role": "user", "content": "Predict the case outcome."}],
+        "max_completion_tokens": 4096,
+        "stream": False,
+        "reasoning_effort": "high",
+    }
+
+
+def test_deepinfra_counts_undocumented_reasoning_tokens_conservatively() -> None:
+    """Unverified accounting must over-report, never under-report.
+
+    DeepInfra's docs contain no occurrence of
+    ``completion_tokens_details.reasoning_tokens`` and no response example
+    locating reasoning tokens (checked 2026-08-30). Together documents the same
+    model's as INCLUDED and xAI documents its own as EXCLUDED, so neighbours do
+    not settle it. Under-reporting spend against an owner cap is the
+    unrecoverable direction, so the unverified state adds them.
+    """
+
+    assert (
+        DEEPINFRA_PROVIDER.reasoning_token_accounting
+        is ReasoningTokenAccounting.UNVERIFIED_CONSERVATIVE
+    )
+    assert DEEPINFRA_PROVIDER.adds_reasoning_tokens is True
+
+    payload = _deepinfra_payload()
+    payload["usage"] = {
+        "prompt_tokens": 100,
+        "completion_tokens": 20,
+        "completion_tokens_details": {"reasoning_tokens": 500},
+    }
+    response = complete_live_prompt(
+        _kimi_entry(),
+        "Predict the case outcome.",
+        transport=_FixtureTransport(payload),
+        environ=DEEPINFRA_ENV,
+    )
+
+    assert response.output_tokens == 20 + 500
+
+
+def test_unverified_accounting_is_published_in_response_metadata() -> None:
+    """A run on unverified accounting must not look like a verified one."""
+
+    response = complete_live_prompt(
+        _kimi_entry(),
+        "Predict the case outcome.",
+        transport=_FixtureTransport(_deepinfra_payload()),
+        environ=DEEPINFRA_ENV,
+    )
+    assert response.metadata["reasoning_token_accounting"] == "unverified_conservative"
+
+    xai_response = complete_live_prompt(
+        _xai_entry(),
+        "Predict the case outcome.",
+        transport=_FixtureTransport(_xai_payload()),
+        environ=XAI_ENV,
+    )
+    assert xai_response.metadata["reasoning_token_accounting"] == "additive"
+
+
+def test_deepinfra_drift_detection_url_is_the_documented_metadata_endpoint() -> None:
+    """Drift DETECTION, not a request-level pin.
+
+    No US host offers request-level version pinning for these models. DeepInfra
+    is the only one publishing machine-readable ``version`` and
+    ``quantization`` without a key, which is what lets preflight refuse a
+    dispatch whose served artifact changed since the freeze.
+    """
+
+    assert (
+        deepinfra_model_metadata_url("moonshotai/Kimi-K3")
+        == "https://api.deepinfra.com/models/moonshotai/Kimi-K3"
+    )
+
+
+def _kimi_entry(*, max_output_tokens: int = 4096) -> ModelRegistryEntry:
+    return ModelRegistryEntry.from_record(
+        {
+            "provider": "deepinfra",
+            "model_id": "moonshotai/Kimi-K3",
+            "display_name": "Kimi K3",
+            "model_version_or_snapshot": "moonshotai/Kimi-K3",
+            "release_timestamp": "2026-07-17T00:00:00Z",
+            "release_timestamp_source": "fixture release note",
+            "provider_training_cutoff_status": "unknown",
+            "max_output_tokens": max_output_tokens,
+            "network_disabled": True,
+            "search_disabled": True,
+            "tool_policy": "controlled_docket_tool_only",
+            "context_limit": 1048576,
+            "pricing_source": "fixture price sheet",
+            "input_token_price": 2.85,
+            "output_token_price": 14.25,
+            "reasoning_effort": "high",
+            "known_cutoff_publicity_caveats": [],
+        }
+    )
+
+
+def _deepinfra_payload() -> dict[str, Any]:
+    return {
+        "model": "moonshotai/Kimi-K3",
+        "choices": [
+            {
+                "finish_reason": "stop",
+                "message": {
+                    "content": '{"predictions":[]}',
+                    "reasoning_content": "internal thinking trace",
+                },
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 1000,
+            "completion_tokens": 250,
+            "total_tokens": 1250,
+        },
+    }
 
 
 def _xai_entry(
