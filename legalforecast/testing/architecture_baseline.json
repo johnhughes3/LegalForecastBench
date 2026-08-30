@@ -12223,8 +12223,8 @@
         "largest_symbol": "_chain",
         "largest_symbol_lines": 231,
         "layer": "test",
-        "line_count": 1354,
-        "nonblank_line_count": 1163,
+        "line_count": 1356,
+        "nonblank_line_count": 1165,
         "top_level_definition_count": 42
       },
       "tests/test_supporting_document_successor.py": {
