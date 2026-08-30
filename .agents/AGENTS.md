@@ -12,14 +12,26 @@ Before building any artifact that only humans and status reports read — a cert
 
 After you finish planning and filing beads, re-read `/just-say-no-to-process-porn-and-ceremony` and check what you added against it. Delete what fails. Nothing in this file authorizes machinery the plan did not need.
 
+Where an older document in this tree still calls for attestations, sealed deliverables, receipt cards, hashed approval scopes, or evidence tiers, this section supersedes it.
+
 ## Priority: the new corpus path (2026-08-30 replan)
 
 **Cycle 1 cannot publish until its corpus is complete** — the 2026-08-30 census found 61 filed oppositions missing from the 100 cases. The owner's replan finishes Cycle 1 *after* the cutover to the new corpus factory rather than on the legacy machinery: new pipeline and corpus repair (`ti2q`, `iot9`) → cutover and deletion of the old runtime (`v7zs`) → run and publish Cycle 1 through the new path. Prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
 
-- **PACER/document purchases require the owner's approval with the approximate dollar amount** — state the amount, get the approval, journal the spend, respect the stated ceiling. That is the entire required purchase process; do not add authority chains or approval machinery beyond it.
+- **Anything that spends money follows the Spending guardrails below** — a ceiling, an approval above the threshold, and a journal. That is the entire spend process; do not add authority chains or approval grammars on top of it.
 - Everything else (code, validation, parsing, execution under an existing approval, evidence assembly): **do what needs to be done, promptly**. Halt-and-escalate is for genuine blockers (missing owner approval, failed validation), not for perfectible process.
 - Before building anything, run the executability audit: name the command that produces every input your work requires and the path where it exists today. If one doesn't exist, building or escalating THAT is your first task.
-- Integrity controls are not negotiable and are not the slowdown. They are exactly these: model contamination and release-anchor rules; outcome-leakage blinding; owner approval with the dollar amount before any purchase or paid run; public-repo hygiene; and the one locked benchmark-run manifest. Anything not on this list is process, and the Standard of Rigor applies to it.
+- Integrity controls are not negotiable and are not the slowdown. They are exactly these: model contamination and release-anchor rules; outcome-leakage blinding; the Spending guardrails below; public-repo hygiene; and the one locked benchmark-run manifest. Anything not on this list is process, and the Standard of Rigor applies to it.
+
+## Spending Guardrails
+
+Real money leaves this project in two places: PACER/RECAP document purchases and paid provider runs. On 2026-08-14 the legacy pipeline bought 152 documents (USD 273) that were never admitted to the corpus. The failure was not an unauthorized purchase — it was buying and then losing track — and no amount of approval ceremony would have caught it. These five rules are the whole spend process.
+
+1. **Run ceiling, enforced in code.** Every run that can spend carries an owner-set maximum, and the tool refuses any operation that would push cumulative journaled spend past it. That is the hard stop; below it, and below the per-operation threshold, no per-operation approval is needed. The corpus acquisition CLI implements this as `budget set --run-id <id> --max-usd <amount>`.
+2. **Recorded owner approval above USD 10.** For any single operation or purchase plan projected above the threshold (default USD 10.00), stop and ask. Quote the owner's actual message — any wording that states an amount at or above your estimate — with where and when it was said, into the bead or run journal, then release the operation (`budget approve`). No regex, no mandated sentence, no digest: the point is that the agent stops before spending, not that the approval is cryptographically authenticated.
+3. **Never buy what we already hold.** Before any purchase, check the acquired inventory by (docket, entry) and RECAP document id. A document we already have is refused and the refusal is journaled. This is the control that would have prevented the USD 273 loss.
+4. **One attempt per document, no purchase loops.** Reserve at most the projected amount before calling a provider, and respect the per-document fee (PACER caps a document of 30 pages or fewer at USD 3.00). A failed or ambiguous purchase is journaled and surfaced to the owner, never auto-retried; realized cost above its reservation is a terminal ceiling violation that neither releases capacity nor becomes retryable.
+5. **Journal every spend** — what, why (case, role, docket entry), cost, and which approval it ran under — in one append-only journal. No sealed receipts, no signed scopes, no hashed authorization artifacts.
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
