@@ -4,14 +4,22 @@
 
 LegalForecastBench is an academic, open-source benchmark, released under the Apache License 2.0. It measures how well AI models handle one legal reasoning task: forecasting the outcome of a federal motion to dismiss from the written record the judge received. Each cycle scores models against a small, fixed corpus of public federal court records — 100 cases for Cycle 1. That corpus exists solely to evaluate models; it is not used to train, fine-tune, or build them.
 
-## Priority: finish Cycle 1 (2026-08-17 standing directive)
+## Standard of Rigor
 
-**The critical path is completing Cycle 1 and publishing results as soon as possible.** Bias every decision toward that: prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
+This is academic research, not a financial institution or a crypto ledger. We want records that are rigorous, transparent, and reproducible — a reader can see what we did and redo it. They do not need to be cryptographically provable; readers may reasonably trust that we have not falsified our own data. Prefer a count, a census, or a test over a digest, a seal, or an attestation.
+
+Before building any artifact that only humans and status reports read — a certificate, ledger, receipt, matrix, meta-report, readiness check, or approval chain — name its consumer, the capability it gates, the defect that actually happened to justify it, and when it gets deleted. If you cannot name all four, do not build it. Writing code just so that something "branches on it" does not change the answer.
+
+After you finish planning and filing beads, re-read `/just-say-no-to-process-porn-and-ceremony` and check what you added against it. Delete what fails. Nothing in this file authorizes machinery the plan did not need.
+
+## Priority: the new corpus path (2026-08-30 replan)
+
+**Cycle 1 cannot publish until its corpus is complete** — the 2026-08-30 census found 61 filed oppositions missing from the 100 cases. The owner's replan finishes Cycle 1 *after* the cutover to the new corpus factory rather than on the legacy machinery: new pipeline and corpus repair (`ti2q`, `iot9`) → cutover and deletion of the old runtime (`v7zs`) → run and publish Cycle 1 through the new path. Prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
 
 - **PACER/document purchases require the owner's approval with the approximate dollar amount** — state the amount, get the approval, journal the spend, respect the stated ceiling. That is the entire required purchase process; do not add authority chains or approval machinery beyond it.
-- Everything else on the Cycle 1 path (code, validation, parsing, Stage A execution under an existing signed authorization, evidence assembly): **do what needs to be done, promptly**. Halt-and-escalate is for genuine blockers (missing owner approval, frozen-contract conflicts, failed validation), not for perfectible process.
+- Everything else (code, validation, parsing, execution under an existing approval, evidence assembly): **do what needs to be done, promptly**. Halt-and-escalate is for genuine blockers (missing owner approval, failed validation), not for perfectible process.
 - Before building anything, run the executability audit: name the command that produces every input your work requires and the path where it exists today. If one doesn't exist, building or escalating THAT is your first task.
-- Integrity controls are not negotiable and are not the slowdown: contamination/model rules, outcome-leakage blinding, byte-role validation, and frozen-contract change control stay exactly as documented.
+- Integrity controls are not negotiable and are not the slowdown. They are exactly these: model contamination and release-anchor rules; outcome-leakage blinding; owner approval with the dollar amount before any purchase or paid run; public-repo hygiene; and the one locked benchmark-run manifest. Anything not on this list is process, and the Standard of Rigor applies to it.
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
@@ -72,7 +80,7 @@ For focused runs while iterating, plain serial `uv run pytest tests/<file> -q` i
 
 ## Cycle 1 Change Control
 
-The remainder of Cycle 1 operates under [docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md): frozen authenticated byte contracts, one active gate-changing integration lane, focused-before-full test ordering, and an explicit correctness/security emergency path. Read it before changing validators, codecs, schemas, or preflight gates.
+[docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md) still governs the *cadence* of gate-changing work on the legacy chain: one active gate-changing integration lane, focused-before-full test ordering, and the correctness/security emergency path. Its frozen-byte-contract regime is superseded by the 2026-08-30 replan — the new path has one locked run manifest and no per-document digests, so do not mint new schema versions, sidecars, or card variants to preserve byte-identical fields in code that `v7zs` is chartered to delete.
 
 ## Non-Interactive Shell Commands
 

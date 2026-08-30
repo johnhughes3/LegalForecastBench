@@ -83,7 +83,7 @@ For a **bounded-cost operation** (a document purchase, a metered API probe, any 
 
 Nothing more. Do not build authority chains, multi-party sign-off, or approval machinery on top of that.
 
-What proportionality never touches: **integrity controls are not the slowdown and are not negotiable.** Contamination and model-eligibility rules, outcome-leakage blinding, byte-role validation of authenticated artifacts, and frozen-contract change control stay exactly as documented. Trim process, never integrity.
+What proportionality never touches: **integrity controls are not the slowdown and are not negotiable.** The list of what counts as an integrity control is enumerated once, in `.agents/AGENTS.md` under "Priority", and this skill does not extend it. Anything not on that list is process. Trim process, never integrity — and never cite "integrity" as authority for new hashing, freezing, schema versions, or receipt cards.
 
 ## Lane checklist
 
