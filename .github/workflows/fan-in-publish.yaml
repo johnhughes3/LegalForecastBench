@@ -519,6 +519,7 @@ jobs:
             --manifest /tmp/lfb-fan-in-reference/run-manifest.json \
             --model-registry /tmp/lfb-fan-in-reference/model-registry.json \
             --expected-run-identity "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["run_identity_sha256"])')" \
+            --expected-model-registry-sha256 "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["model_registry_sha256"])')" \
             --output /tmp/lfb-score.json \
             --unit-scores-output /tmp/lfb-unit-scores.jsonl
 
@@ -533,7 +534,9 @@ jobs:
             --forecast-release /tmp/lfb-fan-in-reference/forecast-release.json \
             --artifact-root /tmp/lfb-forecast/artifacts \
             --manifest /tmp/lfb-fan-in-reference/run-manifest.json \
-            --model-registry /tmp/lfb-fan-in-reference/model-registry.json \
+            --frozen-model-registry /tmp/lfb-fan-in-reference/model-registry.json \
+            --expected-run-identity "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["run_identity_sha256"])')" \
+            --expected-model-registry-sha256 "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["model_registry_sha256"])')" \
             --title "LegalForecast official benchmark"
 
       - name: Publish verified report once

@@ -8589,18 +8589,18 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv",
-        "fan_in": 2,
-        "fan_out": 1,
+        "fan_in": 4,
+        "fan_out": 2,
         "flags": [
           "watch"
         ],
         "lane_owner": "root",
         "largest_symbol": "RunnerLedger",
-        "largest_symbol_lines": 556,
+        "largest_symbol_lines": 625,
         "layer": "application",
-        "line_count": 606,
-        "nonblank_line_count": 566,
-        "top_level_definition_count": 5
+        "line_count": 702,
+        "nonblank_line_count": 653,
+        "top_level_definition_count": 6
       },
       "legalforecast/runner/service.py": {
         "cycle_id": "",
@@ -8613,11 +8613,11 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 457,
+        "largest_symbol_lines": 491,
         "layer": "application",
-        "line_count": 846,
-        "nonblank_line_count": 789,
-        "top_level_definition_count": 14
+        "line_count": 948,
+        "nonblank_line_count": 881,
+        "top_level_definition_count": 17
       },
       "legalforecast/selection/case_mix_diagnostics.py": {
         "cycle_id": "",
@@ -8858,6 +8858,23 @@
         "line_count": 469,
         "nonblank_line_count": 409,
         "top_level_definition_count": 15
+      },
+      "scripts/official_infra_contract.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "scripts",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "scripts",
+        "largest_symbol": "_resolve_import_command",
+        "largest_symbol_lines": 54,
+        "layer": "entrypoint",
+        "line_count": 504,
+        "nonblank_line_count": 455,
+        "top_level_definition_count": 16
       },
       "scripts/probe_claude_code_native_containment.py": {
         "cycle_id": "",
@@ -10638,6 +10655,23 @@
         "nonblank_line_count": 687,
         "top_level_definition_count": 39
       },
+      "tests/test_locked_run_manifest_consumer.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_report_rejects_score_identity_mismatch",
+        "largest_symbol_lines": 104,
+        "layer": "test",
+        "line_count": 651,
+        "nonblank_line_count": 609,
+        "top_level_definition_count": 16
+      },
       "tests/test_manifest_cost_projector.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
@@ -11153,11 +11187,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "_assert_eval_trust_refs_satisfiable",
-        "largest_symbol_lines": 128,
+        "largest_symbol_lines": 133,
         "layer": "test",
-        "line_count": 1349,
-        "nonblank_line_count": 1239,
-        "top_level_definition_count": 35
+        "line_count": 1364,
+        "nonblank_line_count": 1250,
+        "top_level_definition_count": 38
       },
       "tests/test_official_paid_labeling_baton.py": {
         "cycle_id": "",
@@ -11569,9 +11603,9 @@
         "largest_symbol": "test_runner_spend_keys_use_injective_cell_identity",
         "largest_symbol_lines": 95,
         "layer": "test",
-        "line_count": 1461,
-        "nonblank_line_count": 1258,
-        "top_level_definition_count": 43
+        "line_count": 1531,
+        "nonblank_line_count": 1316,
+        "top_level_definition_count": 46
       },
       "tests/test_purchase_approval.py": {
         "cycle_id": "",

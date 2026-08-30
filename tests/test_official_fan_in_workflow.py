@@ -143,7 +143,9 @@ def test_run_identity_and_receipt_coverage_are_bound_before_scoring() -> None:
     ]
     assert "--model-registry" in scoring
     assert "--expected-run-identity" in scoring
+    assert "--expected-model-registry-sha256" in scoring
     assert "--labels-release" in scoring
+    assert "--frozen-model-registry" in scoring
 
 
 def test_publish_is_create_once_and_uploads_only_sanitized_outputs() -> None:

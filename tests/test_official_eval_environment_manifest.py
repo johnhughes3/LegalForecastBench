@@ -49,6 +49,21 @@ CELL_VARIABLES = {
     "LFB_RESULTS_BUCKET",
     "LFB_RESULTS_MANIFEST_PREFIX",
 }
+# The canonical benchmark dispatcher now invokes the public runner directly,
+# while the retained S3 validation workflow remains the producer of the
+# packet-read cell variables. The composite provider-cell action also retains
+# the two model/runtime variables for community callers, but action metadata
+# is not a workflow job and therefore cannot be discovered by the environment
+# inventory sweep below.
+CELL_RUNTIME_VARIABLES = {
+    "LFB_AWS_REGION",
+    "LFB_GITHUB_PACKET_READ_ROLE_ARN",
+    "LFB_MODEL_PACKET_PREFIX",
+    "LFB_PACKET_BUCKET",
+    "LFB_PROVIDER_AUTHORITY_TABLE",
+    "LFB_RESULTS_BUCKET",
+    "LFB_RESULTS_MANIFEST_PREFIX",
+}
 PREPARE_INPUTS_VARIABLES = {
     "LFB_AWS_REGION",
     "LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN",
@@ -252,7 +267,8 @@ def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
     # Protected-environment jobs stay on GitHub-hosted ubuntu-latest and do not
     # read vars.CI_RUNNER, so the environment-scoped inventory matches the
     # manifest. Repo/org CI_RUNNER may appear on jobs without environment:.
-    assert runtime_variables[CELL_ENVIRONMENT] == CELL_VARIABLES
+    assert runtime_variables[CELL_ENVIRONMENT] == CELL_RUNTIME_VARIABLES
+    assert runtime_variables[CELL_ENVIRONMENT] <= CELL_VARIABLES
     assert runtime_variables[FAN_IN_ENVIRONMENT] == FAN_IN_VARIABLES
     assert runtime_variables[STAGING_ENVIRONMENT] == STAGING_VARIABLES
     # The sibling run-benchmark lane wires this environment when it lands. Keep
