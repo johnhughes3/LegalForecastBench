@@ -554,6 +554,69 @@ def test_scope_binds_one_model_and_authorizes_both_ablations(tmp_path: Path) -> 
         )
 
 
+def test_the_scope_pin_is_the_scope_payload_digest_not_the_file_digest(
+    tmp_path: Path,
+) -> None:
+    """``execution_scope_uri``'s ``#<digest>`` pins ``scope_sha256``, not the file.
+
+    ``run-benchmark.yaml`` splits the fragment off the dispatched URI and hands
+    it to ``verify_execution_scope_runtime(expected_scope_sha256=...)``, which
+    compares it against the artifact's own ``scope_sha256`` field -- the
+    canonical hash of the inner ``scope`` object.  That value is not the
+    SHA-256 of the scope file, which additionally covers ``schema_version``,
+    ``scope_sha256`` itself, and the JSON formatting.  An operator who reads the
+    file digest off ``sha256sum`` and dispatches it gets a refusal, not a run,
+    so this pins the distinction rather than leaving it to be rediscovered at
+    dispatch time.
+    """
+
+    (
+        plan_path,
+        registry_path,
+        run_input_path,
+        cost_path,
+        _evidence_path,
+        model_key,
+    ) = _write_scope_inputs(tmp_path)
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        owner_ceiling_usd="1.50",
+        owner_bead_id="scope-test",
+        provider_authority=_authority(),
+    )
+    scope_path = tmp_path / "execution-scope.json"
+    scope_path.write_text(
+        json.dumps(scope, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    file_sha256 = hashlib.sha256(scope_path.read_bytes()).hexdigest()
+    payload_sha256 = scope["scope_sha256"]
+    assert file_sha256 != payload_sha256
+
+    runtime_kwargs = {
+        "common_plan": json.loads(plan_path.read_text(encoding="utf-8")),
+        "model_registry": load_model_registry(registry_path),
+        "model_registry_sha256": hashlib.sha256(registry_path.read_bytes()).hexdigest(),
+        "expected_model_key": model_key,
+        "expected_ablation": "full_packet",
+    }
+    assert (
+        verify_execution_scope_runtime(
+            scope, expected_scope_sha256=payload_sha256, **runtime_kwargs
+        )
+        == payload_sha256
+    )
+    with pytest.raises(
+        ExecutionScopeError, match="scope digest does not match dispatch commitment"
+    ):
+        verify_execution_scope_runtime(
+            scope, expected_scope_sha256=file_sha256, **runtime_kwargs
+        )
+
+
 def test_scope_rejects_cost_and_owner_evidence_drift(tmp_path: Path) -> None:
     (
         plan_path,

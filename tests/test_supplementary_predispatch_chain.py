@@ -1323,11 +1323,17 @@ def test_workflow_threads_supplementary_into_the_matrix_and_scope_steps() -> Non
 
     workflow = (ROOT / ".github" / "workflows" / "run-benchmark.yaml").read_text()
 
-    assert "SUPPLEMENTARY: ${{ inputs.supplementary }}" in workflow
+    # The lane is derived once, in the pre-credential validation step, and
+    # every consumer reads that one derived value rather than a dispatch flag.
+    assert "SUPPLEMENTARY: ${{ steps.validate.outputs.supplementary }}" in workflow
+    assert "inputs.supplementary" not in workflow
     assert (
-        "OFFICIAL_FREEZE_BUNDLE_PATH: ${{ inputs.supplementary && "
-        "env.OFFICIAL_FREEZE_BUNDLE_PATH || '' }}"
+        "OFFICIAL_FREEZE_BUNDLE_PATH: ${{ steps.validate.outputs.supplementary "
+        "== 'true' && env.OFFICIAL_FREEZE_BUNDLE_PATH || '' }}"
     ) in workflow
+    # A step output is the string "false", which is truthy in a GitHub
+    # expression, so the ternary above must compare against 'true' explicitly.
+    assert "${{ steps.validate.outputs.supplementary && " not in workflow
     assert 'expected_supplementary=os.environ["SUPPLEMENTARY"] == "true",' in workflow
     # Both directions at dispatch validation, mirroring the library refusal.
     assert (

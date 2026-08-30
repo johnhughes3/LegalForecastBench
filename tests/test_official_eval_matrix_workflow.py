@@ -39,8 +39,6 @@ def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
         "cycle_series:",
         "clean_motion_count:",
         "prediction_unit_count:",
-        "elapsed_days:",
-        "official_window_days:",
         "repeat_sample_case_ids:",
         "repeat_count:",
         "max_parallel:",
@@ -589,7 +587,7 @@ def _freeze_uri_validation_block() -> str:
 
     Running the real bytes through bash is the only way to test the deployed
     ``[[ =~ ]]`` semantics rather than a Python transcription of them. The block
-    reads only ``freeze_bundle_path`` and ``SUPPLEMENTARY_INPUT``, so it is
+    reads only ``freeze_bundle_path`` and assigns ``supplementary``, so it is
     self-contained.
     """
 
@@ -598,15 +596,15 @@ def _freeze_uri_validation_block() -> str:
     return body[: body.index("\n          esac\n") + len("\n          esac\n")]
 
 
-def _validate_freeze_uri(
-    uri: str, *, supplementary: bool
-) -> subprocess.CompletedProcess[str]:
+def _derive_lane(uri: str) -> subprocess.CompletedProcess[str]:
+    """Run the deployed classifier and report the lane it derived on stdout."""
+
     script = "\n".join(
         (
             "set -euo pipefail",
             f"freeze_bundle_path={shlex.quote(uri)}",
-            f"SUPPLEMENTARY_INPUT={shlex.quote('true' if supplementary else 'false')}",
             _freeze_uri_validation_block(),
+            'printf "%s" "${supplementary}"',
         )
     )
     return subprocess.run(
@@ -614,42 +612,70 @@ def _validate_freeze_uri(
     )
 
 
-def test_official_dispatch_refuses_a_supplementary_prefix_freeze_uri() -> None:
-    accepted = _validate_freeze_uri(_OFFICIAL_FREEZE_URI, supplementary=False)
-    assert accepted.returncode == 0, accepted.stderr
+def test_official_prefix_derives_the_official_lane() -> None:
+    """The lane is read off the staged prefix, not off a dispatch checkbox."""
 
-    refused = _validate_freeze_uri(_SUPPLEMENTARY_FREEZE_URI, supplementary=False)
-    assert refused.returncode == 1
-    assert "immutable manifest-run S3 prefix contract" in refused.stderr
+    derived = _derive_lane(_OFFICIAL_FREEZE_URI)
+    assert derived.returncode == 0, derived.stderr
+    assert derived.stdout == "false"
 
 
-def test_supplementary_dispatch_refuses_a_bare_official_prefix_freeze_uri() -> None:
-    accepted = _validate_freeze_uri(_SUPPLEMENTARY_FREEZE_URI, supplementary=True)
-    assert accepted.returncode == 0, accepted.stderr
+def test_supplementary_prefix_derives_the_supplementary_lane() -> None:
+    derived = _derive_lane(_SUPPLEMENTARY_FREEZE_URI)
+    assert derived.returncode == 0, derived.stderr
+    assert derived.stdout == "true"
 
-    refused = _validate_freeze_uri(_OFFICIAL_FREEZE_URI, supplementary=True)
-    assert refused.returncode == 1
-    assert "supplementary manifest-run S3 prefix contract" in refused.stderr
+
+def test_the_two_manifest_run_prefix_shapes_are_disjoint() -> None:
+    """Neither shape can be read as the other, so the derivation is unambiguous.
+
+    The official prefix is keyed by the corpus digest alone and the supplementary
+    one interposes a literal segment that can never be a 64-hex digest, so the
+    classifier cannot map one staged freeze onto both lanes -- which is what
+    makes deriving the lane as safe as declaring it, and strictly less
+    error-prone than a flag that can disagree with the freeze it presents.
+    """
+
+    official_source = r"^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$"
+    supplementary_source = (
+        r"^s3://[^/]+/cycle-1/manifest-runs/supplementary/[0-9a-f]{64}/"
+        r"[0-9a-f]{64}/freeze\.json$"
+    )
+    # Assert these are the workflow's own expressions before reasoning with them.
+    block = _freeze_uri_validation_block()
+    assert official_source in block
+    assert supplementary_source in block
+    official_pattern = re.compile(official_source)
+    supplementary_pattern = re.compile(supplementary_source)
+    assert official_pattern.match(_OFFICIAL_FREEZE_URI) is not None
+    assert official_pattern.match(_SUPPLEMENTARY_FREEZE_URI) is None
+    assert supplementary_pattern.match(_SUPPLEMENTARY_FREEZE_URI) is not None
+    assert supplementary_pattern.match(_OFFICIAL_FREEZE_URI) is None
 
 
 def test_freeze_uri_validation_still_refuses_non_s3_and_malformed_prefixes() -> None:
-    for supplementary in (False, True):
-        committed = _validate_freeze_uri(
-            "manifests/cycle-1.freeze.json", supplementary=supplementary
-        )
-        assert committed.returncode == 1
-        assert "authenticated manifest-run root" in committed.stderr
-        truncated = _validate_freeze_uri(
-            "s3://results-bucket/cycle-1/manifest-runs/supplementary/"
-            + "a" * 64
-            + "/freeze.json",
-            supplementary=supplementary,
-        )
-        assert truncated.returncode == 1
+    committed = _derive_lane("manifests/cycle-1.freeze.json")
+    assert committed.returncode == 1
+    assert "authenticated manifest-run root" in committed.stderr
+    for malformed in (
+        # A supplementary prefix missing the freeze digest directory.
+        "s3://results-bucket/cycle-1/manifest-runs/supplementary/"
+        + "a" * 64
+        + "/freeze.json",
+        # A digest that is not 64 hex characters in the official position.
+        "s3://results-bucket/cycle-1/manifest-runs/not-a-digest/freeze.json",
+        # An unrelated key inside the results bucket.
+        "s3://results-bucket/cycle-1/reports/freeze.json",
+    ):
+        refused = _derive_lane(malformed)
+        assert refused.returncode == 1, malformed
+        assert "immutable manifest-run S3 prefix contract" in refused.stderr
     assert (
-        SUPPLEMENTARY_ENV := "SUPPLEMENTARY_INPUT: ${{ inputs.supplementary }}"
+        SUPPLEMENTARY_ENV
+        := "SUPPLEMENTARY: ${{ steps.validate.outputs.supplementary }}"
     ) in BUILD_MATRIX_JOB
     assert SUPPLEMENTARY_ENV in WORKFLOW
+    assert "inputs.supplementary" not in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_flags_long_context_surcharge_packets() -> None:
@@ -844,7 +870,7 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
     # leaves the GitHub Actions value empty.
     baseline_input = WORKFLOW[
         WORKFLOW.index("      baseline_training_examples_uri:") : WORKFLOW.index(
-            "      elapsed_days:"
+            "      repeat_sample_case_ids:"
         )
     ]
     assert 'default: ""' not in baseline_input
@@ -908,20 +934,51 @@ def test_supplementary_dispatch_requires_the_shard_path() -> None:
     """
 
     coupling = (
-        'if [[ "${SUPPLEMENTARY_INPUT}" == "true" '
-        '&& "${SHARD_ONLY_INPUT}" != "true" ]]; then'
+        'if [[ "${supplementary}" == "true" && "${SHARD_ONLY_INPUT}" != "true" ]]; then'
     )
     assert coupling in BUILD_MATRIX_JOB
-    assert "supplementary=true requires shard_only=true" in BUILD_MATRIX_JOB
+    assert (
+        "a supplementary freeze_bundle_path requires shard_only=true"
+        in BUILD_MATRIX_JOB
+    )
     assert "supplementary" not in AGGREGATE_RESULTS_JOB
 
 
-def test_concurrency_group_separates_the_two_lanes() -> None:
-    """One cycle can have an official and a supplementary shard for one model."""
+def test_concurrency_group_matches_the_frozen_shard_identity() -> None:
+    """The group is a gate, not a label, and must not grow segments.
 
-    group = WORKFLOW.split("concurrency:\n  group: ", maxsplit=1)[1].split("\n", 1)[0]
-    assert "inputs.supplementary && 'supplementary' || 'official'" in group
-    assert "inputs.cycle_id" in group
+    ``dispatch_provenance`` rebuilds this string from the frozen execution
+    policy's ``concurrency_policy.identity_fields`` -- exactly
+    ``(cycle_id, model_key, ablation)`` -- and refuses a shard-only dispatch
+    whose group differs.  A lane segment here is redundant besides: a model key
+    classifies into exactly one of official/supplementary and never both.
+    """
+
+    from legalforecast.publication.dispatch_provenance import (
+        SHARD_CONCURRENCY_GROUP_PREFIX,
+    )
+
+    group = WORKFLOW.split("concurrency:\n", maxsplit=1)[1]
+    group = group.split("  group: ", maxsplit=1)[1].split("\n", 1)[0]
+    resolved = (
+        group.replace("${{ inputs.cycle_id }}", "cycle-1")
+        .replace("${{ github.ref }}", "refs/heads/main")
+        .replace(
+            "${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}",
+            "google:gemini-3.7-flash",
+        )
+        .replace(
+            "${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}",
+            "full_packet",
+        )
+    )
+    # Any segment this test does not know about survives as an unresolved
+    # expression, which is exactly the drift that must fail here.
+    assert "${{" not in resolved, resolved
+    assert resolved == (
+        f"{SHARD_CONCURRENCY_GROUP_PREFIX}-cycle-1-refs/heads/main-"
+        "google:gemini-3.7-flash-full_packet"
+    )
     # The dispatch-provenance step re-materializes the same expression; they
     # must not drift apart or provenance would record a different group.
     assert WORKFLOW.count(group) == 2
