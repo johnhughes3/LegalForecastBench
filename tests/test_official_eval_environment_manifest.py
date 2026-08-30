@@ -15,11 +15,13 @@ RUNTIME_WORKFLOWS = (
     ROOT / ".github" / "workflows" / "run-benchmark.yaml",
     ROOT / ".github" / "actions" / "official-provider-cell" / "action.yml",
     ROOT / ".github" / "workflows" / "fan-in-publish.yaml",
+    ROOT / ".github" / "workflows" / "stage-manifest-run.yaml",
 )
 
 INFRA_ENVIRONMENT = "legalforecastbench-official-provider-authority-infra"
 CELL_ENVIRONMENT = "legalforecastbench-official-eval"
 FAN_IN_ENVIRONMENT = "legalforecastbench-official-eval-fan-in"
+STAGING_ENVIRONMENT = "legalforecastbench-official-eval-manifest-staging"
 
 INFRA_VARIABLES = {
     "LFB_AWS_REGION",
@@ -50,6 +52,14 @@ FAN_IN_VARIABLES = {
     "LFB_AWS_REGION",
     "LFB_GITHUB_FAN_IN_ROLE_ARN",
     "LFB_HF_OFFICIAL_DATASET_REPO",
+    "LFB_PACKET_BUCKET",
+    "LFB_RESULTS_BUCKET",
+}
+# Staging touches no provider and no DynamoDB table, so its environment carries
+# only the two bucket names, the region, and its own role ARN.
+STAGING_VARIABLES = {
+    "LFB_AWS_REGION",
+    "LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN",
     "LFB_PACKET_BUCKET",
     "LFB_RESULTS_BUCKET",
 }
@@ -102,7 +112,7 @@ def _workflow_names_by_environment(text: str, context: str) -> dict[str, set[str
     return names_by_environment
 
 
-def test_manifest_is_closed_to_the_three_official_eval_environments() -> None:
+def test_manifest_is_closed_to_the_four_official_eval_environments() -> None:
     manifest = _manifest()
     environments = _environments()
 
@@ -120,8 +130,9 @@ def test_manifest_is_closed_to_the_three_official_eval_environments() -> None:
         INFRA_ENVIRONMENT,
         CELL_ENVIRONMENT,
         FAN_IN_ENVIRONMENT,
+        STAGING_ENVIRONMENT,
     }
-    assert len(environments) == 3
+    assert len(environments) == 4
     assert all(
         set(row) == {"name", "authority", "aws_oidc_subject", "secrets", "variables"}
         for row in environments.values()
@@ -168,6 +179,11 @@ def test_manifest_has_exact_secret_and_variable_inventories() -> None:
     assert fan_in["secrets"] == []
     assert set(cast(list[str], fan_in["variables"])) == FAN_IN_VARIABLES
 
+    staging = environments[STAGING_ENVIRONMENT]
+    assert staging["authority"] == "manifest_staging"
+    assert staging["secrets"] == []
+    assert set(cast(list[str], staging["variables"])) == STAGING_VARIABLES
+
 
 def test_oidc_subjects_and_role_variables_do_not_cross_environments() -> None:
     environments = _environments()
@@ -175,6 +191,7 @@ def test_oidc_subjects_and_role_variables_do_not_cross_environments() -> None:
         INFRA_ENVIRONMENT: "LFB_INFRA_OPERATOR_ROLE_ARN",
         CELL_ENVIRONMENT: "LFB_GITHUB_PACKET_READ_ROLE_ARN",
         FAN_IN_ENVIRONMENT: "LFB_GITHUB_FAN_IN_ROLE_ARN",
+        STAGING_ENVIRONMENT: "LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN",
     }
 
     for environment, expected_role in role_placements.items():
@@ -191,8 +208,16 @@ def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
     runtime_texts = [
         workflow.read_text(encoding="utf-8") for workflow in RUNTIME_WORKFLOWS
     ]
-    runtime_variables = {CELL_ENVIRONMENT: set(), FAN_IN_ENVIRONMENT: set()}
-    runtime_secrets = {CELL_ENVIRONMENT: set(), FAN_IN_ENVIRONMENT: set()}
+    runtime_variables = {
+        CELL_ENVIRONMENT: set(),
+        FAN_IN_ENVIRONMENT: set(),
+        STAGING_ENVIRONMENT: set(),
+    }
+    runtime_secrets = {
+        CELL_ENVIRONMENT: set(),
+        FAN_IN_ENVIRONMENT: set(),
+        STAGING_ENVIRONMENT: set(),
+    }
     for runtime_text in runtime_texts:
         for environment, names in _workflow_names_by_environment(
             runtime_text, "vars"
@@ -211,13 +236,22 @@ def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
     assert runtime_variables == {
         CELL_ENVIRONMENT: CELL_VARIABLES,
         FAN_IN_ENVIRONMENT: FAN_IN_VARIABLES,
+        STAGING_ENVIRONMENT: STAGING_VARIABLES,
     }
     assert runtime_secrets == {
         CELL_ENVIRONMENT: CELL_SECRETS,
         FAN_IN_ENVIRONMENT: set(),
+        # Staging reaches no provider, so its environment holds no secret and
+        # its workflow must never reference one.
+        STAGING_ENVIRONMENT: set(),
     }
 
-    for environment in (INFRA_ENVIRONMENT, CELL_ENVIRONMENT, FAN_IN_ENVIRONMENT):
+    for environment in (
+        INFRA_ENVIRONMENT,
+        CELL_ENVIRONMENT,
+        FAN_IN_ENVIRONMENT,
+        STAGING_ENVIRONMENT,
+    ):
         assert environment in infra_text + "\n".join(runtime_texts)
 
 

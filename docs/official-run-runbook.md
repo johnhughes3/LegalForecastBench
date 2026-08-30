@@ -1951,6 +1951,8 @@ Such a model still runs through this same pipeline. It binds its own registry an
 
 1. Issue a supplementary execution policy from the supplementary registry. The plan issuer is unmodified: it requires at least one registry entry, not exactly four, so a one-model registry produces the standard two-ablation shard schedule.
 
+   **Write it to a tracked path, not to `artifacts/`.** The registry, the caps, and this execution policy are the three artifacts a sibling freeze replaces, so the staging workflow takes them from the checkout — and it refuses any path that is not tracked at the dispatched commit, because a file present in the working tree but absent from the release did not go through review. `artifacts/` is gitignored (`.gitignore:35`), so a policy written there cannot be staged. `model_registries/` already holds this lane's registry and caps; keep all three together. All three are small, public-safe JSON.
+
 ```bash
 uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
   --cycle-id <cycle_id> \
@@ -1958,7 +1960,7 @@ uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
   --run-input-manifest manifests/<cycle_id>.run-inputs.json \
   --run-card artifacts/<cycle_id>/manifest-forecast/<run-record>.json \
   --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
-  --output artifacts/<cycle_id>/supplementary-execution-policy.json
+  --output model_registries/<cycle_id>.supplementary-execution-policy.json
 ```
 
 2. Freeze a sibling bundle. Pass the *same* manifest, units, labels, prompt, scorer, harness, baselines, exclusion ledger, labeling policy, and cohort policy the official freeze used, and the supplementary registry, caps, and execution policy in place of the official ones. This is a new freeze, never an amendment of the official bundle, which stays untouched at its committed path. Those three replacements are exactly the set the pre-dispatch chain permits: `project-manifest-cost --supplementary` re-verifies every other frozen artifact against the official freeze byte for byte and refuses the run if any of them drifted. That identity is the comparability claim, so it is checked rather than assumed.
@@ -1967,25 +1969,39 @@ uv run legalforecast acquisition issue-manifest-execution-policy-v4 \
 
    The official prefix `cycle-1/manifest-runs/<manifest_digest>/` is keyed by the corpus digest alone, which a sibling freeze over the identical corpus shares. Staging without `--supplementary` would write supplementary-only objects into the prefix that already backs dispatched official shards; those writes are create-once and no role can delete them. Classification is not left to the flag: staging takes the same pinned official reference the cost projector does, and derives the lane from it.
 
+   **Staging runs in GitHub Actions, and cannot run anywhere else.** Dispatch `stage-manifest-run.yaml`; it assumes the `legalforecastbench-official-eval-manifest-staging` role over OIDC inside a protected environment, so no AWS credentials exist locally at any point. This is a structural fact, not a preference: the buckets and their KMS key are governed by *resource* policies naming only the OIDC roles, so even break-glass `AdministratorAccess` is denied — `PutObject` fails on `kms:GenerateDataKey`, `ListObjectsV2` reports "no resource-based policy allows `s3:ListBucket`", and `HeadObject` on the existing official freeze returns 403. `AdministratorAccess` is an identity policy and cannot override a resource policy that never granted the principal. If staging appears to need local credentials, the answer is never to find a stronger local credential. The results and packet bucket names are protected environment variables the workflow reads natively and a developer box cannot read at all.
+
+   Commit the sibling freeze bundle and the three artifacts it replaces to `main` first: the workflow refuses any path that is not tracked at the dispatched commit, and the role's OIDC trust pins `refs/heads/main`. Everything else — the frozen corpus artifacts and every model packet — is rebuilt inside the run from the objects the official staging already wrote, located by SHA-256 and verified against the sibling freeze's own commitments. Those bytes are the un-run evaluation corpus and must never be committed to this public repository.
+
 ```bash
-uv run legalforecast acquisition stage-manifest-forecast \
-  --output-dir <staged manifest-mode output root> \
-  --freeze-bundle <cycle_id>.supplementary-<model>.freeze.json \
-  --artifact-root <common root of the frozen artifact paths> \
-  --manifest-digest <manifest_sha256 from manifest-mode-run-record.json> \
-  --results-bucket "${LFB_RESULTS_BUCKET}" \
-  --packet-bucket "${LFB_PACKET_BUCKET}" \
-  --official-freeze-bundle <official-staged-freeze>.json \
-  --official-freeze-bundle-sha256 <official-staged-freeze-raw-sha256> \
-  --supplementary \
-  --dry-run
+gh workflow run stage-manifest-run.yaml --ref main \
+  -f release_sha="$(git rev-parse origin/main)" \
+  -f manifest_digest=<manifest_sha256 from manifest-mode-run-record.json> \
+  -f official_freeze_bundle_sha256=<official-staged-freeze-raw-sha256> \
+  -f run_inputs_sha256=<raw sha256 of the staged run-inputs.json> \
+  -f run_record_sha256=<raw sha256 of the staged manifest-mode-run-record.json> \
+  -f freeze_bundle_path=<tracked path to the sibling freeze bundle> \
+  -f freeze_bundle_sha256=<raw sha256 of that file, taken before staging> \
+  -f local_artifacts="$(printf 'model_registry=%s\nprovider_cycle_caps=%s\nexecution_policy=%s' \
+      model_registries/<supplementary-registry>.json \
+      model_registries/<supplementary-caps>.json \
+      model_registries/<cycle_id>.supplementary-execution-policy.json)" \
+  -f dry_run=true
 ```
 
-   Drop `--dry-run` to write. The staged prefix is
+   `run_inputs_sha256` and `run_record_sha256` pin the two staged files the rebuild reads; every packet digest it trusts comes out of `run-inputs.json`, so that file is pinned rather than taken on the prefix's word. Take both from the official staging's own recorded object digests.
+
+   Run it once with `dry_run=true`. The run prints the full upload plan and proves, before any object is created, that every key it would write lies inside this lane's own prefix. Re-dispatch with `dry_run=false` to write; the same fence then re-runs against the record of what was actually written.
+
+   **If a run fails part-way through the write, re-dispatch the same inputs. Do not escalate a partial prefix as unrecoverable.** Staging is idempotent and resumable by construction: `_put_immutable` treats a 412/`PreconditionFailed` as success and falls through to `_verify_remote_object` ([`manifest_forecast_stage.py:726-733`](/legalforecast/publication/manifest_forecast_stage.py)), so a re-run re-puts every object that already exists — each one 412s and is then verified byte-for-byte against its recorded `sha256` metadata and size — and creates only the ones that are missing. A timeout or a cancelled job therefore leaves a *partial* prefix, never a *poisoned* one. This holds because the rebuild is content-addressed and deterministic: the same freeze and the same replacement artifacts produce byte-identical staged objects, hence identical digests. It is the reason the job budget is generous rather than tight — but the correct response to exhausting it is still simply to run it again with the same inputs.
+
+   **This workflow stages supplementary siblings only, and there is no Actions route for an amended official freeze.** Two gaps, both deliberate. Restaging the already-staged official freeze is not merely unsupported but actively unsafe — its artifact paths already carry the `artifacts/` segment, so restaging doubles it into keys that do not exist, every create-only put therefore *succeeds* into the immutable official prefix, and the run aborts only afterwards, leaving objects no role can delete. Official re-verification has to be a read-only head-object check against the pinned freeze's own recorded keys, which is a different operation. Separately, `--amendment-bundle` has no workflow input, so an amended official freeze still has no route here; the add-models lane is tracked as `legalforecastbench-4b6f`.
+
+   The staged prefix is
 
    `cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/`
 
-   **Two different freeze digests are in play; use the right one.** `<freeze_digest>` is the raw `sha256sum` of the file passed to `--freeze-bundle`, taken *before* staging, which is why the destination is computable up front. Staging rewrites every relative artifact path, so the `freeze.json` it writes has different bytes and a different `hash_bundle_sha256`; that staged bundle is what receipts and execution-scope issuance bind. The prefix records both in `supplementary-stage.json`: `source_freeze_sha256` (the prefix component), `staged_freeze_sha256`, and `staged_freeze_bundle_sha256`. This sidecar is non-authoritative reporting metadata and is written only in supplementary mode, so the official layout is unchanged. The packet-bucket keys stay the shared `model-packets/...` keys the official run already staged.
+   **Two different freeze digests are in play; use the right one.** `<freeze_digest>` is the raw `sha256sum` of the file passed as `freeze_bundle_sha256`, taken *before* staging, which is why the destination is computable up front. Staging rewrites every relative artifact path, so the `freeze.json` it writes has different bytes and a different `hash_bundle_sha256`; that staged bundle is what receipts and execution-scope issuance bind. **The staged bundle's raw SHA-256 is an output of the workflow, not something you can compute beforehand.** Take it from the run's job summary and its `stage-manifest-run-*` artifact, both of which report it as `staged freeze raw sha256`; the workflow also reads the object back from S3 and re-checks it against that digest before it finishes. The prefix records both in `supplementary-stage.json`: `source_freeze_sha256` (the prefix component), `staged_freeze_sha256`, and `staged_freeze_bundle_sha256`. This sidecar is non-authoritative reporting metadata and is written only in supplementary mode, so the official layout is unchanged. The packet-bucket keys stay the shared `model-packets/...` keys the official run already staged.
 
    `--official-freeze-bundle` / `--official-freeze-bundle-sha256` are the same pinned reference and raw-file digest step 4 uses, and carry the same warning: supply the digest explicitly rather than computing it from the bundle you are passing. Official mode requires the candidate freeze to **be** that pinned bundle; supplementary mode requires its registry keys to be disjoint from the pinned registry's. A candidate that shares the official model keys but not its bytes is refused in both modes rather than routed to either prefix.
 
@@ -2014,6 +2030,47 @@ uv run legalforecast acquisition project-manifest-cost \
 
 5. Obtain the owner approval comment. The grammar is unchanged and has no supplementary wording — one comment, exactly:
 
+   **Why this step and the next stay on the operator's machine.** Scope issuance reads live owner-approval comments by shelling out to `bd comments`, and the beads Dolt server is bound to loopback on the operator's own host; a GitHub-hosted runner cannot reach it. That is a permanent property of where the approval evidence lives, not a plumbing gap. The split for the whole chain is therefore: everything that writes to S3 runs in Actions under OIDC (staging, above), and everything that reads owner evidence runs locally and needs no AWS credentials at all — `project-manifest-cost` takes a local `--manifest-run-root`, and the scope travels to the dispatch as a **committed file**, passed as `path#<scope_sha256>`.
+
+   **The operator cannot write to these buckets at all, so committing is the only route.** This was established empirically, not assumed: break-glass `AdministratorAccess` was denied on all three probes inside the authorized paths — `PutObject` fails on `kms:GenerateDataKey`, `ListObjectsV2` reports "no resource-based policy allows `s3:ListBucket`", and `HeadObject` on the existing official freeze returns 403. `AdministratorAccess` is an *identity* policy; the buckets and their KMS key are governed by *resource* policies that name only the OIDC roles. No local credential can ever write a scope to S3, and none should be sought.
+
+   **Because every operator-to-S3 route now runs through this public repository, the scope must be public-safe on its own merits.** It travels as a commit, and a workflow input would be just as public in the run log. `owner_evidence.raw_observation_base64` embeds the *complete* raw `bd comments <bead> --json` payload — every comment on the approval bead, verbatim, base64 being encoding rather than redaction. The fix is to make the scope clean, not to route an unsafe artifact around the problem; the supplementary scope schema drops that field in favour of a digest (tracked on `legalforecastbench-sy7t`). **Do not commit a scope that still carries it** — use the guard below to check.
+
+   Commit the scope to a tracked path and dispatch `execution_scope_uri` as `<path>#<scope_sha256>`:
+
+```bash
+scope=model_registries/<cycle_id>.supplementary-execution-scope.json
+sha256sum "${scope}" | cut -d' ' -f1   # this is the #<scope_sha256> suffix
+```
+
+   **Do not put it under `manifests/`.** That prefix is not a checkout path to `run-benchmark.yaml`: its download step routes `manifests/*` to `aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${scope_uri}"`, so a committed `manifests/...` scope is fetched from S3 rather than read from the checkout, and the dispatch fails on an object that was never uploaded. Only the default branch does `cp` from the checkout, so any tracked path that is neither `s3://` nor `manifests/` works. `model_registries/` already holds this lane's registry and caps, so it is the consistent home. `artifacts/` is gitignored and therefore not an option.
+
+   Two further things verified against the code rather than assumed. The `#<scope_sha256>` suffix is a real pin: `run-benchmark.yaml` splits it off and passes it to `verify_execution_scope_runtime(..., expected_scope_sha256=...)`, which refuses a scope whose bytes disagree before any provider is called — so a stale or substituted checkout cannot be run. And the scope URI is deliberately *not* subject to the private-packet-prefix guard that `run_input_manifest_uri`, `labels_uri`, and `model_registry_uri` carry; the digest pin is what protects it, so keep the pin exact.
+
+   **Check the scope before committing it — this repository is public.**
+
+```bash
+uv run python - <<'PY' model_registries/<cycle_id>.supplementary-execution-scope.json
+import base64, json, re, sys
+scope = json.loads(open(sys.argv[1]).read())["scope"]
+raw = base64.b64decode(scope["owner_evidence"]["raw_observation_base64"]).decode("utf-8")
+patterns = {
+    "absolute path": r"/(?:work|home|Users|tmp|var)/[A-Za-z0-9._/-]+",
+    "private address": r"\b(?:127\.0\.0\.1|localhost|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)\b",
+    "s3 uri": r"s3://[A-Za-z0-9._/-]+",
+    "aws arn": r"arn:aws[a-z-]*:[a-z0-9-]+:",
+    "email": r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+}
+findings = {label: sorted(set(re.findall(p, raw))) for label, p in patterns.items()}
+findings = {k: v for k, v in findings.items() if v}
+print(json.dumps(findings, indent=2) if findings else "clean")
+sys.exit(1 if findings else 0)
+PY
+```
+
+   Anything it reports would be published by the commit. Once the scope schema carries only a digest of the observation, this returns `clean` and the check is a cheap regression guard; until then, treat a non-empty result as a hard stop.
+
+
    `I approve up to USD <ceiling> of provider spend for model <model_key> in the Cycle 1 forecast run, estimated USD <estimate>.`
 
    Set `<ceiling>` at the receipt's `recommended_max_projected_model_cost_usd` (2x the projection) and `<estimate>` at or above `projected_model_cost_usd`.
@@ -2022,7 +2079,7 @@ uv run legalforecast acquisition project-manifest-cost \
 
 ```bash
 uv run legalforecast acquisition issue-manifest-execution-scope \
-  --plan artifacts/<cycle_id>/supplementary-execution-policy.json \
+  --plan model_registries/<cycle_id>.supplementary-execution-policy.json \
   --freeze-bundle <supplementary-freeze>.freeze.json \
   --freeze-root <freeze-root> \
   --model-registry model_registries/<cycle_id>.supplementary-<model>.json \
@@ -2033,11 +2090,11 @@ uv run legalforecast acquisition issue-manifest-execution-scope \
   --owner-bead-id <approval-bead> \
   --provider-cycle-caps <supplementary-provider-cycle-caps>.json \
   --supplementary \
-  --output artifacts/<cycle_id>/supplementary-execution-scope.json
+  --output model_registries/<cycle_id>.supplementary-execution-scope.json
 
 uv run legalforecast acquisition verify-manifest-execution-scope \
-  --scope artifacts/<cycle_id>/supplementary-execution-scope.json \
-  --plan artifacts/<cycle_id>/supplementary-execution-policy.json \
+  --scope model_registries/<cycle_id>.supplementary-execution-scope.json \
+  --plan model_registries/<cycle_id>.supplementary-execution-policy.json \
   --freeze-bundle <supplementary-freeze>.freeze.json \
   --freeze-root <freeze-root> \
   --model-registry model_registries/<cycle_id>.supplementary-<model>.json \

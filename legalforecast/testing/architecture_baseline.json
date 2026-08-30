@@ -4065,7 +4065,7 @@
       "legalforecast/labeling": 13,
       "legalforecast/multiharness": 72,
       "legalforecast/protocol": 4,
-      "legalforecast/publication": 23,
+      "legalforecast/publication": 24,
       "legalforecast/release": 4,
       "legalforecast/reporting": 10,
       "legalforecast/runner": 4,
@@ -4075,7 +4075,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 15,
-      "tests": 502,
+      "tests": 505,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -10670,6 +10670,23 @@
         "nonblank_line_count": 844,
         "top_level_definition_count": 36
       },
+      "tests/test_manifest_run_materialize.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "scenario",
+        "largest_symbol_lines": 86,
+        "layer": "test",
+        "line_count": 523,
+        "nonblank_line_count": 455,
+        "top_level_definition_count": 19
+      },
       "tests/test_manifest_unitizer_inputs.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
@@ -11098,10 +11115,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "_assert_eval_trust_refs_satisfiable",
-        "largest_symbol_lines": 132,
+        "largest_symbol_lines": 142,
         "layer": "test",
-        "line_count": 1340,
-        "nonblank_line_count": 1230,
+        "line_count": 1361,
+        "nonblank_line_count": 1251,
         "top_level_definition_count": 35
       },
       "tests/test_official_eval_matrix_workflow.py": {

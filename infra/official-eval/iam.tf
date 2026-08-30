@@ -92,3 +92,29 @@ resource "aws_iam_role_policy_attachments_exclusive" "fan_in" {
   role_name   = aws_iam_role.fan_in.name
   policy_arns = []
 }
+
+# Staging is the only lane that creates manifest-run objects, so it gets its own
+# role rather than a widened cell or fan-in grant: the cell must not be able to
+# create objects in the prefix backing its own dispatched shards, and fan-in must
+# not be able to create the inputs it later attests to.
+resource "aws_iam_role" "manifest_staging" {
+  name                 = "${var.name_prefix}-manifest-staging"
+  assume_role_policy   = local.manifest_staging_trust_policy_json
+  max_session_duration = 3600
+}
+
+resource "aws_iam_role_policy" "manifest_staging_storage" {
+  name   = "official-eval-manifest-staging-storage"
+  role   = aws_iam_role.manifest_staging.id
+  policy = local.manifest_staging_storage_policy_json
+}
+
+resource "aws_iam_role_policies_exclusive" "manifest_staging" {
+  role_name    = aws_iam_role.manifest_staging.name
+  policy_names = [aws_iam_role_policy.manifest_staging_storage.name]
+}
+
+resource "aws_iam_role_policy_attachments_exclusive" "manifest_staging" {
+  role_name   = aws_iam_role.manifest_staging.name
+  policy_arns = []
+}
