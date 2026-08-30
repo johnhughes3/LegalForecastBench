@@ -116,12 +116,45 @@ def test_registry_rejects_invalid_openai_reasoning_effort(
         ModelRegistryEntry.from_record(record)
 
 
-def test_registry_rejects_openai_reasoning_effort_for_other_providers() -> None:
+def test_registry_rejects_reasoning_effort_for_providers_without_the_knob() -> None:
     record = _registry_record()
     record["provider"] = "anthropic"
     record["reasoning_effort"] = "high"
 
-    with pytest.raises(ValueError, match=r"reasoning_effort.*OpenAI"):
+    with pytest.raises(ValueError, match=r"reasoning_effort is supported only"):
+        ModelRegistryEntry.from_record(record)
+
+
+def test_registry_accepts_reasoning_effort_for_xai() -> None:
+    """xAI Chat Completions spells this control exactly as OpenAI does.
+
+    Source: https://docs.x.ai/developers/model-capabilities/text/reasoning,
+    checked 2026-08-30 -- a top-level ``reasoning_effort`` string.
+    """
+
+    record = _registry_record()
+    record["provider"] = "xai"
+    record["reasoning_effort"] = "high"
+
+    assert ModelRegistryEntry.from_record(record).reasoning_effort is not None
+
+
+@pytest.mark.parametrize("unsupported", ("none", "max"))
+def test_registry_rejects_reasoning_efforts_xai_does_not_accept(
+    unsupported: str,
+) -> None:
+    """Refuse locally what the provider would reject or silently ignore.
+
+    Grok 4.6 documents low/medium/high/xhigh and states "Reasoning cannot be
+    disabled", so ``none`` is invalid; ``max`` is an OpenAI-only level. Catching
+    these at registry load turns a paid provider 400 into a free local failure.
+    """
+
+    record = _registry_record()
+    record["provider"] = "xai"
+    record["reasoning_effort"] = unsupported
+
+    with pytest.raises(ValueError, match=r"does not accept reasoning_effort"):
         ModelRegistryEntry.from_record(record)
 
 

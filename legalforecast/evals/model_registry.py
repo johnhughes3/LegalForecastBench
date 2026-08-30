@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Final, cast
 
 from legalforecast.selection import ModelRunMetadata, TrainingCutoffStatus
 
@@ -50,6 +50,65 @@ class GoogleThinkingLevel(StrEnum):
     HIGH = "high"
 
 
+_REASONING_EFFORT_PROVIDERS: Final[Mapping[str, frozenset[OpenAIReasoningEffort]]] = {
+    "openai": frozenset(OpenAIReasoningEffort),
+    # xAI's Chat Completions API spells this control exactly as OpenAI does --
+    # a top-level ``reasoning_effort`` string -- so the same field carries it
+    # rather than a parallel one. The accepted values are narrower, though:
+    # https://docs.x.ai/developers/model-capabilities/text/reasoning (checked
+    # 2026-08-30) documents low / medium / high / xhigh for grok-4.6 and states
+    # "Reasoning cannot be disabled", so ``none`` is rejected; ``max`` is an
+    # OpenAI-only level and is not an xAI value. Refusing them here turns a
+    # would-be provider 400 -- or worse, a silently ignored field -- into a
+    # local registry-load failure.
+    "xai": frozenset(
+        {
+            OpenAIReasoningEffort.LOW,
+            OpenAIReasoningEffort.MEDIUM,
+            OpenAIReasoningEffort.HIGH,
+            OpenAIReasoningEffort.XHIGH,
+        }
+    ),
+    # DeepInfra's endpoint accepts a wider set (none/minimal/low/medium/high/
+    # xhigh/max), but on a shared host the accepted values are a property of the
+    # MODEL, and this benchmark serves exactly one model there. Kimi K3 accepts
+    # only low, high and max -- source https://huggingface.co/moonshotai/Kimi-K3
+    # model card, checked 2026-08-30: 'Thinking effort is configured with the
+    # top-level reasoning_effort request field, which supports "low", "high",
+    # and "max" (default "max")'. The narrower set is deliberate: an unsupported
+    # non-none effort is silently remapped to the nearest supported level rather
+    # than rejected, so a request for "medium" would run at some other depth
+    # with no error. Re-derive this set before adding a second model here.
+    "deepinfra": frozenset(
+        {
+            OpenAIReasoningEffort.LOW,
+            OpenAIReasoningEffort.HIGH,
+            OpenAIReasoningEffort.MAX,
+        }
+    ),
+}
+
+
+def _require_supported_reasoning_effort(
+    provider: str,
+    reasoning_effort: OpenAIReasoningEffort,
+) -> None:
+    """Refuse a reasoning effort the served provider does not accept."""
+
+    supported = _REASONING_EFFORT_PROVIDERS.get(provider.strip().lower())
+    if supported is None:
+        raise ValueError(
+            "reasoning_effort is supported only for providers whose API accepts "
+            f"it ({sorted(_REASONING_EFFORT_PROVIDERS)}); got {provider!r}"
+        )
+    if reasoning_effort not in supported:
+        raise ValueError(
+            f"provider {provider!r} does not accept reasoning_effort "
+            f"{reasoning_effort.value!r}; supported values are "
+            f"{sorted(value.value for value in supported)}"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class LongContextSurcharge:
     """Provider-declared token threshold and price multipliers."""
@@ -83,11 +142,14 @@ class LongContextSurcharge:
 class ModelRegistryEntry:
     """One frozen model/run configuration used by all benchmark components.
 
-    ``reasoning_effort`` is an optional OpenAI-only request setting and is part
-    of the entry's canonical record and hash. ``thinking_level`` is the
-    equivalent Google-only setting and is likewise canonical. Each provider
-    accepts only its own knob, so an entry can never request reasoning through a
-    control the served provider will ignore. ``temperature`` and ``top_p`` are
+    ``reasoning_effort`` is an optional request setting and is part of the
+    entry's canonical record and hash. It is accepted only for providers whose
+    API spells the control that way -- OpenAI, and the OpenAI-compatible
+    endpoints that reuse the identical top-level field -- and only for the
+    values each of those accepts; see ``_REASONING_EFFORT_PROVIDERS``.
+    ``thinking_level`` is the equivalent Google-only setting and is likewise
+    canonical. An entry can therefore never request reasoning through a control
+    the served provider will ignore. ``temperature`` and ``top_p`` are
     optional legacy provenance fields. They remain readable and are
     round-tripped when present so existing frozen registry bytes and their
     hashes stay stable. New registries should omit the sampling fields: live
@@ -148,11 +210,8 @@ class ModelRegistryEntry:
             _require_non_negative(self.temperature, "temperature")
         if self.top_p is not None:
             _require_between(self.top_p, "top_p", lower=0, upper=1)
-        if (
-            self.reasoning_effort is not None
-            and self.provider.strip().lower() != "openai"
-        ):
-            raise ValueError("reasoning_effort is supported only for OpenAI models")
+        if self.reasoning_effort is not None:
+            _require_supported_reasoning_effort(self.provider, self.reasoning_effort)
         if self.thinking_level is not None and self.provider.strip().lower() not in {
             "google",
             "gemini",

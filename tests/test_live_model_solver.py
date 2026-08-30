@@ -959,7 +959,7 @@ def test_complete_live_prompt_passes_explicit_json_schema_only_to_gemini() -> No
 
 
 def test_complete_live_prompt_rejects_json_schema_for_unsupported_provider() -> None:
-    with pytest.raises(LiveModelConfigError, match="only supported for Google Gemini"):
+    with pytest.raises(LiveModelConfigError, match="not supported for provider openai"):
         complete_live_prompt(
             _registry_entry("openai", "gpt-test"),
             "Return structured JSON.",

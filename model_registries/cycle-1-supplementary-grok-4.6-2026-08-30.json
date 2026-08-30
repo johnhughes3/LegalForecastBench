@@ -1,0 +1,38 @@
+[
+  {
+    "context_limit": 500000,
+    "display_name": "Grok 4.6",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "xAI does not publish a single consistent training-data cutoff for Grok 4.6, so the structured cutoff remains unknown. Two first-party pages disagree: https://docs.x.ai/developers/grok-4-6 states 'Knowledge cutoff | January 2026' while https://docs.x.ai/developers/models states 'The knowledge cut-off date of Grok 4.6 is February 1, 2026.' Both checked 2026-08-30. Choosing either would be a coin flip presented as a fact, so the status stays unknown.",
+      "Grok 4.6 was released 2026-08-12, after the Cycle 1 corpus decision window closed and after the corpus anchor of 2026-06-30. This entry is supplementary: it must never be substituted into the frozen Cycle 1 registry, and its rows publish as supplementary_post_anchor rather than official.",
+      "Execution settings mirror the frozen official successor registry wherever the provider allows it: controlled_docket_tool_only, max_output_tokens 128000, an explicit maximum-parity reasoning setting, and provider-default sampling. No provider-imposed deviation from the official output cap was required.",
+      "reasoning_effort 'high' matches the official successor registry's OpenAI reasoning_effort 'high'. xAI spells this control exactly as OpenAI does on Chat Completions -- a flat top-level reasoning_effort string -- and documents low/medium/high/xhigh for grok-4.6 with 'Reasoning cannot be disabled'. Source: https://docs.x.ai/developers/model-capabilities/text/reasoning, checked 2026-08-30. The setting is always sent explicitly and never left to the provider default, because https://docs.x.ai/developers/rest-api-reference/inference/chat contradicts that capability page about both the supported models and the unset default; if the reference page were correct an unset request would run at 'low'. The probe must confirm the accepted value before any paid dispatch.",
+      "UNVERIFIED PENDING PROBE -- reasoning-token accounting. xAI's documented worked examples show reasoning tokens EXCLUDED from completion_tokens and additive to the total: prompt 32 + completion 9 + reasoning 94 = total 135 on Chat Completions, and 32 + 9 + 110 = 151 on Responses. Source: https://docs.x.ai/developers/rest-api-reference/inference/chat, checked 2026-08-30. No page states the rule in words, and the OpenAI-style completion_tokens_details nesting conventionally implies the opposite. The adapter therefore adds completion_tokens_details.reasoning_tokens to the billed output count; reading completion_tokens alone would under-report spend against this cycle's provider cap. Confirm against a live response before any paid dispatch.",
+      "DEVIATION -- output cap semantics. On Chat Completions, max_completion_tokens 'only applies to visible output tokens (i.e. does not apply to tokens used for reasoning or function calls)', so the 128000 cap does NOT bound reasoning tokens and reasoning spend is unbounded per request. The sibling Responses API's max_output_tokens 'includes both output and reasoning tokens'. Source: https://docs.x.ai/developers/rest-api-reference/inference/chat, checked 2026-08-30. This adapter calls Chat Completions, so the provider cap and the shape probe -- not this field -- are what bound worst-case reasoning spend.",
+      "DEVIATION -- no dated snapshot. xAI documents a <modelname>-<date> alias form 'for workflows that demand consistency', but publishes no dated snapshot for grok-4.6; a sweep of the full docs corpus for grok-4.6 variants returned 318 hits, all exactly 'grok-4.6'. Source: https://docs.x.ai/developers/models, checked 2026-08-30. This matters because xAI has a documented precedent for silently rerouting a resolving slug: after the May 15 2026 retirement, requests to retired slugs 'automatically redirect to grok-4.3' and are billed at grok-4.3 pricing, with 'the slugs themselves continue to resolve' (https://docs.x.ai/developers/migration/may-15-retirement, checked 2026-08-30). Mitigation, not a fix: the solver validates the response's echoed model field against model_version_or_snapshot and fails closed on any mismatch, so a substitution that xAI reports honestly becomes a loud refusal. A substitution xAI does not report would not be caught.",
+      "Long-context surcharge boundary. xAI bills the higher rate when a prompt 'reaches 200k tokens', applying it to all tokens in the request; the registry applies the surcharge when input_tokens is strictly greater than threshold_input_tokens, so the two differ only at exactly 200,000 input tokens. Cycle 1 prompts are roughly 28,000 input tokens, so the boundary never binds. Recorded rather than adjusted, because the registry's comparison is a frozen shared behavior.",
+      "Grok 4.6 has no built-in realtime access unless server-side search tools are enabled, so search_disabled is already the provider default; the adapter additionally sends search_parameters mode 'off' rather than depending on that default. Sources: https://docs.x.ai/developers/models and https://docs.x.ai/developers/tools/web-search, both checked 2026-08-30.",
+      "Batch API is not supported for grok-4.6 and it receives no batch discount, so there is no cheaper processing tier to match the OpenAI official lane's Flex processing. Source: https://docs.x.ai/developers/models/grok-4.6, checked 2026-08-30."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2.0,
+      "output_price_multiplier": 2.0,
+      "threshold_input_tokens": 200000
+    },
+    "max_output_tokens": 128000,
+    "model_id": "grok-4.6",
+    "model_version_or_snapshot": "grok-4.6",
+    "network_disabled": true,
+    "output_token_price": 6.0,
+    "pricing_source": "https://docs.x.ai/developers/models and https://docs.x.ai/developers/pricing, text API pricing for grok-4.6: USD 2.00/M input and USD 6.00/M output below 200k prompt tokens, USD 4.00/M input and USD 12.00/M output at or above 200k prompt tokens, cached input USD 0.50/M. Checked 2026-08-30",
+    "provider": "xai",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-08-12T00:00:00Z",
+    "release_timestamp_source": "https://x.ai/news/grok-4-6, 'Introducing Grok 4.6', dateline Aug 12 2026: 'Today we are releasing Grok 4.6.' Corroborated by https://docs.x.ai/developers/release-notes under August. Checked 2026-08-30. Note OpenRouter's catalog uses a canonical slug dated 2026-08-10 for the same model; the vendor's own announcement is treated as authoritative for the release date.",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]
