@@ -7,7 +7,7 @@ description: "How to run a scoped work lane in this repo without burning hours o
 
 These rules come from a session autopsy of a lane that ran roughly eleven hours and landed nothing: it built enforcement for an artifact no supported tool could produce, then polished the prerequisite instead of reporting that the payoff was unreachable. Each rule below is the cheap check that would have caught it.
 
-They apply to any scoped work lane here, alongside the standing priorities in [AGENTS.md](/.agents/AGENTS.md) and the frozen-contract rules in [docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md).
+They apply to any scoped work lane here, alongside the standing priorities in [AGENTS.md](/.agents/AGENTS.md) and the cadence rules in [docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md).
 
 ## 0. Executability audit — before you build anything
 
@@ -75,15 +75,9 @@ Do not dress a halt as progress, and never redefine hours of prerequisite polish
 
 The critical path is finishing the cycle and publishing results. Prefer the smallest change that produces a correct result over new process, ceremony, or speculative hardening.
 
-For a **bounded-cost operation** (a document purchase, a metered API probe, any spend with a stated ceiling), the entire required process is:
+Spend is the one place where stopping to ask is required, and its rules have exactly one home: the **Spending guardrails** in [AGENTS.md](/.agents/AGENTS.md). Follow them as written rather than restating them here. In short: a run ceiling enforced in code, a recorded owner approval above the threshold in whatever words the owner actually used, never re-buying what we already hold, no purchase retry loops, and one journal. No specific sentence, comment grammar, or hashed authorization artifact is required or wanted — do not build authority chains, multi-party sign-off, or approval machinery on top.
 
-1. a **ceiling** — the approximate amount, stated up front,
-2. a **journal** — what was spent, on what, recorded in the bead, and
-3. the **owner's one-line approval** against that approximate amount.
-
-Nothing more. Do not build authority chains, multi-party sign-off, or approval machinery on top of that.
-
-What proportionality never touches: **integrity controls are not the slowdown and are not negotiable.** Contamination and model-eligibility rules, outcome-leakage blinding, byte-role validation of authenticated artifacts, and frozen-contract change control stay exactly as documented. Trim process, never integrity.
+What proportionality never touches: **integrity controls are not the slowdown and are not negotiable.** The list of what counts as an integrity control is enumerated once, in `.agents/AGENTS.md` under "Priority", and this skill does not extend it. Anything not on that list is process. Trim process, never integrity — and never cite "integrity" as authority for new hashing, freezing, schema versions, or receipt cards.
 
 ## Lane checklist
 

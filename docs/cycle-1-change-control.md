@@ -1,5 +1,7 @@
 # Cycle 1 Change Control
 
+> **Status (2026-08-30).** The cadence rules below — one active gate-changing integration lane, focused-before-full test ordering, batched remediation, and the correctness/security emergency path — still apply to work on the legacy Cycle 1 chain. The **frozen authenticated-byte regime is superseded** by the 2026-08-30 replan: Cycle 1 now finishes through the new corpus factory, which carries one locked run manifest and no per-document digests, so do not mint schema versions, sidecars, or card variants to preserve byte-identical fields in code that the cutover is chartered to delete. This document's terminal gate `LegalForecastBench-5qd6.41` was cancelled on 2026-08-30. The governing standard is now the Standard of Rigor in [AGENTS.md](/.agents/AGENTS.md).
+
 **Status:** adopted 2026-08-07 · applies through the final Cycle 1 gate `LegalForecastBench-5qd6.41` (freeze + sharded official dispatch + fan-in/publish).
 
 This note is change control for the remainder of Cycle 1 — not a correctness freeze and not a governance framework. It exists to stop a measured failure pattern: passing full suites discarded because the candidate head kept moving, and gate-hardening changes replenishing the defect stock.

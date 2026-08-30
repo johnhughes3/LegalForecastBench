@@ -4,20 +4,40 @@
 
 LegalForecastBench is an academic, open-source benchmark, released under the Apache License 2.0. It measures how well AI models handle one legal reasoning task: forecasting the outcome of a federal motion to dismiss from the written record the judge received. Each cycle scores models against a small, fixed corpus of public federal court records — 100 cases for Cycle 1. That corpus exists solely to evaluate models; it is not used to train, fine-tune, or build them.
 
-## Priority: finish Cycle 1 (2026-08-17 standing directive)
+## Standard of Rigor
 
-**The critical path is completing Cycle 1 and publishing results as soon as possible.** Bias every decision toward that: prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
+This is academic research, not a financial institution or a crypto ledger. We want records that are rigorous, transparent, and reproducible — a reader can see what we did and redo it. They do not need to be cryptographically provable; readers may reasonably trust that we have not falsified our own data. Prefer a count, a census, or a test over a digest, a seal, or an attestation.
 
-- **PACER/document purchases require the owner's approval with the approximate dollar amount** — state the amount, get the approval, journal the spend, respect the stated ceiling. That is the entire required purchase process; do not add authority chains or approval machinery beyond it.
-- Everything else on the Cycle 1 path (code, validation, parsing, Stage A execution under an existing signed authorization, evidence assembly): **do what needs to be done, promptly**. Halt-and-escalate is for genuine blockers (missing owner approval, frozen-contract conflicts, failed validation), not for perfectible process.
+Before building any artifact that only humans and status reports read — a certificate, ledger, receipt, matrix, meta-report, readiness check, or approval chain — name its consumer, the capability it gates, the defect that actually happened to justify it, and when it gets deleted. If you cannot name all four, do not build it. Writing code just so that something "branches on it" does not change the answer.
+
+After you finish planning and filing beads, check what you added against this section — and against the `just-say-no-to-process-porn-and-ceremony` skill if your harness provides it. Delete what fails. Nothing in this file authorizes machinery the plan did not need.
+
+Where an older document in this tree still calls for attestations, sealed deliverables, receipt cards, hashed approval scopes, or evidence tiers, this section supersedes it.
+
+## Priority: the new corpus path (2026-08-30 replan)
+
+**Cycle 1 cannot publish until its corpus is complete** — the 2026-08-30 census found 61 filed oppositions missing from the 100 cases. The owner's replan finishes Cycle 1 *after* the cutover to the new corpus factory rather than on the legacy machinery: new pipeline and corpus repair (`ti2q`, `iot9`) → cutover and deletion of the old runtime (`v7zs`) → run and publish Cycle 1 through the new path. Prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
+
+- **Anything that spends money follows the Spending guardrails below** — a ceiling, an approval above the threshold, and a journal. That is the entire spend process; do not add authority chains or approval grammars on top of it.
+- Everything else (code, validation, parsing, execution under an existing approval, evidence assembly): **do what needs to be done, promptly**. Halt-and-escalate is for genuine blockers (missing owner approval, failed validation), not for perfectible process.
 - Before building anything, run the executability audit: name the command that produces every input your work requires and the path where it exists today. If one doesn't exist, building or escalating THAT is your first task.
-- Integrity controls are not negotiable and are not the slowdown: contamination/model rules, outcome-leakage blinding, byte-role validation, and frozen-contract change control stay exactly as documented.
+- Integrity controls are not negotiable and are not the slowdown. They are exactly these: model contamination and release-anchor rules; outcome-leakage blinding; the Spending guardrails below; public-repo hygiene; and the one locked benchmark-run manifest. Anything not on this list is process, and the Standard of Rigor applies to it.
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
 > **Architecture in one line:** Issues live in a centrally configured beads-db Dolt SQL server. The server is the durable source of truth, so no `bd dolt push/pull` is needed. Connection details come from generated local metadata. `.beads/issues.jsonl` is a passive export, not the wire protocol.
 >
 > See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md) for the one-screen overview and anti-patterns (don't treat JSONL as the source of truth; don't `bd import` during normal operation; don't reach for third-party Dolt hosting before trying the default).
+
+## Spending Guardrails
+
+Real money leaves this project in two places: PACER/RECAP document purchases and paid provider runs. On 2026-08-14 the legacy pipeline bought 152 documents (USD 273) that were never admitted to the corpus. The failure was not an unauthorized purchase — it was buying and then losing track — and no amount of approval ceremony would have caught it. These five rules are the whole spend process.
+
+1. **Run ceiling, enforced in code.** Every run that can spend carries an owner-set maximum, and the tool refuses any operation that would push cumulative journaled spend past it. That is the hard stop; below it, and below the per-operation threshold, no per-operation approval is needed. The corpus acquisition CLI implements this as `budget set --run-id <id> --max-usd <amount>`.
+2. **Recorded owner approval above USD 10.** For any single operation or purchase plan projected above the threshold (default USD 10.00), stop and ask. Quote the owner's actual message — any wording that states an amount at or above your estimate — with where and when it was said, into the bead or run journal, then release the operation (`budget approve`). No regex, no mandated sentence, no digest: the point is that the agent stops before spending, not that the approval is cryptographically authenticated.
+3. **Never buy what we already hold.** Before any purchase, check the acquired inventory by (docket, entry) and RECAP document id. A document we already have is refused and the refusal is journaled. This is the control that would have prevented the USD 273 loss.
+4. **One attempt per document, no purchase loops.** Reserve at most the projected amount before calling a provider, and respect the per-document fee (PACER charges USD 0.10 per page, capped at USD 3.00 per document). A failed or ambiguous purchase is journaled and surfaced to the owner, never auto-retried; realized cost above its reservation is a terminal ceiling violation that neither releases capacity nor becomes retryable.
+5. **Journal every spend** — what, why (case, role, docket entry), cost, and which approval it ran under — in one append-only journal. No sealed receipts, no signed scopes, no hashed authorization artifacts.
 
 ## Public Repository Hygiene
 
@@ -72,7 +92,7 @@ For focused runs while iterating, plain serial `uv run pytest tests/<file> -q` i
 
 ## Cycle 1 Change Control
 
-The remainder of Cycle 1 operates under [docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md): frozen authenticated byte contracts, one active gate-changing integration lane, focused-before-full test ordering, and an explicit correctness/security emergency path. Read it before changing validators, codecs, schemas, or preflight gates.
+[docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md) still governs the *cadence* of gate-changing work on the legacy chain: one active gate-changing integration lane, focused-before-full test ordering, and the correctness/security emergency path. Its frozen-byte-contract regime is superseded by the 2026-08-30 replan — the new path has one locked run manifest and no per-document digests, so do not mint new schema versions, sidecars, or card variants to preserve byte-identical fields in code that `v7zs` is chartered to delete.
 
 ## Non-Interactive Shell Commands
 
