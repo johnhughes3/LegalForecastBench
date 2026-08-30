@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Final, cast
 
 from legalforecast.selection import ModelRunMetadata, TrainingCutoffStatus
 
@@ -48,6 +48,48 @@ class GoogleThinkingLevel(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+
+
+_REASONING_EFFORT_PROVIDERS: Final[Mapping[str, frozenset[OpenAIReasoningEffort]]] = {
+    "openai": frozenset(OpenAIReasoningEffort),
+    # xAI's Chat Completions API spells this control exactly as OpenAI does --
+    # a top-level ``reasoning_effort`` string -- so the same field carries it
+    # rather than a parallel one. The accepted values are narrower, though:
+    # https://docs.x.ai/developers/model-capabilities/text/reasoning (checked
+    # 2026-08-30) documents low / medium / high / xhigh for grok-4.6 and states
+    # "Reasoning cannot be disabled", so ``none`` is rejected; ``max`` is an
+    # OpenAI-only level and is not an xAI value. Refusing them here turns a
+    # would-be provider 400 -- or worse, a silently ignored field -- into a
+    # local registry-load failure.
+    "xai": frozenset(
+        {
+            OpenAIReasoningEffort.LOW,
+            OpenAIReasoningEffort.MEDIUM,
+            OpenAIReasoningEffort.HIGH,
+            OpenAIReasoningEffort.XHIGH,
+        }
+    ),
+}
+
+
+def _require_supported_reasoning_effort(
+    provider: str,
+    reasoning_effort: OpenAIReasoningEffort,
+) -> None:
+    """Refuse a reasoning effort the served provider does not accept."""
+
+    supported = _REASONING_EFFORT_PROVIDERS.get(provider.strip().lower())
+    if supported is None:
+        raise ValueError(
+            "reasoning_effort is supported only for providers whose API accepts "
+            f"it ({sorted(_REASONING_EFFORT_PROVIDERS)}); got {provider!r}"
+        )
+    if reasoning_effort not in supported:
+        raise ValueError(
+            f"provider {provider!r} does not accept reasoning_effort "
+            f"{reasoning_effort.value!r}; supported values are "
+            f"{sorted(value.value for value in supported)}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,11 +190,8 @@ class ModelRegistryEntry:
             _require_non_negative(self.temperature, "temperature")
         if self.top_p is not None:
             _require_between(self.top_p, "top_p", lower=0, upper=1)
-        if (
-            self.reasoning_effort is not None
-            and self.provider.strip().lower() != "openai"
-        ):
-            raise ValueError("reasoning_effort is supported only for OpenAI models")
+        if self.reasoning_effort is not None:
+            _require_supported_reasoning_effort(self.provider, self.reasoning_effort)
         if self.thinking_level is not None and self.provider.strip().lower() not in {
             "google",
             "gemini",

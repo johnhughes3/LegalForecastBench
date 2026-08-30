@@ -26,6 +26,11 @@ from legalforecast.evals.inspect_task import (
     SolverResponse,
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry, ToolPolicy
+from legalforecast.evals.openai_compatible_provider import (
+    OpenAICompatibleProvider,
+    ReasoningParameterStyle,
+    openai_compatible_provider,
+)
 from legalforecast.evals.response_verification import verify_provider_response
 from legalforecast.openai_transport import (
     OPENAI_RESPONSES_URL as OPENAI_RESPONSES_URL,
@@ -296,7 +301,8 @@ def complete_live_prompt(
     provider = _provider_config(registry_entry.provider)
     if response_json_schema is not None and not provider.supports_response_json_schema:
         raise LiveModelConfigError(
-            "response_json_schema is only supported for Google Gemini"
+            "response_json_schema is not supported for provider "
+            f"{registry_entry.provider}"
         )
     if _uses_bedrock_anthropic_runtime(registry_entry.provider, environ):
         return _complete_bedrock_anthropic_prompt(
@@ -540,7 +546,40 @@ def _provider_config(provider: str) -> _ProviderConfig:
             extract_served_version=_gemini_served_model_version,
             supports_response_json_schema=True,
         )
+    spec = openai_compatible_provider(normalized)
+    if spec is not None:
+        return _openai_compatible_config(spec)
     raise LiveModelConfigError(f"unsupported provider: {provider}")
+
+
+def _openai_compatible_config(spec: OpenAICompatibleProvider) -> _ProviderConfig:
+    """Bind one OpenAI-compatible provider's declared quirks into a config."""
+
+    def build_request(
+        entry: ModelRegistryEntry,
+        prompt: str,
+        api_key: str,
+        response_json_schema: Mapping[str, object] | None,
+    ) -> urllib.request.Request:
+        return _openai_compatible_request(
+            spec,
+            entry,
+            prompt,
+            api_key,
+            response_json_schema,
+        )
+
+    def extract_usage(payload: JsonRecord) -> tuple[int, int]:
+        return _openai_compatible_usage(spec, payload)
+
+    return _ProviderConfig(
+        api_key_env=spec.api_key_env,
+        build_request=build_request,
+        extract_output=_openai_compatible_output,
+        extract_usage=extract_usage,
+        extract_served_version=_openai_compatible_served_model_version,
+        supports_response_json_schema=spec.supports_response_json_schema,
+    )
 
 
 def validate_provider_response_fields(
@@ -817,6 +856,138 @@ def _gemini_request(
         GEMINI_GENERATE_CONTENT_URL_TEMPLATE.format(model=model),
         payload,
         headers={"x-goog-api-key": api_key},
+    )
+
+
+def _openai_compatible_request(
+    spec: OpenAICompatibleProvider,
+    entry: ModelRegistryEntry,
+    prompt: str,
+    api_key: str,
+    response_json_schema: Mapping[str, object] | None,
+) -> urllib.request.Request:
+    """Build one chat-completions request under a provider's declared shape."""
+
+    payload: dict[str, object] = {
+        "model": entry.model_id,
+        "messages": [{"role": "user", "content": prompt}],
+        # Chat Completions spells the output cap max_completion_tokens. On xAI
+        # this bounds *visible* output only and excludes reasoning tokens, which
+        # the registry entry records as an explicit caveat.
+        "max_completion_tokens": entry.max_output_tokens,
+        "stream": False,
+    }
+    if spec.reasoning_parameter_style is not None:
+        payload.update(_openai_compatible_reasoning_fields(spec, entry))
+    if response_json_schema is not None:
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "legalforecast_response",
+                "schema": dict(response_json_schema),
+                "strict": True,
+            },
+        }
+    # Applied last so a provider-specific setting is never silently overwritten
+    # by a generic field, and so the payload-shape test pins exactly what ships.
+    payload.update(spec.extra_body)
+    return _json_request(
+        spec.chat_completions_url,
+        payload,
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+
+
+def _openai_compatible_reasoning_fields(
+    spec: OpenAICompatibleProvider,
+    entry: ModelRegistryEntry,
+) -> dict[str, object]:
+    """Return the provider's reasoning request fields, or refuse.
+
+    The owner directive on bead ``legalforecastbench-1xko`` requires an explicit
+    reasoning setting on every run, never a silent provider default. A provider
+    that has a reasoning knob and a registry entry that does not set one is a
+    configuration error, caught here rather than discovered afterwards in a
+    run whose reasoning depth nobody can state.
+    """
+
+    if (
+        spec.reasoning_parameter_style
+        is ReasoningParameterStyle.TOP_LEVEL_REASONING_EFFORT
+    ):
+        if entry.reasoning_effort is None:
+            raise LiveModelConfigError(
+                f"{spec.provider} requires an explicit reasoning_effort in the "
+                f"registry entry for {entry.registry_key}; the provider default "
+                "must never be relied on"
+            )
+        return {"reasoning_effort": entry.reasoning_effort.value}
+    raise LiveModelConfigError(
+        f"unsupported reasoning parameter style: {spec.reasoning_parameter_style}"
+    )
+
+
+def _openai_compatible_output(payload: JsonRecord) -> str:
+    """Extract the graded answer from ``choices[0].message.content``.
+
+    Deliberately narrow. Reasoning models on several OpenAI-compatible stacks
+    return their thinking in a sibling ``reasoning_content`` field; that text is
+    never the answer and is never substituted for it. An empty ``content`` is a
+    failed response, so it raises instead of settling an empty string that would
+    score as an unparseable answer while still being billed.
+    """
+
+    choices = _object_list(payload.get("choices"))
+    if not choices:
+        raise LiveModelResponseError(
+            "OpenAI-compatible response did not include any choices"
+        )
+    first = _mapping(choices[0])
+    if first is None:
+        raise LiveModelResponseError(
+            "OpenAI-compatible response choice was not an object"
+        )
+    message = _mapping(first.get("message"))
+    if message is None:
+        raise LiveModelResponseError(
+            "OpenAI-compatible response choice did not include a message"
+        )
+    content = message.get("content")
+    if not isinstance(content, str) or not content.strip():
+        raise LiveModelResponseError(
+            "OpenAI-compatible response message.content was empty; reasoning "
+            "text in reasoning_content is never substituted for the answer"
+        )
+    return content
+
+
+def _openai_compatible_usage(
+    spec: OpenAICompatibleProvider,
+    payload: JsonRecord,
+) -> tuple[int, int]:
+    """Return billed (input, output) tokens including every billed field.
+
+    ``reasoning_tokens_are_additive`` is a per-provider fact read from that
+    provider's documentation, not an inference from the OpenAI-style
+    ``completion_tokens_details`` nesting -- which conventionally implies the
+    reasoning count is already inside ``completion_tokens``, but on xAI is not.
+    Getting this wrong under-reports spend against an owner cost cap.
+    """
+
+    usage = _mapping_or_empty(payload.get("usage"))
+    input_tokens = _int_field(usage, "prompt_tokens", "input_tokens")
+    output_tokens = _int_field(usage, "completion_tokens", "output_tokens")
+    if spec.reasoning_tokens_are_additive:
+        details = _mapping_or_empty(usage.get("completion_tokens_details"))
+        output_tokens += _optional_int_field(details, "reasoning_tokens") or 0
+    return input_tokens, output_tokens
+
+
+def _openai_compatible_served_model_version(payload: JsonRecord) -> str:
+    return _required_str_field(
+        payload,
+        "model",
+        provider_name="OpenAI-compatible provider",
     )
 
 

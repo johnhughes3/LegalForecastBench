@@ -101,6 +101,16 @@ inside the hashed payload, so swapping it breaks the receipt digest.
 """
 
 
+def cost_receipt_field_names(*, supplementary: bool = False) -> frozenset[str]:
+    """Return the exact field set one cost-receipt card admits.
+
+    Read-only view of the frozen card's allowlist, exposed so invariant tests
+    can check lane coverage without reaching into module privates.
+    """
+
+    return frozenset(_receipt_fields(supplementary=supplementary))
+
+
 def _receipt_schema_version(*, supplementary: bool) -> str:
     if supplementary:
         return str(MANIFEST_COST_PROJECTION_SUPPLEMENTARY_RECEIPT_V1)

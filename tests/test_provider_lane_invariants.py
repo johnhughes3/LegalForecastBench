@@ -30,11 +30,10 @@ import ast
 import inspect
 
 import pytest
-
-from legalforecast.evals.corpus_manifest import cost_projector
 from legalforecast.evals.corpus_manifest.cost_projector import (
     PROVIDER_LANES,
     ManifestCostProjectionError,
+    cost_receipt_field_names,
     provider_lane,
 )
 
@@ -106,9 +105,10 @@ def test_receipt_field_allowlist_covers_every_dispatchable_lane() -> None:
     frozen-card breach a test failure instead of a dispatch-time refusal.
     """
 
-    allowlist = cost_projector._COST_RECEIPT_FIELDS
     missing = sorted(
         field
+        for supplementary in (False, True)
+        for allowlist in (cost_receipt_field_names(supplementary=supplementary),)
         for lane in PROVIDER_LANES
         for field in (f"{lane}_count", f"{lane}_matrix")
         if field not in allowlist
