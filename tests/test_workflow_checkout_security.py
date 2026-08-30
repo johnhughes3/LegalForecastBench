@@ -120,8 +120,10 @@ def test_workflow_dispatch_input_parser_sees_the_real_declarations() -> None:
     # Spot-check both ends of the block and a choice-typed input in the middle,
     # so a parser that stops early or swallows nested keys fails here.
     assert run_benchmark[0] == "release_sha"
-    assert run_benchmark[-1] == "execution_scope_uri"
-    assert "cycle_series" in run_benchmark
+    assert run_benchmark[-1] == "artifact_retention_days"
+    assert "manifest_uri" in run_benchmark
+    assert "labels_release_uri" in run_benchmark
+    assert "cycle_series" not in run_benchmark
     assert "options" not in run_benchmark
     assert "supplementary" not in run_benchmark, (
         "the official/supplementary lane is derived from freeze_bundle_path"

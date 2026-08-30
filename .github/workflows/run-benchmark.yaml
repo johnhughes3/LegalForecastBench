@@ -4,1572 +4,630 @@ on:
   workflow_dispatch:
     inputs:
       release_sha:
-        description: Optional commit SHA to evaluate. If set, it must be reachable from origin/main.
+        description: Exact public-repository commit to evaluate; it must be reachable from origin/main.
         required: false
+        default: ""
         type: string
-      cycle_id:
-        description: Frozen official cycle id.
+      manifest_uri:
+        description: Locked public benchmark-run manifest URI or checked-out JSON path.
         required: true
-        default: pilot-2026-05-18-review-scored-12-corrected
         type: string
-      run_input_manifest_uri:
-        description: s3:// URI, manifests/ key, or checked-out file path for the run-input manifest.
+      forecast_release_uri:
+        description: Outcome-blinded forecast-release.json URI or checked-out path.
         required: true
-        default: manifests/pilot-2026-05-18-review-scored-12-corrected.run-inputs.json
         type: string
-      labels_uri:
-        description: s3:// URI, manifests/ key, or checked-out JSONL path for locked labels.
+      labels_release_uri:
+        description: Separate labels-release.json URI or checked-out path used only by fan-in.
         required: true
-        default: manifests/pilot-2026-05-18-review-scored-12-corrected.labels.jsonl
         type: string
-      ablations:
-        description: Comma-separated packet ablations to evaluate.
+      artifact_root_uri:
+        description: URI or path containing the forecast release's declared public artifacts.
         required: true
-        default: full_packet,metadata_only
         type: string
-      shard_only:
-        description: Run exactly one frozen model-key/ablation shard without aggregating or publishing.
-        required: true
-        default: false
-        type: boolean
       model_registry_uri:
-        description: Frozen model registry s3:// URI, manifests/ key, or checked-out JSON path.
+        description: Frozen public model registry URI or checked-out JSON path.
         required: true
-        default: manifests/pilot-2026-05-18-review-scored-12-corrected.model-registry.json
         type: string
-      model_keys:
-        description: Comma-separated registry keys in provider:model_id form.
+      model_key:
+        description: One provider:model_id key from the frozen model registry.
         required: true
-        default: openai:gpt-5.4-mini,anthropic:claude-sonnet-4-6
         type: string
-      freeze_bundle_path:
-        description: >-
-          Current authenticated manifest-run freeze bundle, and the input the
-          official/supplementary lane is derived from. Use only an immutable
-          s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI for an
-          official dispatch, or the immutable
-          s3://.../cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/freeze.json
-          URI for a supplementary sibling freeze. The two shapes are disjoint --
-          the literal "supplementary" segment can never be a 64-hex digest -- so
-          the staged prefix names the lane and anything matching neither shape is
-          refused. The cost projector requires the corresponding downloaded
-          manifest-run root.
+      ceiling_microusd:
+        description: Positive run ceiling in millionths of one US dollar.
+        required: true
+        type: string
+      account:
+        description: Stable provider-account identity for this run ledger.
         required: false
-        default: ""
-        type: string
-      prior_dispatches_json:
-        description: JSON array of prior workflow dispatches and their freeze/model provenance; required for amendments.
-        required: false
-        default: "[]"
-        type: string
-      cycle_series:
-        description: Cadence classification for the aggregate cycle-power report.
-        required: true
-        default: pilot
-        type: choice
-        options:
-          - pilot
-          - rapid
-          - official
-          - annual_aggregate
-      clean_motion_count:
-        description: Clean motion count for the aggregate cycle-power report.
-        required: true
-        default: "25"
-        type: string
-      prediction_unit_count:
-        description: Prediction-unit count for the aggregate cycle-power report.
-        required: true
-        default: "1"
-        type: string
-      allow_no_baselines:
-        description: >-
-          Permit aggregation without a statistical baseline corpus. Defaults to
-          true for run-1: no historical baseline training corpus has been frozen
-          yet, so the first cycle ships model rows only and discloses the absence
-          in the run card. Set to false once baseline_training_examples_uri
-          points at a real corpus so aggregation fails loud on a missing baseline.
-        required: true
-        default: true
-        type: boolean
-      baseline_training_examples_uri:
-        description: >-
-          Optional s3:// URI, manifests/ key, or checked-out path to the frozen
-          baseline-training corpus. When set, global, court/NOS/motion,
-          metadata-only, and judge-history baselines are scored as pseudo-model
-          rows. Leave empty for run-1 until a baseline corpus is frozen.
-          Do not declare an empty YAML default: secure-gate materializes
-          defaults into the dispatch payload, and the deployed input contract
-          rejects an empty URI.
-        required: false
-        type: string
-      repeat_sample_case_ids:
-        description: Optional comma-separated case IDs to run with repeat_count for within-model variance measurement.
-        required: false
-        default: ""
-        type: string
-      repeat_count:
-        description: Independent provider calls for each selected repeat-sample case.
-        required: true
-        default: "1"
+        default: default
         type: string
       max_parallel:
-        description: Maximum concurrent case jobs.
-        required: true
-        default: "4"
+        description: Maximum number of resumable forecast cells allowed in this run.
+        required: false
+        default: "1"
         type: string
-      dry_run:
-        description: Build and validate the matrix without fetching packets or uploading outputs.
-        required: true
-        default: true
-        type: boolean
-      resume_existing_results:
-        description: Reuse complete matching per-case results already in the durable results store.
-        required: true
-        default: true
-        type: boolean
       artifact_retention_days:
-        description: Retention for non-sensitive per-case GitHub artifacts.
-        required: true
+        description: Retention for public workflow artifacts.
+        required: false
         default: "14"
-        type: string
-      max_projected_model_cost_usd:
-        description: >-
-          Projected-cost early-warning dispatch ceiling; required for live runs.
-          Set near the dry-run recommendation (2x projection). This ceiling is not a provider or account cap and does not accumulate across dispatches.
-        required: false
-        default: ""
-        type: string
-      official_freeze_bundle_uri:
-        description: >-
-          Official freeze bundle a supplementary sibling freeze must match, byte
-          for byte, on every frozen artifact except the model registry, provider
-          caps, and execution policy, followed by # and its lowercase SHA-256
-          (URI#sha256). Required for a supplementary dispatch and refused
-          otherwise; the lane is derived from freeze_bundle_path, so this is
-          required exactly when that URI uses the supplementary prefix. The
-          digest is the pin: without it a fabricated bundle could copy its
-          shared-artifact digests from the sibling and pass every identity
-          check. Take it from the staged official freeze's recorded raw-file
-          digest.
-        required: false
-        default: ""
-        type: string
-      execution_scope_uri:
-        description: >-
-          Authenticated exact-model execution-scope artifact followed by # and
-          its lowercase SHA-256 (URI#sha256). Required for a non-dry paid shard;
-          the scope covers both official ablations for one registry model. The
-          digest after # pins the scope's own scope_sha256 field -- the canonical
-          hash of the inner scope object -- and NOT the sha256 of the scope file,
-          which differs. Take it from the issuer's recorded scope_sha256.
-        required: false
-        default: ""
         type: string
 
 permissions:
   contents: read
 
 concurrency:
-  # The frozen execution policy declares concurrency_policy.identity_fields as
-  # exactly (cycle_id, model_key, ablation), and dispatch_provenance rebuilds
-  # this string from that policy and refuses a shard whose group differs. Any
-  # extra segment here is a dispatch-time refusal, not a naming preference; a
-  # lane segment is also redundant, since a model key classifies into exactly
-  # one of official/supplementary and never both.
-  group: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
+  group: >-
+    benchmark-${{ inputs.manifest_uri }}-${{ inputs.forecast_release_uri }}-${{ inputs.labels_release_uri }}-${{ inputs.artifact_root_uri }}-${{ inputs.model_registry_uri }}-${{ inputs.model_key }}-${{ inputs.account }}-${{ inputs.ceiling_microusd }}
   cancel-in-progress: false
 
 jobs:
-  build-matrix:
-    name: Build benchmark matrix
-    # Protected environment: stay on GitHub-hosted ubuntu-latest.
+  prepare-inputs:
+    name: Validate releases and materialize allowlisted forecast inputs
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: legalforecastbench-official-eval
     permissions:
       contents: read
       id-token: write
-    outputs:
-      artifact_retention_days: ${{ steps.validate.outputs.artifact_retention_days }}
-      case_count: ${{ steps.matrix.outputs.case_count }}
-      packet_count: ${{ steps.matrix.outputs.packet_count }}
-      cell_count: ${{ steps.matrix.outputs.cell_count }}
-      matrix_row_count: ${{ steps.matrix.outputs.matrix_row_count }}
-      shard_matrix_row_count: ${{ steps.matrix.outputs.shard_matrix_row_count }}
-      request_count: ${{ steps.matrix.outputs.request_count }}
-      attempt_count: ${{ steps.matrix.outputs.attempt_count }}
-      dispatch_run_attempt: ${{ steps.dispatch.outputs.workflow_run_attempt }}
-      frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
-      freeze_bundle_sha256: ${{ steps.verify_freeze.outputs.freeze_bundle_sha256 }}
-      execution_policy_sha256: ${{ steps.dispatch.outputs.execution_policy_sha256 }}
-      execution_scope_sha256: ${{ steps.dispatch.outputs.execution_scope_sha256 }}
-      freeze_bundle_path: ${{ steps.validate.outputs.freeze_bundle_path }}
-      freeze_root: ${{ steps.validate.outputs.freeze_root }}
-      labels_sha256: ${{ steps.freeze_labels.outputs.labels_sha256 }}
-      matrix: ${{ steps.matrix.outputs.matrix }}
-      max_parallel: ${{ steps.validate.outputs.max_parallel }}
-      model_count: ${{ steps.matrix.outputs.model_count }}
-      anthropic_count: ${{ steps.matrix.outputs.anthropic_count }}
-      anthropic_matrix: ${{ steps.matrix.outputs.anthropic_matrix }}
-      gemini_count: ${{ steps.matrix.outputs.gemini_count }}
-      gemini_matrix: ${{ steps.matrix.outputs.gemini_matrix }}
-      openai_count: ${{ steps.matrix.outputs.openai_count }}
-      openai_matrix: ${{ steps.matrix.outputs.openai_matrix }}
-      long_context_surcharge_packet_count: ${{ steps.matrix.outputs.long_context_surcharge_packet_count }}
-      long_context_surcharge_packets_json: ${{ steps.matrix.outputs.long_context_surcharge_packets_json }}
-      projected_model_cost_usd: ${{ steps.matrix.outputs.projected_model_cost_usd }}
-      recommended_max_projected_model_cost_usd: ${{ steps.matrix.outputs.recommended_max_projected_model_cost_usd }}
-      release_sha: ${{ steps.validate.outputs.release_sha }}
-      supplementary: ${{ steps.validate.outputs.supplementary }}
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION }}
-      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
+      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
+      LFB_MODEL_PACKET_PREFIX: ${{ vars.LFB_MODEL_PACKET_PREFIX }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
-      OFFICIAL_FREEZE_BUNDLE_PATH: /tmp/lfb-official-freeze.json
-      MODEL_KEYS: ${{ inputs.model_keys }}
-      MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
-      RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
+      LFB_RESULTS_MANIFEST_PREFIX: ${{ vars.LFB_RESULTS_MANIFEST_PREFIX }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
     steps:
-      - name: Validate configured AWS region
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ -n "${AWS_REGION:-}" ]] || {
-            echo "LFB_AWS_REGION must be configured on the protected environment." >&2
-            exit 1
-          }
-
-      - name: Checkout
+      - name: Checkout requested public revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.release_sha || github.sha }}
           persist-credentials: false
           fetch-depth: 0
+
+      - name: Require an exact main-reachable source revision
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
+          git merge-base --is-ancestor origin/main HEAD
+          test -n "$(git rev-parse origin/main)"
 
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
 
-      - name: Validate dispatch request
-        id: validate
+      - name: Validate dispatch identity and bounded values
         shell: bash
         env:
-          ARTIFACT_RETENTION_DAYS_INPUT: ${{ inputs.artifact_retention_days }}
-          ABLATIONS_INPUT: ${{ inputs.ablations }}
-          CLEAN_MOTION_COUNT_INPUT: ${{ inputs.clean_motion_count }}
-          CYCLE_ID_INPUT: ${{ inputs.cycle_id }}
-          DRY_RUN_INPUT: ${{ inputs.dry_run }}
-          EXECUTION_SCOPE_URI_INPUT: ${{ inputs.execution_scope_uri }}
-          FREEZE_BUNDLE_PATH_INPUT: ${{ inputs.freeze_bundle_path }}
-          LABELS_URI: ${{ inputs.labels_uri }}
-          MAX_PROJECTED_MODEL_COST_USD_INPUT: ${{ inputs.max_projected_model_cost_usd }}
-          MAX_PARALLEL_INPUT: ${{ inputs.max_parallel }}
-          PREDICTION_UNIT_COUNT_INPUT: ${{ inputs.prediction_unit_count }}
-          REPEAT_COUNT_INPUT: ${{ inputs.repeat_count }}
-          RELEASE_SHA_INPUT: ${{ inputs.release_sha }}
-          OFFICIAL_FREEZE_BUNDLE_URI_INPUT: ${{ inputs.official_freeze_bundle_uri }}
-          SHARD_ONLY_INPUT: ${{ inputs.shard_only }}
+          MANIFEST_URI: ${{ inputs.manifest_uri }}
+          FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
+          ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
+          MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          ACCOUNT: ${{ inputs.account }}
+          MAX_PARALLEL: ${{ inputs.max_parallel }}
+          RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
-            echo "Official evaluation is allowed only from refs/heads/main." >&2
-            exit 1
-          fi
-          case "${RUN_INPUT_MANIFEST_URI}" in
-            s3://*|manifests/*|./*|/*|[A-Za-z0-9._-]*.json) ;;
-            *)
-              echo "run_input_manifest_uri must be s3://, manifests/, or a JSON file path." >&2
-              exit 1
-              ;;
-          esac
-          case "${LABELS_URI}" in
-            s3://*|manifests/*|./*|/*|[A-Za-z0-9._-]*.jsonl) ;;
-            *)
-              echo "labels_uri must be s3://, manifests/, or a JSONL file path." >&2
-              exit 1
-              ;;
-          esac
-          case "${MODEL_REGISTRY_URI}" in
-            s3://*|manifests/*|model_registries/*.json|./*|/*|[A-Za-z0-9._/-]*.json) ;;
-            *)
-              echo "model_registry_uri must be s3://, manifests/, model_registries/, or a JSON file path." >&2
-              exit 1
-              ;;
-          esac
-          if [[ -n "${EXECUTION_SCOPE_URI_INPUT//[[:space:]]/}" ]]; then
-            scope_uri="${EXECUTION_SCOPE_URI_INPUT%#*}"
-            scope_sha256="${EXECUTION_SCOPE_URI_INPUT##*#}"
-            if [[ "${scope_uri}" == "${EXECUTION_SCOPE_URI_INPUT}" ]] || ! [[ "${scope_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
-              echo "execution_scope_uri must be URI#<lowercase SHA-256>." >&2
-              exit 1
-            fi
-            case "${scope_uri}" in
-              s3://*|manifests/*|./*|/*|[A-Za-z0-9._/-]*.json) ;;
-              *)
-                echo "execution_scope_uri must be s3://, manifests/, or a JSON file path followed by #<sha256>." >&2
-                exit 1
-                ;;
-            esac
-          fi
-          case "${RUN_INPUT_MANIFEST_URI}" in
-            source-documents/*|extracted-text/*|audit-bundles/*|withdrawn/*|quarantine/*)
-              echo "run_input_manifest_uri must not point at private packet prefixes." >&2
-              exit 1
-              ;;
-          esac
-          case "${LABELS_URI}" in
-            source-documents/*|extracted-text/*|audit-bundles/*|withdrawn/*|quarantine/*)
-              echo "labels_uri must not point at private packet prefixes." >&2
-              exit 1
-              ;;
-          esac
-          case "${MODEL_REGISTRY_URI}" in
-            source-documents/*|extracted-text/*|audit-bundles/*|withdrawn/*|quarantine/*)
-              echo "model_registry_uri must not point at private packet prefixes." >&2
-              exit 1
-              ;;
-          esac
-          if [[ -z "${MODEL_KEYS//[[:space:]]/}" ]]; then
-            echo "model_keys must include at least one provider:model_id key." >&2
-            exit 1
-          fi
-          freeze_bundle_path="${FREEZE_BUNDLE_PATH_INPUT//[[:space:]]/}"
-          if [[ -z "${freeze_bundle_path}" ]]; then
-            echo "freeze_bundle_path is required; use an immutable s3://.../cycle-1/manifest-runs/<manifest_digest>/freeze.json URI." >&2
-            exit 1
-          fi
-          case "${freeze_bundle_path}" in
-            s3://*)
-              # The lane is DERIVED from the staged prefix rather than declared.
-              # The official manifest-run prefix is keyed by the corpus digest
-              # alone, so a supplementary sibling freeze over the same corpus is
-              # staged under a distinct prefix whose literal "supplementary"
-              # segment can never be a 64-hex digest: the two shapes are
-              # disjoint, so exactly one matches and anything else is refused.
-              # Deriving removes the operator error where a declared flag
-              # disagrees with the freeze it presents, and every downstream
-              # refusal -- the official_freeze_bundle_uri requirement, the
-              # shard_only coupling, and the execution scope's own lane
-              # identifier -- is then checked against the staged artifact
-              # instead of against a checkbox.
-              if [[ "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]]; then
-                supplementary="false"
-              elif [[ "${freeze_bundle_path}" =~ ^s3://[^/]+/cycle-1/manifest-runs/supplementary/[0-9a-f]{64}/[0-9a-f]{64}/freeze\.json$ ]]; then
-                supplementary="true"
-              else
-                echo "freeze_bundle_path must use the immutable manifest-run S3 prefix contract: s3://<bucket>/cycle-1/manifest-runs/<manifest_digest>/freeze.json for an official dispatch, or s3://<bucket>/cycle-1/manifest-runs/supplementary/<manifest_digest>/<freeze_digest>/freeze.json for a supplementary one." >&2
-                exit 1
-              fi
-              freeze_bundle_path="/tmp/lfb-manifest-run/freeze.json"
-              freeze_root="/tmp/lfb-manifest-run"
-              ;;
-            *)
-              echo "freeze_bundle_path must be an immutable manifest-run S3 URI; committed manifests/*.freeze.json paths do not provide an authenticated manifest-run root." >&2
-              exit 1
-              ;;
-          esac
-          if [[ "${freeze_bundle_path}" == *".."* ]]; then
-            echo "freeze_bundle_path must not contain '..'." >&2
-            exit 1
-          fi
-          official_freeze_spec="${OFFICIAL_FREEZE_BUNDLE_URI_INPUT//[[:space:]]/}"
-          official_freeze_uri=""
-          official_freeze_sha256=""
-          if [[ "${supplementary}" == "true" ]]; then
-            # The sibling freeze reuses the official prompt and corpus bytes on
-            # purpose; the cost projector verifies that identity rather than
-            # assuming it, so it needs the official bundle it must match -- and
-            # an independent digest, or a fabricated bundle copying the sibling's
-            # own digests would satisfy every identity check.
-            if [[ -z "${official_freeze_spec}" ]]; then
-              echo "official_freeze_bundle_uri is required for a supplementary dispatch." >&2
-              exit 1
-            fi
-            official_freeze_uri="${official_freeze_spec%#*}"
-            official_freeze_sha256="${official_freeze_spec##*#}"
-            if [[ "${official_freeze_uri}" == "${official_freeze_spec}" ]] || ! [[ "${official_freeze_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
-              echo "official_freeze_bundle_uri must be URI#<lowercase SHA-256>." >&2
-              exit 1
-            fi
-            if [[ ! "${official_freeze_uri}" =~ ^s3://[^/]+/[A-Za-z0-9._/-]+\.json$ ]]; then
-              echo "official_freeze_bundle_uri must be an s3:// JSON object URI followed by #<sha256>." >&2
-              exit 1
-            fi
-            if [[ "${official_freeze_uri}" == *".."* ]]; then
-              echo "official_freeze_bundle_uri must not contain '..'." >&2
-              exit 1
-            fi
-          elif [[ -n "${official_freeze_spec}" ]]; then
-            echo "official_freeze_bundle_uri is only valid for a supplementary dispatch." >&2
-            exit 1
-          fi
-          if [[ -z "${ABLATIONS_INPUT//[[:space:]]/}" ]]; then
-            echo "ablations must include at least one packet ablation." >&2
-            exit 1
-          fi
-          IFS=',' read -ra requested_ablations <<< "${ABLATIONS_INPUT}"
-          declare -A seen_ablations=()
-          for raw_ablation in "${requested_ablations[@]}"; do
-            ablation="${raw_ablation//[[:space:]]/}"
-            [[ -z "${ablation}" ]] && continue
-            case "${ablation}" in
-              full_packet|metadata_only|briefs_only_redacted|judge_removed|no_briefs) ;;
-              *)
-                echo "Unsupported ablation: ${ablation}" >&2
-                exit 1
-                ;;
-            esac
-            if [[ -n "${seen_ablations[${ablation}]:-}" ]]; then
-              echo "duplicate ablation: ${ablation}" >&2
-              exit 1
-            fi
-            seen_ablations["${ablation}"]=1
+          for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${LABELS_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
+            [[ -n "${value}" && "${value}" != *..* ]] || { echo "unsafe or empty dispatch identity" >&2; exit 1; }
           done
-          if [[ "${DRY_RUN_INPUT}" != "true" && "${SHARD_ONLY_INPUT}" != "true" ]]; then
-            echo "Non-dry-run official evaluation requires shard_only=true; canonical aggregation occurs only through immutable shard receipts and provider-free fan-in." >&2
-            exit 1
-          fi
-          # The aggregate-results job is official-only: it never reads the
-          # derived lane, so a supplementary matrix reaching it would aggregate
-          # a post-anchor model as official. Require the shard path directly
-          # rather than leaning on the non-dry rule above, which does not
-          # constrain a dry run.
-          if [[ "${supplementary}" == "true" && "${SHARD_ONLY_INPUT}" != "true" ]]; then
-            echo "a supplementary freeze_bundle_path requires shard_only=true; the in-workflow aggregate is official-only and a supplementary shard aggregates through provider-free fan-in with --supplementary." >&2
-            exit 1
-          fi
-          if [[ "${SHARD_ONLY_INPUT}" == "true" ]]; then
-            IFS=',' read -ra requested_model_keys <<< "${MODEL_KEYS}"
-            model_key_count=0
-            for raw_key in "${requested_model_keys[@]}"; do
-              [[ -n "${raw_key//[[:space:]]/}" ]] && ((model_key_count += 1))
-            done
-            if (( model_key_count != 1 || ${#seen_ablations[@]} != 1 )); then
-              echo "shard_only=true requires exactly one model-key and one ablation; each official shard must contain 100 rows under the 256-row limit." >&2
-              exit 1
-            fi
-          fi
-          if ! [[ "${MAX_PARALLEL_INPUT}" =~ ^[0-9]+$ ]] || (( MAX_PARALLEL_INPUT < 1 || MAX_PARALLEL_INPUT > 64 )); then
-            echo "max_parallel must be an integer from 1 through 64." >&2
-            exit 1
-          fi
-          if ! [[ "${ARTIFACT_RETENTION_DAYS_INPUT}" =~ ^[0-9]+$ ]] || (( ARTIFACT_RETENTION_DAYS_INPUT < 1 || ARTIFACT_RETENTION_DAYS_INPUT > 90 )); then
-            echo "artifact_retention_days must be an integer from 1 through 90." >&2
-            exit 1
-          fi
-          if ! [[ "${CLEAN_MOTION_COUNT_INPUT}" =~ ^[0-9]+$ ]]; then
-            echo "clean_motion_count must be a non-negative integer." >&2
-            exit 1
-          fi
-          if ! [[ "${PREDICTION_UNIT_COUNT_INPUT}" =~ ^[0-9]+$ ]]; then
-            echo "prediction_unit_count must be a non-negative integer." >&2
-            exit 1
-          fi
-          if ! [[ "${REPEAT_COUNT_INPUT}" =~ ^[0-9]+$ ]] || (( REPEAT_COUNT_INPUT < 1 || REPEAT_COUNT_INPUT > 10 )); then
-            echo "repeat_count must be an integer from 1 through 10." >&2
-            exit 1
-          fi
-          if [[ -n "${MAX_PROJECTED_MODEL_COST_USD_INPUT//[[:space:]]/}" ]] && ! [[ "${MAX_PROJECTED_MODEL_COST_USD_INPUT}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-            echo "max_projected_model_cost_usd must be a non-negative decimal amount." >&2
-            exit 1
-          fi
-          if [[ "${DRY_RUN_INPUT}" != "true" ]] && [[ -z "${MAX_PROJECTED_MODEL_COST_USD_INPUT//[[:space:]]/}" ]]; then
-            echo "Non-dry-run official evaluation requires max_projected_model_cost_usd." >&2
-            exit 1
-          fi
-          git fetch origin main --prune
-          if [[ -z "${RELEASE_SHA_INPUT}" ]]; then
-            release_sha="$(git rev-parse --verify "${GITHUB_SHA}^{commit}")"
-          else
-            release_sha="$(git rev-parse --verify "${RELEASE_SHA_INPUT}^{commit}")"
-          fi
-          if ! git merge-base --is-ancestor "${release_sha}" origin/main; then
-            echo "release_sha must be reachable from origin/main." >&2
-            exit 1
-          fi
-          {
-            echo "artifact_retention_days=${ARTIFACT_RETENTION_DAYS_INPUT}"
-            echo "freeze_bundle_path=${freeze_bundle_path}"
-            echo "freeze_root=${freeze_root}"
-            echo "max_parallel=${MAX_PARALLEL_INPUT}"
-            echo "release_sha=${release_sha}"
-            echo "official_freeze_bundle_uri=${official_freeze_uri}"
-            echo "official_freeze_bundle_sha256=${official_freeze_sha256}"
-            echo "supplementary=${supplementary}"
-          } >> "${GITHUB_OUTPUT}"
+          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
+          [[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]] || { echo "ceiling_microusd must be positive" >&2; exit 1; }
+          [[ "${MAX_PARALLEL}" =~ ^[1-9][0-9]*$ && "${MAX_PARALLEL}" -le 8 ]] || { echo "max_parallel must be between 1 and 8" >&2; exit 1; }
+          [[ "${RETENTION_DAYS}" =~ ^[1-9][0-9]*$ && "${RETENTION_DAYS}" -le 90 ]] || { echo "artifact_retention_days must be between 1 and 90" >&2; exit 1; }
 
-      - name: Configure AWS OIDC credentials
-        if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.model_registry_uri, 'manifests/') || startsWith(inputs.labels_uri, 's3://') || startsWith(inputs.labels_uri, 'manifests/') || startsWith(inputs.freeze_bundle_path, 's3://') }}
+      - name: Configure read-only public object access
+        if: ${{ startsWith(inputs.manifest_uri, 's3://') || startsWith(inputs.forecast_release_uri, 's3://') || startsWith(inputs.artifact_root_uri, 's3://') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.manifest_uri, 'manifests/') || startsWith(inputs.forecast_release_uri, 'manifests/') || startsWith(inputs.artifact_root_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 'manifests/') }}
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lfb-official-matrix-${{ github.run_id }}
+          role-session-name: lfb-forecast-inputs-${{ github.run_id }}
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
 
-      - name: Download immutable manifest-run bundle
-        if: ${{ startsWith(inputs.freeze_bundle_path, 's3://') }}
+      - name: Fetch locked files and exact declared forecast artifacts
         shell: bash
         env:
-          FREEZE_BUNDLE_URI: ${{ inputs.freeze_bundle_path }}
-          OFFICIAL_FREEZE_BUNDLE_PATH: ${{ env.OFFICIAL_FREEZE_BUNDLE_PATH }}
-          OFFICIAL_FREEZE_BUNDLE_SHA256: ${{ steps.validate.outputs.official_freeze_bundle_sha256 }}
-          OFFICIAL_FREEZE_BUNDLE_URI: ${{ steps.validate.outputs.official_freeze_bundle_uri }}
-          SUPPLEMENTARY: ${{ steps.validate.outputs.supplementary }}
+          MANIFEST_URI: ${{ inputs.manifest_uri }}
+          FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
+          MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
         run: |
           set -euo pipefail
-          root="/tmp/lfb-manifest-run"
+          root=/tmp/lfb-locked-inputs
           rm -rf "${root}"
-          mkdir -p "${root}"
-          location="${FREEZE_BUNDLE_URI#s3://}"
-          bucket="${location%%/*}"
-          key="${location#*/}"
-          prefix="${key%/freeze.json}"
-          aws s3 sync "s3://${bucket}/${prefix}/" "${root}/" --only-show-errors
-          [[ -f "${root}/freeze.json" ]] || {
-            echo "manifest-run S3 prefix did not contain freeze.json" >&2
-            exit 1
+          mkdir -p "${root}/artifacts"
+          fetch_file() {
+            local uri="$1" destination="$2"
+            case "${uri}" in
+              s3://*) aws s3 cp "${uri}" "${destination}" --only-show-errors ;;
+              manifests/*)
+                [[ -n "${LFB_RESULTS_BUCKET:-}" ]] || { echo "LFB_RESULTS_BUCKET is required for manifests/ inputs." >&2; exit 1; }
+                aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${uri}" "${destination}" --only-show-errors ;;
+              *) cp -- "${uri}" "${destination}" ;;
+            esac
           }
-          if [[ "${SUPPLEMENTARY}" == "true" ]]; then
-            aws s3 cp "${OFFICIAL_FREEZE_BUNDLE_URI}" \
-              "${OFFICIAL_FREEZE_BUNDLE_PATH}" --only-show-errors
-            observed="$(sha256sum "${OFFICIAL_FREEZE_BUNDLE_PATH}" | cut -d ' ' -f1)"
-            if [[ "${observed}" != "${OFFICIAL_FREEZE_BUNDLE_SHA256}" ]]; then
-              echo "official freeze bundle does not match its dispatched digest pin." >&2
-              exit 1
-            fi
-          fi
-
-      - name: Download run-input manifest
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "${RUN_INPUT_MANIFEST_URI}" in
-            s3://*)
-              aws s3 cp "${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs.json --only-show-errors
-              ;;
-            manifests/*)
-              if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
-                echo "LFB_RESULTS_BUCKET is required for manifests/ inputs." >&2
-                exit 1
-              fi
-              aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs.json --only-show-errors
-              ;;
-            *)
-              cp "${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs.json
-              ;;
-          esac
-
-      - name: Download labels
-        shell: bash
-        env:
-          LABELS_URI: ${{ inputs.labels_uri }}
-        run: |
-          set -euo pipefail
-          case "${LABELS_URI}" in
-            s3://*)
-              aws s3 cp "${LABELS_URI}" /tmp/lfb-labels.jsonl --only-show-errors
-              ;;
-            manifests/*)
-              if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
-                echo "LFB_RESULTS_BUCKET is required for manifests/ labels." >&2
-                exit 1
-              fi
-              aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${LABELS_URI}" /tmp/lfb-labels.jsonl --only-show-errors
-              ;;
-            *)
-              cp "${LABELS_URI}" /tmp/lfb-labels.jsonl
-              ;;
-          esac
-
-      - name: Freeze labels into run-input manifest
-        id: freeze_labels
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Keep this security-sensitive transform visible in the workflow. The
-          # standalone CLI implements the same operation for operators, but this
-          # OIDC-enabled job deliberately executes only Python's standard library.
-          python - <<'PY'
-          import hashlib
+          fetch_file "${MANIFEST_URI}" "${root}/run-manifest.json"
+          fetch_file "${FORECAST_RELEASE_URI}" "${root}/forecast-release.json"
+          fetch_file "${MODEL_REGISTRY_URI}" "${root}/model-registry.json"
+          export LFB_ARTIFACT_ROOT_URI="${ARTIFACT_ROOT_URI}"
+          uv run python - <<'PY'
           import json
           import os
-          import re
+          import shutil
+          import subprocess
           from pathlib import Path
 
-          manifest_path = Path("/tmp/lfb-run-inputs.json")
-          labels_path = Path("/tmp/lfb-labels.jsonl")
-          frozen_path = Path("/tmp/lfb-run-inputs-frozen.json")
+          from legalforecast.contracts import FORECAST_RELEASE_V1, RAW_BYTES_RAW_SHA256_V1
+          from legalforecast.release.models import ForecastRelease
+          from legalforecast.release.service import load_forecast_execution
 
-          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-          if not isinstance(manifest, dict):
-              raise SystemExit("run-input manifest must be a JSON object")
-          cycle_id = manifest.get("cycle_id")
-          if not isinstance(cycle_id, str) or not cycle_id.strip():
-              raise SystemExit("run-input manifest requires cycle_id")
-          if not isinstance(manifest.get("model_packets"), list):
-              raise SystemExit("run-input manifest requires model_packets list")
+          root = Path("/tmp/lfb-locked-inputs")
+          source_root = os.environ["LFB_ARTIFACT_ROOT_URI"]
+          release_path = root / "forecast-release.json"
+          release = ForecastRelease.model_validate(json.loads(release_path.read_text()))
+          declared: dict[str, tuple[str, int]] = {}
+          for case in release.cases:
+              for document in case.documents:
+                  declared[document.path] = (document.sha256, document.byte_count)
+          for unit in release.prediction_units:
+              declared[unit.packet_path] = (unit.packet_sha256, unit.packet_byte_count)
+              declared[unit.prompt_path] = (unit.prompt_sha256, unit.prompt_byte_count)
+          if not declared:
+              raise SystemExit("forecast release declares no artifacts")
 
-          digest = hashlib.sha256()
-          with labels_path.open("rb") as handle:
-              for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                  digest.update(chunk)
-          labels_sha256 = digest.hexdigest()
-          existing = manifest.get("labels_sha256")
-          if existing not in (None, ""):
-              if not isinstance(existing, str) or re.fullmatch(
-                  r"[0-9a-f]{64}", existing
-              ) is None:
-                  raise SystemExit(
-                      "existing labels_sha256 must be a lowercase SHA-256 hex digest"
-                  )
-              if existing != labels_sha256:
-                  raise SystemExit(
-                      "run-input manifest already commits to different labels; "
-                      "refusing to replace labels_sha256"
-                  )
+          def source_for(relative: str) -> tuple[str, bool]:
+              if source_root.startswith("s3://"):
+                  return f"{source_root.rstrip('/')}/{relative}", True
+              if source_root.startswith("manifests/"):
+                  bucket = os.environ.get("LFB_RESULTS_BUCKET", "")
+                  if not bucket:
+                      raise SystemExit("LFB_RESULTS_BUCKET is required for manifests/ artifacts")
+                  return f"s3://{bucket}/{source_root.rstrip('/')}/{relative}", True
+              base = Path(source_root)
+              if base.is_symlink():
+                  raise SystemExit(f"artifact root must not be a symlink: {base}")
+              candidate = base / relative
+              try:
+                  resolved = candidate.resolve(strict=True)
+              except OSError as exc:
+                  raise SystemExit(f"declared artifact is missing: {candidate}") from exc
+              if not candidate.is_file() or candidate.is_symlink() or not resolved.is_relative_to(base.resolve(strict=True)):
+                  raise SystemExit(f"declared artifact is missing: {candidate}")
+              return str(candidate), False
 
-          frozen_manifest = dict(manifest)
-          frozen_manifest["labels_sha256"] = labels_sha256
-          frozen_bytes = (
-              json.dumps(frozen_manifest, indent=2, sort_keys=True) + "\n"
-          ).encode("utf-8")
-          frozen_path.write_bytes(frozen_bytes)
-          frozen_manifest_sha256 = hashlib.sha256(frozen_bytes).hexdigest()
+          for relative, (expected_digest, expected_size) in sorted(declared.items()):
+              if not relative or relative.startswith("/") or ".." in Path(relative).parts:
+                  raise SystemExit(f"unsafe declared artifact path: {relative!r}")
+              destination = root / "artifacts" / relative
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              source, is_s3 = source_for(relative)
+              if is_s3:
+                  subprocess.run(["aws", "s3", "cp", source, str(destination), "--only-show-errors"], check=True)
+              else:
+                  shutil.copyfile(source, destination)
+              payload = destination.read_bytes()
+              actual_digest = str(RAW_BYTES_RAW_SHA256_V1.commit(payload, domain=FORECAST_RELEASE_V1).digest)
+              if len(payload) != expected_size or actual_digest != expected_digest:
+                  raise SystemExit(f"declared artifact commitment mismatch: {relative}")
 
-          with Path(os.environ["GITHUB_OUTPUT"]).open(
-              "a", encoding="utf-8"
-          ) as output:
-              output.write(f"labels_sha256={labels_sha256}\n")
-              output.write(
-                  f"frozen_manifest_sha256={frozen_manifest_sha256}\n"
-              )
-          print(f"labels frozen: {labels_sha256}")
-          print(f"frozen manifest: {frozen_manifest_sha256}")
+          load_forecast_execution(release_path, artifact_root=root / "artifacts")
+          materialized_paths = list((root / "artifacts").rglob("*"))
+          if any(path.is_symlink() for path in materialized_paths):
+              raise SystemExit("materialized artifact tree must not contain symlinks")
+          actual = {path.relative_to(root / "artifacts").as_posix() for path in materialized_paths if path.is_file()}
+          if actual != set(declared):
+              raise SystemExit(f"materialized tree is not exactly release-declared: extras={sorted(actual - set(declared))}")
           PY
 
-      - name: Verify labels frozen before scoring
-        shell: bash
-        env:
-          EXPECTED_FROZEN_MANIFEST_SHA256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
-          EXPECTED_LABELS_SHA256: ${{ steps.freeze_labels.outputs.labels_sha256 }}
-        run: |
-          set -euo pipefail
-          # Fail-closed at dispatch, before any model output exists: the frozen
-          # run-input manifest must record labels_sha256 and it must match the
-          # labels file that will later be scored. Aggregation re-checks this, but
-          # verifying here proves the labels were locked before the run fanned out.
-          python - <<'PY'
-          import hashlib
-          import json
-          import os
-          import sys
-
-          with open("/tmp/lfb-run-inputs-frozen.json", encoding="utf-8") as handle:
-              manifest = json.load(handle)
-          expected_labels = os.environ["EXPECTED_LABELS_SHA256"]
-          frozen = manifest.get("labels_sha256")
-          if frozen != expected_labels:
-              sys.exit(
-                  "frozen run-input manifest does not contain the labels hash "
-                  "produced before fanout"
-              )
-          digest = hashlib.sha256()
-          with open("/tmp/lfb-labels.jsonl", "rb") as handle:
-              for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                  digest.update(chunk)
-          actual = digest.hexdigest()
-          if actual != expected_labels:
-              sys.exit(
-                  f"labels hash drift: manifest froze {expected_labels} but labels file "
-                  f"hashes to {actual}; refusing to run"
-              )
-          with open("/tmp/lfb-run-inputs-frozen.json", "rb") as handle:
-              frozen_manifest_sha256 = hashlib.sha256(handle.read()).hexdigest()
-          expected_manifest = os.environ["EXPECTED_FROZEN_MANIFEST_SHA256"]
-          if frozen_manifest_sha256 != expected_manifest:
-              sys.exit(
-                  "frozen run-input manifest hash changed before fanout; refusing to run"
-              )
-          print(f"labels frozen: {actual}")
-          PY
-
-      - name: Download frozen model registry
+      - name: Validate manifest against outcome-blinded forecast release
         shell: bash
         run: |
           set -euo pipefail
-          case "${MODEL_REGISTRY_URI}" in
-            s3://*)
-              aws s3 cp "${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json --only-show-errors
-              ;;
-            manifests/*)
-              if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
-                echo "LFB_RESULTS_BUCKET is required for manifests/ registry inputs." >&2
-                exit 1
-              fi
-              aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json --only-show-errors
-              ;;
-            *)
-              cp "${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json
-              ;;
-          esac
-
-      - name: Download authenticated execution scope
-        if: ${{ inputs.execution_scope_uri != '' }}
-        shell: bash
-        env:
-          EXECUTION_SCOPE_SPEC: ${{ inputs.execution_scope_uri }}
-        run: |
-          set -euo pipefail
-          scope_uri="${EXECUTION_SCOPE_SPEC%#*}"
-          case "${scope_uri}" in
-            s3://*)
-              aws s3 cp "${scope_uri}" /tmp/lfb-execution-scope.json --only-show-errors
-              ;;
-            manifests/*)
-              if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
-                echo "LFB_RESULTS_BUCKET is required for manifests/ execution scopes." >&2
-                exit 1
-              fi
-              aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${scope_uri}" /tmp/lfb-execution-scope.json --only-show-errors
-              ;;
-            *)
-              cp "${scope_uri}" /tmp/lfb-execution-scope.json
-              ;;
-          esac
-
-      - name: Prepare optional scope artifact for dispatch transport
-        if: ${{ inputs.execution_scope_uri == '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '{}\n' > /tmp/lfb-execution-scope.json
-
-      - name: Verify pre-run freeze commitment
-        id: verify_freeze
-        shell: bash
-        env:
-          CYCLE_ID: ${{ inputs.cycle_id }}
-          FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
-          FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
-          LABELS_PATH: /tmp/lfb-labels.jsonl
-          MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
-        run: |
-          set -euo pipefail
-          if [[ ! -f "${FREEZE_COMMITMENT_PATH}" ]]; then
-            echo "pre-run freeze commitment is missing: ${FREEZE_COMMITMENT_PATH}" >&2
-            exit 1
-          fi
-          amendment_args=()
-          if [[ "${FREEZE_ROOT}" == "." ]]; then
-            while IFS= read -r bundle_path; do
-              if [[ "${bundle_path}" != "${FREEZE_COMMITMENT_PATH}" ]]; then
-                amendment_args+=(--amendment-bundle "${bundle_path}")
-              fi
-            done < <(find manifests -type f -name '*.freeze.json' -print | sort)
-          else
-            while IFS= read -r bundle_path; do
-              amendment_args+=(--amendment-bundle "${bundle_path}")
-            done < <(find "${FREEZE_ROOT}/amendments" -type f -name '*.freeze.json' -print 2>/dev/null | sort)
-          fi
-          uv run python -m legalforecast.protocol.freeze verify \
-            --bundle "${FREEZE_COMMITMENT_PATH}" \
-            --cycle-id "${CYCLE_ID}" \
-            --root "${FREEZE_ROOT}" \
-            --artifact-path "labels=${LABELS_PATH}" \
-            --artifact-path "model_registry=${MODEL_REGISTRY_PATH}" \
-            "${amendment_args[@]}"
-          freeze_bundle_sha256="$(sha256sum "${FREEZE_COMMITMENT_PATH}" | cut -d ' ' -f1)"
-          printf 'freeze_bundle_sha256=%s\n' "${freeze_bundle_sha256}" >> "${GITHUB_OUTPUT}"
-
-      - name: Validate staged dispatch and build provenance
-        id: dispatch
-        shell: bash
-        env:
-          ABLATIONS: ${{ inputs.ablations }}
-          CONCURRENCY_GROUP: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
-          CYCLE_ID: ${{ inputs.cycle_id }}
-          DRY_RUN: ${{ inputs.dry_run }}
-          EXECUTION_SCOPE_SPEC: ${{ inputs.execution_scope_uri }}
-          EXPECTED_FREEZE_BUNDLE_SHA256: ${{ steps.verify_freeze.outputs.freeze_bundle_sha256 }}
-          FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
-          FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
-          MODEL_KEYS: ${{ inputs.model_keys }}
-          MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
-          PRIOR_DISPATCHES_JSON: ${{ inputs.prior_dispatches_json }}
-          RELEASE_SHA: ${{ steps.validate.outputs.release_sha }}
-          REPEAT_COUNT: ${{ inputs.repeat_count }}
-          REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
-          SHARD_ONLY: ${{ inputs.shard_only }}
-          SUPPLEMENTARY: ${{ steps.validate.outputs.supplementary }}
-          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
-          WORKFLOW_RUN_ID: ${{ github.run_id }}
-          WORKFLOW_REF: ${{ github.ref }}
-        run: |
-          set -euo pipefail
-          execution_scope_sha256_input=""
-          if [[ -n "${EXECUTION_SCOPE_SPEC//[[:space:]]/}" ]]; then
-            execution_scope_sha256_input="${EXECUTION_SCOPE_SPEC##*#}"
-          fi
-          export EXECUTION_SCOPE_SHA256_INPUT="${execution_scope_sha256_input}"
-          candidate_args=(--candidate-freeze-bundle "${FREEZE_COMMITMENT_PATH}")
-          if [[ "${FREEZE_ROOT}" == "." ]]; then
-            while IFS= read -r bundle_path; do
-              if [[ "${bundle_path}" != "${FREEZE_COMMITMENT_PATH}" ]]; then
-                candidate_args+=(--candidate-freeze-bundle "${bundle_path}")
-              fi
-            done < <(find manifests -type f -name '*.freeze.json' -print | sort)
-          else
-            while IFS= read -r bundle_path; do
-              candidate_args+=(--candidate-freeze-bundle "${bundle_path}")
-            done < <(find "${FREEZE_ROOT}/amendments" -type f -name '*.freeze.json' -print 2>/dev/null | sort)
-          fi
-          model_key_args=()
-          IFS=',' read -ra requested_provider_keys <<< "${MODEL_KEYS}"
-          for raw_key in "${requested_provider_keys[@]}"; do
-            key="${raw_key}"
-            [[ -z "${key}" ]] && continue
-            model_key_args+=(--requested-model-key "${key}")
-          done
-          ablation_args=()
-          repeat_case_args=()
-          IFS=',' read -ra requested_repeat_case_ids <<< "${REPEAT_SAMPLE_CASE_IDS}"
-          for raw_case_id in "${requested_repeat_case_ids[@]}"; do
-            case_id="${raw_case_id//[[:space:]]/}"
-            [[ -z "${case_id}" ]] && continue
-            repeat_case_args+=(--requested-repeat-case-id "${case_id}")
-          done
-          shard_args=()
-          if [[ "${SHARD_ONLY}" == "true" ]]; then
-            IFS=',' read -ra requested_ablations <<< "${ABLATIONS}"
-            for raw_ablation in "${requested_ablations[@]}"; do
-              ablation="${raw_ablation}"
-              [[ -z "${ablation}" ]] && continue
-              ablation_args+=(--requested-ablation "${ablation}")
-            done
-            shard_args+=(--shard-only)
-          fi
-          uv run python -m legalforecast.publication.dispatch_provenance \
-            --current-freeze-bundle "${FREEZE_COMMITMENT_PATH}" \
-            "${candidate_args[@]}" \
-            --root "${FREEZE_ROOT}" \
-            --current-model-registry "${MODEL_REGISTRY_PATH}" \
-            --prior-dispatches-json "${PRIOR_DISPATCHES_JSON}" \
-            --workflow-run-id "${WORKFLOW_RUN_ID}" \
-            --workflow-run-attempt "${WORKFLOW_RUN_ATTEMPT}" \
-            --workflow-ref "${WORKFLOW_REF}" \
-            --concurrency-group "${CONCURRENCY_GROUP}" \
-            --supersedes-report-uri "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/" \
-            "${model_key_args[@]}" \
-            "${ablation_args[@]}" \
-            --requested-repeat-count "${REPEAT_COUNT}" \
-            "${repeat_case_args[@]}" \
-            "${shard_args[@]}" \
-            --output /tmp/lfb-dispatch-provenance.json
           uv run python - <<'PY'
-          import hashlib
           import json
-          import os
           from pathlib import Path
+          from legalforecast.release.consumer import load_run_manifest, validate_manifest_against_forecast
+          from legalforecast.release.models import ForecastRelease
 
-          with open(os.environ["FREEZE_COMMITMENT_PATH"], encoding="utf-8") as handle:
-              freeze = json.load(handle)
-          with open("/tmp/lfb-dispatch-provenance.json", encoding="utf-8") as handle:
-              provenance = json.load(handle)
-          paths = [
-              artifact["path"]
-              for artifact in freeze.get("artifacts", [])
-              if artifact.get("name") == "execution_policy"
-          ]
-          if len(paths) != 1:
-              raise SystemExit("freeze must declare exactly one execution_policy artifact")
-          source = Path(paths[0])
-          if not source.is_absolute():
-              source = Path(os.environ["FREEZE_ROOT"]) / source
-          target = Path("/tmp/lfb-execution-policy.json")
-          target.write_bytes(source.read_bytes())
-          plan_artifact = json.loads(target.read_text(encoding="utf-8"))
-          scope_path = Path("/tmp/lfb-execution-scope.json")
-          scope = None
-          if scope_path.is_file():
-              loaded_scope = json.loads(scope_path.read_text(encoding="utf-8"))
-              scope = None if loaded_scope == {} else loaded_scope
-          if plan_artifact.get("schema_version") in {
-              "legalforecast.execution_policy.v3",
-              "legalforecast.execution_policy.v4",
-          }:
-              if scope is None and os.environ["DRY_RUN"] != "true":
-                  raise SystemExit("v3/v4 execution policy requires an execution scope")
-              if scope is not None and os.environ["SHARD_ONLY"] != "true":
-                  raise SystemExit("v3/v4 execution policy requires shard_only=true")
-              if scope is not None:
-                  model_keys = [value.strip() for value in os.environ["MODEL_KEYS"].split(",") if value.strip()]
-                  ablations = [value.strip() for value in os.environ["ABLATIONS"].split(",") if value.strip()]
-                  if len(model_keys) != 1 or len(ablations) != 1:
-                      raise SystemExit("a paid v3/v4 dispatch must select one model and one ablation")
-                  from legalforecast.evals.corpus_manifest.execution_scope import verify_execution_scope_runtime
-                  from legalforecast.evals.model_registry import load_model_registry
-                  registry = load_model_registry(Path("/tmp/lfb-model-registry.json"))
-                  scope_sha256 = verify_execution_scope_runtime(
-                      scope,
-                      common_plan=plan_artifact,
-                      model_registry=registry,
-                      model_registry_sha256=hashlib.sha256(Path("/tmp/lfb-model-registry.json").read_bytes()).hexdigest(),
-                      expected_model_key=model_keys[0],
-                      expected_ablation=ablations[0],
-                      expected_scope_sha256=os.environ["EXECUTION_SCOPE_SHA256_INPUT"],
-                      expected_freeze_bundle_sha256=os.environ[
-                          "EXPECTED_FREEZE_BUNDLE_SHA256"
-                      ],
-                      expected_supplementary=os.environ["SUPPLEMENTARY"] == "true",
-                  )
-          elif scope is not None:
-              raise SystemExit("execution scope is only valid with execution policy v3 or v4")
-          release_provenance = {
-              "schema_version": "legalforecast.dispatch_release.v2",
-              "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
-              "workflow_run_attempt": int(os.environ["WORKFLOW_RUN_ATTEMPT"]),
-              "release_sha": os.environ["RELEASE_SHA"],
-          }
-          Path("/tmp/lfb-dispatch-release.json").write_text(
-              json.dumps(release_provenance, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(
-                  f"execution_policy_sha256={provenance['execution_policy_sha256']}\n"
-              )
-              output.write(
-                  f"workflow_run_attempt={os.environ['WORKFLOW_RUN_ATTEMPT']}\n"
-              )
-              if scope is not None:
-                  output.write(f"execution_scope_sha256={scope_sha256}\n")
+          loaded = load_run_manifest(Path("/tmp/lfb-locked-inputs/run-manifest.json"))
+          forecast = ForecastRelease.model_validate(json.loads(Path("/tmp/lfb-locked-inputs/forecast-release.json").read_text()))
+          validate_manifest_against_forecast(loaded.manifest, forecast)
           PY
 
-      - name: Build matrix JSON
-        id: matrix
-        shell: bash
-        env:
-          ABLATIONS: ${{ inputs.ablations }}
-          COST_PROJECTION_RECEIPT_PATH: /tmp/lfb-manifest-cost-projection.json
-          CYCLE_ID: ${{ inputs.cycle_id }}
-          FREEZE_BUNDLE_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
-          FREEZE_ROOT: ${{ steps.validate.outputs.freeze_root }}
-          MANIFEST_RUN_ROOT: ${{ steps.validate.outputs.freeze_root }}
-          MATRIX_LIMIT: ${{ inputs.shard_only && '256' || '800' }}
-          MAX_PROJECTED_MODEL_COST_USD: ${{ inputs.max_projected_model_cost_usd }}
-          MODEL_KEYS: ${{ inputs.model_keys }}
-          REPEAT_COUNT: ${{ inputs.repeat_count }}
-          REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
-          OFFICIAL_FREEZE_BUNDLE_PATH: ${{ steps.validate.outputs.supplementary == 'true' && env.OFFICIAL_FREEZE_BUNDLE_PATH || '' }}
-          OFFICIAL_FREEZE_BUNDLE_SHA256: ${{ steps.validate.outputs.official_freeze_bundle_sha256 }}
-          SHARD_ONLY: ${{ inputs.shard_only }}
-          SUPPLEMENTARY: ${{ steps.validate.outputs.supplementary }}
-        run: |
-          set -euo pipefail
-          if [[ "${MANIFEST_RUN_ROOT}" == "." ]]; then
-            echo "manifest cost projection requires an immutable manifest-run bundle" >&2
-            exit 1
-          fi
-          amendment_bundles=()
-          while IFS= read -r bundle_path; do
-            amendment_bundles+=("${bundle_path}")
-          done < <(find "${FREEZE_ROOT}/amendments" -maxdepth 1 -type f -name '*.freeze.json' -print 2>/dev/null | sort)
-          FREEZE_AMENDMENT_BUNDLES="$(printf '%s\n' "${amendment_bundles[@]}")"
-          export FREEZE_AMENDMENT_BUNDLES
-          uv run python - <<'PY'
-          import os
-
-          from legalforecast.evals.corpus_manifest.cost_projector_workflow import (
-              issue_manifest_cost_projection_from_workflow_environment,
-          )
-
-          receipt = issue_manifest_cost_projection_from_workflow_environment(os.environ)
-          if os.environ["SHARD_ONLY"] == "true":
-              expected = {
-                  "case_count": 100,
-                  "packet_count": 200,
-                  "cell_count": 1,
-                  "matrix_row_count": 100,
-                  "shard_matrix_row_count": 100,
-                  "request_count": 100,
-                  "model_count": 1,
-                  "matrix_limit": 256,
-              }
-              actual = {name: receipt.get(name) for name in expected}
-              if actual != expected:
-                  raise SystemExit(
-                      "official shard projection must contain exactly one 100-row "
-                      f"cell under the 256-row limit: {actual}"
-                  )
-          PY
-
-      - name: Upload dispatch provenance
+      - name: Upload outcome-blinded forecast inputs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: official-dispatch-provenance-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            /tmp/lfb-dispatch-provenance.json
-            /tmp/lfb-dispatch-release.json
-            /tmp/lfb-run-inputs-frozen.json
-            /tmp/lfb-labels.jsonl
-            /tmp/lfb-model-registry.json
-            /tmp/lfb-execution-policy.json
-            /tmp/lfb-execution-scope.json
-            /tmp/lfb-manifest-cost-projection.json
+          name: locked-forecast-inputs-${{ github.run_id }}
+          path: /tmp/lfb-locked-inputs
           if-no-files-found: error
-          retention-days: ${{ fromJSON(steps.validate.outputs.artifact_retention_days) }}
+          retention-days: ${{ inputs.artifact_retention_days }}
 
   run-openai:
-    name: OpenAI provider cells
-    needs: build-matrix
-    if: ${{ !inputs.dry_run && needs.build-matrix.outputs.openai_count != '0' }}
-    # Environment secrets are only in secrets.* on a normal job that binds
-    # environment:. A uses: reusable workflow cannot set environment on the
-    # caller, and the callee's environment injects vars/OIDC but not secrets.
-    environment: legalforecastbench-official-eval
+    name: OpenAI resumable forecast cell
+    if: ${{ startsWith(inputs.model_key, 'openai:') }}
+    needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    environment: legalforecastbench-official-eval
     permissions:
       contents: read
-      id-token: write
-    env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
-      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
-      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
-      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
-      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
-      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
-      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
-      matrix: ${{ fromJSON(needs.build-matrix.outputs.openai_matrix) }}
+      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
+      matrix:
+        cell: [run]
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout and verify trusted source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.release_sha || github.sha }}
           persist-credentials: false
-      - uses: ./.github/actions/official-provider-cell
+          fetch-depth: 0
+      - name: Require main-reachable exact source
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
+          git merge-base --is-ancestor origin/main HEAD
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
-          ablation: ${{ matrix.ablation }}
-          ai_gateway_api_key: ${{ secrets.AI_GATEWAY_API_KEY }}
-          artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
-          case_id: ${{ matrix.case_id }}
-          case_id_slug: ${{ matrix.case_id_slug }}
-          cell_index: ${{ strategy.job-index }}
-          cycle_id: ${{ inputs.cycle_id }}
-          dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
-          dry_run: ${{ inputs.dry_run }}
-          environment_name: legalforecastbench-official-eval
-          execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
-          execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
-          freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
-          model_key: ${{ matrix.model_key }}
-          model_key_slug: ${{ matrix.model_key_slug }}
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          packet_object_key: ${{ matrix.packet_object_key }}
-          packet_sha256: ${{ matrix.packet_sha256 }}
-          provider: openai
-          release_sha: ${{ needs.build-matrix.outputs.release_sha }}
-          repeat_count: ${{ matrix.repeat_count }}
-          resume_existing_results: ${{ inputs.resume_existing_results }}
-          supplementary: ${{ needs.build-matrix.outputs.supplementary }}
+          enable-cache: true
+      - name: Restore resumable OpenAI state
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: locked-run-state-openai-${{ github.run_id }}-*
+          path: /tmp/lfb-run
+          merge-multiple: true
+        continue-on-error: true
+      - name: Download outcome-blinded inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: locked-forecast-inputs-${{ github.run_id }}
+          path: /tmp/lfb-forecast-inputs
+      - name: Execute OpenAI forecast cell
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          ACCOUNT: ${{ inputs.account }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-run/receipts
+          uv run legalforecast run execute \
+            --manifest /tmp/lfb-forecast-inputs/run-manifest.json \
+            --forecast /tmp/lfb-forecast-inputs/forecast-release.json \
+            --artifact-root /tmp/lfb-forecast-inputs/artifacts \
+            --model-registry /tmp/lfb-forecast-inputs/model-registry.json \
+            --model-key "${MODEL_KEY}" \
+            --ledger /tmp/lfb-run/ledger.sqlite3 \
+            --receipts-dir /tmp/lfb-run/receipts \
+            --ceiling-microusd "${CEILING_MICROUSD}" \
+            --account "${ACCOUNT}" | tee /tmp/lfb-run/run-summary.json
+      - name: Persist OpenAI ledger, receipts, and result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: locked-run-state-openai-${{ github.run_id }}-${{ strategy.job-index }}
+          path: /tmp/lfb-run
+          if-no-files-found: warn
+          retention-days: ${{ inputs.artifact_retention_days }}
 
   run-anthropic:
-    name: Anthropic provider cells
-    needs: build-matrix
-    if: ${{ !inputs.dry_run && needs.build-matrix.outputs.anthropic_count != '0' }}
-    environment: legalforecastbench-official-eval
+    name: Anthropic resumable forecast cell
+    if: ${{ startsWith(inputs.model_key, 'anthropic:') }}
+    needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    environment: legalforecastbench-official-eval
     permissions:
       contents: read
-      id-token: write
-    env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
-      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
-      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
-      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
-      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
-      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
-      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
-      matrix: ${{ fromJSON(needs.build-matrix.outputs.anthropic_matrix) }}
+      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
+      matrix:
+        cell: [run]
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout and verify trusted source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.release_sha || github.sha }}
           persist-credentials: false
-      - uses: ./.github/actions/official-provider-cell
+          fetch-depth: 0
+      - name: Require main-reachable exact source
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
+          git merge-base --is-ancestor origin/main HEAD
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
-          ablation: ${{ matrix.ablation }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
-          case_id: ${{ matrix.case_id }}
-          case_id_slug: ${{ matrix.case_id_slug }}
-          cell_index: ${{ strategy.job-index }}
-          cycle_id: ${{ inputs.cycle_id }}
-          dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
-          dry_run: ${{ inputs.dry_run }}
-          environment_name: legalforecastbench-official-eval
-          execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
-          execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
-          freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
-          model_key: ${{ matrix.model_key }}
-          model_key_slug: ${{ matrix.model_key_slug }}
-          packet_object_key: ${{ matrix.packet_object_key }}
-          packet_sha256: ${{ matrix.packet_sha256 }}
-          provider: anthropic
-          release_sha: ${{ needs.build-matrix.outputs.release_sha }}
-          repeat_count: ${{ matrix.repeat_count }}
-          resume_existing_results: ${{ inputs.resume_existing_results }}
-          supplementary: ${{ needs.build-matrix.outputs.supplementary }}
+          enable-cache: true
+      - name: Restore resumable Anthropic state
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: locked-run-state-anthropic-${{ github.run_id }}-*
+          path: /tmp/lfb-run
+          merge-multiple: true
+        continue-on-error: true
+      - name: Download outcome-blinded inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: locked-forecast-inputs-${{ github.run_id }}
+          path: /tmp/lfb-forecast-inputs
+      - name: Execute Anthropic forecast cell
+        shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          ACCOUNT: ${{ inputs.account }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-run/receipts
+          uv run legalforecast run execute \
+            --manifest /tmp/lfb-forecast-inputs/run-manifest.json \
+            --forecast /tmp/lfb-forecast-inputs/forecast-release.json \
+            --artifact-root /tmp/lfb-forecast-inputs/artifacts \
+            --model-registry /tmp/lfb-forecast-inputs/model-registry.json \
+            --model-key "${MODEL_KEY}" \
+            --ledger /tmp/lfb-run/ledger.sqlite3 \
+            --receipts-dir /tmp/lfb-run/receipts \
+            --ceiling-microusd "${CEILING_MICROUSD}" \
+            --account "${ACCOUNT}" | tee /tmp/lfb-run/run-summary.json
+      - name: Persist Anthropic ledger, receipts, and result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: locked-run-state-anthropic-${{ github.run_id }}-${{ strategy.job-index }}
+          path: /tmp/lfb-run
+          if-no-files-found: warn
+          retention-days: ${{ inputs.artifact_retention_days }}
 
   run-gemini:
-    name: Gemini provider cells
-    needs: build-matrix
-    if: ${{ !inputs.dry_run && needs.build-matrix.outputs.gemini_count != '0' }}
-    environment: legalforecastbench-official-eval
+    name: Gemini resumable forecast cell
+    if: ${{ startsWith(inputs.model_key, 'gemini:') || startsWith(inputs.model_key, 'google:') }}
+    needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    environment: legalforecastbench-official-eval
     permissions:
       contents: read
-      id-token: write
-    env:
-      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
-      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
-      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
-      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
-      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
-      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
-      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
-      matrix: ${{ fromJSON(needs.build-matrix.outputs.gemini_matrix) }}
+      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
+      matrix:
+        cell: [run]
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout and verify trusted source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.release_sha || github.sha }}
           persist-credentials: false
-      - uses: ./.github/actions/official-provider-cell
+          fetch-depth: 0
+      - name: Require main-reachable exact source
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
+          git merge-base --is-ancestor origin/main HEAD
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
-          ablation: ${{ matrix.ablation }}
-          artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
-          case_id: ${{ matrix.case_id }}
-          case_id_slug: ${{ matrix.case_id_slug }}
-          cell_index: ${{ strategy.job-index }}
-          cycle_id: ${{ inputs.cycle_id }}
-          dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
-          dry_run: ${{ inputs.dry_run }}
-          environment_name: legalforecastbench-official-eval
-          execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
-          execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
-          freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          model_key: ${{ matrix.model_key }}
-          model_key_slug: ${{ matrix.model_key_slug }}
-          packet_object_key: ${{ matrix.packet_object_key }}
-          packet_sha256: ${{ matrix.packet_sha256 }}
-          provider: gemini
-          release_sha: ${{ needs.build-matrix.outputs.release_sha }}
-          repeat_count: ${{ matrix.repeat_count }}
-          resume_existing_results: ${{ inputs.resume_existing_results }}
-          supplementary: ${{ needs.build-matrix.outputs.supplementary }}
-  finalize-shard:
-    name: Finalize immutable shard receipt
-    needs:
-      - build-matrix
-      - run-openai
-      - run-anthropic
-      - run-gemini
-    if: >-
-      ${{ !inputs.dry_run && inputs.shard_only && always() &&
-      needs.build-matrix.result == 'success' &&
-      (needs.run-openai.result == 'success' || needs.run-openai.result == 'skipped') &&
-      (needs.run-anthropic.result == 'success' || needs.run-anthropic.result == 'skipped') &&
-      (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') }}
-    # Protected environment: stay on GitHub-hosted ubuntu-latest.
+          enable-cache: true
+      - name: Restore resumable Gemini state
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: locked-run-state-gemini-${{ github.run_id }}-*
+          path: /tmp/lfb-run
+          merge-multiple: true
+        continue-on-error: true
+      - name: Download outcome-blinded inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: locked-forecast-inputs-${{ github.run_id }}
+          path: /tmp/lfb-forecast-inputs
+      - name: Execute Gemini forecast cell
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          ACCOUNT: ${{ inputs.account }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-run/receipts
+          uv run legalforecast run execute \
+            --manifest /tmp/lfb-forecast-inputs/run-manifest.json \
+            --forecast /tmp/lfb-forecast-inputs/forecast-release.json \
+            --artifact-root /tmp/lfb-forecast-inputs/artifacts \
+            --model-registry /tmp/lfb-forecast-inputs/model-registry.json \
+            --model-key "${MODEL_KEY}" \
+            --ledger /tmp/lfb-run/ledger.sqlite3 \
+            --receipts-dir /tmp/lfb-run/receipts \
+            --ceiling-microusd "${CEILING_MICROUSD}" \
+            --account "${ACCOUNT}" | tee /tmp/lfb-run/run-summary.json
+      - name: Persist Gemini ledger, receipts, and result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: locked-run-state-gemini-${{ github.run_id }}-${{ strategy.job-index }}
+          path: /tmp/lfb-run
+          if-no-files-found: warn
+          retention-days: ${{ inputs.artifact_retention_days }}
+
+  score-and-report:
+    name: Score and report at labels-only fan-in
+    if: ${{ always() && needs.prepare-inputs.result == 'success' && (needs.run-openai.result == 'success' || needs.run-openai.result == 'skipped') && (needs.run-anthropic.result == 'success' || needs.run-anthropic.result == 'skipped') && (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') && (needs.run-openai.result == 'success' || needs.run-anthropic.result == 'success' || needs.run-gemini.result == 'success') }}
+    needs: [prepare-inputs, run-openai, run-anthropic, run-gemini]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     environment: legalforecastbench-official-eval-fan-in
     permissions:
       contents: read
       id-token: write
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
       LFB_GITHUB_FAN_IN_ROLE_ARN: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
-      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
-      - name: Validate configured AWS region
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ -n "${AWS_REGION:-}" ]] || {
-            echo "LFB_AWS_REGION must be configured on the protected environment." >&2
-            exit 1
-          }
-
-      - name: Checkout trusted release
+      - name: Checkout and verify trusted source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.release_sha || github.sha }}
           persist-credentials: false
-          ref: ${{ needs.build-matrix.outputs.release_sha }}
-
+          fetch-depth: 0
+      - name: Require main-reachable exact source
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
+          git merge-base --is-ancestor origin/main HEAD
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
-
-      - name: Download frozen shard inputs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: official-dispatch-provenance-${{ github.run_id }}-${{ needs.build-matrix.outputs.dispatch_run_attempt }}
-          path: /tmp/lfb-shard-inputs
-
-      - name: Download all successful cell completions
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: official-eval-completion-*
-          path: /tmp/lfb-cell-completions
-
-      - name: Configure fan-in AWS authority
+      - name: Configure labels-only fan-in access
+        if: ${{ startsWith(inputs.labels_release_uri, 's3://') || startsWith(inputs.labels_release_uri, 'manifests/') }}
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lfb-finalize-shard-${{ github.run_id }}-${{ github.run_attempt }}
+          role-session-name: lfb-labels-fan-in-${{ github.run_id }}
           role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
-
-      - name: Begin shard-receipt cycle mutation
-        id: begin_shard_receipt_mutation
-        shell: bash
-        env:
-          CYCLE_ID: ${{ inputs.cycle_id }}
-        run: |
-          set -euo pipefail
-          uv run python -m legalforecast.publication.cycle_closure begin \
-            --root "s3://${LFB_RESULTS_BUCKET}" \
-            --cycle-id "${CYCLE_ID}" \
-            --writer-id "${GITHUB_RUN_ID}-finalize-shard" \
-            --run-attempt "${GITHUB_RUN_ATTEMPT}"
-
-      - name: Verify exact result versions and write receipt once
-        shell: bash
-        env:
-          SOURCE_DISPATCH_RUN_ATTEMPT: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
-          SOURCE_RELEASE_SHA: ${{ needs.build-matrix.outputs.release_sha }}
-          SUPPLEMENTARY: ${{ needs.build-matrix.outputs.supplementary }}
-        run: |
-          set -euo pipefail
-          scope_args=()
-          if [[ -s /tmp/lfb-shard-inputs/lfb-execution-scope.json ]] && [[ "$(tr -d '[:space:]' < /tmp/lfb-shard-inputs/lfb-execution-scope.json)" != "{}" ]]; then
-            scope_args+=(--execution-scope /tmp/lfb-shard-inputs/lfb-execution-scope.json)
-          fi
-          if [[ "${SUPPLEMENTARY}" == "true" ]]; then
-            scope_args+=(--supplementary)
-          fi
-          uv run python -m legalforecast.publication.shard_receipt \
-            --dispatch-provenance /tmp/lfb-shard-inputs/lfb-dispatch-provenance.json \
-            --run-input-manifest /tmp/lfb-shard-inputs/lfb-run-inputs-frozen.json \
-            --labels /tmp/lfb-shard-inputs/lfb-labels.jsonl \
-            --model-registry /tmp/lfb-shard-inputs/lfb-model-registry.json \
-            --completions-root /tmp/lfb-cell-completions \
-            --workflow-run-id "${GITHUB_RUN_ID}" \
-            --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" \
-            --source-dispatch-run-attempt "${SOURCE_DISPATCH_RUN_ATTEMPT}" \
-            --source-release-sha "${SOURCE_RELEASE_SHA}" \
-            --receipt-root "s3://${LFB_RESULTS_BUCKET}" \
-            "${scope_args[@]}"
-
-      - name: Finish shard-receipt cycle mutation
-        if: ${{ always() && steps.begin_shard_receipt_mutation.outcome == 'success' }}
-        shell: bash
-        env:
-          CYCLE_ID: ${{ inputs.cycle_id }}
-        run: |
-          set -euo pipefail
-          uv run python -m legalforecast.publication.cycle_closure finish \
-            --root "s3://${LFB_RESULTS_BUCKET}" \
-            --cycle-id "${CYCLE_ID}" \
-            --writer-id "${GITHUB_RUN_ID}-finalize-shard" \
-            --run-attempt "${GITHUB_RUN_ATTEMPT}"
-
-  aggregate-results:
-    name: Aggregate official results
-    needs:
-      - build-matrix
-      - run-openai
-      - run-anthropic
-      - run-gemini
-    if: >-
-      ${{ !inputs.dry_run && !inputs.shard_only && always() &&
-      needs.build-matrix.result == 'success' &&
-      (needs.run-openai.result == 'success' || needs.run-openai.result == 'skipped') &&
-      (needs.run-anthropic.result == 'success' || needs.run-anthropic.result == 'skipped') &&
-      (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') }}
-    # Protected environment: stay on GitHub-hosted ubuntu-latest.
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: legalforecastbench-official-eval
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      ABLATIONS: ${{ inputs.ablations }}
-      ALLOW_NO_BASELINES: ${{ inputs.allow_no_baselines }}
-      ARTIFACT_RETENTION_DAYS: ${{ needs.build-matrix.outputs.artifact_retention_days }}
-      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
-      BASELINE_TRAINING_EXAMPLES_URI: ${{ inputs.baseline_training_examples_uri }}
-      CLEAN_MOTION_COUNT: ${{ inputs.clean_motion_count }}
-      CYCLE_ID: ${{ inputs.cycle_id }}
-      CYCLE_SERIES: ${{ inputs.cycle_series }}
-      EXPECTED_FROZEN_MANIFEST_SHA256: ${{ needs.build-matrix.outputs.frozen_manifest_sha256 }}
-      EXPECTED_LABELS_SHA256: ${{ needs.build-matrix.outputs.labels_sha256 }}
-      LABELS_URI: ${{ inputs.labels_uri }}
-      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
-      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
-      MODEL_KEYS: ${{ inputs.model_keys }}
-      MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
-      PREDICTION_UNIT_COUNT: ${{ inputs.prediction_unit_count }}
-      RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
-    steps:
-      - name: Validate configured AWS region
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ -n "${AWS_REGION:-}" ]] || {
-            echo "LFB_AWS_REGION must be configured on the protected environment." >&2
-            exit 1
-          }
-
-      - name: Checkout trusted release
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ needs.build-matrix.outputs.release_sha }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
-        with:
-          enable-cache: true
-
-      - name: Configure AWS OIDC credentials
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lfb-official-aggregate-${{ github.run_id }}
-          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
-
-      - name: Download aggregate inputs
-        shell: bash
-        run: |
-          set -euo pipefail
-          download_input() {
-            local uri="$1"
-            local destination="$2"
-            case "${uri}" in
-              s3://*)
-                aws s3 cp "${uri}" "${destination}" --only-show-errors
-                ;;
-              manifests/*)
-                if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
-                  echo "LFB_RESULTS_BUCKET is required for manifests/ inputs." >&2
-                  exit 1
-                fi
-                aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${uri}" "${destination}" --only-show-errors
-                ;;
-              *)
-                cp "${uri}" "${destination}"
-                ;;
-            esac
-          }
-          download_input "${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs-original.json
-          download_input "${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json
-          download_input "${LABELS_URI}" /tmp/lfb-labels.jsonl
-          if [[ -n "${BASELINE_TRAINING_EXAMPLES_URI//[[:space:]]/}" ]]; then
-            download_input "${BASELINE_TRAINING_EXAMPLES_URI}" /tmp/lfb-baseline-training.jsonl
-          fi
-
-      - name: Rebuild and verify frozen run-input manifest
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Re-download the mutable inputs and independently reproduce the exact
-          # pre-fanout manifest. Only the two expected hashes cross between jobs.
-          python - <<'PY'
-          import hashlib
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          manifest_path = Path("/tmp/lfb-run-inputs-original.json")
-          labels_path = Path("/tmp/lfb-labels.jsonl")
-          frozen_path = Path("/tmp/lfb-run-inputs.json")
-
-          expected_labels = os.environ["EXPECTED_LABELS_SHA256"]
-          expected_manifest = os.environ["EXPECTED_FROZEN_MANIFEST_SHA256"]
-          for label, value in (
-              ("labels", expected_labels),
-              ("frozen manifest", expected_manifest),
-          ):
-              if re.fullmatch(r"[0-9a-f]{64}", value) is None:
-                  raise SystemExit(f"expected {label} SHA-256 output is invalid")
-
-          digest = hashlib.sha256()
-          with labels_path.open("rb") as handle:
-              for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                  digest.update(chunk)
-          labels_sha256 = digest.hexdigest()
-          if labels_sha256 != expected_labels:
-              raise SystemExit(
-                  "labels changed after matrix construction; refusing aggregation"
-              )
-
-          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-          if not isinstance(manifest, dict):
-              raise SystemExit("run-input manifest must be a JSON object")
-          cycle_id = manifest.get("cycle_id")
-          if not isinstance(cycle_id, str) or not cycle_id.strip():
-              raise SystemExit("run-input manifest requires cycle_id")
-          if not isinstance(manifest.get("model_packets"), list):
-              raise SystemExit("run-input manifest requires model_packets list")
-          existing = manifest.get("labels_sha256")
-          if existing not in (None, ""):
-              if not isinstance(existing, str) or re.fullmatch(
-                  r"[0-9a-f]{64}", existing
-              ) is None:
-                  raise SystemExit(
-                      "existing labels_sha256 must be a lowercase SHA-256 hex digest"
-                  )
-              if existing != labels_sha256:
-                  raise SystemExit(
-                      "run-input manifest commits to different labels; "
-                      "refusing aggregation"
-                  )
-
-          frozen_manifest = dict(manifest)
-          frozen_manifest["labels_sha256"] = labels_sha256
-          frozen_bytes = (
-              json.dumps(frozen_manifest, indent=2, sort_keys=True) + "\n"
-          ).encode("utf-8")
-          frozen_manifest_sha256 = hashlib.sha256(frozen_bytes).hexdigest()
-          if frozen_manifest_sha256 != expected_manifest:
-              raise SystemExit(
-                  "run-input manifest changed after matrix construction; "
-                  "refusing aggregation"
-              )
-          frozen_path.write_bytes(frozen_bytes)
-          print(f"verified labels: {labels_sha256}")
-          print(f"verified frozen manifest: {frozen_manifest_sha256}")
-          PY
-
-      - name: Download dispatch provenance
+      - name: Download outcome-blinded inputs and provider state
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: official-dispatch-provenance-${{ github.run_id }}-${{ needs.build-matrix.outputs.dispatch_run_attempt }}
-          path: /tmp
-
-      - name: Download durable union of per-case artifacts
+          pattern: locked-*
+          path: /tmp/lfb-fan-in
+          merge-multiple: false
+      - name: Fetch labels release only at fan-in
+        shell: bash
+        env:
+          LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
+        run: |
+          set -euo pipefail
+          case "${LABELS_RELEASE_URI}" in
+            s3://*) aws s3 cp "${LABELS_RELEASE_URI}" /tmp/lfb-fan-in/labels-release.json --only-show-errors ;;
+            manifests/*) aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${LABELS_RELEASE_URI}" /tmp/lfb-fan-in/labels-release.json --only-show-errors ;;
+            *) cp -- "${LABELS_RELEASE_URI}" /tmp/lfb-fan-in/labels-release.json ;;
+          esac
+      - name: Validate public contracts and project durable receipts
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/lfb-durable-results /tmp/lfb-per-case-artifacts/durable
-          aws s3 sync \
-            "s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}/" \
-            /tmp/lfb-durable-results/ \
-            --only-show-errors
-          python - <<'PY'
-          from pathlib import Path
+          uv run python - <<'PY'
           import shutil
+          from pathlib import Path
 
-          source = Path("/tmp/lfb-durable-results")
-          destination = Path("/tmp/lfb-per-case-artifacts/durable")
-          suffixes = {
-              ".runs.jsonl": "runs.jsonl",
-              ".accounting.jsonl": "accounting.jsonl",
-              ".metrics.json": "metrics.json",
-          }
-          for runs_path in source.rglob("*.runs.jsonl"):
-              run_stem = runs_path.name.removesuffix(".runs.jsonl")
-              case_dir = destination / run_stem
-              case_dir.mkdir(parents=True, exist_ok=True)
-              for suffix, output_name in suffixes.items():
-                  artifact = runs_path.with_name(f"{run_stem}{suffix}")
-                  if not artifact.is_file():
-                      raise SystemExit(
-                          f"durable result is incomplete for {run_stem}: {artifact}"
-                      )
-                  shutil.copyfile(artifact, case_dir / output_name)
+          root = Path("/tmp/lfb-fan-in")
+
+          def copy_one(pattern: str, destination: Path) -> None:
+              matches = sorted(root.rglob(pattern))
+              if not matches:
+                  raise SystemExit(f"missing fan-in input: {pattern}")
+              source = matches[0]
+              if source.is_dir():
+                  shutil.copytree(source, destination, dirs_exist_ok=True)
+              else:
+                  shutil.copyfile(source, destination)
+
+          copy_one("run-manifest.json", Path("/tmp/lfb-run-manifest.json"))
+          copy_one("forecast-release.json", Path("/tmp/lfb-forecast-release.json"))
+          copy_one("model-registry.json", Path("/tmp/lfb-model-registry.json"))
+          copy_one("artifacts", Path("/tmp/lfb-artifacts"))
           PY
+          test -s /tmp/lfb-run-manifest.json -a -s /tmp/lfb-forecast-release.json -a -s /tmp/lfb-model-registry.json -a -s /tmp/lfb-fan-in/labels-release.json
+          uv run legalforecast manifest validate \
+            --manifest /tmp/lfb-run-manifest.json \
+            --forecast /tmp/lfb-forecast-release.json \
+            --labels /tmp/lfb-fan-in/labels-release.json \
+            --artifact-root /tmp/lfb-artifacts
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
 
-      - name: Aggregate official bundle
+          fan_in_root = Path("/tmp/lfb-fan-in")
+          receipt_paths = sorted(
+              path
+              for path in fan_in_root.rglob("*.json")
+              if path.parent.name == "receipts"
+          )
+          if not receipt_paths:
+              raise SystemExit("fan-in received no durable provider receipts")
+          output = Path("/tmp/lfb-run-records.jsonl")
+          with output.open("w", encoding="utf-8") as handle:
+              for path in receipt_paths:
+                  receipt = json.loads(path.read_text(encoding="utf-8"))
+                  unit_id = receipt.get("unit_id")
+                  case_id = receipt.get("case_id")
+                  model_key = receipt.get("model_key")
+                  parser_output = receipt.get("parser_output")
+                  if not all(isinstance(value, str) and value for value in (unit_id, case_id, model_key)):
+                      raise SystemExit(f"receipt lacks run-record identity: {path}")
+                  if not isinstance(parser_output, dict):
+                      raise SystemExit(f"receipt lacks parser output: {path}")
+                  record = {
+                      "case_id": case_id,
+                      "model_id": model_key,
+                      "required_unit_ids": [unit_id],
+                      "parser_output": parser_output,
+                      "ablation": receipt.get("ablation", "none"),
+                      "run_identity_sha256": receipt.get("run_identity_sha256"),
+                      "forecast_release_digest": receipt.get("forecast_release_digest"),
+                      "model_registry_sha256": receipt.get("model_registry_sha256"),
+                  }
+                  handle.write(json.dumps(record, sort_keys=True) + "\n")
+          PY
+      - name: Score public receipts against labels release
         shell: bash
         run: |
           set -euo pipefail
-          optional_args=()
-          if [[ -n "${BASELINE_TRAINING_EXAMPLES_URI//[[:space:]]/}" ]]; then
-            optional_args+=(--baseline-training-examples /tmp/lfb-baseline-training.jsonl)
-          fi
-          if [[ "${ALLOW_NO_BASELINES}" == "true" ]]; then
-            optional_args+=(--allow-no-baselines)
-          fi
-          python - <<'PY'
-          import json
-          import os
-
-          requested_ablations = [
-              ablation.strip()
-              for ablation in os.environ["ABLATIONS"].split(",")
-              if ablation.strip()
-          ]
-          if not requested_ablations:
-              raise SystemExit("ablations must include at least one packet ablation")
-          requested_ablation_set = set(requested_ablations)
-          with open("/tmp/lfb-run-inputs.json", encoding="utf-8") as handle:
-              manifest = json.load(handle)
-          packets = manifest.get("model_packets")
-          if not isinstance(packets, list):
-              raise SystemExit("run-input manifest must contain model_packets list")
-          filtered_packets = []
-          for packet in packets:
-              if not isinstance(packet, dict):
-                  raise SystemExit("model_packets entries must be objects")
-              packet_ablation = packet.get("ablation") or "full_packet"
-              if packet_ablation in requested_ablation_set:
-                  filtered_packets.append(packet)
-          if not filtered_packets:
-              raise SystemExit(
-                  "run-input manifest has no model packets for requested ablations"
-              )
-          manifest["model_packets"] = filtered_packets
-          with open(
-              "/tmp/lfb-run-inputs-requested-ablations.json",
-              "w",
-              encoding="utf-8",
-          ) as handle:
-              json.dump(manifest, handle, indent=2, sort_keys=True)
-              handle.write("\n")
-          PY
-          uv run python -m legalforecast.publication.official_aggregate \
-            --per-case-dir /tmp/lfb-per-case-artifacts \
-            --run-input-manifest /tmp/lfb-run-inputs-requested-ablations.json \
-            --model-registry /tmp/lfb-model-registry.json \
-            --dispatch-provenance /tmp/lfb-dispatch-provenance.json \
-            --labels /tmp/lfb-labels.jsonl \
-            --output-dir tmp/official-aggregate \
-            --cycle-id "${CYCLE_ID}" \
-            --cycle-series "${CYCLE_SERIES}" \
-            --clean-motion-count "${CLEAN_MOTION_COUNT}" \
-            --prediction-unit-count "${PREDICTION_UNIT_COUNT}" \
-            --deferred-ablation "judge_removed" \
-            "${optional_args[@]}"
-
-      - name: Upload aggregate artifact
+          uv run legalforecast score \
+            --runs /tmp/lfb-run-records.jsonl \
+            --labels-release /tmp/lfb-fan-in/labels-release.json \
+            --forecast-release /tmp/lfb-forecast-release.json \
+            --artifact-root /tmp/lfb-artifacts \
+            --manifest /tmp/lfb-run-manifest.json \
+            --output /tmp/lfb-score.json
+          uv run legalforecast report \
+            --scores /tmp/lfb-score.json \
+            --output-dir /tmp/lfb-report \
+            --labels-release /tmp/lfb-fan-in/labels-release.json \
+            --forecast-release /tmp/lfb-forecast-release.json \
+            --artifact-root /tmp/lfb-artifacts \
+            --manifest /tmp/lfb-run-manifest.json \
+            --title "LegalForecast official benchmark"
+      - name: Upload score and report
+        if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: official-aggregate-${{ inputs.cycle_id }}-${{ github.run_attempt }}-multi-ablation
-          path: tmp/official-aggregate
-          if-no-files-found: error
-          retention-days: ${{ fromJSON(env.ARTIFACT_RETENTION_DAYS) }}
+          name: locked-score-report-${{ github.run_id }}
+          path: |
+            /tmp/lfb-score.json
+            /tmp/lfb-report
+          if-no-files-found: warn
+          retention-days: ${{ inputs.artifact_retention_days }}

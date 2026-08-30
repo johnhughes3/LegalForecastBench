@@ -818,43 +818,29 @@ def _assert_eval_trust_refs_satisfiable(
     assert ref == f"refs/heads/{branch}"
 
     # Provider cells must be normal jobs that bind the evaluation environment.
-    # A uses: reusable workflow cannot set environment on the caller, and the
-    # callee's environment injects vars/OIDC but not secrets.OPENAI_API_KEY.
+    # The canonical workflow invokes the typed runner directly so each job can
+    # bind exactly one provider secret without inheriting a reusable action's
+    # wider environment.
     expected_provider_lanes = {
         "run-openai": ("openai", cell_environment),
         "run-anthropic": ("anthropic", cell_environment),
         "run-gemini": ("gemini", cell_environment),
     }
-    caller_lanes: dict[str, tuple[str, str]] = {}
-    expected_secret_inputs = {
-        "run-openai": ("ai_gateway_api_key", "openai_api_key"),
-        "run-anthropic": ("anthropic_api_key",),
-        "run-gemini": ("gemini_api_key",),
+    workflow_jobs_by_id = workflow_jobs(workflow_texts[RUN_BENCHMARK_WORKFLOW.name])
+    provider_secret_names = {
+        "run-openai": "OPENAI_API_KEY",
+        "run-anthropic": "ANTHROPIC_API_KEY",
+        "run-gemini": "GEMINI_API_KEY",
     }
-    for job_id, block in workflow_jobs(
-        workflow_texts[RUN_BENCHMARK_WORKFLOW.name]
-    ).items():
-        if "uses: ./.github/actions/official-provider-cell" not in block:
-            continue
-        provider_match = re.search(
-            r"^          provider: (\S+)\s*$", block, re.MULTILINE
-        )
-        if provider_match is None:
-            provider_match = re.search(
-                r"^      provider: (\S+)\s*$", block, re.MULTILINE
-            )
-        environment_match = re.search(
-            r"^    environment: (\S+)\s*$", block, re.MULTILINE
-        )
-        assert provider_match is not None, job_id
-        assert environment_match is not None, job_id
-        assert not re.search(
-            r"uses: ./\.github/actions/official-provider-cell\s+env:", block
-        ), job_id
-        for input_name in expected_secret_inputs[job_id]:
-            assert f"{input_name}: ${{{{ secrets." in block, job_id
-        caller_lanes[job_id] = (provider_match.group(1), environment_match.group(1))
-    assert caller_lanes == expected_provider_lanes
+    for job_id, (provider, environment) in expected_provider_lanes.items():
+        block = workflow_jobs_by_id[job_id]
+        assert f"environment: {environment}" in block
+        assert f"startsWith(inputs.model_key, '{provider}:')" in block
+        secret_name = provider_secret_names[job_id]
+        assert block.count(f"secrets.{secret_name}") == 1
+        for other_secret in set(provider_secret_names.values()) - {secret_name}:
+            assert f"secrets.{other_secret}" not in block
+        assert "uses: ./.github/actions/official-provider-cell" not in block
 
     # Every job in any workflow that assumes one of these roles must itself
     # bind that role's provisioned environment and grant itself the OIDC
@@ -1114,8 +1100,10 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
     assert 'f"reports/{_cycle_slug(packet_object)}/{run_id}.runner-log.jsonl"' in (
         run_source
     )
-    assert "aws s3 sync \\" in run_workflow
-    assert '"s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}/" \\' in run_workflow
+    # The canonical forecast boundary copies only paths declared by the
+    # forecast release; recursive operator-root sync is forbidden.
+    assert "aws s3 sync \\" not in run_workflow
+    assert "actual != set(declared)" in run_workflow
     ordinary_put_source = _function_source(per_case_source, "_upload_path")
     assert '"put-object"' in ordinary_put_source
     assert '"--if-none-match"' not in ordinary_put_source

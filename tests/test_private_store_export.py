@@ -207,7 +207,9 @@ def test_missing_packet_ablation_uses_official_workflow_default(
     projector = Path("legalforecast/evals/corpus_manifest/cost_projector.py").read_text(
         encoding="utf-8"
     )
-    assert "default: full_packet,metadata_only" in workflow
+    assert "artifact_root_uri:" in workflow
+    assert "forecast_release_uri:" in workflow
+    assert "model_key:" in workflow
     assert 'packet.get("ablation", "full_packet")' in projector
 
 

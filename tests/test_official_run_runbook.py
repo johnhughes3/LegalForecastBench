@@ -801,9 +801,13 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
     ):
         assert command in runbook
     for workflow_input in (
-        "ablations",
-        "resume_existing_results",
-        "max_projected_model_cost_usd",
+        "manifest_uri",
+        "forecast_release_uri",
+        "labels_release_uri",
+        "artifact_root_uri",
+        "model_registry_uri",
+        "model_key",
+        "ceiling_microusd",
     ):
         assert workflow_input in runbook
         assert workflow_input in workflow
@@ -820,7 +824,7 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
     for amendment_contract in (
         "legalforecast freeze amend",
         "freeze_bundle_path",
-        "prior_dispatches_json",
+        "single `model_key` input",
         "additive_supersession",
         "byte-identity assertion",
     ):

@@ -69,6 +69,11 @@ CELL_SECRETS = {
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
 }
+LOCKED_WORKFLOW_CELL_SECRETS = {
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "OPENAI_API_KEY",
+}
 
 
 def _manifest() -> dict[str, object]:
@@ -239,7 +244,7 @@ def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
         STAGING_ENVIRONMENT: STAGING_VARIABLES,
     }
     assert runtime_secrets == {
-        CELL_ENVIRONMENT: CELL_SECRETS,
+        CELL_ENVIRONMENT: LOCKED_WORKFLOW_CELL_SECRETS,
         FAN_IN_ENVIRONMENT: set(),
         # Staging reaches no provider, so its environment holds no secret and
         # its workflow must never reference one.

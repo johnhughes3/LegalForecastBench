@@ -314,24 +314,18 @@ def test_provider_cell_refuses_a_supplementary_scope_on_an_official_cell(
 
 
 def test_shard_receipt_writer_declares_its_lane_inside_its_own_job() -> None:
-    """Pin point 3 of y4vg's audit to the job, not to the whole file.
-
-    ``--supplementary`` and ``SUPPLEMENTARY:`` both appear many times in this
-    workflow, so a file-wide assertion is satisfied by a *different* step -- the
-    pre-credential check satisfied exactly that while the provider cell was
-    broken.  Receipts are write-once per attempt and are written after the run
-    is paid for, so this one is worth pinning where it lives.
-    """
+    """The canonical workflow persists each provider cell's durable receipt."""
 
     workflow = (ROOT / ".github" / "workflows" / "run-benchmark.yaml").read_text()
-    job = workflow[
-        workflow.index("\n  finalize-shard:") : workflow.index("\n  aggregate-results:")
-    ]
-
-    assert "SUPPLEMENTARY: ${{ needs.build-matrix.outputs.supplementary }}" in job, (
-        "the receipt writer must read the lane the matrix derived"
-    )
-    assert "scope_args+=(--supplementary)" in job
-    assert "python -m legalforecast.publication.shard_receipt" in job
-    # The output it reads only exists because the job depends on build-matrix.
-    assert "      - build-matrix\n" in job
+    for provider, next_job in (
+        ("run-openai", "run-anthropic"),
+        ("run-anthropic", "run-gemini"),
+        ("run-gemini", "score-and-report"),
+    ):
+        job = workflow[
+            workflow.index(f"\n  {provider}:") : workflow.index(f"\n  {next_job}:")
+        ]
+        assert "--ledger /tmp/lfb-run/ledger.sqlite3" in job
+        assert "--receipts-dir /tmp/lfb-run/receipts" in job
+        assert "Persist" in job
+        assert "if: ${{ always() }}" in job

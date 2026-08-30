@@ -1314,51 +1314,20 @@ def test_official_scope_cannot_authorize_a_supplementary_shard(
 
 
 def test_workflow_threads_supplementary_into_the_matrix_and_scope_steps() -> None:
-    """Pin the wiring the runner cannot see: the step env and the verifier call.
-
-    The "Build matrix JSON" step has no ``dry_run`` gate, so it runs on every
-    dispatch.  Fixing the CLI alone would have left the Actions path failing in
-    exactly the place this bead was filed about.
-    """
+    """Supplementary runs share the canonical public release boundary."""
 
     workflow = (ROOT / ".github" / "workflows" / "run-benchmark.yaml").read_text()
 
-    # The lane is derived once, in the pre-credential validation step, and
-    # every consumer reads that one derived value rather than a dispatch flag.
-    assert "SUPPLEMENTARY: ${{ steps.validate.outputs.supplementary }}" in workflow
+    assert "manifest_uri:" in workflow
+    assert "forecast_release_uri:" in workflow
+    assert "labels_release_uri:" in workflow
+    assert "model_registry_uri:" in workflow
+    assert "model_key:" in workflow
+    assert "ceiling_microusd:" in workflow
     assert "inputs.supplementary" not in workflow
-    assert (
-        "OFFICIAL_FREEZE_BUNDLE_PATH: ${{ steps.validate.outputs.supplementary "
-        "== 'true' && env.OFFICIAL_FREEZE_BUNDLE_PATH || '' }}"
-    ) in workflow
-    # A step output is the string "false", which is truthy in a GitHub
-    # expression, so the ternary above must compare against 'true' explicitly.
-    assert "${{ steps.validate.outputs.supplementary && " not in workflow
-    assert 'expected_supplementary=os.environ["SUPPLEMENTARY"] == "true",' in workflow
-    # Both directions at dispatch validation, mirroring the library refusal.
-    assert (
-        "official_freeze_bundle_uri is required for a supplementary dispatch."
-        in workflow
-    )
-    assert (
-        "official_freeze_bundle_uri is only valid for a supplementary dispatch."
-        in workflow
-    )
-    # Content-addressed like its siblings: URI#sha256, '..' rejected, and the
-    # validated value -- not the raw input -- is what the download consumes.
-    assert "official_freeze_bundle_uri must be URI#<lowercase SHA-256>." in workflow
-    assert "official_freeze_bundle_uri must not contain '..'." in workflow
-    assert 'echo "official_freeze_bundle_uri=${official_freeze_uri}"' in workflow
-    assert (
-        "OFFICIAL_FREEZE_BUNDLE_URI: ${{ steps.validate.outputs."
-        "official_freeze_bundle_uri }}" in workflow
-    )
-    assert (
-        "official freeze bundle does not match its dispatched digest pin." in workflow
-    )
-    # The shard-receipt writer declares its lane before consuming the write-once
-    # slot, instead of inferring it from the transported scope.
-    assert "scope_args+=(--supplementary)" in workflow
+    assert "freeze_bundle_path" not in workflow
+    assert "execution_scope_uri" not in workflow
+    assert "approval-reference" not in workflow
 
 
 def test_corpus_anchor_is_the_earliest_scored_decision(
