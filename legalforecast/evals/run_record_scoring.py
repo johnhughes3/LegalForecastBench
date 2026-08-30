@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, cast
 
 from legalforecast.evals.output_parser import (
@@ -11,13 +12,54 @@ from legalforecast.evals.output_parser import (
     parse_model_output,
     parsed_output_from_public_record,
 )
-from legalforecast.evals.scorers import ScoreSummary, ScoringCase, score_cases
-from legalforecast.labeling.label_outcomes import OutcomeLabel
+from legalforecast.evals.scorers import (
+    ScoreLabel,
+    ScoreSummary,
+    ScoringCase,
+    score_cases,
+)
+from legalforecast.release import LabelsRelease
+
+
+@dataclass(frozen=True, slots=True)
+class ReleaseOutcomeLabel:
+    """Minimal score-label view for the public labels-release contract."""
+
+    unit_id: str
+    primary_outcome: int
+    label_confidence: float | None = None
+
+
+def score_run_records_against_labels_release(
+    run_records: Sequence[Mapping[str, Any]],
+    labels_release: LabelsRelease,
+    *,
+    base_rate: float | None,
+    include_ablation_in_model_id: bool = False,
+) -> tuple[ScoreSummary, ...]:
+    """Score run records using only the validated public labels release.
+
+    The labels release intentionally contains no private review metadata.  The
+    scorer consumes its binary outcomes through the same small label protocol
+    as legacy community records, without manufacturing citations or loading a
+    private label artifact.
+    """
+
+    labels: tuple[ScoreLabel, ...] = tuple(
+        ReleaseOutcomeLabel(unit_id=outcome.unit_id, primary_outcome=outcome.outcome)
+        for outcome in labels_release.unit_outcomes
+    )
+    return score_run_records(
+        run_records,
+        labels,
+        base_rate=base_rate,
+        include_ablation_in_model_id=include_ablation_in_model_id,
+    )
 
 
 def score_run_records(
     run_records: Sequence[Mapping[str, Any]],
-    labels: tuple[OutcomeLabel, ...],
+    labels: Sequence[ScoreLabel],
     *,
     base_rate: float | None,
     include_ablation_in_model_id: bool = False,
@@ -89,7 +131,7 @@ def _display_model_id(model_id: str, ablation: str, *, include_ablation: bool) -
     return f"{model_id}::{ablation}" if include_ablation else model_id
 
 
-def _computed_base_rate(labels: Iterable[OutcomeLabel]) -> float:
+def _computed_base_rate(labels: Iterable[ScoreLabel]) -> float:
     outcomes = tuple(label.primary_outcome for label in labels)
     scored = tuple(outcome for outcome in outcomes if outcome is not None)
     if not scored:

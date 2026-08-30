@@ -9,6 +9,11 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
 
+from legalforecast.release import (
+    load_run_manifest,
+    validate_manifest_against_forecast,
+    validate_release,
+)
 from legalforecast.reporting.score_summary_codec import score_summary_from_record
 
 
@@ -23,6 +28,30 @@ def register(
     )
     report.add_argument("--scores", type=Path, required=True)
     report.add_argument("--output-dir", type=Path, required=True)
+    report.add_argument(
+        "--manifest",
+        "--run-manifest",
+        dest="manifest",
+        type=Path,
+        help="Canonical locked benchmark-run manifest for this report.",
+    )
+    report.add_argument(
+        "--forecast-release",
+        "--forecast",
+        dest="forecast_release",
+        type=Path,
+        help="Forecast-release.json paired with the report's labels release.",
+    )
+    report.add_argument(
+        "--labels-release",
+        type=Path,
+        help="Labels-release.json used by the official scoring boundary.",
+    )
+    report.add_argument(
+        "--artifact-root",
+        type=Path,
+        help="Root containing forecast-release referenced public artifacts.",
+    )
     report.add_argument("--accounting", type=Path)
     report.add_argument("--title", default="LegalForecast-MTD Leaderboard")
     report.add_argument("--bootstrap-replicates", type=int, default=5000)
@@ -41,6 +70,7 @@ def run(args: argparse.Namespace) -> int:
 
     scores_path = cast(Path, args.scores)
     output_dir = cast(Path, args.output_dir)
+    _validate_contract_inputs(args)
     score_payload = _cli_ns._read_json_object(scores_path)
     summary_records = _cli_ns._required_record_sequence(score_payload, "summaries")
     accounting_records = (
@@ -137,6 +167,29 @@ def run(args: argparse.Namespace) -> int:
     for path in written:
         _cli_ns._log_event("report", "artifact_written", path, len(report.rows))
     return 0
+
+
+def _validate_contract_inputs(args: argparse.Namespace) -> None:
+    """Validate optional official provenance inputs before rendering output."""
+
+    manifest_path = cast(Path | None, args.manifest)
+    forecast_path = cast(Path | None, args.forecast_release)
+    labels_path = cast(Path | None, args.labels_release)
+    artifact_root = cast(Path | None, args.artifact_root)
+    if not any((manifest_path, forecast_path, labels_path, artifact_root)):
+        return
+    if None in (manifest_path, forecast_path, labels_path, artifact_root):
+        raise ValueError(
+            "--manifest, --forecast-release, --labels-release, and "
+            "--artifact-root must be passed together"
+        )
+    loaded_manifest = load_run_manifest(cast(Path, manifest_path))
+    forecast, _labels = validate_release(
+        cast(Path, forecast_path),
+        cast(Path, labels_path),
+        artifact_root=cast(Path, artifact_root),
+    )
+    validate_manifest_against_forecast(loaded_manifest.manifest, forecast)
 
 
 def _contamination_inputs(

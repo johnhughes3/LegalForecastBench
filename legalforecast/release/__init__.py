@@ -1,5 +1,12 @@
 """Public release issuer, validator, and outcome-blinded execution boundary."""
 
+from .consumer import (
+    ForecastRunInputs,
+    LoadedRunManifest,
+    load_forecast_run_inputs,
+    load_run_manifest,
+    validate_manifest_against_forecast,
+)
 from .models import (
     BRIEFING_ROLES,
     PLEADING_ROLES,
@@ -61,9 +68,11 @@ __all__ = [
     "ForecastExecution",
     "ForecastPredictionUnit",
     "ForecastRelease",
+    "ForecastRunInputs",
     "IssuedRelease",
     "LabelsDraft",
     "LabelsRelease",
+    "LoadedRunManifest",
     "ManifestLockedError",
     "ModelVisibleRole",
     "OpaqueObjectLocator",
@@ -83,9 +92,12 @@ __all__ = [
     "issue_synthetic_release",
     "load_forecast_draft",
     "load_forecast_execution",
+    "load_forecast_run_inputs",
     "load_labels_draft",
+    "load_run_manifest",
     "publish_release",
     "serialize_run_manifest",
+    "validate_manifest_against_forecast",
     "validate_release",
     "validate_run_manifest_structure",
 ]

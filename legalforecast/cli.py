@@ -46,6 +46,7 @@ from legalforecast.acquisition_completion_summary_cli import (
     add_acquisition_completion_summary_parser,
 )
 from legalforecast.cli_commands import attachment_pages as _attachment_pages_cmd
+from legalforecast.cli_commands import manifest as _manifest_cmd
 from legalforecast.cli_commands import release as _release_cmd
 from legalforecast.cli_commands import report as _report_cmd
 from legalforecast.cli_commands import run as _run_cmd
@@ -1497,6 +1498,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run one isolated official model-packet shard.",
     )
     _add_eval_run_case_arguments(eval_run_case)
+
+    _manifest_cmd.register(subparsers)
 
     _score_cmd.register(subparsers)
 

@@ -53,6 +53,7 @@ from legalforecast.release import (
     ForecastExecution,
     ForecastPredictionUnit,
     load_forecast_execution,
+    load_forecast_run_inputs,
 )
 
 from .ledger import (
@@ -79,6 +80,7 @@ class RunConfig:
     ablation: str = "none"
     repeat_count: int = 1
     account: str = "default"
+    manifest_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,9 +167,22 @@ def execute_release_run(
     _positive_int(config.repeat_count, "repeat_count")
     provider, model_id = _model_key(config.model_key)
 
-    execution = load_forecast_execution(
-        config.forecast_path,
-        artifact_root=config.artifact_root,
+    run_inputs = (
+        load_forecast_run_inputs(
+            config.manifest_path,
+            config.forecast_path,
+            artifact_root=config.artifact_root,
+        )
+        if config.manifest_path is not None
+        else None
+    )
+    execution = (
+        run_inputs.execution
+        if run_inputs is not None
+        else load_forecast_execution(
+            config.forecast_path,
+            artifact_root=config.artifact_root,
+        )
     )
     registry_bytes = read_single_link_file(
         config.model_registry_path,
@@ -209,6 +224,13 @@ def execute_release_run(
         "model_registry_sha256": registry_sha256,
         "repeat_count": config.repeat_count,
     }
+    if run_inputs is not None:
+        identity.update(
+            {
+                "run_manifest_id": str(run_inputs.manifest.run_id),
+                "run_manifest_sha256": run_inputs.manifest_sha256,
+            }
+        )
     identity_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(identity)
     identity_sha256 = str(
         ARTIFACT_RAW_SHA256_V1.commit(

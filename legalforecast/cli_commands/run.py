@@ -41,6 +41,16 @@ def register(
         help="Execute or resume exact cells from an outcome-blinded forecast release.",
     )
     execute.add_argument(
+        "--manifest",
+        "--run-manifest",
+        dest="manifest",
+        type=Path,
+        help=(
+            "Canonical locked benchmark-run manifest selecting the forecast "
+            "release cases."
+        ),
+    )
+    execute.add_argument(
         "--forecast",
         type=Path,
         required=True,
@@ -168,6 +178,7 @@ def run_execute(args: argparse.Namespace) -> int:
         ablation=cast(str, args.ablation),
         repeat_count=cast(int, args.repeat_count),
         account=cast(str, args.account),
+        manifest_path=cast(Path | None, args.manifest),
     )
     summary = execute_release_run(
         config,
