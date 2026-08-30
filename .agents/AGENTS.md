@@ -10,7 +10,7 @@ This is academic research, not a financial institution or a crypto ledger. We wa
 
 Before building any artifact that only humans and status reports read — a certificate, ledger, receipt, matrix, meta-report, readiness check, or approval chain — name its consumer, the capability it gates, the defect that actually happened to justify it, and when it gets deleted. If you cannot name all four, do not build it. Writing code just so that something "branches on it" does not change the answer.
 
-After you finish planning and filing beads, re-read `/just-say-no-to-process-porn-and-ceremony` and check what you added against it. Delete what fails. Nothing in this file authorizes machinery the plan did not need.
+After you finish planning and filing beads, check what you added against this section — and against the `just-say-no-to-process-porn-and-ceremony` skill if your harness provides it. Delete what fails. Nothing in this file authorizes machinery the plan did not need.
 
 Where an older document in this tree still calls for attestations, sealed deliverables, receipt cards, hashed approval scopes, or evidence tiers, this section supersedes it.
 
