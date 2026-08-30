@@ -1314,13 +1314,15 @@ def test_official_scope_cannot_authorize_a_supplementary_shard(
 
 
 def test_workflow_threads_supplementary_into_the_matrix_and_scope_steps() -> None:
-    """Supplementary runs share the canonical public release boundary."""
+    """The official forecast workflow stays outcome-blinded and release-bound."""
 
     workflow = (ROOT / ".github" / "workflows" / "run-benchmark.yaml").read_text()
+    fan_in = (ROOT / ".github" / "workflows" / "fan-in-publish.yaml").read_text()
 
     assert "manifest_uri:" in workflow
     assert "forecast_release_uri:" in workflow
-    assert "labels_release_uri:" in workflow
+    assert "labels_release_uri:" not in workflow
+    assert "labels_release_uri:" in fan_in
     assert "model_registry_uri:" in workflow
     assert "model_key:" in workflow
     assert "ceiling_microusd:" in workflow

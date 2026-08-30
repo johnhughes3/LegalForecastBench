@@ -320,7 +320,7 @@ def test_shard_receipt_writer_declares_its_lane_inside_its_own_job() -> None:
     for provider, next_job in (
         ("run-openai", "run-anthropic"),
         ("run-anthropic", "run-gemini"),
-        ("run-gemini", "score-and-report"),
+        ("run-gemini", "persist-forecast-results"),
     ):
         job = workflow[
             workflow.index(f"\n  {provider}:") : workflow.index(f"\n  {next_job}:")
