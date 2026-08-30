@@ -316,7 +316,6 @@
     "tests/test_disclosure_model_review_authority.py",
     "tests/test_disclosure_model_review_schema.py",
     "tests/test_disclosure_review_bundle_cli.py",
-    "tests/test_dispatch_provenance.py",
     "tests/test_docs_index_coverage.py",
     "tests/test_document_need_protocol.py",
     "tests/test_document_repair_paid_clearance.py",
@@ -338,6 +337,7 @@
     "tests/test_llm_label_provider_shards.py",
     "tests/test_local_cli_adapter_manifest.py",
     "tests/test_local_cli_contracts.py",
+    "tests/test_locked_manifest_workflow.py",
     "tests/test_manifest_cost_projector.py",
     "tests/test_manifest_freeze_inputs.py",
     "tests/test_manifest_unitizer_inputs.py",
@@ -611,13 +611,6 @@
       "legalforecast/evals/model_registry.py",
       "legalforecast/evals/per_case_runner.py",
       "legalforecast/publication/official_aggregate.py"
-    ],
-    "tests/test_official_eval_matrix_workflow.py": [
-      "legalforecast/evals/corpus_manifest/cost_projector.py",
-      "legalforecast/evals/corpus_manifest/cost_projector_workflow.py"
-    ],
-    "tests/test_official_provider_workflow.py": [
-      "legalforecast/evals/corpus_manifest/cost_projector.py"
     ],
     "tests/test_private_store_export.py": [
       "legalforecast/evals/corpus_manifest/cost_projector.py"

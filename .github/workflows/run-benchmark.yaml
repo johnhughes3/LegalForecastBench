@@ -168,6 +168,7 @@ jobs:
           from pathlib import Path
 
           from legalforecast.contracts import FORECAST_RELEASE_V1, RAW_BYTES_RAW_SHA256_V1
+          from legalforecast.release.consumer import enumerate_forecast_worker_inputs
           from legalforecast.release.models import ForecastRelease
           from legalforecast.release.service import load_forecast_execution
 
@@ -184,6 +185,7 @@ jobs:
               declared[unit.prompt_path] = (unit.prompt_sha256, unit.prompt_byte_count)
           if not declared:
               raise SystemExit("forecast release declares no artifacts")
+          enumerate_forecast_worker_inputs(release, requested_paths=tuple(declared))
 
           def source_for(relative: str) -> tuple[str, bool]:
               if source_root.startswith("s3://"):
@@ -590,16 +592,33 @@ jobs:
                       raise SystemExit(f"receipt lacks run-record identity: {path}")
                   if not isinstance(parser_output, dict):
                       raise SystemExit(f"receipt lacks parser output: {path}")
+                  required_fields = (
+                      "schema_version",
+                      "release_id",
+                      "forecast_release_digest",
+                      "run_identity_sha256",
+                      "cell_id",
+                      "unit_id",
+                      "case_id",
+                      "model_key",
+                      "harness",
+                      "ablation",
+                      "repeat_index",
+                      "model_registry_sha256",
+                      "model_registry_entry_sha256",
+                      "prompt_sha256",
+                      "request_body_sha256",
+                      "served_model_version",
+                  )
+                  missing_fields = [field for field in required_fields if field not in receipt]
+                  if missing_fields:
+                      raise SystemExit(f"receipt lacks strict identity fields: {path}: {missing_fields}")
                   record = {
-                      "case_id": case_id,
-                      "model_id": model_key,
-                      "required_unit_ids": [unit_id],
-                      "parser_output": parser_output,
-                      "ablation": receipt.get("ablation", "none"),
-                      "run_identity_sha256": receipt.get("run_identity_sha256"),
-                      "forecast_release_digest": receipt.get("forecast_release_digest"),
-                      "model_registry_sha256": receipt.get("model_registry_sha256"),
+                      field: receipt[field] for field in required_fields
                   }
+                  record["model_id"] = model_key
+                  record["required_unit_ids"] = [unit_id]
+                  record["parser_output"] = parser_output
                   handle.write(json.dumps(record, sort_keys=True) + "\n")
           PY
       - name: Score public receipts against labels release

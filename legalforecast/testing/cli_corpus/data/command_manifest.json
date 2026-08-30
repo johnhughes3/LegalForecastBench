@@ -3600,7 +3600,7 @@
           "option_strings": [
             "--approval-reference"
           ],
-          "required": true,
+          "required": false,
           "type": null
         },
         {

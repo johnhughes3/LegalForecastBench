@@ -115,38 +115,16 @@ def test_score_cli_consumes_labels_release_without_label_records(
     release_dir = tmp_path / "release"
     issued = issue_synthetic_release(release_dir)
     runs_path = tmp_path / "runs.jsonl"
-    records = []
-    for case_id, unit_id, probability in (
-        ("case-001", "unit-001", 0.25),
-        ("case-002", "unit-002", 0.75),
-    ):
-        parsed = parse_model_output(
-            json.dumps(
-                {
-                    "case_assessment": "provider output",
-                    "predictions": [
-                        {
-                            "unit_id": unit_id,
-                            "probability_fully_dismissed": probability,
-                        }
-                    ],
-                }
-            ),
-            required_unit_ids=(unit_id,),
-        )
-        records.append(
-            {
-                "case_id": case_id,
-                "model_id": "fixture-model",
-                "required_unit_ids": [unit_id],
-                "parser_output": public_parser_record(parsed),
-            }
-        )
+    records = _strict_receipts(issued)
     runs_path.write_text(
         "".join(json.dumps(record) + "\n" for record in records),
         encoding="utf-8",
     )
     output_path = tmp_path / "scores.json"
+    manifest_path = tmp_path / "run-manifest.json"
+    manifest_path.write_bytes(
+        serialize_run_manifest(_manifest("case-001", "case-002", "case-003"))
+    )
 
     assert (
         main(
@@ -160,6 +138,8 @@ def test_score_cli_consumes_labels_release_without_label_records(
                 str(release_dir / "forecast-release.json"),
                 "--artifact-root",
                 str(release_dir),
+                "--manifest",
+                str(manifest_path),
                 "--output",
                 str(output_path),
             ]

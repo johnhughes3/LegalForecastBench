@@ -115,18 +115,22 @@ def run(args: argparse.Namespace) -> int:
     if labels_path is None and labels_release_path is None:
         raise ValueError("one of --labels or --labels-release is required")
     if labels_release_path is not None:
-        if forecast_release_path is None or artifact_root is None:
+        if (
+            manifest_path is None
+            or forecast_release_path is None
+            or artifact_root is None
+        ):
             raise ValueError(
-                "--labels-release requires --forecast-release and --artifact-root"
+                "--labels-release requires --manifest, --forecast-release, "
+                "and --artifact-root"
             )
         forecast, labels_release = validate_release(
             forecast_release_path,
             labels_release_path,
             artifact_root=artifact_root,
         )
-        if manifest_path is not None:
-            loaded_manifest = load_run_manifest(manifest_path)
-            validate_manifest_against_forecast(loaded_manifest.manifest, forecast)
+        loaded_manifest = load_run_manifest(manifest_path)
+        validate_manifest_against_forecast(loaded_manifest.manifest, forecast)
         label_records = ()
     else:
         label_records = _cli_ns._read_records(cast(Path, labels_path))
