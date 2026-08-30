@@ -10,12 +10,23 @@
 # One script rather than two inline copies: a fence that drifts between its
 # pre-write and post-write forms is worse than no fence, because the pre-write
 # pass would license writes the post-write pass would then accept.
+#
+# The lane argument is required rather than defaulted for the same reason. The
+# two lanes sit in the same bucket and their separation is the whole point of the
+# segment check below, so a caller that forgets which lane it is in must fail,
+# never quietly get the other lane's fence.
 set -euo pipefail
 
-record="${1:?usage: assert-manifest-run-lane.sh <record.json> <prefix> <results-bucket> <packet-bucket>}"
+record="${1:?usage: assert-manifest-run-lane.sh <record.json> <prefix> <results-bucket> <packet-bucket> <lane>}"
 expected_prefix="${2:?expected prefix is required}"
 results_bucket="${3:?results bucket is required}"
 packet_bucket="${4:?packet bucket is required}"
+lane="${5:?lane is required: supplementary or official}"
+
+if [[ "${lane}" != "supplementary" && "${lane}" != "official" ]]; then
+  echo "Lane must be supplementary or official; got ${lane}." >&2
+  exit 1
+fi
 
 if ! jq -e \
   --arg prefix "${expected_prefix}" \
@@ -35,10 +46,39 @@ fi
 # Belt and braces on the segment that keeps the two lanes apart: a supplementary
 # prefix always contains it, and an object that lost it would land in the shared
 # official prefix that already backs dispatched shards.
+if [[ "${lane}" == "supplementary" ]]; then
+  if ! jq -e \
+    'all(.objects[];
+       (.key | startswith("model-packets/")) or (.key | contains("/supplementary/")))
+    ' "${record}" >/dev/null; then
+    echo "Stage record ${record} names a results-bucket key outside the supplementary segment; refusing." >&2
+    exit 1
+  fi
+  exit 0
+fi
+
+# The official lane is the mirror image: its prefix is the corpus manifest digest
+# alone, so every results-bucket key must sit under a 64-hex digest directly
+# below cycle-1/manifest-runs/, and none may carry the supplementary segment. The
+# digest shape is asserted rather than assumed because "supplementary" is a
+# literal no digest can equal, and that is exactly what keeps a mis-signed
+# request from writing a sibling freeze into the shared official prefix.
 if ! jq -e \
   'all(.objects[];
-     (.key | startswith("model-packets/")) or (.key | contains("/supplementary/")))
+     (.key | startswith("model-packets/")) or
+     ((.key | test("^cycle-1/manifest-runs/[0-9a-f]{64}/")) and
+      (.key | contains("/supplementary/") | not)))
   ' "${record}" >/dev/null; then
-  echo "Stage record ${record} names a results-bucket key outside the supplementary segment; refusing." >&2
+  echo "Stage record ${record} names a results-bucket key outside the official manifest-digest prefix; refusing." >&2
+  exit 1
+fi
+
+# An artifacts/artifacts/ key is the legalforecastbench-bh6j signature: a freeze
+# whose paths were already rewritten by a previous staging, fed back in. It can
+# only arise on a restage, which the first-stage precondition already refuses,
+# but the objects are undeletable and the check costs one jq pass.
+if jq -e 'any(.objects[]; .key | contains("/artifacts/artifacts/"))' \
+  "${record}" >/dev/null; then
+  echo "Stage record ${record} doubles the artifacts/ segment; refusing." >&2
   exit 1
 fi

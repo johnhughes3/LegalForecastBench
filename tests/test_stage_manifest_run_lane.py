@@ -169,8 +169,13 @@ def test_environment_manifest_provisions_the_staging_environment() -> None:
     assert row["aws_oidc_subject"] == (
         f"repo:johnhughes3/LegalForecastBench:environment:{STAGING_ENVIRONMENT}"
     )
-    # Staging touches no provider, so it must carry no provider key.
-    assert row["secrets"] == []
+    # Staging touches no provider, so it must carry no provider key. The one
+    # secret the environment does hold is the age identity that opens the closed
+    # corpus package a FIRST official staging carries in
+    # (stage-official-manifest-run.yaml). This workflow rebuilds its inputs from
+    # already-staged objects instead, so it must reference no secret at all.
+    assert row["secrets"] == ["LFB_STAGE_SOURCE_AGE_IDENTITY"]
+    assert "secrets." not in _workflow_text()
     assert row["variables"] == [
         "LFB_AWS_REGION",
         STAGING_ROLE_VARIABLE,

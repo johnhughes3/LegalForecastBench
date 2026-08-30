@@ -69,8 +69,16 @@ class ManifestForecastStageConfig:
     amendment_bundles: tuple[Path, ...] = ()
     dry_run: bool = False
     supplementary: bool = False
+    first_stage_only: bool = False
 
     def __post_init__(self) -> None:
+        if self.first_stage_only and self.supplementary:
+            raise ManifestForecastStageError(
+                "stage-manifest-forecast refuses --first-stage-only in "
+                "supplementary mode: a supplementary prefix is keyed by the "
+                "sibling freeze digest, so it is first by construction and the "
+                "precondition would only hide a repeated dispatch"
+            )
         if self.supplementary and self.amendment_bundles:
             raise ManifestForecastStageError(
                 "stage-manifest-forecast refuses --amendment-bundle in "
@@ -295,6 +303,20 @@ def _build_stage_result(
         *packet_objects_for_results,
         *packet_objects,
     ]
+    freeze_key = f"{prefix}/freeze.json"
+    if config.first_stage_only:
+        # freeze.json goes first so the create-once write of the one object that
+        # identifies this prefix is the *enforcing* first-stage fence, not the
+        # last thing to notice a collision. See _assert_first_stage: the
+        # head-object precondition below can be blind when the role cannot
+        # distinguish absent from forbidden, and this ordering is what makes that
+        # blindness harmless -- an occupied prefix stops the run on object one,
+        # before any artifact key exists to be doubled.
+        staged_freeze = next(obj for obj in all_objects if obj.key == freeze_key)
+        all_objects = [
+            staged_freeze,
+            *(obj for obj in all_objects if obj is not staged_freeze),
+        ]
     _verify_source_snapshots(all_objects)
 
     stage_record = {
@@ -318,6 +340,10 @@ def _build_stage_result(
             for obj in all_objects
         ],
     }
+    if config.first_stage_only:
+        # Runs in dry-run too: the workflow's plan step is the last place a
+        # request can be refused while refusal is still free.
+        _assert_first_stage(all_objects[0])
     if not config.dry_run:
         for obj in all_objects:
             _put_immutable(obj)
@@ -394,6 +420,17 @@ def add_manifest_forecast_stage_arguments(
         ),
     )
     parser.add_argument(
+        "--first-stage-only",
+        action="store_true",
+        help=(
+            "Refuse unless this official manifest-run prefix is unstaged, or "
+            "already holds byte-for-byte the freeze this run would write, which "
+            "is a resumed run. Stages freeze.json first so the create-once write "
+            "enforces the same precondition even when the role cannot tell an "
+            "absent object from a forbidden one. Official mode only."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate and print the upload plan without writing to S3.",
@@ -416,6 +453,7 @@ def run_manifest_forecast_stage(args: argparse.Namespace) -> int:
             amendment_bundles=tuple(cast(list[Path], args.amendment_bundle)),
             dry_run=bool(args.dry_run),
             supplementary=bool(args.supplementary),
+            first_stage_only=bool(args.first_stage_only),
         )
     )
     print(json.dumps(result.stage_record, indent=2, sort_keys=True))
@@ -733,13 +771,77 @@ def _put_immutable(obj: _LocalObject) -> None:
     _verify_remote_object(obj)
 
 
+# An S3 HeadObject on a key that is not there answers 404 only for a caller that
+# also holds s3:ListBucket; without it S3 refuses to confirm or deny existence
+# and answers 403 instead. The manifest-staging role deliberately holds no
+# ListBucket (infra/official-eval/policies/manifest-staging-policy.json.tftpl),
+# so both answers have to be read as "no object was returned".
+_ABSENT_HEAD_MARKERS = (
+    "404",
+    "Not Found",
+    "NoSuchKey",
+    "403",
+    "Forbidden",
+    "AccessDenied",
+)
+
+
+def _assert_first_stage(staged_freeze: _LocalObject) -> None:
+    """Refuse a prefix that a *different* staging already occupies.
+
+    This is the ``legalforecastbench-bh6j`` fence.  That defect needs a freeze
+    whose artifact paths already carry the ``artifacts/`` segment staging
+    prepends, and the only way to hold one is to have staged this prefix before,
+    so refusing an occupied prefix removes the defect from the official lane
+    permanently rather than relying on operator path discipline.
+
+    It is deliberately *not* "refuse if freeze.json exists".  Staging drives
+    roughly a thousand serial S3 calls and a timeout part-way through is designed
+    to be recoverable by re-dispatch -- every existing object 412s and is
+    verified, and only the missing ones are created.  A flat refusal would turn
+    one timeout into a permanently half-staged prefix that no role can delete and
+    that only a fresh corpus digest could escape.  So an occupied prefix is
+    accepted when, and only when, the object already there is byte-for-byte the
+    freeze this run is about to write: that is a resumed run.  A freeze fed back
+    through staging hashes differently, because staging rewrote its paths, so the
+    bh6j case lands in the mismatch branch and is refused before any write.
+
+    A blind 403 is proceed-not-refuse, which is safe only because the caller
+    writes ``freeze.json`` first under ``--if-none-match '*'``: an occupied
+    prefix then stops the run on object one, and a credential that cannot see
+    also cannot write.
+    """
+
+    result = _head_object(staged_freeze)
+    if result.returncode == 0:
+        try:
+            _verify_head_record(staged_freeze, result.stdout)
+        except ManifestForecastStageError as exc:
+            raise ManifestForecastStageError(
+                "first-stage staging refuses "
+                f"s3://{staged_freeze.bucket}/{staged_freeze.key}: a different "
+                f"staging already occupies this prefix ({exc}). Manifest-run "
+                "objects are created once and no role can delete them, so this "
+                "prefix cannot be restaged; official re-verification is a "
+                "read-only check, not a staging run"
+            ) from exc
+        return
+    message = result.stderr.strip()
+    if not any(marker in message for marker in _ABSENT_HEAD_MARKERS):
+        raise ManifestForecastStageError(
+            "cannot establish that "
+            f"s3://{staged_freeze.bucket}/{staged_freeze.key} is unstaged: "
+            f"{message}"
+        )
+
+
 def _verify_remote_objects(objects: Sequence[_LocalObject]) -> None:
     for obj in objects:
         _verify_remote_object(obj)
 
 
-def _verify_remote_object(obj: _LocalObject) -> None:
-    result = subprocess.run(
+def _head_object(obj: _LocalObject) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         [
             "aws",
             "s3api",
@@ -755,13 +857,21 @@ def _verify_remote_object(obj: _LocalObject) -> None:
         capture_output=True,
         text=True,
     )
+
+
+def _verify_remote_object(obj: _LocalObject) -> None:
+    result = _head_object(obj)
     if result.returncode != 0:
         raise ManifestForecastStageError(
             "cannot verify staged object "
             f"s3://{obj.bucket}/{obj.key}: {result.stderr.strip()}"
         )
+    _verify_head_record(obj, result.stdout)
+
+
+def _verify_head_record(obj: _LocalObject, payload: str) -> None:
     try:
-        head = json.loads(result.stdout)
+        head = json.loads(payload)
     except json.JSONDecodeError as exc:
         raise ManifestForecastStageError(
             f"S3 head-object returned invalid JSON for {obj.key}"

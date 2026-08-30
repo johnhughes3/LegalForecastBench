@@ -18,6 +18,9 @@ from pathlib import Path
 from typing import cast
 
 from legalforecast.cli_commands import corpus_manifest as _corpus_manifest
+from legalforecast.cli_commands import (
+    manifest_run_source_package as _manifest_run_source_package,
+)
 from legalforecast.cli_commands import stage_a_replay as _stage_a_replay
 from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
@@ -53,6 +56,7 @@ def register_stage_a_replay(
     _stage_a_replay.register(subparsers)
     _stage_a_replay.register_issuance(subparsers)
     _corpus_manifest.register(subparsers)
+    _manifest_run_source_package.register(subparsers)
 
 
 def register(

@@ -16,6 +16,7 @@ RUNTIME_WORKFLOWS = (
     ROOT / ".github" / "actions" / "official-provider-cell" / "action.yml",
     ROOT / ".github" / "workflows" / "fan-in-publish.yaml",
     ROOT / ".github" / "workflows" / "stage-manifest-run.yaml",
+    ROOT / ".github" / "workflows" / "stage-official-manifest-run.yaml",
 )
 
 INFRA_ENVIRONMENT = "legalforecastbench-official-provider-authority-infra"
@@ -85,6 +86,13 @@ STAGING_VARIABLES = {
     "LFB_PACKET_BUCKET",
     "LFB_RESULTS_BUCKET",
 }
+# Staging reaches no provider, and this is not a provider key. It is the age
+# decryption identity for the closed corpus package a FIRST official staging has
+# to carry in: that package holds the un-run evaluation inputs and the final
+# labels, so it travels as ciphertext on a never-published draft release and the
+# runner is the only place it is opened. Nothing else in this environment is a
+# secret, and nothing here reaches a model provider.
+STAGING_SECRETS = {"LFB_STAGE_SOURCE_AGE_IDENTITY"}
 CELL_SECRETS = {
     "AI_GATEWAY_API_KEY",
     "ANTHROPIC_API_KEY",
@@ -214,7 +222,7 @@ def test_manifest_has_exact_secret_and_variable_inventories() -> None:
 
     staging = environments[STAGING_ENVIRONMENT]
     assert staging["authority"] == "manifest_staging"
-    assert staging["secrets"] == []
+    assert set(cast(list[str], staging["secrets"])) == STAGING_SECRETS
     assert set(cast(list[str], staging["variables"])) == STAGING_VARIABLES
 
 
@@ -283,9 +291,9 @@ def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
         CELL_ENVIRONMENT: LOCKED_WORKFLOW_CELL_SECRETS,
         PREPARE_INPUTS_ENVIRONMENT: set(),
         FAN_IN_ENVIRONMENT: set(),
-        # Staging reaches no provider, so its environment holds no secret and
-        # its workflow must never reference one.
-        STAGING_ENVIRONMENT: set(),
+        # Staging reaches no provider, so the one secret its environment holds is
+        # the corpus package's age decryption identity and nothing else.
+        STAGING_ENVIRONMENT: STAGING_SECRETS,
     }
 
     for environment in (

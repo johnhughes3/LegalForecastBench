@@ -1872,6 +1872,47 @@ fan-in with that exact source run and attempt. Existing published reports are
 immutable; a new cycle ID is required when the public contract or expected unit
 set changes.
 
+## Staging A First Official Manifest Run
+
+The route for a **new** official freeze at a **new** corpus manifest digest, dispatched as `stage-official-manifest-run.yaml`. The supplementary lane above stages siblings only, and it rebuilds its corpus bytes from the immutable objects an earlier official staging already wrote — a first official staging is defined by that prefix being empty, so its bytes have to travel instead.
+
+**They do not travel through this repository.** The 13 frozen artifacts and every model packet are un-run evaluation inputs and the final labels; publishing them before the run would destroy the contamination control. They travel as one closed archive, age-encrypted, uploaded as an asset on a never-published **draft** release and pinned at dispatch by exact release id, asset id, name, size, and digest — the same transport the paid-labeling chain already uses for private source. The upload is a GitHub write through the ordinary broker, never an S3 write: the manifest-staging OIDC role remains the only credential that can create an object in the official prefix.
+
+**First stage only.** The lane refuses a prefix that a *different* staging already occupies, which is what permanently fences the `legalforecastbench-bh6j` doubling defect: that defect needs a freeze whose paths already carry the `artifacts/` segment, and the only way to hold one is to have staged this prefix before. It is not a flat refusal — a prefix already holding byte-for-byte the freeze this run would write is a **resumed** run, and re-dispatch after a timeout stays possible exactly as it does in the supplementary lane.
+
+1. Build the package. `--artifact-root` must be the directory that **directly contains** the frozen artifacts; one level too high is refused, because staging prepends its own `artifacts/` segment and a relative path already starting with `artifacts/` is the other way into `bh6j`. The archive is private corpus bytes: keep it outside every publishable root and never commit it.
+
+```bash
+uv run legalforecast acquisition build-manifest-run-source-package \
+  --freeze-bundle <official-freeze-bundle>.freeze.json \
+  --artifact-root <directory containing the frozen artifacts> \
+  --output-dir <manifest-mode output directory> \
+  --package-out <private path>/manifest-run-source-<manifest_digest>.zip
+```
+
+   It prints `package_sha256`, `freeze_bundle_sha256`, `run_inputs_sha256`, and `run_record_sha256`. Those four are what the dispatch pins. `freeze_bundle_sha256` is the **packaged** bundle's digest — the operator's local bundle records absolute machine paths and hashes differently, and staging would refuse those paths outright.
+
+2. Encrypt to the reviewed age recipient and upload the ciphertext to a draft release whose `target_commitish` is the exact `main` commit you will dispatch. Do not publish that release; the workflow requires `draft == true`, and a published release would put the corpus ciphertext on a public download URL permanently.
+
+3. Dispatch with `dry_run=true` first. The run prints the full upload plan and proves, before any object is created, that every key lies inside `cycle-1/manifest-runs/<manifest_digest>/` with no `supplementary` segment and no doubled `artifacts/`. Re-dispatch with `dry_run=false` to write; the same fence re-runs against the record of what was actually written.
+
+```bash
+gh workflow run stage-official-manifest-run.yaml --ref main \
+  -f release_sha="$(git rev-parse origin/main)" \
+  -f manifest_digest=<manifest_sha256 from manifest-mode-run-record.json> \
+  -f source_descriptor_json='{"release_id":<n>,"asset_id":<n>,"asset_name":"manifest-run-source-<manifest_digest>.zip.age","asset_size_bytes":<n>,"asset_digest":"sha256:<hex>"}' \
+  -f freeze_bundle_sha256=<packaged freeze bundle sha256> \
+  -f run_inputs_sha256=<packaged run-inputs.json sha256> \
+  -f run_record_sha256=<packaged manifest-mode-run-record.json sha256> \
+  -f dry_run=true
+```
+
+   The asset name carries the corpus digest, so a descriptor cannot point the dispatch at another corpus's package while the prefix still says this one.
+
+**Prerequisite.** The environment `legalforecastbench-official-eval-manifest-staging` must hold the secret `LFB_STAGE_SOURCE_AGE_IDENTITY`, the age identity matching the recipient step 2 encrypts to. It is a human-approved server-side apply; the machine never receives a write token. No IAM or resource-policy change is needed — the manifest-staging role's existing `s3:PutObject` grant on `cycle-1/manifest-runs/*` already covers the official prefix, and its OIDC trust pins the repository, `refs/heads/main`, and the environment rather than any particular workflow file.
+
+**Take the staged freeze digest from the run, not from the package.** Staging rewrites every relative artifact path, so the `freeze.json` it writes has different bytes from the one it was given. Execution-scope issuance binds that staged digest, reported in the job summary and the `stage-official-manifest-run-*` artifact as `staged freeze raw sha256`; the workflow also reads the object back from S3 and re-checks it before finishing.
+
 ## Staged-Rollout Rehearsal Drill
 
 Provider-free fixtures may exercise the forecast artifact contract and the

@@ -69,7 +69,7 @@
       "name": "legalforecastbench-official-eval-manifest-staging",
       "authority": "manifest_staging",
       "aws_oidc_subject": "repo:johnhughes3/LegalForecastBench:environment:legalforecastbench-official-eval-manifest-staging",
-      "secrets": [],
+      "secrets": ["LFB_STAGE_SOURCE_AGE_IDENTITY"],
       "variables": [
         "LFB_AWS_REGION",
         "LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN",
