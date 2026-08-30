@@ -118,6 +118,35 @@ _SCOPE_FIELDS: Final = frozenset(
         "provider_authority",
     }
 )
+_SUPPLEMENTARY_OWNER_EVIDENCE_FIELDS: Final = frozenset(
+    {
+        "author",
+        "bead_id",
+        "ceiling_usd",
+        "comment_id",
+        "created_at",
+        "estimate_usd",
+        "model_key",
+        "raw_comment",
+        "raw_comment_sha256",
+        "raw_observation_sha256",
+    }
+)
+"""The supplementary card publishes the observation's digest, not its bytes.
+
+``bd comments <bead> --json`` returns *every* comment on the approval bead, so
+the official card's ``raw_observation_base64`` carries unbounded bystander
+content -- empirically local filesystem paths and private addresses, which this
+public repository's hygiene rule bans -- and re-hashes the scope whenever anyone
+comments.  A supplementary scope reaches S3 only through this public repository
+(the operator machine cannot write to the buckets at all), so it must be safe to
+commit.  ``raw_comment`` is retained: it is the owner's own approval sentence,
+bounded by the ``_OWNER_APPROVAL`` fullmatch and already public-safe, and with
+``raw_comment_sha256`` and ``raw_observation_sha256`` anyone holding the original
+capture can still verify the whole chain.  ``raw_observation_base64`` is refused
+by name here, not merely omitted, so the payload cannot be smuggled back in.
+"""
+
 _SUPPLEMENTARY_SCOPE_FIELDS: Final = _SCOPE_FIELDS | {"supplementary_binding"}
 """A supplementary scope is a distinct card, not an official one with a field.
 
@@ -520,6 +549,7 @@ def issue_model_execution_scope(
         projected_cost=projected,
         owner_ceiling=ceiling,
         expected_bead_id=owner_bead_id,
+        supplementary=supplementary,
     )
     authority = _authority_for_scope(
         provider_authority=(None if caps_snapshot is not None else provider_authority),
@@ -714,6 +744,7 @@ def verify_execution_scope(
         projected_cost=projected,
         owner_ceiling=ceiling,
         expected_bead_id=embedded_bead_id,
+        supplementary=expected_supplementary,
     )
     if scope.get("owner_evidence") != evidence:
         raise ExecutionScopeError("scope owner evidence drift")
@@ -836,6 +867,7 @@ def verify_scope_shape(artifact: Mapping[str, Any], *, supplementary: bool) -> N
         model_key=key,
         projected_cost=projected,
         owner_ceiling=ceiling,
+        supplementary=supplementary,
     )
     _validate_provider_authority(
         _mapping(scope.get("provider_authority"), "scope.provider_authority"),
@@ -1135,6 +1167,56 @@ def _verify_cost_receipt(
         raise ExecutionScopeError(str(exc)) from exc
 
 
+def _replay_supplementary_owner_evidence(
+    value: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Re-derive a supplementary owner-evidence record from its own approval line.
+
+    The supplementary card publishes only a digest of the ``bd comments``
+    payload, so a holder of the card alone cannot replay the *selection* that
+    produced the record.  Everything the selected comment determines is still
+    re-derived here -- the approval grammar, the model key, both money amounts,
+    the author, the timestamp, and the comment's own digest -- so a published
+    record cannot disagree with the approval sentence it publishes.  A holder of
+    the captured payload gets the full replay by passing those bytes instead,
+    which the caller compares against this record.
+    """
+
+    record = dict(_mapping(value, "owner_evidence"))
+    _exact_keys(
+        record,
+        set(_SUPPLEMENTARY_OWNER_EVIDENCE_FIELDS),
+        "supplementary owner_evidence",
+    )
+    for field in sorted(_SUPPLEMENTARY_OWNER_EVIDENCE_FIELDS):
+        _text(record.get(field), f"owner_evidence.{field}")
+    _sha(record.get("raw_observation_sha256"), "owner_evidence.raw_observation_sha256")
+    comment_text = cast(str, record["raw_comment"])
+    if _sha256_bytes(comment_text.encode("utf-8")) != _sha(
+        record.get("raw_comment_sha256"), "owner_evidence.raw_comment_sha256"
+    ):
+        raise ExecutionScopeError("owner approval comment bytes drift")
+    if record["author"] != "John Hughes":
+        raise ExecutionScopeError("owner approval comment is not owner-authored")
+    _owner_timestamp(cast(str, record["created_at"]))
+    match = _OWNER_APPROVAL.fullmatch(comment_text)
+    if match is None:
+        raise ExecutionScopeError(
+            "owner_evidence.raw_comment is not an exact model-scoped approval"
+        )
+    ceiling = _owner_money(match.group("ceiling"), "owner approval ceiling")
+    estimate = _owner_money(match.group("estimate"), "owner approval estimate")
+    if estimate > ceiling:
+        raise ExecutionScopeError("owner Beads approval estimate exceeds ceiling")
+    if record["model_key"] != match.group("model"):
+        raise ExecutionScopeError("owner approval model does not match its approval")
+    if record["ceiling_usd"] != _format_money(ceiling):
+        raise ExecutionScopeError("owner approval ceiling does not match its approval")
+    if record["estimate_usd"] != _format_money(estimate):
+        raise ExecutionScopeError("owner approval estimate does not match its approval")
+    return record
+
+
 def _owner_evidence(
     value: Path | Mapping[str, Any] | bytes,
     *,
@@ -1142,12 +1224,21 @@ def _owner_evidence(
     projected_cost: Decimal,
     owner_ceiling: Decimal,
     expected_bead_id: str | None = None,
+    supplementary: bool = False,
 ) -> dict[str, Any]:
+    """Authenticate owner evidence for one lane.
+
+    ``supplementary`` defaults to official, so the official card -- whose bytes
+    are live mid-cycle -- reaches exactly the code it reached before.
+    """
+
     if isinstance(value, Path):
         raw = _read_bytes(value, "owner Beads evidence")
-        record = _parse_owner_observation(raw)
+        record = _parse_owner_observation(raw, supplementary=supplementary)
     elif isinstance(value, bytes):
-        record = _parse_owner_observation(value)
+        record = _parse_owner_observation(value, supplementary=supplementary)
+    elif supplementary:
+        record = _replay_supplementary_owner_evidence(value)
     else:
         record = dict(_mapping(value, "owner_evidence"))
         encoded = _text(
@@ -1185,8 +1276,14 @@ def _owner_evidence(
     return {key: record[key] for key in sorted(record)}
 
 
-def _parse_owner_observation(payload: bytes) -> dict[str, Any]:
-    """Replay an exact raw ``bd comments <bead> --json`` observation."""
+def _parse_owner_observation(
+    payload: bytes, *, supplementary: bool = False
+) -> dict[str, Any]:
+    """Replay an exact raw ``bd comments <bead> --json`` observation.
+
+    ``supplementary`` selects the supplementary card's owner-evidence field set,
+    which records the observation's digest instead of the observation itself.
+    """
 
     try:
         loaded: object = json.loads(payload.decode("utf-8"))
@@ -1230,11 +1327,12 @@ def _parse_owner_observation(payload: bytes) -> dict[str, Any]:
         "raw_comment": comment_text,
         "raw_comment_sha256": _sha256_bytes(comment_text.encode("utf-8")),
         "raw_observation_sha256": _sha256_bytes(payload),
-        "raw_observation_base64": base64.b64encode(payload).decode("ascii"),
         "model_key": selected["model_key"],
         "ceiling_usd": selected["ceiling_usd"],
         "estimate_usd": selected["estimate_usd"],
     }
+    if not supplementary:
+        evidence["raw_observation_base64"] = base64.b64encode(payload).decode("ascii")
     return {key: evidence[key] for key in sorted(evidence)}
 
 

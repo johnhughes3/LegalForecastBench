@@ -18,11 +18,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, Final, cast
 
 import pytest
 from legalforecast.contracts.schemas import (
@@ -61,6 +62,7 @@ from legalforecast.protocol.freeze import (
     load_freeze_bundle,
     write_hash_bundle,
 )
+from legalforecast.protocol.manifest import hash_payload
 from legalforecast.reporting.result_class import (
     ResultClass,
     classify_registry_entry,
@@ -869,8 +871,6 @@ def test_official_and_supplementary_receipts_are_distinct_cards(
     assert "schema_version" not in {"receipt_sha256"}
     swapped = dict(supplementary)
     swapped["schema_version"] = official["schema_version"]
-    from legalforecast.protocol.manifest import hash_payload
-
     without_hash = {
         key: value for key, value in swapped.items() if key != "receipt_sha256"
     }
@@ -880,7 +880,27 @@ def test_official_and_supplementary_receipts_are_distinct_cards(
 # --- Execution scope: mode is bound into the artifact ---------------------
 
 
-def _owner_observation(model_key: str, *, ceiling: str, estimate: str) -> bytes:
+OBSERVATION_CHATTER: Final = (
+    "Working root /work/example/private/lane-notes; broker listening on "
+    "127.0.0.1:8080. Not an approval line."
+)
+"""Bystander content of the kind a real approval bead accumulates.
+
+``bd comments <bead> --json`` returns *every* comment on the bead, and the real
+approval bead's payload already carries a local filesystem path and a private
+address -- categories this public repository's hygiene rule bans.  The fixture
+carries the same shapes so the public-safety assertion below is a behavior test
+against the actual exposure, not a shape test against a sanitized fixture.
+"""
+
+
+def _owner_observation(
+    model_key: str,
+    *,
+    ceiling: str,
+    estimate: str,
+    chatter: str = OBSERVATION_CHATTER,
+) -> bytes:
     return json.dumps(
         [
             {
@@ -893,9 +913,29 @@ def _owner_observation(model_key: str, *, ceiling: str, estimate: str) -> bytes:
                     f"{model_key} in the Cycle 1 forecast run, estimated USD "
                     f"{estimate}."
                 ),
-            }
+            },
+            {
+                "author": "John Hughes",
+                "created_at": "2026-08-29T13:00:00+00:00",
+                "id": "comment-2",
+                "issue_id": "legalforecastbench-fixture",
+                "text": chatter,
+            },
         ]
     ).encode()
+
+
+def _scope_ceiling(receipt: Mapping[str, Any]) -> str:
+    return f"{float(cast(str, receipt['projected_model_cost_usd'])) * 2:.2f}"
+
+
+def _scope_observation(receipt: Mapping[str, Any]) -> bytes:
+    """The exact capture bytes ``_scope`` issues against, recomputed."""
+
+    ceiling = _scope_ceiling(receipt)
+    return _owner_observation(
+        SUPPLEMENTARY_MODEL_KEY, ceiling=ceiling, estimate=ceiling
+    )
 
 
 def _scope(
@@ -921,17 +961,14 @@ def _scope(
         },
     )
     projected = float(cast(str, receipt["projected_model_cost_usd"]))
-    ceiling = f"{projected * 2:.2f}"
-    observation = _owner_observation(
-        SUPPLEMENTARY_MODEL_KEY, ceiling=ceiling, estimate=ceiling
-    )
+    ceiling = _scope_ceiling(receipt)
+    observation = _scope_observation(receipt)
     monkeypatch.setattr(
         "legalforecast.evals.corpus_manifest.execution_decisions.capture_beads_comments",
-        lambda _bead: {
-            "raw_observation_base64": base64.b64encode(observation).decode("ascii"),
-            "raw_observation_sha256": hashlib.sha256(observation).hexdigest(),
-            **_parsed(observation),
-        },
+        # The real capture returns the exact ``bd comments`` stdout bytes, so the
+        # seam returns bytes too: the issuer must derive owner evidence from the
+        # payload rather than be handed a caller-authored record.
+        lambda _bead: observation,
     )
     authority = {
         "backend": "dynamodb",
@@ -960,6 +997,205 @@ def _parsed(observation: bytes) -> dict[str, Any]:
     )
 
     return dict(_parse_owner_observation(observation))
+
+
+SUPPLEMENTARY_OWNER_EVIDENCE_FIELDS: Final = [
+    "author",
+    "bead_id",
+    "ceiling_usd",
+    "comment_id",
+    "created_at",
+    "estimate_usd",
+    "model_key",
+    "raw_comment",
+    "raw_comment_sha256",
+    "raw_observation_sha256",
+]
+
+
+def test_supplementary_scope_publishes_the_observation_digest_not_the_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A supplementary scope must be safe to commit to this public repository.
+
+    The operator machine cannot write to the results buckets at all, so an
+    operator-produced supplementary scope reaches S3 only through this public
+    repository -- as a commit, or as a workflow input echoed into public run
+    logs.  The official card embeds the whole ``bd comments`` payload; the
+    supplementary card publishes only its digest, so bystander comment bytes
+    never leave the operator's machine and the scope's authenticated bytes stop
+    moving whenever somebody comments on the approval bead.
+    """
+
+    chain = _chain(tmp_path, monkeypatch)
+    scope, plan, receipt = _scope(chain, tmp_path, monkeypatch)
+    observation = _scope_observation(receipt)
+    evidence = cast(
+        dict[str, Any], cast(dict[str, Any], scope["scope"])["owner_evidence"]
+    )
+
+    assert sorted(evidence) == SUPPLEMENTARY_OWNER_EVIDENCE_FIELDS
+    assert evidence["raw_observation_sha256"] == hashlib.sha256(observation).hexdigest()
+    assert evidence["raw_comment_sha256"] == (
+        hashlib.sha256(cast(str, evidence["raw_comment"]).encode()).hexdigest()
+    )
+
+    # The published artifact bytes, not just the record: nothing from a
+    # bystander comment survives anywhere in the card.
+    published = json.dumps(scope, sort_keys=True)
+    assert OBSERVATION_CHATTER not in published
+    assert "/work/example/private/lane-notes" not in published
+    assert "127.0.0.1" not in published
+    assert base64.b64encode(observation).decode("ascii") not in published
+
+    # Still a complete, verifiable card in both the embedded-only and the
+    # payload-bearing direction.
+    verify_execution_scope(
+        scope,
+        common_plan=plan,
+        model_registry=chain.supplementary_registry,
+        cost_projection=receipt,
+        run_input_manifest=chain.run_inputs,
+        provider_authority=cast(dict[str, Any], scope["scope"])["provider_authority"],
+        expected_model_key=SUPPLEMENTARY_MODEL_KEY,
+        expected_supplementary=True,
+    )
+    verify_execution_scope(
+        scope,
+        common_plan=plan,
+        model_registry=chain.supplementary_registry,
+        cost_projection=receipt,
+        run_input_manifest=chain.run_inputs,
+        owner_evidence=observation,
+        provider_authority=cast(dict[str, Any], scope["scope"])["provider_authority"],
+        expected_model_key=SUPPLEMENTARY_MODEL_KEY,
+        expected_supplementary=True,
+    )
+
+
+def test_supplementary_scope_refuses_an_embedded_observation_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``raw_observation_base64`` is not a field of the supplementary card.
+
+    Refusal is by name rather than by silent tolerance, so a scope smuggling the
+    payload back in -- by hand, or by an issuer regression -- cannot reach a
+    dispatch and cannot be published from this repository.
+    """
+
+    chain = _chain(tmp_path, monkeypatch)
+    scope, plan, receipt = _scope(chain, tmp_path, monkeypatch)
+    observation = _scope_observation(receipt)
+    smuggled = json.loads(json.dumps(scope))
+    smuggled["scope"]["owner_evidence"]["raw_observation_base64"] = base64.b64encode(
+        observation
+    ).decode("ascii")
+    smuggled["scope_sha256"] = hash_payload(smuggled["scope"])
+
+    with pytest.raises(
+        ExecutionScopeError, match=r"unknown=\['raw_observation_base64'\]"
+    ):
+        verify_execution_scope(
+            smuggled,
+            common_plan=plan,
+            model_registry=chain.supplementary_registry,
+            cost_projection=receipt,
+            run_input_manifest=chain.run_inputs,
+            provider_authority=cast(dict[str, Any], scope["scope"])[
+                "provider_authority"
+            ],
+            expected_model_key=SUPPLEMENTARY_MODEL_KEY,
+            expected_supplementary=True,
+        )
+
+    # The pre-credential shape check refuses it too, so a smuggling scope cannot
+    # reach the write-once shard receipt either.
+    with pytest.raises(
+        ExecutionScopeError, match=r"unknown=\['raw_observation_base64'\]"
+    ):
+        verify_execution_scope_runtime(
+            smuggled,
+            common_plan=plan,
+            model_registry=load_model_registry(chain.supplementary_registry),
+            model_registry_sha256=hashlib.sha256(
+                chain.supplementary_registry.read_bytes()
+            ).hexdigest(),
+            expected_model_key=SUPPLEMENTARY_MODEL_KEY,
+            expected_ablation="full_packet",
+            expected_supplementary=True,
+        )
+
+
+def test_supplementary_scope_refuses_owner_evidence_that_drifts_from_the_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dropping the payload must not drop a check; each one has a replacement.
+
+    Whoever holds the captured payload verifies it against the published digest
+    (first case).  Whoever holds only the card re-derives every field the
+    approval line determines, so a record cannot disagree with its own approval
+    sentence (second and third cases).
+    """
+
+    chain = _chain(tmp_path, monkeypatch)
+    scope, plan, receipt = _scope(chain, tmp_path, monkeypatch)
+    authority = cast(dict[str, Any], scope["scope"])["provider_authority"]
+    ceiling = _scope_ceiling(receipt)
+    # Same approval sentence, one more bystander comment.  Everything the card
+    # re-derives is unchanged, so only the observation digest can catch it --
+    # which is exactly the check the payload used to provide.
+    other_payload = _owner_observation(
+        SUPPLEMENTARY_MODEL_KEY,
+        ceiling=ceiling,
+        estimate=ceiling,
+        chatter=OBSERVATION_CHATTER + " Follow-up.",
+    )
+
+    with pytest.raises(ExecutionScopeError, match="scope owner evidence drift"):
+        verify_execution_scope(
+            scope,
+            common_plan=plan,
+            model_registry=chain.supplementary_registry,
+            cost_projection=receipt,
+            run_input_manifest=chain.run_inputs,
+            owner_evidence=other_payload,
+            provider_authority=authority,
+            expected_model_key=SUPPLEMENTARY_MODEL_KEY,
+            expected_supplementary=True,
+        )
+
+    tampered_money = json.loads(json.dumps(scope))
+    tampered_money["scope"]["owner_evidence"]["ceiling_usd"] = "999.00"
+    tampered_money["scope"]["owner_ceiling_usd"] = "999.00"
+    tampered_money["scope_sha256"] = hash_payload(tampered_money["scope"])
+    with pytest.raises(
+        ExecutionScopeError, match="owner approval ceiling does not match its approval"
+    ):
+        verify_execution_scope(
+            tampered_money,
+            common_plan=plan,
+            model_registry=chain.supplementary_registry,
+            cost_projection=receipt,
+            run_input_manifest=chain.run_inputs,
+            provider_authority=authority,
+            expected_model_key=SUPPLEMENTARY_MODEL_KEY,
+            expected_supplementary=True,
+        )
+
+    tampered_comment = json.loads(json.dumps(scope))
+    tampered_comment["scope"]["owner_evidence"]["raw_comment_sha256"] = "e" * 64
+    tampered_comment["scope_sha256"] = hash_payload(tampered_comment["scope"])
+    with pytest.raises(ExecutionScopeError, match="owner approval comment bytes drift"):
+        verify_execution_scope(
+            tampered_comment,
+            common_plan=plan,
+            model_registry=chain.supplementary_registry,
+            cost_projection=receipt,
+            run_input_manifest=chain.run_inputs,
+            provider_authority=authority,
+            expected_model_key=SUPPLEMENTARY_MODEL_KEY,
+            expected_supplementary=True,
+        )
 
 
 def test_supplementary_scope_records_the_binding_and_verifies(
@@ -1051,8 +1287,6 @@ def test_official_scope_cannot_authorize_a_supplementary_shard(
             if key != "supplementary_binding"
         },
     }
-    from legalforecast.protocol.manifest import hash_payload
-
     official_shape["scope_sha256"] = hash_payload(official_shape["scope"])
     registry = load_model_registry(chain.supplementary_registry)
 
