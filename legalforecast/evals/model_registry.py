@@ -319,10 +319,16 @@ class ModelRegistry:
     """Validated collection of frozen model registry entries."""
 
     entries: tuple[ModelRegistryEntry, ...]
+    source_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if not self.entries:
             raise ValueError("model registry must contain at least one entry")
+        if self.source_sha256 is not None and (
+            len(self.source_sha256) != 64
+            or any(char not in "0123456789abcdef" for char in self.source_sha256)
+        ):
+            raise ValueError("model registry source_sha256 must be lowercase SHA-256")
         seen: set[str] = set()
         duplicates: set[str] = set()
         for entry in self.entries:
@@ -343,8 +349,16 @@ class ModelRegistry:
         return [entry.to_record() for entry in self.entries]
 
     @classmethod
-    def from_records(cls, records: Sequence[Mapping[str, Any]]) -> ModelRegistry:
-        return cls(tuple(ModelRegistryEntry.from_record(record) for record in records))
+    def from_records(
+        cls,
+        records: Sequence[Mapping[str, Any]],
+        *,
+        source_sha256: str | None = None,
+    ) -> ModelRegistry:
+        return cls(
+            tuple(ModelRegistryEntry.from_record(record) for record in records),
+            source_sha256=source_sha256,
+        )
 
 
 def model_registry_entry_sha256(entry: ModelRegistryEntry) -> str:
@@ -356,6 +370,12 @@ def model_registry_entry_sha256(entry: ModelRegistryEntry) -> str:
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def model_registry_sha256(payload: bytes) -> str:
+    """Return the raw SHA-256 identity of one frozen registry byte snapshot."""
+
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -421,7 +441,10 @@ def load_model_registry_bytes(payload: bytes) -> ModelRegistry:
     raw_records: object = json.loads(payload.decode("utf-8"))
     if not isinstance(raw_records, list):
         raise ValueError("model registry file must contain a JSON array")
-    return ModelRegistry.from_records(_mapping_records(cast(list[object], raw_records)))
+    return ModelRegistry.from_records(
+        _mapping_records(cast(list[object], raw_records)),
+        source_sha256=model_registry_sha256(payload),
+    )
 
 
 def dump_model_registry(registry: ModelRegistry, path: str | Path) -> None:

@@ -130,6 +130,28 @@ def register(
         ),
     )
     execute.add_argument(
+        "--unit-id",
+        help=(
+            "Execute exactly this manifest-declared prediction unit.  Use with "
+            "--repeat-index or the default repeat 1 for one matrix cell."
+        ),
+    )
+    execute.add_argument(
+        "--repeat-index",
+        type=int,
+        help=(
+            "Execute exactly this repeat index (1-based) for --unit-id; the "
+            "value must not exceed --repeat-count."
+        ),
+    )
+    execute.add_argument(
+        "--cell-id",
+        help=(
+            "Execute exactly the manifest-authorized cell ID.  The runner "
+            "derives the ID from its frozen run identity and refuses a mismatch."
+        ),
+    )
+    execute.add_argument(
         "--dry-run",
         action="store_true",
         help=(
@@ -181,6 +203,9 @@ def run_execute(args: argparse.Namespace) -> int:
         repeat_count=cast(int, args.repeat_count),
         account=cast(str, args.account),
         manifest_path=cast(Path | None, args.manifest),
+        unit_id=cast(str | None, args.unit_id),
+        repeat_index=cast(int | None, args.repeat_index),
+        cell_id=cast(str | None, args.cell_id),
     )
     summary = execute_release_run(
         config,

@@ -30,6 +30,7 @@ from legalforecast.evals.model_registry import (
     earliest_eligible_decision_date,
     load_model_registry_bytes,
     model_registry_entry_sha256,
+    model_registry_sha256,
     require_official_registry_entries,
 )
 from legalforecast.evals.output_parser import parse_model_output, public_parser_record
@@ -81,6 +82,9 @@ class RunConfig:
     repeat_count: int = 1
     account: str = "default"
     manifest_path: Path | None = None
+    unit_id: str | None = None
+    repeat_index: int | None = None
+    cell_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,12 +197,7 @@ def execute_release_run(
         config.model_registry_path,
         label="model registry",
     )
-    registry_sha256 = str(
-        RAW_BYTES_RAW_SHA256_V1.commit(
-            registry_bytes,
-            domain=PUBLIC_RUN_IDENTITY_V1,
-        ).digest
-    )
+    registry_sha256 = model_registry_sha256(registry_bytes)
     registry = load_model_registry_bytes(registry_bytes)
     try:
         entry = registry.get(provider, model_id)
@@ -227,6 +226,7 @@ def execute_release_run(
         "model_registry_entry_sha256": entry_sha256,
         "model_registry_sha256": registry_sha256,
         "repeat_count": config.repeat_count,
+        "served_model_version": entry.model_version_or_snapshot,
     }
     if not manifest_mode:
         identity["approval_reference"] = approval_reference
@@ -245,6 +245,40 @@ def execute_release_run(
         ).digest
     )
     config.receipts_dir.mkdir(parents=True, exist_ok=True)
+
+    units = tuple(execution.release.prediction_units)
+    selected_units = _select_units(units, unit_id=config.unit_id)
+    repeat_indices = _select_repeats(
+        repeat_count=config.repeat_count,
+        repeat_index=config.repeat_index,
+    )
+    if (
+        config.cell_id is not None
+        and config.unit_id is None
+        and config.repeat_index is None
+    ):
+        selected_cell = _select_cell(
+            units,
+            repeat_count=config.repeat_count,
+            identity_sha256=identity_sha256,
+            cell_id=config.cell_id,
+        )
+        selected_units = (selected_cell[0],)
+        repeat_indices = (selected_cell[1],)
+    selected_cells = {
+        _cell_id(
+            identity_sha256=identity_sha256,
+            unit=unit,
+            repeat_index=repeat_index,
+        )
+        for unit in selected_units
+        for repeat_index in repeat_indices
+    }
+    if config.cell_id is not None:
+        if len(selected_cells) != 1 or config.cell_id not in selected_cells:
+            raise RunValidationError(
+                "cell_id must identify the selected manifest unit and repeat"
+            )
 
     reservation_microusd = conservative_reservation_microusd(
         context_limit=entry.context_limit,
@@ -292,8 +326,8 @@ def execute_release_run(
             cap_microusd=config.ceiling_microusd,
             policy=policy,
         ) as authority:
-            for unit in execution.release.prediction_units:
-                for repeat_index in range(1, config.repeat_count + 1):
+            for unit in selected_units:
+                for repeat_index in repeat_indices:
                     _require_unchanged_registry(
                         config.model_registry_path,
                         registry_sha256,
@@ -310,6 +344,10 @@ def execute_release_run(
                         unit=unit,
                         repeat_index=repeat_index,
                     )
+                    if config.cell_id is not None and cell_id != config.cell_id:
+                        raise RunValidationError(
+                            "cell_id does not match the selected manifest cell"
+                        )
                     key = ProviderSpendKey(
                         cycle_id=execution.release.release_id,
                         provider=entry.provider,
@@ -813,6 +851,70 @@ def _cell_id(
             domain=PUBLIC_RUN_RECEIPT_V1,
         ).digest
     )
+
+
+def _select_units(
+    units: tuple[ForecastPredictionUnit, ...],
+    *,
+    unit_id: str | None,
+) -> tuple[ForecastPredictionUnit, ...]:
+    """Select one manifest-declared unit for a matrix worker, if requested."""
+
+    if unit_id is None:
+        return units
+    if not unit_id.strip():
+        raise RunValidationError("unit_id must not be empty")
+    selected = tuple(unit for unit in units if unit.unit_id == unit_id)
+    if not selected:
+        raise RunValidationError(
+            f"unit_id is not declared by the forecast release: {unit_id}"
+        )
+    return selected
+
+
+def _select_repeats(
+    *,
+    repeat_count: int,
+    repeat_index: int | None,
+) -> tuple[int, ...]:
+    """Select one repeat for a matrix worker, while preserving run identity."""
+
+    if repeat_index is None:
+        return tuple(range(1, repeat_count + 1))
+    if (
+        isinstance(repeat_index, bool)
+        or repeat_index < 1
+        or repeat_index > repeat_count
+    ):
+        raise RunValidationError("repeat_index must be between 1 and repeat_count")
+    return (repeat_index,)
+
+
+def _select_cell(
+    units: tuple[ForecastPredictionUnit, ...],
+    *,
+    repeat_count: int,
+    identity_sha256: str,
+    cell_id: str,
+) -> tuple[ForecastPredictionUnit, int]:
+    """Resolve one supplied cell ID to its manifest unit and repeat."""
+
+    matches = [
+        (unit, repeat_index)
+        for unit in units
+        for repeat_index in range(1, repeat_count + 1)
+        if _cell_id(
+            identity_sha256=identity_sha256,
+            unit=unit,
+            repeat_index=repeat_index,
+        )
+        == cell_id
+    ]
+    if len(matches) != 1:
+        raise RunValidationError(
+            "cell_id does not identify exactly one manifest-authorized cell"
+        )
+    return matches[0]
 
 
 def _require_unchanged_registry(path: Path, expected_sha256: str) -> None:

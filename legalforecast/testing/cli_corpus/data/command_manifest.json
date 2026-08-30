@@ -2871,6 +2871,60 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "expected_run_identity_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-run-identity-sha256",
+            "--expected-run-identity"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "model_registry",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model-registry"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_model_registry_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-model-registry-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "ledger",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--ledger",
+            "--run-ledger"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "output",
           "metavar": null,
           "nargs": null,
@@ -3118,6 +3172,60 @@
           "nargs": null,
           "option_strings": [
             "--model-registry"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "frozen_model_registry",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--frozen-model-registry"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_run_identity_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-run-identity-sha256",
+            "--expected-run-identity"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "expected_model_registry_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--expected-model-registry-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "ledger",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--ledger",
+            "--run-ledger"
           ],
           "required": false,
           "type": "pathlib.Path"
@@ -3655,6 +3763,45 @@
           "nargs": null,
           "option_strings": [
             "--account"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "unit_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--unit-id"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repeat_index",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repeat-index"
+          ],
+          "required": false,
+          "type": "int"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "cell_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--cell-id"
           ],
           "required": false,
           "type": null

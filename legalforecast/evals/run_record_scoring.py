@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from legalforecast.contracts import ARTIFACT_RAW_SHA256_V1, PUBLIC_RUN_RECEIPT_V1
+from legalforecast.evals.model_registry import (
+    ModelRegistry,
+    model_registry_entry_sha256,
+    require_official_registry_entries,
+)
 from legalforecast.evals.output_parser import (
     ParsedModelOutput,
     ParsedPrediction,
@@ -50,6 +55,8 @@ def score_run_records_against_labels_release(
     forecast_release: ForecastRelease | None = None,
     manifest: BenchmarkRunManifest | None = None,
     expected_run_identity_sha256: str | None = None,
+    model_registry: ModelRegistry | None = None,
+    expected_model_registry_sha256: str | None = None,
 ) -> tuple[ScoreSummary, ...]:
     """Score run records using only the validated public labels release.
 
@@ -64,6 +71,11 @@ def score_run_records_against_labels_release(
             "forecast_release and manifest must be supplied together for strict scoring"
         )
     if forecast_release is not None and manifest is not None:
+        _require_locked_provenance_inputs(
+            expected_run_identity_sha256=expected_run_identity_sha256,
+            model_registry=model_registry,
+            expected_model_registry_sha256=expected_model_registry_sha256,
+        )
         validate_manifest_against_forecast(manifest, forecast_release)
         return _score_locked_run_records(
             run_records,
@@ -72,6 +84,8 @@ def score_run_records_against_labels_release(
             base_rate=base_rate,
             include_ablation_in_model_id=include_ablation_in_model_id,
             expected_run_identity_sha256=expected_run_identity_sha256,
+            model_registry=model_registry,
+            expected_model_registry_sha256=expected_model_registry_sha256,
         )
 
     labels: tuple[ScoreLabel, ...] = tuple(
@@ -94,6 +108,8 @@ def _score_locked_run_records(
     base_rate: float | None,
     include_ablation_in_model_id: bool,
     expected_run_identity_sha256: str | None,
+    model_registry: ModelRegistry | None,
+    expected_model_registry_sha256: str | None,
 ) -> tuple[ScoreSummary, ...]:
     """Score only a complete, identity-consistent locked forecast run."""
 
@@ -149,6 +165,8 @@ def _score_locked_run_records(
             forecast_release=forecast_release,
             unit=unit,
             expected_run_identity_sha256=expected_run_identity_sha256,
+            model_registry=model_registry,
+            expected_model_registry_sha256=expected_model_registry_sha256,
         )
         parsed = _record_parsed_output(record, required_unit_ids)
         model_key = _required_str(record, "model_key")
@@ -251,9 +269,19 @@ def _validate_locked_receipt_identity(
     forecast_release: ForecastRelease,
     unit: ForecastPredictionUnit,
     expected_run_identity_sha256: str | None,
+    model_registry: ModelRegistry | None,
+    expected_model_registry_sha256: str | None,
 ) -> None:
     """Validate receipt identity before any parser output reaches scoring."""
 
+    if expected_run_identity_sha256 is None:
+        raise ValueError("locked scoring requires the expected run identity")
+    if model_registry is None:
+        raise ValueError("locked scoring requires the frozen model registry")
+    if expected_model_registry_sha256 is None:
+        raise ValueError("locked scoring requires the expected model registry")
+    if model_registry.source_sha256 != expected_model_registry_sha256:
+        raise ValueError("frozen model registry bytes differ from expected registry")
     if _required_str(record, "schema_version") != str(PUBLIC_RUN_RECEIPT_V1):
         raise ValueError("run receipt schema differs from public receipt contract")
     if _required_str(record, "release_id") != forecast_release.release_id:
@@ -263,10 +291,33 @@ def _validate_locked_receipt_identity(
     ):
         raise ValueError("run receipt forecast release digest differs")
     run_identity = _required_sha256(record, "run_identity_sha256")
-    if expected_run_identity_sha256 is not None and run_identity != (
-        expected_run_identity_sha256
-    ):
+    if run_identity != expected_run_identity_sha256:
         raise ValueError("run receipt run identity differs from expected run")
+    registry_sha256 = _required_sha256(record, "model_registry_sha256")
+    if registry_sha256 != expected_model_registry_sha256:
+        raise ValueError("run receipt model registry differs from frozen registry")
+    model_key = _required_str(record, "model_key")
+    provider, separator, model_id = model_key.partition(":")
+    if not separator or not provider or not model_id:
+        raise ValueError("run receipt model_key must be provider:model_id")
+    try:
+        entry = model_registry.get(provider, model_id)
+    except KeyError as exc:
+        raise ValueError(
+            f"run receipt model_key is absent from frozen registry: {model_key}"
+        ) from exc
+    try:
+        require_official_registry_entries((entry,))
+    except ValueError as exc:
+        raise ValueError(f"frozen model registry entry is not official: {exc}") from exc
+    if _required_sha256(record, "model_registry_entry_sha256") != (
+        model_registry_entry_sha256(entry)
+    ):
+        raise ValueError(
+            "run receipt model registry entry differs from frozen registry"
+        )
+    if _required_str(record, "served_model_version") != entry.model_version_or_snapshot:
+        raise ValueError("run receipt served model differs from frozen registry")
     repeat_index = record.get("repeat_index")
     if type(repeat_index) is not int or repeat_index != 1:
         raise ValueError("run receipt repeat_index must be exactly 1")
@@ -297,6 +348,32 @@ def _required_sha256(record: Mapping[str, Any], field_name: str) -> str:
     if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
         raise ValueError(f"{field_name} must be a lowercase SHA-256")
     return value
+
+
+def _require_locked_provenance_inputs(
+    *,
+    expected_run_identity_sha256: str | None,
+    model_registry: ModelRegistry | None,
+    expected_model_registry_sha256: str | None,
+) -> None:
+    """Reject self-consistent receipt sets without frozen authority inputs."""
+
+    if expected_run_identity_sha256 is None:
+        raise ValueError("locked scoring requires the expected run identity")
+    _validate_sha256_value(expected_run_identity_sha256, "expected run identity")
+    if model_registry is None or expected_model_registry_sha256 is None:
+        raise ValueError("locked scoring requires the frozen model registry")
+    _validate_sha256_value(
+        expected_model_registry_sha256,
+        "expected model registry",
+    )
+    if model_registry.source_sha256 != expected_model_registry_sha256:
+        raise ValueError("frozen model registry bytes differ from expected registry")
+
+
+def _validate_sha256_value(value: str, label: str) -> None:
+    if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+        raise ValueError(f"{label} must be a lowercase SHA-256")
 
 
 def _merge_parsed_outputs(

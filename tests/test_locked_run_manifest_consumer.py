@@ -9,6 +9,11 @@ from uuid import UUID
 import pytest
 from legalforecast.cli import main
 from legalforecast.contracts import ARTIFACT_RAW_SHA256_V1, PUBLIC_RUN_RECEIPT_V1
+from legalforecast.evals.model_registry import (
+    load_model_registry,
+    model_registry_entry_sha256,
+    model_registry_sha256,
+)
 from legalforecast.evals.output_parser import parse_model_output, public_parser_record
 from legalforecast.evals.run_record_scoring import (
     score_run_records_against_labels_release,
@@ -114,8 +119,9 @@ def test_score_cli_consumes_labels_release_without_label_records(
 ) -> None:
     release_dir = tmp_path / "release"
     issued = issue_synthetic_release(release_dir)
+    registry_path = _write_registry(tmp_path)
     runs_path = tmp_path / "runs.jsonl"
-    records = _strict_receipts(issued)
+    records = _strict_receipts(issued, registry_path)
     runs_path.write_text(
         "".join(json.dumps(record) + "\n" for record in records),
         encoding="utf-8",
@@ -125,7 +131,6 @@ def test_score_cli_consumes_labels_release_without_label_records(
     manifest_path.write_bytes(
         serialize_run_manifest(_manifest("case-001", "case-002", "case-003"))
     )
-
     assert (
         main(
             [
@@ -140,6 +145,12 @@ def test_score_cli_consumes_labels_release_without_label_records(
                 str(release_dir),
                 "--manifest",
                 str(manifest_path),
+                "--expected-run-identity-sha256",
+                "c" * 64,
+                "--model-registry",
+                str(registry_path),
+                "--expected-model-registry-sha256",
+                model_registry_sha256(registry_path.read_bytes()),
                 "--output",
                 str(output_path),
             ]
@@ -148,7 +159,7 @@ def test_score_cli_consumes_labels_release_without_label_records(
     )
     score = json.loads(output_path.read_text(encoding="utf-8"))
     assert score["summaries"][0]["unit_count"] == 2
-    assert score["summaries"][0]["model_id"] == "fixture-model"
+    assert score["summaries"][0]["model_id"] == "openai:legalforecast-fixture"
     assert issued.labels.unit_count == 2
 
 
@@ -238,8 +249,15 @@ def test_manifest_binding_rejects_forecast_release_identity_drift(
         )
 
 
-def _strict_receipts(issued: IssuedRelease) -> list[dict[str, object]]:
+def _strict_receipts(
+    issued: IssuedRelease,
+    registry_path: Path,
+) -> list[dict[str, object]]:
     release = issued.forecast
+    registry = load_model_registry(registry_path)
+    entry = registry.entries[0]
+    registry_sha256 = model_registry_sha256(registry_path.read_bytes())
+    entry_sha256 = model_registry_entry_sha256(entry)
     records: list[dict[str, object]] = []
     for unit in release.prediction_units:
         run_identity = "c" * 64
@@ -278,16 +296,16 @@ def _strict_receipts(issued: IssuedRelease) -> list[dict[str, object]]:
                 "case_id": unit.case_id,
                 "unit_id": unit.unit_id,
                 "required_unit_ids": [unit.unit_id],
-                "model_key": "fixture-model",
-                "model_id": "fixture-model",
+                "model_key": entry.registry_key,
+                "model_id": entry.registry_key,
                 "harness": "native",
                 "ablation": "none",
                 "repeat_index": 1,
-                "model_registry_sha256": "d" * 64,
-                "model_registry_entry_sha256": "e" * 64,
+                "model_registry_sha256": registry_sha256,
+                "model_registry_entry_sha256": entry_sha256,
                 "prompt_sha256": unit.prompt_sha256,
                 "request_body_sha256": "f" * 64,
-                "served_model_version": "fixture-model-v1",
+                "served_model_version": entry.model_version_or_snapshot,
                 "parser_output": public_parser_record(parsed),
             }
         )
@@ -299,11 +317,17 @@ def test_locked_scoring_rejects_partial_wrong_extra_and_mixed_receipts(
 ) -> None:
     issued = issue_synthetic_release(tmp_path / "release")
     manifest = _manifest("case-001", "case-002", "case-003")
-    records = _strict_receipts(issued)
+    registry_path = _write_registry(tmp_path)
+    records = _strict_receipts(issued, registry_path)
     kwargs = {
         "base_rate": None,
         "forecast_release": issued.forecast,
         "manifest": manifest,
+        "expected_run_identity_sha256": "c" * 64,
+        "model_registry": load_model_registry(registry_path),
+        "expected_model_registry_sha256": model_registry_sha256(
+            registry_path.read_bytes()
+        ),
     }
     with pytest.raises(ValueError, match="incomplete"):
         score_run_records_against_labels_release(records[:2], issued.labels, **kwargs)
@@ -361,7 +385,8 @@ def test_locked_scoring_preserves_case_level_multi_unit_semantics(
             )
         }
     )
-    records = _strict_receipts(issued)
+    registry_path = _write_registry(tmp_path)
+    records = _strict_receipts(issued, registry_path)
     second = {**records[1], "case_id": first_case.case_id}
     second["cell_id"] = str(
         ARTIFACT_RAW_SHA256_V1.commit(
@@ -382,10 +407,78 @@ def test_locked_scoring_preserves_case_level_multi_unit_semantics(
         base_rate=None,
         forecast_release=expanded_release,
         manifest=manifest,
+        expected_run_identity_sha256="c" * 64,
+        model_registry=load_model_registry(registry_path),
+        expected_model_registry_sha256=model_registry_sha256(
+            registry_path.read_bytes()
+        ),
     )
     assert len(summaries) == 1
     assert summaries[0].case_count == 1
     assert summaries[0].unit_count == 2
+
+
+def test_locked_scoring_rejects_cells_recomputed_for_wrong_common_run_identity(
+    tmp_path: Path,
+) -> None:
+    issued = issue_synthetic_release(tmp_path / "release")
+    manifest = _manifest("case-001", "case-002", "case-003")
+    registry_path = _write_registry(tmp_path)
+    records = _strict_receipts(issued, registry_path)
+    wrong_run_identity = "a" * 64
+    wrong_records = []
+    for record in records:
+        wrong = {**record, "run_identity_sha256": wrong_run_identity}
+        wrong["cell_id"] = str(
+            ARTIFACT_RAW_SHA256_V1.commit(
+                {
+                    "case_id": wrong["case_id"],
+                    "repeat_index": wrong["repeat_index"],
+                    "run_identity_sha256": wrong_run_identity,
+                    "unit_id": wrong["unit_id"],
+                },
+                domain=PUBLIC_RUN_RECEIPT_V1,
+            ).digest
+        )
+        wrong_records.append(wrong)
+
+    with pytest.raises(ValueError, match="run identity"):
+        score_run_records_against_labels_release(
+            wrong_records,
+            issued.labels,
+            base_rate=None,
+            forecast_release=issued.forecast,
+            manifest=manifest,
+            expected_run_identity_sha256="c" * 64,
+            model_registry=load_model_registry(registry_path),
+            expected_model_registry_sha256=model_registry_sha256(
+                registry_path.read_bytes()
+            ),
+        )
+
+
+def test_locked_scoring_rejects_self_consistent_wrong_model_registry(
+    tmp_path: Path,
+) -> None:
+    issued = issue_synthetic_release(tmp_path / "release")
+    manifest = _manifest("case-001", "case-002", "case-003")
+    expected_registry_path = _write_registry(tmp_path, version="expected")
+    wrong_registry_path = _write_registry(tmp_path, version="wrong")
+    wrong_records = _strict_receipts(issued, wrong_registry_path)
+
+    with pytest.raises(ValueError, match="model registry"):
+        score_run_records_against_labels_release(
+            wrong_records,
+            issued.labels,
+            base_rate=None,
+            forecast_release=issued.forecast,
+            manifest=manifest,
+            expected_run_identity_sha256="c" * 64,
+            model_registry=load_model_registry(wrong_registry_path),
+            expected_model_registry_sha256=model_registry_sha256(
+                expected_registry_path.read_bytes()
+            ),
+        )
 
 
 def test_worker_allowlist_is_release_declared_and_outcome_blind(
@@ -423,9 +516,13 @@ def test_report_rejects_score_identity_mismatch(tmp_path: Path) -> None:
     )
     runs_path = tmp_path / "runs.jsonl"
     runs_path.write_text(
-        "".join(json.dumps(record) + "\n" for record in _strict_receipts(issued)),
+        "".join(
+            json.dumps(record) + "\n"
+            for record in _strict_receipts(issued, _write_registry(tmp_path))
+        ),
         encoding="utf-8",
     )
+    registry_path = _write_registry(tmp_path)
     scores_path = tmp_path / "scores.json"
     assert (
         main(
@@ -441,6 +538,12 @@ def test_report_rejects_score_identity_mismatch(tmp_path: Path) -> None:
                 str(release_dir),
                 "--manifest",
                 str(manifest_path),
+                "--expected-run-identity-sha256",
+                "c" * 64,
+                "--model-registry",
+                str(registry_path),
+                "--expected-model-registry-sha256",
+                model_registry_sha256(registry_path.read_bytes()),
                 "--output",
                 str(scores_path),
             ]
@@ -448,6 +551,44 @@ def test_report_rejects_score_identity_mismatch(tmp_path: Path) -> None:
         == 0
     )
     score_payload = json.loads(scores_path.read_text(encoding="utf-8"))
+    valid_report_dir = tmp_path / "valid-report"
+    assert (
+        main(
+            [
+                "report",
+                "--scores",
+                str(scores_path),
+                "--output-dir",
+                str(valid_report_dir),
+                "--manifest",
+                str(manifest_path),
+                "--forecast-release",
+                str(release_dir / "forecast-release.json"),
+                "--labels-release",
+                str(release_dir / "labels-release.json"),
+                "--artifact-root",
+                str(release_dir),
+            ]
+        )
+        == 0
+    )
+    report_payload = json.loads(
+        (valid_report_dir / "leaderboard.json").read_text(encoding="utf-8")
+    )
+    assert report_payload["provenance"] == {
+        "run_identity_sha256": "c" * 64,
+        "model_registry_sha256": model_registry_sha256(registry_path.read_bytes()),
+        "models": score_payload["identity"]["models"],
+        "run_manifest_id": score_payload["identity"]["run_manifest_id"],
+        "run_manifest_sha256": score_payload["identity"]["run_manifest_sha256"],
+        "forecast_release_id": score_payload["identity"]["forecast_release_id"],
+        "forecast_release_digest": score_payload["identity"]["forecast_release_digest"],
+        "labels_release_id": score_payload["identity"]["labels_release_id"],
+        "labels_release_digest": score_payload["identity"]["labels_release_digest"],
+        "labels_forecast_release_digest": score_payload["identity"][
+            "labels_forecast_release_digest"
+        ],
+    }
     score_payload["identity"]["forecast_release_id"] = "different-release"
     scores_path.write_text(json.dumps(score_payload), encoding="utf-8")
     assert (
@@ -470,3 +611,41 @@ def test_report_rejects_score_identity_mismatch(tmp_path: Path) -> None:
         )
         == 2
     )
+
+
+def _write_registry(tmp_path: Path, *, version: str = "fixture") -> Path:
+    """Write the deterministic fixture registry used by strict receipts."""
+
+    fixture_dir = tmp_path / "registry-fixture"
+    fixture_dir.mkdir(exist_ok=True)
+    path = fixture_dir / f"model-registry-{version}.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "provider": "openai",
+                    "model_id": "legalforecast-fixture",
+                    "display_name": "LegalForecast provider-free fixture",
+                    "model_version_or_snapshot": f"fixture-model-{version}",
+                    "release_timestamp": "2026-08-23T00:00:00Z",
+                    "release_timestamp_source": "repository fixture",
+                    "provider_training_cutoff_status": "not_disclosed",
+                    "provider_training_cutoff": None,
+                    "max_output_tokens": 256,
+                    "network_disabled": True,
+                    "search_disabled": True,
+                    "tool_policy": "no_tools",
+                    "context_limit": 4096,
+                    "pricing_source": "provider-free fixture",
+                    "input_token_price": 1.0,
+                    "output_token_price": 1.0,
+                    "known_cutoff_publicity_caveats": [],
+                }
+            ],
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path

@@ -135,10 +135,80 @@ def test_run_cli_help_exposes_complete_release_only_inputs(
         "--harness",
         "--ablation",
         "--repeat-count",
+        "--unit-id",
+        "--repeat-index",
+        "--cell-id",
         "--dry-run",
     ):
         assert option in help_text
     assert "labels" not in help_text.lower()
+
+
+def test_runner_executes_exactly_one_selected_manifest_cell(
+    tmp_path: Path,
+) -> None:
+    config = replace(_config(tmp_path), unit_id="unit-002")
+    transport = FixtureModelTransport()
+
+    summary = execute_release_run(
+        config,
+        transport=transport,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.completed_cells == 1
+    assert summary.executed_cells == 1
+    assert summary.resumed_cells == 0
+    assert transport.call_count == 1
+    receipts = tuple(
+        json.loads(path.read_bytes()) for path in config.receipts_dir.glob("*.json")
+    )
+    assert [receipt["unit_id"] for receipt in receipts] == ["unit-002"]
+    with sqlite3.connect(config.ledger_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM public_runner_cells"
+        ).fetchone() == (1,)
+
+
+def test_runner_rejects_unknown_selected_manifest_cell_before_ledger_creation(
+    tmp_path: Path,
+) -> None:
+    config = replace(_config(tmp_path), unit_id="unit-unknown")
+    transport = CountingTransport(error=AssertionError("transport called"))
+
+    with pytest.raises(
+        RunValidationError,
+        match="not declared by the forecast release",
+    ):
+        execute_release_run(
+            config,
+            transport=transport,
+            environ=_fixture_environ(),
+        )
+
+    assert transport.calls == 0
+    assert not config.ledger_path.exists()
+
+
+def test_runner_rejects_mismatched_selected_cell_before_ledger_creation(
+    tmp_path: Path,
+) -> None:
+    config = replace(
+        _config(tmp_path),
+        unit_id="unit-002",
+        cell_id="f" * 64,
+    )
+    transport = CountingTransport(error=AssertionError("transport called"))
+
+    with pytest.raises(RunValidationError, match="selected manifest unit"):
+        execute_release_run(
+            config,
+            transport=transport,
+            environ=_fixture_environ(),
+        )
+
+    assert transport.calls == 0
+    assert not config.ledger_path.exists()
 
 
 def test_runner_refuses_missing_approval_reference_before_creating_ledger(

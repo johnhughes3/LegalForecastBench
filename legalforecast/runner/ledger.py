@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Any, Self, cast
 
+from legalforecast.contracts import (
+    ARTIFACT_CANONICAL_JSON_V1,
+    ARTIFACT_RAW_SHA256_V1,
+    PUBLIC_RUN_IDENTITY_V1,
+)
 from legalforecast.evals.provider_spend_control import (
     RETRYABLE_HTTP_429_FAILURE_TYPE,
 )
@@ -48,6 +54,27 @@ class CellRecord:
     failure_type: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class RunBinding:
+    """The immutable run identity stored by one manifest-mode execution.
+
+    The ledger is the authority for the run identity used to derive receipt
+    cell IDs.  Consumers should use this record instead of trusting a receipt
+    to name its own run or registry.
+    """
+
+    identity_sha256: str
+    identity_json: str
+    release_digest: str
+    harness: str
+    model_key: str
+    ceiling_microusd: int
+    approval_reference: str
+    model_registry_sha256: str
+    model_registry_entry_sha256: str
+    served_model_version: str
+
+
 class RunnerLedger:
     """Reference local ledger with transactional cell reservation."""
 
@@ -77,6 +104,75 @@ class RunnerLedger:
 
     def close(self) -> None:
         self._connection.close()
+
+    def read_run_binding(self) -> RunBinding:
+        """Read and revalidate the exact identity captured by this ledger.
+
+        This is intentionally a small read-only bridge for the official score
+        boundary.  It verifies the canonical identity JSON and its digest, so
+        a caller cannot supply a ledger whose metadata was edited while
+        retaining its original run identity.
+        """
+
+        row = self._connection.execute(
+            "SELECT * FROM public_runner_run WHERE singleton = 1"
+        ).fetchone()
+        if row is None:
+            raise RunValidationError("run ledger has no identity")
+        identity_json = str(row["identity_json"])
+        try:
+            decoded: object = json.loads(identity_json)
+        except json.JSONDecodeError as exc:
+            raise RunValidationError("run ledger identity is not valid JSON") from exc
+        if not isinstance(decoded, dict):
+            raise RunValidationError("run ledger identity must be an object")
+        identity = cast(dict[str, Any], decoded)
+        if ARTIFACT_CANONICAL_JSON_V1.encode(identity).decode("utf-8") != identity_json:
+            raise RunValidationError("run ledger identity is not canonical")
+        identity_sha256 = str(row["identity_sha256"])
+        actual_sha256 = str(
+            ARTIFACT_RAW_SHA256_V1.commit(
+                identity,
+                domain=PUBLIC_RUN_IDENTITY_V1,
+            ).digest
+        )
+        if actual_sha256 != identity_sha256:
+            raise RunValidationError("run ledger identity digest differs")
+
+        def required_str(field_name: str) -> str:
+            value = identity.get(field_name)
+            if not isinstance(value, str) or not value:
+                raise RunValidationError(f"run ledger identity lacks {field_name}")
+            return value
+
+        model_registry_sha256 = required_str("model_registry_sha256")
+        model_registry_entry_sha256 = required_str("model_registry_entry_sha256")
+        served_model_version = required_str("served_model_version")
+        for field_name, value in (
+            ("model_registry_sha256", model_registry_sha256),
+            ("model_registry_entry_sha256", model_registry_entry_sha256),
+        ):
+            if len(value) != 64 or any(
+                char not in "0123456789abcdef" for char in value
+            ):
+                raise RunValidationError(
+                    f"run ledger {field_name} must be a lowercase SHA-256"
+                )
+        ceiling = row["ceiling_microusd"]
+        if not isinstance(ceiling, int) or isinstance(ceiling, bool):
+            raise RunValidationError("run ledger ceiling is invalid")
+        return RunBinding(
+            identity_sha256=identity_sha256,
+            identity_json=identity_json,
+            release_digest=str(row["release_digest"]),
+            harness=str(row["harness"]),
+            model_key=str(row["model_key"]),
+            ceiling_microusd=ceiling,
+            approval_reference=str(row["approval_reference"]),
+            model_registry_sha256=model_registry_sha256,
+            model_registry_entry_sha256=model_registry_entry_sha256,
+            served_model_version=served_model_version,
+        )
 
     def ensure_run(
         self,
