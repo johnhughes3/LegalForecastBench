@@ -29,7 +29,10 @@ SUPPLEMENTARY_WORKFLOW_PATH = ROOT / ".github" / "workflows" / "stage-manifest-r
 FENCE_SCRIPT = ROOT / ".github" / "scripts" / "assert-manifest-run-lane.sh"
 STAGING_ENVIRONMENT = "legalforecastbench-official-eval-manifest-staging"
 STAGING_ROLE_VARIABLE = "LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN"
-DIGEST = "7d8655e46e4b616bf7d32585ccbd2cbd12fb39c7d26f01fab5c0e9d718d43a5d"
+# A synthetic 64-hex corpus digest. Deliberately not a real manifest digest:
+# the shape is what the fence asserts, and a live digest in a public test
+# would publish a private-tree identifier for no test value.
+DIGEST = "0123456789abcdef" * 4
 OFFICIAL_PREFIX = f"cycle-1/manifest-runs/{DIGEST}"
 RESULTS_BUCKET = "results-bucket"
 PACKET_BUCKET = "packet-bucket"
