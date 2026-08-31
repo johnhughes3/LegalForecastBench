@@ -17,28 +17,46 @@ from __future__ import annotations
 
 import json
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 from legalforecast._json_io import write_jsonl_objects
 from legalforecast.cli import main as legalforecast_main
+from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
 from legalforecast.multiharness.cli import add_multiharness_parser
 from legalforecast.multiharness.container_harness import (
     ContainerHarnessResult,
     ContainerHarnessSpec,
 )
+from legalforecast.multiharness.harness_lane.adapter import ContainerCliAdapter
+from legalforecast.multiharness.harness_lane.harnesses import (
+    identity_for_registry_name,
+)
 from legalforecast.multiharness.harness_lane.results_package import (
     HarnessLaneResultsError,
     build_harness_lane_results_package,
+)
+from legalforecast.multiharness.harness_lane.sentinel import (
+    SENTINEL_RELATIVE_PATH,
+    SentinelError,
+    SentinelVerdict,
+    check_workspace_sentinel,
+    materialize_workspace_sentinel,
+    mint_workspace_sentinel,
+    probe_workspace_tool_use,
 )
 from legalforecast.multiharness.harness_lane.tool_accounting import (
     ToolAccountingError,
     harness_tool_use,
 )
-from legalforecast.multiharness.local_cli_manifest import capability_digest_for
+from legalforecast.multiharness.local_cli_manifest import (
+    LocalCliAdapterManifest,
+    capability_digest_for,
+)
 from legalforecast.multiharness.task_loaders import ReleaseLfbTaskLoader
+from legalforecast.multiharness.validation import validate_public_record
 from legalforecast.release.synthetic import issue_synthetic_release
 from tests.test_multiharness_scoped_runs import projected_lab_layout
 from tests.test_multiharness_task_loaders import (
@@ -764,3 +782,182 @@ def test_a_host_path_reaching_a_public_summary_field_is_refused(
         build_harness_lane_results_package(
             run_dir=run_dir, output_dir=tmp_path / "package"
         )
+
+
+# --- Workspace sentinel: behavioural proof that a tool was used -------------
+#
+# Every assertion below is about *evidence*, never about a score.  The sentinel
+# runs as its own probe container precisely so a scored row's prompt bytes and
+# projected answer stay untouched, and nothing here reaches a number.
+
+_SENTINEL_TOKEN = "0f" * 16
+_SentinelRunner = Callable[[ContainerHarnessSpec], ContainerHarnessResult]
+
+
+def _lane_adapter(runner: _SentinelRunner) -> ContainerCliAdapter:
+    return ContainerCliAdapter(
+        identity=identity_for_registry_name(LFB_ADAPTER),
+        local_manifest=LocalCliAdapterManifest.from_record(_lane_manifest_record()),
+        auth_profile=FIXTURE_NONE,
+        allow_hosts=(PROVIDER_HOST,),
+        parent_env={},
+        runner=runner,
+    )
+
+
+def _sentinel_runner(
+    specs: list[ContainerHarnessSpec], *, echo: bool, exit_code: int = 0
+) -> _SentinelRunner:
+    """A container stand-in that can only answer by reading the staged file.
+
+    The token is never handed to this fake: ``echo=True`` has to read it back
+    out of the mounted workspace, so the probe test proves staging and checking
+    actually meet rather than that the test told itself the answer.
+    """
+
+    def runner(spec: ContainerHarnessSpec) -> ContainerHarnessResult:
+        specs.append(spec)
+        spec.log_root.mkdir(parents=True, exist_ok=True)
+        staged = spec.workspace.joinpath(*SENTINEL_RELATIVE_PATH.split("/"))
+        answer = (
+            f"SENTINEL={staged.read_text(encoding='utf-8').strip()}"
+            if echo
+            else "SENTINEL=guessed-without-reading-anything"
+        )
+        stdout = spec.log_root / "stdout.jsonl"
+        stdout.write_text(_stream_json(answer, ()), encoding="utf-8")
+        stderr = spec.log_root / "stderr.log"
+        stderr.write_text("", encoding="utf-8")
+        return ContainerHarnessResult(
+            run_id=spec.run_id,
+            exit_code=exit_code,
+            timed_out=False,
+            duration_seconds=0.5,
+            stdout_path=stdout,
+            stderr_path=stderr,
+            image_id=spec.image,
+            proxy_image_id=spec.image,
+            allowed_hosts=(PROVIDER_HOST,),
+            refused=(),
+            allowlist={"hosts": [PROVIDER_HOST], "ports": [443]},
+        )
+
+    return runner
+
+
+def test_the_probe_prompt_names_the_file_but_never_the_token() -> None:
+    sentinel = mint_workspace_sentinel()
+
+    assert len(sentinel.token) == 32
+    assert sentinel.container_path in sentinel.prompt()
+    # The whole mechanism rests on this: a prompt carrying the token would let
+    # a model that touched no file answer correctly.
+    assert sentinel.token not in sentinel.prompt()
+
+
+def test_a_token_in_the_answer_proves_a_local_tool_read() -> None:
+    sentinel = mint_workspace_sentinel(token=_SENTINEL_TOKEN)
+
+    check = check_workspace_sentinel(
+        sentinel,
+        prompt=sentinel.prompt(),
+        answer=f"SENTINEL={_SENTINEL_TOKEN}",
+        transcript=f'{{"type":"result","result":"SENTINEL={_SENTINEL_TOKEN}"}}',
+    )
+
+    assert check.verdict is SentinelVerdict.PROVEN
+    # Both channels carry it, so this also pins the precedence: the answer is
+    # named as the source rather than the raw envelope around it.
+    assert check.found_in == "answer"
+    assert check.proven
+
+
+def test_a_run_that_never_surfaced_the_token_is_absent() -> None:
+    sentinel = mint_workspace_sentinel(token=_SENTINEL_TOKEN)
+
+    check = check_workspace_sentinel(
+        sentinel,
+        prompt=sentinel.prompt(),
+        answer="SENTINEL=0f0f0f",
+        transcript="tools_used: []",
+    )
+
+    assert check.verdict is SentinelVerdict.ABSENT
+    assert check.found_in is None
+    assert check.token == _SENTINEL_TOKEN
+
+
+def test_a_run_with_no_sentinel_is_not_attempted_rather_than_absent() -> None:
+    # "Nobody staged a sentinel" and "the agent declined to read one" are
+    # different claims, and only the second is evidence about the harness.
+    check = check_workspace_sentinel(
+        None, prompt="forecast this motion", answer="denied"
+    )
+
+    assert check.verdict is SentinelVerdict.NOT_ATTEMPTED
+    assert check.token is None
+
+
+def test_a_token_the_prompt_discloses_is_refused_rather_than_proven() -> None:
+    sentinel = mint_workspace_sentinel(token=_SENTINEL_TOKEN)
+
+    with pytest.raises(SentinelError, match="appears in the prompt"):
+        check_workspace_sentinel(
+            sentinel,
+            prompt=f"{sentinel.prompt()} For reference the value is {_SENTINEL_TOKEN}.",
+            answer=f"SENTINEL={_SENTINEL_TOKEN}",
+        )
+
+
+def test_a_guessable_token_is_refused_at_mint_time() -> None:
+    with pytest.raises(SentinelError, match="at least"):
+        mint_workspace_sentinel(token="abc")
+
+
+def test_staging_a_sentinel_over_an_earlier_one_is_refused(tmp_path: Path) -> None:
+    sentinel = mint_workspace_sentinel(token=_SENTINEL_TOKEN)
+
+    staged = materialize_workspace_sentinel(sentinel, tmp_path)
+
+    assert staged.read_text(encoding="utf-8").strip() == _SENTINEL_TOKEN
+    with pytest.raises(SentinelError, match="already exists"):
+        materialize_workspace_sentinel(mint_workspace_sentinel(), tmp_path)
+
+
+def test_the_probe_proves_tool_use_by_round_tripping_the_mounted_workspace(
+    tmp_path: Path,
+) -> None:
+    specs: list[ContainerHarnessSpec] = []
+    adapter = _lane_adapter(_sentinel_runner(specs, echo=True))
+
+    probe = probe_workspace_tool_use(
+        adapter, workspace=tmp_path, model_key="claude-opus-5"
+    )
+
+    assert probe.check.verdict is SentinelVerdict.PROVEN
+    assert probe.check.found_in == "transcript"
+    assert probe.exit_code == 0
+    assert probe.timed_out is False
+    # The only channel the token travelled through is the mounted file: it is
+    # in neither the rendered argv nor the prompt the agent was handed.
+    assert probe.sentinel.token not in " ".join(specs[0].harness_argv)
+    assert specs[0].workspace.joinpath(*SENTINEL_RELATIVE_PATH.split("/")).is_file()
+
+
+def test_a_probe_that_answered_without_reading_is_absent_beside_its_exit(
+    tmp_path: Path,
+) -> None:
+    adapter = _lane_adapter(_sentinel_runner([], echo=False, exit_code=1))
+
+    probe = probe_workspace_tool_use(
+        adapter, workspace=tmp_path, model_key="claude-opus-5"
+    )
+    record = probe.to_public_record()
+
+    assert probe.check.verdict is SentinelVerdict.ABSENT
+    # Without the exit code beside it, a crashed probe and a harness that used
+    # no tools would publish the same verdict.
+    assert record["sentinel_verdict"] == "absent"
+    assert record["sentinel_probe_exit_code"] == 1
+    assert record["sentinel_token"] == probe.sentinel.token
+    validate_public_record(record, "sentinel.public_record")
