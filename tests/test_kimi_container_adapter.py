@@ -7,12 +7,14 @@ because it is a real, load-bearing gap rather than a hypothetical one -- that
 the generic manifest projection cannot read this harness today while the
 parser can.
 
-FIXTURE EVIDENCE CLASS.  The ``meta`` lines below reproduce bytes observed live
-on 2026-08-31 (``system.version``, and the ``turn.step.retrying`` ladder the
-provider's HTTP 500s produced).  The ``assistant`` and ``tool`` lines are
-synthetic, built from the CLI's bundled writer source, because that
-characterization run never reached a completion.  No session id, host path or
-provider message from the live probe is reproduced here.
+FIXTURE EVIDENCE CLASS.  The ``meta`` lines below are bytes this lane observed
+live on 2026-08-31, in a containerized run behind the egress fence: the
+``system.version`` line, and the first two rungs of the nine-rung
+``turn.step.retrying`` ladder the provider's HTTP 500s produced before the CLI
+gave up and exited 1.  The ``assistant`` and ``tool`` lines are SYNTHETIC,
+built from the CLI's bundled writer source, because neither that run nor the
+characterization probe ever reached a completion.  No session id or host path
+is reproduced here.
 """
 
 from __future__ import annotations
@@ -99,8 +101,9 @@ _TRANSCRIPT_EVENTS: tuple[dict[str, Any], ...] = (
     },
 )
 
-# Live-observed bytes: the provider returned HTTP 500 and the CLI walked its own
-# retry ladder.  Two of the eight observed lines are enough to pin the shape.
+# Live-observed bytes from this lane's own containerized run: the provider
+# returned HTTP 500 and the CLI walked its own retry ladder to exhaustion (nine
+# rungs, 138.8s of backoff, exit 1).  The first two rungs pin the shape.
 _RETRY_STORM_EVENTS: tuple[dict[str, Any], ...] = (
     {"role": "meta", "type": "system.version", "version": "0.36.0"},
     {
@@ -109,7 +112,7 @@ _RETRY_STORM_EVENTS: tuple[dict[str, Any], ...] = (
         "failed_attempt": 1,
         "next_attempt": 2,
         "max_attempts": 10,
-        "delay_ms": 590.9291911895363,
+        "delay_ms": 617.0740728516887,
         "error_name": "APIStatusError",
         "error_message": "500 The server had an error while processing your request",
         "status_code": 500,
@@ -120,7 +123,7 @@ _RETRY_STORM_EVENTS: tuple[dict[str, Any], ...] = (
         "failed_attempt": 2,
         "next_attempt": 3,
         "max_attempts": 10,
-        "delay_ms": 1072.3515012900712,
+        "delay_ms": 1139.1316965232777,
         "error_name": "APIStatusError",
         "error_message": "500 The server had an error while processing your request",
         "status_code": 500,
@@ -335,7 +338,7 @@ def test_parser_records_the_retry_ladder_and_calls_it_a_crash() -> None:
     assert parsed.retry.max_attempts == 10
     assert parsed.retry.last_status_code == 500
     assert parsed.retry.last_error_name == "APIStatusError"
-    assert parsed.retry.total_backoff_ms == pytest.approx(1663.28069248)
+    assert parsed.retry.total_backoff_ms == pytest.approx(1756.2057693749664)
 
 
 def test_parser_record_carries_no_transcript_and_no_provider_message() -> None:

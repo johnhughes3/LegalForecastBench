@@ -65,9 +65,14 @@ ENV KIMI_WEB_SEARCH_BASE_URL=https://web-tools-disabled.invalid/ \
 # The update preflight runs in print mode too, and on one branch it exits 0
 # with empty stdout -- which a naive parser reads as an empty successful
 # answer -- and on another it replaces the binary mid-benchmark, invalidating
-# the pinned image.  Both spellings are honoured; set both.  Telemetry is off
-# because its endpoint is not on the allowlist and every attempt would be noise
-# in the egress evidence rather than signal.
+# the pinned image.  Both spellings are honoured; set both.
+#
+# KIMI_DISABLE_TELEMETRY is set but does NOT fully take: the 2026-08-31 live
+# containerized run still attempted one CONNECT to the telemetry endpoint with
+# this set to 1, which the allowlist proxy refused and recorded.  It stays here
+# because it costs nothing and suppresses the collector's other paths; the fence
+# is what actually stops the traffic, and the refusal in the egress evidence is
+# how a run shows it.
 ENV KIMI_CODE_NO_AUTO_UPDATE=1 \
     KIMI_CLI_NO_AUTO_UPDATE=1 \
     KIMI_DISABLE_TELEMETRY=1
