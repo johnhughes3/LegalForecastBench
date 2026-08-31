@@ -48,6 +48,20 @@ from legalforecast.multiharness.harness_lane.auth import (
     resolve_lane_auth_profile,
 )
 from legalforecast.multiharness.harness_lane.harnesses import ContainerHarnessIdentity
+from legalforecast.multiharness.harness_lane.lab_workspace import (
+    stage_projected_lab_task,
+)
+from legalforecast.multiharness.harness_lane.release_evidence import (
+    CONTAINER_EXECUTION_BACKEND,
+    CONTAINER_HARNESS_TRACK,
+    ContainerReleaseEvidence,
+    read_solver_input_prompt,
+    write_container_release_evidence,
+)
+from legalforecast.multiharness.harness_lane.tool_accounting import (
+    HarnessToolUse,
+    harness_tool_use,
+)
 from legalforecast.multiharness.harness_vocab import (
     LOCAL_CLI_CONTAINER_EXECUTION,
     LOCAL_CLI_NATIVE_TOOLS_ENABLED,
@@ -59,6 +73,7 @@ from legalforecast.multiharness.local_cli_manifest import (
     LocalCliAdapterManifest,
     project_structured_stdout_deliverable,
 )
+from legalforecast.multiharness.release_harness import require_release_metadata_str
 from legalforecast.multiharness.spec import (
     AdapterCapabilities,
     AdapterManifest,
@@ -80,6 +95,7 @@ REQUIRED_LANE_CAPABILITIES: Final[frozenset[str]] = frozenset(
     }
 )
 DEFAULT_ALLOWED_PORTS: Final[tuple[int, ...]] = (443,)
+HARVEY_LAB_FAMILY: Final = "harvey_lab"
 
 HarnessRunner = Callable[[ContainerHarnessSpec], ContainerHarnessResult]
 
@@ -148,6 +164,7 @@ class ContainerCliAdapter:
     allow_subdomains: tuple[str, ...] = ()
     allow_ports: tuple[int, ...] = DEFAULT_ALLOWED_PORTS
     parent_env: Mapping[str, str] | None = None
+    lab_projection_root: Path | None = None
     backend: str = "docker"
     runner: HarnessRunner | None = field(default=None, repr=False)
 
@@ -205,15 +222,25 @@ class ContainerCliAdapter:
         )
 
     def container_spec(
-        self, request: RunRequest, workspace: Path
+        self,
+        request: RunRequest,
+        workspace: Path,
+        *,
+        prompt: str | None = None,
     ) -> ContainerHarnessSpec:
-        """Return the fully declared container topology for one row."""
+        """Return the fully declared container topology for one row.
+
+        ``prompt`` is the authenticated task text when the caller already holds
+        it -- from the private solver-input tree, or from a projected LAB
+        task's instructions.  Without it the task's own ``solver_prompt``
+        metadata is used, which is how the adapter-level probes drive a spec.
+        """
 
         parent_env = self.environment()
         container_workspace = workspace / "container-workspace"
         container_workspace.mkdir(mode=0o700, parents=True, exist_ok=True)
         argv = self.local_manifest.invocation.render_argv(
-            prompt=_solver_prompt(request.task),
+            prompt=prompt if prompt is not None else _metadata_prompt(request.task),
             model=request.model_key,
             workspace=WORKSPACE_TARGET,
         )
@@ -240,13 +267,84 @@ class ContainerCliAdapter:
         return f"{self.identity.executable_basename}-{digest[:10]}"
 
     def run(self, request: RunRequest, workspace: Path) -> RunResult:
-        """Run one row in its container and project the canonical result."""
+        """Run one row whose prompt does not come from a solver-input store."""
 
         self.prepare(request, workspace)
-        spec = self.container_spec(request, workspace)
+        return self._execute_row(
+            request,
+            workspace,
+            prompt=self._unauthenticated_prompt(request, workspace),
+            prompt_sha256=None,
+        )
+
+    def run_with_solver_input(
+        self,
+        request: RunRequest,
+        workspace: Path,
+        solver_input_root: Path,
+    ) -> RunResult:
+        """Run one row on the exact private prompt bytes and bind the evidence.
+
+        This is what makes the lane scoreable.  ``release_harness`` will only
+        project an LFB score row from a result that carries a private forecast
+        output plus a transcript binding request, packet, prompt and response,
+        and it re-reads and re-hashes both before it believes any of it.  The
+        prompt itself never enters the task record or the published summary --
+        only its digest does.
+        """
+
+        self.prepare(request, workspace)
+        prompt_sha256 = require_release_metadata_str(
+            request.task.metadata, "prompt_sha256"
+        )
+        return self._execute_row(
+            request,
+            workspace,
+            prompt=read_solver_input_prompt(solver_input_root, prompt_sha256),
+            prompt_sha256=prompt_sha256,
+        )
+
+    def _execute_row(
+        self,
+        request: RunRequest,
+        workspace: Path,
+        *,
+        prompt: str,
+        prompt_sha256: str | None,
+    ) -> RunResult:
+        spec = self.container_spec(request, workspace, prompt=prompt)
         result = self._execute(spec)
-        deliverable, failure = self._deliverable(result, spec.workspace)
-        return self._run_result(request, result, deliverable, failure)
+        stdout = _read_stdout(result)
+        deliverable, failure = self._deliverable(result, spec.workspace, stdout)
+        tools = harness_tool_use(self.identity.executable_basename, stdout)
+        evidence = (
+            write_container_release_evidence(
+                request=request,
+                workspace=workspace,
+                deliverable=deliverable,
+                prompt_sha256=prompt_sha256,
+            )
+            if prompt_sha256 is not None and deliverable is not None
+            else None
+        )
+        return self._run_result(request, result, deliverable, failure, tools, evidence)
+
+    def _unauthenticated_prompt(self, request: RunRequest, workspace: Path) -> str:
+        """Return the prompt for a task with no private solver-input store."""
+
+        if request.task.family == HARVEY_LAB_FAMILY:
+            if self.lab_projection_root is None:
+                raise ContainerCliAdapterError(
+                    f"{request.task.task_id} is a projected Harvey LAB task; "
+                    "this adapter needs the projection root its documents live "
+                    "in (--projected-root)"
+                )
+            return stage_projected_lab_task(
+                request.task,
+                projection_root=self.lab_projection_root,
+                destination=workspace / "container-workspace",
+            ).prompt
+        return _metadata_prompt(request.task)
 
     def _execute(self, spec: ContainerHarnessSpec) -> ContainerHarnessResult:
         if self.runner is not None:
@@ -254,7 +352,7 @@ class ContainerCliAdapter:
         return run_container_harness(spec, backend=self.backend)
 
     def _deliverable(
-        self, result: ContainerHarnessResult, workspace: Path
+        self, result: ContainerHarnessResult, workspace: Path, stdout: str
     ) -> tuple[str | None, LocalCliFailureClass | None]:
         if result.timed_out:
             return None, LocalCliFailureClass.TIMEOUT
@@ -269,7 +367,7 @@ class ContainerCliAdapter:
                 text = (workspace / relative).read_text(encoding="utf-8")
             else:
                 text = project_structured_stdout_deliverable(
-                    result.stdout_path.read_text(encoding="utf-8", errors="replace"),
+                    stdout,
                     output_format=self.local_manifest.invocation.output_format,
                     projection=projection,
                 )
@@ -287,11 +385,14 @@ class ContainerCliAdapter:
         result: ContainerHarnessResult,
         deliverable: str | None,
         failure: LocalCliFailureClass | None,
+        tools: HarnessToolUse,
+        evidence: ContainerReleaseEvidence | None,
     ) -> RunResult:
         manifest = self.manifest
         summary: dict[str, Any] = {
             "adapter_id": manifest.adapter_id,
             "adapter_version": manifest.adapter_version,
+            "allowed_tools": list(tools.tools),
             "auth_mode": public_auth_mode(
                 self.auth_profile, fixture_mode="none-offline"
             ),
@@ -302,14 +403,21 @@ class ContainerCliAdapter:
             "egress_allowlist": dict(result.allowlist),
             "egress_refused": [dict(record) for record in result.refused],
             "executable": self.identity.executable_basename,
+            "execution_backend": CONTAINER_EXECUTION_BACKEND,
             "exit_code": result.exit_code,
             "failure_class": None if failure is None else failure.value,
             "harness": self.identity.registry_name,
+            "harness_track": CONTAINER_HARNESS_TRACK,
             "model_key": request.model_key,
             "native_tools_enabled": True,
             "server_side_web_tools_disabled": True,
             "timed_out": result.timed_out,
+            "tool_call_count": tools.call_count,
+            "tool_policy": tools.policy,
+            "tool_use_reporting": tools.reporting,
         }
+        if evidence is not None:
+            summary["transcript_sha256"] = evidence.transcript_sha256
         validate_public_record(summary, "container_cli.public_summary")
         commitment = {
             "deliverable_sha256": None
@@ -327,14 +435,26 @@ class ContainerCliAdapter:
                     commitment, domain=MULTIHARNESS_CONTAINER_HARNESS_RESULT_V1
                 ).digest
             ),
+            artifacts=() if evidence is None else evidence.artifacts,
             public_summary=summary,
         )
 
 
-def _solver_prompt(task: CanonicalTask) -> str:
+def _read_stdout(result: ContainerHarnessResult) -> str:
+    try:
+        return result.stdout_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        # A missing stdout file is a failed run, not a crash of the projector;
+        # ``_deliverable`` turns the empty transcript into a schema violation.
+        return ""
+
+
+def _metadata_prompt(task: CanonicalTask) -> str:
     value = task.metadata.get("solver_prompt")
     if not isinstance(value, str) or not value.strip():
         raise ContainerCliAdapterError(
-            "task metadata solver_prompt must be a non-empty string"
+            f"{task.task_id} carries no solver_prompt metadata; an LFB task's "
+            "prompt comes from the private solver-input store, so pass "
+            "--solver-input-root rather than putting the prompt in the task"
         )
     return value

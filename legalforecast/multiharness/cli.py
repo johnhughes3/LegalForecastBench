@@ -35,6 +35,12 @@ from legalforecast.multiharness.folder_selection import (
     select_tasks_from_folder,
 )
 from legalforecast.multiharness.harness_lane.cli_parser import add_harness_parser
+from legalforecast.multiharness.harness_lane.run_cli import (
+    add_harness_lane_run_arguments,
+    build_run_adapters,
+    resolve_run_inputs,
+    run_adapter_manifests,
+)
 from legalforecast.multiharness.harvey_lab_evaluator import EvaluatorRunner
 from legalforecast.multiharness.harvey_lab_projected_tasks import (
     DEFAULT_PROJECTED_SUITE_VERSION,
@@ -292,7 +298,7 @@ def add_multiharness_parser(subparsers: Any) -> None:
         "run",
         help="Run or dry-run a selected task matrix through command adapters.",
     )
-    run.add_argument("--task-index", type=Path, required=True)
+    run.add_argument("--task-index", type=Path)
     run.add_argument(
         "--solver-input-root",
         type=Path,
@@ -305,7 +311,6 @@ def add_multiharness_parser(subparsers: Any) -> None:
         "--adapter-manifest",
         type=Path,
         action="append",
-        required=True,
         help="Command adapter manifest. Repeat for multiple adapters.",
     )
     run.add_argument(
@@ -318,6 +323,7 @@ def add_multiharness_parser(subparsers: Any) -> None:
     run.add_argument("--run-id", default="multiharness-run")
     run.add_argument("--selection", type=Path)
     _add_selection_arguments(run)
+    add_harness_lane_run_arguments(run)
     run.add_argument(
         "--sandbox-backend",
         choices=(BACKEND_DOCKER, BACKEND_PODMAN),
@@ -786,22 +792,13 @@ def _cmd_conformance(args: argparse.Namespace) -> int:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    task_index = _load_task_index(cast(Path, args.task_index))
-    solver_input_root = cast(Path | None, args.solver_input_root)
-    solver_inputs = (
-        SolverInputStore.load(solver_input_root)
-        if solver_input_root is not None
-        else None
-    )
-    selection = _selection_from_run_args(args)
-    selection = _apply_folder_selection(
-        selection,
-        task_index,
-        cast(Path | None, args.task_folder),
-    )
+    manifests = run_adapter_manifests(args)
+    resolved = resolve_run_inputs(args)
+    task_index = resolved.task_index
+    selection = resolved.selection
+    solver_inputs = resolved.solver_inputs
     output_dir = cast(Path, args.output_dir)
     _ensure_cli_private_directory(output_dir)
-    manifests = _adapter_manifests_from_paths(_path_tuple_arg(args, "adapter_manifest"))
     policy = _sandbox_policy_from_args(args)
     if cast(bool, args.live_tool_container):
         if solver_inputs is None:
@@ -817,24 +814,21 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if cast(bool, args.dry_run):
         write_json_object_safe(
             output_dir / "run-plan.json",
-            _run_plan_record(
-                args=args,
-                task_index=task_index,
-                selection=selection,
-                manifests=manifests,
-                policy_record=policy.to_record(),
-                solver_inputs=solver_inputs,
-            ),
+            {
+                **_run_plan_record(
+                    args=args,
+                    task_index=task_index,
+                    selection=selection,
+                    manifests=manifests,
+                    policy_record=policy.to_record(),
+                    solver_inputs=solver_inputs,
+                ),
+                **resolved.plan_fields(),
+            },
         )
         return 0
 
-    adapters = tuple(
-        CommandAdapter.from_manifest_file(
-            path,
-            timeout_seconds=cast(float, args.timeout_seconds),
-        )
-        for path in _path_tuple_arg(args, "adapter_manifest")
-    )
+    adapters = build_run_adapters(args, timeout_seconds=args.timeout_seconds)
     try:
         run = run_multi_harness(
             MultiHarnessRunConfig(
@@ -1304,18 +1298,6 @@ def _selection_manifest(
     }
 
 
-def _selection_from_run_args(args: argparse.Namespace) -> TaskSelection:
-    selection_path = cast(Path | None, args.selection)
-    if selection_path is None:
-        return _selection_from_args(args)
-    record = _read_json(selection_path, "selection manifest")
-    task_ids = _record_str_tuple(record, "task_ids")
-    label = record.get("selection_label")
-    if label is not None and not isinstance(label, str):
-        raise ValueError("selection_label must be a string")
-    return TaskSelection(task_ids=task_ids, label=label)
-
-
 def _selection_from_args(args: argparse.Namespace) -> TaskSelection:
     modules = _str_tuple_arg(args, "module") + _str_tuple_arg(args, "category")
     return TaskSelection(
@@ -1445,13 +1427,6 @@ def _sandbox_policy_from_args(args: argparse.Namespace):
     )
 
 
-def _adapter_manifests_from_paths(paths: Sequence[Path]) -> tuple[AdapterManifest, ...]:
-    return tuple(
-        AdapterManifest.from_record(_read_json(path, "adapter manifest"))
-        for path in paths
-    )
-
-
 def _load_task_index(path: Path) -> TaskIndex:
     return TaskIndex.from_record(_read_json(path, "task index"))
 
@@ -1463,20 +1438,6 @@ def _read_json(path: Path, label: str) -> dict[str, Any]:
         missing_message=lambda item: f"{label} does not exist: {item}",
         non_object_message=lambda item: f"{label} must be a JSON object: {item}",
     )
-
-
-def _path_tuple_arg(args: argparse.Namespace, name: str) -> tuple[Path, ...]:
-    value = getattr(args, name)
-    if value is None:
-        return ()
-    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
-        raise ValueError(f"{name} must be a list of paths")
-    paths: list[Path] = []
-    for item in cast(Sequence[object], value):
-        if not isinstance(item, Path):
-            raise ValueError(f"{name} must contain paths")
-        paths.append(item)
-    return tuple(paths)
 
 
 def _cli_note(message: str) -> None:

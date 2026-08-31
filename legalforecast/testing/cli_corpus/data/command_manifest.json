@@ -5337,7 +5337,7 @@
           "option_strings": [
             "--task-index"
           ],
-          "required": true,
+          "required": false,
           "type": "pathlib.Path"
         },
         {
@@ -5363,7 +5363,7 @@
           "option_strings": [
             "--adapter-manifest"
           ],
-          "required": true,
+          "required": false,
           "type": "pathlib.Path"
         },
         {
@@ -5599,6 +5599,139 @@
           ],
           "required": false,
           "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "adapter",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--adapter"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "local_cli_manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--local-cli-manifest"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "auth_profile",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--auth-profile"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "append",
+          "choices": null,
+          "default": [],
+          "dest": "allow_host",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--allow-host"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "append",
+          "choices": null,
+          "default": [],
+          "dest": "allow_subdomain",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--allow-subdomain"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "append",
+          "choices": null,
+          "default": [],
+          "dest": "allow_port",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--allow-port"
+          ],
+          "required": false,
+          "type": "int"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": "docker",
+          "dest": "container_backend",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--container-backend"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": [
+            "harvey-lab",
+            "lfb"
+          ],
+          "default": null,
+          "dest": "task_source",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--task-source"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "packets",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--packets"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "projected_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--projected-root"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
         },
         {
           "action": "store",

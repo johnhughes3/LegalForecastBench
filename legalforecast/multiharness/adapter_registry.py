@@ -122,6 +122,7 @@ def _container_tools_on_factory(registry_name: str) -> AdapterFactory:
         auth_profile = kwargs.get("auth_profile")
         backend = kwargs.get("backend")
         parent_env = kwargs.get("parent_env")
+        lab_projection_root = kwargs.get("lab_projection_root")
         return ContainerCliAdapter(
             identity=identity_for_registry_name(registry_name),
             local_manifest=manifest,
@@ -136,6 +137,9 @@ def _container_tools_on_factory(registry_name: str) -> AdapterFactory:
                 kwargs.get("allow_ports"), DEFAULT_ALLOWED_PORTS
             ),
             parent_env=_optional_env(parent_env),
+            lab_projection_root=(
+                lab_projection_root if isinstance(lab_projection_root, Path) else None
+            ),
             backend=backend if isinstance(backend, str) and backend else "docker",
         )
 
