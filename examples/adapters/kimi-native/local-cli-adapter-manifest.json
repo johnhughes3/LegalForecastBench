@@ -1,0 +1,113 @@
+{
+  "adapter_kind": "local_cli",
+  "auth_environment_variables": [
+    {
+      "names": [],
+      "profile": "contributor-subscription"
+    },
+    {
+      "names": [],
+      "profile": "fixture-none"
+    }
+  ],
+  "auth_profile_name": "contributor-subscription",
+  "capabilities": [
+    "container_execution",
+    "headless_print",
+    "model_selection",
+    "native_tools_enabled",
+    "restricted_egress",
+    "server_side_web_tools_disabled",
+    "stream_json_output",
+    "working_directory_isolation"
+  ],
+  "capability_digest": "sha256:6c9a2d4468a218ca0286337ee4dfaeb0ed8ec466f56d2e955d191d26d53330c8",
+  "containment": {
+    "host_process_containment": "posix_process_group.v1",
+    "isolated_host_environment": true,
+    "network_policy": "provider_egress_host_only",
+    "session_persistence": "ephemeral",
+    "setting_sources": [],
+    "strict_mcp_config": false
+  },
+  "display_name": "Kimi Code containerized tools-on local CLI",
+  "executable": {
+    "basename": "kimi",
+    "container_image_digest": "sha256:3d4652f2fe3743005bcaea9a51d0ef043928f2d29a95b90842c43382ca838420",
+    "distribution_kind": "standalone-cli",
+    "version": "0.36.0"
+  },
+  "harness_binding": {
+    "adapter_id": "kimi-cli-container-tools-on",
+    "adapter_version": "1.0.0",
+    "harness_adapter_contract": "legalforecast.multiharness.adapters.HarnessAdapter",
+    "harness_solver_contract": "legalforecast.evals.inspect_task.HarnessSolver",
+    "implements_harness_adapter": true,
+    "implements_harness_solver": true,
+    "solver_kind": "inspect_ai",
+    "solver_response_contract": "legalforecast.evals.inspect_task.SolverResponse",
+    "supported_families": [
+      "legalforecast_mtd"
+    ],
+    "supported_scoring_modes": [
+      "lfb_brier"
+    ],
+    "tool_protocol_version": null
+  },
+  "invocation": {
+    "argv_template": [
+      "-p",
+      "{prompt}",
+      "--output-format",
+      "stream-json",
+      "--model",
+      "{model}"
+    ],
+    "headless_mode": "print_flag",
+    "model_flag": "--model",
+    "output_format": "stream_json",
+    "prompt_delivery": "argv_placeholder",
+    "schema_enforcement": "none",
+    "working_directory_flag": null
+  },
+  "manifest_id": "kimi-cli-container-tools-on",
+  "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "supported_auth_profiles": [
+    "contributor-subscription",
+    "fixture-none"
+  ],
+  "task_projection": {
+    "deliverable_event_type": "assistant",
+    "deliverable_field": "content",
+    "deliverable_item_type": null,
+    "deliverable_relative_path": null,
+    "deliverable_source": "structured_stdout",
+    "prompt_source": "solver_input_prompt"
+  },
+  "timeout_retry": {
+    "max_attempts": 1,
+    "retry_backoff_seconds": 0,
+    "retryable_exit_codes": [],
+    "timeout_seconds": 900
+  },
+  "transcript_capture": {
+    "points": [
+      "private_execution_log",
+      "stderr",
+      "stdout"
+    ],
+    "public_raw_transcript": false
+  },
+  "usage_reporting": {
+    "cache_read_tokens_field": null,
+    "cache_write_tokens_field": null,
+    "cost_basis": "subscription_unallocable",
+    "cost_usd_field": null,
+    "input_tokens_field": "unreported.input_tokens",
+    "output_tokens_field": "unreported.output_tokens",
+    "solver_response_fields": [
+      "input_tokens",
+      "output_tokens"
+    ]
+  }
+}
