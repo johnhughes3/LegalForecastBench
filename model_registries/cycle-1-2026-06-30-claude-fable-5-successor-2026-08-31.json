@@ -88,40 +88,19 @@
   },
   {
     "context_limit": 1000000,
-    "display_name": "Claude Opus 4.8",
-    "input_token_price": 5.0,
-    "known_cutoff_publicity_caveats": [
-      "Anthropic does not disclose an exact training-data cutoff for Claude Opus 4.8, so the structured exact-date field remains unknown.",
-      "Claude Opus 4.8's dateless model ID is a pinned snapshot, not an evergreen alias."
-    ],
-    "max_output_tokens": 128000,
-    "model_id": "claude-opus-4-8",
-    "model_version_or_snapshot": "claude-opus-4-8",
-    "network_disabled": true,
-    "output_token_price": 25.0,
-    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing, standard Claude Opus 4.8 pricing, checked 2026-08-21",
-    "provider": "anthropic",
-    "provider_training_cutoff": null,
-    "provider_training_cutoff_status": "unknown",
-    "release_timestamp": "2026-05-28T00:00:00Z",
-    "release_timestamp_source": "https://www.anthropic.com/news/claude-opus-4-8, Claude Opus 4.8 launch on 2026-05-28, checked 2026-08-21",
-    "search_disabled": true,
-    "tool_policy": "controlled_docket_tool_only"
-  },
-  {
-    "context_limit": 1000000,
     "display_name": "Claude Fable 5",
     "input_token_price": 10.0,
     "known_cutoff_publicity_caveats": [
       "Anthropic publishes only a month-granular training-data cutoff for Claude Fable 5 (January 2026), so the structured exact-date field remains unknown.",
-      "Claude Fable 5's dateless model ID is a pinned snapshot, not an evergreen alias."
+      "Claude Fable 5's dateless model ID is a pinned snapshot, not an evergreen alias.",
+      "Registry composition, owner ruling of 2026-08-31 on bead legalforecastbench-y7hk, verbatim: \"I'd rather skip Opus 4.8 from official and just test Opus 5 even if that knocks it down to supplementary.\" This registry therefore replaces claude-opus-4-8 with claude-fable-5 as the Anthropic official model, exactly as its predecessor replaced claude-sonnet-5 with claude-opus-4-8. Claude Opus 4.8 is omitted, not demoted: it is pre-anchor, so the supplementary lane refuses it. Claude Opus 5 is post-anchor and runs supplementary from cycle-1-supplementary-claude-opus-5-2026-08-31.json."
     ],
     "max_output_tokens": 128000,
     "model_id": "claude-fable-5",
     "model_version_or_snapshot": "claude-fable-5",
     "network_disabled": true,
     "output_token_price": 50.0,
-    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing, standard Claude Fable 5 pricing, checked 2026-08-31",
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing, standard Claude Fable 5 pricing of USD 10/M input and USD 50/M output, checked 2026-08-31",
     "provider": "anthropic",
     "provider_training_cutoff": null,
     "provider_training_cutoff_status": "unknown",

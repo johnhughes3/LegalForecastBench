@@ -1,0 +1,28 @@
+[
+  {
+    "context_limit": 1000000,
+    "display_name": "Claude Opus 5",
+    "input_token_price": 5.0,
+    "known_cutoff_publicity_caveats": [
+      "Anthropic publishes only a month-granular training-data cutoff for Claude Opus 5 (May 2026), so the structured exact-date field remains unknown. Source: https://platform.claude.com/docs/en/about-claude/models/overview, 'Training data cutoff | May 2026', checked 2026-08-31.",
+      "Claude Opus 5 was released 2026-07-24, after the Cycle 1 corpus decision window closed and after the corpus anchor of 2026-06-30. This entry is supplementary: it must never be substituted into the frozen Cycle 1 registry, and its rows publish as supplementary_post_anchor rather than official.",
+      "Contamination dimensions diverge from the official lane and the comparison must say so. Claude Opus 5's May 2026 knowledge cutoff is months later than the official models' (GPT-5.6 February 2026, Claude Fable 5 January 2026), so it postdates far more of the corpus's underlying docket activity. A supplementary row that scores well is therefore not evidence of better forecasting on equal information.",
+      "Execution settings mirror the official successor registry wherever the provider allows it: controlled_docket_tool_only, max_output_tokens 128000, and provider-default sampling. No provider-imposed deviation from the official output cap was required.",
+      "reasoning_effort is deliberately absent, matching the Anthropic official entry rather than the OpenAI one. Claude Opus 5 runs adaptive thinking on by default at the provider's default effort of 'high', which is the same reasoning posture the official Anthropic model runs under; the solver sends thinking type 'adaptive' and publishes provider_reasoning_effort 'provider_default_high' on the run card rather than leaving the setting silent. Source: https://platform.claude.com/docs/en/about-claude/models/overview, 'Thinking | Adaptive' and 'Default effort | high', checked 2026-08-31.",
+      "Claude Opus 5's dateless model ID is a pinned snapshot, not an evergreen alias."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "claude-opus-5",
+    "model_version_or_snapshot": "claude-opus-5",
+    "network_disabled": true,
+    "output_token_price": 25.0,
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing, standard Claude Opus 5 pricing of USD 5/M input and USD 25/M output; corroborated by https://www.anthropic.com/news/claude-opus-5, '$5 per million input tokens and $25 per million output tokens (the same as Opus 4.8)'. Checked 2026-08-31",
+    "provider": "anthropic",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-07-24T00:00:00Z",
+    "release_timestamp_source": "https://www.anthropic.com/news/claude-opus-5, dateline 'Jul 24, 2026', announcing Claude Opus 5 with its System Card at https://www.anthropic.com/claude-opus-5-system-card; corroborated by https://platform.claude.com/docs/en/about-claude/models/overview, which commits to retirement no sooner than 2026-07-24 plus one year. Checked 2026-08-31",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

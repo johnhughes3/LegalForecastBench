@@ -67,7 +67,7 @@ def test_checked_in_forecast_caps_pass_execution_decisions_consumer(
             ("openai", "openai:gpt-5.6-sol"),
             ("openai", "openai:gpt-5.6-terra"),
             ("openai", "openai:gpt-5.6-luna"),
-            ("anthropic", "anthropic:claude-opus-4-8"),
+            ("anthropic", "anthropic:claude-fable-5"),
         )
     )
     cases = tuple(SimpleNamespace(candidate_id=f"case-{i}") for i in range(100))
@@ -75,11 +75,10 @@ def test_checked_in_forecast_caps_pass_execution_decisions_consumer(
         "raw_observation_sha256": "d" * 64,
         "bead_id": "bead",
         # The consumer refuses caps whose sum exceeds the owner ceiling, so
-        # this fixture ceiling tracks the shipped caps: 2006.10 anthropic +
-        # 1374.96 openai. The provider-coverage check compares providers, not
-        # model count, so it is unaffected by how many models the anthropic
-        # cap is sized for.
-        "ceiling_usd": "3381.06",
+        # this fixture ceiling tracks the shipped caps: 1337.40 anthropic
+        # (Claude Fable 5 alone, per the 2026-08-31 owner ruling) + 1374.96
+        # openai.
+        "ceiling_usd": "2712.36",
         "estimate_usd": "1.00",
         "line_sha256": dict.fromkeys(
             ("manifest", "contamination", "final_provider_spend"), "e" * 64

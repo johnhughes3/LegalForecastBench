@@ -513,16 +513,20 @@ def test_anthropic_opus_snapshot_enables_adaptive_thinking_for_callable_alias() 
     assert bedrock["thinking"] == {"type": "adaptive"}
 
 
-@pytest.mark.parametrize("model_id", ("claude-fable-5", "claude-opus-4-8"))
+@pytest.mark.parametrize(
+    "model_id", ("claude-fable-5", "claude-opus-5", "claude-opus-4-8")
+)
 def test_anthropic_adaptive_thinking_models_publish_a_reasoning_policy(
     model_id: str,
 ) -> None:
-    """Every official Anthropic model must publish what reasoning it requested.
+    """Every Anthropic model in either lane must publish its reasoning policy.
 
-    Fable 5's thinking is always on at a provider default effort of ``high``,
+    All three run adaptive thinking at a provider default effort of ``high``,
     so the wire behaviour was already correct; without this the run card simply
     recorded no reasoning policy at all, which is indistinguishable from a
-    model that was run with reasoning off.
+    model that was run with reasoning off. Claude Fable 5 is the official
+    Anthropic model and Claude Opus 5 the supplementary one, so a silent run
+    card here would land in published results either way.
     """
 
     entry = _registry_entry("anthropic", model_id, model_version_or_snapshot=model_id)

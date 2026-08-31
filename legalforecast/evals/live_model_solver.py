@@ -63,12 +63,17 @@ DEFAULT_RETRY_BACKOFF_SECONDS = 2.0
 _PRICE_UNITS_PER_TOKEN = 1_000_000
 _TOKEN_ESTIMATE_BYTES_PER_TOKEN = 4
 # Anthropic models whose reasoning is requested as adaptive thinking rather
-# than through a registry ``reasoning_effort``. Both run at the provider's
-# default effort of ``high``; on Claude Fable 5 thinking is always on and any
-# other explicit thinking configuration is rejected by the provider.
+# than through a registry ``reasoning_effort``. Each runs at the provider's
+# default effort of ``high``. On Claude Fable 5 thinking is always on and any
+# other explicit thinking configuration is rejected by the provider; on Claude
+# Opus 5 adaptive thinking is the default rather than something this harness
+# has to switch on. Claude Opus 4.8 stays listed because supplementary and
+# replay runs still resolve against it even though the official lane no longer
+# names it.
 _ANTHROPIC_ADAPTIVE_THINKING_MODELS = frozenset(
     {
         "claude-opus-4-8",
+        "claude-opus-5",
         "claude-fable-5",
     }
 )
