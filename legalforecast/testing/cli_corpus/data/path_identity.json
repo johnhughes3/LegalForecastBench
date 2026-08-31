@@ -387,6 +387,7 @@
     "tests/test_package_import_order.py",
     "tests/test_package_skeleton.py",
     "tests/test_packet_render_ci_workflow.py",
+    "tests/test_pdf_extractor_pin.py",
     "tests/test_policy_artifacts.py",
     "tests/test_procedural_order_regressions.py",
     "tests/test_protocol_freeze.py",

@@ -22,7 +22,18 @@ dependencies = [
     "cryptography>=50.0.1",
     "ortools>=9.15.6755",
     "pydantic>=2.13.5,<3",
-    "pypdf>=6.16.2",
+    # PINNED, not a floor. pypdf is the PDF text extractor behind
+    # extract_disclosure_pdf_pages, whose output is rendered into the disclosure
+    # marker-page prompt and hashed into prompt_sha256 -- part of the
+    # provider-attempt identity a replay must reproduce exactly. A release that
+    # extracts different text from the same bytes retroactively invalidates
+    # every settled disclosure attempt without touching a document. #1022's
+    # 6.14.2 -> 6.16.2 bump did exactly that and broke
+    # `acquisition issue-manifest-freeze-inputs`.
+    # UNLOCK CONDITION: pinned while Cycle 1's settled disclosure evidence must
+    # replay; unpin after Cycle 1 closes or when renderer versioning lands.
+    # Fenced by test_pdf_text_extractor_stays_pinned_for_cycle_1_replay.
+    "pypdf==6.14.2",
 ]
 
 [project.scripts]
