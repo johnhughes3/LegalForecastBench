@@ -1,0 +1,121 @@
+{
+  "adapter_kind": "local_cli",
+  "auth_environment_variables": [
+    {
+      "names": [],
+      "profile": "contributor-subscription"
+    },
+    {
+      "names": [],
+      "profile": "fixture-none"
+    }
+  ],
+  "auth_profile_name": "contributor-subscription",
+  "capabilities": [
+    "container_execution",
+    "headless_print",
+    "json_output",
+    "model_selection",
+    "native_tools_enabled",
+    "permission_mode",
+    "restricted_egress",
+    "server_side_web_tools_disabled",
+    "working_directory_isolation"
+  ],
+  "capability_digest": "sha256:36d5bd5113752ff420d0ad7d5d5c4eeb6bfc253e9972f159970e91e5b289567e",
+  "containment": {
+    "host_process_containment": "posix_process_group.v1",
+    "isolated_host_environment": true,
+    "network_policy": "provider_egress_host_only",
+    "session_persistence": "ephemeral",
+    "setting_sources": [],
+    "strict_mcp_config": false
+  },
+  "display_name": "Antigravity CLI containerized tools-on local CLI",
+  "executable": {
+    "basename": "agy",
+    "container_image_digest": "sha256:7037ea80e4e59c82c3b83912d8bbf8df8a7553d780dbbb58080d4154dfd3b300",
+    "distribution_kind": "standalone-cli",
+    "version": "1.1.22"
+  },
+  "harness_binding": {
+    "adapter_id": "antigravity-cli-container-tools-on",
+    "adapter_version": "1.0.0",
+    "harness_adapter_contract": "legalforecast.multiharness.adapters.HarnessAdapter",
+    "harness_solver_contract": "legalforecast.evals.inspect_task.HarnessSolver",
+    "implements_harness_adapter": true,
+    "implements_harness_solver": true,
+    "solver_kind": "inspect_ai",
+    "solver_response_contract": "legalforecast.evals.inspect_task.SolverResponse",
+    "supported_families": [
+      "legalforecast_mtd"
+    ],
+    "supported_scoring_modes": [
+      "lfb_brier"
+    ],
+    "tool_protocol_version": null
+  },
+  "invocation": {
+    "argv_template": [
+      "--output-format",
+      "json",
+      "--model",
+      "{model}",
+      "--print-timeout",
+      "840s",
+      "--disable-slash-commands",
+      "--dangerously-skip-permissions",
+      "--add-dir",
+      "{workspace}",
+      "-p",
+      "{prompt}"
+    ],
+    "headless_mode": "print_flag",
+    "model_flag": "--model",
+    "output_format": "json",
+    "prompt_delivery": "argv_placeholder",
+    "schema_enforcement": "none",
+    "working_directory_flag": null
+  },
+  "manifest_id": "antigravity-cli-container-tools-on",
+  "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "supported_auth_profiles": [
+    "contributor-subscription",
+    "fixture-none"
+  ],
+  "task_projection": {
+    "deliverable_event_type": null,
+    "deliverable_field": "response",
+    "deliverable_item_type": null,
+    "deliverable_relative_path": null,
+    "deliverable_source": "structured_stdout",
+    "prompt_source": "solver_input_prompt"
+  },
+  "timeout_retry": {
+    "max_attempts": 1,
+    "retry_backoff_seconds": 0,
+    "retryable_exit_codes": [],
+    "timeout_seconds": 900
+  },
+  "transcript_capture": {
+    "points": [
+      "private_execution_log",
+      "stderr",
+      "stdout"
+    ],
+    "public_raw_transcript": false
+  },
+  "usage_reporting": {
+    "cache_read_tokens_field": "usage.cache_read_tokens",
+    "cache_write_tokens_field": null,
+    "cost_basis": "subscription_unallocable",
+    "cost_usd_field": null,
+    "input_tokens_field": "usage.input_tokens",
+    "output_tokens_field": "usage.output_tokens",
+    "solver_response_fields": [
+      "input_tokens",
+      "output_tokens",
+      "request_count"
+    ]
+  }
+}
