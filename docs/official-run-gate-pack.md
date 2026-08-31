@@ -277,16 +277,18 @@ passed and the remaining shard receipts and exact source dispatch attempts are
 available:
 
 ```bash
-gh workflow run .github/workflows/fan-in-publish.yaml \
+gh workflow run .github/workflows/fan-in-publish-legacy.yaml \
   --repo "$GITHUB_REPOSITORY" --ref main \
   -f release_sha="$RELEASE_SHA" \
   -f cycle_id="<frozen-cycle-id>" \
-  -f freeze_bundle_path="manifests/<frozen-cycle-id>.freeze.json" \
+  -f freeze_bundle_path="s3://<results-bucket>/cycle-1/manifest-runs/<manifest-digest>/freeze.json" \
   -f source_dispatch_run_id="<run-benchmark-run-id>" \
   -f source_dispatch_run_attempt="<exact-source-attempt>" \
   -f verify_only=true \
   -f artifact_retention_days=30
 ```
+
+This is the shard-receipt fan-in, restored as `fan-in-publish-legacy.yaml` for the Cycle 1 r4 repair (bead `legalforecastbench-y7hk`); PR #1019 replaced `fan-in-publish.yaml` itself with the per-model locked-manifest boundary, which takes different inputs and cannot read shard receipts. Use `source_dispatch_runs_json` instead of the singular pair when fanning in more than one dispatch. Both legacy workflow files retire when `legalforecastbench-y7hk` closes.
 
 The expected terminal artifact is `fan-in-report.json` with the accepted receipt map, exact S3 VersionId/hash commitments, frozen artifact hashes, derived counts, and no canonical report write. For the bounded provider-authority smoke, John uses the separately protected workflow and its exact main SHA; no provider API key or smoke result is available to this lane.
 

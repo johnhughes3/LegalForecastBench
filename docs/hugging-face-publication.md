@@ -14,7 +14,7 @@ Model result files should always set `dataset.revision` to the full Hugging Face
 
 1. Create the Dataset repository named by the protected environment variable `LFB_HF_OFFICIAL_DATASET_REPO`.
 2. Make it public and set access requests to **Manual approval**. The card metadata and access form are published by this repository, but the approval mode is an HF repository setting and must be confirmed in the HF UI.
-3. Configure an HF Trusted Publisher for `johnhughes3/LegalForecastBench`, branch `main`, and workflow `fan-in-publish.yaml`, scoped to that Dataset repository.
+3. Configure an HF Trusted Publisher for `johnhughes3/LegalForecastBench`, branch `main`, and workflow `fan-in-publish-legacy.yaml`, scoped to that Dataset repository. The publishing steps live in that workflow: PR #1019 replaced `fan-in-publish.yaml` with the per-model locked-manifest boundary, which has no Hugging Face step, and PR #1029's `-legacy` chain restored the shard-receipt fan-in that does. A Trusted Publisher entry naming only `fan-in-publish.yaml` will reject the publish. Both entries can coexist; drop the `-legacy` one when bead `legalforecastbench-y7hk` closes and a Hugging Face step exists on the supported lane again.
 4. Configure `LFB_HF_OFFICIAL_DATASET_REPO` on the existing protected `legalforecastbench-official-eval-fan-in` GitHub environment. Store only `namespace/repository`, without a URL or `datasets/` prefix.
 5. Ask Hugging Face to validate and allow-list the repository as an official benchmark. Native benchmark registration is currently beta and is not conferred merely by uploading `eval.yaml`.
 

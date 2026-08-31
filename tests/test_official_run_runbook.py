@@ -15,6 +15,58 @@ from legalforecast.cli import build_parser, main
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# The retired-contract fences below hold for every part of the runbook that
+# documents supported work. One section is deliberately outside them: the Legacy
+# Cycle 1 chain note, which tells an operator how to fan in the owner-approved
+# r4 repair through .github/workflows/fan-in-publish-legacy.yaml and therefore
+# has to name that lane's pre-#1019 inputs. The carve-out is not open-ended --
+# test_runbook_legacy_chain_note_retires_with_the_legacy_workflows below refuses
+# it once the legacy workflow files are gone (bead legalforecastbench-y7hk).
+LEGACY_CHAIN_NOTE_HEADING = "### Legacy Cycle 1 chain note"
+LEGACY_CHAIN_NOTE_END = "## Add Models To A Cycle"
+LEGACY_DISPATCH_WORKFLOW = ROOT / ".github" / "workflows" / "run-benchmark-legacy.yaml"
+LEGACY_FAN_IN_WORKFLOW = ROOT / ".github" / "workflows" / "fan-in-publish-legacy.yaml"
+
+
+def _legacy_chain_note(runbook: str) -> str:
+    head, separator, tail = runbook.partition(LEGACY_CHAIN_NOTE_HEADING)
+    assert separator, "the runbook no longer has a Legacy Cycle 1 chain note"
+    assert head, "the Legacy Cycle 1 chain note must not open the runbook"
+    section, end_separator, _ = tail.partition(LEGACY_CHAIN_NOTE_END)
+    assert end_separator, (
+        "the Legacy Cycle 1 chain note must be followed by "
+        f"{LEGACY_CHAIN_NOTE_END!r}; the fence below cannot scope itself otherwise"
+    )
+    return separator + section
+
+
+def _supported_runbook() -> str:
+    """The runbook minus the temporary legacy-chain carve-out."""
+
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    return runbook.replace(_legacy_chain_note(runbook), "", 1)
+
+
+def test_runbook_legacy_chain_note_retires_with_the_legacy_workflows() -> None:
+    """The carve-out lives exactly as long as the workflows it documents."""
+
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    legacy_workflows_present = (
+        LEGACY_DISPATCH_WORKFLOW.exists() and LEGACY_FAN_IN_WORKFLOW.exists()
+    )
+    assert legacy_workflows_present, (
+        "the Legacy Cycle 1 chain note documents run-benchmark-legacy.yaml and "
+        "fan-in-publish-legacy.yaml; when legalforecastbench-y7hk closes and "
+        "those files are deleted, delete the note and this carve-out too"
+    )
+    note = _legacy_chain_note(runbook)
+    assert "legalforecastbench-y7hk" in note
+    assert "fan-in-publish-legacy.yaml" in note
+    assert "run-benchmark-legacy.yaml" in note
+    # The carve-out is scoped: nothing outside the note may name the retired
+    # contract, which is what the two fences below now assert.
+    assert LEGACY_CHAIN_NOTE_HEADING not in _supported_runbook()
+
 
 def _github_heading_id(heading: str) -> str:
     plain = re.sub(r"[*_`]", "", heading).strip().casefold()
@@ -120,8 +172,7 @@ def test_fan_in_runbook_preserves_the_label_boundary() -> None:
 
 
 def test_runbook_documents_attempt_bound_source_and_create_once_publication() -> None:
-    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
-    normalized = " ".join(runbook.split())
+    normalized = " ".join(_supported_runbook().split())
 
     assert "exact run ID and attempt" in normalized
     assert "source workflow path" in normalized
@@ -786,13 +837,14 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
     assert "--expected-run-identity" in (
         ROOT / ".github" / "workflows" / "fan-in-publish.yaml"
     ).read_text(encoding="utf-8")
+    supported = _supported_runbook()
     for retired_contract in (
         "--dispatch-provenance",
         "freeze_bundle_path",
         "additive_supersession",
         "official-dispatch-provenance",
     ):
-        assert retired_contract not in runbook
+        assert retired_contract not in supported
 
     batch_002_section = runbook.split(
         "## Cycle 1 Batch-002 CourtListener-First Acquisition", maxsplit=1
