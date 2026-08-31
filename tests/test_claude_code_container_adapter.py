@@ -341,6 +341,98 @@ def test_adapter_refuses_the_clean_native_manifest_under_this_family() -> None:
         )
 
 
+def _summary_for(tmp_path: Path, stdout: str) -> dict[str, Any]:
+    """Return the public summary of one adapter run over a canned transcript."""
+
+    def runner(spec: ContainerHarnessSpec) -> ContainerHarnessResult:
+        spec.log_root.mkdir(parents=True, exist_ok=True)
+        stdout_path = spec.log_root / "stdout"
+        stderr_path = spec.log_root / "stderr"
+        stdout_path.write_text(stdout, encoding="utf-8")
+        stderr_path.write_text("", encoding="utf-8")
+        return ContainerHarnessResult(
+            run_id=spec.run_id,
+            exit_code=0,
+            timed_out=False,
+            duration_seconds=12.5,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            image_id=spec.image,
+            proxy_image_id=spec.image,
+            allowed_hosts=("api.anthropic.com",),
+            refused=(),
+            allowlist=spec.allowlist().to_record(),
+        )
+
+    manifest = _manifest()
+    adapter = ContainerCliAdapter(
+        identity=identity_for_registry_name(REGISTRY_NAME),
+        local_manifest=manifest,
+        auth_profile=FIXTURE_NONE,
+        allow_hosts=("api.anthropic.com",),
+        parent_env={},
+        runner=runner,
+    )
+    return dict(adapter.run(_request(manifest), tmp_path).public_summary)
+
+
+def test_adapter_publishes_the_tokens_the_transcript_reported(
+    tmp_path: Path,
+) -> None:
+    """Real counts reach the summary the release projection reads.
+
+    Before this projection every LFB row carried ``input_tokens: 0`` because
+    the adapter never carried the parsed usage across, which read as "this
+    harness spent no tokens" rather than "nobody looked".
+    """
+
+    summary = _summary_for(tmp_path, _stream(*_TRANSCRIPT_EVENTS))
+
+    assert summary["usage_reporting"] == "cli_reported_usage"
+    assert summary["input_tokens"] == 41
+    assert summary["output_tokens"] == 12
+    assert summary["usage"]["cache_read_tokens"] == 900
+    assert summary["usage"]["cache_write_tokens"] == 37747
+    assert summary["usage"]["caveats"] == []
+
+
+def test_the_dollar_figure_is_published_as_an_imputation_not_as_spend(
+    tmp_path: Path,
+) -> None:
+    """This lane runs on a subscription, so no per-run dollar was metered.
+
+    ``total_cost_usd`` is the CLI's list-price estimate of what the same tokens
+    would have cost on the API.  It is published labelled, and it is kept out
+    of ``estimated_cost``, which the release projection copies into the LFB row
+    as an unlabelled float that reads as money.
+    """
+
+    summary = _summary_for(tmp_path, _stream(*_TRANSCRIPT_EVENTS))
+
+    assert summary["usage"]["imputed_cost_usd"] == 0.0421
+    assert summary["usage"]["cost_metering"] == "imputed_list_price"
+    assert summary["usage"]["cost_basis"] == "subscription_unallocable"
+    assert "estimated_cost" not in summary
+
+
+def test_an_empty_usage_block_is_published_as_unreported(tmp_path: Path) -> None:
+    """The parser fills absent fields with zeros; zeros are not a measurement.
+
+    A turn that reached the model cannot have spent zero input and zero output
+    tokens, so an all-zero block is a missing accounting object.
+    """
+
+    events = [dict(event) for event in _TRANSCRIPT_EVENTS]
+    events[-1] = {**events[-1], "usage": {}, "total_cost_usd": None}
+    summary = _summary_for(tmp_path, _stream(*events))
+
+    assert summary["usage_reporting"] == "unreported"
+    assert "input_tokens" not in summary
+    assert "output_tokens" not in summary
+    assert summary["usage"]["input_tokens"] is None
+    assert summary["usage"]["caveats"] == ["empty_usage_block"]
+
+
 def _request(manifest: LocalCliAdapterManifest) -> RunRequest:
     adapter_manifest = manifest.to_adapter_manifest(
         command=("legalforecast.multiharness.harness_lane.adapter:ContainerCliAdapter",)

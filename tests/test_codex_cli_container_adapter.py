@@ -402,6 +402,16 @@ def test_adapter_runs_the_manifest_argv_and_publishes_the_egress_evidence(
     # environment, so the child gets HOME plus the proxy variables and nothing
     # that could authenticate a fallback API call.
     assert "OPENAI_API_KEY" not in seen[0].environment
+    # Real token counts, and no dollar figure at all: there is no cost field
+    # anywhere in this envelope, which is why the manifest's `cost_usd_field`
+    # is null.  An absent cost is published as absent, not as 0.0.
+    assert result.public_summary["usage_reporting"] == "cli_reported_usage"
+    assert result.public_summary["input_tokens"] == 24576
+    assert result.public_summary["output_tokens"] == 15
+    assert manifest.usage_reporting.cost_usd_field is None
+    assert result.public_summary["usage"]["imputed_cost_usd"] is None
+    assert result.public_summary["usage"]["cost_metering"] == "unreported"
+    assert "estimated_cost" not in result.public_summary
 
 
 def test_adapter_refuses_the_clean_native_manifest_under_this_family() -> None:

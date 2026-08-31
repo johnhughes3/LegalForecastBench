@@ -371,6 +371,13 @@ def test_adapter_runs_the_manifest_argv_and_publishes_the_egress_evidence(
     # exactly the fallback this lane must never take.
     assert "GEMINI_API_KEY" not in seen[0].environment
     assert "GOOGLE_API_KEY" not in seen[0].environment
+    # The two accountings are independent and this harness is the proof: agy's
+    # envelope names no tool it called but does report its tokens, so one field
+    # says `unreported` while the other carries real counts.
+    assert result.public_summary["tool_use_reporting"] == "unreported"
+    assert result.public_summary["usage_reporting"] == "cli_reported_usage"
+    assert result.public_summary["input_tokens"] == 24312
+    assert result.public_summary["usage"]["reasoning_tokens"] == 344
 
 
 def test_adapter_refuses_a_manifest_for_a_different_harness(tmp_path: Path) -> None:

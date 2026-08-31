@@ -41,6 +41,11 @@ from legalforecast.multiharness.harness_lane.adapter import (
 from legalforecast.multiharness.harness_lane.harnesses import (
     identity_for_registry_name,
 )
+from legalforecast.multiharness.harness_lane.usage_accounting import (
+    HarnessUsage,
+    UsageAccountingError,
+    harness_usage,
+)
 from legalforecast.multiharness.local_cli_contracts import LocalCliFailureClass
 from legalforecast.multiharness.local_cli_manifest import (
     LocalCliAdapterManifest,
@@ -491,6 +496,99 @@ def test_adapter_refuses_a_manifest_that_pins_another_harness() -> None:
             auth_profile=FIXTURE_NONE,
             parent_env={},
         )
+
+
+def test_the_adapter_publishes_unreported_usage_rather_than_zero_tokens(
+    tmp_path: Path,
+) -> None:
+    """Kimi has no usage code path, so its rows must never carry a token count.
+
+    This is the whole honesty requirement in one row.  These numbers are
+    published beside four harnesses that really do report counts, so a 0 here
+    would read as "this harness spent nothing" -- a claim nobody measured.
+    ``reports_usage`` is False by construction in the parser and the manifest's
+    token accessors are the ``unreported.*`` sentinel; the summary says so too.
+    """
+
+    def runner(spec: ContainerHarnessSpec) -> ContainerHarnessResult:
+        spec.log_root.mkdir(parents=True, exist_ok=True)
+        stdout = spec.log_root / "stdout"
+        stderr = spec.log_root / "stderr"
+        stdout.write_text(_stream(*_TRANSCRIPT_EVENTS), encoding="utf-8")
+        stderr.write_text("", encoding="utf-8")
+        return ContainerHarnessResult(
+            run_id=spec.run_id,
+            exit_code=0,
+            timed_out=False,
+            duration_seconds=31.5,
+            stdout_path=stdout,
+            stderr_path=stderr,
+            image_id=spec.image,
+            proxy_image_id=spec.image,
+            allowed_hosts=("api.kimi.com",),
+            refused=(),
+            allowlist=spec.allowlist().to_record(),
+        )
+
+    manifest = _manifest()
+    adapter = ContainerCliAdapter(
+        identity=identity_for_registry_name(REGISTRY_NAME),
+        local_manifest=manifest,
+        auth_profile=FIXTURE_NONE,
+        allow_hosts=("api.kimi.com",),
+        parent_env={},
+        runner=runner,
+    )
+    summary = dict(adapter.run(_request(manifest), tmp_path).public_summary)
+
+    assert summary["usage_reporting"] == "unreported"
+    assert "input_tokens" not in summary
+    assert "output_tokens" not in summary
+    assert "estimated_cost" not in summary
+    assert summary["usage"] == {
+        "cache_read_tokens": None,
+        "cache_write_tokens": None,
+        "caveats": [],
+        "cost_basis": "subscription_unallocable",
+        "cost_metering": "unreported",
+        "imputed_cost_usd": None,
+        "input_tokens": None,
+        "output_tokens": None,
+        "reasoning_tokens": None,
+        "reporting": "unreported",
+    }
+
+
+def test_a_usage_result_cannot_claim_to_be_unreported_and_carry_a_count() -> None:
+    """The record shape refuses the collapse this lane exists to prevent."""
+
+    with pytest.raises(UsageAccountingError, match="must carry no counts"):
+        HarnessUsage(
+            input_tokens=0,
+            output_tokens=0,
+            cache_read_tokens=None,
+            cache_write_tokens=None,
+            reasoning_tokens=None,
+            imputed_cost_usd=None,
+            reporting="unreported",
+        )
+    with pytest.raises(UsageAccountingError, match="must carry input and output"):
+        HarnessUsage(
+            input_tokens=None,
+            output_tokens=None,
+            cache_read_tokens=None,
+            cache_write_tokens=None,
+            reasoning_tokens=None,
+            imputed_cost_usd=None,
+            reporting="cli_reported_usage",
+        )
+
+
+def test_an_undeclared_harness_has_no_usage_reader() -> None:
+    """A new CLI must declare how it reports usage before it can publish rows."""
+
+    with pytest.raises(UsageAccountingError, match="no usage reader"):
+        harness_usage("some-new-cli", "")
 
 
 def _request(manifest: LocalCliAdapterManifest) -> RunRequest:

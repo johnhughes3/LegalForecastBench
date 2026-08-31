@@ -62,6 +62,10 @@ from legalforecast.multiharness.harness_lane.tool_accounting import (
     HarnessToolUse,
     harness_tool_use,
 )
+from legalforecast.multiharness.harness_lane.usage_accounting import (
+    HarnessUsage,
+    harness_usage,
+)
 from legalforecast.multiharness.harness_vocab import (
     LOCAL_CLI_CONTAINER_EXECUTION,
     LOCAL_CLI_NATIVE_TOOLS_ENABLED,
@@ -317,6 +321,7 @@ class ContainerCliAdapter:
         stdout = _read_stdout(result)
         deliverable, failure = self._deliverable(result, spec.workspace, stdout)
         tools = harness_tool_use(self.identity.executable_basename, stdout)
+        usage = harness_usage(self.identity.executable_basename, stdout)
         evidence = (
             write_container_release_evidence(
                 request=request,
@@ -327,7 +332,9 @@ class ContainerCliAdapter:
             if prompt_sha256 is not None and deliverable is not None
             else None
         )
-        return self._run_result(request, result, deliverable, failure, tools, evidence)
+        return self._run_result(
+            request, result, deliverable, failure, tools, usage, evidence
+        )
 
     def _unauthenticated_prompt(self, request: RunRequest, workspace: Path) -> str:
         """Return the prompt for a task with no private solver-input store."""
@@ -386,6 +393,7 @@ class ContainerCliAdapter:
         deliverable: str | None,
         failure: LocalCliFailureClass | None,
         tools: HarnessToolUse,
+        usage: HarnessUsage,
         evidence: ContainerReleaseEvidence | None,
     ) -> RunResult:
         manifest = self.manifest
@@ -416,6 +424,11 @@ class ContainerCliAdapter:
             "tool_policy": tools.policy,
             "tool_use_reporting": tools.reporting,
         }
+        summary.update(
+            usage.summary_fields(
+                cost_basis=self.local_manifest.usage_reporting.cost_basis
+            )
+        )
         if evidence is not None:
             summary["transcript_sha256"] = evidence.transcript_sha256
         validate_public_record(summary, "container_cli.public_summary")
