@@ -403,6 +403,8 @@ jobs:
           # The plan is written before any credential is used, and every key is
           # rebuilt from EXPECTED_PREFIX rather than concatenated ad hoc, so an
           # object outside this lane's prefix cannot be described, let alone put.
+          # It lives under WORK_ROOT because it names local bodies; the durable
+          # copy in OUTPUT_ROOT below is keys and digests only.
           jq -n \
             --arg prefix "${EXPECTED_PREFIX}" \
             --arg bucket "${LFB_RESULTS_BUCKET}" \
@@ -417,12 +419,15 @@ jobs:
                {bucket: $bucket, key: ($prefix + "/harness-lane-summary.json"),
                 sha256: $summary_sha256, path: $summary_path,
                 content_type: "application/json"}
-             ]}' > "${OUTPUT_ROOT}/stage-plan.json"
+             ]}' > "${WORK_ROOT}/stage-plan.json"
 
           jq -e --arg prefix "${EXPECTED_PREFIX}" --arg bucket "${LFB_RESULTS_BUCKET}" '
             (.objects | length) == 2 and
             all(.objects[]; .bucket == $bucket and (.key | startswith($prefix + "/")))
-          ' "${OUTPUT_ROOT}/stage-plan.json" >/dev/null
+          ' "${WORK_ROOT}/stage-plan.json" >/dev/null
+
+          jq 'del(.objects[].path)' "${WORK_ROOT}/stage-plan.json" \
+            > "${OUTPUT_ROOT}/stage-plan.json"
 
           if [[ "${DRY_RUN}" == "true" ]]; then
             jq '. + {dry_run: true}' "${OUTPUT_ROOT}/stage-plan.json" \
@@ -451,7 +456,7 @@ jobs:
                 exit 1
               fi
             done < <(jq -r '.objects[] | [.bucket, .key, .sha256, .path, .content_type] | @tsv' \
-              "${OUTPUT_ROOT}/stage-plan.json")
+              "${WORK_ROOT}/stage-plan.json")
             jq '. + {dry_run: false}' "${OUTPUT_ROOT}/stage-plan.json" \
               > "${OUTPUT_ROOT}/stage-record.json"
           fi
