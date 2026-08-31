@@ -26,7 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 OFFICIAL_REGISTRY = (
     REPO_ROOT
     / "model_registries"
-    / "cycle-1-2026-06-30-claude-opus-4-8-successor-2026-08-21.json"
+    / "cycle-1-2026-06-30-claude-fable-5-successor-2026-08-31.json"
 )
 SUPPLEMENTARY_REGISTRY = (
     REPO_ROOT

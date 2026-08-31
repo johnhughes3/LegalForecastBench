@@ -8,6 +8,10 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.evals.corpus_manifest.beads_observation import (
+    SUCCESSOR_REGISTRY_KEYS,
+    SUCCESSOR_REGISTRY_PATH,
+)
 from legalforecast.evals.model_registry import (
     earliest_eligible_decision_date,
     load_model_registry,
@@ -177,6 +181,29 @@ def test_fable_5_successor_swaps_anthropic_without_editing_the_openai_three() ->
     assert "anthropic:claude-opus-4-8" not in {
         entry.registry_key for entry in registry.entries
     }
+
+
+def test_cycle_1_evidence_chain_resolves_the_shipped_fable_5_successor() -> None:
+    """A staged registry does nothing until the evidence chain resolves it.
+
+    ``beads_observation`` is the single place where owner spend approvals,
+    execution decisions, and the deferred forecast bundle agree on which
+    registry Cycle 1 runs. A stale path or key set here authenticates
+    approvals against a registry the freeze no longer contains, which is a
+    half-applied swap that every downstream gate would still wave through.
+    Asserting the constants against the shipped file -- both the path and the
+    derived official keys -- keeps them inseparable from the registry itself.
+    """
+
+    assert (ROOT / SUCCESSOR_REGISTRY_PATH).resolve() == (
+        FABLE_SUCCESSOR_REGISTRY.resolve()
+    )
+
+    registry = load_model_registry(ROOT / SUCCESSOR_REGISTRY_PATH)
+    entries = require_official_registry_entries(registry.entries)
+
+    assert SUCCESSOR_REGISTRY_KEYS == {entry.registry_key for entry in entries}
+    assert "anthropic:claude-fable-5" in SUCCESSOR_REGISTRY_KEYS
 
 
 def test_fable_5_successor_records_the_owner_ruling_that_dropped_opus_4_8() -> None:

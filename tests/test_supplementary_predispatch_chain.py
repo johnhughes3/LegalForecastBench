@@ -72,7 +72,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OFFICIAL_REGISTRY = (
     ROOT
     / "model_registries"
-    / "cycle-1-2026-06-30-claude-opus-4-8-successor-2026-08-21.json"
+    / "cycle-1-2026-06-30-claude-fable-5-successor-2026-08-31.json"
 )
 SUPPLEMENTARY_REGISTRY = (
     ROOT / "model_registries" / "cycle-1-supplementary-gemini-3.7-flash-2026-08-29.json"
