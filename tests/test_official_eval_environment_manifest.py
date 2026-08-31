@@ -93,11 +93,18 @@ STAGING_VARIABLES = {
 # runner is the only place it is opened. Nothing else in this environment is a
 # secret, and nothing here reaches a model provider.
 STAGING_SECRETS = {"LFB_STAGE_SOURCE_AGE_IDENTITY"}
+# One key per provider lane. DEEPINFRA_API_KEY serves both models hosted
+# there -- Kimi K3 and GLM 5.3 -- so a third DeepInfra model needs no new
+# secret. The supplementary lanes bind this same environment rather than a
+# second one: the owner ruling is one pipeline, and a separate
+# credential-bearing environment would be a separate boundary to keep correct.
 CELL_SECRETS = {
     "AI_GATEWAY_API_KEY",
     "ANTHROPIC_API_KEY",
+    "DEEPINFRA_API_KEY",
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
+    "XAI_API_KEY",
 }
 LOCKED_WORKFLOW_CELL_SECRETS = {
     "ANTHROPIC_API_KEY",

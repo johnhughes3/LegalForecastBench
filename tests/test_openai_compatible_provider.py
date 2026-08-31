@@ -14,6 +14,7 @@ import json
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -23,7 +24,7 @@ from legalforecast.evals.live_model_solver import (
     LiveModelSolver,
     complete_live_prompt,
 )
-from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.evals.model_registry import ModelRegistryEntry, load_model_registry
 from legalforecast.evals.openai_compatible_provider import (
     DEEPINFRA_API_KEY_ENV,
     DEEPINFRA_CHAT_COMPLETIONS_URL,
@@ -294,6 +295,51 @@ def test_deepinfra_request_body_pins_the_kimi_k3_shape() -> None:
         "stream": False,
         "reasoning_effort": "high",
     }
+
+
+def test_deepinfra_sends_glm_5_3_the_flat_reasoning_effort_not_the_5_2_shape() -> None:
+    """GLM 5.3 rides the Kimi K3 spelling; GLM 5.2's nested toggle is not it.
+
+    GLM 5.2 nested a separate ``thinking: {type}`` object beside a seven-value
+    effort control. GLM 5.3 replaced that with a flat top-level
+    ``reasoning_effort`` accepting exactly ``low`` / ``high`` / ``max``
+    (https://huggingface.co/zai-org/GLM-5.3, checked 2026-08-30) -- the same
+    three values Kimi K3 takes, which is why no second
+    ``ReasoningParameterStyle`` was needed.
+
+    The failure this guards is silent, not loud: the card states an
+    unrecognized value falls back to ``max`` rather than erroring, so sending
+    the 5.2 shape would run every cell at a reasoning budget the official four
+    never had, with nothing in the response to show it. The entry is loaded
+    from the shipped registry rather than a fixture so the payload pinned here
+    is the one a real dispatch would send.
+    """
+
+    registry = load_model_registry(
+        Path(__file__).resolve().parents[1]
+        / "model_registries"
+        / "cycle-1-supplementary-glm-5.3-2026-08-30.json"
+    )
+    entry = registry.get("deepinfra", "zai-org/GLM-5.3")
+    payload = _deepinfra_payload()
+    payload["model"] = "zai-org/GLM-5.3"
+    transport = _FixtureTransport(payload)
+
+    complete_live_prompt(
+        entry,
+        "Predict the case outcome.",
+        transport=transport,
+        environ=DEEPINFRA_ENV,
+    )
+
+    request = transport.only_request()
+    assert request.full_url == DEEPINFRA_CHAT_COMPLETIONS_URL
+    body = _json_body(request)
+    assert body["model"] == "zai-org/GLM-5.3"
+    assert body["reasoning_effort"] == "high"
+    assert body["max_completion_tokens"] == 128000
+    assert "thinking" not in body
+    assert "reasoning" not in body
 
 
 def test_deepinfra_counts_undocumented_reasoning_tokens_conservatively() -> None:

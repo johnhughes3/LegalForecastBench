@@ -71,14 +71,21 @@ _REASONING_EFFORT_PROVIDERS: Final[Mapping[str, frozenset[OpenAIReasoningEffort]
     ),
     # DeepInfra's endpoint accepts a wider set (none/minimal/low/medium/high/
     # xhigh/max), but on a shared host the accepted values are a property of the
-    # MODEL, and this benchmark serves exactly one model there. Kimi K3 accepts
-    # only low, high and max -- source https://huggingface.co/moonshotai/Kimi-K3
-    # model card, checked 2026-08-30: 'Thinking effort is configured with the
-    # top-level reasoning_effort request field, which supports "low", "high",
-    # and "max" (default "max")'. The narrower set is deliberate: an unsupported
-    # non-none effort is silently remapped to the nearest supported level rather
-    # than rejected, so a request for "medium" would run at some other depth
-    # with no error. Re-derive this set before adding a second model here.
+    # MODEL. Both models this benchmark serves there accept exactly low, high
+    # and max, which is why the narrower set below is still correct with two
+    # models on the lane rather than one. Kimi K3: source
+    # https://huggingface.co/moonshotai/Kimi-K3 model card, checked 2026-08-30,
+    # 'Thinking effort is configured with the top-level reasoning_effort request
+    # field, which supports "low", "high", and "max" (default "max")'. GLM 5.3:
+    # source https://huggingface.co/zai-org/GLM-5.3 model card, checked
+    # 2026-08-30, 'the reasoning_effort parameter, which accepts three levels:
+    # low, high, and max. It defaults to max if not passed (or if set to any
+    # other value)'. The narrower set is deliberate: an unsupported non-none
+    # effort is silently remapped to the nearest supported level -- or, on GLM
+    # 5.3, silently falls back to "max" -- rather than rejected, so a request
+    # for "medium" would run at some other depth with no error. Re-derive this
+    # set before adding a third model here; it holds only because these two
+    # happen to agree.
     "deepinfra": frozenset(
         {
             OpenAIReasoningEffort.LOW,

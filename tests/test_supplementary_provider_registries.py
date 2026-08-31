@@ -42,6 +42,7 @@ the anchor.
 """
 
 SUPPLEMENTARY_REGISTRIES = (
+    "cycle-1-supplementary-glm-5.3-2026-08-30.json",
     "cycle-1-supplementary-grok-4.6-2026-08-30.json",
     "cycle-1-supplementary-kimi-k3-2026-08-30.json",
 )
@@ -58,6 +59,15 @@ EXPECTED_IDENTITY = {
         "release": "2026-07-17",
         "input_price": 2.85,
         "output_price": 14.25,
+    },
+    # GLM 5.3, not GLM-5.3-Flash: a different 320B model at roughly a tenth of
+    # this price. Pinning the id and both prices is what makes the confusion a
+    # test failure rather than a silent order-of-magnitude cost error.
+    "deepinfra:zai-org/GLM-5.3": {
+        "model_version_or_snapshot": "zai-org/GLM-5.3",
+        "release": "2026-08-14",
+        "input_price": 1.2,
+        "output_price": 4.0,
     },
 }
 

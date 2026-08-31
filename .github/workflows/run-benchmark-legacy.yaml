@@ -212,10 +212,21 @@ jobs:
       model_count: ${{ steps.matrix.outputs.model_count }}
       anthropic_count: ${{ steps.matrix.outputs.anthropic_count }}
       anthropic_matrix: ${{ steps.matrix.outputs.anthropic_matrix }}
+      # deepinfra and xai are declared but not yet emitted: the cost-projection
+      # receipt card that carries a lane's `<lane>_count` / `<lane>_matrix`
+      # fields is frozen under Cycle 1 change control, so PROVIDER_LANES is
+      # still the official three and these resolve to the empty string. The
+      # supplementary cells below treat empty as "lane not minted" and skip.
+      # Minting the card is legalforecastbench-s9b9; after it lands the
+      # projector fills these in with no further workflow edit.
+      deepinfra_count: ${{ steps.matrix.outputs.deepinfra_count }}
+      deepinfra_matrix: ${{ steps.matrix.outputs.deepinfra_matrix }}
       gemini_count: ${{ steps.matrix.outputs.gemini_count }}
       gemini_matrix: ${{ steps.matrix.outputs.gemini_matrix }}
       openai_count: ${{ steps.matrix.outputs.openai_count }}
       openai_matrix: ${{ steps.matrix.outputs.openai_matrix }}
+      xai_count: ${{ steps.matrix.outputs.xai_count }}
+      xai_matrix: ${{ steps.matrix.outputs.xai_matrix }}
       long_context_surcharge_packet_count: ${{ steps.matrix.outputs.long_context_surcharge_packet_count }}
       long_context_surcharge_packets_json: ${{ steps.matrix.outputs.long_context_surcharge_packets_json }}
       projected_model_cost_usd: ${{ steps.matrix.outputs.projected_model_cost_usd }}
@@ -1177,6 +1188,122 @@ jobs:
           repeat_count: ${{ matrix.repeat_count }}
           resume_existing_results: ${{ inputs.resume_existing_results }}
           supplementary: ${{ needs.build-matrix.outputs.supplementary }}
+
+  run-xai:
+    name: xAI provider cells
+    needs: build-matrix
+    # Deliberately one test more than the official three. build-matrix cannot
+    # emit xai_count until legalforecastbench-s9b9 mints a cost-projection
+    # receipt card carrying the lane, so the value is the empty string today.
+    # Dropping the emptiness test would make this read `'' != '0'` -> true,
+    # and the job would then evaluate `fromJSON('')` and fail EVERY official
+    # dispatch. Keep both halves until the lane is minted; after that the
+    # empty case never occurs and the test is inert rather than wrong.
+    if: >-
+      ${{ !inputs.dry_run && needs.build-matrix.outputs.xai_count != '' &&
+      needs.build-matrix.outputs.xai_count != '0' }}
+    environment: legalforecastbench-official-eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
+      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
+      matrix: ${{ fromJSON(needs.build-matrix.outputs.xai_matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/official-provider-cell
+        with:
+          ablation: ${{ matrix.ablation }}
+          artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
+          case_id: ${{ matrix.case_id }}
+          case_id_slug: ${{ matrix.case_id_slug }}
+          cell_index: ${{ strategy.job-index }}
+          cycle_id: ${{ inputs.cycle_id }}
+          dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
+          dry_run: ${{ inputs.dry_run }}
+          environment_name: legalforecastbench-official-eval
+          execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
+          execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
+          freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
+          model_key: ${{ matrix.model_key }}
+          model_key_slug: ${{ matrix.model_key_slug }}
+          packet_object_key: ${{ matrix.packet_object_key }}
+          packet_sha256: ${{ matrix.packet_sha256 }}
+          provider: xai
+          release_sha: ${{ needs.build-matrix.outputs.release_sha }}
+          repeat_count: ${{ matrix.repeat_count }}
+          resume_existing_results: ${{ inputs.resume_existing_results }}
+          supplementary: ${{ needs.build-matrix.outputs.supplementary }}
+          xai_api_key: ${{ secrets.XAI_API_KEY }}
+
+  run-deepinfra:
+    name: DeepInfra provider cells
+    needs: build-matrix
+    # Same two-part guard as run-xai, for the same reason: see that comment.
+    if: >-
+      ${{ !inputs.dry_run && needs.build-matrix.outputs.deepinfra_count != '' &&
+      needs.build-matrix.outputs.deepinfra_count != '0' }}
+    environment: legalforecastbench-official-eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
+      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
+      matrix: ${{ fromJSON(needs.build-matrix.outputs.deepinfra_matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/official-provider-cell
+        with:
+          ablation: ${{ matrix.ablation }}
+          artifact_retention_days: ${{ needs.build-matrix.outputs.artifact_retention_days }}
+          case_id: ${{ matrix.case_id }}
+          case_id_slug: ${{ matrix.case_id_slug }}
+          cell_index: ${{ strategy.job-index }}
+          cycle_id: ${{ inputs.cycle_id }}
+          # One key serves both DeepInfra-hosted models, Kimi K3 and GLM 5.3.
+          deepinfra_api_key: ${{ secrets.DEEPINFRA_API_KEY }}
+          dispatch_run_attempt: ${{ needs.build-matrix.outputs.dispatch_run_attempt }}
+          dry_run: ${{ inputs.dry_run }}
+          environment_name: legalforecastbench-official-eval
+          execution_policy_sha256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
+          execution_scope_sha256: ${{ needs.build-matrix.outputs.execution_scope_sha256 }}
+          freeze_bundle_sha256: ${{ needs.build-matrix.outputs.freeze_bundle_sha256 }}
+          model_key: ${{ matrix.model_key }}
+          model_key_slug: ${{ matrix.model_key_slug }}
+          packet_object_key: ${{ matrix.packet_object_key }}
+          packet_sha256: ${{ matrix.packet_sha256 }}
+          provider: deepinfra
+          release_sha: ${{ needs.build-matrix.outputs.release_sha }}
+          repeat_count: ${{ matrix.repeat_count }}
+          resume_existing_results: ${{ inputs.resume_existing_results }}
+          supplementary: ${{ needs.build-matrix.outputs.supplementary }}
+
   finalize-shard:
     name: Finalize immutable shard receipt
     needs:
@@ -1184,12 +1311,16 @@ jobs:
       - run-openai
       - run-anthropic
       - run-gemini
+      - run-xai
+      - run-deepinfra
     if: >-
       ${{ !inputs.dry_run && inputs.shard_only && always() &&
       needs.build-matrix.result == 'success' &&
       (needs.run-openai.result == 'success' || needs.run-openai.result == 'skipped') &&
       (needs.run-anthropic.result == 'success' || needs.run-anthropic.result == 'skipped') &&
-      (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') }}
+      (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') &&
+      (needs.run-xai.result == 'success' || needs.run-xai.result == 'skipped') &&
+      (needs.run-deepinfra.result == 'success' || needs.run-deepinfra.result == 'skipped') }}
     # Protected environment: stay on GitHub-hosted ubuntu-latest.
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1302,12 +1433,16 @@ jobs:
       - run-openai
       - run-anthropic
       - run-gemini
+      - run-xai
+      - run-deepinfra
     if: >-
       ${{ !inputs.dry_run && !inputs.shard_only && always() &&
       needs.build-matrix.result == 'success' &&
       (needs.run-openai.result == 'success' || needs.run-openai.result == 'skipped') &&
       (needs.run-anthropic.result == 'success' || needs.run-anthropic.result == 'skipped') &&
-      (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') }}
+      (needs.run-gemini.result == 'success' || needs.run-gemini.result == 'skipped') &&
+      (needs.run-xai.result == 'success' || needs.run-xai.result == 'skipped') &&
+      (needs.run-deepinfra.result == 'success' || needs.run-deepinfra.result == 'skipped') }}
     # Protected environment: stay on GitHub-hosted ubuntu-latest.
     runs-on: ubuntu-latest
     timeout-minutes: 30

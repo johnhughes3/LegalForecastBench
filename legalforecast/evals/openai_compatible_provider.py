@@ -191,14 +191,20 @@ DEEPINFRA_PROVIDER: Final = OpenAICompatibleProvider(
     # IMPORTANT: on a shared host the reasoning knob is a property of the MODEL,
     # not of the provider. This spec describes what the *endpoint* accepts; what
     # a given model does with it varies sharply. Kimi K3 accepts only low, high
-    # and max (default max) and always reasons. GLM 5.2 nests a separate
-    # thinking:{type} toggle and collapses its seven effort values to
-    # effectively high and max. MiniMax M3 has no effort selection at all --
-    # only an adaptive thinking on/off toggle -- so an entry for it could not
-    # satisfy this style's explicit-effort requirement and would need a second
-    # ReasoningParameterStyle. Only Kimi K3 rides this provider today, and
-    # "high" is valid for it, so the per-model gap is recorded rather than
-    # abstracted over. Do not add a model here without re-checking its knob.
+    # and max (default max) and always reasons. GLM 5.3 accepts exactly that
+    # same three-value set with the same "max" default and the same flat
+    # top-level spelling -- https://huggingface.co/zai-org/GLM-5.3, checked
+    # 2026-08-30 -- which is why it rides this style unchanged. Do not carry
+    # over the GLM 5.2 shape: that version nested a separate thinking:{type}
+    # toggle beside a seven-value effort control, and it is not what 5.3 does.
+    # MiniMax M3 has no effort selection at all -- only an adaptive thinking
+    # on/off toggle -- so an entry for it could not satisfy this style's
+    # explicit-effort requirement and would need a second
+    # ReasoningParameterStyle. Both models riding this provider today take
+    # "high" validly, so the per-model gap is recorded rather than abstracted
+    # over. Do not add a model here without re-checking its knob: several
+    # stacks, GLM 5.3 among them, silently fall back to their default rather
+    # than rejecting a value they do not recognize.
     reasoning_parameter_style=ReasoningParameterStyle.TOP_LEVEL_REASONING_EFFORT,
     # NOT DOCUMENTED. As of 2026-08-30 DeepInfra's documentation contains no
     # occurrence of completion_tokens_details.reasoning_tokens and no response
