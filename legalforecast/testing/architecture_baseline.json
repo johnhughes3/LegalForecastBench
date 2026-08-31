@@ -4081,7 +4081,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 16,
-      "tests": 515,
+      "tests": 516,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -9876,9 +9876,9 @@
         "largest_symbol": "test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor",
         "largest_symbol_lines": 139,
         "layer": "test",
-        "line_count": 724,
-        "nonblank_line_count": 629,
-        "top_level_definition_count": 25
+        "line_count": 751,
+        "nonblank_line_count": 650,
+        "top_level_definition_count": 26
       },
       "tests/test_cycle_acquisition_assembler.py": {
         "cycle_id": "",
@@ -10758,8 +10758,8 @@
         "largest_symbol": "fixture",
         "largest_symbol_lines": 285,
         "layer": "test",
-        "line_count": 978,
-        "nonblank_line_count": 872,
+        "line_count": 988,
+        "nonblank_line_count": 881,
         "top_level_definition_count": 37
       },
       "tests/test_manifest_forecast_stage.py": {
@@ -11258,11 +11258,11 @@
           "oversized"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "_assert_eval_trust_refs_satisfiable",
-        "largest_symbol_lines": 133,
+        "largest_symbol": "_assert_exact_fan_in_policy",
+        "largest_symbol_lines": 152,
         "layer": "test",
-        "line_count": 1364,
-        "nonblank_line_count": 1250,
+        "line_count": 1464,
+        "nonblank_line_count": 1350,
         "top_level_definition_count": 38
       },
       "tests/test_official_paid_labeling_baton.py": {
@@ -11314,9 +11314,9 @@
         "largest_symbol": "test_staged_rollout_rehearsal_preserves_model_a_artifacts",
         "largest_symbol_lines": 165,
         "layer": "test",
-        "line_count": 1465,
-        "nonblank_line_count": 1339,
-        "top_level_definition_count": 39
+        "line_count": 1517,
+        "nonblank_line_count": 1382,
+        "top_level_definition_count": 42
       },
       "tests/test_openai_compatible_provider.py": {
         "cycle_id": "",

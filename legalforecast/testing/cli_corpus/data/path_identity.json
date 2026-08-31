@@ -370,6 +370,7 @@
     "tests/test_official_eval_environment_manifest.py",
     "tests/test_official_eval_infra.py",
     "tests/test_official_eval_matrix_workflow.py",
+    "tests/test_official_fan_in_legacy_workflow.py",
     "tests/test_official_infra_contract.py",
     "tests/test_official_paid_labeling_baton_workflow.py",
     "tests/test_official_paid_labeling_environment_manifest.py",
