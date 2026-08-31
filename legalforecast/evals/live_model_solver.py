@@ -108,6 +108,25 @@ class ValidatedProviderResponseFields:
     served_model_version: str
 
 
+@dataclass(frozen=True, slots=True)
+class SettledProviderAccounting:
+    """Accounting a prior process durably recorded for one provider attempt."""
+
+    raw_output: str
+    input_tokens: int
+    output_tokens: int
+    actual_cost_usd: float
+
+
+class SettledAccountingSource(Protocol):
+    """Attempt handler that can surface its own durable settlement record."""
+
+    def settled_response_accounting(
+        self,
+        attempt_ordinal: int,
+    ) -> Mapping[str, object] | None: ...
+
+
 class LiveModelTransport(Protocol):
     """Callable transport used to make tests network-free."""
 
@@ -341,6 +360,14 @@ def complete_live_prompt(
     latency_ms = (time.perf_counter() - started) * 1000
     try:
         response_fields = validate_provider_response_fields(registry_entry, payload)
+        settled = _prior_settled_accounting(attempt_handler, durable_attempt_ordinal)
+        if settled is not None:
+            response_fields = resolve_settled_provider_response_fields(
+                registry_entry,
+                payload,
+                response_fields,
+                settled,
+            )
         raw_output = response_fields.raw_output
         input_tokens = response_fields.input_tokens
         output_tokens = response_fields.output_tokens
@@ -1672,6 +1699,135 @@ def _gemini_usage(payload: JsonRecord) -> tuple[int, int]:
     return (
         _int_field(usage, "promptTokenCount"),
         _int_field(usage, "candidatesTokenCount") + thoughts_tokens,
+    )
+
+
+def _gemini_usage_candidates_only(payload: JsonRecord) -> tuple[int, int]:
+    """Bill only candidate tokens, as Gemini spend was accounted before #1003."""
+
+    usage = _mapping_or_empty(payload.get("usageMetadata"))
+    return (
+        _int_field(usage, "promptTokenCount"),
+        _int_field(usage, "candidatesTokenCount"),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class UsageAccountingRule:
+    """One named way to derive billable token counts from a usage block."""
+
+    rule_id: str
+    extract_usage: ExtractUsage
+
+
+# Token counts are *derived* from the provider's usage block, so the rule that
+# derives them is itself versioned evidence. `3a4fad75` (#1003) started billing
+# Gemini `thoughtsTokenCount` at the output rate — correct for new spend, but it
+# means today's extraction disagrees with settlements recorded under the older
+# rule even though the provider bytes never changed. Superseded rules are kept
+# here, keyed by normalized provider, so replaying an attempt reproduces the
+# accounting that was actually settled instead of appearing to rewrite it. A
+# rule may be dropped only once no settled attempt can still be replayed under
+# it; it is never used to account for a fresh provider call.
+_SUPERSEDED_USAGE_RULES: dict[str, tuple[UsageAccountingRule, ...]] = {
+    "google": (
+        UsageAccountingRule(
+            "google.candidates_token_count.v1",
+            _gemini_usage_candidates_only,
+        ),
+    ),
+}
+
+
+def _superseded_usage_rules(provider: str) -> tuple[UsageAccountingRule, ...]:
+    normalized = provider.strip().lower()
+    if normalized == "gemini":
+        normalized = "google"
+    return _SUPERSEDED_USAGE_RULES.get(normalized, ())
+
+
+def resolve_settled_provider_response_fields(
+    registry_entry: ModelRegistryEntry,
+    payload: Mapping[str, object],
+    fields: ValidatedProviderResponseFields,
+    settled: SettledProviderAccounting,
+) -> ValidatedProviderResponseFields:
+    """Account a replayed response under the rule its settlement was made with.
+
+    The current rule is preferred. A superseded rule is adopted only when it
+    reproduces the recorded settlement *exactly* from the same response bytes,
+    which proves the recorded accounting is that rule's output rather than an
+    arbitrary number. When nothing reproduces the settlement the current-rule
+    fields are returned unchanged, so the durable spend authority still sees a
+    difference and fails closed on evidence that really did change.
+    """
+
+    if _reproduces_settlement(registry_entry, fields, settled):
+        return fields
+    for rule in _superseded_usage_rules(registry_entry.provider):
+        try:
+            input_tokens, output_tokens = rule.extract_usage(payload)
+        except LiveModelResponseError:
+            continue
+        candidate = replace(
+            fields,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+        if _reproduces_settlement(registry_entry, candidate, settled):
+            return candidate
+    return fields
+
+
+def _reproduces_settlement(
+    registry_entry: ModelRegistryEntry,
+    fields: ValidatedProviderResponseFields,
+    settled: SettledProviderAccounting,
+) -> bool:
+    return (
+        fields.raw_output == settled.raw_output
+        and fields.input_tokens == settled.input_tokens
+        and fields.output_tokens == settled.output_tokens
+        and _estimated_cost(
+            registry_entry,
+            input_tokens=fields.input_tokens,
+            output_tokens=fields.output_tokens,
+        )
+        == settled.actual_cost_usd
+    )
+
+
+def _prior_settled_accounting(
+    attempt_handler: ProviderAttemptHandler | None,
+    durable_attempt_ordinal: int,
+) -> SettledProviderAccounting | None:
+    """Read the durable settlement a replay store holds for this attempt."""
+
+    if attempt_handler is None or not callable(
+        getattr(attempt_handler, "settled_response_accounting", None)
+    ):
+        return None
+    record = cast(SettledAccountingSource, attempt_handler).settled_response_accounting(
+        durable_attempt_ordinal
+    )
+    if record is None:
+        return None
+    raw_output = record.get("raw_output")
+    input_tokens = record.get("input_tokens")
+    output_tokens = record.get("output_tokens")
+    actual_cost_usd = record.get("actual_cost_usd")
+    if (
+        not isinstance(raw_output, str)
+        or type(input_tokens) is not int
+        or type(output_tokens) is not int
+        or not isinstance(actual_cost_usd, float)
+    ):
+        return None
+    return SettledProviderAccounting(
+        raw_output=raw_output,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        actual_cost_usd=actual_cost_usd,
     )
 
 

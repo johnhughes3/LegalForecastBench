@@ -489,6 +489,24 @@ class CompositeProviderAttemptHandler:
                 raw_output=raw_output,
             )
 
+    def settled_response_accounting(
+        self,
+        attempt_ordinal: int,
+    ) -> JsonRecord | None:
+        """Surface the replay store's own settlement record for this attempt.
+
+        The replay store holds the response bytes, so it is the store that can
+        say what accounting was recorded beside them. The spend authority still
+        verifies whatever the solver settles.
+        """
+
+        reader = getattr(self.replay_handler, "settled_response_accounting", None)
+        if not callable(reader):
+            return None
+        return cast(Callable[[int], JsonRecord | None], reader)(
+            self.replay_handler.durable_attempt_ordinal(attempt_ordinal)
+        )
+
     def record_post_response_failure(
         self,
         durable_attempt_ordinal: int,

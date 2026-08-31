@@ -867,6 +867,30 @@ class ProviderAttemptJournal:
                 f"status {row['status']}"
             )
 
+    def settled_response_accounting(
+        self,
+        attempt_ordinal: int,
+    ) -> JsonRecord | None:
+        """Return the accounting a prior process recorded beside these bytes.
+
+        The live solver consults this when replaying so that token accounting
+        rules which changed since settlement do not appear to rewrite durable
+        spend evidence. The record is a claim, not an authority: the solver only
+        adopts it when a declared accounting rule reproduces it exactly from the
+        journaled response, and the spend authority verifies it independently.
+        """
+
+        row = self._attempt(self._settlement_durable_ordinal(attempt_ordinal))
+        if row is None or str(row["status"]) not in _REPLAYABLE_RESPONSE_STATUSES:
+            return None
+        normalized = row["normalized_response_json"]
+        if normalized is None:
+            return None
+        record = json.loads(str(normalized))
+        if not isinstance(record, dict):
+            return None
+        return cast(dict[str, object], record)
+
     def _settlement_durable_ordinal(self, attempt_ordinal: int) -> int:
         """Resolve either the local or already-durable ordinal used for settlement.
 

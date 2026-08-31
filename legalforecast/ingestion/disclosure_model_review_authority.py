@@ -15,7 +15,9 @@ from weakref import WeakKeyDictionary
 from legalforecast.evals.live_model_solver import (
     LiveModelResponseError,
     LiveModelTransport,
+    SettledProviderAccounting,
     complete_live_prompt,
+    resolve_settled_provider_response_fields,
     validate_provider_response_fields,
 )
 from legalforecast.evals.model_registry import ModelRegistry, ModelRegistryEntry
@@ -528,6 +530,7 @@ def _recover_failed_reconstruction_row(
         raw_output=raw_output,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+        actual_cost_usd=actual_cost,
     )
     _verify_normalized(
         raw,
@@ -598,6 +601,7 @@ def _validate_recovery_provider_envelope(
     raw_output: str,
     input_tokens: int,
     output_tokens: int,
+    actual_cost_usd: float,
 ) -> str:
     """Bind recovered journal metadata to frozen identity and spend evidence."""
 
@@ -607,6 +611,19 @@ def _validate_recovery_provider_envelope(
         raise DisclosureModelReviewAuthorityError(
             "recovered provider envelope is invalid"
         ) from exc
+    # Account the recovered envelope under the rule its own settlement used, so
+    # a later token-accounting change cannot invalidate bytes that never moved.
+    extracted = resolve_settled_provider_response_fields(
+        reviewer,
+        raw,
+        extracted,
+        SettledProviderAccounting(
+            raw_output=raw_output,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            actual_cost_usd=actual_cost_usd,
+        ),
+    )
     if (
         extracted.raw_output != raw_output
         or extracted.input_tokens != input_tokens
@@ -679,6 +696,7 @@ def _substantive_replay(state: _CapabilityState) -> None:
             raw_output=raw_output,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            actual_cost_usd=actual_cost,
         )
         _verify_normalized(
             raw,
