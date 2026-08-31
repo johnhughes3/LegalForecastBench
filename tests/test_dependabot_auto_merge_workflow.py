@@ -22,13 +22,9 @@ CI_RUNNER_CLAMP = (
     "'ubicloud-standard-2' }}"
 )
 DEPENDABOT = (ROOT / ".github/dependabot.yml").read_text(encoding="utf-8")
-FETCH_METADATA_SHA = "25dd0e34f4fe68f24cc83900b1fe3fe149efef98"
 PROVIDER_CONTRACT_DEPENDENCIES = ("anthropic", "claude-agent-sdk", "openai")
 
-requires_jq = pytest.mark.skipif(
-    shutil.which("jq") is None,
-    reason="jq is required to execute the workflow bash snippets",
-)
+requires_jq = pytest.mark.skipif(shutil.which("jq") is None, reason="jq required")
 
 
 @dataclass(frozen=True)
@@ -51,6 +47,7 @@ def _step_run(name: str) -> str:
 
 _GH_STUB = r"""#!/usr/bin/env bash
 set -euo pipefail
+args="$*"
 jq_filter=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -63,10 +60,14 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+case "${args}" in
+  *"/pulls"*|*"/check-runs"*) response="${FAKE_GH_JSON}" ;;
+  *) response="${FAKE_GH_COMMIT_JSON}" ;;
+esac
 if [ -n "${jq_filter}" ]; then
-  printf '%s\n' "${FAKE_GH_JSON}" | jq -r "${jq_filter}"
+  printf '%s\n' "${response}" | jq -r "${jq_filter}"
 else
-  printf '%s\n' "${FAKE_GH_JSON}"
+  printf '%s\n' "${response}"
 fi
 """
 
@@ -77,6 +78,7 @@ def _run_snippet(
     script: str,
     env: dict[str, str],
     gh_json: str = "",
+    gh_commit_json: str = "",
 ) -> SnippetResult:
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
@@ -91,6 +93,7 @@ def _run_snippet(
         env={
             **os.environ,
             **env,
+            "FAKE_GH_COMMIT_JSON": gh_commit_json,
             "FAKE_GH_JSON": gh_json,
             "GITHUB_OUTPUT": str(github_output),
             "PATH": f"{fake_bin}:{os.environ['PATH']}",
@@ -162,11 +165,10 @@ def test_dependabot_auto_merge_workflow_is_narrowly_privileged() -> None:
     assert WORKFLOW.index("contents: read") < WORKFLOW.index("contents: write")
 
 
-def test_dependabot_auto_merge_pins_fetch_metadata() -> None:
-    uses = re.findall(r"^\s*uses:\s*(\S+)\s*(?:#.*)?$", WORKFLOW, re.MULTILINE)
-    assert uses == [f"dependabot/fetch-metadata@{FETCH_METADATA_SHA}"]
-    assert "# v3.1.0" in WORKFLOW
-    assert "pr-number: ${{ steps.pr.outputs.number }}" in WORKFLOW
+def test_workflow_run_does_not_invoke_event_bound_fetch_metadata_action() -> None:
+    assert "dependabot/fetch-metadata@" not in WORKFLOW
+    assert "pr-number:" not in WORKFLOW
+    assert "Parse verified Dependabot metadata" in WORKFLOW
 
 
 def test_external_actions_use_immutable_commit_pins() -> None:
@@ -194,6 +196,8 @@ def test_dependabot_auto_merge_workflow_gates_the_trusted_source() -> None:
     assert ".draft!=true" in resolve
     assert '.base.ref=="main"' in resolve
     assert ".head.sha==" in resolve
+    assert 'author}" != "dependabot[bot]' in resolve
+    assert 'verified}" != "true' in resolve
     assert '[ "${count}" -ne 1 ]' in resolve
     assert "skip=true" in resolve
     assert "skip=false" in resolve
@@ -320,6 +324,13 @@ def _dependabot_pr(
     }
 
 
+def _verified_dependabot_commit() -> dict[str, object]:
+    return {
+        "author": {"login": "dependabot[bot]"},
+        "commit": {"message": "metadata", "verification": {"verified": True}},
+    }
+
+
 @requires_jq
 def test_resolver_selects_open_dependabot_pr_for_exact_sha(tmp_path: Path) -> None:
     sha = "a" * 40
@@ -332,12 +343,19 @@ def test_resolver_selects_open_dependabot_pr_for_exact_sha(tmp_path: Path) -> No
     result = _run_snippet(
         tmp_path,
         script=_step_run("Resolve Dependabot pull request"),
-        env={"REPO": "johnhughes3/LegalForecastBench", "SHA": sha},
+        env={
+            "REPO": "johnhughes3/LegalForecastBench",
+            "RUNNER_TEMP": str(tmp_path),
+            "SHA": sha,
+        },
         gh_json=json.dumps(payload),
+        gh_commit_json=json.dumps(_verified_dependabot_commit()),
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.github_output == "number=12\nskip=false\n"
+    assert result.github_output == (
+        f"number=12\nmessage_path={tmp_path}/dependabot-commit-message.txt\nskip=false\n"
+    )
 
 
 @requires_jq

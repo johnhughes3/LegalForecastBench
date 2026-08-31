@@ -55,16 +55,79 @@ jobs:
             exit 0
           fi
           num="$(printf '%s' "${matches}" | jq -r '.[0].number')"
-          echo "number=${num}" >> "$GITHUB_OUTPUT"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
+          commit="$(gh api "repos/${REPO}/commits/${SHA}")"
+          author="$(printf '%s' "${commit}" | jq -r '.author.login // ""')"
+          verified="$(printf '%s' "${commit}" | jq -r '.commit.verification.verified // false')"
+          if [ "${author}" != "dependabot[bot]" ] || [ "${verified}" != "true" ]; then
+            echo "Expected a verified Dependabot head commit for ${SHA}; author=${author} verified=${verified}"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          message_path="${RUNNER_TEMP}/dependabot-commit-message.txt"
+          printf '%s' "${commit}" | jq -r '.commit.message' > "${message_path}"
+          {
+            echo "number=${num}"
+            echo "message_path=${message_path}"
+            echo "skip=false"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Dependabot metadata
+      # dependabot/fetch-metadata reads only pull_request event payloads. This
+      # workflow intentionally runs after hosted checks via workflow_run, so
+      # parse the same verified Dependabot commit metadata locally instead.
+      - name: Parse verified Dependabot metadata
         if: steps.pr.outputs.skip != 'true'
         id: meta
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          pr-number: ${{ steps.pr.outputs.number }}
+        env:
+          MESSAGE_PATH: ${{ steps.pr.outputs.message_path }}
+        run: |
+          set -euo pipefail
+          python3 - "${MESSAGE_PATH}" "${GITHUB_OUTPUT}" <<'PY'
+          from pathlib import Path
+          import sys
+
+          message = Path(sys.argv[1]).read_text(encoding="utf-8")
+          entries: list[tuple[str, str]] = []
+          dependency_name = ""
+          update_type = ""
+          in_metadata = False
+
+          for raw_line in message.splitlines():
+              line = raw_line.strip()
+              if line == "updated-dependencies:":
+                  in_metadata = True
+                  continue
+              if not in_metadata:
+                  continue
+              if line == "...":
+                  break
+              if line.startswith("- dependency-name:"):
+                  if dependency_name:
+                      entries.append((dependency_name, update_type))
+                  dependency_name = line.partition(":")[2].strip()
+                  update_type = ""
+              elif line.startswith("update-type:") and dependency_name:
+                  update_type = line.partition(":")[2].strip()
+
+          if dependency_name:
+              entries.append((dependency_name, update_type))
+          if not entries or any(not name or not kind for name, kind in entries):
+              raise SystemExit("Verified Dependabot commit has incomplete update metadata")
+
+          ranks = {
+              "version-update:semver-patch": 1,
+              "version-update:semver-minor": 2,
+              "version-update:semver-major": 3,
+          }
+          update_types = [kind for _, kind in entries]
+          highest = (
+              max(update_types, key=ranks.__getitem__)
+              if all(kind in ranks for kind in update_types)
+              else ""
+          )
+          with Path(sys.argv[2]).open("a", encoding="utf-8") as output:
+              output.write(f"dependency-names={','.join(name for name, _ in entries)}\n")
+              output.write(f"update-type={highest}\n")
+          PY
 
       - name: Classify dependencies and update type
         id: class
