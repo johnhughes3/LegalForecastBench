@@ -1,13 +1,7 @@
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
 
-import pytest
-from legalforecast import cli as cli_module
-from legalforecast.cli_commands import corpus_manifest as corpus_manifest_cli
 from legalforecast.testing.cli_corpus.command_manifest import (
     build_command_manifest,
     command_paths,
@@ -15,7 +9,6 @@ from legalforecast.testing.cli_corpus.command_manifest import (
     preparser_bypass_paths_from_source,
 )
 from legalforecast.testing.cli_corpus.help_snapshots import (
-    HELP_SNAPSHOTS,
     capture_help,
     load_help_snapshots,
 )
@@ -24,152 +17,64 @@ from legalforecast.testing.cli_corpus.paths import MANIFEST_PATH, load_json
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_command_manifest_is_deterministic() -> None:
-    first = build_command_manifest()
-    second = build_command_manifest()
-    assert first == second
-
-
-def test_command_manifest_matches_checked_in_fixture() -> None:
+def test_command_manifest_is_deterministic_and_checked_in() -> None:
     generated = build_command_manifest()
-    checked_in = load_json(ROOT / MANIFEST_PATH)
-    assert generated == checked_in
+    assert generated == build_command_manifest()
+    assert generated == load_json(ROOT / MANIFEST_PATH)
 
 
-def test_command_manifest_covers_documented_families() -> None:
+def test_manifest_contains_only_supported_public_families() -> None:
     manifest = build_command_manifest()
-    paths = {path for path in command_paths(manifest)}
+    paths = set(command_paths(manifest))
     for required in (
         (),
-        ("discover",),
-        ("acquisition",),
-        ("batch-002",),
-        ("packet", "build"),
-        ("packet-build",),
-        ("eval", "run"),
-        ("multiharness", "run"),
-        ("freeze",),
-        ("freeze", "verify"),
+        ("manifest",),
+        ("manifest", "validate"),
+        ("release", "validate"),
+        ("run", "execute"),
+        ("score",),
+        ("report",),
         ("publish", "aggregate"),
         ("publish", "site"),
+        ("multiharness", "run"),
     ):
         assert required in paths
-    assert "discover" in handler_ids(manifest)
-    assert "publish.aggregate" in handler_ids(manifest)
-    assert "freeze.verify" in handler_ids(manifest)
+    for retired in ("acquisition", "batch-002", "discover", "freeze", "eval"):
+        assert not any(path and path[0] == retired for path in paths)
+    ids = set(handler_ids(manifest))
+    assert "manifest.validate" in ids
+    assert "publish.site" in ids
 
 
-def test_hyphenated_aliases_share_logical_handlers() -> None:
-    manifest = build_command_manifest()
-    commands = {
-        tuple(record["path"]): record
-        for record in manifest["commands"]
-        if isinstance(record, dict)
+def test_only_publication_aggregate_keeps_a_preparser_bypass() -> None:
+    assert preparser_bypass_paths_from_source(ROOT) == (("publish", "aggregate"),)
+
+
+def test_help_snapshots_are_current_and_byte_stable() -> None:
+    generated = {
+        name: capture_help(argv)
+        for name, argv in (
+            ("root", ("--help",)),
+            ("manifest", ("manifest", "--help")),
+            ("release", ("release", "--help")),
+            ("run", ("run", "--help")),
+            ("score", ("score", "--help")),
+            ("report", ("report", "--help")),
+            ("publish-aggregate", ("publish", "aggregate", "--help")),
+            ("multiharness", ("multiharness", "--help")),
+        )
     }
-    packet_build = commands[("packet-build",)]["handler"]
-    nested = commands[("packet", "build")]["handler"]
-    assert packet_build == nested
-    fixture = commands[("fixture-e2e",)]["handler"]
-    nested_fixture = commands[("fixture", "e2e")]["handler"]
-    assert fixture == nested_fixture
-
-
-def test_preparser_bypasses_remain_in_cli_main() -> None:
-    assert preparser_bypass_paths_from_source(ROOT) == (
-        ("freeze",),
-        ("publish", "aggregate"),
-    )
-
-
-def test_help_snapshots_are_byte_stable_at_pinned_width() -> None:
-    generated = {name: capture_help(argv) for name, argv in HELP_SNAPSHOTS}
-    checked_in = load_help_snapshots(ROOT)
-    assert generated == checked_in
-    assert capture_help(("--help",)) == capture_help(("--help",))
+    assert generated == load_help_snapshots(ROOT)
     assert "LegalForecast-MTD benchmark utilities" in generated["root"]
-    assert "--model-registry" in generated["publish-aggregate"]
-    assert "cycle_id" in generated["freeze"]
+    assert "acquisition" not in generated["root"]
 
 
-def test_manifest_records_registration_order_and_dest_values() -> None:
-    manifest = build_command_manifest()
-    commands = [
+def test_manifest_registration_indexes_are_contiguous() -> None:
+    records = [
         record
-        for record in manifest["commands"]
+        for record in build_command_manifest()["commands"]
         if isinstance(record, dict) and record["path"]
     ]
-    indexes = [int(record["registration_index"]) for record in commands]
-    assert indexes == list(range(1, len(commands) + 1))
-    discover = next(record for record in commands if record["path"] == ["discover"])
-    option_dests = {option["dest"] for option in discover["options"]}
-    assert {"input", "output", "dry_run"} <= option_dests
-    assert discover["group_dest"] == "command"
-    assert discover["logical_handler_id"] == "discover"
-    handler = discover["handler"]
-    assert handler["name"] == "_cmd_discover"
-    payload = json.dumps(discover, sort_keys=True)
-    assert "dest" in payload
-
-
-def test_execution_scope_verify_cli_uses_frozen_sources_without_authority_json(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    scope_path = tmp_path / "scope.json"
-    scope_path.write_text("{}\n", encoding="utf-8")
-    paths = {
-        "scope": scope_path,
-        "plan": tmp_path / "plan.json",
-        "freeze_bundle": tmp_path / "freeze.json",
-        "model_registry": tmp_path / "registry.json",
-        "cost_projection": tmp_path / "cost.json",
-        "run_input_manifest": tmp_path / "run-inputs.json",
-        "owner_evidence": tmp_path / "owner.json",
-        "provider_cycle_caps": tmp_path / "caps.json",
-    }
-    argv = [
-        "acquisition",
-        "verify-manifest-execution-scope",
-        "--scope",
-        str(paths["scope"]),
-        "--plan",
-        str(paths["plan"]),
-        "--freeze-bundle",
-        str(paths["freeze_bundle"]),
-        "--model-registry",
-        str(paths["model_registry"]),
-        "--cost-projection",
-        str(paths["cost_projection"]),
-        "--run-input-manifest",
-        str(paths["run_input_manifest"]),
-        "--owner-evidence",
-        str(paths["owner_evidence"]),
-        "--provider-cycle-caps",
-        str(paths["provider_cycle_caps"]),
-        "--model-key",
-        "openai:test-2026",
-    ]
-    parsed = cli_module.build_parser().parse_args(argv)
-    assert not hasattr(parsed, "provider_authority")
-
-    calls: dict[str, object] = {}
-
-    def fake_verify(artifact: Mapping[str, Any], **kwargs: Any) -> str:
-        calls["artifact"] = artifact
-        calls["kwargs"] = kwargs
-        return "a" * 64
-
-    class _EntryPoint:
-        def load(self) -> Any:
-            return fake_verify
-
-    monkeypatch.setattr(corpus_manifest_cli, "_VERIFY_EXECUTION_SCOPE", _EntryPoint())
-    assert cast(Any, parsed.handler)(parsed) == 0
-    assert calls["artifact"] == {}
-    assert "provider_authority" not in cast(dict[str, Any], calls["kwargs"])
-    assert (
-        cast(dict[str, Any], calls["kwargs"])["provider_cycle_caps"]
-        == paths["provider_cycle_caps"]
+    assert [int(record["registration_index"]) for record in records] == list(
+        range(1, len(records) + 1)
     )
-
-    with pytest.raises(SystemExit):
-        cli_module.build_parser().parse_args([*argv, "--provider-authority", "{}"])

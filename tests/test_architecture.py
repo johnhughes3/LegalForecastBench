@@ -20,18 +20,9 @@ def test_architecture_baseline_is_current() -> None:
     assert check_baseline(ROOT) == ()
 
 
-def test_architecture_baseline_records_the_known_migration_edges() -> None:
+def test_architecture_baseline_has_no_upward_cli_dependencies() -> None:
     snapshot = load_baseline(ROOT / BASELINE_PATH)
-    assert snapshot.upward_cli_dependencies == (
-        "legalforecast/cli_commands/report.py",
-        "legalforecast/cli_commands/score.py",
-        "legalforecast/ingestion/downstream_lineage_verification.py",
-        "legalforecast/ingestion/packet_build_replay.py",
-        "legalforecast/ingestion/purchase_approval.py",
-        "legalforecast/ingestion/recovered_public_replay.py",
-        "legalforecast/ingestion/resolved_post_recovery.py",
-        "legalforecast/ingestion/stage_a_lineage_verification.py",
-    )
+    assert snapshot.upward_cli_dependencies == ()
     current = scan_repository(ROOT)
     assert current.cli_metrics.line_count <= snapshot.cli_metrics.line_count
     assert (
@@ -42,14 +33,12 @@ def test_architecture_baseline_records_the_known_migration_edges() -> None:
 
 def test_architecture_scanner_finds_private_cli_test_coupling() -> None:
     snapshot = scan_repository(ROOT)
-    assert "tests/conftest.py" in snapshot.compatibility.cli_import_files
-    assert "tests/test_cycle_orchestrator_cli.py" in (
-        snapshot.compatibility.private_cli_files
+    assert "tests/test_cli_orchestration.py" in snapshot.compatibility.cli_import_files
+    assert snapshot.compatibility.private_cli_files
+    assert all(
+        target.startswith("legalforecast.cli.")
+        for target in snapshot.compatibility.private_cli_targets
     )
-    assert "legalforecast.cli._StageAUnitizationLineage" in (
-        snapshot.compatibility.private_cli_targets
-    )
-    assert "legalforecast.cli.main" in snapshot.compatibility.monkeypatch_targets
     assert not any(
         target.endswith(".__file__")
         for target in snapshot.compatibility.private_cli_targets
@@ -57,23 +46,8 @@ def test_architecture_scanner_finds_private_cli_test_coupling() -> None:
     assert "legalforecast.cli.argparse._SubParsersAction" not in (
         snapshot.compatibility.private_cli_targets
     )
-    assert "legalforecast.cli.os.link" in snapshot.compatibility.monkeypatch_targets
-    assert "legalforecast.cli.sys.stdin" in (snapshot.compatibility.monkeypatch_targets)
-    assert (
-        "tests/test_disclosure_review_bundle_cli.py::legalforecast.cli.sys.stdin"
-        in snapshot.compatibility.monkeypatch_occurrences
-    )
     assert "legalforecast.cli.main" in snapshot.compatibility.public_cli_targets
     assert "legalforecast.cli.CommandError" in snapshot.compatibility.public_cli_targets
-    assert (
-        "tests/test_replacement_recovery_source_producer.py::"
-        "legalforecast.cli.CaseDevPurchaseJournal"
-        in snapshot.compatibility.monkeypatch_occurrences
-    )
-    assert (
-        "legalforecast.cli._issue_terminal_disposition_capability"
-        in snapshot.compatibility.monkeypatch_targets
-    )
 
 
 def test_architecture_scanner_distinguishes_cli_members_from_nested_modules(
@@ -347,7 +321,7 @@ def test_architecture_baseline_requires_removed_upward_edges_to_shrink(
     tmp_path: Path,
 ) -> None:
     baseline = load_baseline(ROOT / BASELINE_PATH)
-    removed = baseline.upward_cli_dependencies[0]
+    assert baseline.upward_cli_dependencies == ()
     payload = {
         "schema_version": 1,
         "cli_metrics": asdict(baseline.cli_metrics),
@@ -370,7 +344,6 @@ def test_architecture_baseline_requires_removed_upward_edges_to_shrink(
         )
         for violation in violations
     )
-    assert removed not in "\n".join(violations)
 
 
 def test_architecture_baseline_requires_removed_compatibility_to_shrink(

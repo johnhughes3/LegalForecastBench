@@ -28,14 +28,6 @@ def test_ci_workflow_runs_contract_ratchet_before_typecheck() -> None:
     )
 
 
-def test_ci_workflow_fetches_origin_main_before_acquisition_config_fence() -> None:
-    fetch_step = (
-        "- name: Fetch origin/main for the acquisition-config fence\n"
-        "        run: git fetch --no-tags origin main:refs/remotes/origin/main"
-    )
-    fence_step = (
-        "- name: Acquisition config fence\n"
-        "        run: uv run python -m legalforecast.config.fence"
-    )
-    assert fetch_step in WORKFLOW
-    assert WORKFLOW.index(fetch_step) < WORKFLOW.index(fence_step)
+def test_ci_workflow_does_not_run_retired_acquisition_config_fence() -> None:
+    assert "acquisition-config fence" not in WORKFLOW
+    assert "legalforecast.config.fence" not in WORKFLOW

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
+from legalforecast._canonical import sha256_file
 from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.immutable_io import (
     ImmutableIOError,
@@ -19,7 +20,6 @@ from legalforecast.immutable_io import (
     read_single_link_file,
 )
 from legalforecast.path_safety import safe_path_component
-from legalforecast.protocol import sha256_file
 from legalforecast.publication.official_report_validation import (
     OfficialBundle,
     load_official_bundle,

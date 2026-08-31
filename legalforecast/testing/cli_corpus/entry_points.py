@@ -16,10 +16,6 @@ from legalforecast.testing.cli_corpus.paths import as_object_dict
 ENTRY_POINTS: tuple[tuple[str, str], ...] = (
     ("legalforecast", "legalforecast.cli:main"),
     (
-        "legalforecast-acquisition-systemd-run",
-        "legalforecast.ingestion.infisical_systemd_launcher:main",
-    ),
-    (
         "legalforecast-provider-env-run",
         "legalforecast.labeling.provider_environment:main",
     ),
@@ -28,7 +24,7 @@ _ENTRY_POINT_NAMES = {name for name, _target in ENTRY_POINTS}
 
 
 def checkout_entry_points() -> dict[str, str]:
-    """Resolve the three installed scripts from the current environment."""
+    """Resolve the installed public scripts from the current environment."""
 
     group = importlib.metadata.entry_points(group="console_scripts")
     resolved = {

@@ -8,6 +8,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from legalforecast.runner import issue_runner_fixture
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,7 +38,6 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
         "type-check",
         "public API docstring coverage",
         "test",
-        "review blocker verifier",
         "CLI help smoke",
         "fixture E2E",
         "multi-harness schema validation",
@@ -50,9 +50,8 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
     assert "uv sync --locked" in commands
     assert "uv run pyright" in commands
     assert "uv run python -m legalforecast.contracts.ratchet" in commands
-    assert "uv run scripts/verify_review_blockers.py" in commands
     assert "uv run pytest -q -n 4 --dist=loadscope" in commands
-    assert any("legalforecast fixture e2e" in command for command in commands)
+    assert any("legalforecast run issue-fixture" in command for command in commands)
     assert any(
         "legalforecast multiharness adapters inspect" in command for command in commands
     )
@@ -96,44 +95,21 @@ def test_release_check_plans_installed_artifact_smokes(tmp_path: Path) -> None:
     ]
     assert all("--no-project" in command for command in commands)
     assert all("--no-cache" in command for command in commands)
-    assert any("legalforecast fixture e2e" in command for command in commands)
+    assert any("legalforecast run issue-fixture" in command for command in commands)
 
 
 def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
     module = _load_release_check_module()
     fixture_dir = tmp_path / "fixture-run"
-    report_dir = fixture_dir / "report"
-    manifests_dir = fixture_dir / "manifests"
     dist_dir = tmp_path / "dist"
     multiharness = module.multiharness_smoke_paths(tmp_path)
-    report_dir.mkdir(parents=True)
-    manifests_dir.mkdir(parents=True)
+    issue_runner_fixture(fixture_dir)
     dist_dir.mkdir(parents=True)
     multiharness.adapter_inspect_dir.mkdir(parents=True)
     multiharness.conformance_dir.mkdir(parents=True)
     multiharness.run_plan_dir.mkdir(parents=True)
     multiharness.community_aggregate_dir.mkdir(parents=True)
 
-    (fixture_dir / "artifact-index.json").write_text(
-        json.dumps({"artifact_count": 1}),
-        encoding="utf-8",
-    )
-    for path in (
-        fixture_dir / "artifact-manifest.json",
-        report_dir / "leaderboard.json",
-        report_dir / "leaderboard.csv",
-        report_dir / "leaderboard.md",
-        report_dir / "leaderboard.html",
-    ):
-        path.write_text("ok", encoding="utf-8")
-    freeze_path = manifests_dir / "cycle_fixture_e2e.freeze.json"
-    required_artifacts = [
-        {"name": artifact.value} for artifact in module.REQUIRED_FREEZE_ARTIFACTS
-    ]
-    freeze_path.write_text(
-        json.dumps({"artifacts": required_artifacts}),
-        encoding="utf-8",
-    )
     (dist_dir / "legalforecast_mtd-0.1.0a1-py3-none-any.whl").write_text(
         "wheel",
         encoding="utf-8",
@@ -210,18 +186,8 @@ def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
     assert not (dist_dir / "package-artifact-hashes.json").exists()
     module.validate_artifacts(tmp_path)
 
-    freeze_path.write_text(
-        json.dumps(
-            {
-                "artifacts": [
-                    *required_artifacts[:-1],
-                    {"name": "unexpected_artifact"},
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-    with pytest.raises(RuntimeError, match="canonical required artifact set"):
+    (fixture_dir / "model-registry.json").unlink()
+    with pytest.raises(RuntimeError, match=r"model-registry\.json"):
         module._validate_fixture_artifacts(fixture_dir)
 
 

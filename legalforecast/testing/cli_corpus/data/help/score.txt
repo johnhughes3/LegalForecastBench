@@ -1,0 +1,49 @@
+usage: legalforecast score [-h] --runs RUNS [--labels LABELS |
+                           --labels-release LABELS_RELEASE]
+                           [--forecast-release FORECAST_RELEASE]
+                           [--artifact-root ARTIFACT_ROOT]
+                           [--manifest MANIFEST]
+                           [--expected-run-identity-sha256 EXPECTED_RUN_IDENTITY_SHA256]
+                           [--model-registry MODEL_REGISTRY]
+                           [--expected-model-registry-sha256 EXPECTED_MODEL_REGISTRY_SHA256]
+                           [--ledger LEDGER] --output OUTPUT
+                           [--unit-scores-output UNIT_SCORES_OUTPUT]
+                           [--base-rate BASE_RATE]
+                           [--include-ablation-in-model-id] [--dry-run]
+
+options:
+  -h, --help            show this help message and exit
+  --runs RUNS
+  --labels LABELS
+  --labels-release LABELS_RELEASE
+                        Validated public labels-release.json for official
+                        scoring.
+  --forecast-release, --forecast FORECAST_RELEASE
+                        Forecast-release.json paired with --labels-release.
+  --artifact-root ARTIFACT_ROOT
+                        Root containing forecast-release referenced public
+                        artifacts.
+  --manifest, --run-manifest MANIFEST
+                        Canonical locked benchmark-run manifest selecting the
+                        run cases.
+  --expected-run-identity-sha256, --expected-run-identity EXPECTED_RUN_IDENTITY_SHA256
+                        Exact run identity SHA-256 emitted by the manifest-
+                        mode execution ledger. Required with --labels-release.
+  --model-registry MODEL_REGISTRY
+                        Frozen model registry used by the manifest-mode
+                        execution. Required with --labels-release.
+  --expected-model-registry-sha256 EXPECTED_MODEL_REGISTRY_SHA256
+                        Exact frozen model-registry SHA-256. May be read from
+                        --ledger when that stronger typed authority is
+                        supplied.
+  --ledger, --run-ledger LEDGER
+                        Manifest-mode execution ledger that supplies the exact
+                        run and registry identity when explicit values are not
+                        passed.
+  --output OUTPUT
+  --unit-scores-output UNIT_SCORES_OUTPUT
+  --base-rate BASE_RATE
+  --include-ablation-in-model-id
+                        Separate summaries by model and run ablation
+                        (model::ablation).
+  --dry-run

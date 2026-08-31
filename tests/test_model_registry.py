@@ -15,12 +15,12 @@ from legalforecast.evals.model_registry import (
     LongContextSurcharge,
     ModelRegistryEntry,
     OpenAIReasoningEffort,
+    TrainingCutoffStatus,
     earliest_eligible_decision_date,
     latest_release_timestamp,
     model_registry_entry_sha256,
     require_official_registry_entries,
 )
-from legalforecast.selection import TrainingCutoffStatus
 
 ROOT = Path(__file__).resolve().parents[1]
 PILOT_REGISTRY = ROOT / "model_registries" / "pilot-2026-04-24_to_2026-05-18.json"

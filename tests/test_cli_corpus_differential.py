@@ -38,10 +38,7 @@ def test_differential_corpus_refuses_live_provider_and_authority_actions() -> No
     with pytest.raises(ValueError, match="forbidden tokens"):
         validate_case_argv(("acquisition", "purchase"))
     with pytest.raises(ValueError, match="help bypass"):
-        validate_case_argv(("freeze", "--bundle", "x"))
-    with pytest.raises(ValueError, match="help bypass"):
         validate_case_argv(("publish", "aggregate", "--output-dir", "x"))
-    validate_case_argv(("freeze", "--help"))
     validate_case_argv(("publish", "aggregate", "--help"))
     for case in CASES:
         validate_case_argv(case.argv_template)
@@ -64,17 +61,10 @@ def test_resume_keeps_failing_first_invocation(
         fake_invoke,
     )
     case = DifferentialCase(
-        "discover-dry-run",
-        (
-            "discover",
-            "--input",
-            "{workspace}/input.jsonl",
-            "--output",
-            "{workspace}/output.jsonl",
-            "--dry-run",
-        ),
+        "manifest-help",
+        ("manifest", "--help"),
         0,
-        "empty-jsonl",
+        "empty",
         resume=True,
     )
     result = run_case(case, tmp_path)
@@ -86,7 +76,7 @@ def test_resume_keeps_failing_first_invocation(
 
 
 def test_resume_fixtures_record_the_first_invocation() -> None:
-    for case_id in ("discover-dry-run", "score-dry-run"):
+    for case_id in ("score-dry-run",):
         payload = load_differential_fixture(ROOT, case_id)
         assert payload["first_exit_status"] == payload["exit_status"] == 0
         assert "first_stdout" in payload
@@ -112,16 +102,16 @@ def test_invoke_cli_disables_color_and_pins_width(
     assert "\x1b[" not in captured.stderr
     assert captured.stderr.startswith("usage: legalforecast")
     assert "definitely-not-a-command" in captured.stderr
-    assert "choose from discover, retrieve" in captured.stderr
-    assert "'discover'" not in captured.stderr
+    assert "choose from manifest, release" in captured.stderr
+    assert "'manifest'" not in captured.stderr
 
 
 def test_argparse_choose_from_quotes_are_stripped() -> None:
     quoted = (
         "legalforecast: error: argument COMMAND: invalid choice: "
-        "'definitely-not-a-command' (choose from 'discover', 'retrieve')\n"
+        "'definitely-not-a-command' (choose from 'manifest', 'release')\n"
     )
     assert _normalize_argparse_choose_from(quoted) == (
         "legalforecast: error: argument COMMAND: invalid choice: "
-        "'definitely-not-a-command' (choose from discover, retrieve)\n"
+        "'definitely-not-a-command' (choose from manifest, release)\n"
     )

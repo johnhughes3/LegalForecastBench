@@ -6,7 +6,6 @@ usage: legalforecast [-h] --per-case-dir PER_CASE_DIR
                      --prediction-unit-count PREDICTION_UNIT_COUNT
                      [--model-key MODEL_KEY] [--model-registry MODEL_REGISTRY]
                      [--baseline-training-examples BASELINE_TRAINING_EXAMPLES]
-                     [--dispatch-provenance DISPATCH_PROVENANCE]
                      [--allow-incomplete-model-set] [--supplementary]
                      [--allow-no-baselines]
                      [--deferred-ablation DEFERRED_ABLATION]
@@ -42,10 +41,6 @@ options:
                         provided, global, court/NOS/motion, metadata-only, and
                         judge-history baselines are scored as deterministic
                         pseudo-model rows.
-  --dispatch-provenance DISPATCH_PROVENANCE
-                        Validated JSON provenance for original/amendment
-                        dispatches. The record must cover every expected
-                        registry model.
   --allow-incomplete-model-set
                         Permit aggregation without a registry or explicit
                         expected model keys. Intended only for partial/debug

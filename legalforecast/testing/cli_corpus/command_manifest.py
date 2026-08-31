@@ -17,7 +17,6 @@ from legalforecast.testing.cli_corpus.paths import (
 )
 
 CLI_RELATIVE = "legalforecast/cli.py"
-FREEZE_DISPATCH = "legalforecast.protocol.freeze.cli_freeze"
 AGGREGATE_DISPATCH = "legalforecast.publication.official_aggregate.main"
 
 
@@ -90,8 +89,6 @@ def preparser_bypass_paths_from_source(root: Path) -> tuple[tuple[str, ...], ...
         if not isinstance(node.ops[0], ast.Eq):
             continue
         right = node.comparators[0]
-        if isinstance(right, ast.Constant) and right.value == "freeze":
-            found.append(("freeze",))
         if isinstance(right, ast.List):
             values = [
                 element.value
@@ -166,59 +163,17 @@ def _walk_commands(
 
 
 def _bypass_records() -> list[dict[str, object]]:
-    from legalforecast.protocol import freeze
     from legalforecast.publication.official_aggregate import (
         build_parser as build_aggregate_parser,
     )
 
-    freeze_routes: tuple[
-        tuple[tuple[str, ...], str, Callable[[], argparse.ArgumentParser]],
-        ...,
-    ] = (
-        (("freeze",), FREEZE_DISPATCH, freeze.build_arg_parser),
-        (
-            ("freeze", "verify"),
-            "legalforecast.protocol.freeze._cli_verify_freeze",
-            freeze.build_verify_arg_parser,
-        ),
-        (
-            ("freeze", "amend"),
-            "legalforecast.protocol.freeze._cli_amend_freeze",
-            freeze.build_amend_arg_parser,
-        ),
-        (
-            ("freeze", "generate-labeling-policy"),
-            "legalforecast.protocol.freeze._cli_generate_labeling_policy",
-            freeze.build_generate_labeling_policy_arg_parser,
-        ),
-        (
-            ("freeze", "verify-labeling-policy"),
-            "legalforecast.protocol.freeze._cli_verify_labeling_policy",
-            freeze.build_verify_labeling_policy_arg_parser,
-        ),
-        (
-            ("freeze", "generate-execution-policy"),
-            "legalforecast.protocol.freeze._cli_generate_execution_policy",
-            freeze.build_generate_execution_policy_arg_parser,
-        ),
-        (
-            ("freeze", "verify-execution-policy"),
-            "legalforecast.protocol.freeze._cli_verify_execution_policy",
-            freeze.build_verify_execution_policy_arg_parser,
-        ),
-    )
-    records = [
-        _bypass_record(path, dispatch, builder)
-        for path, dispatch, builder in freeze_routes
-    ]
-    records.append(
+    return [
         _bypass_record(
             ("publish", "aggregate"),
             AGGREGATE_DISPATCH,
             build_aggregate_parser,
         )
-    )
-    return records
+    ]
 
 
 def _bypass_record(

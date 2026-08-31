@@ -1,0 +1,9 @@
+{
+  "artifacts": {},
+  "case_id": "manifest-help",
+  "exit_status": 0,
+  "extra_files": [],
+  "output_tree": [],
+  "stderr": "",
+  "stdout": "usage: legalforecast manifest [-h] COMMAND ...\n\npositional arguments:\n  COMMAND\n    validate  Validate a locked manifest and optionally its paired releases.\n\noptions:\n  -h, --help  show this help message and exit\n"
+}

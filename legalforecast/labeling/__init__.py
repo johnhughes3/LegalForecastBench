@@ -1,19 +1,10 @@
-"""Outcome labeling and review workflow."""
+"""Outcome records retained by the public benchmark.
 
-from legalforecast.labeling.ensemble import (
-    EnsembleDecisionStatus,
-    EnsembleLabelVote,
-    EnsembleRouteReason,
-    EnsembleRunResult,
-    EnsembleUnitDecision,
-    LabelAuditSummary,
-    LabelingModel,
-    audit_ensemble_labels,
-    enforce_label_audit_acceptance,
-    evaluate_labeling_ensemble,
-    run_labeling_models,
-    sample_unanimous_labels_for_audit,
-)
+Agentic labeling and provider workflows are private corpus operations. The
+public package exposes only the immutable outcome codecs needed by scoring and
+release validation.
+"""
+
 from legalforecast.labeling.human_reliability import (
     HumanReliabilityReport,
     HumanReliabilityUnitResult,
@@ -51,15 +42,8 @@ __all__ = [
     "AdjudicatedReview",
     "AmendmentClass",
     "AmendmentSignal",
-    "EnsembleDecisionStatus",
-    "EnsembleLabelVote",
-    "EnsembleRouteReason",
-    "EnsembleRunResult",
-    "EnsembleUnitDecision",
     "HumanReliabilityReport",
     "HumanReliabilityUnitResult",
-    "LabelAuditSummary",
-    "LabelingModel",
     "LaterProceduralChange",
     "LawyerReviewPacket",
     "LawyerReviewResponse",
@@ -76,14 +60,9 @@ __all__ = [
     "StageBMissingUnitFlag",
     "StageBUnitFinding",
     "UnitResolution",
-    "audit_ensemble_labels",
     "build_human_reliability_report",
-    "enforce_label_audit_acceptance",
-    "evaluate_labeling_ensemble",
     "label_stage_b_outcomes",
     "outcome_label_from_record",
-    "run_labeling_models",
-    "sample_unanimous_labels_for_audit",
     "stage_b_decision_text_from_record",
     "stage_b_labeling_input_from_record",
 ]

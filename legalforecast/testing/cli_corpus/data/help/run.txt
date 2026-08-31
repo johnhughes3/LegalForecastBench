@@ -1,0 +1,11 @@
+usage: legalforecast run [-h] COMMAND ...
+
+positional arguments:
+  COMMAND
+    issue-fixture  Issue the deterministic provider-free three-case runner
+                   fixture.
+    execute        Execute or resume exact cells from an outcome-blinded
+                   forecast release.
+
+options:
+  -h, --help       show this help message and exit

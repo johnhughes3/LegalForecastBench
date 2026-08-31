@@ -73,17 +73,16 @@ uv run legalforecast --help
 Run the synthetic fixture workflow:
 
 ```bash
-uv run legalforecast fixture e2e --output-dir tmp/fixture-run
+uv run legalforecast run issue-fixture --output-dir tmp/fixture-run
 ```
 
 Useful outputs:
 
-- `tmp/fixture-run/artifact-manifest.json`
-- `tmp/fixture-run/artifact-index.json`
-- `tmp/fixture-run/packets.jsonl`
-- `tmp/fixture-run/runs.jsonl`
-- `tmp/fixture-run/scores.json`
-- `tmp/fixture-run/report/leaderboard.md`
+- `tmp/fixture-run/release/forecast-release.json`
+- `tmp/fixture-run/release/labels-release.json`
+- `tmp/fixture-run/release/packets/`
+- `tmp/fixture-run/release/prompts/`
+- `tmp/fixture-run/model-registry.json`
 
 Those files prove the pipeline can run end to end. They are not public benchmark results.
 
@@ -125,37 +124,21 @@ The package exposes one primary CLI:
 uv run legalforecast <command>
 ```
 
-Primary artifact stages:
+Public artifact commands:
 
 ```bash
-uv run legalforecast discover --input docket_entries.jsonl --output candidates.jsonl
-uv run legalforecast retrieve --candidates candidates.jsonl --output retrievals.jsonl --case-dev-fixture responses.jsonl
-uv run legalforecast extract --documents documents.jsonl --output extracted_text.jsonl --text-output-dir tmp/text
-uv run legalforecast link --retrievals retrievals.jsonl --output linked_motions.jsonl
-uv run legalforecast unitize --input linked_motions.jsonl --output units.jsonl
-uv run legalforecast label --input units.jsonl --output labels.jsonl
-uv run legalforecast packet build --input packet_inputs.jsonl --output packets.jsonl
-uv run legalforecast eval run --packets packets.jsonl --mock-output-file mock_outputs.jsonl --output runs.jsonl --accounting-output accounting.jsonl
-uv run legalforecast score --runs runs.jsonl --labels labels.jsonl --output scores.json --unit-scores-output unit_scores.jsonl
-uv run legalforecast report --scores scores.json --accounting accounting.jsonl --output-dir reports/
+uv run legalforecast run issue-fixture --output-dir tmp/fixture-run
+uv run legalforecast release validate \
+  --forecast tmp/fixture-run/release/forecast-release.json \
+  --labels tmp/fixture-run/release/labels-release.json \
+  --artifact-root tmp/fixture-run/release
+uv run legalforecast score --runs <run-records.jsonl> --labels <labels.jsonl> --output scores.json --unit-scores-output unit_scores.jsonl
+uv run legalforecast report --scores scores.json --accounting <accounting.jsonl> --output-dir reports/
 ```
 
-Production acquisition commands live under:
-
-```bash
-uv run legalforecast acquisition --help
-```
-
-Treat acquisition commands as live-credential paths; default checks must not require Case.dev, CourtListener, RECAP, PACER, or provider credentials.
-
-For a provider-free recovery-slice check, use the fast preflight while iterating and require a real-lineage manifest before merge:
-
-```bash
-scripts/dev-check-recovery-vertical-slice.sh --quick --manifest <cycle-preflight-manifest.json>
-scripts/dev-check-recovery-vertical-slice.sh --manifest <cycle-preflight-manifest.json> --require-real-lineage
-```
-
-The check emits text on a terminal and one stable JSON summary when piped; child diagnostics stay on stderr.
+Corpus construction and acquisition are private operations in the companion
+LegalForecastCorpus repository. The public package consumes already-issued
+releases and locked run manifests.
 
 ## Context and Sampling Policy
 
@@ -178,10 +161,10 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `legalforecast/`: Python package for ingestion, selection, unitization, labeling, evaluation, scoring, reporting, and publication artifacts.
 - `examples/adapters/`: no-network fixture manifests for first-class community multi-harness adapter tracks.
 - `community/submissions/`: reviewed community submission examples and future accepted metadata packages.
-- `docs/`: methods, labeling protocol, official-run runbook, reproduction/audit guide, schema contracts, and community/adapter docs — start at [docs/README.md](docs/README.md). Post-Cycle-1 acquisition/selection knobs live in [`legalforecast.config`](legalforecast/config/__init__.py); see [docs/cycle-acquisition-config.md](docs/cycle-acquisition-config.md).
+- `docs/`: methods, labeling protocol, official-run runbook, reproduction/audit guide, schema contracts, and community/adapter docs — start at [docs/README.md](docs/README.md). Corpus construction and acquisition live in the companion LegalForecastCorpus repository.
 - `tests/`: synthetic fixtures and regression coverage.
-- `scripts/`: release check, release bundle build, and offline adapter probes.
-- `manifests/`: acquisition-cycle templates rendered into immutable cycle configs, plus the committed RECAP fetch broker, attempt, and purchase policies under `recap-fetch-policies/`.
+- `scripts/`: release checks, protected infrastructure helpers, and offline adapter probes.
+- `manifests/`: public run manifests and other release inputs.
 - `model_registries/`: frozen per-cycle model registries — evaluation candidates, labeling and Stage B judge panels, disclosure reviewer, and provider caps.
 - `infra/`: Terraform roots for the official evaluation boundary, paid-labeling authority, and shared provider authority table.
 - `MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.

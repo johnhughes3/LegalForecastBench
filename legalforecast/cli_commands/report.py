@@ -10,6 +10,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast import cli_support as _cli_support
 from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     model_registry_entry_sha256,
@@ -24,6 +25,11 @@ from legalforecast.release import (
     load_run_manifest,
     validate_manifest_against_forecast,
     validate_release,
+)
+from legalforecast.reporting.leaderboard import (
+    build_benchmark_leaderboard_report,
+    infer_leaderboard_score_comparisons,
+    summarize_accounting_leaderboard,
 )
 from legalforecast.reporting.score_summary_codec import score_summary_from_record
 from legalforecast.runner.ledger import RunnerLedger
@@ -104,12 +110,10 @@ def register(
 def run(args: argparse.Namespace) -> int:
     """Render leaderboard artifacts from score summaries."""
 
-    from legalforecast import cli as _cli_ns
-
     scores_path = cast(Path, args.scores)
     output_dir = cast(Path, args.output_dir)
-    score_payload = _cli_ns._read_json_object(scores_path)
-    summary_records = _cli_ns._required_record_sequence(score_payload, "summaries")
+    score_payload = _cli_support.read_json_object(scores_path)
+    summary_records = _cli_support.required_record_sequence(score_payload, "summaries")
     contract = _validate_contract_inputs(args)
     provenance: Mapping[str, Any] | None = None
     if contract is not None:
@@ -132,18 +136,20 @@ def run(args: argparse.Namespace) -> int:
             ),
         )
     accounting_records = (
-        _cli_ns._read_records(cast(Path, args.accounting))
+        _cli_support.read_records(cast(Path, args.accounting))
         if cast(Path | None, args.accounting) is not None
         else []
     )
-    json_path, csv_path, markdown_path, html_path = _cli_ns._report_paths(output_dir)
+    json_path, csv_path, markdown_path, html_path = _cli_support.report_paths(
+        output_dir
+    )
     sidecar_path = output_dir / "contamination-tier-sidecar.json"
     registry_path, contamination_boundary, cohort_id = _contamination_inputs(args)
     if cast(bool, args.dry_run):
-        planned_outputs = _cli_ns._report_paths(output_dir)
+        planned_outputs = _cli_support.report_paths(output_dir)
         if registry_path is not None:
             planned_outputs = (*planned_outputs, sidecar_path)
-        return _cli_ns._write_dry_run_plan(
+        return _cli_support.write_dry_run_plan(
             "report",
             output_dir / "report.plan.json",
             input_path=scores_path,
@@ -154,23 +160,23 @@ def run(args: argparse.Namespace) -> int:
 
     summaries = tuple(score_summary_from_record(record) for record in summary_records)
     accounting_rows = (
-        _cli_ns.summarize_accounting_leaderboard(accounting_records)
+        summarize_accounting_leaderboard(accounting_records)
         if accounting_records
         else ()
     )
-    inference = _cli_ns.infer_leaderboard_score_comparisons(
+    inference = infer_leaderboard_score_comparisons(
         summaries,
         replicates=cast(int, args.bootstrap_replicates),
         seed=cast(int, args.bootstrap_seed),
     )
     title = cast(str, args.title)
-    report = _cli_ns.build_benchmark_leaderboard_report(
+    report = build_benchmark_leaderboard_report(
         summaries,
         accounting_rows=accounting_rows,
         inference=inference,
         title=title,
     )
-    _cli_ns._write_report_artifacts(
+    _cli_support.write_report_artifacts(
         report,
         json_path=json_path,
         csv_path=csv_path,
@@ -179,9 +185,9 @@ def run(args: argparse.Namespace) -> int:
         generated_at=datetime.now(UTC),
     )
     if provenance is not None:
-        report_payload = _cli_ns._read_json_object(json_path)
+        report_payload = _cli_support.read_json_object(json_path)
         report_payload["provenance"] = dict(provenance)
-        _cli_ns._write_json(json_path, report_payload)
+        _cli_support.write_json(json_path, report_payload)
     written = [json_path, csv_path, markdown_path, html_path]
     if (
         registry_path is not None
@@ -227,7 +233,7 @@ def run(args: argparse.Namespace) -> int:
         )
         written.append(sidecar_path)
     for path in written:
-        _cli_ns._log_event("report", "artifact_written", path, len(report.rows))
+        _cli_support.log_event("report", "artifact_written", path, len(report.rows))
     return 0
 
 

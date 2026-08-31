@@ -1,13 +1,6 @@
 # pyright: reportPrivateUsage=false
 
-"""The ``legalforecast score`` command adapter.
-
-The public ``legalforecast.cli`` module remains the compatibility facade.  This
-module owns the score command's parser registration and handler while resolving
-shared CLI helpers through the facade at call time.  The late binding is
-intentional: existing tests and downstream callers patch those helpers on
-``legalforecast.cli`` and must continue to observe the patched behavior.
-"""
+"""The ``legalforecast score`` command adapter."""
 
 from __future__ import annotations
 
@@ -17,8 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from legalforecast.cli_commands import corpus_manifest as _corpus_manifest
-from legalforecast.cli_commands import stage_a_replay as _stage_a_replay
+from legalforecast import cli_support as _cli_support
 from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     model_registry_sha256,
@@ -36,23 +28,6 @@ from legalforecast.release import (
     validate_release,
 )
 from legalforecast.runner.ledger import RunnerLedger
-
-
-def register_stage_a_replay(
-    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
-) -> None:
-    """Register the cycle-neutral Stage A executor beside acquisition commands.
-
-    Registration stays here rather than in the facade so the heavy executor
-    loads lazily while production verifiers still contain reviewed CLI-facade
-    bridges during the command-slice migration.  The owner-directed corpus
-    manifest commands register through the same hook for the same reason, and
-    so the facade's line count stays frozen.
-    """
-
-    _stage_a_replay.register(subparsers)
-    _stage_a_replay.register_issuance(subparsers)
-    _corpus_manifest.register(subparsers)
 
 
 def register(
@@ -141,8 +116,6 @@ def register(
 def run(args: argparse.Namespace) -> int:
     """Score model runs against locked labels and write the result artifacts."""
 
-    from legalforecast import cli as _cli_ns
-
     runs_path = cast(Path, args.runs)
     labels_path = cast(Path | None, args.labels)
     labels_release_path = cast(Path | None, args.labels_release)
@@ -160,7 +133,7 @@ def run(args: argparse.Namespace) -> int:
     )
     ledger_path = cast(Path | None, getattr(args, "ledger", None))
     output_path = cast(Path, args.output)
-    run_records = _cli_ns._read_records(runs_path)
+    run_records = _cli_support.read_records(runs_path)
     labels_release = None
     forecast = None
     loaded_manifest = None
@@ -203,7 +176,7 @@ def run(args: argparse.Namespace) -> int:
         model_registry = load_model_registry_bytes(registry_bytes)
         label_records = ()
     else:
-        label_records = _cli_ns._read_records(cast(Path, labels_path))
+        label_records = _cli_support.read_records(cast(Path, labels_path))
         if manifest_path is not None:
             loaded_manifest = load_run_manifest(manifest_path)
             if forecast_release_path is not None:
@@ -228,7 +201,7 @@ def run(args: argparse.Namespace) -> int:
                 unit_scores_output,
             )
         )
-        return _cli_ns._write_dry_run_plan(
+        return _cli_support.write_dry_run_plan(
             "score",
             output_path,
             input_path=runs_path,
@@ -264,7 +237,7 @@ def run(args: argparse.Namespace) -> int:
             include_ablation_in_model_id=cast(bool, args.include_ablation_in_model_id),
         )
     output: dict[str, object] = {
-        "generated_at": _cli_ns._iso_datetime(datetime.now(UTC)),
+        "generated_at": _cli_support.iso_datetime(datetime.now(UTC)),
         "summaries": [summary.to_record() for summary in summaries],
     }
     if (
@@ -284,16 +257,16 @@ def run(args: argparse.Namespace) -> int:
             "model_registry_sha256": cast(str, expected_model_registry_sha256),
             "models": _locked_model_bindings(run_records),
         }
-    _cli_ns._write_json(output_path, output)
-    _cli_ns._log_event("score", "artifact_written", output_path, len(summaries))
+    _cli_support.write_json(output_path, output)
+    _cli_support.log_event("score", "artifact_written", output_path, len(summaries))
     if unit_scores_output is not None:
         unit_score_records = [
             unit_score.to_record()
             for summary in summaries
             for unit_score in summary.unit_scores
         ]
-        _cli_ns._write_jsonl(unit_scores_output, unit_score_records)
-        _cli_ns._log_event(
+        _cli_support.write_jsonl(unit_scores_output, unit_score_records)
+        _cli_support.log_event(
             "score",
             "artifact_written",
             unit_scores_output,

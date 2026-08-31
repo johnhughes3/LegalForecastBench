@@ -1,9 +1,0 @@
-{
-  "artifacts": {},
-  "case_id": "freeze-help",
-  "exit_status": 0,
-  "extra_files": [],
-  "output_tree": [],
-  "stderr": "",
-  "stdout": "usage: legalforecast freeze [-h] --manifest MANIFEST --units UNITS\n                            --labels LABELS --prompt PROMPT --scorer SCORER\n                            --harness HARNESS --model-registry MODEL_REGISTRY\n                            --baselines BASELINES\n                            --exclusion-ledger EXCLUSION_LEDGER\n                            --provider-cycle-caps PROVIDER_CYCLE_CAPS\n                            --execution-policy EXECUTION_POLICY\n                            --labeling-policy LABELING_POLICY\n                            --cohort-policy COHORT_POLICY\n                            [--timestamp TIMESTAMP]\n                            [--bundle-output BUNDLE_OUTPUT]\n                            cycle_id\n\nFreeze LegalForecast-MTD cycle artifacts and write hashes.\n\npositional arguments:\n  cycle_id\n\noptions:\n  -h, --help            show this help message and exit\n  --manifest MANIFEST\n  --units UNITS\n  --labels LABELS\n  --prompt PROMPT\n  --scorer SCORER\n  --harness HARNESS\n  --model-registry MODEL_REGISTRY\n  --baselines BASELINES\n  --exclusion-ledger EXCLUSION_LEDGER\n  --provider-cycle-caps PROVIDER_CYCLE_CAPS\n  --execution-policy EXECUTION_POLICY\n  --labeling-policy LABELING_POLICY\n  --cohort-policy COHORT_POLICY\n  --timestamp TIMESTAMP\n  --bundle-output BUNDLE_OUTPUT\n"
-}

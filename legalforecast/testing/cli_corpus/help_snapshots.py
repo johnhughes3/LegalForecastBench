@@ -10,12 +10,12 @@ from legalforecast.testing.cli_corpus.paths import HELP_DIR, PINNED_COLUMNS
 
 HELP_SNAPSHOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("root", ("--help",)),
-    ("freeze", ("freeze", "--help")),
     ("publish-aggregate", ("publish", "aggregate", "--help")),
-    ("acquisition", ("acquisition", "--help")),
-    ("batch-002", ("batch-002", "--help")),
-    ("discover", ("discover", "--help")),
-    ("eval", ("eval", "--help")),
+    ("manifest", ("manifest", "--help")),
+    ("release", ("release", "--help")),
+    ("run", ("run", "--help")),
+    ("score", ("score", "--help")),
+    ("report", ("report", "--help")),
     ("multiharness", ("multiharness", "--help")),
 )
 

@@ -68,10 +68,7 @@ def _artifact_value_bytes(value: object) -> bytes:
 
 def _manifest_bytes(value: object) -> bytes:
     try:
-        # Import lazily so ``python -m legalforecast.protocol.freeze`` can
-        # initialize the protocol package without recursing through the
-        # ingestion package's contracts exports.
-        from legalforecast.protocol.manifest import canonical_json
+        from legalforecast._canonical import canonical_json
 
         return canonical_json(value).encode("utf-8")
     except (TypeError, UnicodeError, ValueError) as exc:

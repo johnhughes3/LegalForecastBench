@@ -1,7 +1,7 @@
 # Scripts
 
-Utility scripts for release and reconstruction tasks that are useful from a
-checkout but do not belong in the installed `legalforecast` CLI.
+Utility scripts for release, infrastructure, and adapter tasks that are useful
+from a checkout but do not belong in the installed `legalforecast` CLI.
 
 ## Current Scripts
 
@@ -12,37 +12,6 @@ checkout but do not belong in the installed `legalforecast` CLI.
   ```
 
   Use `--dry-run` to print the planned checks without executing them.
-
-- `dev-check-recovery-vertical-slice.sh`: runs the provider-free Cycle 1 recovery developer check. No arguments run the full focused regression and public-capsule check; `--quick --manifest <path>` runs only the real-lineage preflight while iterating, and `--require-real-lineage` prevents fixture-only success before merge. Use `--json` for a stable summary on stdout; child diagnostics are written to stderr.
-
-  ```bash
-  scripts/dev-check-recovery-vertical-slice.sh --quick --manifest <cycle-preflight-manifest.json>
-  scripts/dev-check-recovery-vertical-slice.sh --manifest <cycle-preflight-manifest.json> --require-real-lineage
-  ```
-
-- `build_release_bundle.py`: copies fixture E2E artifacts, selected
-  release metadata, and optional package artifacts into an alpha release bundle.
-
-  ```bash
-  uv run scripts/build_release_bundle.py \
-    --fixture-output-dir tmp/release-check/fixture-run \
-    --dist-dir tmp/release-check/dist \
-    --output-dir tmp/release-bundle
-  ```
-
-- `reconstruct_packets.py`: builds source-handle reconstruction plans from
-  manifest JSONL and can verify locally reconstructed documents by SHA-256.
-
-  ```bash
-  uv run scripts/reconstruct_packets.py \
-    --manifest tmp/cycle-manifest.jsonl \
-    --output tmp/reconstruction-plan.json
-  ```
-
-  Add `--verify-dir tmp/reconstructed-documents` to write a verification report
-  and return nonzero when any reconstructed document is missing or mismatched.
-  Use `--verify-packet-render-dir tmp/rebuilt-packets` to verify packet and prompt
-  renders against the hashes published by the private-store exporter.
 
 - `legalforecast.publication.run_input_manifest`: records late-bound locked-label
   hashes after packet export and before an official matrix fans out. It emits a
@@ -65,15 +34,6 @@ checkout but do not belong in the installed `legalforecast` CLI.
   export LFB_PACKET_BUCKET=<from-private-vault>
   export LFB_RESULTS_BUCKET=<from-private-vault>
   uv run scripts/validate_local_assume_access.py
-  ```
-
-- `smoke_infisical_systemd_exit_status.py`: runs a provider-free user-systemd
-  smoke proving that the acquisition Infisical launcher preserves both status 0
-  and a deliberate status 23 even when a fake sandbox wrapper masks the child.
-
-  ```bash
-  uv run scripts/smoke_infisical_systemd_exit_status.py \
-    --output tmp/infisical-systemd-smoke-receipt.json
   ```
 
 - `official_infra_contract.py`: fail-closed contract helper used by the protected infrastructure workflow to resolve reviewed import IDs, verify exact remote-state bindings, and reject destructive or unreviewed Terraform plans. Raw protected import IDs are accepted only through the workflow environment and are never printed.

@@ -14,7 +14,6 @@ from legalforecast.testing.cli_corpus.entry_points import (
     wheel_entry_points,
 )
 from legalforecast.testing.cli_corpus.path_identity import (
-    identity_covers_authenticated_cli,
     scan_path_identity,
 )
 from legalforecast.testing.cli_corpus.paths import IDENTITY_PATH, TIMING_PATH, load_json
@@ -64,14 +63,10 @@ def test_path_identity_inventory_is_current() -> None:
     generated = scan_path_identity(ROOT)
     checked_in = load_json(ROOT / IDENTITY_PATH)
     assert generated == checked_in
-    assert identity_covers_authenticated_cli(generated)
     assert generated["entry_point_names"] == [name for name, _target in ENTRY_POINTS]
-    assert "legalforecast/cli.py" in generated["literal_implementation_paths"].get(
-        "legalforecast/ingestion/firecrawl_screening_identity.py", []
-    )
 
 
-def test_checkout_entry_points_resolve_all_three_scripts() -> None:
+def test_checkout_entry_points_resolve_supported_scripts() -> None:
     observed = checkout_entry_points()
     assert observed == expected_entry_points()
     assert missing_entry_points(observed) == ()
@@ -89,15 +84,6 @@ def test_installed_entry_points_smoke_help_and_version() -> None:
     )
     assert version.returncode == 0
     assert version.stdout.startswith("legalforecast-mtd ")
-    launcher = subprocess.run(
-        ["uv", "run", "legalforecast-acquisition-systemd-run", "--help"],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert launcher.returncode == 0
-    assert "--sandbox-path" in launcher.stdout
     provider = subprocess.run(
         ["uv", "run", "legalforecast-provider-env-run", "--help"],
         cwd=ROOT,
