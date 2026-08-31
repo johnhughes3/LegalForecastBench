@@ -16,6 +16,7 @@ scoring -- rather than any model's behavior.
 from __future__ import annotations
 
 import json
+import zipfile
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,10 @@ from legalforecast.multiharness.cli import add_multiharness_parser
 from legalforecast.multiharness.container_harness import (
     ContainerHarnessResult,
     ContainerHarnessSpec,
+)
+from legalforecast.multiharness.harness_lane.results_package import (
+    HarnessLaneResultsError,
+    build_harness_lane_results_package,
 )
 from legalforecast.multiharness.harness_lane.tool_accounting import (
     ToolAccountingError,
@@ -535,3 +540,227 @@ def test_every_harness_tool_reader_is_wired_to_its_own_envelope(
 def test_an_unknown_harness_basename_is_refused_rather_than_counted_zero() -> None:
     with pytest.raises(ToolAccountingError, match="no tool-use reader"):
         harness_tool_use("unknown-cli", "{}\n")
+
+
+# --- Uploading the full results ------------------------------------------------
+#
+# The lane's evidence is the harness's own transcripts, and they are exactly what
+# cannot be published: they carry the operator's container environment and, on a
+# LAB row, the staged case documents.  So the run splits -- private archive to
+# S3, constructed summary to this public repository -- and these tests hold the
+# split to the only thing that matters about it: nothing from a host reaches the
+# public side.  The markers below are synthetic, never taken from a real
+# environment.
+
+_HOST_HOME = "/home/example-operator"
+_HOST_TOKEN = "sk-ant-oat01-EXAMPLEEXAMPLEEXAMPLE"
+_HOST_SESSION = "session-id-0123456789abcdef"
+_HOST_SOCKET = "/run/user/4242/docker.sock"
+_PLANTED_MARKERS = (_HOST_HOME, _HOST_TOKEN, _HOST_SESSION, _HOST_SOCKET)
+
+
+def _lane_public_summary(*, exit_code: int, duration: float) -> dict[str, Any]:
+    """A public_summary shaped exactly as ContainerCliAdapter emits one."""
+
+    return {
+        "adapter_id": LFB_ADAPTER,
+        "adapter_version": "1.0.0",
+        "allowed_tools": ["Bash", "Read"],
+        "auth_mode": "contributor-subscription",
+        "container_image_digest": (
+            "lfb/claude-code@sha256:"
+            "1111111111111111111111111111111111111111111111111111111111111111"
+        ),
+        "container_image_id": (
+            "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        ),
+        "duration_seconds": duration,
+        "egress_allowed_hosts": [PROVIDER_HOST],
+        "egress_allowlist": {
+            "hosts": [PROVIDER_HOST],
+            "ports": [443],
+            "subdomains": [],
+        },
+        "egress_refused": [
+            {"host": "example.com", "port": 443, "reason": "host_not_allowed"}
+        ],
+        "executable": "claude",
+        "execution_backend": "container_cli_tools_on",
+        "exit_code": exit_code,
+        "failure_class": None if exit_code == 0 else "crash",
+        "harness": "claude-code",
+        "harness_track": "native",
+        "model_key": "claude-opus-4-6",
+        "native_tools_enabled": True,
+        "server_side_web_tools_disabled": True,
+        "timed_out": False,
+        "tool_call_count": 2,
+        "tool_policy": "native_cli_builtins:distinct_tool_names",
+        "tool_use_reporting": "distinct_tool_names",
+    }
+
+
+def _fixture_run_directory(root: Path) -> Path:
+    """Write a run directory carrying host markers everywhere they really land."""
+
+    run_dir = root / "run-output"
+    (run_dir / "lfb").mkdir(parents=True)
+    (run_dir / "rows" / "row-0" / "container-logs").mkdir(parents=True)
+    (run_dir / "rows" / "row-0" / "private-logs").mkdir(parents=True)
+
+    (run_dir / "run-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.multiharness.run_manifest.v1",
+                "run_id": "harness-lane-fixture",
+                "selection_sha256": "aa" * 32,
+                "run_config_sha256": "bb" * 32,
+                "request_ids": ["request-0", "request-1"],
+                "result_ids": ["result-0", "result-1"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    write_jsonl_objects(
+        run_dir / "canonical-runs.jsonl",
+        [
+            {
+                "schema_version": "legalforecast.multiharness.run_result.v1",
+                "result_id": f"result-{index}",
+                "request_id": f"request-{index}",
+                "status": "succeeded" if index == 0 else "failed",
+                "result_sha256": f"{index}" * 64,
+                "artifacts": [],
+                "public_summary": _lane_public_summary(
+                    exit_code=0 if index == 0 else 1, duration=1.5
+                ),
+            }
+            for index in (0, 1)
+        ],
+    )
+    write_jsonl_objects(
+        run_dir / "release-harness-receipts.jsonl", [{"receipt": "one"}]
+    )
+    write_jsonl_objects(run_dir / "lfb" / "runs.jsonl", [{"run": 0}, {"run": 1}])
+    # The real leak vector: MultiHarnessRunRow.to_record() writes the workspace
+    # as an absolute host path. It belongs in the archive and nowhere else.
+    write_jsonl_objects(
+        run_dir / "row-results.jsonl",
+        [{"row_id": "row-0", "workspace": f"{_HOST_HOME}/lfb/run/rows/row-0"}],
+    )
+    (run_dir / "rows" / "row-0" / "container-logs" / "stdout.log").write_text(
+        f"HOME={_HOST_HOME}\nDOCKER_HOST=unix://{_HOST_SOCKET}\n"
+        f"token={_HOST_TOKEN}\nsession={_HOST_SESSION}\n",
+        encoding="utf-8",
+    )
+    (
+        run_dir / "rows" / "row-0" / "private-logs" / "harness-lane-transcript.json"
+    ).write_text(json.dumps({"response_sha256": "cc" * 32}) + "\n", encoding="utf-8")
+    return run_dir
+
+
+def test_the_public_summary_carries_the_fence_evidence_and_no_host_bytes(
+    tmp_path: Path,
+) -> None:
+    run_dir = _fixture_run_directory(tmp_path)
+
+    package = build_harness_lane_results_package(
+        run_dir=run_dir, output_dir=tmp_path / "package"
+    )
+
+    summary_bytes = package.summary_path.read_bytes()
+    for marker in _PLANTED_MARKERS:
+        assert marker.encode("utf-8") not in summary_bytes, marker
+    summary = json.loads(summary_bytes)
+    assert summary["schema_version"] == "legalforecast-harness-lane-results-v1"
+    assert summary["run_id"] == "harness-lane-fixture"
+    assert summary["result_count"] == 2
+    assert summary["status_counts"] == {"failed": 1, "succeeded": 1}
+    assert summary["release_receipt_count"] == 1
+    assert summary["lfb_row_count"] == 2
+    assert summary["package_sha256"] == package.package_sha256
+
+    (harness,) = summary["harnesses"]
+    # What makes the run believable: which image, tools on, provider web tools
+    # off, what it reached, and what the fence refused.
+    assert harness["container_image_digest"].endswith(":" + "11" * 32)
+    assert harness["native_tools_enabled"] is True
+    assert harness["server_side_web_tools_disabled"] is True
+    assert harness["egress_allowed_hosts"] == [PROVIDER_HOST]
+    assert harness["egress_refused"] == [
+        {"host": "example.com", "port": 443, "reason": "host_not_allowed"}
+    ]
+    assert harness["tools_observed"] == ["Bash", "Read"]
+    assert harness["row_count"] == 2
+    assert harness["nonzero_exit_count"] == 1
+    assert harness["failure_class_counts"] == {"crash": 1, "none": 1}
+
+
+def test_the_private_archive_keeps_the_bytes_the_summary_must_not_publish(
+    tmp_path: Path,
+) -> None:
+    run_dir = _fixture_run_directory(tmp_path)
+
+    package = build_harness_lane_results_package(
+        run_dir=run_dir, output_dir=tmp_path / "package"
+    )
+
+    with zipfile.ZipFile(package.package_path) as archive:
+        names = set(archive.namelist())
+        transcript = archive.read("run/rows/row-0/container-logs/stdout.log")
+        rows = archive.read("run/row-results.jsonl")
+    assert "run/run-manifest.json" in names
+    assert "run/lfb/runs.jsonl" in names
+    # "Full results" means full: the transcripts and the absolute workspace path
+    # travel to the private bucket rather than being dropped.
+    for marker in (_HOST_HOME, _HOST_TOKEN, _HOST_SESSION, _HOST_SOCKET):
+        assert marker.encode("utf-8") in transcript
+    assert _HOST_HOME.encode("utf-8") in rows
+
+    assert package.prefix == f"cycle-1/harness-lane/{package.package_sha256}"
+    assert package.asset_name == (
+        f"harness-lane-results-{package.package_sha256}.zip.age"
+    )
+    assert package.package_size_bytes == package.package_path.stat().st_size
+
+
+def test_two_builds_of_one_run_directory_agree_on_the_pinned_digest(
+    tmp_path: Path,
+) -> None:
+    run_dir = _fixture_run_directory(tmp_path)
+
+    first = build_harness_lane_results_package(
+        run_dir=run_dir, output_dir=tmp_path / "first"
+    )
+    second = build_harness_lane_results_package(
+        run_dir=run_dir, output_dir=tmp_path / "second"
+    )
+
+    # The dispatch pins this digest; a build that moved it would make the pin
+    # verifiable only by whoever built it.
+    assert first.package_sha256 == second.package_sha256
+    assert first.summary_sha256 == second.summary_sha256
+
+
+def test_a_host_path_reaching_a_public_summary_field_is_refused(
+    tmp_path: Path,
+) -> None:
+    run_dir = _fixture_run_directory(tmp_path)
+    rows = [
+        json.loads(line)
+        for line in (run_dir / "canonical-runs.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    # Both rows, so the identity-agreement check passes and the host-path
+    # guard is the thing under test.
+    for row in rows:
+        row["public_summary"]["executable"] = f"{_HOST_HOME}/.local/bin/claude"
+    (run_dir / "canonical-runs.jsonl").unlink()
+    write_jsonl_objects(run_dir / "canonical-runs.jsonl", rows)
+
+    with pytest.raises(HarnessLaneResultsError, match="host filesystem path"):
+        build_harness_lane_results_package(
+            run_dir=run_dir, output_dir=tmp_path / "package"
+        )

@@ -1,0 +1,506 @@
+name: Stage Harness Lane Results
+
+# Uploads the FULL results of one containerized harness-lane run to the results
+# bucket. The lane measures whether an agentic CLI beats the bare provider API,
+# so every harness runs with its own tools on, and its transcripts are the
+# evidence -- which is exactly why they cannot be published: they carry the
+# operator's container environment, and on a Harvey LAB row the staged case
+# documents too.
+#
+# So the run splits. The private archive goes to S3 and nowhere else. The public
+# summary -- egress allowlist, hosts reached, hosts REFUSED, container image
+# digest, tool accounting, per-harness counts -- is a tracked file in this
+# repository, and this workflow stages the repository's own copy. What lands in
+# S3 beside the archive is therefore bytes that went through review, not bytes
+# that travelled.
+#
+# It runs here and cannot run anywhere else, for the same reason
+# stage-manifest-run.yaml does: the results bucket and its KMS key are governed
+# by resource policies naming only the OIDC roles, so a developer machine cannot
+# write them at all and an AccessDenied is the boundary working.
+#
+# TRANSPORT. The archive is built on the operator's machine (subscription
+# logins, rootless Docker), so its bytes have to travel, and they cannot travel
+# through this public repository. They travel the way
+# stage-official-manifest-run.yaml already moves private source: one
+# deterministic archive, age-encrypted, uploaded as an asset on a
+# never-published DRAFT release, pinned by exact release id, asset id, name,
+# size and digest at dispatch. The transport is not trusted and does not need to
+# be -- age and the draft release provide confidentiality only. Integrity is the
+# digest chain: the descriptor pins the ciphertext, the ciphertext must decrypt
+# to the package_sha256 the tracked summary names, and that digest is also the
+# S3 prefix. A substituted archive can only fail loudly.
+#
+# PREFIX. cycle-1/harness-lane/<package_sha256>/, deliberately NOT under
+# cycle-1/manifest-runs/. The manifest-staging role's IAM policy would in fact
+# permit a key there -- it grants PutObject on cycle-1/manifest-runs/* -- but
+# that namespace is create-once with no delete grant on any role, is fenced as a
+# two-lane space by .github/scripts/assert-manifest-run-lane.sh, and sits inside
+# the read scope of the cell and prepare-inputs roles, whose charter is corpus
+# manifests and model packets. Iterative harness-lane bundles do not belong
+# there. This lane's role, environment, and variables are a one-time human-admin
+# bootstrap; see infra/official-eval-bootstrap/README.md.
+#
+# ONE-TIME BOOTSTRAP, human admin only -- the routine OIDC operator holds
+# read-only refresh verbs on exact role ARNs and cannot create or repolicy a
+# role, so none of this is reachable from an Actions run:
+#   1. Create IAM role legalforecastbench-harness-lane-results, trusting the
+#      repository OIDC provider on subject
+#      repo:<owner>/<repo>:environment:legalforecastbench-harness-lane-results.
+#   2. Give it an inline policy with four statements, and nothing more:
+#      kms:Decrypt and kms:GenerateDataKey on the artifacts key;
+#      s3:GetObject on <results-bucket>/cycle-1/harness-lane/*; and s3:PutObject
+#      on <results-bucket>/cycle-1/harness-lane/* conditioned
+#      Null s3:if-none-match = false. No s3:ListBucket, no packet bucket.
+#   3. Create the protected environment legalforecastbench-harness-lane-results
+#      with the same reviewer and main-only branch policy as the staging
+#      environments, then set, through secure-gate, the variables
+#      LFB_AWS_REGION, LFB_RESULTS_BUCKET,
+#      LFB_GITHUB_HARNESS_LANE_RESULTS_ROLE_ARN, and the secret
+#      LFB_HARNESS_LANE_RESULTS_AGE_IDENTITY (an age identity whose recipient
+#      the operator encrypts the archive to).
+#   4. Record the role and environment in infra/official-eval so Terraform
+#      imports rather than re-creates them.
+#
+# Content-addressed, so re-dispatch is safe: the same package rewrites the same
+# keys with the same bytes, each put 412s and is then verified byte-for-byte.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact trusted commit SHA on main; must equal the dispatched commit.
+        required: true
+        type: string
+      summary_path:
+        description: >-
+          Checked-out path to the public harness-lane summary. Must be tracked at
+          release_sha. Its package_sha256 field pins the archive and names the
+          prefix, so nothing else needs to carry either.
+        required: true
+        type: string
+      source_descriptor_json:
+        description: >-
+          Closed JSON descriptor of the age ciphertext on a never-published draft
+          release: release_id, asset_id, asset_name, asset_size_bytes,
+          asset_digest.
+        required: true
+        type: string
+      dry_run:
+        description: Validate and print the upload plan without writing to S3.
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage-harness-lane-results-${{ inputs.summary_path }}
+  cancel-in-progress: false
+
+jobs:
+  validate-request:
+    name: Validate harness-lane staging request
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      expected_prefix: ${{ steps.request.outputs.expected_prefix }}
+      package_sha256: ${{ steps.request.outputs.package_sha256 }}
+      summary_sha256: ${{ steps.request.outputs.summary_sha256 }}
+      asset_id: ${{ steps.request.outputs.asset_id }}
+      asset_name: ${{ steps.request.outputs.asset_name }}
+      asset_size: ${{ steps.request.outputs.asset_size }}
+      asset_digest: ${{ steps.request.outputs.asset_digest }}
+      release_id: ${{ steps.request.outputs.release_id }}
+    steps:
+      - name: Checkout exact main release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ inputs.release_sha }}
+
+      - name: Validate pins, tracked summary, and closed descriptor
+        id: request
+        shell: bash
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          SOURCE_DESCRIPTOR_JSON: ${{ inputs.source_descriptor_json }}
+          SUMMARY_PATH: ${{ inputs.summary_path }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]] || [[ ! "${GITHUB_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Harness-lane staging is allowed only from refs/heads/main." >&2
+            exit 1
+          fi
+          if [[ "${RELEASE_SHA}" != "${GITHUB_SHA}" ]] || [[ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]]; then
+            echo "release_sha must equal the exact main commit that triggered this workflow." >&2
+            exit 1
+          fi
+          if [[ "${DRY_RUN}" != "true" && "${DRY_RUN}" != "false" ]]; then
+            echo "dry_run must be true or false." >&2
+            exit 1
+          fi
+
+          # A summary present in the working tree but absent from the release did
+          # not go through review, and review is the only thing standing between
+          # a public summary and a leaked host path.
+          if [[ ! "${SUMMARY_PATH}" =~ ^[A-Za-z0-9._/-]+$ ]] ||
+            [[ "${SUMMARY_PATH}" == /* ]] ||
+            [[ "${SUMMARY_PATH}" == -* ]] ||
+            [[ "/${SUMMARY_PATH}/" == *"/../"* ]]; then
+            echo "summary_path must be a relative path inside the checkout: ${SUMMARY_PATH}" >&2
+            exit 1
+          fi
+          if [[ ! -f "${SUMMARY_PATH}" ]] ||
+            ! git ls-files --error-unmatch -- "${SUMMARY_PATH}" >/dev/null 2>&1; then
+            echo "summary_path is not tracked at the release commit: ${SUMMARY_PATH}" >&2
+            exit 1
+          fi
+
+          jq -e '
+            type == "object" and
+            .schema_version == "legalforecast-harness-lane-results-v1" and
+            (.package_sha256 | type == "string" and test("^[0-9a-f]{64}$")) and
+            (.run_id | type == "string" and length > 0) and
+            (.harnesses | type == "array" and length > 0)
+          ' "${SUMMARY_PATH}" >/dev/null
+
+          package_sha256="$(jq -r '.package_sha256' "${SUMMARY_PATH}")"
+          summary_sha256="$(sha256sum -- "${SUMMARY_PATH}" | cut -d' ' -f1)"
+
+          # Closed shape: an extra key would be an unreviewed field steering a
+          # download inside a job that holds a write credential.
+          jq -e '
+            type == "object" and
+            (keys | sort) == ["asset_digest","asset_id","asset_name","asset_size_bytes","release_id"] and
+            (.release_id | type == "number" and . > 0 and floor == .) and
+            (.asset_id | type == "number" and . > 0 and floor == .) and
+            (.asset_size_bytes | type == "number" and . > 0 and floor == .) and
+            (.asset_name | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._-]*[.]age$")) and
+            (.asset_digest | type == "string" and test("^sha256:[0-9a-f]{64}$"))
+          ' <<<"${SOURCE_DESCRIPTOR_JSON}" >/dev/null
+
+          # The asset name carries the package digest, so a descriptor cannot
+          # point this dispatch at some other run's ciphertext while the summary
+          # and the prefix below still describe this one.
+          expected_asset_name="harness-lane-results-${package_sha256}.zip.age"
+          if [[ "$(jq -r '.asset_name' <<<"${SOURCE_DESCRIPTOR_JSON}")" != "${expected_asset_name}" ]]; then
+            echo "Draft-release asset name is not bound to this package digest." >&2
+            exit 1
+          fi
+
+          {
+            echo "expected_prefix=cycle-1/harness-lane/${package_sha256}"
+            echo "package_sha256=${package_sha256}"
+            echo "summary_sha256=${summary_sha256}"
+            echo "release_id=$(jq -r '.release_id' <<<"${SOURCE_DESCRIPTOR_JSON}")"
+            echo "asset_id=$(jq -r '.asset_id' <<<"${SOURCE_DESCRIPTOR_JSON}")"
+            echo "asset_name=$(jq -r '.asset_name' <<<"${SOURCE_DESCRIPTOR_JSON}")"
+            echo "asset_size=$(jq -r '.asset_size_bytes' <<<"${SOURCE_DESCRIPTOR_JSON}")"
+            echo "asset_digest=$(jq -r '.asset_digest' <<<"${SOURCE_DESCRIPTOR_JSON}")"
+          } >> "${GITHUB_OUTPUT}"
+
+  stage:
+    name: Stage harness-lane results
+    needs: validate-request
+    if: github.ref == 'refs/heads/main'
+    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
+    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: legalforecastbench-harness-lane-results
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      EXPECTED_PREFIX: ${{ needs.validate-request.outputs.expected_prefix }}
+      LFB_GITHUB_HARNESS_LANE_RESULTS_ROLE_ARN: ${{ vars.LFB_GITHUB_HARNESS_LANE_RESULTS_ROLE_ARN }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      PACKAGE_SHA256: ${{ needs.validate-request.outputs.package_sha256 }}
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      SUMMARY_PATH: ${{ inputs.summary_path }}
+      SUMMARY_SHA256: ${{ needs.validate-request.outputs.summary_sha256 }}
+      # No dot prefix: the upload step sets include-hidden-files: false with
+      # if-no-files-found: error, so a hidden output root would hard-fail the job
+      # after the unrecoverable write had already happened.
+      OUTPUT_ROOT: ${{ github.workspace }}/lfb-harness-lane-stage-output
+    steps:
+      - name: Confirm secure-gate protected environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "This job starts only after the legalforecastbench-harness-lane-results protected environment, including secure-gate deployment protection, approves it."
+
+      - name: Resolve the work root
+        shell: bash
+        # The runner context is not available in job-level env (GitHub rejects
+        # the whole workflow at dispatch with "Unrecognized named-value:
+        # 'runner'"), so the temp-dir work root is resolved here. Decrypted
+        # transcripts stay under the runner temp directory, outside the
+        # workspace, so the OUTPUT_ROOT artifact upload can never pick them up.
+        run: |
+          set -euo pipefail
+          echo "WORK_ROOT=${RUNNER_TEMP}/lfb-harness-lane-stage" >> "${GITHUB_ENV}"
+
+      - name: Validate protected environment configuration
+        shell: bash
+        env:
+          HARNESS_LANE_AGE_IDENTITY: ${{ secrets.LFB_HARNESS_LANE_RESULTS_AGE_IDENTITY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          required_env=(
+            AWS_REGION
+            HARNESS_LANE_AGE_IDENTITY
+            LFB_GITHUB_HARNESS_LANE_RESULTS_ROLE_ARN
+            LFB_RESULTS_BUCKET
+          )
+          for name in "${required_env[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required protected environment values:\n' >&2
+            printf '  - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+          if [[ ! "${LFB_GITHUB_HARNESS_LANE_RESULTS_ROLE_ARN}" =~ ^arn:aws[a-zA-Z-]*:iam::[0-9]{12}:role/.+ ]]; then
+            echo "LFB_GITHUB_HARNESS_LANE_RESULTS_ROLE_ARN must be an IAM role ARN." >&2
+            exit 1
+          fi
+          if [[ ! "${LFB_RESULTS_BUCKET}" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ ]]; then
+            echo "LFB_RESULTS_BUCKET must be an S3 bucket name, not a URI or prefix." >&2
+            exit 1
+          fi
+
+      - name: Checkout exact main release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ inputs.release_sha }}
+
+      - name: Install pinned age
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${WORK_ROOT}/tools"
+          curl --fail --silent --show-error --location \
+            https://github.com/FiloSottile/age/releases/download/v1.3.1/age-v1.3.1-linux-amd64.tar.gz \
+            --output "${WORK_ROOT}/age.tar.gz"
+          printf '%s  %s\n' \
+            bdc69c09cbdd6cf8b1f333d372a1f58247b3a33146406333e30c0f26e8f51377 \
+            "${WORK_ROOT}/age.tar.gz" | sha256sum --check --strict
+          tar -xzf "${WORK_ROOT}/age.tar.gz" \
+            --strip-components=1 --directory "${WORK_ROOT}/tools" age/age
+          chmod 0755 "${WORK_ROOT}/tools/age"
+
+      - name: Prove release is still current main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(
+            gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+          )"
+          [[ "${current_main_sha}" == "${RELEASE_SHA}" ]] || {
+            echo "main advanced after dispatch or protected approval; refusing stale staging authority." >&2
+            exit 1
+          }
+
+      - name: Re-prove the tracked summary at the approved commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' "${SUMMARY_SHA256}" "${SUMMARY_PATH}" | sha256sum --check --strict
+
+      - name: Download exact encrypted draft-release archive
+        id: source
+        shell: bash
+        env:
+          ASSET_DIGEST: ${{ needs.validate-request.outputs.asset_digest }}
+          ASSET_ID: ${{ needs.validate-request.outputs.asset_id }}
+          ASSET_NAME: ${{ needs.validate-request.outputs.asset_name }}
+          ASSET_SIZE: ${{ needs.validate-request.outputs.asset_size }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.validate-request.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${WORK_ROOT}/source"
+          release_json="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          # draft == true is load-bearing: a published release would put the
+          # ciphertext of the harness transcripts on a public download URL.
+          jq -e --argjson asset_id "${ASSET_ID}" --arg release_sha "${RELEASE_SHA}" \
+            '.draft == true and .target_commitish == $release_sha and
+             ([.assets[] | select(.id == $asset_id)] | length) == 1' \
+            <<<"${release_json}" >/dev/null
+          asset_json="$(jq -c --argjson asset_id "${ASSET_ID}" '.assets[] | select(.id == $asset_id)' <<<"${release_json}")"
+          jq -e \
+            --arg name "${ASSET_NAME}" \
+            --arg digest "${ASSET_DIGEST}" \
+            --argjson size "${ASSET_SIZE}" \
+            '.name == $name and .size == $size and .digest == $digest and .state == "uploaded"' \
+            <<<"${asset_json}" >/dev/null
+          gh api \
+            -H 'Accept: application/octet-stream' \
+            "/repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}" \
+            > "${WORK_ROOT}/source/${ASSET_NAME}"
+          test "$(stat -c '%s' "${WORK_ROOT}/source/${ASSET_NAME}")" = "${ASSET_SIZE}"
+          printf '%s  %s\n' "${ASSET_DIGEST#sha256:}" \
+            "${WORK_ROOT}/source/${ASSET_NAME}" | sha256sum --check --strict
+          echo "ciphertext=${WORK_ROOT}/source/${ASSET_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Decrypt and bind the archive to the reviewed summary
+        shell: bash
+        env:
+          CIPHERTEXT: ${{ steps.source.outputs.ciphertext }}
+          HARNESS_LANE_AGE_IDENTITY: ${{ secrets.LFB_HARNESS_LANE_RESULTS_AGE_IDENTITY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "${WORK_ROOT}/private" "${OUTPUT_ROOT}"
+          printf '%s\n' "${HARNESS_LANE_AGE_IDENTITY}" > "${WORK_ROOT}/private/age-identity.txt"
+          "${WORK_ROOT}/tools/age" --decrypt \
+            --identity "${WORK_ROOT}/private/age-identity.txt" \
+            --output "${WORK_ROOT}/private/full-results.zip" \
+            "${CIPHERTEXT}"
+          # The whole binding, in one line: the archive that just decrypted must
+          # be the archive the reviewed summary describes. The archive is never
+          # extracted here -- it is uploaded as bytes -- so a decompression bomb
+          # has nothing to expand into.
+          printf '%s  %s\n' "${PACKAGE_SHA256}" \
+            "${WORK_ROOT}/private/full-results.zip" | sha256sum --check --strict
+
+      - name: Configure AWS OIDC credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: lfb-harness-lane-stage-${{ github.run_id }}-${{ github.run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_HARNESS_LANE_RESULTS_ROLE_ARN }}
+          # Nothing ambient may survive into this job: the only credentials that
+          # may act here are the ones this step just minted from the OIDC token.
+          unset-current-credentials: true
+
+      - name: Stage the harness-lane results
+        id: stage
+        shell: bash
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          # The plan is written before any credential is used, and every key is
+          # rebuilt from EXPECTED_PREFIX rather than concatenated ad hoc, so an
+          # object outside this lane's prefix cannot be described, let alone put.
+          jq -n \
+            --arg prefix "${EXPECTED_PREFIX}" \
+            --arg bucket "${LFB_RESULTS_BUCKET}" \
+            --arg package_sha256 "${PACKAGE_SHA256}" \
+            --arg summary_sha256 "${SUMMARY_SHA256}" \
+            --arg package_path "${WORK_ROOT}/private/full-results.zip" \
+            --arg summary_path "${SUMMARY_PATH}" \
+            '{prefix: $prefix, objects: [
+               {bucket: $bucket, key: ($prefix + "/full-results.zip"),
+                sha256: $package_sha256, path: $package_path,
+                content_type: "application/zip"},
+               {bucket: $bucket, key: ($prefix + "/harness-lane-summary.json"),
+                sha256: $summary_sha256, path: $summary_path,
+                content_type: "application/json"}
+             ]}' > "${OUTPUT_ROOT}/stage-plan.json"
+
+          jq -e --arg prefix "${EXPECTED_PREFIX}" --arg bucket "${LFB_RESULTS_BUCKET}" '
+            (.objects | length) == 2 and
+            all(.objects[]; .bucket == $bucket and (.key | startswith($prefix + "/")))
+          ' "${OUTPUT_ROOT}/stage-plan.json" >/dev/null
+
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            jq '. + {dry_run: true}' "${OUTPUT_ROOT}/stage-plan.json" \
+              > "${OUTPUT_ROOT}/stage-record.json"
+          else
+            while IFS=$'\t' read -r bucket key sha256 path content_type; do
+              # Create-only. A 412/PreconditionFailed means the object already
+              # exists, which is the expected answer when a dispatch is retried
+              # against a content-addressed prefix; the head-object below then
+              # proves the existing bytes are the bytes we hold.
+              if ! aws s3api put-object \
+                --bucket "${bucket}" --key "${key}" --body "${path}" \
+                --content-type "${content_type}" --metadata "sha256=${sha256}" \
+                --if-none-match '*' >/dev/null 2>"${WORK_ROOT}/put-error.txt"; then
+                if ! grep -qE 'PreconditionFailed|412' "${WORK_ROOT}/put-error.txt"; then
+                  echo "immutable S3 write failed for s3://${bucket}/${key}" >&2
+                  exit 1
+                fi
+              fi
+              recorded="$(
+                aws s3api head-object --bucket "${bucket}" --key "${key}" \
+                  --query 'Metadata.sha256' --output text
+              )"
+              if [[ "${recorded}" != "${sha256}" ]]; then
+                echo "s3://${bucket}/${key} records ${recorded}, not ${sha256}." >&2
+                exit 1
+              fi
+            done < <(jq -r '.objects[] | [.bucket, .key, .sha256, .path, .content_type] | @tsv' \
+              "${OUTPUT_ROOT}/stage-plan.json")
+            jq '. + {dry_run: false}' "${OUTPUT_ROOT}/stage-plan.json" \
+              > "${OUTPUT_ROOT}/stage-record.json"
+          fi
+
+          {
+            echo "### Staged harness-lane results (dry_run=${DRY_RUN})"
+            echo
+            echo "| field | value |"
+            echo "| --- | --- |"
+            echo "| prefix | \`${EXPECTED_PREFIX}\` |"
+            echo "| archive | \`s3://${LFB_RESULTS_BUCKET}/${EXPECTED_PREFIX}/full-results.zip\` |"
+            echo "| summary | \`s3://${LFB_RESULTS_BUCKET}/${EXPECTED_PREFIX}/harness-lane-summary.json\` |"
+            echo "| package sha256 | \`${PACKAGE_SHA256}\` |"
+            echo "| summary sha256 | \`${SUMMARY_SHA256}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Clear decrypted transcripts and AWS credentials
+        id: clear_sensitive
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          # WORK_ROOT holds the decrypted harness transcripts and the age
+          # identity. This is a public repository: run artifacts are publicly
+          # downloadable, so those bytes leave the runner before any upload
+          # step can see them. OUTPUT_ROOT holds only keys and digests.
+          rm -rf "${WORK_ROOT}"
+          {
+            echo 'AWS_ACCESS_KEY_ID='
+            echo 'AWS_SECRET_ACCESS_KEY='
+            echo 'AWS_SESSION_TOKEN='
+            echo 'AWS_SECURITY_TOKEN='
+          } >> "${GITHUB_ENV}"
+          unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
+          test ! -e "${WORK_ROOT}"
+
+      # always(): if the puts landed and a later step failed, the record of which
+      # keys now exist is exactly what is needed to recover.
+      - name: Upload stage record
+        if: always() && steps.stage.outcome == 'success' && steps.clear_sensitive.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          # Keys and digests only. Never the decrypted archive: run artifacts on
+          # a public repository are publicly downloadable.
+          name: stage-harness-lane-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.OUTPUT_ROOT }}/stage-plan.json
+            ${{ env.OUTPUT_ROOT }}/stage-record.json
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+          retention-days: 30
