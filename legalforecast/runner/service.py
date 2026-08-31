@@ -403,6 +403,13 @@ def execute_release_run(
                         allow_retryable_nonbillable=True,
                         allow_pretransport_reuse=True,
                     )
+                    orphaned_remote_attempt: AttemptLease | None = None
+                    if cell is None and isinstance(
+                        authority, DynamoDbProviderSpendAuthority
+                    ):
+                        orphaned_remote_attempt = authority.adopt_pretransport_attempt(
+                            key
+                        )
                     receipt_path = config.receipts_dir / f"{cell_id}.json"
                     if cell is not None and cell.status == "completed":
                         _restore_or_validate_completed_receipt(
@@ -417,6 +424,7 @@ def execute_release_run(
 
                     retryable_nonbillable_prior_attempt: AttemptLease | None = None
                     pretransport_attempt_ordinal: int | None = None
+                    pretransport_attempt: AttemptLease | None = None
                     if (
                         cell is not None
                         and cell.status == "reserved"
@@ -447,6 +455,11 @@ def execute_release_run(
                                     attempt_id=cell.provider_attempt_id,
                                 )
                             )
+                    if orphaned_remote_attempt is not None:
+                        pretransport_attempt = orphaned_remote_attempt
+                        pretransport_attempt_ordinal = (
+                            orphaned_remote_attempt.attempt_ordinal
+                        )
 
                     replayable_response: Mapping[str, object] | None = None
                     replayable_attempt: AttemptLease | None = None
@@ -530,7 +543,13 @@ def execute_release_run(
                         lease: AttemptLease,
                         *,
                         bound_cell_attempt_id: str | None = (
-                            None if cell is None else cell.provider_attempt_id
+                            (
+                                orphaned_remote_attempt.attempt_id
+                                if orphaned_remote_attempt is not None
+                                else None
+                            )
+                            if cell is None
+                            else cell.provider_attempt_id
                         ),
                         bound_authorization_state: list[str | None] = (
                             authorization_state
@@ -561,6 +580,7 @@ def execute_release_run(
                             unit_id=bound_unit_id,
                             repeat_index=bound_repeat_index,
                             provider_attempt_id=lease.attempt_id,
+                            allow_existing_same_attempt=True,
                         )
                         bound_authorization_state[0] = lease.attempt_id
 
@@ -608,6 +628,7 @@ def execute_release_run(
                             replayable_attempt=replayable_attempt,
                             replayable_response=replayable_response,
                             pretransport_attempt_ordinal=(pretransport_attempt_ordinal),
+                            pretransport_attempt=pretransport_attempt,
                             pretransport_attempt_observer=bind_pretransport_attempt,
                             response_observer=persist_provider_response,
                         )
@@ -730,6 +751,7 @@ def _complete_cell(
     replayable_attempt: AttemptLease | None,
     replayable_response: Mapping[str, object] | None,
     pretransport_attempt_ordinal: int | None,
+    pretransport_attempt: AttemptLease | None,
     pretransport_attempt_observer: Callable[[AttemptLease], None],
     response_observer: Callable[[AttemptLease, Mapping[str, object]], None],
 ) -> SolverResponse:
@@ -745,6 +767,7 @@ def _complete_cell(
         replayable_attempt=replayable_attempt,
         replayable_response=replayable_response,
         pretransport_attempt_ordinal=pretransport_attempt_ordinal,
+        pretransport_attempt=pretransport_attempt,
         pretransport_attempt_observer=pretransport_attempt_observer,
         response_observer=response_observer,
     )

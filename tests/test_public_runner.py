@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from collections.abc import Callable, Mapping
@@ -20,6 +21,7 @@ from legalforecast.evals.live_model_solver import (
     LiveModelResponseError,
 )
 from legalforecast.evals.provider_spend_control import AttemptLimitExceededError
+from legalforecast.evals.provider_spend_dynamodb import DynamoDbProviderSpendAuthority
 from legalforecast.immutable_io import ImmutableIOError
 from legalforecast.runner import (
     RunBlockedError,
@@ -30,6 +32,7 @@ from legalforecast.runner import (
     issue_runner_fixture,
 )
 from legalforecast.runner.fixture import FIXTURE_MODEL_KEY, FixtureModelTransport
+from tests.test_provider_spend_dynamodb import InMemoryDynamoRunner
 
 JsonRecord = Mapping[str, object]
 
@@ -1164,6 +1167,102 @@ def test_runner_reuses_exact_pretransport_reservation_after_crash(
         assert connection.execute(
             "SELECT provider_attempt_id FROM public_runner_cells ORDER BY rowid LIMIT 1"
         ).fetchone() == (original_attempt_id,)
+
+
+@pytest.mark.parametrize("crash_after_projection", (False, True))
+def test_runner_recovers_remote_pretransport_reservation_without_duplicate_transport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    crash_after_projection: bool,
+) -> None:
+    """Recover a remote lease before or after local projection without duplication."""
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    remote_runner = InMemoryDynamoRunner()
+    original_remote_init = DynamoDbProviderSpendAuthority.__init__
+
+    def use_fixture_remote(
+        authority: DynamoDbProviderSpendAuthority,
+        **kwargs: object,
+    ) -> None:
+        original_remote_init(authority, runner=remote_runner, **kwargs)
+
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "__init__",
+        use_fixture_remote,
+    )
+    original_reserve_cell = runner_service.RunnerLedger.reserve_cell
+    projected = False
+
+    def crash_before_first_projection(
+        ledger: runner_service.RunnerLedger,
+        **kwargs: object,
+    ) -> None:
+        nonlocal projected
+        if not projected:
+            projected = True
+            if crash_after_projection:
+                original_reserve_cell(ledger, **kwargs)
+            raise SimulatedCrash
+        original_reserve_cell(ledger, **kwargs)
+
+    monkeypatch.setattr(
+        runner_service.RunnerLedger,
+        "reserve_cell",
+        crash_before_first_projection,
+    )
+    resource_identity = hashlib.sha256(remote_runner.table_arn.encode()).hexdigest()
+    config = replace(
+        _config(tmp_path),
+        provider_authority_table="authority-table",
+        provider_authority_region="us-east-1",
+        provider_authority_resource_identity_sha256=resource_identity,
+    )
+    first_transport = FixtureModelTransport()
+    with pytest.raises(SimulatedCrash):
+        execute_release_run(
+            config,
+            transport=first_transport,
+            environ=_fixture_environ(),
+        )
+
+    assert first_transport.call_count == 0
+    remote_attempt_keys = tuple(
+        key for key in remote_runner.items if key.startswith("ATTEMPT#")
+    )
+    assert len(remote_attempt_keys) == 1
+    original_remote_attempt_id = remote_runner.items[remote_attempt_keys[0]][
+        "attempt_id"
+    ]
+
+    monkeypatch.setattr(
+        runner_service.RunnerLedger,
+        "reserve_cell",
+        original_reserve_cell,
+    )
+    resumed_transport = FixtureModelTransport()
+    summary = execute_release_run(
+        config,
+        transport=resumed_transport,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.executed_cells == 3
+    assert resumed_transport.call_count == 3
+    remote_attempt_keys = tuple(
+        key for key in remote_runner.items if key.startswith("ATTEMPT#")
+    )
+    assert len(remote_attempt_keys) == 3
+    assert remote_runner.items[remote_attempt_keys[0]]["attempt_id"] == (
+        original_remote_attempt_id
+    )
+    with sqlite3.connect(config.ledger_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM public_runner_cells WHERE status = 'completed'"
+        ).fetchone() == (3,)
 
 
 def test_runner_preflights_before_reusing_pretransport_reservation(

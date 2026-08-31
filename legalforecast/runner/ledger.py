@@ -403,6 +403,7 @@ class RunnerLedger:
         repeat_index: int,
         provider_attempt_id: str,
         allow_nonbillable_replacement: bool = False,
+        allow_existing_same_attempt: bool = False,
     ) -> None:
         """Bind a cell reservation to spend authorization before one commit."""
 
@@ -449,6 +450,20 @@ class RunnerLedger:
             unit_id=unit_id,
             repeat_index=repeat_index,
         )
+        if (
+            allow_existing_same_attempt
+            and record.status == "reserved"
+            and record.provider_attempt_id == provider_attempt_id
+        ):
+            attempt = connection.execute(
+                "SELECT status FROM provider_attempts WHERE attempt_id = ?",
+                (provider_attempt_id,),
+            ).fetchone()
+            if attempt is None or str(attempt["status"]) != "reserved":
+                raise RunBlockedError(
+                    "existing cell reservation lacks its exact reserved attempt"
+                )
+            return
         if (
             allow_nonbillable_replacement
             and record.status == "reserved"
@@ -568,6 +583,7 @@ class RunnerLedger:
         repeat_index: int,
         provider_attempt_id: str,
         allow_nonbillable_replacement: bool = False,
+        allow_existing_same_attempt: bool = False,
     ) -> None:
         """Persist a cell after a separately committed remote lease."""
 
@@ -582,6 +598,7 @@ class RunnerLedger:
                 repeat_index=repeat_index,
                 provider_attempt_id=provider_attempt_id,
                 allow_nonbillable_replacement=allow_nonbillable_replacement,
+                allow_existing_same_attempt=allow_existing_same_attempt,
             )
         except BaseException:
             self._connection.rollback()

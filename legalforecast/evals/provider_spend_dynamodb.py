@@ -346,6 +346,40 @@ class DynamoDbProviderSpendAuthority:
             )
         return self._lease_from_attempt(attempt)
 
+    def adopt_pretransport_attempt(
+        self,
+        key: ProviderSpendKey,
+    ) -> AttemptLease | None:
+        """Find the exact remote reservation left before local projection.
+
+        A process can die after DynamoDB commits the reservation but before the
+        local crash-resumable cell projection commits.  Only a present,
+        reserved remote attempt is eligible here; settled or failed state must
+        remain fail-closed rather than being mistaken for a new call.
+        """
+
+        self._verify_key_scope(key)
+        ledger = self._get_required(_LEDGER_RECORD_KEY)
+        self._verify_ledger(ledger)
+        self._raise_if_poisoned(ledger)
+        cell = self._get_optional(f"CELL#{key.logical_call_key}")
+        if cell is None:
+            return None
+        ordinal = _number(cell, "attempt_count")
+        if ordinal <= 0:
+            raise DynamoDbAuthorityError(
+                "DynamoDB provider cell has an invalid attempt count"
+            )
+        attempt = self._get_required(f"ATTEMPT#{key.logical_call_key}#{ordinal:04d}")
+        if _text(attempt, "status") != "reserved":
+            raise AttemptStateError(
+                "remote provider cell is not a crash-resumable pretransport reservation"
+            )
+        lease = self._lease_from_attempt(attempt)
+        if lease.logical_call_key != key.logical_call_key:
+            raise AttemptStateError("remote provider attempt logical identity differs")
+        return lease
+
     def record_response(
         self,
         lease: AttemptLease,

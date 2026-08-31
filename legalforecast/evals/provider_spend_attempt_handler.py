@@ -93,6 +93,7 @@ class ProviderSpendAttemptHandler:
     replayable_attempt: AttemptLease | None = None
     replayable_response: JsonRecord | None = None
     pretransport_attempt_ordinal: int | None = None
+    pretransport_attempt: AttemptLease | None = None
     pretransport_attempt_observer: Callable[[AttemptLease], None] | None = None
     response_observer: ResponseObserver | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
@@ -117,6 +118,14 @@ class ProviderSpendAttemptHandler:
             raise ValueError(
                 "provider replay and pretransport reuse are mutually exclusive"
             )
+        if self.pretransport_attempt is not None and (
+            self.pretransport_attempt_ordinal is None
+            or self.pretransport_attempt.attempt_ordinal
+            != self.pretransport_attempt_ordinal
+        ):
+            raise ValueError(
+                "pretransport lease and ordinal must identify the same attempt"
+            )
 
     def run_attempt(
         self,
@@ -135,10 +144,12 @@ class ProviderSpendAttemptHandler:
             self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
             return self.replayable_response
         if self.pretransport_attempt_ordinal is not None and attempt_ordinal == 1:
-            lease = self.authority.adopt_attempt(
-                self.key,
-                attempt_ordinal=self.pretransport_attempt_ordinal,
-            )
+            lease = self.pretransport_attempt
+            if lease is None:
+                lease = self.authority.adopt_attempt(
+                    self.key,
+                    attempt_ordinal=self.pretransport_attempt_ordinal,
+                )
         else:
             try:
                 replacement_ordinal = attempt_ordinal in {1, 2}
