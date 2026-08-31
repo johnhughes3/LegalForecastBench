@@ -10,6 +10,7 @@ positional arguments:
     tier0        Execute the hash-bound paired Harvey LAB Tier-0 smoke.
     report       Summarize a multi-harness run directory as public JSON.
     community    Community submission packaging and aggregation commands.
+    harness      Containerized, tools-on agentic CLI harness lane.
 
 options:
   -h, --help     show this help message and exit

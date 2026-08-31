@@ -76,6 +76,7 @@
       "tests/test_live_parse_plan_role_scope.py",
       "tests/test_llm_labeling_cli.py",
       "tests/test_locked_run_manifest_consumer.py",
+      "tests/test_multiharness_adapter_registry.py",
       "tests/test_multiharness_cli.py",
       "tests/test_multiharness_tier0_runner.py",
       "tests/test_official_paid_labeling_baton_cli.py",
@@ -218,6 +219,7 @@
       "tests/test_llm_labeling_cli.py",
       "tests/test_llm_labeling_cli.py",
       "tests/test_locked_run_manifest_consumer.py",
+      "tests/test_multiharness_adapter_registry.py",
       "tests/test_multiharness_cli.py",
       "tests/test_multiharness_tier0_runner.py",
       "tests/test_official_paid_labeling_baton_cli.py",
@@ -2737,6 +2739,7 @@
       "tests/test_live_parse_plan_role_scope.py",
       "tests/test_llm_labeling_cli.py",
       "tests/test_locked_run_manifest_consumer.py",
+      "tests/test_multiharness_adapter_registry.py",
       "tests/test_multiharness_cli.py",
       "tests/test_multiharness_tier0_runner.py",
       "tests/test_official_paid_labeling_baton_cli.py",
@@ -3257,6 +3260,7 @@
       "tests/test_llm_labeling_cli.py::legalforecast.cli.load_provider_cycle_caps",
       "tests/test_llm_labeling_cli.py::legalforecast.cli.main",
       "tests/test_locked_run_manifest_consumer.py::legalforecast.cli.main",
+      "tests/test_multiharness_adapter_registry.py::legalforecast.cli.main",
       "tests/test_multiharness_cli.py::legalforecast.cli.main",
       "tests/test_multiharness_tier0_runner.py::legalforecast.cli.main",
       "tests/test_official_paid_labeling_baton_cli.py::legalforecast.cli.main",
@@ -4070,6 +4074,10 @@
       "legalforecast/ingestion/stage_a_replay_executor": 17,
       "legalforecast/labeling": 13,
       "legalforecast/multiharness": 72,
+      "legalforecast/multiharness/container_harness": 5,
+      "legalforecast/multiharness/harness_lane": 6,
+      "legalforecast/multiharness/harness_vocab": 1,
+      "legalforecast/multiharness/subscription": 2,
       "legalforecast/protocol": 4,
       "legalforecast/publication": 25,
       "legalforecast/release": 6,
@@ -4330,8 +4338,8 @@
         "largest_symbol": "SchemaIdentifier",
         "largest_symbol_lines": 13,
         "layer": "domain",
-        "line_count": 599,
-        "nonblank_line_count": 588,
+        "line_count": 605,
+        "nonblank_line_count": 594,
         "top_level_definition_count": 1
       },
       "legalforecast/document_need/cycle_config.py": {
@@ -7611,17 +7619,17 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 2,
-        "fan_out": 25,
+        "fan_out": 26,
         "flags": [
           "cycle",
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "add_multiharness_parser",
-        "largest_symbol_lines": 395,
+        "largest_symbol_lines": 394,
         "layer": "application",
-        "line_count": 1539,
-        "nonblank_line_count": 1416,
+        "line_count": 1537,
+        "nonblank_line_count": 1413,
         "top_level_definition_count": 45
       },
       "legalforecast/multiharness/codex_cli.py": {
@@ -7867,7 +7875,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 12,
+        "fan_in": 13,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -7901,17 +7909,17 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 4,
-        "fan_out": 4,
+        "fan_in": 8,
+        "fan_out": 5,
         "flags": [
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "LocalCliAdapterManifest",
-        "largest_symbol_lines": 230,
+        "largest_symbol_lines": 257,
         "layer": "application",
-        "line_count": 1409,
-        "nonblank_line_count": 1289,
+        "line_count": 1405,
+        "nonblank_line_count": 1285,
         "top_level_definition_count": 31
       },
       "legalforecast/multiharness/local_cli_runtime.py": {
@@ -8074,7 +8082,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 38,
+        "fan_in": 40,
         "fan_out": 1,
         "flags": [
           "watch"
@@ -10706,9 +10714,9 @@
         "largest_symbol": "_claude_record",
         "largest_symbol_lines": 111,
         "layer": "test",
-        "line_count": 811,
-        "nonblank_line_count": 687,
-        "top_level_definition_count": 39
+        "line_count": 988,
+        "nonblank_line_count": 820,
+        "top_level_definition_count": 52
       },
       "tests/test_locked_run_manifest_consumer.py": {
         "cycle_id": "",
@@ -10900,6 +10908,24 @@
         "nonblank_line_count": 1892,
         "top_level_definition_count": 88
       },
+      "tests/test_multiharness_adapter_registry.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_container_adapter_runs_a_row_and_projects_the_manifest_deliverable",
+        "largest_symbol_lines": 52,
+        "layer": "test",
+        "line_count": 696,
+        "nonblank_line_count": 584,
+        "top_level_definition_count": 32
+      },
       "tests/test_multiharness_auth_binding.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -10967,9 +10993,9 @@
         "largest_symbol": "test_multiharness_task_folder_selects_projected_layout",
         "largest_symbol_lines": 68,
         "layer": "test",
-        "line_count": 843,
-        "nonblank_line_count": 774,
-        "top_level_definition_count": 22
+        "line_count": 996,
+        "nonblank_line_count": 907,
+        "top_level_definition_count": 27
       },
       "tests/test_multiharness_codex_cli.py": {
         "cycle_id": "",

@@ -34,9 +34,8 @@ from legalforecast.multiharness.folder_selection import (
     FolderSelectionError,
     select_tasks_from_folder,
 )
-from legalforecast.multiharness.harvey_lab_evaluator import (
-    EvaluatorRunner,
-)
+from legalforecast.multiharness.harness_lane.cli_parser import add_harness_parser
+from legalforecast.multiharness.harvey_lab_evaluator import EvaluatorRunner
 from legalforecast.multiharness.harvey_lab_projected_tasks import (
     DEFAULT_PROJECTED_SUITE_VERSION,
     HarveyLabProjectionTaskLoader,
@@ -130,10 +129,7 @@ def add_multiharness_parser(subparsers: Any) -> None:
         "multiharness",
         help="Run community multi-harness benchmark tasks and adapter checks.",
     )
-    commands = parser.add_subparsers(
-        dest="multiharness_command",
-        metavar="COMMAND",
-    )
+    commands = parser.add_subparsers(dest="multiharness_command", metavar="COMMAND")
 
     tasks = commands.add_parser("tasks", help="Task index and selection commands.")
     task_commands = tasks.add_subparsers(dest="tasks_command", metavar="COMMAND")
@@ -518,6 +514,8 @@ def add_multiharness_parser(subparsers: Any) -> None:
     aggregate.add_argument("--output-dir", type=Path, required=True)
     aggregate.add_argument("--dry-run", action="store_true")
     aggregate.set_defaults(handler=_cmd_community_aggregate)
+
+    add_harness_parser(commands)
 
 
 def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
