@@ -1,0 +1,135 @@
+{
+  "adapter_kind": "local_cli",
+  "auth_environment_variables": [
+    {
+      "names": [],
+      "profile": "contributor-subscription"
+    },
+    {
+      "names": [],
+      "profile": "fixture-none"
+    }
+  ],
+  "auth_profile_name": "contributor-subscription",
+  "capabilities": [
+    "container_execution",
+    "isolated_setting_sources",
+    "model_selection",
+    "native_tools_enabled",
+    "no_session_persistence",
+    "permission_mode",
+    "restricted_egress",
+    "server_side_web_tools_disabled",
+    "stream_json_output",
+    "working_directory_isolation"
+  ],
+  "capability_digest": "sha256:a4df34b53b96d715a2947c7a97b938bdbd1510a3b76b1c048383b418beced0ff",
+  "containment": {
+    "host_process_containment": "posix_process_group.v1",
+    "isolated_host_environment": true,
+    "network_policy": "provider_egress_host_only",
+    "session_persistence": "forbidden",
+    "setting_sources": [],
+    "strict_mcp_config": true
+  },
+  "display_name": "Codex CLI containerized tools-on local CLI",
+  "executable": {
+    "basename": "codex",
+    "container_image_digest": "sha256:5fddbb4d5a904bca7d1ee72cc0f5342ebc8077d4d5c1e86f0624ac8d61261cf0",
+    "distribution_kind": "standalone-cli",
+    "version": "codex-cli 0.151.0"
+  },
+  "harness_binding": {
+    "adapter_id": "codex-cli-container-tools-on",
+    "adapter_version": "1.0.0",
+    "harness_adapter_contract": "legalforecast.multiharness.adapters.HarnessAdapter",
+    "harness_solver_contract": "legalforecast.evals.inspect_task.HarnessSolver",
+    "implements_harness_adapter": true,
+    "implements_harness_solver": true,
+    "solver_kind": "inspect_ai",
+    "solver_response_contract": "legalforecast.evals.inspect_task.SolverResponse",
+    "supported_families": [
+      "legalforecast_mtd"
+    ],
+    "supported_scoring_modes": [
+      "lfb_brier"
+    ],
+    "tool_protocol_version": null
+  },
+  "invocation": {
+    "argv_template": [
+      "exec",
+      "--json",
+      "--color",
+      "never",
+      "--skip-git-repo-check",
+      "--ephemeral",
+      "--ignore-user-config",
+      "--ignore-rules",
+      "--dangerously-bypass-approvals-and-sandbox",
+      "-c",
+      "approval_policy=\"never\"",
+      "-c",
+      "web_search=\"disabled\"",
+      "-c",
+      "check_for_update_on_startup=false",
+      "--disable",
+      "browser_use",
+      "--disable",
+      "browser_use_external",
+      "--disable",
+      "computer_use",
+      "--cd",
+      "{workspace}",
+      "--model",
+      "{model}",
+      "{prompt}"
+    ],
+    "headless_mode": "exec_subcommand",
+    "model_flag": "--model",
+    "output_format": "stream_json",
+    "prompt_delivery": "argv_placeholder",
+    "schema_enforcement": "none",
+    "working_directory_flag": "--cd"
+  },
+  "manifest_id": "codex-cli-container-tools-on",
+  "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "supported_auth_profiles": [
+    "contributor-subscription",
+    "fixture-none"
+  ],
+  "task_projection": {
+    "deliverable_event_type": "item.completed",
+    "deliverable_field": "item.text",
+    "deliverable_item_type": "agent_message",
+    "deliverable_relative_path": null,
+    "deliverable_source": "structured_stdout",
+    "prompt_source": "solver_input_prompt"
+  },
+  "timeout_retry": {
+    "max_attempts": 1,
+    "retry_backoff_seconds": 0,
+    "retryable_exit_codes": [],
+    "timeout_seconds": 900
+  },
+  "transcript_capture": {
+    "points": [
+      "private_execution_log",
+      "stderr",
+      "stdout"
+    ],
+    "public_raw_transcript": false
+  },
+  "usage_reporting": {
+    "cache_read_tokens_field": "usage.cached_input_tokens",
+    "cache_write_tokens_field": "usage.cache_write_input_tokens",
+    "cost_basis": "subscription_unallocable",
+    "cost_usd_field": null,
+    "input_tokens_field": "usage.input_tokens",
+    "output_tokens_field": "usage.output_tokens",
+    "solver_response_fields": [
+      "input_tokens",
+      "output_tokens"
+    ]
+  }
+}

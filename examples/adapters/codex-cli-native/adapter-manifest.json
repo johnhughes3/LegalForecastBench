@@ -1,0 +1,10 @@
+{
+  "adapter_id": "codex-cli-container-tools-on",
+  "adapter_version": "1.0.0",
+  "command": [
+    "legalforecast.multiharness.harness_lane.adapter:ContainerCliAdapter"
+  ],
+  "contributors": [],
+  "display_name": "Codex CLI containerized tools-on local CLI",
+  "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
+}
