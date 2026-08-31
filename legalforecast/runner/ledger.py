@@ -78,8 +78,14 @@ class RunBinding:
 class RunnerLedger:
     """Reference local ledger with transactional cell reservation."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        state_only_provider_attempts: bool = False,
+    ) -> None:
         self.path = path
+        self._state_only_provider_attempts = state_only_provider_attempts
         path.parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(path, isolation_level=None, timeout=30.0)
         try:
@@ -400,6 +406,19 @@ class RunnerLedger:
     ) -> None:
         """Bind a cell reservation to spend authorization before one commit."""
 
+        # Remote spend authority keeps the money reservation in DynamoDB.  The
+        # local row is only a crash-resumable projection used to bind receipts
+        # and request evidence to that remote lease.
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO provider_attempts(
+                attempt_id, logical_call_key, attempt_ordinal,
+                reservation_microusd, status
+            ) VALUES (?, ?, ?, ?, 'reserved')
+            """,
+            (provider_attempt_id, provider_attempt_id, 1, 1),
+        )
+
         row = connection.execute(
             "SELECT * FROM public_runner_cells WHERE cell_id = ?",
             (cell_id,),
@@ -539,6 +558,36 @@ class RunnerLedger:
             raise
         self._connection.commit()
 
+    def reserve_cell(
+        self,
+        *,
+        cell_id: str,
+        run_identity_sha256: str,
+        case_id: str,
+        unit_id: str,
+        repeat_index: int,
+        provider_attempt_id: str,
+        allow_nonbillable_replacement: bool = False,
+    ) -> None:
+        """Persist a cell after a separately committed remote lease."""
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            self.reserve_cell_in_transaction(
+                self._connection,
+                cell_id=cell_id,
+                run_identity_sha256=run_identity_sha256,
+                case_id=case_id,
+                unit_id=unit_id,
+                repeat_index=repeat_index,
+                provider_attempt_id=provider_attempt_id,
+                allow_nonbillable_replacement=allow_nonbillable_replacement,
+            )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
     def mark_run_completed(self) -> None:
         """Mark the singleton run complete after every requested cell is durable."""
 
@@ -568,6 +617,14 @@ class RunnerLedger:
             )
             if cursor.rowcount != 1:
                 raise RunBlockedError("cell failure state cannot be changed")
+            self._connection.execute(
+                """
+                UPDATE provider_attempts
+                SET status = ?, failure_type = ?
+                WHERE attempt_id = ?
+                """,
+                (status, failure_type, provider_attempt_id),
+            )
         except BaseException:
             self._connection.rollback()
             raise
@@ -606,6 +663,20 @@ class RunnerLedger:
             );
             """
         )
+        if self._state_only_provider_attempts:
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS provider_attempts(
+                    attempt_id TEXT PRIMARY KEY,
+                    logical_call_key TEXT NOT NULL,
+                    attempt_ordinal INTEGER NOT NULL CHECK(attempt_ordinal > 0),
+                    reservation_microusd INTEGER NOT NULL
+                        CHECK(reservation_microusd > 0),
+                    status TEXT NOT NULL,
+                    failure_type TEXT
+                )
+                """
+            )
         columns = {
             str(row[1])
             for row in self._connection.execute(

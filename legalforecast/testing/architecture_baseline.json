@@ -8596,10 +8596,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "RunnerLedger",
-        "largest_symbol_lines": 625,
+        "largest_symbol_lines": 696,
         "layer": "application",
-        "line_count": 702,
-        "nonblank_line_count": 653,
+        "line_count": 773,
+        "nonblank_line_count": 721,
         "top_level_definition_count": 6
       },
       "legalforecast/runner/service.py": {
@@ -8607,17 +8607,17 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv",
         "fan_in": 1,
-        "fan_out": 10,
+        "fan_out": 11,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 491,
+        "largest_symbol_lines": 561,
         "layer": "application",
-        "line_count": 948,
-        "nonblank_line_count": 881,
-        "top_level_definition_count": 17
+        "line_count": 1128,
+        "nonblank_line_count": 1050,
+        "top_level_definition_count": 20
       },
       "legalforecast/selection/case_mix_diagnostics.py": {
         "cycle_id": "",

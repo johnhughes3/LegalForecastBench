@@ -85,6 +85,7 @@ The protected infrastructure environment supplies the exact values below:
 - `LFB_GITHUB_FAN_IN_ROLE_ARN` (fan-in environment only)
 - `LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN` (set only on the dedicated prepare-inputs environment)
 - `LFB_PROVIDER_AUTHORITY_TABLE` (cell environment only)
+- `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256` (cell environment only)
 - `LFB_ANTHROPIC_RUNTIME` and `LFB_ANTHROPIC_BEDROCK_MODEL_ID` (cell-only
   Bedrock configuration; Bedrock remains disabled unless separately reviewed)
 - `LFB_GITHUB_OIDC_PROVIDER_ARN`

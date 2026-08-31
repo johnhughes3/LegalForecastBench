@@ -130,6 +130,24 @@ def register(
         ),
     )
     execute.add_argument(
+        "--provider-authority-table",
+        help=(
+            "Shared DynamoDB provider-spend authority table for distributed "
+            "official cells."
+        ),
+    )
+    execute.add_argument(
+        "--provider-authority-region",
+        help="AWS region containing the shared provider-spend authority table.",
+    )
+    execute.add_argument(
+        "--provider-authority-resource-identity-sha256",
+        help=(
+            "Lowercase SHA-256 commitment of the exact provider-authority "
+            "DynamoDB table ARN."
+        ),
+    )
+    execute.add_argument(
         "--unit-id",
         help=(
             "Execute exactly this manifest-declared prediction unit.  Use with "
@@ -206,6 +224,15 @@ def run_execute(args: argparse.Namespace) -> int:
         unit_id=cast(str | None, args.unit_id),
         repeat_index=cast(int | None, args.repeat_index),
         cell_id=cast(str | None, args.cell_id),
+        provider_authority_table=cast(str | None, args.provider_authority_table),
+        provider_authority_region=cast(
+            str | None,
+            args.provider_authority_region,
+        ),
+        provider_authority_resource_identity_sha256=cast(
+            str | None,
+            args.provider_authority_resource_identity_sha256,
+        ),
     )
     summary = execute_release_run(
         config,

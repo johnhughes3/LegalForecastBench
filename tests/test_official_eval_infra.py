@@ -1087,7 +1087,7 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
 
     assert "environment: legalforecastbench-official-eval" in run_workflow
     assert "LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN" in run_workflow
-    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" not in run_workflow
+    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in run_workflow
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in provider_workflow
     assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in provider_workflow
     assert (

@@ -83,6 +83,8 @@ def test_prepare_exports_real_provider_matrices_from_registry_and_release() -> N
     assert "cell: [run]" not in WORKFLOW
     assert "model_key" in prepare
     assert "prediction_units" in prepare
+    assert "derive_cell_id" in prepare
+    assert "derive_run_identity_sha256" in prepare
 
 
 def test_provider_jobs_are_secret_isolated_and_outcome_blinded() -> None:
@@ -117,6 +119,9 @@ def test_provider_jobs_are_secret_isolated_and_outcome_blinded() -> None:
         assert "ledger.sqlite3" in job
         assert "receipts" in job
         assert "if-no-files-found: error" in job
+        assert "actions: read" in job
+        assert "id-token: write" in job
+        assert "PROVIDER_AUTHORITY_TABLE" in job
         assert (
             "max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}"
             in job
@@ -161,6 +166,10 @@ def test_source_identity_concurrency_and_budget_gates_are_fail_closed() -> None:
     assert "CEILING_MICROUSD" in _job("prepare-inputs", "run-openai")
     assert '[[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]]' in WORKFLOW
     assert '"max_parallel must be between 1 and 32"' in WORKFLOW
+    assert (
+        "repeat_count must be exactly 1 until repeated-sampling fan-in is supported"
+        in WORKFLOW
+    )
 
 
 def test_restore_is_attempt_qualified_and_fail_closed() -> None:
@@ -206,6 +215,7 @@ def test_combined_forecast_result_matches_protected_fan_in_contract() -> None:
         "run-summary.json",
         "ledger/ledger.sqlite3",
         "receipts",
+        "artifacts",
     ):
         assert f"/tmp/lfb-forecast-results/{path}" in combined
     assert "if-no-files-found: error" in combined

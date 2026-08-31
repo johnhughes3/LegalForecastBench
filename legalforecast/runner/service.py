@@ -7,6 +7,7 @@ import json
 import math
 import sqlite3
 from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
@@ -42,10 +43,12 @@ from legalforecast.evals.provider_spend_control import (
     AttemptLease,
     FrozenAttemptPolicy,
     ProviderCapExceededError,
+    ProviderSpendAuthority,
     ProviderSpendControlError,
     ProviderSpendKey,
     SqliteProviderSpendAuthority,
 )
+from legalforecast.evals.provider_spend_dynamodb import DynamoDbProviderSpendAuthority
 from legalforecast.evals.response_verification import (
     require_publishable_response_metadata,
 )
@@ -85,6 +88,9 @@ class RunConfig:
     unit_id: str | None = None
     repeat_index: int | None = None
     cell_id: str | None = None
+    provider_authority_table: str | None = None
+    provider_authority_region: str | None = None
+    provider_authority_resource_identity_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,28 +221,19 @@ def execute_release_run(
     )
     entry_sha256 = model_registry_entry_sha256(entry)
 
-    identity = {
-        "schema_version": str(PUBLIC_RUN_IDENTITY_V1),
-        "ablation": ablation,
-        "account": account,
-        "ceiling_microusd": config.ceiling_microusd,
-        "forecast_release_digest": execution.release.release_digest,
-        "harness": harness,
-        "model_key": entry.registry_key,
-        "model_registry_entry_sha256": entry_sha256,
-        "model_registry_sha256": registry_sha256,
-        "repeat_count": config.repeat_count,
-        "served_model_version": entry.model_version_or_snapshot,
-    }
-    if not manifest_mode:
-        identity["approval_reference"] = approval_reference
-    if run_inputs is not None:
-        identity.update(
-            {
-                "run_manifest_id": str(run_inputs.manifest.run_id),
-                "run_manifest_sha256": run_inputs.manifest_sha256,
-            }
-        )
+    identity = _run_identity_record(
+        execution=execution,
+        entry=entry,
+        registry_sha256=registry_sha256,
+        ceiling_microusd=config.ceiling_microusd,
+        harness=harness,
+        ablation=ablation,
+        repeat_count=config.repeat_count,
+        account=account,
+        manifest_id=(None if run_inputs is None else str(run_inputs.manifest.run_id)),
+        manifest_sha256=(None if run_inputs is None else run_inputs.manifest_sha256),
+        approval_reference=(None if manifest_mode else approval_reference),
+    )
     identity_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(identity)
     identity_sha256 = str(
         ARTIFACT_RAW_SHA256_V1.commit(
@@ -307,7 +304,30 @@ def execute_release_run(
     executed_cells = 0
     resumed_cells = 0
 
-    with RunnerLedger(config.ledger_path) as ledger:
+    if any(
+        value is not None
+        for value in (
+            config.provider_authority_table,
+            config.provider_authority_region,
+            config.provider_authority_resource_identity_sha256,
+        )
+    ) and not all(
+        value is not None
+        for value in (
+            config.provider_authority_table,
+            config.provider_authority_region,
+            config.provider_authority_resource_identity_sha256,
+        )
+    ):
+        raise RunValidationError(
+            "provider authority table, region, and resource identity must be "
+            "supplied together"
+        )
+
+    with RunnerLedger(
+        config.ledger_path,
+        state_only_provider_attempts=config.provider_authority_table is not None,
+    ) as ledger:
         ledger.ensure_run(
             identity_sha256=identity_sha256,
             identity_json=identity_bytes.decode("utf-8"),
@@ -317,15 +337,31 @@ def execute_release_run(
             ceiling_microusd=config.ceiling_microusd,
             approval_reference=approval_reference,
         )
-        with SqliteProviderSpendAuthority(
-            config.ledger_path,
-            authority_identity_sha256=authority_identity_sha256,
-            cycle_id=execution.release.release_id,
-            provider=entry.provider,
-            account=account,
-            cap_microusd=config.ceiling_microusd,
-            policy=policy,
-        ) as authority:
+        authority_context: AbstractContextManager[ProviderSpendAuthority]
+        if config.provider_authority_table is not None:
+            remote_authority = DynamoDbProviderSpendAuthority(
+                table_name=config.provider_authority_table,
+                authority_identity_sha256=authority_identity_sha256,
+                resource_identity_sha256=config.provider_authority_resource_identity_sha256,
+                cycle_id=execution.release.release_id,
+                provider=entry.provider,
+                account=account,
+                cap_microusd=config.ceiling_microusd,
+                policy=policy,
+                region=cast(str, config.provider_authority_region),
+            )
+            authority_context = nullcontext(remote_authority)
+        else:
+            authority_context = SqliteProviderSpendAuthority(
+                config.ledger_path,
+                authority_identity_sha256=authority_identity_sha256,
+                cycle_id=execution.release.release_id,
+                provider=entry.provider,
+                account=account,
+                cap_microusd=config.ceiling_microusd,
+                policy=policy,
+            )
+        with authority_context as authority:
             for unit in selected_units:
                 for repeat_index in repeat_indices:
                     _require_unchanged_registry(
@@ -397,6 +433,14 @@ def execute_release_run(
                         ):
                             pretransport_attempt_ordinal = cell.provider_attempt_ordinal
                         else:
+                            if not isinstance(
+                                authority,
+                                SqliteProviderSpendAuthority,
+                            ):
+                                raise RunBlockedError(
+                                    "remote provider failure lacks retryable "
+                                    "replacement support"
+                                )
                             retryable_nonbillable_prior_attempt = (
                                 authority.recover_retryable_nonbillable_attempt(
                                     key,
@@ -499,6 +543,27 @@ def execute_release_run(
                             )
                         bound_authorization_state[0] = lease.attempt_id
 
+                    def persist_remote_authorized_cell(
+                        lease: AttemptLease,
+                        *,
+                        bound_cell_id: str = cell_id,
+                        bound_case_id: str = unit.case_id,
+                        bound_unit_id: str = unit.unit_id,
+                        bound_repeat_index: int = repeat_index,
+                        bound_authorization_state: list[str | None] = (
+                            authorization_state
+                        ),
+                    ) -> None:
+                        ledger.reserve_cell(
+                            cell_id=bound_cell_id,
+                            run_identity_sha256=identity_sha256,
+                            case_id=bound_case_id,
+                            unit_id=bound_unit_id,
+                            repeat_index=bound_repeat_index,
+                            provider_attempt_id=lease.attempt_id,
+                        )
+                        bound_authorization_state[0] = lease.attempt_id
+
                     def persist_provider_response(
                         lease: AttemptLease,
                         response: Mapping[str, object],
@@ -527,7 +592,16 @@ def execute_release_run(
                             environ=environ,
                             authority=authority,
                             reservation_microusd=reservation_microusd,
-                            before_authorize=reserve_authorized_cell,
+                            before_authorize=(
+                                None
+                                if isinstance(authority, DynamoDbProviderSpendAuthority)
+                                else reserve_authorized_cell
+                            ),
+                            after_authorize=(
+                                persist_remote_authorized_cell
+                                if isinstance(authority, DynamoDbProviderSpendAuthority)
+                                else None
+                            ),
                             retryable_nonbillable_prior_attempt=(
                                 retryable_nonbillable_prior_attempt
                             ),
@@ -559,8 +633,10 @@ def execute_release_run(
                             "release_id": execution.release.release_id,
                             "case_id": unit.case_id,
                             "unit_id": unit.unit_id,
+                            "required_unit_ids": [unit.unit_id],
                             "harness": harness,
                             "model_key": entry.registry_key,
+                            "model_id": entry.registry_key,
                             "model_registry_sha256": registry_sha256,
                             "model_registry_entry_sha256": entry_sha256,
                             "ablation": ablation,
@@ -646,9 +722,10 @@ def _complete_cell(
     request_body_observer: Callable[[bytes], None],
     attempt_failure_observer: Callable[[bool], None],
     environ: Mapping[str, str] | None,
-    authority: SqliteProviderSpendAuthority,
+    authority: ProviderSpendAuthority,
     reservation_microusd: int,
-    before_authorize: Callable[[sqlite3.Connection, AttemptLease], None],
+    before_authorize: Callable[[sqlite3.Connection, AttemptLease], None] | None,
+    after_authorize: Callable[[AttemptLease], None] | None,
     retryable_nonbillable_prior_attempt: AttemptLease | None,
     replayable_attempt: AttemptLease | None,
     replayable_response: Mapping[str, object] | None,
@@ -661,6 +738,7 @@ def _complete_cell(
         key=key,
         reservation_microusd=reservation_microusd,
         before_authorize=before_authorize,
+        after_authorize=after_authorize,
         failure_observer=attempt_failure_observer,
         allow_retryable_nonbillable_replacement=True,
         retryable_nonbillable_prior_attempt=retryable_nonbillable_prior_attempt,
@@ -840,17 +918,119 @@ def _cell_id(
     unit: ForecastPredictionUnit,
     repeat_index: int,
 ) -> str:
+    return derive_cell_id(
+        identity_sha256=identity_sha256,
+        case_id=unit.case_id,
+        unit_id=unit.unit_id,
+        repeat_index=repeat_index,
+    )
+
+
+def derive_cell_id(
+    *,
+    identity_sha256: str,
+    case_id: str,
+    unit_id: str,
+    repeat_index: int,
+) -> str:
+    """Derive the canonical durable ID for one frozen run cell.
+
+    Workflow matrix construction and the runner must use the same identity
+    function.  Keeping this helper public lets the official workflow build
+    resumable artifact names without reimplementing the receipt contract.
+    """
+
     return str(
         ARTIFACT_RAW_SHA256_V1.commit(
             {
-                "case_id": unit.case_id,
+                "case_id": case_id,
                 "repeat_index": repeat_index,
                 "run_identity_sha256": identity_sha256,
-                "unit_id": unit.unit_id,
+                "unit_id": unit_id,
             },
             domain=PUBLIC_RUN_RECEIPT_V1,
         ).digest
     )
+
+
+def derive_run_identity_sha256(
+    *,
+    execution: ForecastExecution,
+    entry: ModelRegistryEntry,
+    registry_sha256: str,
+    ceiling_microusd: int,
+    harness: str,
+    ablation: str,
+    repeat_count: int,
+    account: str,
+    manifest_id: str | None = None,
+    manifest_sha256: str | None = None,
+    approval_reference: str | None = None,
+) -> str:
+    """Derive the exact run identity consumed by the public runner."""
+
+    identity = _run_identity_record(
+        execution=execution,
+        entry=entry,
+        registry_sha256=registry_sha256,
+        ceiling_microusd=ceiling_microusd,
+        harness=harness,
+        ablation=ablation,
+        repeat_count=repeat_count,
+        account=account,
+        manifest_id=manifest_id,
+        manifest_sha256=manifest_sha256,
+        approval_reference=approval_reference,
+    )
+    return str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            identity,
+            domain=PUBLIC_RUN_IDENTITY_V1,
+        ).digest
+    )
+
+
+def _run_identity_record(
+    *,
+    execution: ForecastExecution,
+    entry: ModelRegistryEntry,
+    registry_sha256: str,
+    ceiling_microusd: int,
+    harness: str,
+    ablation: str,
+    repeat_count: int,
+    account: str,
+    manifest_id: str | None,
+    manifest_sha256: str | None,
+    approval_reference: str | None,
+) -> dict[str, object]:
+    if (manifest_id is None) != (manifest_sha256 is None):
+        raise RunValidationError(
+            "manifest ID and manifest commitment must be supplied together"
+        )
+    identity: dict[str, object] = {
+        "schema_version": str(PUBLIC_RUN_IDENTITY_V1),
+        "ablation": ablation,
+        "account": account,
+        "ceiling_microusd": ceiling_microusd,
+        "forecast_release_digest": execution.release.release_digest,
+        "harness": harness,
+        "model_key": entry.registry_key,
+        "model_registry_entry_sha256": model_registry_entry_sha256(entry),
+        "model_registry_sha256": registry_sha256,
+        "repeat_count": repeat_count,
+        "served_model_version": entry.model_version_or_snapshot,
+    }
+    if approval_reference is not None:
+        identity["approval_reference"] = approval_reference
+    if manifest_id is not None and manifest_sha256 is not None:
+        identity.update(
+            {
+                "run_manifest_id": manifest_id,
+                "run_manifest_sha256": manifest_sha256,
+            }
+        )
+    return identity
 
 
 def _select_units(

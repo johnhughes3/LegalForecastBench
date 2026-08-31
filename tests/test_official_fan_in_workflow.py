@@ -91,6 +91,8 @@ def test_forecast_artifact_is_durable_complete_and_cannot_transport_labels() -> 
         "model-registry.json",
         "run-summary.json",
         "receipts",
+        "artifacts/",
+        "missing artifacts/",
         "is_symlink",
         "duplicate path",
         "unsafe path",

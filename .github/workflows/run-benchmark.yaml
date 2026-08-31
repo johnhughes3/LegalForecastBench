@@ -124,6 +124,7 @@ jobs:
           [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
           [[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]] || { echo "ceiling_microusd must be positive" >&2; exit 1; }
           [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ && "${REPEAT_COUNT}" -le 20 ]] || { echo "repeat_count must be between 1 and 20" >&2; exit 1; }
+          [[ "${REPEAT_COUNT}" == "1" ]] || { echo "repeat_count must be exactly 1 until repeated-sampling fan-in is supported" >&2; exit 1; }
           [[ "${MAX_PARALLEL}" =~ ^[1-9][0-9]*$ && "${MAX_PARALLEL}" -le 32 ]] || { echo "max_parallel must be between 1 and 32" >&2; exit 1; }
           [[ "${RETENTION_DAYS}" =~ ^[1-9][0-9]*$ && "${RETENTION_DAYS}" -le 90 ]] || { echo "artifact_retention_days must be between 1 and 90" >&2; exit 1; }
       - name: Configure read-only public object access
@@ -239,15 +240,22 @@ jobs:
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           MAX_PARALLEL: ${{ inputs.max_parallel }}
           MODEL_KEY: ${{ inputs.model_key }}
+          ACCOUNT: ${{ inputs.account }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
         run: |
           set -euo pipefail
           uv run python - <<'PY'
           import json, os, re
           from pathlib import Path
-          from legalforecast.evals.model_registry import load_model_registry, require_official_registry_entries
-          from legalforecast.release.models import ForecastRelease
+          from legalforecast.evals.model_registry import load_model_registry, model_registry_sha256, require_official_registry_entries
+          from legalforecast.immutable_io import read_single_link_file
+          from legalforecast.release import load_forecast_run_inputs
+          from legalforecast.runner import derive_cell_id, derive_run_identity_sha256
           repeat_count = int(os.environ["REPEAT_COUNT"])
-          forecast = ForecastRelease.model_validate(json.loads(Path("/tmp/lfb-locked-inputs/forecast-release.json").read_text()))
+          run_inputs = load_forecast_run_inputs(Path("/tmp/lfb-locked-inputs/run-manifest.json"), Path("/tmp/lfb-locked-inputs/forecast-release.json"), artifact_root=Path("/tmp/lfb-locked-inputs/artifacts"))
+          forecast = run_inputs.execution.release
+          registry_bytes = read_single_link_file(Path("/tmp/lfb-locked-inputs/model-registry.json"), label="model registry")
+          registry_sha256 = model_registry_sha256(registry_bytes)
           requested_model_key = os.environ["MODEL_KEY"]
           entries = require_official_registry_entries(load_model_registry("/tmp/lfb-locked-inputs/model-registry.json").entries)
           requested_provider, separator, requested_model_id = requested_model_key.partition(":")
@@ -262,6 +270,8 @@ jobs:
           if len(selected) != 1:
               raise SystemExit(f"model_key is not the exact key of one eligible registry entry: {requested_model_key}")
           entries = selected
+          entry = selected[0]
+          run_identity_sha256 = derive_run_identity_sha256(execution=run_inputs.execution, entry=entry, registry_sha256=registry_sha256, ceiling_microusd=int(os.environ["CEILING_MICROUSD"]), harness="native", ablation="none", repeat_count=repeat_count, account=os.environ["ACCOUNT"], manifest_id=str(run_inputs.manifest.run_id), manifest_sha256=run_inputs.manifest_sha256)
           matrices: dict[str, list[dict[str, object]]] = {"openai": [], "anthropic": [], "gemini": []}
           def slug(value: str) -> str:
               value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_.-")
@@ -277,9 +287,7 @@ jobs:
               for unit in forecast.prediction_units:
                   for repeat_index in range(1, repeat_count + 1):
                       ablation = "none"
-                      # Explicit interface for the sibling core lane: this is one
-                      # authorized logical cell, not a whole-release invocation.
-                      cell_id = f"{provider}:{entry.model_id}:{unit.unit_id}:repeat-{repeat_index}:ablation-{ablation}"
+                      cell_id = derive_cell_id(identity_sha256=run_identity_sha256, case_id=unit.case_id, unit_id=unit.unit_id, repeat_index=repeat_index)
                       matrices[provider].append({"provider": provider, "model_key": entry.registry_key, "model_id": entry.model_id, "cell_id": cell_id, "cell_id_slug": slug(cell_id), "unit_id": unit.unit_id, "case_id": unit.case_id, "repeat_index": repeat_index, "ablation": ablation})
           output = open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")
           with output:
@@ -307,7 +315,14 @@ jobs:
     timeout-minutes: 180
     environment: legalforecastbench-official-eval
     permissions:
+      actions: read
       contents: read
+      id-token: write
+    env:
+      LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
@@ -332,6 +347,12 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
+      - name: Configure shared provider spend authority access
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.LFB_AWS_REGION }}
+          role-session-name: lfb-provider-authority-${{ github.run_id }}-${{ matrix.cell_id_slug }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       - name: Initialize bounded resumable state
         shell: bash
         env:
@@ -411,10 +432,16 @@ jobs:
           ABLATION: ${{ matrix.ablation }}
           ACCOUNT: ${{ inputs.account }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          PROVIDER_AUTHORITY_TABLE: ${{ env.LFB_PROVIDER_AUTHORITY_TABLE }}
+          PROVIDER_AUTHORITY_REGION: ${{ env.LFB_AWS_REGION }}
+          PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ env.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
         run: |
           set -euo pipefail
+          for value in "${PROVIDER_AUTHORITY_TABLE}" "${PROVIDER_AUTHORITY_REGION}" "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}"; do
+            [[ -n "${value}" ]] || { echo "shared provider spend authority configuration is required" >&2; exit 1; }
+          done
           set +e
-          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" > /tmp/lfb-run/run-summary.json 2>&1
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
           status=$?
           set -e
           uv run python - "${status}" <<'PY'
@@ -456,7 +483,14 @@ jobs:
     timeout-minutes: 180
     environment: legalforecastbench-official-eval
     permissions:
+      actions: read
       contents: read
+      id-token: write
+    env:
+      LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
@@ -481,6 +515,12 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
+      - name: Configure shared provider spend authority access
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.LFB_AWS_REGION }}
+          role-session-name: lfb-provider-authority-${{ github.run_id }}-${{ matrix.cell_id_slug }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       - name: Initialize bounded resumable state
         shell: bash
         env:
@@ -555,10 +595,16 @@ jobs:
           ABLATION: ${{ matrix.ablation }}
           ACCOUNT: ${{ inputs.account }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          PROVIDER_AUTHORITY_TABLE: ${{ env.LFB_PROVIDER_AUTHORITY_TABLE }}
+          PROVIDER_AUTHORITY_REGION: ${{ env.LFB_AWS_REGION }}
+          PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ env.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
         run: |
           set -euo pipefail
+          for value in "${PROVIDER_AUTHORITY_TABLE}" "${PROVIDER_AUTHORITY_REGION}" "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}"; do
+            [[ -n "${value}" ]] || { echo "shared provider spend authority configuration is required" >&2; exit 1; }
+          done
           set +e
-          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" > /tmp/lfb-run/run-summary.json 2>&1
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
           status=$?
           set -e
           uv run python - "${status}" <<'PY'
@@ -600,7 +646,14 @@ jobs:
     timeout-minutes: 180
     environment: legalforecastbench-official-eval
     permissions:
+      actions: read
       contents: read
+      id-token: write
+    env:
+      LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
@@ -625,6 +678,12 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
         with:
           enable-cache: true
+      - name: Configure shared provider spend authority access
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.LFB_AWS_REGION }}
+          role-session-name: lfb-provider-authority-${{ github.run_id }}-${{ matrix.cell_id_slug }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       - name: Initialize bounded resumable state
         shell: bash
         env:
@@ -698,10 +757,16 @@ jobs:
           ABLATION: ${{ matrix.ablation }}
           ACCOUNT: ${{ inputs.account }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          PROVIDER_AUTHORITY_TABLE: ${{ env.LFB_PROVIDER_AUTHORITY_TABLE }}
+          PROVIDER_AUTHORITY_REGION: ${{ env.LFB_AWS_REGION }}
+          PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ env.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
         run: |
           set -euo pipefail
+          for value in "${PROVIDER_AUTHORITY_TABLE}" "${PROVIDER_AUTHORITY_REGION}" "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}"; do
+            [[ -n "${value}" ]] || { echo "shared provider spend authority configuration is required" >&2; exit 1; }
+          done
           set +e
-          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" > /tmp/lfb-run/run-summary.json 2>&1
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
           status=$?
           set -e
           uv run python - "${status}" <<'PY'
@@ -802,6 +867,12 @@ jobs:
               raise SystemExit("combined forecast result destination already exists")
           output.mkdir()
           (output / "receipts").mkdir()
+          source_artifacts = inputs / "artifacts"
+          if not source_artifacts.is_dir() or source_artifacts.is_symlink():
+              raise SystemExit("complete forecast artifact tree is missing")
+          shutil.copytree(source_artifacts, output / "artifacts")
+          if any(path.is_symlink() for path in (output / "artifacts").rglob("*")):
+              raise SystemExit("complete forecast artifact tree contains a symlink")
           for name in (
               "run-manifest.json",
               "forecast-release.json",
@@ -979,6 +1050,7 @@ jobs:
             /tmp/lfb-forecast-results/run-manifest.json
             /tmp/lfb-forecast-results/forecast-release.json
             /tmp/lfb-forecast-results/model-registry.json
+            /tmp/lfb-forecast-results/artifacts
             /tmp/lfb-forecast-results/run-summary.json
             /tmp/lfb-forecast-results/ledger/ledger.sqlite3
             /tmp/lfb-forecast-results/receipts

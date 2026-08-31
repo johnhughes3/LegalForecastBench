@@ -345,6 +345,12 @@ jobs:
               path = root / name
               if not path.is_file() or path.is_symlink() or path.stat().st_size == 0:
                   raise SystemExit(f"durable forecast artifact is missing {name}")
+          artifacts_root = root / "artifacts"
+          if not artifacts_root.is_dir() or artifacts_root.is_symlink():
+              raise SystemExit("durable forecast artifact is missing artifacts/")
+          artifact_files = [path for path in artifacts_root.rglob("*") if path.is_file()]
+          if not artifact_files or any(path.is_symlink() for path in artifacts_root.rglob("*")):
+              raise SystemExit("durable forecast artifact has no safe artifacts/")
           receipts = sorted((root / "receipts").glob("*.json"))
           if not receipts or any(path.is_symlink() for path in receipts):
               raise SystemExit("durable forecast artifact has no receipt files")

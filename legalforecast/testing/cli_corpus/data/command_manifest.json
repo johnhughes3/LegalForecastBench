@@ -3771,6 +3771,45 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "provider_authority_table",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--provider-authority-table"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "provider_authority_region",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--provider-authority-region"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "provider_authority_resource_identity_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--provider-authority-resource-identity-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "unit_id",
           "metavar": null,
           "nargs": null,

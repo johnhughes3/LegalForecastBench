@@ -86,6 +86,7 @@ class ProviderSpendAttemptHandler:
     reservation_microusd: int
     additional_attempt_permit: AdditionalAttemptPermit | None = None
     before_authorize: Callable[[sqlite3.Connection, AttemptLease], None] | None = None
+    after_authorize: Callable[[AttemptLease], None] | None = None
     failure_observer: Callable[[bool], None] | None = None
     allow_retryable_nonbillable_replacement: bool = False
     retryable_nonbillable_prior_attempt: AttemptLease | None = None
@@ -196,6 +197,8 @@ class ProviderSpendAttemptHandler:
                 )
         self._leases_by_local_ordinal[attempt_ordinal] = lease
         self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
+        if self.after_authorize is not None:
+            self.after_authorize(lease)
         if (
             self.pretransport_attempt_ordinal is not None
             and attempt_ordinal == 1

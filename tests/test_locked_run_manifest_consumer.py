@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from legalforecast.evals.output_parser import parse_model_output, public_parser_
 from legalforecast.evals.run_record_scoring import (
     score_run_records_against_labels_release,
 )
+from legalforecast.immutable_io import read_single_link_file
 from legalforecast.release import (
     RUN_MANIFEST_SCHEMA_VERSION,
     BenchmarkRunManifest,
@@ -29,9 +31,15 @@ from legalforecast.release import (
     RoleObjectLocator,
     enumerate_forecast_worker_inputs,
     issue_synthetic_release,
+    load_forecast_run_inputs,
     serialize_run_manifest,
     validate_manifest_against_forecast,
     validate_run_manifest_structure,
+)
+from legalforecast.runner import (
+    derive_cell_id,
+    derive_run_identity_sha256,
+    issue_runner_fixture,
 )
 
 
@@ -649,3 +657,250 @@ def _write_registry(tmp_path: Path, *, version: str = "fixture") -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def test_provider_free_workflow_contract_e2e_uses_exact_cell_and_artifact_seams(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Exercise the matrix, exact CLI invocation, fan-in tree, score, and report."""
+
+    fixture = tmp_path / "fixture"
+    issue_runner_fixture(fixture)
+    manifest_path = tmp_path / "run-manifest.json"
+    manifest_path.write_bytes(
+        serialize_run_manifest(_manifest("case-001", "case-002", "case-003"))
+    )
+    forecast_path = fixture / "release" / "forecast-release.json"
+    registry_path = fixture / "model-registry.json"
+    artifact_root = fixture / "release"
+
+    run_inputs = load_forecast_run_inputs(
+        manifest_path,
+        forecast_path,
+        artifact_root=artifact_root,
+    )
+    registry_bytes = read_single_link_file(registry_path, label="model registry")
+    registry = load_model_registry(registry_path)
+    entry = registry.entries[0]
+    registry_sha256 = model_registry_sha256(registry_bytes)
+    run_identity_sha256 = derive_run_identity_sha256(
+        execution=run_inputs.execution,
+        entry=entry,
+        registry_sha256=registry_sha256,
+        ceiling_microusd=30_000,
+        harness="native",
+        ablation="none",
+        repeat_count=1,
+        account="default",
+        manifest_id=str(run_inputs.manifest.run_id),
+        manifest_sha256=run_inputs.manifest_sha256,
+    )
+    worker_paths = tuple(
+        item.relative_path
+        for item in enumerate_forecast_worker_inputs(run_inputs.execution.release)
+    )
+    assert "labels-release.json" not in worker_paths
+    rows = [
+        {
+            "cell_id": derive_cell_id(
+                identity_sha256=run_identity_sha256,
+                case_id=unit.case_id,
+                unit_id=unit.unit_id,
+                repeat_index=1,
+            ),
+            "unit_id": unit.unit_id,
+            "case_id": unit.case_id,
+        }
+        for unit in run_inputs.execution.release.prediction_units
+    ]
+    assert len({row["cell_id"] for row in rows}) == len(rows)
+
+    combined = tmp_path / "combined"
+    combined_artifacts = combined / "artifacts"
+    combined_artifacts.mkdir(parents=True)
+    shutil.copyfile(manifest_path, combined / "run-manifest.json")
+    shutil.copyfile(forecast_path, combined / "forecast-release.json")
+    shutil.copyfile(registry_path, combined / "model-registry.json")
+    for relative_path in worker_paths:
+        source = artifact_root / relative_path
+        destination = combined_artifacts / relative_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+    receipts = combined / "receipts"
+    receipts.mkdir()
+    receipt_records: list[dict[str, object]] = []
+    for row in rows:
+        cell_root = tmp_path / f"cell-{row['unit_id']}"
+        receipt_dir = cell_root / "receipts"
+        ledger_path = cell_root / "ledger.sqlite3"
+        assert (
+            main(
+                [
+                    "run",
+                    "execute",
+                    "--manifest",
+                    str(manifest_path),
+                    "--forecast",
+                    str(forecast_path),
+                    "--artifact-root",
+                    str(artifact_root),
+                    "--model-registry",
+                    str(registry_path),
+                    "--model-key",
+                    entry.registry_key,
+                    "--cell-id",
+                    str(row["cell_id"]),
+                    "--unit-id",
+                    str(row["unit_id"]),
+                    "--repeat-index",
+                    "1",
+                    "--ablation",
+                    "none",
+                    "--ledger",
+                    str(ledger_path),
+                    "--receipts-dir",
+                    str(receipt_dir),
+                    "--ceiling-microusd",
+                    "30000",
+                    "--account",
+                    "default",
+                    "--dry-run",
+                ]
+            )
+            == 0
+        )
+        capsys.readouterr()
+        cell_receipt = next(receipt_dir.glob("*.json"))
+        shutil.copyfile(cell_receipt, receipts / cell_receipt.name)
+        receipt_records.append(json.loads(cell_receipt.read_text(encoding="utf-8")))
+
+    forecast_run = {
+        "schema_version": "legalforecast.forecast-run.v1",
+        "workflow_run_id": 101,
+        "workflow_run_attempt": 1,
+        "release_sha": "a" * 40,
+        "manifest_uri": "manifests/run-manifest.json",
+        "forecast_release_uri": "manifests/forecast-release.json",
+        "artifact_root_uri": "manifests/artifacts",
+        "model_registry_uri": "manifests/model-registry.json",
+        "model_key": entry.registry_key,
+        "run_identity_sha256": run_identity_sha256,
+        "forecast_release_digest": run_inputs.execution.release.release_digest,
+        "model_registry_sha256": registry_sha256,
+        "repeat_count": 1,
+    }
+    (combined / "forecast-run.json").write_text(
+        json.dumps(forecast_run, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    (combined / "run-summary.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.forecast-run-summary.v1",
+                "run_identity_sha256": run_identity_sha256,
+                "workflow_run_id": 101,
+                "workflow_run_attempt": 1,
+                "status": "completed",
+                "completed_cells": len(receipt_records),
+                "executed_cells": len(receipt_records),
+                "resumed_cells": 0,
+                "state_artifact_count": len(receipt_records),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    ledger_path = combined / "ledger" / "ledger.sqlite3"
+    ledger_path.parent.mkdir()
+    with sqlite3.connect(ledger_path) as connection:
+        connection.execute("CREATE TABLE runs(status TEXT NOT NULL)")
+        connection.execute("INSERT INTO runs(status) VALUES ('completed')")
+        connection.commit()
+
+    assert (combined / "artifacts").is_dir()
+    assert list((combined / "artifacts").rglob("*"))
+    assert (
+        main(
+            [
+                "manifest",
+                "validate",
+                "--manifest",
+                str(combined / "run-manifest.json"),
+                "--forecast",
+                str(combined / "forecast-release.json"),
+                "--labels",
+                str(artifact_root / "labels-release.json"),
+                "--artifact-root",
+                str(combined / "artifacts"),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    runs_path = combined / "runs.jsonl"
+    runs_path.write_text(
+        "".join(
+            json.dumps(record, sort_keys=True) + "\n" for record in receipt_records
+        ),
+        encoding="utf-8",
+    )
+    scores_path = combined / "scores.json"
+    assert (
+        main(
+            [
+                "score",
+                "--runs",
+                str(runs_path),
+                "--labels-release",
+                str(artifact_root / "labels-release.json"),
+                "--forecast-release",
+                str(combined / "forecast-release.json"),
+                "--artifact-root",
+                str(combined / "artifacts"),
+                "--manifest",
+                str(combined / "run-manifest.json"),
+                "--expected-run-identity",
+                run_identity_sha256,
+                "--model-registry",
+                str(combined / "model-registry.json"),
+                "--expected-model-registry-sha256",
+                registry_sha256,
+                "--output",
+                str(scores_path),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    report_dir = combined / "report"
+    assert (
+        main(
+            [
+                "report",
+                "--scores",
+                str(scores_path),
+                "--output-dir",
+                str(report_dir),
+                "--labels-release",
+                str(artifact_root / "labels-release.json"),
+                "--forecast-release",
+                str(combined / "forecast-release.json"),
+                "--artifact-root",
+                str(combined / "artifacts"),
+                "--manifest",
+                str(combined / "run-manifest.json"),
+                "--frozen-model-registry",
+                str(combined / "model-registry.json"),
+                "--expected-run-identity",
+                run_identity_sha256,
+                "--expected-model-registry-sha256",
+                registry_sha256,
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert (report_dir / "leaderboard.json").is_file()
