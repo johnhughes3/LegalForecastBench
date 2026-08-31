@@ -66,13 +66,26 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-number: ${{ steps.pr.outputs.number }}
 
-      - name: Classify update-type
+      - name: Classify dependencies and update type
         id: class
         if: steps.pr.outputs.skip != 'true'
         env:
+          DEPENDENCY_NAMES: ${{ steps.meta.outputs.dependency-names }}
           UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
         run: |
           set -euo pipefail
+          dependency_names="$(
+            printf '%s' "${DEPENDENCY_NAMES}" |
+              tr '[:upper:]' '[:lower:]' |
+              tr -d '[:space:]'
+          )"
+          case ",${dependency_names}," in
+            *,anthropic,*|*,claude-agent-sdk,*|*,openai,*)
+              echo "Skipping auto-merge for provider-contract dependencies='${DEPENDENCY_NAMES}'"
+              echo "eligible=false" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
           case "${UPDATE_TYPE}" in
             version-update:semver-patch|version-update:semver-minor)
               echo "eligible=true" >> "$GITHUB_OUTPUT"

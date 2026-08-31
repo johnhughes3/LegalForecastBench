@@ -22,6 +22,7 @@ CI_RUNNER_CLAMP = (
 )
 DEPENDABOT = (ROOT / ".github/dependabot.yml").read_text(encoding="utf-8")
 FETCH_METADATA_SHA = "25dd0e34f4fe68f24cc83900b1fe3fe149efef98"
+PROVIDER_CONTRACT_DEPENDENCIES = ("anthropic", "claude-agent-sdk", "openai")
 
 requires_jq = pytest.mark.skipif(
     shutil.which("jq") is None,
@@ -117,6 +118,11 @@ def test_dependabot_groups_restrict_minor_and_patch() -> None:
     assert "major" not in DEPENDABOT
 
 
+def test_dependabot_ignores_provider_contract_dependencies() -> None:
+    for dependency_name in PROVIDER_CONTRACT_DEPENDENCIES:
+        assert DEPENDABOT.count(f"- dependency-name: {dependency_name}") == 1
+
+
 def test_dependabot_auto_merge_workflow_uses_default_branch_workflow_run() -> None:
     assert WORKFLOW.startswith("name: Dependabot auto-merge\n")
     assert "workflow_run:" in WORKFLOW
@@ -175,7 +181,10 @@ def test_dependabot_auto_merge_workflow_gates_the_trusted_source() -> None:
 
 
 def test_dependabot_auto_merge_workflow_queues_only_non_major_updates() -> None:
-    classify = _step_run("Classify update-type")
+    classify = _step_run("Classify dependencies and update type")
+    assert "DEPENDENCY_NAMES" in classify
+    for dependency_name in PROVIDER_CONTRACT_DEPENDENCIES:
+        assert dependency_name in classify
     assert "version-update:semver-patch|version-update:semver-minor" in classify
     assert "eligible=true" in classify
     assert "eligible=false" in classify
@@ -235,14 +244,42 @@ def test_classifier_auto_lands_only_explicit_patch_and_minor(
 ) -> None:
     result = _run_snippet(
         tmp_path,
-        script=_step_run("Classify update-type"),
-        env={"UPDATE_TYPE": update_type},
+        script=_step_run("Classify dependencies and update type"),
+        env={"DEPENDENCY_NAMES": "cryptography", "UPDATE_TYPE": update_type},
     )
 
     assert result.returncode == 0, result.stderr
     assert result.github_output == f"eligible={eligible}\n"
     if eligible == "false":
         assert f"Skipping auto-merge for update-type='{update_type}'" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "dependency_names",
+    [
+        "anthropic",
+        "claude-agent-sdk",
+        "openai",
+        "cryptography, openai",
+        "OPENAI",
+    ],
+)
+def test_classifier_never_auto_lands_provider_contract_dependencies(
+    tmp_path: Path,
+    dependency_names: str,
+) -> None:
+    result = _run_snippet(
+        tmp_path,
+        script=_step_run("Classify dependencies and update type"),
+        env={
+            "DEPENDENCY_NAMES": dependency_names,
+            "UPDATE_TYPE": "version-update:semver-patch",
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.github_output == "eligible=false\n"
+    assert "Skipping auto-merge for provider-contract dependencies=" in result.stdout
 
 
 def _dependabot_pr(

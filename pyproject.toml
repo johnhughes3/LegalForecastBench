@@ -19,10 +19,10 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "cryptography>=50.0.0",
+    "cryptography>=50.0.1",
     "ortools>=9.15.6755",
-    "pydantic>=2.13,<3",
-    "pypdf>=6.14.2",
+    "pydantic>=2.13.5,<3",
+    "pypdf>=6.16.2",
 ]
 
 [project.scripts]
@@ -44,12 +44,12 @@ tier0-judge-adapter = [
 dev = [
   "interrogate>=1.7.0",
   "openai==3.3.1",
-  "pyright>=1.1.409",
-  "pytest>=8.4",
+  "pyright>=1.1.411",
+  "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
   "pytest-xdist>=3.8",
-  "reportlab>=5.0.0",
-  "ruff>=0.15.12",
+  "reportlab>=5.0.1",
+  "ruff>=0.16.5",
 ]
 
 [tool.hatch.build.targets.wheel]

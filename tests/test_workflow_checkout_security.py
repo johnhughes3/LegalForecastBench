@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_ROOT = ROOT / ".github" / "workflows"
+GITHUB_ROOT = ROOT / ".github"
 
 # GitHub refuses to parse a workflow that declares more than this many
 # workflow_dispatch inputs, with
@@ -160,6 +161,24 @@ def test_checkout_steps_disable_credential_persistence() -> None:
     assert not unsecured_steps, (
         "actions/checkout steps must set persist-credentials: false: "
         + ", ".join(unsecured_steps)
+    )
+
+
+def test_external_actions_use_immutable_commit_pins() -> None:
+    mutable_uses: list[str] = []
+    uses_pattern = re.compile(r"^\s*uses:\s*([^\s#]+)", re.MULTILINE)
+
+    for action_path in sorted(GITHUB_ROOT.rglob("*.y*ml")):
+        for use in uses_pattern.findall(action_path.read_text(encoding="utf-8")):
+            if use.startswith(("./", "docker://")):
+                continue
+            _, separator, revision = use.rpartition("@")
+            if separator != "@" or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+                mutable_uses.append(f"{action_path.relative_to(ROOT)}: {use}")
+
+    assert not mutable_uses, (
+        "external GitHub Actions must use immutable 40-character commit pins: "
+        + ", ".join(mutable_uses)
     )
 
 

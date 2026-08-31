@@ -661,7 +661,7 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
     )
     if immutable_publication:
         _validate_r2_final_composition(merged_records)
-    retained_audits = tuple(
+    retained_audits: tuple[JsonRecord, ...] = tuple(
         {
             "stage": "llm-unitize-manifest",
             "status": "retained_finalized",
@@ -681,13 +681,13 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         }
         for record in overlay.retained_records
     )
-    fresh_audits = {
+    fresh_audits: dict[str, JsonRecord] = {
         str(record["candidate_id"]): dict(record) for record in result.audit_records
     }
-    retained_audits_by_candidate = {
+    retained_audits_by_candidate: dict[str, JsonRecord] = {
         str(record["candidate_id"]): record for record in retained_audits
     }
-    reprocessed_audits = tuple(
+    reprocessed_audits: tuple[JsonRecord, ...] = tuple(
         {
             "stage": "llm-unitize-manifest",
             "status": "reprocessed_finalized",
@@ -709,10 +709,10 @@ def run_manifest_unitizer(args: argparse.Namespace) -> None:
         }
         for record in overlay.reprocessed_records
     )
-    reprocessed_audits_by_candidate = {
+    reprocessed_audits_by_candidate: dict[str, JsonRecord] = {
         str(record["candidate_id"]): record for record in reprocessed_audits
     }
-    merged_audits = tuple(
+    merged_audits: tuple[JsonRecord, ...] = tuple(
         retained_audits_by_candidate.get(candidate_id)
         or reprocessed_audits_by_candidate.get(candidate_id)
         or fresh_audits[candidate_id]
