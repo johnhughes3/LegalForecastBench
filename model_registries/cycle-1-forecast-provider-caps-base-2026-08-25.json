@@ -2,7 +2,7 @@
   "cycle_id": "cycle-1-target-100-2026-07-25",
   "providers": [
     {
-      "cycle_reservation_cap_usd": "668.70",
+      "cycle_reservation_cap_usd": "2006.10",
       "provider": "anthropic"
     },
     {

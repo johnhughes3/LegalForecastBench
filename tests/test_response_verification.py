@@ -5,7 +5,32 @@ from legalforecast.evals.response_verification import (
     RESPONSE_VERIFICATION_SCHEMA_FIELD,
     ResponseVerification,
     require_publishable_response_metadata,
+    verify_provider_response,
 )
+
+
+def test_anthropic_refusal_stop_reason_is_a_content_filter_event() -> None:
+    """Anthropic declines a request with HTTP 200 and ``stop_reason: refusal``.
+
+    Claude Fable 5 is the first model in the lineup whose safety classifiers
+    use it, so without ``refusal`` in the content-filter token set a decline
+    would be published as an ordinary finish reason.
+    """
+
+    verification = verify_provider_response(
+        {
+            "model": "claude-fable-5",
+            "content": [],
+            "stop_reason": "refusal",
+            "stop_details": {"type": "refusal", "category": "cyber"},
+        },
+        provider="anthropic",
+    )
+
+    assert verification.finish_reason == "refusal"
+    assert verification.content_filter is True
+    with pytest.raises(ValueError, match="content filter"):
+        require_publishable_response_metadata(verification.to_metadata())
 
 
 def test_publishable_response_metadata_accepts_clean_schema() -> None:

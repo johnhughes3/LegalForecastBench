@@ -74,7 +74,12 @@ def test_checked_in_forecast_caps_pass_execution_decisions_consumer(
     beads = {
         "raw_observation_sha256": "d" * 64,
         "bead_id": "bead",
-        "ceiling_usd": "2043.66",
+        # The consumer refuses caps whose sum exceeds the owner ceiling, so
+        # this fixture ceiling tracks the shipped caps: 2006.10 anthropic +
+        # 1374.96 openai. The provider-coverage check compares providers, not
+        # model count, so it is unaffected by how many models the anthropic
+        # cap is sized for.
+        "ceiling_usd": "3381.06",
         "estimate_usd": "1.00",
         "line_sha256": dict.fromkeys(
             ("manifest", "contamination", "final_provider_spend"), "e" * 64

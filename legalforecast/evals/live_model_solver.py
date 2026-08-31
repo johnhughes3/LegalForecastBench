@@ -55,11 +55,23 @@ GEMINI_GENERATE_CONTENT_URL_TEMPLATE = (
 
 # Official OpenAI eval uses Flex processing: Batch-rate tokens, slower replies.
 OPENAI_FLEX_TIMEOUT_SECONDS = 900.0
+# Official Anthropic eval calls are non-streaming at 128K max_output_tokens.
+ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS = 900.0
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF_SECONDS = 2.0
 _PRICE_UNITS_PER_TOKEN = 1_000_000
 _TOKEN_ESTIMATE_BYTES_PER_TOKEN = 4
+# Anthropic models whose reasoning is requested as adaptive thinking rather
+# than through a registry ``reasoning_effort``. Both run at the provider's
+# default effort of ``high``; on Claude Fable 5 thinking is always on and any
+# other explicit thinking configuration is rejected by the provider.
+_ANTHROPIC_ADAPTIVE_THINKING_MODELS = frozenset(
+    {
+        "claude-opus-4-8",
+        "claude-fable-5",
+    }
+)
 
 JsonRecord = Mapping[str, object]
 BuildRequest = Callable[
@@ -788,10 +800,17 @@ def _reasoning_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
 
 
 def _uses_anthropic_adaptive_thinking(entry: ModelRegistryEntry) -> bool:
-    return entry.provider.strip().lower() == "anthropic" and "claude-opus-4-8" in {
+    if entry.provider.strip().lower() != "anthropic":
+        return False
+    versions = {
         _canonical_model_version(entry.model_id),
         _canonical_model_version(entry.model_version_or_snapshot),
     }
+    return bool(versions & _ANTHROPIC_ADAPTIVE_THINKING_MODELS)
+
+
+def _is_anthropic_provider(entry: ModelRegistryEntry) -> bool:
+    return entry.provider.strip().lower() == "anthropic"
 
 
 def _is_openai_provider(entry: ModelRegistryEntry) -> bool:
@@ -802,11 +821,22 @@ def _effective_timeout_seconds(
     entry: ModelRegistryEntry,
     timeout_seconds: float,
 ) -> float:
-    """Keep Flex OpenAI requests alive for the provider-documented window."""
+    """Keep long provider turns alive for the window the provider documents.
 
-    if not _is_openai_provider(entry):
-        return timeout_seconds
-    return max(timeout_seconds, OPENAI_FLEX_TIMEOUT_SECONDS)
+    OpenAI Flex requests are queued by the provider, so they need the Flex
+    window. Anthropic official calls are non-streaming at the registry's
+    128K ``max_output_tokens``, and Claude Fable 5 -- whose thinking is always
+    on -- routinely runs single turns for many minutes at that size. The
+    default 120s ceiling would abandon a request the provider is still
+    answering and bill it as a transport failure, so both providers share the
+    same 900s floor rather than inventing a second precedent.
+    """
+
+    if _is_openai_provider(entry):
+        return max(timeout_seconds, OPENAI_FLEX_TIMEOUT_SECONDS)
+    if _is_anthropic_provider(entry):
+        return max(timeout_seconds, ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS)
+    return timeout_seconds
 
 
 def _openai_service_tier_metadata(
@@ -1531,7 +1561,34 @@ def _anthropic_output(payload: JsonRecord) -> str:
         text_parts = _text_parts(content)
         if text_parts:
             return "".join(text_parts)
+    _reject_anthropic_refusal(payload)
     raise LiveModelResponseError("Anthropic response did not include text content")
+
+
+def _reject_anthropic_refusal(payload: JsonRecord) -> None:
+    """Name a safety decline instead of reporting it as a malformed payload.
+
+    Anthropic returns a refusal as HTTP 200 with ``stop_reason: "refusal"`` and
+    no text content, so the generic "did not include text content" error hides
+    the one fact an operator needs: the model declined, and why. Extraction
+    runs before ``verify_provider_response``, so this is where the finish
+    reason has to be surfaced.
+    """
+
+    stop_reason = _optional_str_field(payload, "stop_reason")
+    if stop_reason is None or stop_reason.strip().lower() != "refusal":
+        return
+    details = _mapping(payload.get("stop_details"))
+    category = _optional_str_field(details, "category") if details is not None else None
+    explanation = (
+        _optional_str_field(details, "explanation") if details is not None else None
+    )
+    message = "Anthropic declined the request with stop_reason 'refusal'"
+    if category is not None:
+        message = f"{message} (category {category!r})"
+    if explanation is not None:
+        message = f"{message}: {explanation}"
+    raise LiveModelResponseError(message)
 
 
 def _gemini_output(payload: JsonRecord) -> str:

@@ -212,6 +212,16 @@ def test_materializer_builds_deterministic_authority_enabled_successor() -> None
 
 
 def test_materializer_accepts_forecast_only_successor_registry_provider_set() -> None:
+    """Pin the shipped forecast caps, including the Claude Fable 5 headroom.
+
+    The anthropic cap covers two models. Claude Fable 5 is priced at exactly
+    twice Claude Opus 4.8 per token (USD 10/50 against USD 5/25 per MTok), so
+    at the same corpus and the same 128K output bound its ceiling is exactly
+    twice Opus 4.8's USD 668.70 reservation: 668.70 + (2 x 668.70) = 2006.10.
+    Realistic spend is far below the ceiling; the cap is the hard stop, not the
+    estimate.
+    """
+
     source = FORECAST_LEGACY_CAPS.read_bytes()
     policy_bytes = FORECAST_SUCCESSOR_POLICY.read_bytes()
     policy = load_provider_cycle_caps_successor_policy(
@@ -234,10 +244,10 @@ def test_materializer_accepts_forecast_only_successor_registry_provider_set() ->
     assert set(caps.providers) == {"anthropic", "openai"}
     assert caps.account("anthropic") == "cycle1-anthropic"
     assert caps.account("openai") == "cycle1-openai"
-    assert caps.cap_microusd("anthropic") == 668_700_000
+    assert caps.cap_microusd("anthropic") == 2_006_100_000
     assert caps.cap_microusd("openai") == 1_374_960_000
     assert sum(caps.cap_microusd(provider) for provider in caps.providers) == (
-        2_043_660_000
+        3_381_060_000
     )
     authority = caps.require_spend_authority()
     assert authority.backend == "dynamodb"

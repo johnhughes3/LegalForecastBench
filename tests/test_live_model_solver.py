@@ -15,6 +15,7 @@ import legalforecast.evals.live_model_solver as live_model_solver
 import pytest
 from legalforecast.evals.inspect_task import SolverKind
 from legalforecast.evals.live_model_solver import (
+    ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS,
     ANTHROPIC_MESSAGES_URL,
     GEMINI_GENERATE_CONTENT_URL_TEMPLATE,
     OPENAI_FLEX_TIMEOUT_SECONDS,
@@ -431,7 +432,7 @@ def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
     assert captured.full_url == ANTHROPIC_MESSAGES_URL
     assert captured.headers["X-api-key"] == "anthropic-secret"
     assert captured.headers["Anthropic-version"] == "2023-06-01"
-    assert transport.timeouts == [120.0]
+    assert transport.timeouts == [ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS]
     assert "service_tier" not in response.metadata
     body = _json_body(captured)
     assert body == {
@@ -512,6 +513,103 @@ def test_anthropic_opus_snapshot_enables_adaptive_thinking_for_callable_alias() 
     assert bedrock["thinking"] == {"type": "adaptive"}
 
 
+@pytest.mark.parametrize("model_id", ("claude-fable-5", "claude-opus-4-8"))
+def test_anthropic_adaptive_thinking_models_publish_a_reasoning_policy(
+    model_id: str,
+) -> None:
+    """Every official Anthropic model must publish what reasoning it requested.
+
+    Fable 5's thinking is always on at a provider default effort of ``high``,
+    so the wire behaviour was already correct; without this the run card simply
+    recorded no reasoning policy at all, which is indistinguishable from a
+    model that was run with reasoning off.
+    """
+
+    entry = _registry_entry("anthropic", model_id, model_version_or_snapshot=model_id)
+
+    assert live_model_solver._uses_anthropic_adaptive_thinking(entry)
+    assert live_model_solver._reasoning_policy_metadata(entry) == {
+        "requested_thinking_type": "adaptive",
+        "provider_reasoning_effort": "provider_default_high",
+    }
+
+
+def test_anthropic_solver_raises_a_named_refusal_error_for_a_safety_decline() -> None:
+    """A Fable 5 safety decline is HTTP 200 with no text content.
+
+    Without this the run fails as "did not include text content", which reads
+    like a malformed provider payload rather than a refusal, and the finish
+    reason never reaches response verification.
+    """
+
+    transport = _FixtureTransport(
+        {
+            "model": "claude-fable-5",
+            "content": [],
+            "stop_reason": "refusal",
+            "stop_details": {"type": "refusal", "category": "cyber"},
+            "usage": {"input_tokens": 200, "output_tokens": 0},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry(
+            "anthropic",
+            "claude-fable-5",
+            model_version_or_snapshot="claude-fable-5",
+        ),
+        transport=transport,
+        environ={"ANTHROPIC_API_KEY": "anthropic-secret"},
+    )
+
+    with pytest.raises(LiveModelResponseError) as excinfo:
+        solver.solve(_request("Use the benchmark packet."))
+
+    message = str(excinfo.value)
+    assert "refusal" in message
+    assert "cyber" in message
+
+
+@pytest.mark.parametrize(
+    ("caller_timeout", "expected"),
+    (
+        (None, ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS),
+        (1_200.0, 1_200.0),
+    ),
+)
+def test_anthropic_solver_raises_the_default_timeout_to_the_large_output_floor(
+    caller_timeout: float | None,
+    expected: float,
+) -> None:
+    """128K non-streaming turns outlive the 120s default, Fable 5 most of all.
+
+    The floor only raises the ceiling; a caller who already asked for longer
+    keeps its own value, exactly as the OpenAI Flex floor behaves.
+    """
+
+    transport = _FixtureTransport(
+        {
+            "model": "claude-fable-5",
+            "content": [{"type": "text", "text": '{"anthropic":true}'}],
+            "usage": {"input_tokens": 200, "output_tokens": 40},
+        }
+    )
+    overrides = {} if caller_timeout is None else {"timeout_seconds": caller_timeout}
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry(
+            "anthropic",
+            "claude-fable-5",
+            model_version_or_snapshot="claude-fable-5",
+        ),
+        transport=transport,
+        environ={"ANTHROPIC_API_KEY": "anthropic-secret"},
+        **overrides,
+    )
+
+    solver.solve(_request("Use the benchmark packet."))
+
+    assert transport.timeouts == [expected]
+
+
 def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -525,7 +623,7 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
         timeout_seconds: float,
     ) -> live_model_solver.JsonRecord:
         assert environ == {"LFB_ANTHROPIC_RUNTIME": "bedrock"}
-        assert timeout_seconds == 120.0
+        assert timeout_seconds == ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS
         payload_dict = dict(payload)
         calls.append((model_id, payload_dict))
         return {
