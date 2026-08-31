@@ -1,0 +1,128 @@
+{
+  "adapter_kind": "local_cli",
+  "auth_environment_variables": [
+    {
+      "names": [],
+      "profile": "contributor-subscription"
+    },
+    {
+      "names": [],
+      "profile": "fixture-none"
+    }
+  ],
+  "auth_profile_name": "contributor-subscription",
+  "capabilities": [
+    "container_execution",
+    "headless_print",
+    "max_turns",
+    "model_selection",
+    "native_tools_enabled",
+    "permission_mode",
+    "reasoning_effort",
+    "restricted_egress",
+    "server_side_web_tools_disabled",
+    "stream_json_output",
+    "working_directory_isolation"
+  ],
+  "capability_digest": "sha256:da1afd2d9d5c243c05f6c053ba4155999b990b896f369d1a13cf624d0d3eb3cf",
+  "containment": {
+    "host_process_containment": "posix_process_group.v1",
+    "isolated_host_environment": true,
+    "network_policy": "provider_egress_host_only",
+    "session_persistence": "ephemeral",
+    "setting_sources": [],
+    "strict_mcp_config": false
+  },
+  "display_name": "Grok CLI containerized tools-on local CLI",
+  "executable": {
+    "basename": "grok",
+    "container_image_digest": "sha256:d157d299ea98d866517bf6e756f351836064c48ca8d3296418ea80f59f1f1e1a",
+    "distribution_kind": "standalone-cli",
+    "version": "grok 1.0.13 (5e9a58528b76)"
+  },
+  "harness_binding": {
+    "adapter_id": "grok-cli-container-tools-on",
+    "adapter_version": "1.0.0",
+    "harness_adapter_contract": "legalforecast.multiharness.adapters.HarnessAdapter",
+    "harness_solver_contract": "legalforecast.evals.inspect_task.HarnessSolver",
+    "implements_harness_adapter": true,
+    "implements_harness_solver": true,
+    "solver_kind": "inspect_ai",
+    "solver_response_contract": "legalforecast.evals.inspect_task.SolverResponse",
+    "supported_families": [
+      "legalforecast_mtd"
+    ],
+    "supported_scoring_modes": [
+      "lfb_brier"
+    ],
+    "tool_protocol_version": null
+  },
+  "invocation": {
+    "argv_template": [
+      "-p",
+      "{prompt}",
+      "--cwd",
+      "{workspace}",
+      "--output-format",
+      "streaming-messages-json",
+      "--verbatim",
+      "--permission-mode",
+      "bypassPermissions",
+      "--model",
+      "{model}",
+      "--reasoning-effort",
+      "xhigh",
+      "--disable-web-search",
+      "--max-turns",
+      "40"
+    ],
+    "headless_mode": "print_flag",
+    "model_flag": "--model",
+    "output_format": "stream_json",
+    "prompt_delivery": "argv_placeholder",
+    "schema_enforcement": "none",
+    "working_directory_flag": "--cwd"
+  },
+  "manifest_id": "grok-cli-container-tools-on",
+  "schema_version": "legalforecast.multiharness.local_cli_adapter_manifest.v1",
+  "supported_auth_profiles": [
+    "contributor-subscription",
+    "fixture-none"
+  ],
+  "task_projection": {
+    "deliverable_event_type": "result",
+    "deliverable_field": "result",
+    "deliverable_item_type": null,
+    "deliverable_relative_path": null,
+    "deliverable_source": "structured_stdout",
+    "prompt_source": "solver_input_prompt"
+  },
+  "timeout_retry": {
+    "max_attempts": 1,
+    "retry_backoff_seconds": 0,
+    "retryable_exit_codes": [],
+    "timeout_seconds": 900
+  },
+  "transcript_capture": {
+    "points": [
+      "private_execution_log",
+      "stderr",
+      "stdout"
+    ],
+    "public_raw_transcript": false
+  },
+  "usage_reporting": {
+    "cache_read_tokens_field": "usage.cache_read_input_tokens",
+    "cache_write_tokens_field": "usage.cache_creation_input_tokens",
+    "cost_basis": "subscription_unallocable",
+    "cost_usd_field": "total_cost_usd",
+    "input_tokens_field": "usage.input_tokens",
+    "output_tokens_field": "usage.output_tokens",
+    "solver_response_fields": [
+      "estimated_cost",
+      "input_tokens",
+      "output_tokens",
+      "request_count"
+    ]
+  }
+}
