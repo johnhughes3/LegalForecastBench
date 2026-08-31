@@ -259,7 +259,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
         with:
           enable-cache: true
 
@@ -1349,7 +1349,7 @@ jobs:
           ref: ${{ needs.build-matrix.outputs.release_sha }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
         with:
           enable-cache: true
 
@@ -1485,7 +1485,7 @@ jobs:
           ref: ${{ needs.build-matrix.outputs.release_sha }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
         with:
           enable-cache: true
 
