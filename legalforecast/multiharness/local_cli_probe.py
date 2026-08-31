@@ -216,6 +216,13 @@ def probe_manifest_executable(
     except (MultiHarnessValidationError, ValueError) as exc:
         raise LocalCliProbeError("local CLI capability record is invalid") from exc
     executable = manifest.executable
+    if executable.sha256 is None:
+        # A containerized manifest pins the container image digest instead of
+        # host executable bytes, so there is no host binary to hash here.
+        raise LocalCliProbeError(
+            "local CLI capability record pins a container image digest, "
+            "not a host executable"
+        )
     pin = ExecutableIdentityPin(
         basename=executable.basename,
         version=executable.version,

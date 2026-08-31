@@ -15,6 +15,7 @@ from legalforecast.multiharness.local_cli_manifest import (
     HARNESS_SOLVER_CONTRACT,
     LOCAL_CLI_ADAPTER_KIND,
     LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION,
+    LOCAL_CLI_AUTH_ENV_VARS,
     LOCAL_CLI_CAPABILITIES,
     SOLVER_RESPONSE_CONTRACT,
     LocalCliAdapterManifest,
@@ -30,6 +31,7 @@ from legalforecast.multiharness.local_cli_manifest import (
     capability_digest_for,
     project_structured_stdout_deliverable,
 )
+from legalforecast.multiharness.sandbox import NETWORK_NONE, PROVIDER_EGRESS_HOST_ONLY
 from legalforecast.multiharness.spec import POSIX_PROCESS_GROUP_CONTAINMENT
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -347,6 +349,172 @@ def test_missing_executable_digest_is_rejected() -> None:
 
     with pytest.raises(LocalCliAdapterManifestError, match="sha256"):
         LocalCliAdapterManifest.from_record(record)
+
+
+def _rehash(record: dict[str, Any]) -> dict[str, Any]:
+    record["capability_digest"] = capability_digest_for(record)
+    return record
+
+
+CONTAINER_IMAGE_DIGEST = "sha256:" + "3b" * 32
+CONTAINERIZED_TOKENS = (
+    "container_execution",
+    "max_turns",
+    "native_tools_enabled",
+    "reasoning_effort",
+    "restricted_egress",
+    "server_side_web_tools_disabled",
+)
+
+
+def _containerized_record() -> dict[str, Any]:
+    """The clean-native fixture recast as a containerized, tools-on harness.
+
+    Expressed as a delta so the test names exactly what the second posture
+    changes: the identity pin moves from host bytes to the image digest, the
+    stripped-tools token gives way to the tools-on tokens, and the cost basis
+    becomes the subscription one every harness in this lane runs on.
+    """
+
+    record = _claude_record()
+    record["manifest_id"] = "containerized-tools-on-fixture"
+    record["display_name"] = "Containerized tools-on local CLI fixture"
+    record["harness_binding"] = _binding("containerized-tools-on-fixture")
+    record["executable"] = {
+        "basename": "example-cli",
+        "version": "1.0.0",
+        "container_image_digest": CONTAINER_IMAGE_DIGEST,
+        "distribution_kind": "standalone-cli",
+    }
+    declared = set(record["capabilities"]) - {"empty_tools"}
+    record["capabilities"] = sorted(declared.union(CONTAINERIZED_TOKENS))
+    record["usage_reporting"]["cost_basis"] = "subscription_unallocable"
+    return _rehash(record)
+
+
+def test_containerized_tools_on_manifest_round_trips() -> None:
+    record = _containerized_record()
+
+    manifest = LocalCliAdapterManifest.from_record(record)
+
+    assert manifest.to_record() == record
+    assert manifest.executable.container_image_digest == CONTAINER_IMAGE_DIGEST
+    assert manifest.executable.sha256 is None
+    assert "sha256" not in manifest.to_record()["executable"]
+    assert manifest.usage_reporting.cost_basis == "subscription_unallocable"
+    assert manifest.containment.network_policy == PROVIDER_EGRESS_HOST_ONLY
+    assert "empty_tools" not in manifest.capabilities
+
+
+def test_new_capability_tokens_are_published_verbatim() -> None:
+    assert set(CONTAINERIZED_TOKENS).issubset(LOCAL_CLI_CAPABILITIES)
+
+
+def test_new_auth_environment_variable_names_are_published_verbatim() -> None:
+    assert {
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GROK_AUTH_PROVIDER_ACCESS_TOKEN",
+        "GROK_AUTH_PROVIDER_EXPIRES_AT",
+        "GROK_AUTH_PROVIDER_REFRESH_TOKEN",
+        "KIMI_API_KEY",
+        "KIMI_CODE_OAUTH_KEY",
+        "XAI_API_KEY",
+    }.issubset(LOCAL_CLI_AUTH_ENV_VARS)
+
+
+def test_new_auth_environment_variable_names_are_accepted_on_a_manifest() -> None:
+    record = _containerized_record()
+    record["supported_auth_profiles"] = ["contributor-subscription", "fixture-none"]
+    record["auth_profile_name"] = "contributor-subscription"
+    record["auth_environment_variables"] = [
+        {
+            "names": [
+                "GROK_AUTH_PROVIDER_ACCESS_TOKEN",
+                "GROK_AUTH_PROVIDER_EXPIRES_AT",
+                "GROK_AUTH_PROVIDER_REFRESH_TOKEN",
+            ],
+            "profile": "contributor-subscription",
+        },
+        {"names": [], "profile": "fixture-none"},
+    ]
+
+    manifest = LocalCliAdapterManifest.from_record(_rehash(record))
+
+    assert manifest.env_vars_for_profile("contributor-subscription") == (
+        "GROK_AUTH_PROVIDER_ACCESS_TOKEN",
+        "GROK_AUTH_PROVIDER_EXPIRES_AT",
+        "GROK_AUTH_PROVIDER_REFRESH_TOKEN",
+    )
+
+
+def test_executable_rejects_both_identity_digests() -> None:
+    record = _containerized_record()
+    record["executable"]["sha256"] = CLAUDE_SHA256
+
+    with pytest.raises(LocalCliAdapterManifestError, match="exactly one"):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_executable_rejects_an_unprefixed_container_image_digest() -> None:
+    record = _containerized_record()
+    record["executable"]["container_image_digest"] = "3b" * 32
+
+    with pytest.raises(LocalCliAdapterManifestError, match="sha256:-prefixed"):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_container_execution_requires_the_image_digest() -> None:
+    record = _containerized_record()
+    del record["executable"]["container_image_digest"]
+    record["executable"]["sha256"] = CLAUDE_SHA256
+
+    with pytest.raises(
+        LocalCliAdapterManifestError, match="container_image_digest must"
+    ):
+        LocalCliAdapterManifest.from_record(record)
+
+
+def test_image_digest_requires_the_container_execution_token() -> None:
+    record = _containerized_record()
+    record["capabilities"] = [
+        name for name in record["capabilities"] if name != "container_execution"
+    ]
+
+    with pytest.raises(LocalCliAdapterManifestError, match="container_execution"):
+        LocalCliAdapterManifest.from_record(_rehash(record))
+
+
+def test_both_tool_postures_cannot_be_declared_at_once() -> None:
+    record = _containerized_record()
+    record["capabilities"] = sorted([*record["capabilities"], "empty_tools"])
+
+    with pytest.raises(LocalCliAdapterManifestError, match="empty_tools"):
+        LocalCliAdapterManifest.from_record(_rehash(record))
+
+
+def test_tools_on_requires_server_side_web_tools_to_be_disabled() -> None:
+    """The contamination gate: case outcomes are one provider-side search away."""
+
+    record = _containerized_record()
+    record["capabilities"] = [
+        name
+        for name in record["capabilities"]
+        if name != "server_side_web_tools_disabled"
+    ]
+
+    with pytest.raises(
+        LocalCliAdapterManifestError, match="server_side_web_tools_disabled"
+    ):
+        LocalCliAdapterManifest.from_record(_rehash(record))
+
+
+def test_restricted_egress_requires_a_provider_egress_network_policy() -> None:
+    record = _containerized_record()
+    record["containment"]["network_policy"] = NETWORK_NONE
+
+    with pytest.raises(LocalCliAdapterManifestError, match="restricted_egress"):
+        LocalCliAdapterManifest.from_record(_rehash(record))
 
 
 def test_unknown_capability_is_rejected() -> None:
@@ -725,6 +893,13 @@ _NESTED_RECORD_MODELS = {
 }
 
 
+# Absent-allowed keys: the claude record does not carry them, so there is
+# nothing to delete. `executable.sha256` stays in the parametrization because
+# deleting it leaves neither identity digest set, which the exactly-one rule
+# rejects by name.
+_ABSENT_ALLOWED_FIELD_PATHS = frozenset({("executable", "container_image_digest")})
+
+
 def _required_field_paths() -> tuple[tuple[str, ...], ...]:
     paths: list[tuple[str, ...]] = []
     for field in fields(LocalCliAdapterManifest):
@@ -733,6 +908,8 @@ def _required_field_paths() -> tuple[tuple[str, ...], ...]:
         if nested is None:
             continue
         for inner in fields(nested):
+            if (field.name, inner.name) in _ABSENT_ALLOWED_FIELD_PATHS:
+                continue
             paths.append((field.name, inner.name))
     return tuple(paths)
 
