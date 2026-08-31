@@ -234,13 +234,23 @@ jobs:
       RELEASE_SHA: ${{ inputs.release_sha }}
       RUN_INPUTS_SHA256: ${{ inputs.run_inputs_sha256 }}
       RUN_RECORD_SHA256: ${{ inputs.run_record_sha256 }}
-      WORK_ROOT: ${{ runner.temp }}/lfb-official-stage
     steps:
       - name: Confirm secure-gate protected environment
         shell: bash
         run: |
           set -euo pipefail
           echo "This job starts only after the legalforecastbench-official-eval-manifest-staging protected environment, including secure-gate deployment protection, approves it."
+
+      - name: Resolve the work root
+        shell: bash
+        # The runner context is not available in job-level env (GitHub rejects the
+        # whole workflow at dispatch with "Unrecognized named-value: 'runner'"),
+        # so the temp-dir work root is resolved here instead. Decrypted source
+        # material stays under the runner's temp directory, outside the workspace,
+        # so the OUTPUT_ROOT artifact upload can never pick it up.
+        run: |
+          set -euo pipefail
+          echo "WORK_ROOT=${RUNNER_TEMP}/lfb-official-stage" >> "${GITHUB_ENV}"
 
       - name: Validate protected environment configuration
         shell: bash
