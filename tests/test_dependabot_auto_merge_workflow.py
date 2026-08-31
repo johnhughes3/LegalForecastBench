@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+GITHUB_ROOT = ROOT / ".github"
 WORKFLOW = (ROOT / ".github/workflows/dependabot-auto-merge.yaml").read_text(
     encoding="utf-8",
 )
@@ -166,6 +167,24 @@ def test_dependabot_auto_merge_pins_fetch_metadata() -> None:
     assert uses == [f"dependabot/fetch-metadata@{FETCH_METADATA_SHA}"]
     assert "# v3.1.0" in WORKFLOW
     assert "pr-number: ${{ steps.pr.outputs.number }}" in WORKFLOW
+
+
+def test_external_actions_use_immutable_commit_pins() -> None:
+    mutable_uses: list[str] = []
+    uses_pattern = re.compile(r"^\s*uses:\s*([^\s#]+)", re.MULTILINE)
+
+    for action_path in sorted(GITHUB_ROOT.rglob("*.y*ml")):
+        for use in uses_pattern.findall(action_path.read_text(encoding="utf-8")):
+            if use.startswith(("./", "docker://")):
+                continue
+            _, separator, revision = use.rpartition("@")
+            if separator != "@" or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+                mutable_uses.append(f"{action_path.relative_to(ROOT)}: {use}")
+
+    assert not mutable_uses, (
+        "external GitHub Actions must use immutable 40-character commit pins: "
+        + ", ".join(mutable_uses)
+    )
 
 
 def test_dependabot_auto_merge_workflow_gates_the_trusted_source() -> None:
