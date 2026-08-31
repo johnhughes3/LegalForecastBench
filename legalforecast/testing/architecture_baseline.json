@@ -4487,9 +4487,9 @@
         "largest_symbol": "issue_model_execution_scope",
         "largest_symbol_lines": 173,
         "layer": "application",
-        "line_count": 1778,
-        "nonblank_line_count": 1626,
-        "top_level_definition_count": 49
+        "line_count": 1794,
+        "nonblank_line_count": 1633,
+        "top_level_definition_count": 50
       },
       "legalforecast/evals/corpus_manifest/forecast_entry.py": {
         "cycle_id": "",
@@ -10428,9 +10428,9 @@
         "largest_symbol": "test_scope_issuance_fills_freeze_and_derives_authority_from_caps",
         "largest_symbol_lines": 136,
         "layer": "test",
-        "line_count": 1121,
-        "nonblank_line_count": 1024,
-        "top_level_definition_count": 28
+        "line_count": 1261,
+        "nonblank_line_count": 1149,
+        "top_level_definition_count": 30
       },
       "tests/test_firecrawl_docket_pagination.py": {
         "cycle_id": "",

@@ -10,7 +10,6 @@ open credentials.
 
 from __future__ import annotations
 
-import base64
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -65,6 +64,10 @@ OFFICIAL_CALL_COUNT: Final = 200
 _SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
 _USD: Final = re.compile(r"[0-9]+(?:\.[0-9]+)?\Z")
 _OWNER_USD: Final = re.compile(r"[0-9]+(?:\.[0-9]{1,2})?\Z")
+_MACHINE_SPECIFIC: Final = re.compile(r"/work/|/home/|/Users/|s3://", re.IGNORECASE)
+"""Operator detail that must never appear in a card bound for a public repo."""
+
+
 _OWNER_COMMENT_FIELDS: Final = frozenset(
     {"id", "issue_id", "author", "text", "created_at"}
 )
@@ -118,7 +121,7 @@ _SCOPE_FIELDS: Final = frozenset(
         "provider_authority",
     }
 )
-_SUPPLEMENTARY_OWNER_EVIDENCE_FIELDS: Final = frozenset(
+_OWNER_EVIDENCE_FIELDS: Final = frozenset(
     {
         "author",
         "bead_id",
@@ -132,29 +135,34 @@ _SUPPLEMENTARY_OWNER_EVIDENCE_FIELDS: Final = frozenset(
         "raw_observation_sha256",
     }
 )
-"""The supplementary card publishes the observation's digest, not its bytes.
+"""Both cards publish the observation's digest, not its bytes.
 
-``bd comments <bead> --json`` returns *every* comment on the approval bead, so
-the official card's ``raw_observation_base64`` carries unbounded bystander
-content -- empirically local filesystem paths and private addresses, which this
-public repository's hygiene rule bans -- and re-hashes the scope whenever anyone
-comments.  A supplementary scope reaches S3 only through this public repository
-(the operator machine cannot write to the buckets at all), so it must be safe to
-commit.  ``raw_comment`` is retained: it is the owner's own approval sentence,
-bounded by the ``_OWNER_APPROVAL`` fullmatch and already public-safe, and with
-``raw_comment_sha256`` and ``raw_observation_sha256`` anyone holding the original
-capture can still verify the whole chain.  ``raw_observation_base64`` is refused
-by name here, not merely omitted, so the payload cannot be smuggled back in.
+``bd comments <bead> --json`` returns *every* comment on the approval bead, so a
+``raw_observation_base64`` field carries unbounded bystander content --
+empirically absolute operator paths, ``s3://`` URIs, and private addresses, all
+banned by this public repository's hygiene rule -- and re-hashes the scope
+whenever anyone comments.  A scope reaches S3 only through this public
+repository (the operator machine cannot write to the buckets at all), as a
+commit or as a workflow input echoed into public run logs, so it must be safe to
+commit.  #1009 gave the supplementary card this treatment; the official card
+followed once the r4 repair made it the card actually about to be committed.
+
+``raw_comment`` is retained: it is the owner's own approval sentence, bounded by
+the ``_OWNER_APPROVAL`` fullmatch and therefore public-safe, and it is the thing
+being authenticated.  With ``raw_comment_sha256`` and ``raw_observation_sha256``
+anyone holding the original capture -- re-derivable from the Beads server by
+bead id -- can still verify the whole chain.  ``raw_observation_base64`` is
+refused by name here, not merely omitted, so the payload cannot be smuggled back
+in by a card that hashes correctly.
 """
 
 _SUPPLEMENTARY_SCOPE_FIELDS: Final = _SCOPE_FIELDS | {"supplementary_binding"}
 """A supplementary scope is a distinct card, not an official one with a field.
 
-Cycle 1 change control freezes whole-card authenticated bytes, so the
-supplementary variant carries its own schema identifier and its own field set.
-The four frozen models' scopes are live mid-cycle and keep byte-identical bytes,
-and a supplementary scope cannot be presented as an official one: the identifier
-selects the expected field set, and the field set is inside the hashed scope.
+The supplementary variant carries its own schema identifier and its own field
+set, so a supplementary scope cannot be presented as an official one: the
+identifier selects the expected field set, and the field set is inside the
+hashed scope.
 """
 
 
@@ -452,6 +460,42 @@ def _verify_execution_policy_artifact(
     return actual
 
 
+def _require_public_safe_card(artifact: Mapping[str, Any]) -> None:
+    """Refuse to issue a scope card carrying machine-specific detail.
+
+    The operator machine cannot write to the results buckets, so a scope reaches
+    S3 only through this public repository -- as a commit, or as a workflow
+    input echoed into public run logs.  ``.agents/AGENTS.md``'s hygiene rule
+    therefore applies to the card itself.
+
+    Dropping ``raw_observation_base64`` removed the field that carried this
+    content in practice, but the card still has free-text fields fed from the
+    registry (``display_name``, ``pricing_source``, ``release_timestamp_source``)
+    that an operator could fill with a local path.  This is a cheap,
+    non-cryptographic backstop over the whole serialized card, not a
+    replacement for the field-set gate: every remaining field is a digest, a
+    money string, an enum, or the grammar-bounded approval sentence, so a match
+    here is a defect, never a legitimate value.
+
+    Checked at issuance only.  Verification is deliberately left alone: a gate
+    here would make an already-issued card retroactively unverifiable, and a
+    card that reaches a consumer is already authenticated by digest.
+    """
+
+    text = canonical_json_bytes(
+        artifact,
+        error_type=ExecutionScopeError,
+        error_message="execution scope is not canonically serializable",
+    ).decode("utf-8")
+    match = _MACHINE_SPECIFIC.search(text)
+    if match is not None:
+        raise ExecutionScopeError(
+            "execution scope carries machine-specific operational detail "
+            f"({match.group(0)!r}): a scope card is committed to this public "
+            "repository and must not name local filesystem paths or bucket URIs"
+        )
+
+
 def issue_model_execution_scope(
     *,
     common_plan: Path | Mapping[str, Any],
@@ -549,7 +593,6 @@ def issue_model_execution_scope(
         projected_cost=projected,
         owner_ceiling=ceiling,
         expected_bead_id=owner_bead_id,
-        supplementary=supplementary,
     )
     authority = _authority_for_scope(
         provider_authority=(None if caps_snapshot is not None else provider_authority),
@@ -614,6 +657,7 @@ def issue_model_execution_scope(
         expected_model_key=key,
         expected_supplementary=supplementary,
     )
+    _require_public_safe_card(artifact)
     if caps_snapshot is not None and provider_cycle_caps is not None:
         _require_snapshot_unchanged(
             Path(provider_cycle_caps),
@@ -744,7 +788,6 @@ def verify_execution_scope(
         projected_cost=projected,
         owner_ceiling=ceiling,
         expected_bead_id=embedded_bead_id,
-        supplementary=expected_supplementary,
     )
     if scope.get("owner_evidence") != evidence:
         raise ExecutionScopeError("scope owner evidence drift")
@@ -867,7 +910,6 @@ def verify_scope_shape(artifact: Mapping[str, Any], *, supplementary: bool) -> N
         model_key=key,
         projected_cost=projected,
         owner_ceiling=ceiling,
-        supplementary=supplementary,
     )
     _validate_provider_authority(
         _mapping(scope.get("provider_authority"), "scope.provider_authority"),
@@ -1167,28 +1209,28 @@ def _verify_cost_receipt(
         raise ExecutionScopeError(str(exc)) from exc
 
 
-def _replay_supplementary_owner_evidence(
+def _replay_owner_evidence(
     value: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Re-derive a supplementary owner-evidence record from its own approval line.
+    """Re-derive an owner-evidence record from its own approval line.
 
-    The supplementary card publishes only a digest of the ``bd comments``
-    payload, so a holder of the card alone cannot replay the *selection* that
-    produced the record.  Everything the selected comment determines is still
-    re-derived here -- the approval grammar, the model key, both money amounts,
-    the author, the timestamp, and the comment's own digest -- so a published
-    record cannot disagree with the approval sentence it publishes.  A holder of
-    the captured payload gets the full replay by passing those bytes instead,
-    which the caller compares against this record.
+    The card publishes only a digest of the ``bd comments`` payload, so a holder
+    of the card alone cannot replay the *selection* that produced the record.
+    Everything the selected comment determines is still re-derived here -- the
+    approval grammar, the model key, both money amounts, the author, the
+    timestamp, and the comment's own digest -- so a published record cannot
+    disagree with the approval sentence it publishes.  A holder of the captured
+    payload gets the full replay by passing those bytes instead, which the
+    caller compares against this record.
     """
 
     record = dict(_mapping(value, "owner_evidence"))
     _exact_keys(
         record,
-        set(_SUPPLEMENTARY_OWNER_EVIDENCE_FIELDS),
-        "supplementary owner_evidence",
+        set(_OWNER_EVIDENCE_FIELDS),
+        "owner_evidence",
     )
-    for field in sorted(_SUPPLEMENTARY_OWNER_EVIDENCE_FIELDS):
+    for field in sorted(_OWNER_EVIDENCE_FIELDS):
         _text(record.get(field), f"owner_evidence.{field}")
     _sha(record.get("raw_observation_sha256"), "owner_evidence.raw_observation_sha256")
     comment_text = cast(str, record["raw_comment"])
@@ -1224,43 +1266,21 @@ def _owner_evidence(
     projected_cost: Decimal,
     owner_ceiling: Decimal,
     expected_bead_id: str | None = None,
-    supplementary: bool = False,
 ) -> dict[str, Any]:
-    """Authenticate owner evidence for one lane.
+    """Authenticate owner evidence.
 
-    ``supplementary`` defaults to official, so the official card -- whose bytes
-    are live mid-cycle -- reaches exactly the code it reached before.
+    Both lanes publish the same digest-only record, so there is no lane
+    parameter here: a caller holding the captured ``bd comments`` bytes gets the
+    full replay by passing them, and a caller holding only the card re-derives
+    every field the approval sentence determines.
     """
 
     if isinstance(value, Path):
-        raw = _read_bytes(value, "owner Beads evidence")
-        record = _parse_owner_observation(raw, supplementary=supplementary)
+        record = _parse_owner_observation(_read_bytes(value, "owner Beads evidence"))
     elif isinstance(value, bytes):
-        record = _parse_owner_observation(value, supplementary=supplementary)
-    elif supplementary:
-        record = _replay_supplementary_owner_evidence(value)
+        record = _parse_owner_observation(value)
     else:
-        record = dict(_mapping(value, "owner_evidence"))
-        encoded = _text(
-            record.get("raw_observation_base64"),
-            "owner_evidence.raw_observation_base64",
-        )
-        try:
-            raw = base64.b64decode(encoded, validate=True)
-        except (ValueError, TypeError) as exc:
-            raise ExecutionScopeError(
-                "owner_evidence.raw_observation_base64 is invalid"
-            ) from exc
-        if _sha256_bytes(raw) != _sha(
-            record.get("raw_observation_sha256"),
-            "owner_evidence.raw_observation_sha256",
-        ):
-            raise ExecutionScopeError("owner Beads observation bytes drift")
-        replayed = _parse_owner_observation(raw)
-        if record != replayed:
-            raise ExecutionScopeError(
-                "owner evidence does not replay from raw Beads observation"
-            )
+        record = _replay_owner_evidence(value)
     if record["model_key"] != model_key:
         raise ExecutionScopeError("owner Beads approval model differs from scope")
     if expected_bead_id is not None and record["bead_id"] != _text(
@@ -1276,13 +1296,11 @@ def _owner_evidence(
     return {key: record[key] for key in sorted(record)}
 
 
-def _parse_owner_observation(
-    payload: bytes, *, supplementary: bool = False
-) -> dict[str, Any]:
+def _parse_owner_observation(payload: bytes) -> dict[str, Any]:
     """Replay an exact raw ``bd comments <bead> --json`` observation.
 
-    ``supplementary`` selects the supplementary card's owner-evidence field set,
-    which records the observation's digest instead of the observation itself.
+    The record keeps the observation's digest, never the observation itself:
+    see ``_OWNER_EVIDENCE_FIELDS``.
     """
 
     try:
@@ -1331,8 +1349,6 @@ def _parse_owner_observation(
         "ceiling_usd": selected["ceiling_usd"],
         "estimate_usd": selected["estimate_usd"],
     }
-    if not supplementary:
-        evidence["raw_observation_base64"] = base64.b64encode(payload).decode("ascii")
     return {key: evidence[key] for key in sorted(evidence)}
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -809,16 +810,22 @@ def test_scope_rejects_cost_matrix_row_for_wrong_model(tmp_path: Path) -> None:
         )
 
 
-def test_official_scope_bytes_are_pinned(tmp_path: Path) -> None:
-    """The official scope card is live mid-cycle; its bytes must not move.
+def test_official_scope_publishes_the_observation_digest_not_the_payload(
+    tmp_path: Path,
+) -> None:
+    """The official card publishes a digest of the capture, never its bytes.
 
-    ``legalforecast.execution_scope.v1`` artifacts are already issued for the
-    frozen registry, so under ``docs/cycle-1-change-control.md`` the official
-    card's field set and canonical bytes are frozen.  The pinned digests below
-    fail if any change reaches the official path -- including a change aimed
-    only at the supplementary card, which must diverge without touching this
-    one.  ``owner_evidence`` is pinned field-by-field because that is the
-    record the supplementary card amends.
+    ``bd comments <bead> --json`` returns *every* comment on the approval bead.
+    The real 3ak.38 capture carries absolute operator paths and ``s3://`` URIs,
+    and an official scope reaches S3 only through this public repository -- as a
+    commit, or as a workflow input echoed into public run logs -- so the payload
+    must not be in the card.  This is the same treatment #1009 gave the
+    supplementary card, now extended to the official one.
+
+    What stays is what an auditor needs: the bead id, the owner's own approval
+    sentence verbatim (grammar-bounded by ``_OWNER_APPROVAL``, and therefore
+    public-safe), that sentence's digest, and the digest of the whole capture,
+    which anyone holding the original capture re-derives from the Beads server.
     """
 
     (
@@ -842,7 +849,8 @@ def test_official_scope_bytes_are_pinned(tmp_path: Path) -> None:
     )
 
     assert scope["schema_version"] == "legalforecast.execution_scope.v1"
-    assert sorted(scope["scope"]["owner_evidence"]) == [
+    evidence = scope["scope"]["owner_evidence"]
+    assert sorted(evidence) == [
         "author",
         "bead_id",
         "ceiling_usd",
@@ -852,15 +860,23 @@ def test_official_scope_bytes_are_pinned(tmp_path: Path) -> None:
         "model_key",
         "raw_comment",
         "raw_comment_sha256",
-        "raw_observation_base64",
         "raw_observation_sha256",
     ]
-    assert scope["scope_sha256"] == (
-        "245ba49eea20bd8a22ea187e3d6661a932c7f0307b8f58b66b259edfc16a863b"
+    assert "raw_observation_base64" not in evidence
+    assert (
+        evidence["raw_observation_sha256"]
+        == hashlib.sha256(evidence_path.read_bytes()).hexdigest()
     )
-    assert hash_payload(scope) == (
-        "9db6f2b39d2537b515a64f79746dca4589256fb3404d5dbb2811244224b2ef91"
+    assert evidence["bead_id"] == "scope-test"
+    assert evidence["raw_comment"] == (
+        "I approve up to USD 1.50 of provider spend for model "
+        "openai:test-2026 in the Cycle 1 forecast run, estimated USD 1.00."
     )
+    assert (
+        evidence["raw_comment_sha256"]
+        == hashlib.sha256(evidence["raw_comment"].encode("utf-8")).hexdigest()
+    )
+
     verify_execution_scope(
         scope,
         common_plan=plan_path,
@@ -871,6 +887,130 @@ def test_official_scope_bytes_are_pinned(tmp_path: Path) -> None:
         provider_authority=_authority(),
         expected_model_key=model_key,
     )
+    verify_execution_scope(
+        scope,
+        common_plan=plan_path,
+        model_registry=registry_path,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        provider_authority=_authority(),
+        expected_model_key=model_key,
+    )
+
+
+def test_official_scope_refuses_a_smuggled_observation_payload(
+    tmp_path: Path,
+) -> None:
+    """``raw_observation_base64`` is refused by name, not merely omitted.
+
+    Omitting a field only keeps the honest issuer honest.  The field set is
+    exact on both sides, so a card that carries the payload back is refused at
+    every consumption point rather than published.
+    """
+
+    (
+        plan_path,
+        registry_path,
+        run_input_path,
+        cost_path,
+        evidence_path,
+        model_key,
+    ) = _write_scope_inputs(tmp_path)
+    scope = issue_model_execution_scope(
+        common_plan=plan_path,
+        model_registry=registry_path,
+        model_key=model_key,
+        cost_projection=cost_path,
+        run_input_manifest=run_input_path,
+        owner_ceiling_usd="1.50",
+        owner_bead_id="scope-test",
+        provider_authority=_authority(),
+    )
+
+    smuggled = json.loads(json.dumps(scope))
+    smuggled["scope"]["owner_evidence"]["raw_observation_base64"] = base64.b64encode(
+        evidence_path.read_bytes()
+    ).decode("ascii")
+    smuggled["scope_sha256"] = hash_payload(smuggled["scope"])
+
+    with pytest.raises(
+        ExecutionScopeError, match=r"unknown=\['raw_observation_base64'\]"
+    ):
+        verify_execution_scope(
+            smuggled,
+            common_plan=plan_path,
+            model_registry=registry_path,
+            cost_projection=cost_path,
+            run_input_manifest=run_input_path,
+            provider_authority=_authority(),
+            expected_model_key=model_key,
+        )
+    with pytest.raises(
+        ExecutionScopeError, match=r"unknown=\['raw_observation_base64'\]"
+    ):
+        execution_scope.verify_scope_shape(smuggled, supplementary=False)
+
+
+def test_scope_issuance_refuses_machine_specific_operational_detail(
+    tmp_path: Path,
+) -> None:
+    """Issuance refuses a card carrying an absolute path or an ``s3://`` URI.
+
+    The digest change removes the one field that carried operator paths in
+    practice, but the card has other free-text fields -- a registry entry's
+    provenance strings among them -- and the card is committed to a public
+    repository.  This is a cheap non-cryptographic backstop over the serialized
+    card, checked at issuance because that is the moment before publication;
+    verification is deliberately unchanged so an already-issued card is never
+    retroactively unverifiable.
+    """
+
+    (
+        plan_path,
+        registry_path,
+        run_input_path,
+        cost_path,
+        _evidence_path,
+        model_key,
+    ) = _write_scope_inputs(tmp_path)
+
+    record = _registry_record("test-2026")
+    record["release_timestamp_source"] = "/work/Development/legal/release-notes.md"
+    payload = (json.dumps([record], sort_keys=True) + "\n").encode()
+    registry_path.write_bytes(payload)
+    registry_sha = hashlib.sha256(payload).hexdigest()
+
+    # Rebuild the plan and cost receipt against the leaking registry so the
+    # scope fails the hygiene gate and nothing else.
+    common_inputs = json.loads(plan_path.read_text(encoding="utf-8"))["policy"][
+        "common_frozen_inputs"
+    ]
+    common_inputs["model_registry_sha256"] = registry_sha
+    plan = issue_execution_plan(
+        cycle_id="cycle-scope-test",
+        model_registry=registry_path,
+        common_frozen_inputs=common_inputs,
+    )
+    plan_path.write_text(json.dumps(plan, sort_keys=True) + "\n", encoding="utf-8")
+    _write_cost(
+        cost_path,
+        cycle_id="cycle-scope-test",
+        model_key=model_key,
+        registry_sha256=registry_sha,
+        run_input_manifest=run_input_path,
+    )
+
+    with pytest.raises(ExecutionScopeError, match="machine-specific"):
+        issue_model_execution_scope(
+            common_plan=plan_path,
+            model_registry=registry_path,
+            model_key=model_key,
+            cost_projection=cost_path,
+            run_input_manifest=run_input_path,
+            owner_ceiling_usd="1.50",
+            owner_bead_id="scope-test",
+            provider_authority=_authority(),
+        )
 
 
 def test_scope_preserves_six_decimal_cost_projection(tmp_path: Path) -> None:
