@@ -630,6 +630,11 @@ def execute_release_run(
                             pretransport_attempt_ordinal=(pretransport_attempt_ordinal),
                             pretransport_attempt=pretransport_attempt,
                             pretransport_attempt_observer=bind_pretransport_attempt,
+                            transport_start_observer=(
+                                authority.mark_transport_started
+                                if isinstance(authority, DynamoDbProviderSpendAuthority)
+                                else None
+                            ),
                             response_observer=persist_provider_response,
                         )
                         request_sha256 = capture.request_body_sha256
@@ -753,6 +758,7 @@ def _complete_cell(
     pretransport_attempt_ordinal: int | None,
     pretransport_attempt: AttemptLease | None,
     pretransport_attempt_observer: Callable[[AttemptLease], None],
+    transport_start_observer: Callable[[AttemptLease], None] | None,
     response_observer: Callable[[AttemptLease, Mapping[str, object]], None],
 ) -> SolverResponse:
     handler = ProviderSpendAttemptHandler(
@@ -769,6 +775,7 @@ def _complete_cell(
         pretransport_attempt_ordinal=pretransport_attempt_ordinal,
         pretransport_attempt=pretransport_attempt,
         pretransport_attempt_observer=pretransport_attempt_observer,
+        transport_start_observer=transport_start_observer,
         response_observer=response_observer,
     )
     return complete_live_prompt(

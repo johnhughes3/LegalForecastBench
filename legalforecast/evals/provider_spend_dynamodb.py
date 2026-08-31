@@ -375,10 +375,66 @@ class DynamoDbProviderSpendAuthority:
             raise AttemptStateError(
                 "remote provider cell is not a crash-resumable pretransport reservation"
             )
+        if _text(attempt, "transport_phase") != "pretransport":
+            raise AttemptStateError(
+                "remote provider cell has already entered provider transport"
+            )
         lease = self._lease_from_attempt(attempt)
         if lease.logical_call_key != key.logical_call_key:
             raise AttemptStateError("remote provider attempt logical identity differs")
         return lease
+
+    def mark_transport_started(self, lease: AttemptLease) -> None:
+        """Durably fence provider transport before any request is sent."""
+
+        attempt = self._attempt_for_lease(lease)
+        if _text(attempt, "status") != "reserved":
+            raise AttemptStateError(
+                "provider transport cannot start from the current attempt state"
+            )
+        if _text(attempt, "transport_phase") != "pretransport":
+            raise AttemptStateError(
+                "provider transport has already entered its durable start phase"
+            )
+        transaction: JsonObject = {
+            "TransactItems": [
+                {
+                    "Update": {
+                        "TableName": self.table_name,
+                        "Key": self._key(_attempt_record_key(lease)),
+                        "UpdateExpression": (
+                            "SET #transport_phase = :started, "
+                            "transport_started_at_epoch = :now"
+                        ),
+                        "ConditionExpression": (
+                            "#status = :reserved AND "
+                            "#transport_phase = :pretransport AND "
+                            "attempt_id = :attempt_id AND "
+                            "logical_call_key = :logical AND "
+                            "attempt_ordinal = :ordinal AND "
+                            "reservation_microusd = :reservation AND "
+                            "authority_identity_sha256 = :identity"
+                        ),
+                        "ExpressionAttributeNames": {
+                            "#status": "status",
+                            "#transport_phase": "transport_phase",
+                        },
+                        "ExpressionAttributeValues": {
+                            ":started": _s("transport_started"),
+                            ":pretransport": _s("pretransport"),
+                            ":reserved": _s("reserved"),
+                            ":attempt_id": _s(lease.attempt_id),
+                            ":logical": _s(lease.logical_call_key),
+                            ":ordinal": _n(lease.attempt_ordinal),
+                            ":reservation": _n(lease.reservation_microusd),
+                            ":identity": _s(self.authority_identity_sha256),
+                            ":now": _n(self._clock()),
+                        },
+                    }
+                }
+            ]
+        }
+        self._runner("transact-write-items", _with_client_token(transaction))
 
     def record_response(
         self,
@@ -957,6 +1013,7 @@ class DynamoDbProviderSpendAuthority:
                             "repeat_index": _n(key.repeat_index),
                             "reservation_microusd": _n(reservation),
                             "status": _s("reserved"),
+                            "transport_phase": _s("pretransport"),
                             "authorized_at_epoch": _n(now),
                         },
                         "ConditionExpression": (

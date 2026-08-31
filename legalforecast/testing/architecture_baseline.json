@@ -4725,9 +4725,9 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "DynamoDbProviderSpendAuthority",
-        "largest_symbol_lines": 1170,
+        "largest_symbol_lines": 1227,
         "layer": "application",
-        "line_count": 1380,
+        "line_count": 1437,
         "nonblank_line_count": 1268,
         "top_level_definition_count": 18
       },
@@ -8613,9 +8613,9 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 582,
+        "largest_symbol_lines": 587,
         "layer": "application",
-        "line_count": 1151,
+        "line_count": 1158,
         "nonblank_line_count": 1050,
         "top_level_definition_count": 20
       },
@@ -11603,7 +11603,7 @@
         "largest_symbol": "test_runner_spend_keys_use_injective_cell_identity",
         "largest_symbol_lines": 95,
         "layer": "test",
-        "line_count": 1632,
+        "line_count": 1741,
         "nonblank_line_count": 1316,
         "top_level_definition_count": 46
       },

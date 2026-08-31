@@ -20,7 +20,11 @@ from legalforecast.evals.live_model_solver import (
     LiveModelProviderError,
     LiveModelResponseError,
 )
-from legalforecast.evals.provider_spend_control import AttemptLimitExceededError
+from legalforecast.evals.provider_spend_control import (
+    AttemptLease,
+    AttemptLimitExceededError,
+    AttemptStateError,
+)
 from legalforecast.evals.provider_spend_dynamodb import DynamoDbProviderSpendAuthority
 from legalforecast.immutable_io import ImmutableIOError
 from legalforecast.runner import (
@@ -1263,6 +1267,113 @@ def test_runner_recovers_remote_pretransport_reservation_without_duplicate_trans
         assert connection.execute(
             "SELECT COUNT(*) FROM public_runner_cells WHERE status = 'completed'"
         ).fetchone() == (3,)
+
+
+@pytest.mark.parametrize("crash_after", ("marker", "provider"))
+def test_runner_halts_on_remote_transport_started_orphan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    crash_after: str,
+) -> None:
+    """Never retry a remote lease once transport could have become billable."""
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    remote_runner = InMemoryDynamoRunner()
+    original_remote_init = DynamoDbProviderSpendAuthority.__init__
+
+    def use_fixture_remote(
+        authority: DynamoDbProviderSpendAuthority,
+        **kwargs: object,
+    ) -> None:
+        original_remote_init(authority, runner=remote_runner, **kwargs)
+
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "__init__",
+        use_fixture_remote,
+    )
+    original_mark_started = DynamoDbProviderSpendAuthority.mark_transport_started
+    original_record_response = DynamoDbProviderSpendAuthority.record_response
+    crashed = False
+
+    def crash_after_marker(
+        authority: DynamoDbProviderSpendAuthority,
+        lease: AttemptLease,
+    ) -> None:
+        nonlocal crashed
+        original_mark_started(authority, lease)
+        if not crashed:
+            crashed = True
+            raise SimulatedCrash
+
+    def crash_before_remote_settlement(
+        authority: DynamoDbProviderSpendAuthority,
+        lease: AttemptLease,
+        **kwargs: object,
+    ) -> None:
+        nonlocal crashed
+        if not crashed:
+            crashed = True
+            raise SimulatedCrash
+        original_record_response(authority, lease, **kwargs)
+
+    if crash_after == "marker":
+        monkeypatch.setattr(
+            DynamoDbProviderSpendAuthority,
+            "mark_transport_started",
+            crash_after_marker,
+        )
+    else:
+        monkeypatch.setattr(
+            DynamoDbProviderSpendAuthority,
+            "record_response",
+            crash_before_remote_settlement,
+        )
+
+    resource_identity = hashlib.sha256(remote_runner.table_arn.encode()).hexdigest()
+    config = replace(
+        _config(tmp_path),
+        provider_authority_table="authority-table",
+        provider_authority_region="us-east-1",
+        provider_authority_resource_identity_sha256=resource_identity,
+    )
+    first_transport = FixtureModelTransport()
+    with pytest.raises(SimulatedCrash):
+        execute_release_run(
+            config,
+            transport=first_transport,
+            environ=_fixture_environ(),
+        )
+    assert first_transport.call_count == (0 if crash_after == "marker" else 1)
+
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "mark_transport_started",
+        original_mark_started,
+    )
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "record_response",
+        original_record_response,
+    )
+    with sqlite3.connect(config.ledger_path) as connection:
+        connection.execute("DELETE FROM public_runner_cells")
+        connection.commit()
+
+    retry = CountingTransport(error=AssertionError("remote transport retried"))
+    with pytest.raises(AttemptStateError):
+        execute_release_run(config, transport=retry, environ=_fixture_environ())
+    assert retry.calls == 0
+    remote_attempt_keys = tuple(
+        key for key in remote_runner.items if key.startswith("ATTEMPT#")
+    )
+    assert len(remote_attempt_keys) == 1
+    assert remote_runner.items[remote_attempt_keys[0]]["status"] == {"S": "reserved"}
+    assert remote_runner.items[remote_attempt_keys[0]]["transport_phase"] == {
+        "S": "transport_started"
+    }
 
 
 def test_runner_preflights_before_reusing_pretransport_reservation(

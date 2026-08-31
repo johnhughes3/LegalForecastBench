@@ -95,6 +95,7 @@ class ProviderSpendAttemptHandler:
     pretransport_attempt_ordinal: int | None = None
     pretransport_attempt: AttemptLease | None = None
     pretransport_attempt_observer: Callable[[AttemptLease], None] | None = None
+    transport_start_observer: Callable[[AttemptLease], None] | None = None
     response_observer: ResponseObserver | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
@@ -216,6 +217,8 @@ class ProviderSpendAttemptHandler:
             and self.pretransport_attempt_observer is not None
         ):
             self.pretransport_attempt_observer(lease)
+        if self.transport_start_observer is not None:
+            self.transport_start_observer(lease)
         try:
             response = call()
             if self.response_observer is not None:
