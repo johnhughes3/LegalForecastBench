@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from collections.abc import Callable, Mapping
@@ -19,7 +20,12 @@ from legalforecast.evals.live_model_solver import (
     LiveModelProviderError,
     LiveModelResponseError,
 )
-from legalforecast.evals.provider_spend_control import AttemptLimitExceededError
+from legalforecast.evals.provider_spend_control import (
+    AttemptLease,
+    AttemptLimitExceededError,
+    AttemptStateError,
+)
+from legalforecast.evals.provider_spend_dynamodb import DynamoDbProviderSpendAuthority
 from legalforecast.immutable_io import ImmutableIOError
 from legalforecast.runner import (
     RunBlockedError,
@@ -30,6 +36,7 @@ from legalforecast.runner import (
     issue_runner_fixture,
 )
 from legalforecast.runner.fixture import FIXTURE_MODEL_KEY, FixtureModelTransport
+from tests.test_provider_spend_dynamodb import InMemoryDynamoRunner
 
 JsonRecord = Mapping[str, object]
 
@@ -135,10 +142,80 @@ def test_run_cli_help_exposes_complete_release_only_inputs(
         "--harness",
         "--ablation",
         "--repeat-count",
+        "--unit-id",
+        "--repeat-index",
+        "--cell-id",
         "--dry-run",
     ):
         assert option in help_text
     assert "labels" not in help_text.lower()
+
+
+def test_runner_executes_exactly_one_selected_manifest_cell(
+    tmp_path: Path,
+) -> None:
+    config = replace(_config(tmp_path), unit_id="unit-002")
+    transport = FixtureModelTransport()
+
+    summary = execute_release_run(
+        config,
+        transport=transport,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.completed_cells == 1
+    assert summary.executed_cells == 1
+    assert summary.resumed_cells == 0
+    assert transport.call_count == 1
+    receipts = tuple(
+        json.loads(path.read_bytes()) for path in config.receipts_dir.glob("*.json")
+    )
+    assert [receipt["unit_id"] for receipt in receipts] == ["unit-002"]
+    with sqlite3.connect(config.ledger_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM public_runner_cells"
+        ).fetchone() == (1,)
+
+
+def test_runner_rejects_unknown_selected_manifest_cell_before_ledger_creation(
+    tmp_path: Path,
+) -> None:
+    config = replace(_config(tmp_path), unit_id="unit-unknown")
+    transport = CountingTransport(error=AssertionError("transport called"))
+
+    with pytest.raises(
+        RunValidationError,
+        match="not declared by the forecast release",
+    ):
+        execute_release_run(
+            config,
+            transport=transport,
+            environ=_fixture_environ(),
+        )
+
+    assert transport.calls == 0
+    assert not config.ledger_path.exists()
+
+
+def test_runner_rejects_mismatched_selected_cell_before_ledger_creation(
+    tmp_path: Path,
+) -> None:
+    config = replace(
+        _config(tmp_path),
+        unit_id="unit-002",
+        cell_id="f" * 64,
+    )
+    transport = CountingTransport(error=AssertionError("transport called"))
+
+    with pytest.raises(RunValidationError, match="selected manifest unit"):
+        execute_release_run(
+            config,
+            transport=transport,
+            environ=_fixture_environ(),
+        )
+
+    assert transport.calls == 0
+    assert not config.ledger_path.exists()
 
 
 def test_runner_refuses_missing_approval_reference_before_creating_ledger(
@@ -1094,6 +1171,209 @@ def test_runner_reuses_exact_pretransport_reservation_after_crash(
         assert connection.execute(
             "SELECT provider_attempt_id FROM public_runner_cells ORDER BY rowid LIMIT 1"
         ).fetchone() == (original_attempt_id,)
+
+
+@pytest.mark.parametrize("crash_after_projection", (False, True))
+def test_runner_recovers_remote_pretransport_reservation_without_duplicate_transport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    crash_after_projection: bool,
+) -> None:
+    """Recover a remote lease before or after local projection without duplication."""
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    remote_runner = InMemoryDynamoRunner()
+    original_remote_init = DynamoDbProviderSpendAuthority.__init__
+
+    def use_fixture_remote(
+        authority: DynamoDbProviderSpendAuthority,
+        **kwargs: object,
+    ) -> None:
+        original_remote_init(authority, runner=remote_runner, **kwargs)
+
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "__init__",
+        use_fixture_remote,
+    )
+    original_reserve_cell = runner_service.RunnerLedger.reserve_cell
+    projected = False
+
+    def crash_before_first_projection(
+        ledger: runner_service.RunnerLedger,
+        **kwargs: object,
+    ) -> None:
+        nonlocal projected
+        if not projected:
+            projected = True
+            if crash_after_projection:
+                original_reserve_cell(ledger, **kwargs)
+            raise SimulatedCrash
+        original_reserve_cell(ledger, **kwargs)
+
+    monkeypatch.setattr(
+        runner_service.RunnerLedger,
+        "reserve_cell",
+        crash_before_first_projection,
+    )
+    resource_identity = hashlib.sha256(remote_runner.table_arn.encode()).hexdigest()
+    config = replace(
+        _config(tmp_path),
+        provider_authority_table="authority-table",
+        provider_authority_region="us-east-1",
+        provider_authority_resource_identity_sha256=resource_identity,
+    )
+    first_transport = FixtureModelTransport()
+    with pytest.raises(SimulatedCrash):
+        execute_release_run(
+            config,
+            transport=first_transport,
+            environ=_fixture_environ(),
+        )
+
+    assert first_transport.call_count == 0
+    remote_attempt_keys = tuple(
+        key for key in remote_runner.items if key.startswith("ATTEMPT#")
+    )
+    assert len(remote_attempt_keys) == 1
+    original_remote_attempt_id = remote_runner.items[remote_attempt_keys[0]][
+        "attempt_id"
+    ]
+
+    monkeypatch.setattr(
+        runner_service.RunnerLedger,
+        "reserve_cell",
+        original_reserve_cell,
+    )
+    resumed_transport = FixtureModelTransport()
+    summary = execute_release_run(
+        config,
+        transport=resumed_transport,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.executed_cells == 3
+    assert resumed_transport.call_count == 3
+    remote_attempt_keys = tuple(
+        key for key in remote_runner.items if key.startswith("ATTEMPT#")
+    )
+    assert len(remote_attempt_keys) == 3
+    assert remote_runner.items[remote_attempt_keys[0]]["attempt_id"] == (
+        original_remote_attempt_id
+    )
+    with sqlite3.connect(config.ledger_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM public_runner_cells WHERE status = 'completed'"
+        ).fetchone() == (3,)
+
+
+@pytest.mark.parametrize("crash_after", ("marker", "provider"))
+def test_runner_halts_on_remote_transport_started_orphan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    crash_after: str,
+) -> None:
+    """Never retry a remote lease once transport could have become billable."""
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    remote_runner = InMemoryDynamoRunner()
+    original_remote_init = DynamoDbProviderSpendAuthority.__init__
+
+    def use_fixture_remote(
+        authority: DynamoDbProviderSpendAuthority,
+        **kwargs: object,
+    ) -> None:
+        original_remote_init(authority, runner=remote_runner, **kwargs)
+
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "__init__",
+        use_fixture_remote,
+    )
+    original_mark_started = DynamoDbProviderSpendAuthority.mark_transport_started
+    original_record_response = DynamoDbProviderSpendAuthority.record_response
+    crashed = False
+
+    def crash_after_marker(
+        authority: DynamoDbProviderSpendAuthority,
+        lease: AttemptLease,
+    ) -> None:
+        nonlocal crashed
+        original_mark_started(authority, lease)
+        if not crashed:
+            crashed = True
+            raise SimulatedCrash
+
+    def crash_before_remote_settlement(
+        authority: DynamoDbProviderSpendAuthority,
+        lease: AttemptLease,
+        **kwargs: object,
+    ) -> None:
+        nonlocal crashed
+        if not crashed:
+            crashed = True
+            raise SimulatedCrash
+        original_record_response(authority, lease, **kwargs)
+
+    if crash_after == "marker":
+        monkeypatch.setattr(
+            DynamoDbProviderSpendAuthority,
+            "mark_transport_started",
+            crash_after_marker,
+        )
+    else:
+        monkeypatch.setattr(
+            DynamoDbProviderSpendAuthority,
+            "record_response",
+            crash_before_remote_settlement,
+        )
+
+    resource_identity = hashlib.sha256(remote_runner.table_arn.encode()).hexdigest()
+    config = replace(
+        _config(tmp_path),
+        provider_authority_table="authority-table",
+        provider_authority_region="us-east-1",
+        provider_authority_resource_identity_sha256=resource_identity,
+    )
+    first_transport = FixtureModelTransport()
+    with pytest.raises(SimulatedCrash):
+        execute_release_run(
+            config,
+            transport=first_transport,
+            environ=_fixture_environ(),
+        )
+    assert first_transport.call_count == (0 if crash_after == "marker" else 1)
+
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "mark_transport_started",
+        original_mark_started,
+    )
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "record_response",
+        original_record_response,
+    )
+    with sqlite3.connect(config.ledger_path) as connection:
+        connection.execute("DELETE FROM public_runner_cells")
+        connection.commit()
+
+    retry = CountingTransport(error=AssertionError("remote transport retried"))
+    with pytest.raises(AttemptStateError):
+        execute_release_run(config, transport=retry, environ=_fixture_environ())
+    assert retry.calls == 0
+    remote_attempt_keys = tuple(
+        key for key in remote_runner.items if key.startswith("ATTEMPT#")
+    )
+    assert len(remote_attempt_keys) == 1
+    assert remote_runner.items[remote_attempt_keys[0]]["status"] == {"S": "reserved"}
+    assert remote_runner.items[remote_attempt_keys[0]]["transport_phase"] == {
+        "S": "transport_started"
+    }
 
 
 def test_runner_preflights_before_reusing_pretransport_reservation(

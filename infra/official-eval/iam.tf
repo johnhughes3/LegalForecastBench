@@ -71,6 +71,31 @@ resource "aws_iam_role_policy_attachments_exclusive" "cell" {
   policy_arns = []
 }
 
+# Prepare-inputs is intentionally a distinct read-only role. The forecast
+# workflow uses it before provider cells run; it must not inherit the cell's
+# marker writes or provider-authority DynamoDB access.
+resource "aws_iam_role" "prepare_inputs" {
+  name                 = "${var.name_prefix}-prepare-inputs"
+  assume_role_policy   = local.prepare_inputs_trust_policy_json
+  max_session_duration = 3600
+}
+
+resource "aws_iam_role_policy" "prepare_inputs_storage" {
+  name   = "official-eval-prepare-inputs-storage"
+  role   = aws_iam_role.prepare_inputs.id
+  policy = local.prepare_inputs_storage_policy_json
+}
+
+resource "aws_iam_role_policies_exclusive" "prepare_inputs" {
+  role_name    = aws_iam_role.prepare_inputs.name
+  policy_names = [aws_iam_role_policy.prepare_inputs_storage.name]
+}
+
+resource "aws_iam_role_policy_attachments_exclusive" "prepare_inputs" {
+  role_name   = aws_iam_role.prepare_inputs.name
+  policy_arns = []
+}
+
 resource "aws_iam_role" "fan_in" {
   name                 = "${var.name_prefix}-fan-in"
   assume_role_policy   = local.fan_in_trust_policy_json

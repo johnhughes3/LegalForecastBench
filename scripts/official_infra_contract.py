@@ -25,6 +25,7 @@ OUTSIDE_AUTHORITY_CANARY_TABLE = (
 )
 LABELING_ROLE = "legalforecastbench-official-labeling-authority"
 EVAL_CELL_ROLE = "legalforecastbench-official-eval"
+EVAL_PREPARE_INPUTS_ROLE = f"{EVAL_CELL_ROLE}-prepare-inputs"
 EVAL_FAN_IN_ROLE = f"{EVAL_CELL_ROLE}-fan-in"
 EVAL_MANIFEST_STAGING_ROLE = f"{EVAL_CELL_ROLE}-manifest-staging"
 
@@ -41,16 +42,20 @@ PLAN_ADDRESSES: dict[str, frozenset[str]] = {
     "official-eval": frozenset(
         {
             "aws_iam_role.cell",
+            "aws_iam_role.prepare_inputs",
             "aws_iam_role.fan_in",
             "aws_iam_role_policy.cell_provider_authority",
             "aws_iam_role_policy.cell_storage",
+            "aws_iam_role_policy.prepare_inputs_storage",
             "aws_iam_role_policy.fan_in_storage",
             "aws_iam_role_policies_exclusive.cell",
+            "aws_iam_role_policies_exclusive.prepare_inputs",
             "aws_iam_role_policies_exclusive.fan_in",
             "aws_iam_role.manifest_staging",
             "aws_iam_role_policy.manifest_staging_storage",
             "aws_iam_role_policies_exclusive.manifest_staging",
             "aws_iam_role_policy_attachments_exclusive.cell",
+            "aws_iam_role_policy_attachments_exclusive.prepare_inputs",
             "aws_iam_role_policy_attachments_exclusive.fan_in",
             "aws_iam_role_policy_attachments_exclusive.manifest_staging",
         }
@@ -69,12 +74,16 @@ DATA_ADDRESSES: dict[str, frozenset[str]] = {
 
 _EVAL_FIXED_IMPORT_IDS: dict[str, str] = {
     "aws_iam_role.cell": EVAL_CELL_ROLE,
+    "aws_iam_role.prepare_inputs": EVAL_PREPARE_INPUTS_ROLE,
     "aws_iam_role.fan_in": EVAL_FAN_IN_ROLE,
     "aws_iam_role_policy.cell_provider_authority": (
         f"{EVAL_CELL_ROLE}:official-eval-cell-exact-provider-authority"
     ),
     "aws_iam_role_policy.cell_storage": (
         f"{EVAL_CELL_ROLE}:official-eval-cell-storage"
+    ),
+    "aws_iam_role_policy.prepare_inputs_storage": (
+        f"{EVAL_PREPARE_INPUTS_ROLE}:official-eval-prepare-inputs-storage"
     ),
     "aws_iam_role_policy.fan_in_storage": (
         f"{EVAL_FAN_IN_ROLE}:official-eval-fan-in-storage"
@@ -84,9 +93,13 @@ _EVAL_FIXED_IMPORT_IDS: dict[str, str] = {
         f"{EVAL_MANIFEST_STAGING_ROLE}:official-eval-manifest-staging-storage"
     ),
     "aws_iam_role_policies_exclusive.cell": EVAL_CELL_ROLE,
+    "aws_iam_role_policies_exclusive.prepare_inputs": EVAL_PREPARE_INPUTS_ROLE,
     "aws_iam_role_policies_exclusive.fan_in": EVAL_FAN_IN_ROLE,
     "aws_iam_role_policies_exclusive.manifest_staging": EVAL_MANIFEST_STAGING_ROLE,
     "aws_iam_role_policy_attachments_exclusive.cell": EVAL_CELL_ROLE,
+    "aws_iam_role_policy_attachments_exclusive.prepare_inputs": (
+        EVAL_PREPARE_INPUTS_ROLE
+    ),
     "aws_iam_role_policy_attachments_exclusive.fan_in": EVAL_FAN_IN_ROLE,
     "aws_iam_role_policy_attachments_exclusive.manifest_staging": (
         EVAL_MANIFEST_STAGING_ROLE

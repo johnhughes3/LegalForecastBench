@@ -16,6 +16,7 @@ positional arguments:
     packet          Packet artifact commands.
     model-run       Run no-network fixture solvers over packet artifacts.
     eval            Evaluation run commands.
+    manifest        Validate the locked public benchmark-run manifest.
     score           Parse model outputs and score them against locked labels.
     report          Render leaderboard artifacts from score summaries.
     release         Issue and validate public forecast and labels releases.

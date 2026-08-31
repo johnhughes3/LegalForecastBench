@@ -1,79 +1,60 @@
-name: Fan In Official Shards
+name: Protected Labels Fan In
 
+# Forecast execution and label acquisition are deliberately separate workflow
+# invocations. This workflow is the only public-repository job that accepts a
+# labels-release locator or assumes a role able to read it.
 on:
   workflow_dispatch:
     inputs:
       release_sha:
-        description: Exact trusted commit to verify; it must be reachable from origin/main.
+        description: Exact trusted public commit; it must be the dispatched main commit and remain main-reachable.
         required: true
         type: string
       cycle_id:
-        description: Frozen cycle whose immutable shard receipts will be selected.
+        description: Public cycle identifier used for the immutable report prefix.
         required: true
         type: string
-      freeze_bundle_path:
-        description: Immutable staged manifest-run freeze URI (s3://.../cycle-1/manifest-runs/<sha256>/freeze.json).
+      forecast_run_id:
+        description: Completed Run Benchmark workflow run ID that produced the forecast receipts.
         required: true
-        type: string
-      source_dispatch_run_id:
-        description: Workflow run whose frozen dispatch artifact supplies the exact run-input, labels, and registry bytes.
-        required: false
-        default: 0
         type: number
-      source_dispatch_run_attempt:
-        description: Exact attempt of the source workflow run whose non-overwritable artifact is accepted.
-        required: false
-        default: 0
-        type: number
-      source_dispatch_runs_json:
-        description: JSON array of all source dispatch identities, each with run_id and run_attempt; use for multi-dispatch fan-in.
-        required: false
-        default: "[]"
-        type: string
-      accepted_attempt_map_path:
-        description: Optional committed manifests/ accepted-attempt map for ambiguous shards.
-        required: false
-        default: ""
-        type: string
-      verify_only:
-        description: Verify and aggregate locally without any canonical report write.
+      forecast_run_attempt:
+        description: Exact attempt of forecast_run_id whose durable artifact is being scored.
         required: true
-        default: true
+        type: number
+      manifest_uri:
+        description: Locked public run-manifest URI under the configured results bucket.
+        required: true
+        type: string
+      forecast_release_uri:
+        description: Outcome-blinded forecast-release.json URI under the configured results bucket.
+        required: true
+        type: string
+      artifact_root_uri:
+        description: Immutable forecast artifact prefix under the configured results bucket.
+        required: true
+        type: string
+      model_registry_uri:
+        description: Frozen public model registry URI under the configured results bucket.
+        required: true
+        type: string
+      labels_release_uri:
+        description: Labels-release.json URI; this input is accepted only by this protected fan-in.
+        required: true
+        type: string
+      model_key:
+        description: Exact provider:model_id key executed by the forecast run.
+        required: true
+        type: string
+      publish:
+        description: Write the verified score/report to the immutable public report prefix.
+        required: true
+        default: false
         type: boolean
-      clean_motion_count:
-        description: Optional assertion; fan-in derives the authoritative count from frozen artifacts.
-        required: false
-        default: ""
-        type: string
-      prediction_unit_count:
-        description: Optional assertion; fan-in derives the authoritative count from frozen artifacts.
-        required: false
-        default: ""
-        type: string
-      baseline_training_examples_path:
-        description: Optional frozen baseline-training corpus path.
-        required: false
-        default: ""
-        type: string
       artifact_retention_days:
-        description: Retention for the sanitized fan-in verification report.
+        description: Retention for sanitized score/report workflow artifacts.
         required: true
-        default: "30"
-        type: string
-      hugging_face_release_version:
-        description: Optional immutable dataset version (for example cycle-1.0.0); publishes only after a non-verify official fan-in.
-        required: false
-        default: ""
-        type: string
-      supplementary_artifacts_dir:
-        description: >-
-          Optional checked-out path to an already-aggregated supplementary
-          bundle for post-anchor models. When set, its rows publish beside the
-          official rows, flagged and separately split. Leave empty for an
-          official-only publication, which then invokes the build exactly as
-          before.
-        required: false
-        default: ""
+        default: "14"
         type: string
 
 permissions:
@@ -81,13 +62,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: official-fan-in-${{ inputs.cycle_id }}
+  group: protected-labels-fan-in-${{ inputs.cycle_id }}-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}
   cancel-in-progress: false
 
 jobs:
   fan-in-results:
-    name: Verify accepted shard attempts and fan in
-    # Protected environment: stay on GitHub-hosted ubuntu-latest.
+    name: Verify forecast and fan in labels
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: legalforecastbench-official-eval-fan-in
@@ -100,147 +80,120 @@ jobs:
       LFB_GITHUB_FAN_IN_ROLE_ARN: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
-      - name: Checkout trusted release
+      - name: Checkout exact main release
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ inputs.release_sha }}
 
-      - name: Validate trusted immutable inputs
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
+        with:
+          enable-cache: true
+
+      - name: Validate protected request and release identity
         shell: bash
         env:
-          ACCEPTED_MAP: ${{ inputs.accepted_attempt_map_path }}
+          ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
           CYCLE_ID: ${{ inputs.cycle_id }}
-          FREEZE_BUNDLE: ${{ inputs.freeze_bundle_path }}
-          RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+          FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
+          LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
+          MANIFEST_URI: ${{ inputs.manifest_uri }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
           RELEASE_SHA: ${{ inputs.release_sha }}
-          SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}
-          SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}
-          SOURCE_DISPATCH_RUNS_JSON: ${{ inputs.source_dispatch_runs_json }}
-          VERIFY_ONLY: ${{ inputs.verify_only }}
+          RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
         run: |
           set -euo pipefail
-          [[ -n "${AWS_REGION:-}" ]] || {
-            echo "LFB_AWS_REGION must be configured on the protected environment." >&2
+          [[ "${GITHUB_REF}" == "refs/heads/main" ]] || {
+            echo "protected labels fan-in is allowed only from refs/heads/main" >&2
             exit 1
           }
-          git fetch --no-tags origin main
+          [[ "${GITHUB_SHA}" == "${RELEASE_SHA}" ]] || {
+            echo "release_sha must equal the exact main commit that triggered this workflow" >&2
+            exit 1
+          }
           [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
             echo "release_sha must be a full lowercase commit SHA" >&2
             exit 1
           }
-          checked_out_sha="$(git rev-parse HEAD)"
-          [[ "${checked_out_sha}" == "${RELEASE_SHA}" ]] || {
+          [[ "$(git rev-parse HEAD)" == "${RELEASE_SHA}" ]] || {
             echo "checked-out HEAD does not equal release_sha" >&2
             exit 1
           }
-          git merge-base --is-ancestor "${checked_out_sha}" origin/main || {
-            echo "release_sha must be reachable from origin/main" >&2
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "${RELEASE_SHA}" origin/main || {
+            echo "release_sha must remain reachable from origin/main" >&2
             exit 1
           }
           [[ "${CYCLE_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || {
             echo "cycle_id contains unsafe characters" >&2
             exit 1
           }
-          if [[ "${SOURCE_DISPATCH_RUNS_JSON}" == "[]" ]]; then
-            [[ "${SOURCE_DISPATCH_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || {
-              echo "source_dispatch_run_id must be a positive integer" >&2
-              exit 1
-            }
-            [[ "${SOURCE_DISPATCH_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]] || {
-              echo "source_dispatch_run_attempt must be a positive integer" >&2
-              exit 1
-            }
-          fi
-          [[ "${FREEZE_BUNDLE}" =~ ^s3://[^/]+/cycle-1/manifest-runs/[0-9a-f]{64}/freeze\.json$ ]] || {
-            echo "freeze_bundle_path must be an immutable manifest-run S3 URI" >&2
+          [[ "${FORECAST_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || {
+            echo "forecast_run_id must be a positive integer" >&2
             exit 1
           }
-          freeze_location="${FREEZE_BUNDLE#s3://}"
-          freeze_bucket="${freeze_location%%/*}"
-          [[ -n "${RESULTS_BUCKET:-}" && "${freeze_bucket}" == "${RESULTS_BUCKET}" ]] || {
-            echo "freeze_bundle_path must use the configured LFB_RESULTS_BUCKET" >&2
+          [[ "${FORECAST_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]] || {
+            echo "forecast_run_attempt must be a positive integer" >&2
             exit 1
           }
-          if [[ -n "${ACCEPTED_MAP//[[:space:]]/}" ]]; then
-            [[ -f "${ACCEPTED_MAP}" ]] || {
-              echo "accepted_attempt_map_path is not a checked-out file" >&2
+          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google):[^:[:space:]]+$ ]] || {
+            echo "model_key must be provider:model_id" >&2
+            exit 1
+          }
+          [[ "${RETENTION_DAYS}" =~ ^[1-9][0-9]*$ && "${RETENTION_DAYS}" -le 90 ]] || {
+            echo "artifact_retention_days must be between 1 and 90" >&2
+            exit 1
+          }
+          for locator in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" \
+            "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${LABELS_RELEASE_URI}"; do
+            [[ "${locator}" =~ ^(s3://[^/]+/[A-Za-z0-9._/-]+|manifests/[A-Za-z0-9._/-]+)$ ]] || {
+              echo "official input locators must be s3:// URIs or manifests/ keys" >&2
               exit 1
             }
-            if [[ "${VERIFY_ONLY}" != "true" ]]; then
-              case "${ACCEPTED_MAP}" in
-                manifests/*) ;;
-                *)
-                  echo "publishing accepted-attempt map must be under manifests/" >&2
+            [[ "${locator}" != *..* && "${locator}" != *"//"* ]] || {
+              echo "official input locator contains an unsafe path" >&2
+              exit 1
+            }
+          done
+          [[ "${ARTIFACT_ROOT_URI}" == */ ]] || {
+            echo "artifact_root_uri must be a prefix ending in /" >&2
+            exit 1
+          }
+          [[ -n "${LFB_RESULTS_BUCKET:-}" ]] || {
+            echo "LFB_RESULTS_BUCKET must be configured on the protected environment" >&2
+            exit 1
+          }
+          for locator in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" \
+            "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${LABELS_RELEASE_URI}"; do
+            case "${locator}" in
+              manifests/*) ;;
+              s3://*)
+                bucket_and_key="${locator#s3://}"
+                [[ "${bucket_and_key}" == "${LFB_RESULTS_BUCKET}/"* ]] || {
+                  echo "s3 locator must use the configured LFB_RESULTS_BUCKET" >&2
                   exit 1
-                  ;;
-              esac
-              git ls-files --error-unmatch -- "${ACCEPTED_MAP}" >/dev/null
-              git diff --quiet HEAD -- "${ACCEPTED_MAP}"
-            fi
-          fi
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
+                }
+                ;;
+              *)
+                echo "official input locator has an unsupported form" >&2
+                exit 1
+                ;;
+            esac
+          done
 
-          raw = os.environ["SOURCE_DISPATCH_RUNS_JSON"]
-          try:
-              decoded = json.loads(raw)
-          except json.JSONDecodeError as exc:
-              raise SystemExit("source_dispatch_runs_json must be a JSON array") from exc
-          if not isinstance(decoded, list):
-              raise SystemExit("source_dispatch_runs_json must be a JSON array")
-          singular_values = (
-              os.environ["SOURCE_DISPATCH_RUN_ID"],
-              os.environ["SOURCE_DISPATCH_RUN_ATTEMPT"],
-          )
-          if decoded and any(value not in {"", "0"} for value in singular_values):
-              raise SystemExit(
-                  "source_dispatch_runs_json cannot be combined with singular source dispatch fields"
-              )
-          if not decoded:
-              decoded = [
-                  {
-                      "run_id": os.environ["SOURCE_DISPATCH_RUN_ID"],
-                      "run_attempt": int(os.environ["SOURCE_DISPATCH_RUN_ATTEMPT"]),
-                  }
-              ]
-          normalized = []
-          seen = set()
-          for index, item in enumerate(decoded):
-              if not isinstance(item, dict) or set(item) != {"run_id", "run_attempt"}:
-                  raise SystemExit(
-                      f"source_dispatch_runs_json[{index}] must contain run_id and run_attempt"
-                  )
-              run_id = str(item["run_id"])
-              attempt = item["run_attempt"]
-              if (
-                  not run_id.isascii()
-                  or not run_id.isdigit()
-                  or int(run_id) < 1
-                  or (len(run_id) > 1 and run_id.startswith("0"))
-              ):
-                  raise SystemExit("source dispatch run ID must be a positive integer")
-              if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
-                  raise SystemExit("source dispatch run attempt must be a positive integer")
-              identity = (run_id, attempt)
-              if identity in seen:
-                  raise SystemExit("source_dispatch_runs_json contains duplicate identity")
-              seen.add(identity)
-              normalized.append({"run_id": run_id, "run_attempt": attempt})
-          Path("/tmp/lfb-source-dispatch-runs.json").write_text(
-              json.dumps(normalized, sort_keys=True) + "\n", encoding="utf-8"
-          )
-          PY
-
-      - name: Validate source dispatch workflow run
+      - name: Validate exact forecast workflow attempt
         shell: bash
         env:
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_REPOSITORY_NAME: ${{ github.repository }}
           GITHUB_TOKEN: ${{ github.token }}
+          FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
           RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
@@ -250,113 +203,57 @@ jobs:
           import urllib.error
           import urllib.request
 
-          expected_release_sha = os.environ["RELEASE_SHA"]
           api_url = os.environ["GITHUB_API_URL"].rstrip("/")
           repository = os.environ["GITHUB_REPOSITORY_NAME"]
-          with open("/tmp/lfb-source-dispatch-runs.json", encoding="utf-8") as handle:
-              identities = json.load(handle)
-
-          def request_json(path, description):
-              request = urllib.request.Request(
-                  f"{api_url}{path}",
-                  headers={
-                      "Accept": "application/vnd.github+json",
-                      "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
-                      "User-Agent": "legalforecastbench-official-fan-in",
-                      "X-GitHub-Api-Version": "2022-11-28",
-                  },
-              )
-              try:
-                  with urllib.request.urlopen(request, timeout=30) as response:
-                      return json.load(response)
-              except (OSError, json.JSONDecodeError, urllib.error.URLError) as exc:
-                  raise SystemExit(f"could not validate {description}") from exc
-
-          for identity in identities:
-              source_dispatch_run_id = identity["run_id"]
-              source_dispatch_run_attempt = identity["run_attempt"]
-              attempt_path = (
-                  f"/repos/{repository}/actions/runs/{source_dispatch_run_id}/"
-                  f"attempts/{source_dispatch_run_attempt}"
-              )
-              run = request_json(attempt_path, "a source dispatch workflow run")
-              if not isinstance(run, dict):
-                  raise SystemExit("source dispatch workflow run response is invalid")
-              if run["id"] != int(source_dispatch_run_id):
-                  raise SystemExit("source dispatch workflow run ID mismatch")
-              if run["run_attempt"] != int(source_dispatch_run_attempt):
-                  raise SystemExit("source dispatch workflow run attempt mismatch")
-              if run["head_sha"] != expected_release_sha:
-                  raise SystemExit("source dispatch workflow run release mismatch")
-              if run["head_branch"] != "main":
-                  raise SystemExit("source dispatch workflow run branch mismatch")
-              if run["event"] != "workflow_dispatch":
-                  raise SystemExit("source dispatch workflow run event mismatch")
-              if run["path"] != ".github/workflows/run-benchmark.yaml":
-                  raise SystemExit("source dispatch workflow path mismatch")
-              if run["status"] != "completed" or run.get("conclusion") != "success":
-                  raise SystemExit("source dispatch workflow attempt did not succeed")
-              jobs = []
-              expected_job_count = None
-              page = 1
-              while True:
-                  jobs_response = request_json(
-                      f"{attempt_path}/jobs?filter=all&per_page=100&page={page}",
-                      "a source dispatch workflow jobs page",
-                  )
-                  if not isinstance(jobs_response, dict):
-                      raise SystemExit("source dispatch workflow jobs response is invalid")
-                  page_jobs = jobs_response.get("jobs")
-                  total_count = jobs_response.get("total_count")
-                  if (
-                      not isinstance(page_jobs, list)
-                      or isinstance(total_count, bool)
-                      or not isinstance(total_count, int)
-                      or total_count < 0
-                  ):
-                      raise SystemExit("source dispatch workflow jobs response is invalid")
-                  if expected_job_count is None:
-                      expected_job_count = total_count
-                  elif total_count != expected_job_count:
-                      raise SystemExit("source dispatch workflow jobs changed during validation")
-                  if not all(isinstance(job, dict) for job in page_jobs):
-                      raise SystemExit("source dispatch workflow job record is invalid")
-                  jobs.extend(page_jobs)
-                  if len(jobs) >= expected_job_count:
-                      break
-                  if not page_jobs or page >= 10:
-                      raise SystemExit("source dispatch workflow jobs response is incomplete")
-                  page += 1
-              if len(jobs) != expected_job_count:
-                  raise SystemExit("source dispatch workflow jobs response is invalid")
-              build_jobs = [job for job in jobs if job.get("name") == "Build benchmark matrix"]
-              if len(build_jobs) != 1 or build_jobs[0].get("conclusion") != "success":
-                  raise SystemExit("source dispatch build-matrix job did not succeed")
+          run_id = int(os.environ["FORECAST_RUN_ID"])
+          attempt = int(os.environ["FORECAST_RUN_ATTEMPT"])
+          expected_sha = os.environ["RELEASE_SHA"]
+          path = f"/repos/{repository}/actions/runs/{run_id}/attempts/{attempt}"
+          request = urllib.request.Request(
+              api_url + path,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "User-Agent": "legalforecastbench-protected-labels-fan-in",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  run = json.load(response)
+          except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+              raise SystemExit("could not validate the forecast workflow attempt") from exc
+          if not isinstance(run, dict):
+              raise SystemExit("forecast workflow attempt response is invalid")
+          checks = {
+              "run identity": run.get("id") == run_id and run.get("run_attempt") == attempt,
+              "release": run.get("head_sha") == expected_sha,
+              "branch": run.get("head_branch") == "main",
+              "event": run.get("event") == "workflow_dispatch",
+              "workflow path": run.get("path") == ".github/workflows/run-benchmark.yaml",
+              "success": run.get("status") == "completed" and run.get("conclusion") == "success",
+          }
+          for label, valid in checks.items():
+              if not valid:
+                  raise SystemExit(f"forecast workflow {label} check failed")
+          print(json.dumps({"run_id": run_id, "run_attempt": attempt, "head_sha": expected_sha}, sort_keys=True))
           PY
 
-      - name: Download exact frozen dispatch inputs
-        if: ${{ inputs.source_dispatch_runs_json == '[]' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: official-dispatch-provenance-${{ inputs.source_dispatch_run_id }}-${{ inputs.source_dispatch_run_attempt }}
-          path: /tmp/lfb-source-dispatch
-          github-token: ${{ github.token }}
-          run-id: ${{ inputs.source_dispatch_run_id }}
-
-      - name: Download all exact frozen dispatch inputs
-        if: ${{ inputs.source_dispatch_runs_json != '[]' }}
+      - name: Download exact durable forecast result artifact
         shell: bash
         env:
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_REPOSITORY_NAME: ${{ github.repository }}
           GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_SHA: ${{ inputs.release_sha }}
+          FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
         run: |
           set -euo pipefail
           python - <<'PY'
           import io
           import json
           import os
+          import stat
           import urllib.error
           import urllib.request
           import zipfile
@@ -365,414 +262,325 @@ jobs:
           api_url = os.environ["GITHUB_API_URL"].rstrip("/")
           repository = os.environ["GITHUB_REPOSITORY_NAME"]
           token = os.environ["GITHUB_TOKEN"]
-          with open("/tmp/lfb-source-dispatch-runs.json", encoding="utf-8") as handle:
-              identities = json.load(handle)
+          run_id = os.environ["FORECAST_RUN_ID"]
+          attempt = os.environ["FORECAST_RUN_ATTEMPT"]
+          expected_name = f"official-forecast-results-{run_id}-{attempt}"
 
-          def request_json(url, description):
+          def request_json(url: str, description: str) -> object:
               request = urllib.request.Request(
-                  url if url.startswith("http") else f"{api_url}{url}",
+                  url if url.startswith("http") else api_url + url,
                   headers={
                       "Accept": "application/vnd.github+json",
                       "Authorization": f"Bearer {token}",
-                      "User-Agent": "legalforecastbench-official-fan-in",
+                      "User-Agent": "legalforecastbench-protected-labels-fan-in",
                       "X-GitHub-Api-Version": "2022-11-28",
                   },
               )
               try:
                   with urllib.request.urlopen(request, timeout=60) as response:
                       return json.load(response)
-              except (OSError, json.JSONDecodeError, urllib.error.URLError) as exc:
-                  raise SystemExit(f"could not download {description}") from exc
+              except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+                  raise SystemExit(f"could not read {description}") from exc
 
-          def request_bytes(url, description):
-              request = urllib.request.Request(
-                  url,
-                  headers={
-                      "Accept": "application/vnd.github+json",
-                      "Authorization": f"Bearer {token}",
-                      "User-Agent": "legalforecastbench-official-fan-in",
-                      "X-GitHub-Api-Version": "2022-11-28",
-                  },
-              )
-              try:
-                  with urllib.request.urlopen(request, timeout=120) as response:
-                      return response.read()
-              except (OSError, urllib.error.URLError) as exc:
-                  raise SystemExit(f"could not download {description}") from exc
-
-          root = Path("/tmp/lfb-source-dispatch")
-          root.mkdir(parents=True, exist_ok=True)
-          release_sha = os.environ["RELEASE_SHA"]
-          common_names = (
-              "lfb-run-inputs-frozen.json",
-              "lfb-labels.jsonl",
-              "lfb-model-registry.json",
-              "lfb-execution-policy.json",
+          listing = request_json(
+              f"/repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100",
+              "forecast run artifacts",
           )
-          canonical_bytes = None
-          for identity in identities:
-              run_id = identity["run_id"]
-              attempt = identity["run_attempt"]
-              artifact_name = f"official-dispatch-provenance-{run_id}-{attempt}"
-              artifact = None
-              page = 1
-              while True:
-                  listing = request_json(
-                      f"/repos/{repository}/actions/runs/{run_id}/artifacts"
-                      f"?per_page=100&page={page}",
-                      f"artifacts for source run {run_id}/{attempt}",
-                  )
-                  if not isinstance(listing, dict) or not isinstance(
-                      listing.get("artifacts"), list
-                  ):
-                      raise SystemExit("source dispatch artifact listing is invalid")
-                  matches = [
-                      item
-                      for item in listing["artifacts"]
-                      if isinstance(item, dict) and item.get("name") == artifact_name
-                  ]
-                  if len(matches) > 1:
-                      raise SystemExit("source dispatch artifact name is ambiguous")
-                  if matches:
-                      artifact = matches[0]
-                      break
-                  if not listing["artifacts"] or page >= 10:
-                      raise SystemExit(
-                          f"source dispatch artifact is missing: {artifact_name}"
-                      )
-                  page += 1
-              archive_url = artifact.get("archive_download_url")
-              if not isinstance(archive_url, str) or not archive_url.startswith("http"):
-                  raise SystemExit("source dispatch artifact archive URL is invalid")
-              payload = request_bytes(archive_url, artifact_name)
-              target = root / f"{run_id}-{attempt}"
-              target.mkdir(parents=True, exist_ok=False)
-              with zipfile.ZipFile(io.BytesIO(payload)) as archive:
-                  for member in archive.infolist():
-                      relative = Path(member.filename)
-                      if relative.is_absolute() or ".." in relative.parts:
-                          raise SystemExit("source dispatch artifact contains unsafe path")
-                      if member.is_dir():
-                          continue
-                      destination = target / relative
-                      destination.parent.mkdir(parents=True, exist_ok=True)
-                      destination.write_bytes(archive.read(member))
-              required = ("lfb-dispatch-release.json", *common_names)
-              if any(not (target / name).is_file() for name in required):
-                  raise SystemExit(f"source dispatch artifact is incomplete: {artifact_name}")
-              try:
-                  release = json.loads(
-                      (target / "lfb-dispatch-release.json").read_text(encoding="utf-8")
-                  )
-              except (OSError, json.JSONDecodeError) as exc:
-                  raise SystemExit("source dispatch release provenance is invalid JSON") from exc
-              expected_fields = {
-                  "schema_version",
-                  "workflow_run_id",
-                  "workflow_run_attempt",
-                  "release_sha",
-              }
-              if not isinstance(release, dict) or set(release) != expected_fields:
-                  raise SystemExit("source dispatch release provenance fields mismatch")
-              if release["schema_version"] != "legalforecast.dispatch_release.v2":
-                  raise SystemExit("source dispatch release provenance schema mismatch")
-              if release["workflow_run_id"] != run_id:
-                  raise SystemExit("source dispatch provenance workflow run mismatch")
-              if release["workflow_run_attempt"] != attempt:
-                  raise SystemExit("source dispatch provenance workflow attempt mismatch")
-              if release["release_sha"] != release_sha:
-                  raise SystemExit("source dispatch provenance release SHA mismatch")
-              current_bytes = {
-                  name: (target / name).read_bytes() for name in common_names
-              }
-              if canonical_bytes is None:
-                  canonical_bytes = current_bytes
-              elif current_bytes != canonical_bytes:
-                  raise SystemExit("source dispatch common artifacts differ across runs")
-
-          if canonical_bytes is None:
-              raise SystemExit("source dispatch runs are empty")
-          first = root / f"{identities[0]['run_id']}-{identities[0]['run_attempt']}"
-          for name in (
-              "lfb-dispatch-release.json",
-              "lfb-run-inputs-frozen.json",
-              "lfb-labels.jsonl",
-              "lfb-model-registry.json",
-              "lfb-execution-policy.json",
-          ):
-              (root / name).write_bytes((first / name).read_bytes())
-          PY
-
-      - name: Validate frozen dispatch artifact
-        shell: bash
-        env:
-          RELEASE_SHA: ${{ inputs.release_sha }}
-          SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}
-          SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}
-          SOURCE_DISPATCH_RUNS_JSON: ${{ inputs.source_dispatch_runs_json }}
-        run: |
-          set -euo pipefail
-          source_dispatch_runs_json_compact="${SOURCE_DISPATCH_RUNS_JSON//[[:space:]]/}"
-          if [[ "${source_dispatch_runs_json_compact}" == "[]" ]]; then
-          for path in \
-            /tmp/lfb-source-dispatch/lfb-dispatch-release.json \
-            /tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json \
-            /tmp/lfb-source-dispatch/lfb-labels.jsonl \
-            /tmp/lfb-source-dispatch/lfb-model-registry.json; do
-            [[ -f "${path}" ]] || {
-              echo "source dispatch artifact is missing ${path}" >&2
-              exit 1
-            }
-          done
-          # v3 scopes are transported with the exact dispatch artifact. Legacy
-          # v1/v2 policies remain admissible without this additive file.
-          [[ -f /tmp/lfb-source-dispatch/lfb-execution-scope.json ]] || true
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          path = Path("/tmp/lfb-source-dispatch/lfb-dispatch-release.json")
+          if not isinstance(listing, dict) or not isinstance(listing.get("artifacts"), list):
+              raise SystemExit("forecast artifact listing is invalid")
+          matches = [
+              item for item in listing["artifacts"]
+              if isinstance(item, dict) and item.get("name") == expected_name
+          ]
+          if len(matches) != 1:
+              raise SystemExit(f"expected exactly one durable forecast artifact: {expected_name}")
+          artifact = matches[0]
+          if artifact.get("expired") is True:
+              raise SystemExit("durable forecast artifact has expired")
+          archive_url = artifact.get("archive_download_url")
+          if not isinstance(archive_url, str) or not archive_url.startswith("http"):
+              raise SystemExit("durable forecast artifact URL is invalid")
+          request = urllib.request.Request(
+              archive_url,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {token}",
+                  "User-Agent": "legalforecastbench-protected-labels-fan-in",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
           try:
-              release = json.loads(path.read_text(encoding="utf-8"))
-          except (OSError, json.JSONDecodeError) as exc:
-              raise SystemExit("source dispatch release provenance is invalid JSON") from exc
-          expected_fields = {
-              "schema_version",
-              "workflow_run_id",
-              "workflow_run_attempt",
-              "release_sha",
-          }
-          if not isinstance(release, dict) or set(release) != expected_fields:
-              raise SystemExit("source dispatch release provenance fields mismatch")
-          if release["schema_version"] != "legalforecast.dispatch_release.v2":
-              raise SystemExit("source dispatch release provenance schema mismatch")
-          source_dispatch_run_id = os.environ["SOURCE_DISPATCH_RUN_ID"]
-          if release["workflow_run_id"] != source_dispatch_run_id:
-              raise SystemExit("source dispatch provenance workflow run mismatch")
-          source_dispatch_run_attempt = int(
-              os.environ["SOURCE_DISPATCH_RUN_ATTEMPT"]
+              with urllib.request.urlopen(request, timeout=120) as response:
+                  archive_bytes = response.read()
+          except (OSError, urllib.error.URLError) as exc:
+              raise SystemExit("could not download durable forecast artifact") from exc
+          root = Path("/tmp/lfb-forecast")
+          root.mkdir(parents=True, exist_ok=False)
+          seen: set[str] = set()
+          with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+              for member in archive.infolist():
+                  relative = Path(member.filename)
+                  if relative.is_absolute() or ".." in relative.parts:
+                      raise SystemExit("durable forecast artifact contains an unsafe path")
+                  normalized = relative.as_posix()
+                  if normalized in seen:
+                      raise SystemExit("durable forecast artifact contains a duplicate path")
+                  seen.add(normalized)
+                  if member.is_dir():
+                      continue
+                  if stat.S_ISLNK(member.external_attr >> 16):
+                      raise SystemExit("durable forecast artifact contains a symlink")
+                  destination = root / relative
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(archive.read(member))
+          required = (
+              "forecast-run.json",
+              "run-manifest.json",
+              "forecast-release.json",
+              "model-registry.json",
+              "run-summary.json",
+              "ledger/ledger.sqlite3",
           )
-          if release["workflow_run_attempt"] != source_dispatch_run_attempt:
-              raise SystemExit("source dispatch provenance workflow attempt mismatch")
-          expected_release_sha = os.environ["RELEASE_SHA"]
-          if release["release_sha"] != expected_release_sha:
-              raise SystemExit("source dispatch provenance release SHA mismatch")
+          for name in required:
+              path = root / name
+              if not path.is_file() or path.is_symlink() or path.stat().st_size == 0:
+                  raise SystemExit(f"durable forecast artifact is missing {name}")
+          artifacts_root = root / "artifacts"
+          if not artifacts_root.is_dir() or artifacts_root.is_symlink():
+              raise SystemExit("durable forecast artifact is missing artifacts/")
+          artifact_files = [path for path in artifacts_root.rglob("*") if path.is_file()]
+          if not artifact_files or any(path.is_symlink() for path in artifacts_root.rglob("*")):
+              raise SystemExit("durable forecast artifact has no safe artifacts/")
+          receipts = sorted((root / "receipts").glob("*.json"))
+          if not receipts or any(path.is_symlink() for path in receipts):
+              raise SystemExit("durable forecast artifact has no receipt files")
+          if any(path.name == "labels-release.json" or "labels" in path.parts for path in root.rglob("*")):
+              raise SystemExit("forecast artifact must not contain labels or label locators")
           PY
-          fi
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.1.6
-        with:
-          enable-cache: true
-
-      - name: Configure fan-in AWS authority
+      - name: Configure protected fan-in storage access
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lfb-fan-in-${{ github.run_id }}-${{ github.run_attempt }}
+          role-session-name: lfb-labels-fan-in-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}
           role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
 
-      - name: Download immutable manifest-run bundle
+      - name: Fetch and bind locked releases, including labels only here
         shell: bash
         env:
-          FREEZE_BUNDLE_URI: ${{ inputs.freeze_bundle_path }}
+          FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
+          MANIFEST_URI: ${{ inputs.manifest_uri }}
+          MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
         run: |
           set -euo pipefail
-          root="/tmp/lfb-manifest-run"
-          rm -rf "${root}"
-          mkdir -p "${root}"
-          location="${FREEZE_BUNDLE_URI#s3://}"
-          bucket="${location%%/*}"
-          key="${location#*/}"
-          prefix="${key%/freeze.json}"
-          aws s3 sync "s3://${bucket}/${prefix}/" "${root}/" --only-show-errors
-          [[ -f "${root}/freeze.json" ]] || {
-            echo "manifest-run S3 prefix did not contain freeze.json" >&2
+          reference=/tmp/lfb-fan-in-reference
+          mkdir -p "${reference}"
+          fetch_locked() {
+            local locator="$1" destination="$2"
+            case "${locator}" in
+              s3://*) aws s3 cp "${locator}" "${destination}" --only-show-errors ;;
+              manifests/*) aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${locator}" "${destination}" --only-show-errors ;;
+              *) echo "unsupported official locator: ${locator}" >&2; return 1 ;;
+            esac
+          }
+          fetch_locked "${MANIFEST_URI}" "${reference}/run-manifest.json"
+          fetch_locked "${FORECAST_RELEASE_URI}" "${reference}/forecast-release.json"
+          fetch_locked "${MODEL_REGISTRY_URI}" "${reference}/model-registry.json"
+          # This is the only step in the repository that reads the label locator.
+          fetch_locked "${LABELS_RELEASE_URI}" "${reference}/labels-release.json"
+          cmp -- "${reference}/run-manifest.json" /tmp/lfb-forecast/run-manifest.json
+          cmp -- "${reference}/forecast-release.json" /tmp/lfb-forecast/forecast-release.json
+          cmp -- "${reference}/model-registry.json" /tmp/lfb-forecast/model-registry.json
+
+      - name: Validate run identity, model registry, and complete durable state
+        shell: bash
+        env:
+          ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
+          FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
+          MANIFEST_URI: ${{ inputs.manifest_uri }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import sqlite3
+          from pathlib import Path
+
+          root = Path("/tmp/lfb-forecast")
+          metadata = json.loads((root / "forecast-run.json").read_text(encoding="utf-8"))
+          if not isinstance(metadata, dict):
+              raise SystemExit("forecast-run.json must be an object")
+          expected_fields = {
+              "schema_version", "workflow_run_id", "workflow_run_attempt", "release_sha",
+              "manifest_uri", "forecast_release_uri", "artifact_root_uri", "model_registry_uri",
+              "model_key", "run_identity_sha256", "forecast_release_digest", "model_registry_sha256",
+              "repeat_count",
+          }
+          if set(metadata) != expected_fields or metadata["schema_version"] != "legalforecast.forecast-run.v1":
+              raise SystemExit("forecast-run.json fields or schema are invalid")
+          expected = {
+              "workflow_run_id": int(os.environ["FORECAST_RUN_ID"]),
+              "workflow_run_attempt": int(os.environ["FORECAST_RUN_ATTEMPT"]),
+              "release_sha": os.environ["RELEASE_SHA"],
+              "manifest_uri": os.environ["MANIFEST_URI"],
+              "forecast_release_uri": os.environ["FORECAST_RELEASE_URI"],
+              "artifact_root_uri": os.environ["ARTIFACT_ROOT_URI"],
+              "model_registry_uri": os.environ["MODEL_REGISTRY_URI"],
+              "model_key": os.environ["MODEL_KEY"],
+          }
+          for field, value in expected.items():
+              if metadata[field] != value:
+                  raise SystemExit(f"forecast-run.json {field} does not match dispatch")
+          for field in (
+              "run_identity_sha256",
+              "forecast_release_digest",
+              "model_registry_sha256",
+          ):
+              value = metadata[field]
+              if not isinstance(value, str) or len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+                  raise SystemExit(f"forecast-run.json {field} is not a lowercase SHA-256")
+          if type(metadata["repeat_count"]) is not int or metadata["repeat_count"] != 1:
+              raise SystemExit("official fan-in accepts exactly one forecast repeat")
+          summary = json.loads((root / "run-summary.json").read_text(encoding="utf-8"))
+          if not isinstance(summary, dict) or summary.get("run_identity_sha256") != metadata["run_identity_sha256"]:
+              raise SystemExit("run summary is not bound to forecast-run identity")
+          if summary.get("status") != "completed":
+              raise SystemExit("run summary is not completed")
+          ledger_path = root / "ledger/ledger.sqlite3"
+          with sqlite3.connect(ledger_path) as connection:
+              integrity = connection.execute("PRAGMA integrity_check").fetchone()
+              if integrity != ("ok",):
+                  raise SystemExit("durable forecast ledger failed integrity_check")
+              try:
+                  status = connection.execute("SELECT status FROM runs").fetchall()
+              except sqlite3.DatabaseError as exc:
+                  raise SystemExit("durable forecast ledger has no runs table") from exc
+              if not status or any(row != ("completed",) for row in status):
+                  raise SystemExit("durable forecast ledger does not show a completed run")
+
+          receipts = sorted((root / "receipts").glob("*.json"))
+          records = []
+          seen_units: set[tuple[str, int]] = set()
+          for path in receipts:
+              record = json.loads(path.read_text(encoding="utf-8"))
+              if not isinstance(record, dict):
+                  raise SystemExit(f"receipt is not an object: {path.name}")
+              required = ("schema_version", "run_identity_sha256", "forecast_release_digest", "model_key", "model_registry_sha256", "case_id", "unit_id", "repeat_index", "parser_output")
+              if any(field not in record for field in required):
+                  raise SystemExit(f"receipt lacks required identity: {path.name}")
+              if (
+                  record["run_identity_sha256"] != metadata["run_identity_sha256"]
+                  or record["forecast_release_digest"]
+                  != metadata["forecast_release_digest"]
+                  or record["model_key"] != metadata["model_key"]
+                  or record["model_registry_sha256"]
+                  != metadata["model_registry_sha256"]
+                  or record["repeat_index"] != 1
+              ):
+                  raise SystemExit(f"receipt identity differs from forecast-run.json: {path.name}")
+              if (
+                  not isinstance(record["case_id"], str)
+                  or not isinstance(record["unit_id"], str)
+                  or not isinstance(record["parser_output"], dict)
+                  or type(record["repeat_index"]) is not int
+              ):
+                  raise SystemExit(f"receipt identity fields are malformed: {path.name}")
+              key = (record["unit_id"], record["repeat_index"])
+              if not record["unit_id"] or key in seen_units:
+                  raise SystemExit(f"receipt unit coverage is duplicate or malformed: {path.name}")
+              seen_units.add(key)
+              record["required_unit_ids"] = [record["unit_id"]]
+              record["model_id"] = record["model_key"]
+              records.append(record)
+          if not records:
+              raise SystemExit("no durable forecast receipts were supplied")
+          Path("/tmp/lfb-run-records.jsonl").write_text(
+              "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Validate releases and score complete forecast receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run legalforecast manifest validate \
+            --manifest /tmp/lfb-fan-in-reference/run-manifest.json \
+            --forecast /tmp/lfb-fan-in-reference/forecast-release.json \
+            --labels /tmp/lfb-fan-in-reference/labels-release.json \
+            --artifact-root /tmp/lfb-forecast/artifacts
+          # CORE-LANE INTERFACE: the identity-aware scorer accepts the expected
+          # run identity and frozen model registry supplied by this workflow.
+          uv run legalforecast score \
+            --runs /tmp/lfb-run-records.jsonl \
+            --labels-release /tmp/lfb-fan-in-reference/labels-release.json \
+            --forecast-release /tmp/lfb-fan-in-reference/forecast-release.json \
+            --artifact-root /tmp/lfb-forecast/artifacts \
+            --manifest /tmp/lfb-fan-in-reference/run-manifest.json \
+            --model-registry /tmp/lfb-fan-in-reference/model-registry.json \
+            --expected-run-identity "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["run_identity_sha256"])')" \
+            --expected-model-registry-sha256 "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["model_registry_sha256"])')" \
+            --output /tmp/lfb-score.json \
+            --unit-scores-output /tmp/lfb-unit-scores.jsonl
+
+      - name: Render report from the verified score artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run legalforecast report \
+            --scores /tmp/lfb-score.json \
+            --output-dir /tmp/lfb-report \
+            --labels-release /tmp/lfb-fan-in-reference/labels-release.json \
+            --forecast-release /tmp/lfb-fan-in-reference/forecast-release.json \
+            --artifact-root /tmp/lfb-forecast/artifacts \
+            --manifest /tmp/lfb-fan-in-reference/run-manifest.json \
+            --frozen-model-registry /tmp/lfb-fan-in-reference/model-registry.json \
+            --expected-run-identity "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["run_identity_sha256"])')" \
+            --expected-model-registry-sha256 "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["model_registry_sha256"])')" \
+            --title "LegalForecast official benchmark"
+
+      - name: Publish verified report once
+        if: ${{ inputs.publish }}
+        shell: bash
+        env:
+          CYCLE_ID: ${{ inputs.cycle_id }}
+        run: |
+          set -euo pipefail
+          destination="reports/${CYCLE_ID}/multi-ablation"
+          existing="$(aws s3api list-objects-v2 --bucket "${LFB_RESULTS_BUCKET}" --prefix "${destination}/" --max-keys 1 --query 'Key' --output text)"
+          [[ "${existing}" == "None" ]] || {
+            echo "refusing to overwrite existing immutable report prefix: ${destination}" >&2
             exit 1
           }
+          put_once() {
+            local source="$1" key="$2"
+            aws s3api put-object \
+              --bucket "${LFB_RESULTS_BUCKET}" \
+              --key "${key}" \
+              --body "${source}" \
+              --if-none-match '*'
+          }
+          put_once /tmp/lfb-score.json "${destination}/scores.json"
+          put_once /tmp/lfb-unit-scores.jsonl "${destination}/unit-scores.jsonl"
+          while IFS= read -r -d '' report_file; do
+            relative="${report_file#/tmp/lfb-report/}"
+            put_once "${report_file}" "${destination}/report/${relative}"
+          done < <(find /tmp/lfb-report -type f -print0)
 
-      - name: Verify receipts and aggregate accepted exact versions
-        shell: bash
-        env:
-          ACCEPTED_MAP: ${{ inputs.accepted_attempt_map_path }}
-          BASELINES: ${{ inputs.baseline_training_examples_path }}
-          CLEAN_MOTION_COUNT: ${{ inputs.clean_motion_count }}
-          CYCLE_ID: ${{ inputs.cycle_id }}
-          PREDICTION_UNIT_COUNT: ${{ inputs.prediction_unit_count }}
-          RELEASE_SHA: ${{ inputs.release_sha }}
-          SOURCE_DISPATCH_RUN_ATTEMPT: ${{ inputs.source_dispatch_run_attempt }}
-          SOURCE_DISPATCH_RUN_ID: ${{ inputs.source_dispatch_run_id }}
-          SOURCE_DISPATCH_RUNS_JSON: ${{ inputs.source_dispatch_runs_json }}
-          VERIFY_ONLY: ${{ inputs.verify_only }}
-        run: |
-          set -euo pipefail
-          execution_policy_path="$(python - <<'PY'
-          import json
-          from pathlib import Path
-          freeze = json.loads(Path('/tmp/lfb-manifest-run/freeze.json').read_text(encoding='utf-8'))
-          paths = [item['path'] for item in freeze.get('artifacts', []) if item.get('name') == 'execution_policy']
-          if len(paths) != 1:
-              raise SystemExit('freeze must contain exactly one execution_policy artifact')
-          path = Path(paths[0])
-          print(path if path.is_absolute() else Path('/tmp/lfb-manifest-run') / path)
-          PY
-          )"
-          if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" =~ ^legalforecast\.execution_policy\.v[34]$ ]]; then
-            scope_count="$(find /tmp/lfb-source-dispatch -maxdepth 1 -type f -name 'lfb-execution-scope*.json' -size +0c | wc -l)"
-            [[ "${scope_count}" -gt 0 ]] || {
-              echo "v3/v4 source dispatch is missing its authenticated execution scope artifact" >&2
-              exit 1
-            }
-          fi
-          args=(
-            --freeze-bundle /tmp/lfb-manifest-run/freeze.json
-            --freeze-root /tmp/lfb-manifest-run
-            --run-input-manifest /tmp/lfb-source-dispatch/lfb-run-inputs-frozen.json
-            --labels /tmp/lfb-source-dispatch/lfb-labels.jsonl
-            --model-registry /tmp/lfb-source-dispatch/lfb-model-registry.json
-            --source-release-sha "${RELEASE_SHA}"
-            --receipt-root "s3://${LFB_RESULTS_BUCKET}"
-            --output-dir tmp/official-fan-in
-          )
-          source_dispatch_runs_json_compact="${SOURCE_DISPATCH_RUNS_JSON//[[:space:]]/}"
-          if [[ "${source_dispatch_runs_json_compact}" != "[]" ]]; then
-            args+=(--source-dispatch-runs "$(< /tmp/lfb-source-dispatch-runs.json)")
-            while IFS= read -r source_root; do
-              args+=(--source-dispatch-artifact-root "${source_root}")
-            done < <(python - <<'PY'
-          import json
-          from pathlib import Path
-          identities = json.loads(Path('/tmp/lfb-source-dispatch-runs.json').read_text())
-          root = Path('/tmp/lfb-source-dispatch')
-          for identity in identities:
-              print(root / f"{identity['run_id']}-{identity['run_attempt']}")
-          PY
-            )
-          else
-            args+=(--source-dispatch-run-id "${SOURCE_DISPATCH_RUN_ID}")
-            args+=(--source-dispatch-run-attempt "${SOURCE_DISPATCH_RUN_ATTEMPT}")
-            args+=(--source-dispatch-artifact-root /tmp/lfb-source-dispatch)
-          fi
-          if [[ -d /tmp/lfb-manifest-run/amendments ]]; then
-            while IFS= read -r bundle_path; do
-              args+=(--amendment-bundle "${bundle_path}")
-            done < <(find /tmp/lfb-manifest-run/amendments -type f -name '*.freeze.json' -print | sort)
-          fi
-          scope_args=()
-          source_dispatch_runs_json_compact="${SOURCE_DISPATCH_RUNS_JSON//[[:space:]]/}"
-          if [[ "${source_dispatch_runs_json_compact}" == "[]" ]]; then
-            while IFS= read -r scope_path; do
-              scope_args+=(--execution-scope "${scope_path}")
-            done < <(find /tmp/lfb-source-dispatch -maxdepth 1 -type f -name 'lfb-execution-scope*.json' -size +0c -print | sort)
-          else
-            while IFS= read -r scope_path; do
-              scope_args+=(--execution-scope "${scope_path}")
-            done < <(find /tmp/lfb-source-dispatch -mindepth 2 -maxdepth 2 -type f -name 'lfb-execution-scope*.json' -size +0c -print | sort)
-          fi
-          if [[ "$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_version"])' "${execution_policy_path}")" =~ ^legalforecast\.execution_policy\.v[34]$ && "${#scope_args[@]}" -eq 0 ]]; then
-            echo "v3/v4 source dispatch is missing its authenticated execution scope artifact" >&2
-            exit 1
-          fi
-          [[ -z "${ACCEPTED_MAP//[[:space:]]/}" ]] || args+=(--accepted-attempt-map "${ACCEPTED_MAP}")
-          [[ -z "${BASELINES//[[:space:]]/}" ]] || args+=(--baseline-training-examples "${BASELINES}")
-          [[ -z "${CLEAN_MOTION_COUNT//[[:space:]]/}" ]] || args+=(--clean-motion-count "${CLEAN_MOTION_COUNT}")
-          [[ -z "${PREDICTION_UNIT_COUNT//[[:space:]]/}" ]] || args+=(--prediction-unit-count "${PREDICTION_UNIT_COUNT}")
-          if [[ "${VERIFY_ONLY}" == "true" ]]; then
-            uv run python -m legalforecast.publication.shard_fan_in \
-              --verify-only "${args[@]}" "${scope_args[@]}"
-          else
-            uv run python -m legalforecast.publication.shard_fan_in_publish \
-              --publish-root "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/" \
-              --publication-cycle-id "${CYCLE_ID}" \
-              "${args[@]}" "${scope_args[@]}"
-          fi
-
-      - name: Upload sanitized fan-in verification report
+      - name: Upload sanitized score and report artifacts
+        if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: official-fan-in-${{ inputs.cycle_id }}-${{ github.run_id }}
-          path: tmp/official-fan-in/fan-in-report.json
-          if-no-files-found: error
-          retention-days: ${{ fromJSON(inputs.artifact_retention_days) }}
-
-      - name: Build versioned Hugging Face benchmark package
-        if: ${{ !inputs.verify_only && inputs.hugging_face_release_version != '' }}
-        shell: bash
-        env:
-          HF_RELEASE_VERSION: ${{ inputs.hugging_face_release_version }}
-          HF_REPOSITORY: ${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}
-          SUPPLEMENTARY_ARTIFACTS_DIR: ${{ inputs.supplementary_artifacts_dir }}
-        run: |
-          set -euo pipefail
-          [[ -n "${HF_REPOSITORY:-}" ]] || {
-            echo "LFB_HF_OFFICIAL_DATASET_REPO must be configured on the protected environment." >&2
-            exit 1
-          }
-          # An empty input leaves the argument list byte-identical to the
-          # official-only invocation, so an official publication is unchanged.
-          supplementary_args=()
-          if [[ -n "${SUPPLEMENTARY_ARTIFACTS_DIR//[[:space:]]/}" ]]; then
-            [[ -d "${SUPPLEMENTARY_ARTIFACTS_DIR}" ]] || {
-              echo "supplementary_artifacts_dir is not a directory: ${SUPPLEMENTARY_ARTIFACTS_DIR}" >&2
-              exit 1
-            }
-            supplementary_args+=(--supplementary-artifacts-dir "${SUPPLEMENTARY_ARTIFACTS_DIR}")
-          fi
-          uv run python -m legalforecast.hugging_face_publication \
-            --official-artifacts-dir tmp/official-fan-in/public \
-            --output-dir tmp/hugging-face-benchmark \
-            --release-version "${HF_RELEASE_VERSION}" \
-            --dataset-repository "${HF_REPOSITORY}" \
-            "${supplementary_args[@]}"
-
-      - name: Publish benchmark to manually gated Hugging Face Dataset
-        if: ${{ !inputs.verify_only && inputs.hugging_face_release_version != '' }}
-        shell: bash
-        env:
-          HF_OIDC_RESOURCE: datasets/${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}
-          HF_RELEASE_VERSION: ${{ inputs.hugging_face_release_version }}
-          HF_REPOSITORY: ${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}
-        run: |
-          set -euo pipefail
-          uv run --no-project --with huggingface_hub==1.28.0 python - <<'PY'
-          import os
-          import json
-          from pathlib import Path
-
-          from huggingface_hub import HfApi
-
-          repository = os.environ["HF_REPOSITORY"]
-          release_version = os.environ["HF_RELEASE_VERSION"]
-          upload_plan = json.loads(
-              Path("tmp/hugging-face-benchmark/hf-upload-plan.json").read_text()
-          )
-          if upload_plan.get("repository") != repository:
-              raise SystemExit("refusing publication: upload plan repository mismatch")
-          release_path = upload_plan.get("release_path")
-          if not isinstance(release_path, str) or not release_path:
-              raise SystemExit("refusing publication: upload plan has no release path")
-          api = HfApi()
-          info = api.dataset_info(repository)
-          if info.gated != "manual":
-              raise SystemExit(
-                  "refusing publication: Hugging Face Dataset must use manual gating"
-              )
-          remote_files = api.list_repo_files(repo_id=repository, repo_type="dataset")
-          release_prefix = f"{release_path}/"
-          if any(
-              path == release_path or path.startswith(release_prefix)
-              for path in remote_files
-          ):
-              raise SystemExit(
-                  f"refusing publication: immutable release already exists: {release_path}"
-              )
-          commit = api.upload_folder(
-              repo_id=repository,
-              repo_type="dataset",
-              folder_path="tmp/hugging-face-benchmark",
-              commit_message=f"Publish LegalForecastBench {release_version}",
-              parent_commit=info.sha,
-          )
-          print(f"Published immutable Hugging Face revision: {commit.oid}")
-          PY
+          name: protected-labels-fan-in-${{ inputs.cycle_id }}-${{ github.run_id }}
+          path: |
+            /tmp/lfb-score.json
+            /tmp/lfb-unit-scores.jsonl
+            /tmp/lfb-report
+          if-no-files-found: warn
+          retention-days: ${{ inputs.artifact_retention_days }}

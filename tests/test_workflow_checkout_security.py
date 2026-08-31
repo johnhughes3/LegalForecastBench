@@ -117,11 +117,15 @@ def test_workflow_dispatch_input_parser_sees_the_real_declarations() -> None:
     }
     run_benchmark = counts["run-benchmark.yaml"]
     assert run_benchmark is not None
-    # Spot-check both ends of the block and a choice-typed input in the middle,
+    # Spot-check both ends of the block and the locked input fields in the middle,
     # so a parser that stops early or swallows nested keys fails here.
     assert run_benchmark[0] == "release_sha"
-    assert run_benchmark[-1] == "execution_scope_uri"
-    assert "cycle_series" in run_benchmark
+    assert run_benchmark[-1] == "artifact_retention_days"
+    assert "manifest_uri" in run_benchmark
+    assert "forecast_release_uri" in run_benchmark
+    assert "model_registry_uri" in run_benchmark
+    assert "labels_release_uri" not in run_benchmark
+    assert "cycle_series" not in run_benchmark
     assert "options" not in run_benchmark
     assert "supplementary" not in run_benchmark, (
         "the official/supplementary lane is derived from freeze_bundle_path"
@@ -163,27 +167,18 @@ def test_checkout_steps_disable_credential_persistence() -> None:
     )
 
 
-def test_official_fan_in_keeps_hf_publication_gated_and_short_lived() -> None:
+def test_official_fan_in_keeps_labels_boundary_protected_and_provider_free() -> None:
     workflow = (WORKFLOW_ROOT / "fan-in-publish.yaml").read_text(encoding="utf-8")
 
-    assert "hugging_face_release_version:" in workflow
-    assert (
-        workflow.count(
-            "if: ${{ !inputs.verify_only && "
-            "inputs.hugging_face_release_version != '' }}"
-        )
-        == 2
-    )
-    assert (
-        "HF_OIDC_RESOURCE: datasets/${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}"
-        in workflow
-    )
-    assert "huggingface_hub==1.28.0" in workflow
-    assert 'if info.gated != "manual":' in workflow
-    assert "api.list_repo_files(" in workflow
-    assert "immutable release already exists" in workflow
-    assert "api.upload_folder(" in workflow
-    assert "parent_commit=info.sha" in workflow
+    assert "environment: legalforecastbench-official-eval-fan-in" in workflow
+    assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in workflow
+    assert "labels_release_uri:" in workflow
+    assert 'fetch_locked "${LABELS_RELEASE_URI}"' in workflow
+    assert "run-benchmark.yaml" in workflow
+    assert "official-forecast-results-{run_id}-{attempt}" in workflow
+    assert "OPENAI_API_KEY" not in workflow
+    assert "ANTHROPIC_API_KEY" not in workflow
+    assert "GEMINI_API_KEY" not in workflow
     assert "HF_TOKEN" not in workflow
 
 

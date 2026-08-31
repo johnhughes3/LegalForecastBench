@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Any, Self, cast
 
+from legalforecast.contracts import (
+    ARTIFACT_CANONICAL_JSON_V1,
+    ARTIFACT_RAW_SHA256_V1,
+    PUBLIC_RUN_IDENTITY_V1,
+)
 from legalforecast.evals.provider_spend_control import (
     RETRYABLE_HTTP_429_FAILURE_TYPE,
 )
@@ -48,11 +54,38 @@ class CellRecord:
     failure_type: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class RunBinding:
+    """The immutable run identity stored by one manifest-mode execution.
+
+    The ledger is the authority for the run identity used to derive receipt
+    cell IDs.  Consumers should use this record instead of trusting a receipt
+    to name its own run or registry.
+    """
+
+    identity_sha256: str
+    identity_json: str
+    release_digest: str
+    harness: str
+    model_key: str
+    ceiling_microusd: int
+    approval_reference: str
+    model_registry_sha256: str
+    model_registry_entry_sha256: str
+    served_model_version: str
+
+
 class RunnerLedger:
     """Reference local ledger with transactional cell reservation."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        state_only_provider_attempts: bool = False,
+    ) -> None:
         self.path = path
+        self._state_only_provider_attempts = state_only_provider_attempts
         path.parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(path, isolation_level=None, timeout=30.0)
         try:
@@ -77,6 +110,75 @@ class RunnerLedger:
 
     def close(self) -> None:
         self._connection.close()
+
+    def read_run_binding(self) -> RunBinding:
+        """Read and revalidate the exact identity captured by this ledger.
+
+        This is intentionally a small read-only bridge for the official score
+        boundary.  It verifies the canonical identity JSON and its digest, so
+        a caller cannot supply a ledger whose metadata was edited while
+        retaining its original run identity.
+        """
+
+        row = self._connection.execute(
+            "SELECT * FROM public_runner_run WHERE singleton = 1"
+        ).fetchone()
+        if row is None:
+            raise RunValidationError("run ledger has no identity")
+        identity_json = str(row["identity_json"])
+        try:
+            decoded: object = json.loads(identity_json)
+        except json.JSONDecodeError as exc:
+            raise RunValidationError("run ledger identity is not valid JSON") from exc
+        if not isinstance(decoded, dict):
+            raise RunValidationError("run ledger identity must be an object")
+        identity = cast(dict[str, Any], decoded)
+        if ARTIFACT_CANONICAL_JSON_V1.encode(identity).decode("utf-8") != identity_json:
+            raise RunValidationError("run ledger identity is not canonical")
+        identity_sha256 = str(row["identity_sha256"])
+        actual_sha256 = str(
+            ARTIFACT_RAW_SHA256_V1.commit(
+                identity,
+                domain=PUBLIC_RUN_IDENTITY_V1,
+            ).digest
+        )
+        if actual_sha256 != identity_sha256:
+            raise RunValidationError("run ledger identity digest differs")
+
+        def required_str(field_name: str) -> str:
+            value = identity.get(field_name)
+            if not isinstance(value, str) or not value:
+                raise RunValidationError(f"run ledger identity lacks {field_name}")
+            return value
+
+        model_registry_sha256 = required_str("model_registry_sha256")
+        model_registry_entry_sha256 = required_str("model_registry_entry_sha256")
+        served_model_version = required_str("served_model_version")
+        for field_name, value in (
+            ("model_registry_sha256", model_registry_sha256),
+            ("model_registry_entry_sha256", model_registry_entry_sha256),
+        ):
+            if len(value) != 64 or any(
+                char not in "0123456789abcdef" for char in value
+            ):
+                raise RunValidationError(
+                    f"run ledger {field_name} must be a lowercase SHA-256"
+                )
+        ceiling = row["ceiling_microusd"]
+        if not isinstance(ceiling, int) or isinstance(ceiling, bool):
+            raise RunValidationError("run ledger ceiling is invalid")
+        return RunBinding(
+            identity_sha256=identity_sha256,
+            identity_json=identity_json,
+            release_digest=str(row["release_digest"]),
+            harness=str(row["harness"]),
+            model_key=str(row["model_key"]),
+            ceiling_microusd=ceiling,
+            approval_reference=str(row["approval_reference"]),
+            model_registry_sha256=model_registry_sha256,
+            model_registry_entry_sha256=model_registry_entry_sha256,
+            served_model_version=served_model_version,
+        )
 
     def ensure_run(
         self,
@@ -301,8 +403,22 @@ class RunnerLedger:
         repeat_index: int,
         provider_attempt_id: str,
         allow_nonbillable_replacement: bool = False,
+        allow_existing_same_attempt: bool = False,
     ) -> None:
         """Bind a cell reservation to spend authorization before one commit."""
+
+        # Remote spend authority keeps the money reservation in DynamoDB.  The
+        # local row is only a crash-resumable projection used to bind receipts
+        # and request evidence to that remote lease.
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO provider_attempts(
+                attempt_id, logical_call_key, attempt_ordinal,
+                reservation_microusd, status
+            ) VALUES (?, ?, ?, ?, 'reserved')
+            """,
+            (provider_attempt_id, provider_attempt_id, 1, 1),
+        )
 
         row = connection.execute(
             "SELECT * FROM public_runner_cells WHERE cell_id = ?",
@@ -334,6 +450,20 @@ class RunnerLedger:
             unit_id=unit_id,
             repeat_index=repeat_index,
         )
+        if (
+            allow_existing_same_attempt
+            and record.status == "reserved"
+            and record.provider_attempt_id == provider_attempt_id
+        ):
+            attempt = connection.execute(
+                "SELECT status FROM provider_attempts WHERE attempt_id = ?",
+                (provider_attempt_id,),
+            ).fetchone()
+            if attempt is None or str(attempt["status"]) != "reserved":
+                raise RunBlockedError(
+                    "existing cell reservation lacks its exact reserved attempt"
+                )
+            return
         if (
             allow_nonbillable_replacement
             and record.status == "reserved"
@@ -443,6 +573,38 @@ class RunnerLedger:
             raise
         self._connection.commit()
 
+    def reserve_cell(
+        self,
+        *,
+        cell_id: str,
+        run_identity_sha256: str,
+        case_id: str,
+        unit_id: str,
+        repeat_index: int,
+        provider_attempt_id: str,
+        allow_nonbillable_replacement: bool = False,
+        allow_existing_same_attempt: bool = False,
+    ) -> None:
+        """Persist a cell after a separately committed remote lease."""
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            self.reserve_cell_in_transaction(
+                self._connection,
+                cell_id=cell_id,
+                run_identity_sha256=run_identity_sha256,
+                case_id=case_id,
+                unit_id=unit_id,
+                repeat_index=repeat_index,
+                provider_attempt_id=provider_attempt_id,
+                allow_nonbillable_replacement=allow_nonbillable_replacement,
+                allow_existing_same_attempt=allow_existing_same_attempt,
+            )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
     def mark_run_completed(self) -> None:
         """Mark the singleton run complete after every requested cell is durable."""
 
@@ -472,6 +634,14 @@ class RunnerLedger:
             )
             if cursor.rowcount != 1:
                 raise RunBlockedError("cell failure state cannot be changed")
+            self._connection.execute(
+                """
+                UPDATE provider_attempts
+                SET status = ?, failure_type = ?
+                WHERE attempt_id = ?
+                """,
+                (status, failure_type, provider_attempt_id),
+            )
         except BaseException:
             self._connection.rollback()
             raise
@@ -510,6 +680,20 @@ class RunnerLedger:
             );
             """
         )
+        if self._state_only_provider_attempts:
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS provider_attempts(
+                    attempt_id TEXT PRIMARY KEY,
+                    logical_call_key TEXT NOT NULL,
+                    attempt_ordinal INTEGER NOT NULL CHECK(attempt_ordinal > 0),
+                    reservation_microusd INTEGER NOT NULL
+                        CHECK(reservation_microusd > 0),
+                    status TEXT NOT NULL,
+                    failure_type TEXT
+                )
+                """
+            )
         columns = {
             str(row[1])
             for row in self._connection.execute(

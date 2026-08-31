@@ -7,6 +7,7 @@ import json
 import math
 import sqlite3
 from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
@@ -30,6 +31,7 @@ from legalforecast.evals.model_registry import (
     earliest_eligible_decision_date,
     load_model_registry_bytes,
     model_registry_entry_sha256,
+    model_registry_sha256,
     require_official_registry_entries,
 )
 from legalforecast.evals.output_parser import parse_model_output, public_parser_record
@@ -41,10 +43,12 @@ from legalforecast.evals.provider_spend_control import (
     AttemptLease,
     FrozenAttemptPolicy,
     ProviderCapExceededError,
+    ProviderSpendAuthority,
     ProviderSpendControlError,
     ProviderSpendKey,
     SqliteProviderSpendAuthority,
 )
+from legalforecast.evals.provider_spend_dynamodb import DynamoDbProviderSpendAuthority
 from legalforecast.evals.response_verification import (
     require_publishable_response_metadata,
 )
@@ -53,6 +57,7 @@ from legalforecast.release import (
     ForecastExecution,
     ForecastPredictionUnit,
     load_forecast_execution,
+    load_forecast_run_inputs,
 )
 
 from .ledger import (
@@ -74,11 +79,18 @@ class RunConfig:
     ledger_path: Path
     receipts_dir: Path
     ceiling_microusd: int
-    approval_reference: str
+    approval_reference: str | None = None
     harness: str = "native"
     ablation: str = "none"
     repeat_count: int = 1
     account: str = "default"
+    manifest_path: Path | None = None
+    unit_id: str | None = None
+    repeat_index: int | None = None
+    cell_id: str | None = None
+    provider_authority_table: str | None = None
+    provider_authority_region: str | None = None
+    provider_authority_resource_identity_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,9 +157,14 @@ def execute_release_run(
 ) -> RunSummary:
     """Execute or resume every exact cell in a validated forecast release."""
 
-    approval_reference = _non_empty(
-        config.approval_reference,
-        "approval reference",
+    manifest_mode = config.manifest_path is not None
+    approval_reference = (
+        ""
+        if manifest_mode
+        else _non_empty(
+            config.approval_reference or "",
+            "approval reference",
+        )
     )
     harness = _non_empty(config.harness, "harness")
     if harness != "native":
@@ -165,20 +182,28 @@ def execute_release_run(
     _positive_int(config.repeat_count, "repeat_count")
     provider, model_id = _model_key(config.model_key)
 
-    execution = load_forecast_execution(
-        config.forecast_path,
-        artifact_root=config.artifact_root,
+    run_inputs = (
+        load_forecast_run_inputs(
+            config.manifest_path,
+            config.forecast_path,
+            artifact_root=config.artifact_root,
+        )
+        if config.manifest_path is not None
+        else None
+    )
+    execution = (
+        run_inputs.execution
+        if run_inputs is not None
+        else load_forecast_execution(
+            config.forecast_path,
+            artifact_root=config.artifact_root,
+        )
     )
     registry_bytes = read_single_link_file(
         config.model_registry_path,
         label="model registry",
     )
-    registry_sha256 = str(
-        RAW_BYTES_RAW_SHA256_V1.commit(
-            registry_bytes,
-            domain=PUBLIC_RUN_IDENTITY_V1,
-        ).digest
-    )
+    registry_sha256 = model_registry_sha256(registry_bytes)
     registry = load_model_registry_bytes(registry_bytes)
     try:
         entry = registry.get(provider, model_id)
@@ -196,19 +221,19 @@ def execute_release_run(
     )
     entry_sha256 = model_registry_entry_sha256(entry)
 
-    identity = {
-        "schema_version": str(PUBLIC_RUN_IDENTITY_V1),
-        "ablation": ablation,
-        "account": account,
-        "approval_reference": approval_reference,
-        "ceiling_microusd": config.ceiling_microusd,
-        "forecast_release_digest": execution.release.release_digest,
-        "harness": harness,
-        "model_key": entry.registry_key,
-        "model_registry_entry_sha256": entry_sha256,
-        "model_registry_sha256": registry_sha256,
-        "repeat_count": config.repeat_count,
-    }
+    identity = _run_identity_record(
+        execution=execution,
+        entry=entry,
+        registry_sha256=registry_sha256,
+        ceiling_microusd=config.ceiling_microusd,
+        harness=harness,
+        ablation=ablation,
+        repeat_count=config.repeat_count,
+        account=account,
+        manifest_id=(None if run_inputs is None else str(run_inputs.manifest.run_id)),
+        manifest_sha256=(None if run_inputs is None else run_inputs.manifest_sha256),
+        approval_reference=(None if manifest_mode else approval_reference),
+    )
     identity_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(identity)
     identity_sha256 = str(
         ARTIFACT_RAW_SHA256_V1.commit(
@@ -217,6 +242,40 @@ def execute_release_run(
         ).digest
     )
     config.receipts_dir.mkdir(parents=True, exist_ok=True)
+
+    units = tuple(execution.release.prediction_units)
+    selected_units = _select_units(units, unit_id=config.unit_id)
+    repeat_indices = _select_repeats(
+        repeat_count=config.repeat_count,
+        repeat_index=config.repeat_index,
+    )
+    if (
+        config.cell_id is not None
+        and config.unit_id is None
+        and config.repeat_index is None
+    ):
+        selected_cell = _select_cell(
+            units,
+            repeat_count=config.repeat_count,
+            identity_sha256=identity_sha256,
+            cell_id=config.cell_id,
+        )
+        selected_units = (selected_cell[0],)
+        repeat_indices = (selected_cell[1],)
+    selected_cells = {
+        _cell_id(
+            identity_sha256=identity_sha256,
+            unit=unit,
+            repeat_index=repeat_index,
+        )
+        for unit in selected_units
+        for repeat_index in repeat_indices
+    }
+    if config.cell_id is not None:
+        if len(selected_cells) != 1 or config.cell_id not in selected_cells:
+            raise RunValidationError(
+                "cell_id must identify the selected manifest unit and repeat"
+            )
 
     reservation_microusd = conservative_reservation_microusd(
         context_limit=entry.context_limit,
@@ -245,7 +304,30 @@ def execute_release_run(
     executed_cells = 0
     resumed_cells = 0
 
-    with RunnerLedger(config.ledger_path) as ledger:
+    if any(
+        value is not None
+        for value in (
+            config.provider_authority_table,
+            config.provider_authority_region,
+            config.provider_authority_resource_identity_sha256,
+        )
+    ) and not all(
+        value is not None
+        for value in (
+            config.provider_authority_table,
+            config.provider_authority_region,
+            config.provider_authority_resource_identity_sha256,
+        )
+    ):
+        raise RunValidationError(
+            "provider authority table, region, and resource identity must be "
+            "supplied together"
+        )
+
+    with RunnerLedger(
+        config.ledger_path,
+        state_only_provider_attempts=config.provider_authority_table is not None,
+    ) as ledger:
         ledger.ensure_run(
             identity_sha256=identity_sha256,
             identity_json=identity_bytes.decode("utf-8"),
@@ -255,17 +337,33 @@ def execute_release_run(
             ceiling_microusd=config.ceiling_microusd,
             approval_reference=approval_reference,
         )
-        with SqliteProviderSpendAuthority(
-            config.ledger_path,
-            authority_identity_sha256=authority_identity_sha256,
-            cycle_id=execution.release.release_id,
-            provider=entry.provider,
-            account=account,
-            cap_microusd=config.ceiling_microusd,
-            policy=policy,
-        ) as authority:
-            for unit in execution.release.prediction_units:
-                for repeat_index in range(1, config.repeat_count + 1):
+        authority_context: AbstractContextManager[ProviderSpendAuthority]
+        if config.provider_authority_table is not None:
+            remote_authority = DynamoDbProviderSpendAuthority(
+                table_name=config.provider_authority_table,
+                authority_identity_sha256=authority_identity_sha256,
+                resource_identity_sha256=config.provider_authority_resource_identity_sha256,
+                cycle_id=execution.release.release_id,
+                provider=entry.provider,
+                account=account,
+                cap_microusd=config.ceiling_microusd,
+                policy=policy,
+                region=cast(str, config.provider_authority_region),
+            )
+            authority_context = nullcontext(remote_authority)
+        else:
+            authority_context = SqliteProviderSpendAuthority(
+                config.ledger_path,
+                authority_identity_sha256=authority_identity_sha256,
+                cycle_id=execution.release.release_id,
+                provider=entry.provider,
+                account=account,
+                cap_microusd=config.ceiling_microusd,
+                policy=policy,
+            )
+        with authority_context as authority:
+            for unit in selected_units:
+                for repeat_index in repeat_indices:
                     _require_unchanged_registry(
                         config.model_registry_path,
                         registry_sha256,
@@ -282,6 +380,10 @@ def execute_release_run(
                         unit=unit,
                         repeat_index=repeat_index,
                     )
+                    if config.cell_id is not None and cell_id != config.cell_id:
+                        raise RunValidationError(
+                            "cell_id does not match the selected manifest cell"
+                        )
                     key = ProviderSpendKey(
                         cycle_id=execution.release.release_id,
                         provider=entry.provider,
@@ -301,6 +403,13 @@ def execute_release_run(
                         allow_retryable_nonbillable=True,
                         allow_pretransport_reuse=True,
                     )
+                    orphaned_remote_attempt: AttemptLease | None = None
+                    if cell is None and isinstance(
+                        authority, DynamoDbProviderSpendAuthority
+                    ):
+                        orphaned_remote_attempt = authority.adopt_pretransport_attempt(
+                            key
+                        )
                     receipt_path = config.receipts_dir / f"{cell_id}.json"
                     if cell is not None and cell.status == "completed":
                         _restore_or_validate_completed_receipt(
@@ -315,6 +424,7 @@ def execute_release_run(
 
                     retryable_nonbillable_prior_attempt: AttemptLease | None = None
                     pretransport_attempt_ordinal: int | None = None
+                    pretransport_attempt: AttemptLease | None = None
                     if (
                         cell is not None
                         and cell.status == "reserved"
@@ -331,12 +441,25 @@ def execute_release_run(
                         ):
                             pretransport_attempt_ordinal = cell.provider_attempt_ordinal
                         else:
+                            if not isinstance(
+                                authority,
+                                SqliteProviderSpendAuthority,
+                            ):
+                                raise RunBlockedError(
+                                    "remote provider failure lacks retryable "
+                                    "replacement support"
+                                )
                             retryable_nonbillable_prior_attempt = (
                                 authority.recover_retryable_nonbillable_attempt(
                                     key,
                                     attempt_id=cell.provider_attempt_id,
                                 )
                             )
+                    if orphaned_remote_attempt is not None:
+                        pretransport_attempt = orphaned_remote_attempt
+                        pretransport_attempt_ordinal = (
+                            orphaned_remote_attempt.attempt_ordinal
+                        )
 
                     replayable_response: Mapping[str, object] | None = None
                     replayable_attempt: AttemptLease | None = None
@@ -420,7 +543,13 @@ def execute_release_run(
                         lease: AttemptLease,
                         *,
                         bound_cell_attempt_id: str | None = (
-                            None if cell is None else cell.provider_attempt_id
+                            (
+                                orphaned_remote_attempt.attempt_id
+                                if orphaned_remote_attempt is not None
+                                else None
+                            )
+                            if cell is None
+                            else cell.provider_attempt_id
                         ),
                         bound_authorization_state: list[str | None] = (
                             authorization_state
@@ -431,6 +560,28 @@ def execute_release_run(
                                 "pretransport provider attempt differs from "
                                 "cell binding"
                             )
+                        bound_authorization_state[0] = lease.attempt_id
+
+                    def persist_remote_authorized_cell(
+                        lease: AttemptLease,
+                        *,
+                        bound_cell_id: str = cell_id,
+                        bound_case_id: str = unit.case_id,
+                        bound_unit_id: str = unit.unit_id,
+                        bound_repeat_index: int = repeat_index,
+                        bound_authorization_state: list[str | None] = (
+                            authorization_state
+                        ),
+                    ) -> None:
+                        ledger.reserve_cell(
+                            cell_id=bound_cell_id,
+                            run_identity_sha256=identity_sha256,
+                            case_id=bound_case_id,
+                            unit_id=bound_unit_id,
+                            repeat_index=bound_repeat_index,
+                            provider_attempt_id=lease.attempt_id,
+                            allow_existing_same_attempt=True,
+                        )
                         bound_authorization_state[0] = lease.attempt_id
 
                     def persist_provider_response(
@@ -461,14 +612,29 @@ def execute_release_run(
                             environ=environ,
                             authority=authority,
                             reservation_microusd=reservation_microusd,
-                            before_authorize=reserve_authorized_cell,
+                            before_authorize=(
+                                None
+                                if isinstance(authority, DynamoDbProviderSpendAuthority)
+                                else reserve_authorized_cell
+                            ),
+                            after_authorize=(
+                                persist_remote_authorized_cell
+                                if isinstance(authority, DynamoDbProviderSpendAuthority)
+                                else None
+                            ),
                             retryable_nonbillable_prior_attempt=(
                                 retryable_nonbillable_prior_attempt
                             ),
                             replayable_attempt=replayable_attempt,
                             replayable_response=replayable_response,
                             pretransport_attempt_ordinal=(pretransport_attempt_ordinal),
+                            pretransport_attempt=pretransport_attempt,
                             pretransport_attempt_observer=bind_pretransport_attempt,
+                            transport_start_observer=(
+                                authority.mark_transport_started
+                                if isinstance(authority, DynamoDbProviderSpendAuthority)
+                                else None
+                            ),
                             response_observer=persist_provider_response,
                         )
                         request_sha256 = capture.request_body_sha256
@@ -493,8 +659,10 @@ def execute_release_run(
                             "release_id": execution.release.release_id,
                             "case_id": unit.case_id,
                             "unit_id": unit.unit_id,
+                            "required_unit_ids": [unit.unit_id],
                             "harness": harness,
                             "model_key": entry.registry_key,
+                            "model_id": entry.registry_key,
                             "model_registry_sha256": registry_sha256,
                             "model_registry_entry_sha256": entry_sha256,
                             "ablation": ablation,
@@ -580,14 +748,17 @@ def _complete_cell(
     request_body_observer: Callable[[bytes], None],
     attempt_failure_observer: Callable[[bool], None],
     environ: Mapping[str, str] | None,
-    authority: SqliteProviderSpendAuthority,
+    authority: ProviderSpendAuthority,
     reservation_microusd: int,
-    before_authorize: Callable[[sqlite3.Connection, AttemptLease], None],
+    before_authorize: Callable[[sqlite3.Connection, AttemptLease], None] | None,
+    after_authorize: Callable[[AttemptLease], None] | None,
     retryable_nonbillable_prior_attempt: AttemptLease | None,
     replayable_attempt: AttemptLease | None,
     replayable_response: Mapping[str, object] | None,
     pretransport_attempt_ordinal: int | None,
+    pretransport_attempt: AttemptLease | None,
     pretransport_attempt_observer: Callable[[AttemptLease], None],
+    transport_start_observer: Callable[[AttemptLease], None] | None,
     response_observer: Callable[[AttemptLease, Mapping[str, object]], None],
 ) -> SolverResponse:
     handler = ProviderSpendAttemptHandler(
@@ -595,13 +766,16 @@ def _complete_cell(
         key=key,
         reservation_microusd=reservation_microusd,
         before_authorize=before_authorize,
+        after_authorize=after_authorize,
         failure_observer=attempt_failure_observer,
         allow_retryable_nonbillable_replacement=True,
         retryable_nonbillable_prior_attempt=retryable_nonbillable_prior_attempt,
         replayable_attempt=replayable_attempt,
         replayable_response=replayable_response,
         pretransport_attempt_ordinal=pretransport_attempt_ordinal,
+        pretransport_attempt=pretransport_attempt,
         pretransport_attempt_observer=pretransport_attempt_observer,
+        transport_start_observer=transport_start_observer,
         response_observer=response_observer,
     )
     return complete_live_prompt(
@@ -774,17 +948,183 @@ def _cell_id(
     unit: ForecastPredictionUnit,
     repeat_index: int,
 ) -> str:
+    return derive_cell_id(
+        identity_sha256=identity_sha256,
+        case_id=unit.case_id,
+        unit_id=unit.unit_id,
+        repeat_index=repeat_index,
+    )
+
+
+def derive_cell_id(
+    *,
+    identity_sha256: str,
+    case_id: str,
+    unit_id: str,
+    repeat_index: int,
+) -> str:
+    """Derive the canonical durable ID for one frozen run cell.
+
+    Workflow matrix construction and the runner must use the same identity
+    function.  Keeping this helper public lets the official workflow build
+    resumable artifact names without reimplementing the receipt contract.
+    """
+
     return str(
         ARTIFACT_RAW_SHA256_V1.commit(
             {
-                "case_id": unit.case_id,
+                "case_id": case_id,
                 "repeat_index": repeat_index,
                 "run_identity_sha256": identity_sha256,
-                "unit_id": unit.unit_id,
+                "unit_id": unit_id,
             },
             domain=PUBLIC_RUN_RECEIPT_V1,
         ).digest
     )
+
+
+def derive_run_identity_sha256(
+    *,
+    execution: ForecastExecution,
+    entry: ModelRegistryEntry,
+    registry_sha256: str,
+    ceiling_microusd: int,
+    harness: str,
+    ablation: str,
+    repeat_count: int,
+    account: str,
+    manifest_id: str | None = None,
+    manifest_sha256: str | None = None,
+    approval_reference: str | None = None,
+) -> str:
+    """Derive the exact run identity consumed by the public runner."""
+
+    identity = _run_identity_record(
+        execution=execution,
+        entry=entry,
+        registry_sha256=registry_sha256,
+        ceiling_microusd=ceiling_microusd,
+        harness=harness,
+        ablation=ablation,
+        repeat_count=repeat_count,
+        account=account,
+        manifest_id=manifest_id,
+        manifest_sha256=manifest_sha256,
+        approval_reference=approval_reference,
+    )
+    return str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            identity,
+            domain=PUBLIC_RUN_IDENTITY_V1,
+        ).digest
+    )
+
+
+def _run_identity_record(
+    *,
+    execution: ForecastExecution,
+    entry: ModelRegistryEntry,
+    registry_sha256: str,
+    ceiling_microusd: int,
+    harness: str,
+    ablation: str,
+    repeat_count: int,
+    account: str,
+    manifest_id: str | None,
+    manifest_sha256: str | None,
+    approval_reference: str | None,
+) -> dict[str, object]:
+    if (manifest_id is None) != (manifest_sha256 is None):
+        raise RunValidationError(
+            "manifest ID and manifest commitment must be supplied together"
+        )
+    identity: dict[str, object] = {
+        "schema_version": str(PUBLIC_RUN_IDENTITY_V1),
+        "ablation": ablation,
+        "account": account,
+        "ceiling_microusd": ceiling_microusd,
+        "forecast_release_digest": execution.release.release_digest,
+        "harness": harness,
+        "model_key": entry.registry_key,
+        "model_registry_entry_sha256": model_registry_entry_sha256(entry),
+        "model_registry_sha256": registry_sha256,
+        "repeat_count": repeat_count,
+        "served_model_version": entry.model_version_or_snapshot,
+    }
+    if approval_reference is not None:
+        identity["approval_reference"] = approval_reference
+    if manifest_id is not None and manifest_sha256 is not None:
+        identity.update(
+            {
+                "run_manifest_id": manifest_id,
+                "run_manifest_sha256": manifest_sha256,
+            }
+        )
+    return identity
+
+
+def _select_units(
+    units: tuple[ForecastPredictionUnit, ...],
+    *,
+    unit_id: str | None,
+) -> tuple[ForecastPredictionUnit, ...]:
+    """Select one manifest-declared unit for a matrix worker, if requested."""
+
+    if unit_id is None:
+        return units
+    if not unit_id.strip():
+        raise RunValidationError("unit_id must not be empty")
+    selected = tuple(unit for unit in units if unit.unit_id == unit_id)
+    if not selected:
+        raise RunValidationError(
+            f"unit_id is not declared by the forecast release: {unit_id}"
+        )
+    return selected
+
+
+def _select_repeats(
+    *,
+    repeat_count: int,
+    repeat_index: int | None,
+) -> tuple[int, ...]:
+    """Select one repeat for a matrix worker, while preserving run identity."""
+
+    if repeat_index is None:
+        return tuple(range(1, repeat_count + 1))
+    if (
+        isinstance(repeat_index, bool)
+        or repeat_index < 1
+        or repeat_index > repeat_count
+    ):
+        raise RunValidationError("repeat_index must be between 1 and repeat_count")
+    return (repeat_index,)
+
+
+def _select_cell(
+    units: tuple[ForecastPredictionUnit, ...],
+    *,
+    repeat_count: int,
+    identity_sha256: str,
+    cell_id: str,
+) -> tuple[ForecastPredictionUnit, int]:
+    """Resolve one supplied cell ID to its manifest unit and repeat."""
+
+    matches = [
+        (unit, repeat_index)
+        for unit in units
+        for repeat_index in range(1, repeat_count + 1)
+        if _cell_id(
+            identity_sha256=identity_sha256,
+            unit=unit,
+            repeat_index=repeat_index,
+        )
+        == cell_id
+    ]
+    if len(matches) != 1:
+        raise RunValidationError(
+            "cell_id does not identify exactly one manifest-authorized cell"
+        )
+    return matches[0]
 
 
 def _require_unchanged_registry(path: Path, expected_sha256: str) -> None:

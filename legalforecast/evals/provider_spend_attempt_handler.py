@@ -86,13 +86,16 @@ class ProviderSpendAttemptHandler:
     reservation_microusd: int
     additional_attempt_permit: AdditionalAttemptPermit | None = None
     before_authorize: Callable[[sqlite3.Connection, AttemptLease], None] | None = None
+    after_authorize: Callable[[AttemptLease], None] | None = None
     failure_observer: Callable[[bool], None] | None = None
     allow_retryable_nonbillable_replacement: bool = False
     retryable_nonbillable_prior_attempt: AttemptLease | None = None
     replayable_attempt: AttemptLease | None = None
     replayable_response: JsonRecord | None = None
     pretransport_attempt_ordinal: int | None = None
+    pretransport_attempt: AttemptLease | None = None
     pretransport_attempt_observer: Callable[[AttemptLease], None] | None = None
+    transport_start_observer: Callable[[AttemptLease], None] | None = None
     response_observer: ResponseObserver | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
@@ -116,6 +119,14 @@ class ProviderSpendAttemptHandler:
             raise ValueError(
                 "provider replay and pretransport reuse are mutually exclusive"
             )
+        if self.pretransport_attempt is not None and (
+            self.pretransport_attempt_ordinal is None
+            or self.pretransport_attempt.attempt_ordinal
+            != self.pretransport_attempt_ordinal
+        ):
+            raise ValueError(
+                "pretransport lease and ordinal must identify the same attempt"
+            )
 
     def run_attempt(
         self,
@@ -134,10 +145,12 @@ class ProviderSpendAttemptHandler:
             self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
             return self.replayable_response
         if self.pretransport_attempt_ordinal is not None and attempt_ordinal == 1:
-            lease = self.authority.adopt_attempt(
-                self.key,
-                attempt_ordinal=self.pretransport_attempt_ordinal,
-            )
+            lease = self.pretransport_attempt
+            if lease is None:
+                lease = self.authority.adopt_attempt(
+                    self.key,
+                    attempt_ordinal=self.pretransport_attempt_ordinal,
+                )
         else:
             try:
                 replacement_ordinal = attempt_ordinal in {1, 2}
@@ -196,12 +209,16 @@ class ProviderSpendAttemptHandler:
                 )
         self._leases_by_local_ordinal[attempt_ordinal] = lease
         self._leases_by_durable_ordinal[lease.attempt_ordinal] = lease
+        if self.after_authorize is not None:
+            self.after_authorize(lease)
         if (
             self.pretransport_attempt_ordinal is not None
             and attempt_ordinal == 1
             and self.pretransport_attempt_observer is not None
         ):
             self.pretransport_attempt_observer(lease)
+        if self.transport_start_observer is not None:
+            self.transport_start_observer(lease)
         try:
             response = call()
             if self.response_observer is not None:

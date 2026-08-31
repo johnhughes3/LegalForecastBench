@@ -41,6 +41,16 @@ def register(
         help="Execute or resume exact cells from an outcome-blinded forecast release.",
     )
     execute.add_argument(
+        "--manifest",
+        "--run-manifest",
+        dest="manifest",
+        type=Path,
+        help=(
+            "Canonical locked benchmark-run manifest selecting the forecast "
+            "release cases."
+        ),
+    )
+    execute.add_argument(
         "--forecast",
         type=Path,
         required=True,
@@ -83,8 +93,10 @@ def register(
     )
     execute.add_argument(
         "--approval-reference",
-        required=True,
-        help="Nonempty plain reference to the owner approval covering this ceiling.",
+        help=(
+            "Optional community-run approval reference.  Manifest-bound official "
+            "runs use the numeric ceiling and ledger identity directly."
+        ),
     )
     execute.add_argument(
         "--harness",
@@ -115,6 +127,46 @@ def register(
         default="default",
         help=(
             "Stable provider-account identity for local spend scope (default: default)."
+        ),
+    )
+    execute.add_argument(
+        "--provider-authority-table",
+        help=(
+            "Shared DynamoDB provider-spend authority table for distributed "
+            "official cells."
+        ),
+    )
+    execute.add_argument(
+        "--provider-authority-region",
+        help="AWS region containing the shared provider-spend authority table.",
+    )
+    execute.add_argument(
+        "--provider-authority-resource-identity-sha256",
+        help=(
+            "Lowercase SHA-256 commitment of the exact provider-authority "
+            "DynamoDB table ARN."
+        ),
+    )
+    execute.add_argument(
+        "--unit-id",
+        help=(
+            "Execute exactly this manifest-declared prediction unit.  Use with "
+            "--repeat-index or the default repeat 1 for one matrix cell."
+        ),
+    )
+    execute.add_argument(
+        "--repeat-index",
+        type=int,
+        help=(
+            "Execute exactly this repeat index (1-based) for --unit-id; the "
+            "value must not exceed --repeat-count."
+        ),
+    )
+    execute.add_argument(
+        "--cell-id",
+        help=(
+            "Execute exactly the manifest-authorized cell ID.  The runner "
+            "derives the ID from its frozen run identity and refuses a mismatch."
         ),
     )
     execute.add_argument(
@@ -163,11 +215,24 @@ def run_execute(args: argparse.Namespace) -> int:
         ledger_path=cast(Path, args.ledger),
         receipts_dir=cast(Path, args.receipts_dir),
         ceiling_microusd=cast(int, args.ceiling_microusd),
-        approval_reference=cast(str, args.approval_reference),
+        approval_reference=cast(str | None, args.approval_reference),
         harness=cast(str, args.harness),
         ablation=cast(str, args.ablation),
         repeat_count=cast(int, args.repeat_count),
         account=cast(str, args.account),
+        manifest_path=cast(Path | None, args.manifest),
+        unit_id=cast(str | None, args.unit_id),
+        repeat_index=cast(int | None, args.repeat_index),
+        cell_id=cast(str | None, args.cell_id),
+        provider_authority_table=cast(str | None, args.provider_authority_table),
+        provider_authority_region=cast(
+            str | None,
+            args.provider_authority_region,
+        ),
+        provider_authority_resource_identity_sha256=cast(
+            str | None,
+            args.provider_authority_resource_identity_sha256,
+        ),
     )
     summary = execute_release_run(
         config,

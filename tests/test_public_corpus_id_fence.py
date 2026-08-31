@@ -31,7 +31,12 @@ def _inventory() -> list[str]:
         if not raw_path:
             continue
         path = raw_path.decode("utf-8")
-        payload = (ROOT / path).read_bytes()
+        file_path = ROOT / path
+        # A staged deletion is still present in ``git ls-files`` until the
+        # commit; it must not make this read-only inventory probe crash.
+        if not file_path.is_file():
+            continue
+        payload = file_path.read_bytes()
         if b"\0" in payload:
             continue
         for line_number, line in enumerate(payload.splitlines(), start=1):

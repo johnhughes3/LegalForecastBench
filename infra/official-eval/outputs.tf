@@ -3,6 +3,11 @@ output "packet_read_role_arn" {
   value       = aws_iam_role.cell.arn
 }
 
+output "prepare_inputs_role_arn" {
+  description = "Set as LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN in legalforecastbench-official-eval; this role is read-only and is only for manifest/forecast input preparation."
+  value       = aws_iam_role.prepare_inputs.arn
+}
+
 output "fan_in_role_arn" {
   description = "Set as LFB_GITHUB_FAN_IN_ROLE_ARN in legalforecastbench-official-eval-fan-in."
   value       = aws_iam_role.fan_in.arn
@@ -34,9 +39,10 @@ output "results_bucket_name" {
 }
 
 output "trusted_oidc_subjects" {
-  description = "Exact environment-bound GitHub OIDC subjects admitted by the three roles."
+  description = "Exact environment-bound GitHub OIDC subjects admitted by the four roles."
   value = {
     cell             = local.cell_subject
+    prepare_inputs   = local.prepare_inputs_subject
     fan_in           = local.fan_in_subject
     manifest_staging = local.manifest_staging_subject
   }

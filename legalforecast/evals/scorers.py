@@ -6,7 +6,7 @@ import math
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from typing import Any, Protocol
 
 from legalforecast.evals.output_parser import (
     ParsedModelOutput,
@@ -14,7 +14,6 @@ from legalforecast.evals.output_parser import (
     ParserIssueCode,
     ParserStatus,
 )
-from legalforecast.labeling.label_outcomes import OutcomeLabel
 
 DEFAULT_LOG_LOSS_EPSILON = 1e-15
 DEFAULT_ECE_BINS = 10
@@ -31,6 +30,19 @@ class RobustnessDimension(StrEnum):
     MDL_FAMILY = "mdl_family"
 
 
+class ScoreLabel(Protocol):
+    """Minimal label view needed by the public scoring algorithms."""
+
+    @property
+    def unit_id(self) -> str: ...
+
+    @property
+    def primary_outcome(self) -> int | None: ...
+
+    @property
+    def label_confidence(self) -> float | None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ScoringCase:
     """One parsed model output matched to locked labels for one motion/case."""
@@ -38,7 +50,7 @@ class ScoringCase:
     case_id: str
     model_id: str
     parsed_output: ParsedModelOutput
-    outcome_labels: tuple[OutcomeLabel, ...]
+    outcome_labels: tuple[ScoreLabel, ...]
     candidate_id: str | None = None
     related_family_id: str | None = None
     mdl_family_id: str | None = None
@@ -376,7 +388,7 @@ def _score_unit(
     *,
     case: ScoringCase,
     prediction: ParsedPrediction,
-    label: OutcomeLabel,
+    label: ScoreLabel,
     log_loss_epsilon: float,
 ) -> UnitScore:
     outcome = label.primary_outcome
@@ -406,8 +418,8 @@ def _score_unit(
     )
 
 
-def _labels_by_unit_id(labels: tuple[OutcomeLabel, ...]) -> dict[str, OutcomeLabel]:
-    indexed: dict[str, OutcomeLabel] = {}
+def _labels_by_unit_id(labels: tuple[ScoreLabel, ...]) -> dict[str, ScoreLabel]:
+    indexed: dict[str, ScoreLabel] = {}
     for label in labels:
         if label.unit_id in indexed:
             raise ValueError(f"duplicate outcome label: {label.unit_id}")

@@ -2,25 +2,19 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "DecryptArtifactObjects",
+      "Sid": "DecryptForecastInputs",
       "Effect": "Allow",
       "Action": "kms:Decrypt",
       "Resource": "${artifacts_kms_key_arn}"
     },
     {
-      "Sid": "GenerateArtifactDataKeys",
-      "Effect": "Allow",
-      "Action": "kms:GenerateDataKey",
-      "Resource": "${artifacts_kms_key_arn}"
-    },
-    {
-      "Sid": "ReadLockedReleaseObjects",
+      "Sid": "ReadLockedManifestObjects",
       "Effect": "Allow",
       "Action": "s3:GetObject",
       "Resource": "${results_bucket_arn}/manifests/*"
     },
     {
-      "Sid": "ListLockedReleaseObjects",
+      "Sid": "ListLockedManifestObjects",
       "Effect": "Allow",
       "Action": "s3:ListBucket",
       "Resource": "${results_bucket_arn}",
@@ -31,24 +25,36 @@
       }
     },
     {
-      "Sid": "CreateCanonicalPublication",
+      "Sid": "ReadManifestRunForecastObjects",
       "Effect": "Allow",
-      "Action": "s3:PutObject",
-      "Resource": "${results_bucket_arn}/reports/*/multi-ablation/*",
-      "Condition": {
-        "Null": {
-          "s3:if-none-match": "false"
-        }
-      }
+      "Action": "s3:GetObject",
+      "Resource": "${results_bucket_arn}/cycle-1/manifest-runs/*"
     },
     {
-      "Sid": "ListCanonicalPublication",
+      "Sid": "ListManifestRunForecastObjects",
       "Effect": "Allow",
       "Action": "s3:ListBucket",
       "Resource": "${results_bucket_arn}",
       "Condition": {
         "StringLike": {
-          "s3:prefix": "reports/*/multi-ablation/*"
+          "s3:prefix": "cycle-1/manifest-runs/*"
+        }
+      }
+    },
+    {
+      "Sid": "ReadForecastRunObjects",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "${results_bucket_arn}/forecast-runs/*"
+    },
+    {
+      "Sid": "ListForecastRunObjects",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "${results_bucket_arn}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "forecast-runs/*"
         }
       }
     }

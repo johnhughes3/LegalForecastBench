@@ -5,7 +5,6 @@ import hashlib
 import importlib.util
 import json
 import re
-import shlex
 from functools import cache
 from pathlib import Path
 from types import ModuleType
@@ -13,10 +12,8 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import build_parser, main
-from legalforecast.protocol.freeze import REQUIRED_FREEZE_ARTIFACTS, build_arg_parser
 
 ROOT = Path(__file__).resolve().parents[1]
-POSITIONAL_FREEZE_PREFIX = "uv run legalforecast freeze <cycle_id>"
 
 
 def _github_heading_id(heading: str) -> str:
@@ -51,32 +48,25 @@ def test_runbook_navigation_uses_unique_heading_native_ids() -> None:
     assert not (set(explicit_ids) & set(heading_ids))
 
 
-def test_documented_freeze_command_parses_against_real_cli() -> None:
+def test_runbook_documents_release_gate_before_dispatch() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
-    command = _extract_bash_command(runbook, POSITIONAL_FREEZE_PREFIX)
-    argv = shlex.split(command.replace("\\\n", " "))
-
-    assert argv[:4] == ["uv", "run", "legalforecast", "freeze"]
-    assert "--cycle-id" not in argv
-    assert "--bundle-output" in argv
-
-    args = build_arg_parser().parse_args(argv[4:])
-    assert args.cycle_id == "<cycle_id>"
-    assert args.bundle_output == "manifests/<cycle_id>.freeze.json"
-    for artifact_name in REQUIRED_FREEZE_ARTIFACTS:
-        assert getattr(args, artifact_name.value)
+    normalized = " ".join(runbook.split())
+    assert "uv run scripts/release_check.py" in runbook
+    assert "locked and tracked immediately before the forecast run starts" in normalized
+    assert "per-step hashes" not in normalized
 
 
-def test_freeze_command_selector_is_independent_of_block_order() -> None:
-    reordered = """```bash
-uv run legalforecast freeze amend <cycle_id>
-```
-```bash
-uv run legalforecast freeze <cycle_id> --bundle-output <bundle.json>
-```"""
-
-    assert _extract_bash_command(reordered, POSITIONAL_FREEZE_PREFIX).startswith(
-        POSITIONAL_FREEZE_PREFIX
+def test_runbook_names_the_new_fan_in_boundary() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    assert "fan-in-publish.yaml" in runbook
+    assert "forecast_run_id" in runbook
+    assert "forecast_run_attempt" in runbook
+    assert "labels_release_uri" in runbook
+    assert "official-forecast-results-<run_id>-<attempt>" in runbook
+    assert "Do not pass a labels locator to this invocation" in runbook
+    assert (
+        "There is no separate amendment, matrix, shard, or legacy-dispatch path"
+        in runbook
     )
 
 
@@ -119,46 +109,26 @@ def _documented_command_block(runbook: str, command: str) -> str:
     return remainder.split("```", maxsplit=1)[0]
 
 
-def _extract_bash_command(markdown: str, prefix: str) -> str:
-    for block in re.findall(r"```bash\n(.*?)\n```", markdown, flags=re.DOTALL):
-        if block.lstrip().startswith(prefix):
-            return block
-    raise AssertionError(f"documented bash command not found: {prefix}")
-
-
-def test_fan_in_audit_example_preserves_canonical_s3_receipt_identity() -> None:
+def test_fan_in_runbook_preserves_the_label_boundary() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    normalized = " ".join(runbook.split())
 
-    assert "--receipt-root s3://$LFB_RESULTS_BUCKET" in runbook
-    assert "--receipt-root tmp/result-store" not in runbook
-    assert "local fixture stores are appropriate for unit tests" in runbook
+    assert "only invocation that accepts a labels locator" in normalized
+    assert "must reject any forecast artifact containing labels" in normalized
+    assert "publish=false" in normalized
+    assert "reports/<cycle-id>/multi-ablation/" in normalized
 
 
-def test_runbook_documents_attempt_bound_seal_and_publication_commit() -> None:
+def test_runbook_documents_attempt_bound_source_and_create_once_publication() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    normalized = " ".join(runbook.split())
 
-    assert "source_dispatch_run_attempt" in runbook
-    assert "official-dispatch-provenance-<run_id>-<run_attempt>" in runbook
-    assert "cycle-publication-state/<cycle_id>/seal.json" in runbook
-    assert "cycle_closure finish --writer-id <exact-writer-id>" in runbook
-    assert "cycle-publication-state/*/runs/*/*/intent.json" in runbook
-    assert "cycle-publication-state/*/runs/*/*/done.json" in runbook
-    assert (
-        "read-only GetObject authority for `cycle-publication-state/*/seal.json`"
-        in (runbook)
-    )
-    assert "prefix-conditioned `s3:ListBucket` authority" in runbook
-    assert (
-        "prefix-conditioned `s3:ListBucketVersions` authority only for "
-        "`per-case/<cycle_id>/`"
-    ) in runbook
-    assert "exact-key ListObjectsV2 probe before GetObject" in runbook
-    assert "malformed listing, or unexpected key fails closed" in runbook
-    assert (
-        "no broader marker listing, seal write, receipt, or report-prefix authority"
-        in runbook
-    )
-    assert "`.publication-complete.json` as the final successful operation" in runbook
+    assert "exact run ID and attempt" in normalized
+    assert "source workflow path" in normalized
+    assert "create-once" in normalized
+    assert "existing object causes a fail-closed refusal" in normalized
+    assert "source_dispatch_run_attempt" not in normalized
+    assert "official-dispatch-provenance" not in normalized
 
 
 def test_official_commands_reuse_exact_preparation_request_ledger() -> None:
@@ -274,12 +244,14 @@ def _subcommand_parser(
     parser: argparse.ArgumentParser,
     command: str,
 ) -> argparse.ArgumentParser:
-    subparsers = next(
+    subparser_actions: list[argparse._SubParsersAction[Any]] = [  # pyright: ignore[reportPrivateUsage]
         action
         for action in parser._actions
-        if isinstance(action, argparse._SubParsersAction)
-    )
-    return subparsers.choices[command]
+        if isinstance(action, argparse._SubParsersAction)  # pyright: ignore[reportPrivateUsage]
+    ]
+    assert len(subparser_actions) == 1
+    subparsers = subparser_actions[0]  # pyright: ignore[reportUnknownVariableType]
+    return cast(argparse.ArgumentParser, subparsers.choices[command])  # pyright: ignore[reportPrivateUsage, reportUnknownMemberType]
 
 
 def _long_options(parser: argparse.ArgumentParser) -> set[str]:
@@ -796,35 +768,31 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
 
     for command in (
         "uv run scripts/release_check.py",
-        "uv run legalforecast publish aggregate",
-        "uv run legalforecast publish site",
+        "gh workflow run fan-in-publish.yaml",
     ):
         assert command in runbook
     for workflow_input in (
-        "ablations",
-        "resume_existing_results",
-        "max_projected_model_cost_usd",
+        "manifest_uri",
+        "forecast_release_uri",
+        "artifact_root_uri",
+        "model_registry_uri",
+        "model_key",
+        "ceiling_microusd",
     ):
         assert workflow_input in runbook
         assert workflow_input in workflow
 
-    for option in (
-        "--model-registry",
+    assert "--model-registry" in runbook
+    assert "--expected-run-identity" in (
+        ROOT / ".github" / "workflows" / "fan-in-publish.yaml"
+    ).read_text(encoding="utf-8")
+    for retired_contract in (
         "--dispatch-provenance",
-        "--allow-no-baselines",
-        "--baseline-training-examples",
-    ):
-        assert option in runbook
-        assert option in reproduce
-
-    for amendment_contract in (
-        "legalforecast freeze amend",
         "freeze_bundle_path",
-        "prior_dispatches_json",
         "additive_supersession",
-        "byte-identity assertion",
+        "official-dispatch-provenance",
     ):
-        assert amendment_contract in runbook
+        assert retired_contract not in runbook
 
     batch_002_section = runbook.split(
         "## Cycle 1 Batch-002 CourtListener-First Acquisition", maxsplit=1

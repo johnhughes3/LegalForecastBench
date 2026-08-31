@@ -89,6 +89,14 @@ def _fan_in_policy() -> JsonObject:
     )
 
 
+def _prepare_inputs_policy() -> JsonObject:
+    return _render_template(
+        POLICY_ROOT / "prepare-inputs-storage-policy.json.tftpl",
+        artifacts_kms_key_arn=ARTIFACTS_KMS_KEY_ARN,
+        results_bucket_arn=RESULTS_BUCKET_ARN,
+    )
+
+
 def _bedrock_policy() -> JsonObject:
     direct_arn = (
         "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-direct-example-v1"
@@ -321,16 +329,10 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
     assert set(statements) == {
         "DecryptArtifactObjects",
         "GenerateArtifactDataKeys",
-        "ReadExactPerCaseVersions",
-        "ReadShardReceipts",
-        "CreateShardReceipts",
-        "ReadCycleClosure",
-        "CreateCycleClosure",
-        "ReadCanonicalPublication",
-        "ReadManifestRunArtifacts",
+        "ReadLockedReleaseObjects",
+        "ListLockedReleaseObjects",
         "CreateCanonicalPublication",
-        "ListCurrentPerCaseVersions",
-        "ListFanInNamespaces",
+        "ListCanonicalPublication",
     }
     assert statements["DecryptArtifactObjects"] == {
         "Sid": "DecryptArtifactObjects",
@@ -344,56 +346,19 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
         "Action": "kms:GenerateDataKey",
         "Resource": ARTIFACTS_KMS_KEY_ARN,
     }
-    assert statements["ReadExactPerCaseVersions"] == {
-        "Sid": "ReadExactPerCaseVersions",
-        "Effect": "Allow",
-        "Action": ["s3:GetObject", "s3:GetObjectVersion"],
-        "Resource": f"{RESULTS_BUCKET_ARN}/per-case/*/metrics/*",
-    }
-    receipt_resource = f"{RESULTS_BUCKET_ARN}/shard-receipts/*/*/*/*.json"
-    assert statements["ReadShardReceipts"] == {
-        "Sid": "ReadShardReceipts",
-        "Effect": "Allow",
-        "Action": "s3:GetObject",
-        "Resource": receipt_resource,
-    }
-    assert statements["CreateShardReceipts"] == {
-        "Sid": "CreateShardReceipts",
-        "Effect": "Allow",
-        "Action": "s3:PutObject",
-        "Resource": receipt_resource,
-        "Condition": {"Null": {"s3:if-none-match": "false"}},
-    }
-    closure_resources = [
-        f"{RESULTS_BUCKET_ARN}/cycle-publication-state/*/runs/*/*/intent.json",
-        f"{RESULTS_BUCKET_ARN}/cycle-publication-state/*/runs/*/*/done.json",
-        f"{RESULTS_BUCKET_ARN}/cycle-publication-state/*/seal.json",
-    ]
-    assert statements["ReadCycleClosure"] == {
-        "Sid": "ReadCycleClosure",
-        "Effect": "Allow",
-        "Action": "s3:GetObject",
-        "Resource": closure_resources,
-    }
-    assert statements["CreateCycleClosure"] == {
-        "Sid": "CreateCycleClosure",
-        "Effect": "Allow",
-        "Action": "s3:PutObject",
-        "Resource": closure_resources,
-        "Condition": {"Null": {"s3:if-none-match": "false"}},
-    }
     report_resource = f"{RESULTS_BUCKET_ARN}/reports/*/multi-ablation/*"
-    assert statements["ReadCanonicalPublication"] == {
-        "Sid": "ReadCanonicalPublication",
+    assert statements["ReadLockedReleaseObjects"] == {
+        "Sid": "ReadLockedReleaseObjects",
         "Effect": "Allow",
         "Action": "s3:GetObject",
-        "Resource": report_resource,
+        "Resource": f"{RESULTS_BUCKET_ARN}/manifests/*",
     }
-    assert statements["ReadManifestRunArtifacts"] == {
-        "Sid": "ReadManifestRunArtifacts",
+    assert statements["ListLockedReleaseObjects"] == {
+        "Sid": "ListLockedReleaseObjects",
         "Effect": "Allow",
-        "Action": "s3:GetObject",
-        "Resource": f"{RESULTS_BUCKET_ARN}/cycle-1/manifest-runs/*",
+        "Action": "s3:ListBucket",
+        "Resource": RESULTS_BUCKET_ARN,
+        "Condition": {"StringLike": {"s3:prefix": "manifests/*"}},
     }
     assert statements["CreateCanonicalPublication"] == {
         "Sid": "CreateCanonicalPublication",
@@ -402,38 +367,76 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
         "Resource": report_resource,
         "Condition": {"Null": {"s3:if-none-match": "false"}},
     }
-    assert statements["ListFanInNamespaces"] == {
-        "Sid": "ListFanInNamespaces",
+    assert statements["ListCanonicalPublication"] == {
+        "Sid": "ListCanonicalPublication",
         "Effect": "Allow",
         "Action": "s3:ListBucket",
         "Resource": RESULTS_BUCKET_ARN,
-        "Condition": {
-            "StringLike": {
-                "s3:prefix": [
-                    "cycle-publication-state/*/runs/*",
-                    "cycle-publication-state/*/seal.json",
-                    "cycle-1/manifest-runs/*",
-                    "per-case/*",
-                    "reports/*/multi-ablation/*",
-                    "shard-receipts/*",
-                ]
-            }
-        },
+        "Condition": {"StringLike": {"s3:prefix": "reports/*/multi-ablation/*"}},
     }
-    assert statements["ListCurrentPerCaseVersions"] == {
-        "Sid": "ListCurrentPerCaseVersions",
+
+
+def _assert_exact_prepare_inputs_policy(policy: Mapping[str, object]) -> None:
+    assert set(policy) == {"Version", "Statement"}
+    assert policy["Version"] == "2012-10-17"
+    statements = _statements_by_sid(policy)
+    assert set(statements) == {
+        "DecryptForecastInputs",
+        "ReadLockedManifestObjects",
+        "ListLockedManifestObjects",
+        "ReadManifestRunForecastObjects",
+        "ListManifestRunForecastObjects",
+        "ReadForecastRunObjects",
+        "ListForecastRunObjects",
+    }
+    assert statements["DecryptForecastInputs"] == {
+        "Sid": "DecryptForecastInputs",
         "Effect": "Allow",
-        "Action": "s3:ListBucketVersions",
+        "Action": "kms:Decrypt",
+        "Resource": ARTIFACTS_KMS_KEY_ARN,
+    }
+    assert statements["ReadLockedManifestObjects"] == {
+        "Sid": "ReadLockedManifestObjects",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": f"{RESULTS_BUCKET_ARN}/manifests/*",
+    }
+    assert statements["ListLockedManifestObjects"] == {
+        "Sid": "ListLockedManifestObjects",
+        "Effect": "Allow",
+        "Action": "s3:ListBucket",
         "Resource": RESULTS_BUCKET_ARN,
-        "Condition": {
-            "StringLike": {
-                "s3:prefix": "per-case/*",
-            }
-        },
+        "Condition": {"StringLike": {"s3:prefix": "manifests/*"}},
+    }
+    assert statements["ReadManifestRunForecastObjects"] == {
+        "Sid": "ReadManifestRunForecastObjects",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": f"{RESULTS_BUCKET_ARN}/cycle-1/manifest-runs/*",
+    }
+    assert statements["ListManifestRunForecastObjects"] == {
+        "Sid": "ListManifestRunForecastObjects",
+        "Effect": "Allow",
+        "Action": "s3:ListBucket",
+        "Resource": RESULTS_BUCKET_ARN,
+        "Condition": {"StringLike": {"s3:prefix": "cycle-1/manifest-runs/*"}},
+    }
+    assert statements["ReadForecastRunObjects"] == {
+        "Sid": "ReadForecastRunObjects",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": f"{RESULTS_BUCKET_ARN}/forecast-runs/*",
+    }
+    assert statements["ListForecastRunObjects"] == {
+        "Sid": "ListForecastRunObjects",
+        "Effect": "Allow",
+        "Action": "s3:ListBucket",
+        "Resource": RESULTS_BUCKET_ARN,
+        "Condition": {"StringLike": {"s3:prefix": "forecast-runs/*"}},
     }
 
 
-def test_exact_three_role_topology_and_policy_attachments() -> None:
+def test_exact_four_role_topology_and_policy_attachments() -> None:
     terraform = "\n".join(
         path.read_text(encoding="utf-8") for path in sorted(INFRA_ROOT.glob("*.tf"))
     )
@@ -442,11 +445,12 @@ def test_exact_three_role_topology_and_policy_attachments() -> None:
         re.findall(r'resource "aws_iam_role_policy" "([^"]+)"', terraform)
     )
 
-    assert roles == {"cell", "fan_in", "manifest_staging"}
+    assert roles == {"cell", "prepare_inputs", "fan_in", "manifest_staging"}
     assert inline_policies == {
         "cell_storage",
         "cell_provider_authority",
         "cell_bedrock",
+        "prepare_inputs_storage",
         "fan_in_storage",
         "manifest_staging_storage",
     }
@@ -455,17 +459,18 @@ def test_exact_three_role_topology_and_policy_attachments() -> None:
             r'resource "aws_iam_role_policies_exclusive" "([^"]+)"',
             terraform,
         )
-    ) == {"cell", "fan_in", "manifest_staging"}
+    ) == {"cell", "prepare_inputs", "fan_in", "manifest_staging"}
     assert set(
         re.findall(
             r'resource "aws_iam_role_policy_attachments_exclusive" "([^"]+)"',
             terraform,
         )
-    ) == {"cell", "fan_in", "manifest_staging"}
+    ) == {"cell", "prepare_inputs", "fan_in", "manifest_staging"}
     assert 'resource "aws_iam_policy"' not in terraform
     assert 'resource "aws_iam_role_policy_attachment"' not in terraform
     assert "aws_dynamodb" not in terraform
     assert "assume_role_policy   = local.cell_trust_policy_json" in terraform
+    assert "assume_role_policy   = local.prepare_inputs_trust_policy_json" in terraform
     assert "assume_role_policy   = local.fan_in_trust_policy_json" in terraform
     assert (
         "assume_role_policy   = local.manifest_staging_trust_policy_json" in terraform
@@ -473,6 +478,8 @@ def test_exact_three_role_topology_and_policy_attachments() -> None:
     assert "role   = aws_iam_role.manifest_staging.id" in terraform
     assert "policy = local.manifest_staging_storage_policy_json" in terraform
     assert "role   = aws_iam_role.cell.id" in terraform
+    assert "role   = aws_iam_role.prepare_inputs.id" in terraform
+    assert "policy = local.prepare_inputs_storage_policy_json" in terraform
     assert "policy = local.cell_storage_policy_json" in terraform
     assert "policy = local.cell_provider_authority_policy_json" in terraform
     assert "role   = aws_iam_role.fan_in.id" in terraform
@@ -496,6 +503,7 @@ def test_exact_three_role_topology_and_policy_attachments() -> None:
         "fan-in-storage-policy.json.tftpl",
         "github-oidc-trust.json.tftpl",
         "manifest-staging-policy.json.tftpl",
+        "prepare-inputs-storage-policy.json.tftpl",
     }
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in (INFRA_ROOT / "outputs.tf").read_text(
         encoding="utf-8"
@@ -544,6 +552,14 @@ def test_cell_provider_authority_policy_is_exact_table_data_plane_only() -> None
 
 def test_fan_in_policy_matches_current_call_graph_exactly() -> None:
     _assert_exact_fan_in_policy(_fan_in_policy())
+
+
+def test_prepare_inputs_policy_is_read_only_and_exactly_prefix_scoped() -> None:
+    _assert_exact_prepare_inputs_policy(_prepare_inputs_policy())
+    encoded = json.dumps(_prepare_inputs_policy())
+    assert "s3:PutObject" not in encoded
+    assert "s3:DeleteObject" not in encoded
+    assert "dynamodb:" not in encoded
 
 
 def test_optional_bedrock_policy_separates_direct_and_profile_grants() -> None:
@@ -759,6 +775,9 @@ def _assert_eval_trust_refs_satisfiable(
     ref = terraform_local_string(locals_text, "github_ref")
     repository = terraform_local_string(locals_text, "github_repository")
     cell_environment = terraform_local_string(locals_text, "cell_environment_name")
+    prepare_inputs_environment = terraform_local_string(
+        locals_text, "prepare_inputs_environment_name"
+    )
     fan_in_environment = terraform_local_string(locals_text, "fan_in_environment_name")
     manifest_staging_environment = terraform_local_string(
         locals_text, "manifest_staging_environment_name"
@@ -772,13 +791,14 @@ def _assert_eval_trust_refs_satisfiable(
         locals_text,
         flags=re.MULTILINE,
     )
-    assert len(wirings) == 3
+    assert len(wirings) == 4
     assert (
         terraform_local_string(locals_text, "github_subject_prefix")
         == "repo:${local.github_repository}"
     )
     for subject_template in (
         '"${local.github_subject_prefix}:environment:${local.cell_environment_name}"',
+        '"${local.github_subject_prefix}:environment:${local.prepare_inputs_environment_name}"',
         '"${local.github_subject_prefix}:environment:${local.fan_in_environment_name}"',
         '"${local.github_subject_prefix}:environment:'
         '${local.manifest_staging_environment_name}"',
@@ -799,6 +819,7 @@ def _assert_eval_trust_refs_satisfiable(
     }
     for environment in (
         cell_environment,
+        prepare_inputs_environment,
         fan_in_environment,
         manifest_staging_environment,
     ):
@@ -818,43 +839,29 @@ def _assert_eval_trust_refs_satisfiable(
     assert ref == f"refs/heads/{branch}"
 
     # Provider cells must be normal jobs that bind the evaluation environment.
-    # A uses: reusable workflow cannot set environment on the caller, and the
-    # callee's environment injects vars/OIDC but not secrets.OPENAI_API_KEY.
+    # The canonical workflow invokes the typed runner directly so each job can
+    # bind exactly one provider secret without inheriting a reusable action's
+    # wider environment.
     expected_provider_lanes = {
         "run-openai": ("openai", cell_environment),
         "run-anthropic": ("anthropic", cell_environment),
         "run-gemini": ("gemini", cell_environment),
     }
-    caller_lanes: dict[str, tuple[str, str]] = {}
-    expected_secret_inputs = {
-        "run-openai": ("ai_gateway_api_key", "openai_api_key"),
-        "run-anthropic": ("anthropic_api_key",),
-        "run-gemini": ("gemini_api_key",),
+    workflow_jobs_by_id = workflow_jobs(workflow_texts[RUN_BENCHMARK_WORKFLOW.name])
+    provider_secret_names = {
+        "run-openai": "OPENAI_API_KEY",
+        "run-anthropic": "ANTHROPIC_API_KEY",
+        "run-gemini": "GEMINI_API_KEY",
     }
-    for job_id, block in workflow_jobs(
-        workflow_texts[RUN_BENCHMARK_WORKFLOW.name]
-    ).items():
-        if "uses: ./.github/actions/official-provider-cell" not in block:
-            continue
-        provider_match = re.search(
-            r"^          provider: (\S+)\s*$", block, re.MULTILINE
-        )
-        if provider_match is None:
-            provider_match = re.search(
-                r"^      provider: (\S+)\s*$", block, re.MULTILINE
-            )
-        environment_match = re.search(
-            r"^    environment: (\S+)\s*$", block, re.MULTILINE
-        )
-        assert provider_match is not None, job_id
-        assert environment_match is not None, job_id
-        assert not re.search(
-            r"uses: ./\.github/actions/official-provider-cell\s+env:", block
-        ), job_id
-        for input_name in expected_secret_inputs[job_id]:
-            assert f"{input_name}: ${{{{ secrets." in block, job_id
-        caller_lanes[job_id] = (provider_match.group(1), environment_match.group(1))
-    assert caller_lanes == expected_provider_lanes
+    for job_id, (provider, environment) in expected_provider_lanes.items():
+        block = workflow_jobs_by_id[job_id]
+        assert f"environment: {environment}" in block
+        assert f"startsWith(inputs.model_key, '{provider}:')" in block
+        secret_name = provider_secret_names[job_id]
+        assert block.count(f"secrets.{secret_name}") == 1
+        for other_secret in set(provider_secret_names.values()) - {secret_name}:
+            assert f"secrets.{other_secret}" not in block
+        assert "uses: ./.github/actions/official-provider-cell" not in block
 
     # Every job in any workflow that assumes one of these roles must itself
     # bind that role's provisioned environment and grant itself the OIDC
@@ -1002,8 +1009,6 @@ def test_eval_trust_satisfiability_fence_discriminates_on_real_drift() -> None:
     ("policy_factory", "sid"),
     [
         (_cell_policy, "CreateMutationMarkers"),
-        (_fan_in_policy, "CreateShardReceipts"),
-        (_fan_in_policy, "CreateCycleClosure"),
         (_fan_in_policy, "CreateCanonicalPublication"),
     ],
 )
@@ -1081,10 +1086,8 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
     publish_source = ROOT / "legalforecast" / "publication" / "shard_fan_in_publish.py"
 
     assert "environment: legalforecastbench-official-eval" in run_workflow
+    assert "LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN" in run_workflow
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in run_workflow
-    assert "environment: legalforecastbench-official-eval-fan-in" in run_workflow
-    assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in run_workflow
-    assert "environment: legalforecastbench-official-eval" in run_workflow
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in provider_workflow
     assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in provider_workflow
     assert (
@@ -1102,10 +1105,10 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
 
     assert "environment: legalforecastbench-official-eval-fan-in" in fan_in_workflow
     assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in fan_in_workflow
-    assert (
-        '"s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/"'
-        in fan_in_workflow
-    )
+    assert "labels_release_uri:" in fan_in_workflow
+    assert 'fetch_locked "${LABELS_RELEASE_URI}"' in fan_in_workflow
+    assert "official-forecast-results-{run_id}-{attempt}" in fan_in_workflow
+    assert "--expected-run-identity" in fan_in_workflow
 
     output_keys_source = _function_source(per_case_source, "_output_keys")
     assert 'f"metrics/{cycle_slug}/{run_id}.runs.jsonl"' in output_keys_source
@@ -1114,8 +1117,10 @@ def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> 
     assert 'f"reports/{_cycle_slug(packet_object)}/{run_id}.runner-log.jsonl"' in (
         run_source
     )
-    assert "aws s3 sync \\" in run_workflow
-    assert '"s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}/" \\' in run_workflow
+    # The canonical forecast boundary copies only paths declared by the
+    # forecast release; recursive operator-root sync is forbidden.
+    assert "aws s3 sync \\" not in run_workflow
+    assert "actual != set(declared)" in run_workflow
     ordinary_put_source = _function_source(per_case_source, "_upload_path")
     assert '"put-object"' in ordinary_put_source
     assert '"--if-none-match"' not in ordinary_put_source
@@ -1220,12 +1225,15 @@ def test_external_storage_requires_live_validation_and_has_no_lifecycle_inputs()
         assert name not in readme
         assert name not in runbook
     assert "official-s3-access-validation.yaml" in readme
-    assert "official-s3-access-validation.yaml" in runbook
     for document in (readme, runbook):
-        assert "one explicitly approved bounded non-dry-run shard" in document
-        assert "dry run" in document.lower()
-        assert "VersionId" in document
-        assert "remaining official shards" in document
+        if document is readme:
+            assert "one explicitly approved bounded non-dry-run shard" in document
+            assert "dry run" in document.lower()
+            assert "VersionId" in document
+            assert "remaining official shards" in document
+        else:
+            assert "protected labels fan-in" in document
+            assert "label-free" in document
     assert "before any evaluation dispatch" not in runbook
 
 
@@ -1296,16 +1304,11 @@ def test_docs_record_unapplied_iam_only_and_live_storage_boundaries() -> None:
     readme = (INFRA_ROOT / "README.md").read_text(encoding="utf-8")
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
     combined = f"{readme}\n{runbook}"
-    runbook_boundary = runbook.split(
-        "The intended AWS boundary is defined, but not applied", 1
-    )[1].split("The packet/result role used by each case writer", 1)[0]
-
-    assert runbook_boundary.count("`LFB_AWS_REGION`") == 2
-    assert "the same reviewed `LFB_AWS_REGION`" in runbook_boundary
-
     for required in (
         CELL_ENVIRONMENT,
+        "legalforecastbench-official-eval-prepare-inputs",
         FAN_IN_ENVIRONMENT,
+        "LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN",
         "LFB_GITHUB_PACKET_READ_ROLE_ARN",
         "LFB_GITHUB_FAN_IN_ROLE_ARN",
         "LFB_PROVIDER_AUTHORITY_TABLE",
@@ -1343,8 +1346,8 @@ def test_docs_record_unapplied_iam_only_and_live_storage_boundaries() -> None:
         "destroy plan",
     ):
         assert required in readme
-    assert "aws_s3_bucket.packet" not in runbook_boundary
-    assert "aws_s3_bucket_policy.packet" not in runbook_boundary
+    assert "aws_s3_bucket.packet" not in runbook
+    assert "aws_s3_bucket_policy.packet" not in runbook
     assert "LFB_PACKET_LIFECYCLE_RULE_ID" not in combined
     assert "LFB_RESULTS_LIFECYCLE_RULE_ID" not in combined
 

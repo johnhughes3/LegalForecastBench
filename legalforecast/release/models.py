@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal, cast
+from uuid import UUID
 
 from pydantic import (
     BaseModel,
@@ -13,7 +14,11 @@ from pydantic import (
     model_validator,
 )
 
-from legalforecast.contracts import FORECAST_RELEASE_V1, LABELS_RELEASE_V1
+from legalforecast.contracts import (
+    FORECAST_RELEASE_V1,
+    LABELS_RELEASE_V1,
+    PUBLIC_RUN_MANIFEST_V1,
+)
 
 FORECAST_RELEASE_SCHEMA = cast(
     Literal[
@@ -27,6 +32,10 @@ LABELS_RELEASE_SCHEMA = cast(
     ],
     str(LABELS_RELEASE_V1),
 )
+type PublicRunManifestSchema = Literal[
+    # contract-ratchet: allow imported public contract
+    "legalforecast.public-run-manifest.v1"
+]
 
 PleadingRole = Literal[
     "complaint",
@@ -77,6 +86,10 @@ NonEmptyString = Annotated[
     StringConstraints(strict=True, strip_whitespace=True, min_length=1),
 ]
 Sha256 = Annotated[str, StringConstraints(strict=True, pattern=r"^[0-9a-f]{64}$")]
+FullRevision = Annotated[
+    str,
+    StringConstraints(strict=True, pattern=r"^[0-9a-f]{40}$"),
+]
 RelativePath = Annotated[
     str,
     StringConstraints(strict=True, strip_whitespace=True, min_length=1),
@@ -136,6 +149,26 @@ class PredictionUnitDraft(ReleaseModel):
     )
 
 
+class ForecastManifestBinding(ReleaseModel):
+    """Exact locked-run identity carried by an outcome-blinded release.
+
+    The manifest SHA commits to the complete public run-manifest payload,
+    including selected cases, provider IDs, role-bearing opaque locators and
+    version IDs.  The duplicated typed fields make the most important
+    identity values inspectable without introducing a second manifest
+    contract or per-document hashes.
+    """
+
+    schema_version: PublicRunManifestSchema = cast(
+        PublicRunManifestSchema, str(PUBLIC_RUN_MANIFEST_V1)
+    )
+    release_id: NonEmptyString
+    run_id: UUID
+    policy_version: NonEmptyString
+    code_revision: FullRevision
+    manifest_sha256: Sha256
+
+
 class ForecastDraft(ReleaseModel):
     """Uncommitted issuer input; not a persisted runtime contract."""
 
@@ -143,6 +176,7 @@ class ForecastDraft(ReleaseModel):
     policy_digest: Sha256
     code_version: NonEmptyString
     packet_builder_version: NonEmptyString
+    run_manifest_binding: ForecastManifestBinding | None = None
     cases: tuple[CaseDraft, ...] = Field(min_length=1)
     prediction_units: tuple[PredictionUnitDraft, ...] = Field(min_length=1)
 
@@ -241,6 +275,7 @@ class ForecastRelease(ReleaseModel):
     policy_digest: Sha256
     code_version: NonEmptyString
     packet_builder_version: NonEmptyString
+    run_manifest_binding: ForecastManifestBinding | None = None
     case_count: Annotated[int, Field(strict=True, gt=0)]
     unit_count: Annotated[int, Field(strict=True, gt=0)]
     cases: tuple[ReleaseCase, ...] = Field(min_length=1)

@@ -20,6 +20,7 @@ RUNTIME_WORKFLOWS = (
 
 INFRA_ENVIRONMENT = "legalforecastbench-official-provider-authority-infra"
 CELL_ENVIRONMENT = "legalforecastbench-official-eval"
+PREPARE_INPUTS_ENVIRONMENT = "legalforecastbench-official-eval-prepare-inputs"
 FAN_IN_ENVIRONMENT = "legalforecastbench-official-eval-fan-in"
 STAGING_ENVIRONMENT = "legalforecastbench-official-eval-manifest-staging"
 
@@ -44,14 +45,35 @@ CELL_VARIABLES = {
     "LFB_GITHUB_PACKET_READ_ROLE_ARN",
     "LFB_MODEL_PACKET_PREFIX",
     "LFB_PACKET_BUCKET",
+    "LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256",
     "LFB_PROVIDER_AUTHORITY_TABLE",
     "LFB_RESULTS_BUCKET",
     "LFB_RESULTS_MANIFEST_PREFIX",
 }
+# The canonical benchmark dispatcher now invokes the public runner directly,
+# while the retained S3 validation workflow remains the producer of the
+# packet-read cell variables. The composite provider-cell action also retains
+# the two model/runtime variables for community callers, but action metadata
+# is not a workflow job and therefore cannot be discovered by the environment
+# inventory sweep below.
+CELL_RUNTIME_VARIABLES = {
+    "LFB_AWS_REGION",
+    "LFB_GITHUB_PACKET_READ_ROLE_ARN",
+    "LFB_MODEL_PACKET_PREFIX",
+    "LFB_PACKET_BUCKET",
+    "LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256",
+    "LFB_PROVIDER_AUTHORITY_TABLE",
+    "LFB_RESULTS_BUCKET",
+    "LFB_RESULTS_MANIFEST_PREFIX",
+}
+PREPARE_INPUTS_VARIABLES = {
+    "LFB_AWS_REGION",
+    "LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN",
+    "LFB_RESULTS_BUCKET",
+}
 FAN_IN_VARIABLES = {
     "LFB_AWS_REGION",
     "LFB_GITHUB_FAN_IN_ROLE_ARN",
-    "LFB_HF_OFFICIAL_DATASET_REPO",
     "LFB_PACKET_BUCKET",
     "LFB_RESULTS_BUCKET",
 }
@@ -65,6 +87,11 @@ STAGING_VARIABLES = {
 }
 CELL_SECRETS = {
     "AI_GATEWAY_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "OPENAI_API_KEY",
+}
+LOCKED_WORKFLOW_CELL_SECRETS = {
     "ANTHROPIC_API_KEY",
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
@@ -112,7 +139,7 @@ def _workflow_names_by_environment(text: str, context: str) -> dict[str, set[str
     return names_by_environment
 
 
-def test_manifest_is_closed_to_the_four_official_eval_environments() -> None:
+def test_manifest_is_closed_to_the_five_official_eval_environments() -> None:
     manifest = _manifest()
     environments = _environments()
 
@@ -129,10 +156,11 @@ def test_manifest_is_closed_to_the_four_official_eval_environments() -> None:
     assert set(environments) == {
         INFRA_ENVIRONMENT,
         CELL_ENVIRONMENT,
+        PREPARE_INPUTS_ENVIRONMENT,
         FAN_IN_ENVIRONMENT,
         STAGING_ENVIRONMENT,
     }
-    assert len(environments) == 4
+    assert len(environments) == 5
     assert all(
         set(row) == {"name", "authority", "aws_oidc_subject", "secrets", "variables"}
         for row in environments.values()
@@ -165,6 +193,7 @@ def test_manifest_has_exact_secret_and_variable_inventories() -> None:
     environments = _environments()
     infra = environments[INFRA_ENVIRONMENT]
     cell = environments[CELL_ENVIRONMENT]
+    prepare_inputs = environments[PREPARE_INPUTS_ENVIRONMENT]
     fan_in = environments[FAN_IN_ENVIRONMENT]
 
     assert infra["authority"] == "infrastructure_operator"
@@ -174,6 +203,10 @@ def test_manifest_has_exact_secret_and_variable_inventories() -> None:
     assert cell["authority"] == "evaluation_cell"
     assert set(cast(list[str], cell["secrets"])) == CELL_SECRETS
     assert set(cast(list[str], cell["variables"])) == CELL_VARIABLES
+
+    assert prepare_inputs["authority"] == "prepare_inputs"
+    assert prepare_inputs["secrets"] == []
+    assert set(cast(list[str], prepare_inputs["variables"])) == PREPARE_INPUTS_VARIABLES
 
     assert fan_in["authority"] == "fan_in"
     assert fan_in["secrets"] == []
@@ -190,6 +223,7 @@ def test_oidc_subjects_and_role_variables_do_not_cross_environments() -> None:
     role_placements = {
         INFRA_ENVIRONMENT: "LFB_INFRA_OPERATOR_ROLE_ARN",
         CELL_ENVIRONMENT: "LFB_GITHUB_PACKET_READ_ROLE_ARN",
+        PREPARE_INPUTS_ENVIRONMENT: "LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN",
         FAN_IN_ENVIRONMENT: "LFB_GITHUB_FAN_IN_ROLE_ARN",
         STAGING_ENVIRONMENT: "LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN",
     }
@@ -208,13 +242,15 @@ def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
     runtime_texts = [
         workflow.read_text(encoding="utf-8") for workflow in RUNTIME_WORKFLOWS
     ]
-    runtime_variables = {
+    runtime_variables: dict[str, set[str]] = {
         CELL_ENVIRONMENT: set(),
+        PREPARE_INPUTS_ENVIRONMENT: set(),
         FAN_IN_ENVIRONMENT: set(),
         STAGING_ENVIRONMENT: set(),
     }
-    runtime_secrets = {
+    runtime_secrets: dict[str, set[str]] = {
         CELL_ENVIRONMENT: set(),
+        PREPARE_INPUTS_ENVIRONMENT: set(),
         FAN_IN_ENVIRONMENT: set(),
         STAGING_ENVIRONMENT: set(),
     }
@@ -233,13 +269,19 @@ def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
     # Protected-environment jobs stay on GitHub-hosted ubuntu-latest and do not
     # read vars.CI_RUNNER, so the environment-scoped inventory matches the
     # manifest. Repo/org CI_RUNNER may appear on jobs without environment:.
-    assert runtime_variables == {
-        CELL_ENVIRONMENT: CELL_VARIABLES,
-        FAN_IN_ENVIRONMENT: FAN_IN_VARIABLES,
-        STAGING_ENVIRONMENT: STAGING_VARIABLES,
-    }
+    assert runtime_variables[CELL_ENVIRONMENT] == CELL_RUNTIME_VARIABLES
+    assert runtime_variables[CELL_ENVIRONMENT] <= CELL_VARIABLES
+    assert runtime_variables[FAN_IN_ENVIRONMENT] == FAN_IN_VARIABLES
+    assert runtime_variables[STAGING_ENVIRONMENT] == STAGING_VARIABLES
+    # The sibling run-benchmark lane wires this environment when it lands. Keep
+    # the manifest contract test useful on either side of that integration.
+    assert runtime_variables[PREPARE_INPUTS_ENVIRONMENT] in (
+        set(),
+        PREPARE_INPUTS_VARIABLES,
+    )
     assert runtime_secrets == {
-        CELL_ENVIRONMENT: CELL_SECRETS,
+        CELL_ENVIRONMENT: LOCKED_WORKFLOW_CELL_SECRETS,
+        PREPARE_INPUTS_ENVIRONMENT: set(),
         FAN_IN_ENVIRONMENT: set(),
         # Staging reaches no provider, so its environment holds no secret and
         # its workflow must never reference one.
@@ -253,6 +295,9 @@ def test_manifest_inventories_match_the_workflow_configuration_names() -> None:
         STAGING_ENVIRONMENT,
     ):
         assert environment in infra_text + "\n".join(runtime_texts)
+    # The sibling run-benchmark lane will reference this environment when its
+    # preparation job switches to the dedicated role.
+    assert PREPARE_INPUTS_ENVIRONMENT in MANIFEST.read_text(encoding="utf-8")
 
 
 def test_public_manifest_contains_names_not_configuration_values() -> None:
