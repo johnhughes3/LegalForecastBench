@@ -1,0 +1,112 @@
+[
+  {
+    "context_limit": 1050000,
+    "display_name": "GPT-5.6 Sol",
+    "input_token_price": 5.0,
+    "known_cutoff_publicity_caveats": [
+      "OpenAI reports a February 16, 2026 knowledge cutoff.",
+      "OpenAI's model page lists gpt-5.6-sol in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID and does not use the gpt-5.6 alias.",
+      "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2.0,
+      "output_price_multiplier": 1.5,
+      "threshold_input_tokens": 272000
+    },
+    "max_output_tokens": 128000,
+    "model_id": "gpt-5.6-sol",
+    "model_version_or_snapshot": "gpt-5.6-sol",
+    "network_disabled": true,
+    "output_token_price": 30.0,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol, standard pricing through 272K input tokens, checked 2026-07-11",
+    "provider": "openai",
+    "provider_training_cutoff": "2026-02-16",
+    "provider_training_cutoff_status": "known",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-06-26T00:00:00Z",
+    "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  },
+  {
+    "context_limit": 1050000,
+    "display_name": "GPT-5.6 Terra",
+    "input_token_price": 2.5,
+    "known_cutoff_publicity_caveats": [
+      "OpenAI reports a February 16, 2026 knowledge cutoff.",
+      "OpenAI's model page lists gpt-5.6-terra in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID.",
+      "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2.0,
+      "output_price_multiplier": 1.5,
+      "threshold_input_tokens": 272000
+    },
+    "max_output_tokens": 128000,
+    "model_id": "gpt-5.6-terra",
+    "model_version_or_snapshot": "gpt-5.6-terra",
+    "network_disabled": true,
+    "output_token_price": 15.0,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-5.6-terra, standard pricing through 272K input tokens, checked 2026-07-11",
+    "provider": "openai",
+    "provider_training_cutoff": "2026-02-16",
+    "provider_training_cutoff_status": "known",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-06-26T00:00:00Z",
+    "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  },
+  {
+    "context_limit": 1050000,
+    "display_name": "GPT-5.6 Luna",
+    "input_token_price": 1.0,
+    "known_cutoff_publicity_caveats": [
+      "OpenAI reports a February 16, 2026 knowledge cutoff.",
+      "OpenAI's model page lists gpt-5.6-luna in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID.",
+      "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2.0,
+      "output_price_multiplier": 1.5,
+      "threshold_input_tokens": 272000
+    },
+    "max_output_tokens": 128000,
+    "model_id": "gpt-5.6-luna",
+    "model_version_or_snapshot": "gpt-5.6-luna",
+    "network_disabled": true,
+    "output_token_price": 6.0,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-5.6-luna, standard pricing through 272K input tokens, checked 2026-07-11",
+    "provider": "openai",
+    "provider_training_cutoff": "2026-02-16",
+    "provider_training_cutoff_status": "known",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-06-26T00:00:00Z",
+    "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  },
+  {
+    "context_limit": 1000000,
+    "display_name": "Claude Fable 5",
+    "input_token_price": 10.0,
+    "known_cutoff_publicity_caveats": [
+      "Anthropic publishes only a month-granular training-data cutoff for Claude Fable 5 (January 2026), so the structured exact-date field remains unknown.",
+      "Claude Fable 5's dateless model ID is a pinned snapshot, not an evergreen alias.",
+      "Registry composition, owner ruling of 2026-08-31 on bead legalforecastbench-y7hk, verbatim: \"I'd rather skip Opus 4.8 from official and just test Opus 5 even if that knocks it down to supplementary.\" This registry therefore replaces claude-opus-4-8 with claude-fable-5 as the Anthropic official model, exactly as its predecessor replaced claude-sonnet-5 with claude-opus-4-8. Claude Opus 4.8 is omitted, not demoted: it is pre-anchor, so the supplementary lane refuses it. Claude Opus 5 is post-anchor and runs supplementary from cycle-1-supplementary-claude-opus-5-2026-08-31.json."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "claude-fable-5",
+    "model_version_or_snapshot": "claude-fable-5",
+    "network_disabled": true,
+    "output_token_price": 50.0,
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing, standard Claude Fable 5 pricing of USD 10/M input and USD 50/M output, checked 2026-08-31",
+    "provider": "anthropic",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-06-09T00:00:00Z",
+    "release_timestamp_source": "https://www.anthropic.com/news/claude-fable-5-mythos-5, Claude Fable 5 became available 2026-06-09; corroborated by https://platform.claude.com/docs/en/about-claude/models/overview, which commits to retirement no sooner than 2026-06-09 plus one year. A US export-control directive suspended access 2026-06-12 and was lifted 2026-06-30 (https://www.anthropic.com/news/fable-mythos-access); under the first-availability convention this registry already applies to the GPT-5.6 restricted preview, that later suspension does not move the release anchor off 2026-06-09. Checked 2026-08-31",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

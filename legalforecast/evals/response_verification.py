@@ -61,6 +61,10 @@ _CONTENT_FILTER_REASON_TOKENS = frozenset(
         "blocked",
         "blocklist",
         "prohibited_content",
+        # Anthropic reports a safety decline as HTTP 200 with
+        # ``stop_reason: "refusal"`` rather than an error status. Claude
+        # Fable 5 is the first model in the official lineup that uses it.
+        "refusal",
     }
 )
 

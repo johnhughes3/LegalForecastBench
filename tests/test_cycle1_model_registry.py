@@ -6,11 +6,18 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from legalforecast.cli import main
 from legalforecast.evals.model_registry import (
     earliest_eligible_decision_date,
     load_model_registry,
     require_official_registry_entries,
+)
+from legalforecast.reporting.result_class import (
+    ResultClass,
+    ResultClassError,
+    classify_registry_entry,
+    require_lane_result_classes,
 )
 from legalforecast.unitization.review import apply_unitization_reviews
 
@@ -21,6 +28,15 @@ SUCCESSOR_REGISTRY = (
     / "model_registries"
     / "cycle-1-2026-06-30-claude-opus-4-8-successor-2026-08-21.json"
 )
+FABLE_SUCCESSOR_REGISTRY = (
+    ROOT
+    / "model_registries"
+    / "cycle-1-2026-06-30-claude-fable-5-successor-2026-08-31.json"
+)
+OPUS_5_SUPPLEMENTARY_REGISTRY = (
+    ROOT / "model_registries" / "cycle-1-supplementary-claude-opus-5-2026-08-31.json"
+)
+CYCLE_1_CORPUS_ANCHOR = date(2026, 6, 30)
 JsonRecord = dict[str, Any]
 GENERATED_AT = "2026-07-11T12:00:00Z"
 
@@ -130,6 +146,231 @@ def test_opus_4_8_successor_preserves_corpus_dates_and_release_anchor() -> None:
     assert date.fromisoformat(cohort_policy["eligibility_anchor"]) >= (
         earliest_eligible_decision_date(entries)
     )
+
+
+def test_fable_5_successor_swaps_anthropic_without_editing_the_openai_three() -> None:
+    """The Fable 5 successor swaps one model and inherits the rest verbatim.
+
+    This mirrors its predecessor exactly: that registry replaced
+    claude-sonnet-5 with claude-opus-4-8 and left the OpenAI three untouched.
+    Here the owner ruling of 2026-08-31 replaces claude-opus-4-8 with
+    claude-fable-5. Byte-for-byte inheritance of the OpenAI entries is what
+    makes the swap auditable -- no frozen model can drift under cover of it --
+    and the matrix stays at four models, so the official run is four models by
+    two ablations.
+    """
+
+    predecessor = json.loads(SUCCESSOR_REGISTRY.read_text(encoding="utf-8"))
+    successor = json.loads(FABLE_SUCCESSOR_REGISTRY.read_text(encoding="utf-8"))
+    inherited = [record for record in predecessor if record["provider"] == "openai"]
+
+    assert len(successor) == 4
+    assert successor[:3] == inherited
+
+    registry = load_model_registry(FABLE_SUCCESSOR_REGISTRY)
+    assert {entry.registry_key for entry in registry.entries} == {
+        "anthropic:claude-fable-5",
+        "openai:gpt-5.6-luna",
+        "openai:gpt-5.6-sol",
+        "openai:gpt-5.6-terra",
+    }
+    assert "anthropic:claude-opus-4-8" not in {
+        entry.registry_key for entry in registry.entries
+    }
+
+
+def test_fable_5_successor_records_the_owner_ruling_that_dropped_opus_4_8() -> None:
+    """The registry itself has to say why Claude Opus 4.8 is gone.
+
+    Omission is not demotion: Claude Opus 4.8 is pre-anchor, so the
+    supplementary lane refuses it and it simply leaves Cycle 1. A reader who
+    only ever sees this file should be able to tell that from the file.
+    """
+
+    registry = load_model_registry(FABLE_SUCCESSOR_REGISTRY)
+    caveats = " ".join(
+        registry.get("anthropic", "claude-fable-5").known_cutoff_publicity_caveats
+    )
+
+    assert "legalforecastbench-y7hk" in caveats
+    assert "skip Opus 4.8 from official" in caveats
+    assert "omitted, not demoted" in caveats
+    assert "cycle-1-supplementary-claude-opus-5-2026-08-31.json" in caveats
+
+
+def test_fable_5_successor_is_official_and_leaves_the_release_anchor_alone() -> None:
+    """Fable 5 is pre-anchor, so it joins the official lane and moves nothing.
+
+    Its 2026-06-09 first availability predates both the 2026-06-26 release
+    anchor of the frozen four and the 2026-06-30 corpus anchor, so adding it
+    neither reclassifies the set nor shifts the earliest eligible decision
+    date. A post-anchor model would fail ``require_lane_result_classes`` here.
+    """
+
+    registry = load_model_registry(FABLE_SUCCESSOR_REGISTRY)
+    entries = require_official_registry_entries(registry.entries)
+    fable = registry.get("anthropic", "claude-fable-5")
+
+    assert fable.release_timestamp is not None
+    assert fable.release_timestamp.date() == date(2026, 6, 9)
+    assert fable.release_timestamp.date() < CYCLE_1_CORPUS_ANCHOR
+    assert earliest_eligible_decision_date(entries) == date(2026, 6, 26)
+
+    for entry in registry.entries:
+        assert (
+            classify_registry_entry(entry, corpus_anchor=CYCLE_1_CORPUS_ANCHOR)
+            is ResultClass.OFFICIAL
+        )
+    require_lane_result_classes(
+        list(registry.entries),
+        corpus_anchor=CYCLE_1_CORPUS_ANCHOR,
+        supplementary=False,
+    )
+
+
+def test_fable_5_entry_pins_its_identity_price_and_execution_parity() -> None:
+    """Freeze the researched values so a later edit cannot drift them quietly.
+
+    Anthropic entries carry no ``reasoning_effort``: Fable 5's thinking is
+    always on at the provider's default effort of ``high``, and the solver
+    publishes that as an adaptive-thinking reasoning policy instead.
+    """
+
+    registry = load_model_registry(FABLE_SUCCESSOR_REGISTRY)
+    fable = registry.get("anthropic", "claude-fable-5")
+
+    assert fable.model_id == "claude-fable-5"
+    assert fable.model_version_or_snapshot == "claude-fable-5"
+    assert fable.context_limit == 1_000_000
+    assert fable.input_token_price == 10.0
+    assert fable.output_token_price == 50.0
+    assert fable.network_disabled is True
+    assert fable.search_disabled is True
+    assert fable.release_timestamp_source
+    assert fable.pricing_source
+
+    # Execution parity with the three inherited OpenAI models.
+    assert all(entry.max_output_tokens == 128_000 for entry in registry.entries)
+    assert all(entry.temperature is None for entry in registry.entries)
+    assert all(entry.top_p is None for entry in registry.entries)
+    assert all(
+        entry.tool_policy.value == "controlled_docket_tool_only"
+        for entry in registry.entries
+    )
+    assert fable.reasoning_effort is None
+
+
+def test_fable_5_carries_the_undisclosed_cutoff_asterisk() -> None:
+    """Anthropic publishes a month, not a date, so the exact field is unknown.
+
+    That is the same disclosure posture as Claude Opus 4.8, and it is what
+    earns Fable 5 the contamination asterisk rather than excluding it.
+    """
+
+    registry = load_model_registry(FABLE_SUCCESSOR_REGISTRY)
+    fable = registry.get("anthropic", "claude-fable-5")
+
+    assert fable.provider_training_cutoff is None
+    assert fable.provider_training_cutoff_status.value == "unknown"
+    caveats = " ".join(fable.known_cutoff_publicity_caveats)
+    assert "January 2026" in caveats
+    assert "pinned snapshot" in caveats
+
+
+def test_opus_5_supplementary_is_post_anchor_and_refuses_the_official_lane() -> None:
+    """Claude Opus 5 replaces Claude Opus 4.8 in Cycle 1, but not in kind.
+
+    It is post-anchor (2026-07-24 > 2026-06-30), so it can only publish as
+    supplementary_post_anchor with a dagger. Both directions are asserted: a
+    registry that classified official here would mean a post-anchor model had
+    been smuggled into the frozen set.
+    """
+
+    registry = load_model_registry(OPUS_5_SUPPLEMENTARY_REGISTRY)
+    opus_5 = registry.get("anthropic", "claude-opus-5")
+
+    assert len(registry.entries) == 1
+    assert opus_5.release_timestamp is not None
+    assert opus_5.release_timestamp.date() == date(2026, 7, 24)
+    assert opus_5.release_timestamp.date() > CYCLE_1_CORPUS_ANCHOR
+    assert (
+        classify_registry_entry(opus_5, corpus_anchor=CYCLE_1_CORPUS_ANCHOR)
+        is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+    )
+
+    require_lane_result_classes(
+        list(registry.entries),
+        corpus_anchor=CYCLE_1_CORPUS_ANCHOR,
+        supplementary=True,
+    )
+    with pytest.raises(ResultClassError, match="refuse models released after"):
+        require_lane_result_classes(
+            list(registry.entries),
+            corpus_anchor=CYCLE_1_CORPUS_ANCHOR,
+            supplementary=False,
+        )
+
+
+def test_opus_5_supplementary_entry_pins_identity_price_and_official_parity() -> None:
+    """Freeze the researched values and mirror official execution settings.
+
+    ``reasoning_effort`` is absent by design rather than by omission: Claude
+    Opus 5 runs adaptive thinking at the provider default effort of ``high``,
+    the same posture as the official Anthropic entry, and the solver publishes
+    that on the run card. A registry dial would misrepresent the request.
+    """
+
+    registry = load_model_registry(OPUS_5_SUPPLEMENTARY_REGISTRY)
+    opus_5 = registry.get("anthropic", "claude-opus-5")
+
+    assert opus_5.model_id == "claude-opus-5"
+    assert opus_5.model_version_or_snapshot == "claude-opus-5"
+    assert opus_5.context_limit == 1_000_000
+    assert opus_5.input_token_price == 5.0
+    assert opus_5.output_token_price == 25.0
+    assert opus_5.max_output_tokens == 128_000
+    assert opus_5.tool_policy.value == "controlled_docket_tool_only"
+    assert opus_5.network_disabled is True
+    assert opus_5.search_disabled is True
+    assert opus_5.temperature is None
+    assert opus_5.top_p is None
+    assert opus_5.reasoning_effort is None
+    assert opus_5.release_timestamp_source
+    assert opus_5.pricing_source
+
+    assert opus_5.provider_training_cutoff is None
+    assert opus_5.provider_training_cutoff_status.value == "unknown"
+    caveats = " ".join(opus_5.known_cutoff_publicity_caveats)
+    assert "May 2026" in caveats
+    assert "supplementary_post_anchor" in caveats
+    # The divergent knowledge cutoff is the reason this row is not a
+    # like-for-like comparison against the official four.
+    assert "dimensions diverge" in caveats.lower() or "diverge" in caveats.lower()
+
+
+def test_supplementary_anthropic_caps_size_opus_5_at_its_own_pricing() -> None:
+    """Claude Opus 5 is priced identically to Claude Opus 4.8, so it inherits
+    that model's exact reservation rather than a rounded guess.
+
+    Both are USD 5/25 per MTok, and the supplementary lane runs the same corpus
+    at the same 128K output bound, so the ceiling is Opus 4.8's USD 668.70
+    unchanged. The official anthropic cap is separate and sized for Claude
+    Fable 5 alone.
+    """
+
+    caps = json.loads(
+        (
+            ROOT
+            / "model_registries"
+            / "cycle-1-forecast-provider-caps-supplementary-anthropic-2026-08-31.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert caps["schema_version"] == "legalforecast.provider_cycle_caps.v1"
+    assert caps["cycle_id"] == "cycle-1-target-100-2026-07-25"
+    assert caps["providers"] == [
+        {"cycle_reservation_cap_usd": "668.70", "provider": "anthropic"}
+    ]
 
 
 def test_cycle_1_registry_records_provider_limits_and_current_prices() -> None:
