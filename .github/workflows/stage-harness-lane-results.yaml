@@ -436,8 +436,10 @@ jobs:
             while IFS=$'\t' read -r bucket key sha256 path content_type; do
               # Create-only. A 412/PreconditionFailed means the object already
               # exists, which is the expected answer when a dispatch is retried
-              # against a content-addressed prefix; the head-object below then
-              # proves the existing bytes are the bytes we hold.
+              # against a content-addressed prefix. The head-object below then
+              # confirms the object that exists records this digest -- which is
+              # its own metadata, so the summary is also read back for real
+              # below.
               if ! aws s3api put-object \
                 --bucket "${bucket}" --key "${key}" --body "${path}" \
                 --content-type "${content_type}" --metadata "sha256=${sha256}" \
