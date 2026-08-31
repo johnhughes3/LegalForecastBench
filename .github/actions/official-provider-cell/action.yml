@@ -24,6 +24,9 @@ inputs:
     required: true
   cycle_id:
     required: true
+  deepinfra_api_key:
+    required: false
+    default: ""
   dispatch_run_attempt:
     required: true
   dry_run:
@@ -67,6 +70,9 @@ inputs:
       official cell.
     required: false
     default: "false"
+  xai_api_key:
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -90,14 +96,22 @@ runs:
       case "${PROVIDER}:${ENVIRONMENT_NAME}" in
         "openai:legalforecastbench-official-eval"|\
         "anthropic:legalforecastbench-official-eval"|\
-        "gemini:legalforecastbench-official-eval") ;;
+        "gemini:legalforecastbench-official-eval"|\
+        "xai:legalforecastbench-official-eval"|\
+        "deepinfra:legalforecastbench-official-eval") ;;
         *)
           echo "Provider/environment pair is outside the official cell allowlist." >&2
           exit 1
           ;;
       esac
+      # xai and deepinfra carry only post-anchor supplementary models, but they
+      # bind the same environment as the official three: the owner ruling is one
+      # pipeline, and a second credential-bearing environment would be a second
+      # boundary to keep correct. The lane split is the supplementary scope gate
+      # below, not the environment name.
       case "${PROVIDER}:${MODEL_KEY}" in
-        openai:openai:*|anthropic:anthropic:*|gemini:gemini:*|gemini:google:*) ;;
+        openai:openai:*|anthropic:anthropic:*|gemini:gemini:*|gemini:google:*|\
+        xai:xai:*|deepinfra:deepinfra:*) ;;
         *)
           echo "Model key does not belong to the selected provider boundary." >&2
           exit 1
@@ -311,11 +325,13 @@ runs:
     env:
       AI_GATEWAY_API_KEY: ${{ inputs.ai_gateway_api_key }}
       ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+      DEEPINFRA_API_KEY: ${{ inputs.deepinfra_api_key }}
       GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
       LFB_OPENAI_USE_VERCEL_GATEWAY: ${{ steps.openai_transport.outputs.use_vercel_gateway }}
       MODEL_KEY: ${{ inputs.model_key }}
       OPENAI_API_KEY: ${{ inputs.openai_api_key }}
       PROVIDER: ${{ inputs.provider }}
+      XAI_API_KEY: ${{ inputs.xai_api_key }}
     run: |
       set -euo pipefail
       case "${PROVIDER}" in
@@ -331,6 +347,12 @@ runs:
           ;;
         gemini)
           LFB_PROVIDER_API_KEY="${GEMINI_API_KEY:-}"
+          ;;
+        xai)
+          LFB_PROVIDER_API_KEY="${XAI_API_KEY:-}"
+          ;;
+        deepinfra)
+          LFB_PROVIDER_API_KEY="${DEEPINFRA_API_KEY:-}"
           ;;
         *)
           LFB_PROVIDER_API_KEY=""
@@ -362,6 +384,18 @@ runs:
         gemini)
           if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
             echo "A non-boolean GEMINI_API_KEY is required in legalforecastbench-official-eval before cycle mutation." >&2
+            exit 1
+          fi
+          ;;
+        xai)
+          if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+            echo "A non-boolean XAI_API_KEY is required in legalforecastbench-official-eval before cycle mutation." >&2
+            exit 1
+          fi
+          ;;
+        deepinfra)
+          if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+            echo "A non-boolean DEEPINFRA_API_KEY is required in legalforecastbench-official-eval before cycle mutation." >&2
             exit 1
           fi
           ;;
@@ -412,6 +446,7 @@ runs:
       CASE_ID: ${{ inputs.case_id }}
       CASE_ID_SLUG: ${{ inputs.case_id_slug }}
       CYCLE_ID: ${{ inputs.cycle_id }}
+      DEEPINFRA_API_KEY: ${{ inputs.deepinfra_api_key }}
       EXPECTED_EXECUTION_POLICY_SHA256: ${{ inputs.execution_policy_sha256 }}
       EXPECTED_EXECUTION_SCOPE_SHA256: ${{ inputs.execution_scope_sha256 }}
       EXPECTED_PACKET_OBJECT_KEY: ${{ inputs.packet_object_key }}
@@ -425,6 +460,7 @@ runs:
       REPEAT_COUNT: ${{ inputs.repeat_count }}
       RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}
       SUPPLEMENTARY: ${{ inputs.supplementary }}
+      XAI_API_KEY: ${{ inputs.xai_api_key }}
     run: |
       set -euo pipefail
       case "${PROVIDER}" in
@@ -440,6 +476,12 @@ runs:
           ;;
         gemini)
           LFB_PROVIDER_API_KEY="${GEMINI_API_KEY:-}"
+          ;;
+        xai)
+          LFB_PROVIDER_API_KEY="${XAI_API_KEY:-}"
+          ;;
+        deepinfra)
+          LFB_PROVIDER_API_KEY="${DEEPINFRA_API_KEY:-}"
           ;;
         *)
           LFB_PROVIDER_API_KEY=""
@@ -476,6 +518,24 @@ runs:
             exit 1
           fi
           export GEMINI_API_KEY="${LFB_PROVIDER_API_KEY}"
+          ;;
+        xai)
+          if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+            echo "A non-boolean PROVIDER_API_KEY is required for the xAI cell." >&2
+            exit 1
+          fi
+          # The name the OpenAI-compatible adapter reads, pinned in
+          # legalforecast/evals/openai_compatible_provider.py as XAI_API_KEY_ENV.
+          export XAI_API_KEY="${LFB_PROVIDER_API_KEY}"
+          ;;
+        deepinfra)
+          if [[ -z "${LFB_PROVIDER_API_KEY:-}" || "${LFB_PROVIDER_API_KEY}" == "false" || "${LFB_PROVIDER_API_KEY}" == "true" ]]; then
+            echo "A non-boolean PROVIDER_API_KEY is required for the DeepInfra cell." >&2
+            exit 1
+          fi
+          # DEEPINFRA_API_KEY_ENV in the same module. Both DeepInfra-hosted
+          # models -- Kimi K3 and GLM 5.3 -- ride this one key.
+          export DEEPINFRA_API_KEY="${LFB_PROVIDER_API_KEY}"
           ;;
       esac
       resume_args=()

@@ -4081,7 +4081,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 16,
-      "tests": 514,
+      "tests": 515,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -4660,8 +4660,8 @@
         "largest_symbol": "ModelRegistryEntry",
         "largest_symbol_lines": 173,
         "layer": "application",
-        "line_count": 640,
-        "nonblank_line_count": 530,
+        "line_count": 647,
+        "nonblank_line_count": 537,
         "top_level_definition_count": 37
       },
       "legalforecast/evals/output_parser.py": {
@@ -11317,6 +11317,24 @@
         "line_count": 1465,
         "nonblank_line_count": 1339,
         "top_level_definition_count": 39
+      },
+      "tests/test_openai_compatible_provider.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_deepinfra_sends_glm_5_3_the_flat_reasoning_effort_not_the_5_2_shape",
+        "largest_symbol_lines": 43,
+        "layer": "test",
+        "line_count": 526,
+        "nonblank_line_count": 435,
+        "top_level_definition_count": 23
       },
       "tests/test_operative_complaint.py": {
         "cycle_id": "",
