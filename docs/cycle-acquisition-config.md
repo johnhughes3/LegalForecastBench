@@ -41,7 +41,7 @@ plumbing.
 from legalforecast.config import load_activated_cycle, preflight_selector_models
 
 config = load_activated_cycle("cycle-2")  # refuses while activated=false
-preflight_selector_models(config)         # same config supplies both sides
+preflight_selector_models(config)  # same config supplies both sides
 ```
 
 Tests and inert inspection use ``load_cycle`` (no activation gate) or

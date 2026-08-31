@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
+
+from legalforecast.multiharness.claude_agent_sdk import (
+    CLAUDE_AGENT_SDK_VERSION,
+    CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM,
+    CLAUDE_BUNDLED_CLI_VERSION,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "docs" / "adapters" / "provider-baselines.md"
@@ -63,6 +70,27 @@ def test_provider_decision_pins_observed_cli_capabilities_without_host_paths() -
     assert "claude -p" in policy
     assert "/home/" not in policy
     assert "/work/" not in policy
+
+
+def test_provider_baseline_text_matches_exact_project_contract_pins() -> None:
+    policy = _policy()
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+    assert "openai==3.3.1" in project["dependency-groups"]["dev"]
+    assert project["project"]["optional-dependencies"]["tier0-judge-adapter"] == [
+        "anthropic==1.0.0"
+    ]
+    assert project["project"]["optional-dependencies"]["claude-agent-sdk-adapter"] == [
+        f"claude-agent-sdk=={CLAUDE_AGENT_SDK_VERSION}"
+    ]
+    assert "`openai==3.3.1`" in policy
+    assert f"`claude-agent-sdk=={CLAUDE_AGENT_SDK_VERSION}`" in policy
+    assert f"Claude Agent SDK {CLAUDE_AGENT_SDK_VERSION}" in policy
+    assert f"bundled Claude Code {CLAUDE_BUNDLED_CLI_VERSION}" in policy
+    assert (
+        CLAUDE_BUNDLED_CLI_SHA256_BY_PLATFORM["linux-x86_64"].removeprefix("sha256:")
+        in policy
+    )
 
 
 def test_provider_decision_fails_closed_on_ci_billing_and_publication() -> None:

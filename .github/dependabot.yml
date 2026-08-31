@@ -22,6 +22,13 @@ updates:
     labels:
       - dependencies
       - python
+    ignore:
+      # These SDK versions are part of characterized provider contracts. A
+      # version change requires an explicit characterization PR rather than a
+      # routine dependency update.
+      - dependency-name: anthropic
+      - dependency-name: claude-agent-sdk
+      - dependency-name: openai
     groups:
       pip-minor-patch:
         update-types:

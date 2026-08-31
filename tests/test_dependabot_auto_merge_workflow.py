@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+GITHUB_ROOT = ROOT / ".github"
 WORKFLOW = (ROOT / ".github/workflows/dependabot-auto-merge.yaml").read_text(
     encoding="utf-8",
 )
@@ -22,6 +23,7 @@ CI_RUNNER_CLAMP = (
 )
 DEPENDABOT = (ROOT / ".github/dependabot.yml").read_text(encoding="utf-8")
 FETCH_METADATA_SHA = "25dd0e34f4fe68f24cc83900b1fe3fe149efef98"
+PROVIDER_CONTRACT_DEPENDENCIES = ("anthropic", "claude-agent-sdk", "openai")
 
 requires_jq = pytest.mark.skipif(
     shutil.which("jq") is None,
@@ -117,6 +119,11 @@ def test_dependabot_groups_restrict_minor_and_patch() -> None:
     assert "major" not in DEPENDABOT
 
 
+def test_dependabot_ignores_provider_contract_dependencies() -> None:
+    for dependency_name in PROVIDER_CONTRACT_DEPENDENCIES:
+        assert DEPENDABOT.count(f"- dependency-name: {dependency_name}") == 1
+
+
 def test_dependabot_auto_merge_workflow_uses_default_branch_workflow_run() -> None:
     assert WORKFLOW.startswith("name: Dependabot auto-merge\n")
     assert "workflow_run:" in WORKFLOW
@@ -162,6 +169,24 @@ def test_dependabot_auto_merge_pins_fetch_metadata() -> None:
     assert "pr-number: ${{ steps.pr.outputs.number }}" in WORKFLOW
 
 
+def test_external_actions_use_immutable_commit_pins() -> None:
+    mutable_uses: list[str] = []
+    uses_pattern = re.compile(r"^\s*uses:\s*([^\s#]+)", re.MULTILINE)
+
+    for action_path in sorted(GITHUB_ROOT.rglob("*.y*ml")):
+        for use in uses_pattern.findall(action_path.read_text(encoding="utf-8")):
+            if use.startswith(("./", "docker://")):
+                continue
+            _, separator, revision = use.rpartition("@")
+            if separator != "@" or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+                mutable_uses.append(f"{action_path.relative_to(ROOT)}: {use}")
+
+    assert not mutable_uses, (
+        "external GitHub Actions must use immutable 40-character commit pins: "
+        + ", ".join(mutable_uses)
+    )
+
+
 def test_dependabot_auto_merge_workflow_gates_the_trusted_source() -> None:
     resolve = _step_run("Resolve Dependabot pull request")
     assert 'select(.user.login=="dependabot[bot]"' in resolve
@@ -175,7 +200,10 @@ def test_dependabot_auto_merge_workflow_gates_the_trusted_source() -> None:
 
 
 def test_dependabot_auto_merge_workflow_queues_only_non_major_updates() -> None:
-    classify = _step_run("Classify update-type")
+    classify = _step_run("Classify dependencies and update type")
+    assert "DEPENDENCY_NAMES" in classify
+    for dependency_name in PROVIDER_CONTRACT_DEPENDENCIES:
+        assert dependency_name in classify
     assert "version-update:semver-patch|version-update:semver-minor" in classify
     assert "eligible=true" in classify
     assert "eligible=false" in classify
@@ -235,14 +263,42 @@ def test_classifier_auto_lands_only_explicit_patch_and_minor(
 ) -> None:
     result = _run_snippet(
         tmp_path,
-        script=_step_run("Classify update-type"),
-        env={"UPDATE_TYPE": update_type},
+        script=_step_run("Classify dependencies and update type"),
+        env={"DEPENDENCY_NAMES": "cryptography", "UPDATE_TYPE": update_type},
     )
 
     assert result.returncode == 0, result.stderr
     assert result.github_output == f"eligible={eligible}\n"
     if eligible == "false":
         assert f"Skipping auto-merge for update-type='{update_type}'" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "dependency_names",
+    [
+        "anthropic",
+        "claude-agent-sdk",
+        "openai",
+        "cryptography, openai",
+        "OPENAI",
+    ],
+)
+def test_classifier_never_auto_lands_provider_contract_dependencies(
+    tmp_path: Path,
+    dependency_names: str,
+) -> None:
+    result = _run_snippet(
+        tmp_path,
+        script=_step_run("Classify dependencies and update type"),
+        env={
+            "DEPENDENCY_NAMES": dependency_names,
+            "UPDATE_TYPE": "version-update:semver-patch",
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.github_output == "eligible=false\n"
+    assert "Skipping auto-merge for provider-contract dependencies=" in result.stdout
 
 
 def _dependabot_pr(
