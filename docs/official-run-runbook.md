@@ -1847,7 +1847,12 @@ forecast attempt and all public release bytes have been verified. The fan-in
 must reject any forecast artifact containing labels, any source workflow other
 than `.github/workflows/run-benchmark.yaml`, any source attempt whose head SHA
 or branch does not match the request, and any artifact whose receipt identity
-or model registry differs from `forecast-run.json`.
+or model registry differs from `forecast-run.json`. That single-workflow pin is
+deliberate and stays as it is: this fan-in scores a durable
+`official-forecast-results-<run_id>-<attempt>` artifact that only the
+locked-manifest lane emits, so admitting another workflow's run would admit a
+run it cannot score. Fanning in the legacy dispatch lane uses the separate
+workflow described immediately below.
 
 `publish=false` is a provider-free verification/score run that leaves the
 canonical report prefix untouched. Set `publish=true` only once the score and
@@ -1859,6 +1864,10 @@ lineage, extra attestations, or approval chains.
 
 ### Legacy Cycle 1 chain note
 
+While bead `legalforecastbench-y7hk` (the owner-approved Cycle 1 r4 repair) is open, the legacy chain has its own dispatch and fan-in workflows beside the locked-manifest ones. A repair dispatch runs `.github/workflows/run-benchmark-legacy.yaml` (restored by PR #1029) and is fanned in with `.github/workflows/fan-in-publish-legacy.yaml` (restored by this PR from `289ebac9`, the last commit before PR #1019 replaced the shard-receipt fan-in boundary). The legacy fan-in takes the pre-#1019 inputs — `freeze_bundle_path`, `source_dispatch_runs_json` (or the singular `source_dispatch_run_id`/`source_dispatch_run_attempt`), `verify_only`, and the optional `supplementary_artifacts_dir` and `hugging_face_release_version` — and aggregates from the immutable S3 shard receipts rather than from an Actions artifact. Its source-dispatch check is a two-entry allowlist: it accepts a source run whose workflow path is `.github/workflows/run-benchmark.yaml` (pre-#1019 dispatches, including the 2026-08-29/30 supplementary shards) or `.github/workflows/run-benchmark-legacy.yaml` (r4 repair dispatches), and refuses everything else. Both legacy workflow files, that second allowlist entry, and the legacy statements in the shared fan-in IAM policy retire together when `legalforecastbench-y7hk` closes.
+
+Both fan-in workflows assume the same `legalforecastbench-official-eval-fan-in` role, so its storage policy declares the union of what the two lanes read: `manifests/*` for the locked lane, plus `shard-receipts/*`, `per-case/*/metrics/*`, `cycle-1/manifest-runs/*`, and `cycle-publication-state/*` for the legacy lane. Publishing to Hugging Face from the legacy fan-in additionally needs `LFB_HF_OFFICIAL_DATASET_REPO` on that environment; PR #1019 removed it, and it is not required unless `hugging_face_release_version` is set.
+
 The exact-string approval requirement below is retained only for any still-running legacy Cycle 1 dispatch chain. It is not part of the supported locked-manifest workflow or the project's spend policy; new work follows the Spending Guardrails in [AGENTS.md](../.agents/AGENTS.md).
 
    > **Legacy chain only.** The exact-string approval comment below, and the hashed execution scope issued from it, are requirements of the legacy Cycle 1 dispatch chain as it stands today — keep following them for a dispatch on that chain. They are not the project's spend policy and must not be copied into new work. New work follows the Spending guardrails in [AGENTS.md](/.agents/AGENTS.md): a run ceiling enforced in code, a recorded owner approval above the threshold in whatever words the owner actually used, never re-buying what we already hold, no purchase retry loops, and one journal.
@@ -1868,13 +1877,24 @@ The exact-string approval requirement below is retained only for any still-runni
 There is no separate amendment, matrix, shard, or legacy-dispatch path. For a
 new model, create a new locked public manifest/release/registry set and run the
 same outcome-blinded forecast workflow, then run the same protected labels
-fan-in with that exact source run and attempt. Existing published reports are
+fan-in with that exact source run and attempt. (The one exception is the
+in-flight Cycle 1 r4 repair on bead `legalforecastbench-y7hk`, which runs on the
+`-legacy` dispatch and fan-in workflows described in the Legacy Cycle 1 chain
+note above; those files are deleted when it closes, and no new work may use
+them.) Existing published reports are
 immutable; a new cycle ID is required when the public contract or expected unit
 set changes.
 
+Amending an already-staged official freeze has no Actions route either: neither
+`stage-official-manifest-run.yaml` nor `stage-manifest-run.yaml` exposes an
+`--amendment-bundle` input, so there is nothing to dispatch. That add-models lane
+is tracked as `legalforecastbench-4b6f`. (PR #1019 dropped this pointer along
+with the supplementary lane's section; it is restored here because this is the
+section a reader looking for the amendment route lands on.)
+
 ## Staging A First Official Manifest Run
 
-The route for a **new** official freeze at a **new** corpus manifest digest, dispatched as `stage-official-manifest-run.yaml`. The supplementary lane above stages siblings only, and it rebuilds its corpus bytes from the immutable objects an earlier official staging already wrote — a first official staging is defined by that prefix being empty, so its bytes have to travel instead.
+The route for a **new** official freeze at a **new** corpus manifest digest, dispatched as `stage-official-manifest-run.yaml`. The sibling supplementary lane, `.github/workflows/stage-manifest-run.yaml`, stages supplementary siblings only, and it rebuilds its corpus bytes from the immutable objects an earlier official staging already wrote — a first official staging is defined by that prefix being empty, so its bytes have to travel instead. (PR #1019 removed that lane's own runbook section; the workflow itself is unchanged, and its inputs are documented in the file.)
 
 **They do not travel through this repository.** The 13 frozen artifacts and every model packet are un-run evaluation inputs and the final labels; publishing them before the run would destroy the contamination control. They travel as one closed archive, age-encrypted, uploaded as an asset on a never-published **draft** release and pinned at dispatch by exact release id, asset id, name, size, and digest — the same transport the paid-labeling chain already uses for private source. The upload is a GitHub write through the ordinary broker, never an S3 write: the manifest-staging OIDC role remains the only credential that can create an object in the official prefix.
 

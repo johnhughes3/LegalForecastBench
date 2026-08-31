@@ -326,14 +326,39 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
     assert set(policy) == {"Version", "Statement"}
     assert policy["Version"] == "2012-10-17"
     statements = _statements_by_sid(policy)
-    assert set(statements) == {
-        "DecryptArtifactObjects",
-        "GenerateArtifactDataKeys",
-        "ReadLockedReleaseObjects",
-        "ListLockedReleaseObjects",
-        "CreateCanonicalPublication",
-        "ListCanonicalPublication",
+    # Two fan-in boundaries share this one role while the Cycle 1 r4 repair runs
+    # (bead legalforecastbench-y7hk). The locked-manifest lane
+    # (.github/workflows/fan-in-publish.yaml, PR #1019) needs only manifests/*
+    # plus the canonical report write; the restored legacy lane
+    # (.github/workflows/fan-in-publish-legacy.yaml) reads immutable S3 shard
+    # receipts, per-case metrics, the manifest-run freeze bundle, and the
+    # cycle-publication-state closure records. Declaring only one set leaves
+    # whichever lane is dispatched next unable to read its own inputs, so the
+    # policy is their union until y7hk closes -- at which point the legacy
+    # statements below retire together with that workflow file.
+    legacy_lane_sids = {
+        "ReadExactPerCaseVersions",
+        "ReadShardReceipts",
+        "CreateShardReceipts",
+        "ReadCycleClosure",
+        "CreateCycleClosure",
+        "ReadCanonicalPublication",
+        "ReadManifestRunArtifacts",
+        "ListCurrentPerCaseVersions",
+        "ListFanInNamespaces",
     }
+    assert (
+        set(statements)
+        == {
+            "DecryptArtifactObjects",
+            "GenerateArtifactDataKeys",
+            "ReadLockedReleaseObjects",
+            "ListLockedReleaseObjects",
+            "CreateCanonicalPublication",
+            "ListCanonicalPublication",
+        }
+        | legacy_lane_sids
+    )
     assert statements["DecryptArtifactObjects"] == {
         "Sid": "DecryptArtifactObjects",
         "Effect": "Allow",
@@ -347,6 +372,12 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
         "Resource": ARTIFACTS_KMS_KEY_ARN,
     }
     report_resource = f"{RESULTS_BUCKET_ARN}/reports/*/multi-ablation/*"
+    shard_receipt_resource = f"{RESULTS_BUCKET_ARN}/shard-receipts/*/*/*/*.json"
+    closure_resources = [
+        f"{RESULTS_BUCKET_ARN}/cycle-publication-state/*/runs/*/*/intent.json",
+        f"{RESULTS_BUCKET_ARN}/cycle-publication-state/*/runs/*/*/done.json",
+        f"{RESULTS_BUCKET_ARN}/cycle-publication-state/*/seal.json",
+    ]
     assert statements["ReadLockedReleaseObjects"] == {
         "Sid": "ReadLockedReleaseObjects",
         "Effect": "Allow",
@@ -359,6 +390,75 @@ def _assert_exact_fan_in_policy(policy: Mapping[str, object]) -> None:
         "Action": "s3:ListBucket",
         "Resource": RESULTS_BUCKET_ARN,
         "Condition": {"StringLike": {"s3:prefix": "manifests/*"}},
+    }
+    assert statements["ReadExactPerCaseVersions"] == {
+        "Sid": "ReadExactPerCaseVersions",
+        "Effect": "Allow",
+        "Action": ["s3:GetObject", "s3:GetObjectVersion"],
+        "Resource": f"{RESULTS_BUCKET_ARN}/per-case/*/metrics/*",
+    }
+    assert statements["ReadShardReceipts"] == {
+        "Sid": "ReadShardReceipts",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": shard_receipt_resource,
+    }
+    assert statements["CreateShardReceipts"] == {
+        "Sid": "CreateShardReceipts",
+        "Effect": "Allow",
+        "Action": "s3:PutObject",
+        "Resource": shard_receipt_resource,
+        "Condition": {"Null": {"s3:if-none-match": "false"}},
+    }
+    assert statements["ReadCycleClosure"] == {
+        "Sid": "ReadCycleClosure",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": closure_resources,
+    }
+    assert statements["CreateCycleClosure"] == {
+        "Sid": "CreateCycleClosure",
+        "Effect": "Allow",
+        "Action": "s3:PutObject",
+        "Resource": closure_resources,
+        "Condition": {"Null": {"s3:if-none-match": "false"}},
+    }
+    assert statements["ReadCanonicalPublication"] == {
+        "Sid": "ReadCanonicalPublication",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": report_resource,
+    }
+    assert statements["ReadManifestRunArtifacts"] == {
+        "Sid": "ReadManifestRunArtifacts",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": f"{RESULTS_BUCKET_ARN}/cycle-1/manifest-runs/*",
+    }
+    assert statements["ListCurrentPerCaseVersions"] == {
+        "Sid": "ListCurrentPerCaseVersions",
+        "Effect": "Allow",
+        "Action": "s3:ListBucketVersions",
+        "Resource": RESULTS_BUCKET_ARN,
+        "Condition": {"StringLike": {"s3:prefix": "per-case/*"}},
+    }
+    assert statements["ListFanInNamespaces"] == {
+        "Sid": "ListFanInNamespaces",
+        "Effect": "Allow",
+        "Action": "s3:ListBucket",
+        "Resource": RESULTS_BUCKET_ARN,
+        "Condition": {
+            "StringLike": {
+                "s3:prefix": [
+                    "cycle-publication-state/*/runs/*",
+                    "cycle-publication-state/*/seal.json",
+                    "cycle-1/manifest-runs/*",
+                    "per-case/*",
+                    "reports/*/multi-ablation/*",
+                    "shard-receipts/*",
+                ]
+            }
+        },
     }
     assert statements["CreateCanonicalPublication"] == {
         "Sid": "CreateCanonicalPublication",
