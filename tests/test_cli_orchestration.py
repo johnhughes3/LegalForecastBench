@@ -19,8 +19,6 @@ def test_cli_help_lists_benchmark_orchestration_commands() -> None:
         "case-dev-smoke",
         "extract",
         "link",
-        "unitize",
-        "label",
         "packet",
         "packet-build",
         "eval",

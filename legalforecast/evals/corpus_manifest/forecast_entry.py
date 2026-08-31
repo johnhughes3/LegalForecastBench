@@ -59,6 +59,10 @@ from legalforecast.evals.packet_builder import (
     PacketText,
     build_model_packet,
 )
+from legalforecast.evals.prediction_units import (
+    PredictionUnit,
+    prediction_unit_from_record,
+)
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
     CasePacketSchema,
@@ -69,10 +73,6 @@ from legalforecast.ingestion.provenance import (
 from legalforecast.reporting.result_class import (
     classify_decision_against_anchor,
     expected_result_class,
-)
-from legalforecast.unitization.schemas import (
-    PredictionUnit,
-    prediction_unit_from_record,
 )
 
 # The official shard ablations.  Named here rather than derived from the

@@ -33,7 +33,6 @@ _PACKAGES = (
     "legalforecast.ingestion.embedded_text_layer_repair",
     "legalforecast.ingestion.mistral_markdown_parser",
     "legalforecast.ingestion.text_layer_completeness",
-    "legalforecast.labeling",
     "legalforecast.protocol",
     "legalforecast.selection",
 )

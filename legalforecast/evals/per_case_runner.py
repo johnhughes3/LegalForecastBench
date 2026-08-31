@@ -52,6 +52,12 @@ from legalforecast.evals.packet_builder import (
     PacketAblation,
     PacketDocument,
 )
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    DefendantGrouping,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.evals.response_verification import (
     output_statuses_from_run_records,
     response_verification_summary_from_run_records,
@@ -68,12 +74,6 @@ from legalforecast.protocol.policy_artifacts import (
 from legalforecast.reporting.result_class import (
     classify_decision_against_anchor,
     expected_result_class,
-)
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    DefendantGrouping,
-    PredictionUnit,
-    SourceCitation,
 )
 
 JsonRecord = dict[str, Any]

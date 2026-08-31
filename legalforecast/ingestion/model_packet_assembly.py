@@ -14,6 +14,7 @@ from legalforecast.evals.packet_builder import (
     PacketText,
     build_model_packet,
 )
+from legalforecast.evals.prediction_units import PredictionUnit
 from legalforecast.ingestion.docket_markdown import ControlledDocketMarkdownArtifacts
 from legalforecast.ingestion.mistral_markdown_parser import (
     MistralMarkdownConversionRecord,
@@ -28,7 +29,6 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
-from legalforecast.unitization.schemas import PredictionUnit
 
 _COMPLAINT_ROLES = frozenset(
     {

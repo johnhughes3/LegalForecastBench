@@ -29,14 +29,14 @@ from legalforecast.evals.per_case_runner import (
     PerCaseRunnerError,
     run_per_case_evaluation,
 )
-from legalforecast.ingestion.provenance import DocumentRole, sha256_text
-from legalforecast.protocol.freeze import sha256_file
-from legalforecast.protocol.policy_artifacts import generate_execution_policy
-from legalforecast.unitization.schemas import (
+from legalforecast.evals.prediction_units import (
     ChallengeScope,
     PredictionUnit,
     SourceCitation,
 )
+from legalforecast.ingestion.provenance import DocumentRole, sha256_text
+from legalforecast.protocol.freeze import sha256_file
+from legalforecast.protocol.policy_artifacts import generate_execution_policy
 
 
 def test_per_case_runner_verifies_packet_and_publishes_safe_outputs(

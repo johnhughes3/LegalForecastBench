@@ -10,8 +10,8 @@ from legalforecast.evals.bootstrap import (
     paired_clustered_bootstrap,
 )
 from legalforecast.evals.output_parser import parse_model_output
+from legalforecast.evals.run_record_scoring import ReleaseOutcomeLabel
 from legalforecast.evals.scorers import ScoringCase, score_cases
-from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
 from legalforecast.reporting.calibration import calibration_markdown
 from legalforecast.reporting.leaderboard import (
     build_benchmark_leaderboard_report,
@@ -187,20 +187,11 @@ def _summary(model_id: str, dismissed_probability: float, survive_probability: f
     )
 
 
-def _label(unit_id: str, dismissed: bool) -> OutcomeLabel:
-    return OutcomeLabel(
+def _label(unit_id: str, dismissed: bool) -> ReleaseOutcomeLabel:
+    return ReleaseOutcomeLabel(
         unit_id=unit_id,
-        fully_dismissed=dismissed,
-        amendment_class=(
-            AmendmentClass.DISMISSED_WITHOUT_EXPRESS_AMENDMENT_OPPORTUNITY
-            if dismissed
-            else AmendmentClass.NOT_FULLY_DISMISSED
-        ),
-        ambiguous=False,
+        primary_outcome=int(dismissed),
         label_confidence=0.97,
-        supporting_citations=(OutcomeCitation(document_id="decision-1", page=1),),
-        first_written_disposition_id="decision-1",
-        first_written_disposition_date="2026-05-18",
     )
 
 

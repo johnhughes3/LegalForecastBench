@@ -37,7 +37,6 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
         "type-check",
         "public API docstring coverage",
         "test",
-        "review blocker verifier",
         "CLI help smoke",
         "fixture E2E",
         "multi-harness schema validation",
@@ -50,7 +49,7 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
     assert "uv sync --locked" in commands
     assert "uv run pyright" in commands
     assert "uv run python -m legalforecast.contracts.ratchet" in commands
-    assert "uv run scripts/verify_review_blockers.py" in commands
+    assert "uv run scripts/verify_review_blockers.py" not in commands
     assert "uv run pytest -q -n 4 --dist=loadscope" in commands
     assert any("legalforecast fixture e2e" in command for command in commands)
     assert any(
@@ -73,8 +72,7 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
     )
     assert any("uv build --out-dir" in command for command in commands)
     assert any(
-        "uv run interrogate legalforecast/publication legalforecast/labeling "
-        "scripts" in command
+        "uv run interrogate legalforecast/publication scripts" in command
         for command in commands
     )
 

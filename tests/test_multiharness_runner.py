@@ -18,6 +18,11 @@ from legalforecast.evals.packet_builder import (
     PacketText,
     build_model_packet,
 )
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.immutable_io import ImmutableIOError
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
@@ -69,11 +74,6 @@ from legalforecast.multiharness.spec import (
 )
 from legalforecast.multiharness.task_loaders import LfbTaskLoader
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
-)
 
 SHA256 = "sha256:" + "a" * 64
 

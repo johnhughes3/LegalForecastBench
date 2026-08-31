@@ -18,7 +18,6 @@ from legalforecast.testing.cli_corpus.paths import (
 
 CLI_RELATIVE = "legalforecast/cli.py"
 FREEZE_DISPATCH = "legalforecast.protocol.freeze.cli_freeze"
-AGGREGATE_DISPATCH = "legalforecast.publication.official_aggregate.main"
 
 
 def build_command_manifest() -> dict[str, object]:
@@ -167,9 +166,6 @@ def _walk_commands(
 
 def _bypass_records() -> list[dict[str, object]]:
     from legalforecast.protocol import freeze
-    from legalforecast.publication.official_aggregate import (
-        build_parser as build_aggregate_parser,
-    )
 
     freeze_routes: tuple[
         tuple[tuple[str, ...], str, Callable[[], argparse.ArgumentParser]],
@@ -211,13 +207,6 @@ def _bypass_records() -> list[dict[str, object]]:
         _bypass_record(path, dispatch, builder)
         for path, dispatch, builder in freeze_routes
     ]
-    records.append(
-        _bypass_record(
-            ("publish", "aggregate"),
-            AGGREGATE_DISPATCH,
-            build_aggregate_parser,
-        )
-    )
     return records
 
 

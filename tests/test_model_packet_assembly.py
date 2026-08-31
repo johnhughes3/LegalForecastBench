@@ -8,6 +8,11 @@ from legalforecast.evals.packet_builder import (
     PacketText,
     build_model_packet,
 )
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.docket_markdown import (
     ControlledDocketMarkdownEntry,
     DocketMarkdownMetadata,
@@ -24,11 +29,6 @@ from legalforecast.ingestion.provenance import (
     DocumentRole,
     SourceDocumentProvenance,
     sha256_text,
-)
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
 )
 
 _GENERATED_AT = datetime(2026, 5, 17, tzinfo=UTC)

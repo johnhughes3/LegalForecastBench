@@ -71,7 +71,7 @@ def test_path_identity_inventory_is_current() -> None:
     )
 
 
-def test_checkout_entry_points_resolve_all_three_scripts() -> None:
+def test_checkout_entry_points_resolve_all_scripts() -> None:
     observed = checkout_entry_points()
     assert observed == expected_entry_points()
     assert missing_entry_points(observed) == ()
@@ -98,15 +98,6 @@ def test_installed_entry_points_smoke_help_and_version() -> None:
     )
     assert launcher.returncode == 0
     assert "--sandbox-path" in launcher.stdout
-    provider = subprocess.run(
-        ["uv", "run", "legalforecast-provider-env-run", "--help"],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert provider.returncode == 0
-    assert "--provider" in provider.stdout
 
 
 def test_wheel_and_sdist_entry_points_match_checkout(tmp_path: Path) -> None:

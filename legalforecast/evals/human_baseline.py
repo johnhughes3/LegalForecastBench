@@ -8,11 +8,20 @@ from enum import StrEnum
 from typing import Any
 
 from legalforecast.evals.inspect_task import InspectTaskSample
+from legalforecast.evals.run_record_scoring import ReleaseOutcomeLabel
 from legalforecast.evals.scorers import brier_score
-from legalforecast.labeling.label_outcomes import OutcomeLabel
-from legalforecast.labeling.lawyer_review import ReviewerExpertise
 
 DEFAULT_HUMAN_TIME_LIMIT_MINUTES = 45
+
+
+class ReviewerExpertise(StrEnum):
+    """Expertise strata used for human-forecast reporting."""
+
+    LAW_STUDENT = "law_student"
+    JUNIOR_LITIGATOR = "junior_litigator"
+    MIDLEVEL_LITIGATOR = "midlevel_litigator"
+    SENIOR_LITIGATOR = "senior_litigator"
+    EXPERT_PANEL = "expert_panel"
 
 
 class CaseComplexityStratum(StrEnum):
@@ -225,7 +234,7 @@ class HumanBaselineSummary:
 
 def score_human_baseline(
     forecasts: Sequence[HumanForecast],
-    labels_by_unit_id: Mapping[str, OutcomeLabel],
+    labels_by_unit_id: Mapping[str, ReleaseOutcomeLabel],
     *,
     model_probabilities_by_unit_id: Mapping[str, float] | None = None,
     external_research_allowed: bool = False,
@@ -266,7 +275,7 @@ def score_human_baseline(
 
 def _score_forecast(
     forecast: HumanForecast,
-    labels_by_unit_id: Mapping[str, OutcomeLabel],
+    labels_by_unit_id: Mapping[str, ReleaseOutcomeLabel],
     model_probabilities: Mapping[str, float],
     *,
     external_research_allowed: bool,
@@ -277,8 +286,6 @@ def _score_forecast(
     if label is None:
         raise ValueError(f"missing outcome label for unit: {forecast.unit_id}")
     outcome = label.primary_outcome
-    if outcome is None:
-        raise ValueError(f"ambiguous label cannot be scored: {forecast.unit_id}")
     model_probability = model_probabilities.get(forecast.unit_id)
     absolute_model_delta = (
         abs(forecast.probability_fully_dismissed - model_probability)

@@ -1,4 +1,9 @@
-"""Prediction-unit schemas for LegalForecast-MTD."""
+"""Public model-visible prediction-unit records used by packet consumers.
+
+Corpus construction and adjudication live in the private corpus factory.  The
+benchmark repository only needs this small decoder and immutable record to
+read the unit projections embedded in outcome-blinded packet artifacts.
+"""
 
 from __future__ import annotations
 
@@ -74,7 +79,7 @@ class SourceCitation:
 
 @dataclass(frozen=True, slots=True)
 class PredictionUnit:
-    """Claim-defendant unit that must be frozen before outcome labeling."""
+    """One model-visible claim/defendant unit read from a public packet."""
 
     unit_id: str
     count: str
@@ -102,10 +107,7 @@ class PredictionUnit:
             raise ValueError("source_citations must include at least one citation")
 
         if self.grouping is DefendantGrouping.GROUPED:
-            _require_non_empty(
-                self.grouping_rationale or "",
-                "grouping_rationale",
-            )
+            _require_non_empty(self.grouping_rationale or "", "grouping_rationale")
 
         if self.grouping is DefendantGrouping.INDIVIDUAL and self.grouping_rationale:
             raise ValueError(
@@ -130,7 +132,7 @@ class PredictionUnit:
 
     @property
     def should_score(self) -> bool:
-        """Whether the unit is suitable for scoring before outcome labels exist."""
+        """Whether the unit is suitable for scoring."""
 
         return (
             self.challenged_by_motion

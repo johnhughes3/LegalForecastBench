@@ -25,7 +25,6 @@ _PYTHON_PATH = re.compile(r"legalforecast/.+\.py\Z")
 _ENTRY_POINT_NAMES = (
     "legalforecast",
     "legalforecast-acquisition-systemd-run",
-    "legalforecast-provider-env-run",
 )
 
 

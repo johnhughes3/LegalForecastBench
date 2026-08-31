@@ -1258,7 +1258,7 @@ def test_the_packet_builder_still_excludes_a_forcibly_mounted_decision() -> None
         documents=documents,
     )
     units = _unit_row("cand-1")["prediction_units"]
-    from legalforecast.unitization.schemas import prediction_unit_from_record
+    from legalforecast.evals.prediction_units import prediction_unit_from_record
 
     packet = build_model_packet(
         case_packet=case_packet,

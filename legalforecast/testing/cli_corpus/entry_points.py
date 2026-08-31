@@ -19,10 +19,6 @@ ENTRY_POINTS: tuple[tuple[str, str], ...] = (
         "legalforecast-acquisition-systemd-run",
         "legalforecast.ingestion.infisical_systemd_launcher:main",
     ),
-    (
-        "legalforecast-provider-env-run",
-        "legalforecast.labeling.provider_environment:main",
-    ),
 )
 _ENTRY_POINT_NAMES = {name for name, _target in ENTRY_POINTS}
 

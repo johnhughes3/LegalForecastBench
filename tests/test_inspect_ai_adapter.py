@@ -13,16 +13,16 @@ from legalforecast.evals.inspect_ai_adapter import (
 )
 from legalforecast.evals.inspect_task import RunExecutionBackend, build_inspect_samples
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
     SourceDocumentProvenance,
     sha256_text,
-)
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
 )
 
 

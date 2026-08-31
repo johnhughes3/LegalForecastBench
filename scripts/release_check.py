@@ -16,6 +16,11 @@ from pathlib import Path
 from typing import cast
 
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
@@ -28,11 +33,6 @@ from legalforecast.multiharness.spec import (
     TaskIndex,
 )
 from legalforecast.protocol.freeze import REQUIRED_FREEZE_ARTIFACTS
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
-)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "tmp" / "release-check"
@@ -85,17 +85,12 @@ def build_steps(output_dir: Path) -> tuple[CheckStep, ...]:
                 "run",
                 "interrogate",
                 "legalforecast/publication",
-                "legalforecast/labeling",
                 "scripts",
             ),
         ),
         CheckStep(
             "test",
             ("uv", "run", "pytest", "-q", "-n", "4", "--dist=loadscope"),
-        ),
-        CheckStep(
-            "review blocker verifier",
-            ("uv", "run", "scripts/verify_review_blockers.py"),
         ),
         CheckStep("CLI help smoke", ("uv", "run", "legalforecast", "--help")),
         CheckStep(

@@ -1,13 +1,6 @@
 # pyright: reportPrivateUsage=false
 
-"""The ``legalforecast score`` command adapter.
-
-The public ``legalforecast.cli`` module remains the compatibility facade.  This
-module owns the score command's parser registration and handler while resolving
-shared CLI helpers through the facade at call time.  The late binding is
-intentional: existing tests and downstream callers patch those helpers on
-``legalforecast.cli`` and must continue to observe the patched behavior.
-"""
+"""The ``legalforecast score`` command adapter."""
 
 from __future__ import annotations
 
@@ -17,42 +10,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from legalforecast.cli_commands import corpus_manifest as _corpus_manifest
-from legalforecast.cli_commands import stage_a_replay as _stage_a_replay
 from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     model_registry_sha256,
 )
 from legalforecast.evals.run_record_scoring import (
-    score_run_records,
     score_run_records_against_labels_release,
 )
 from legalforecast.immutable_io import read_single_link_file
-from legalforecast.labeling import outcome_label_from_record
 from legalforecast.release import (
-    load_forecast_execution,
     load_run_manifest,
     validate_manifest_against_forecast,
     validate_release,
 )
 from legalforecast.runner.ledger import RunnerLedger
-
-
-def register_stage_a_replay(
-    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
-) -> None:
-    """Register the cycle-neutral Stage A executor beside acquisition commands.
-
-    Registration stays here rather than in the facade so the heavy executor
-    loads lazily while production verifiers still contain reviewed CLI-facade
-    bridges during the command-slice migration.  The owner-directed corpus
-    manifest commands register through the same hook for the same reason, and
-    so the facade's line count stays frozen.
-    """
-
-    _stage_a_replay.register(subparsers)
-    _stage_a_replay.register_issuance(subparsers)
-    _corpus_manifest.register(subparsers)
 
 
 def register(
@@ -65,11 +36,10 @@ def register(
         help="Parse model outputs and score them against locked labels.",
     )
     score.add_argument("--runs", type=Path, required=True)
-    labels = score.add_mutually_exclusive_group()
-    labels.add_argument("--labels", type=Path)
-    labels.add_argument(
+    score.add_argument(
         "--labels-release",
         type=Path,
+        required=True,
         help="Validated public labels-release.json for official scoring.",
     )
     score.add_argument(
@@ -144,8 +114,7 @@ def run(args: argparse.Namespace) -> int:
     from legalforecast import cli as _cli_ns
 
     runs_path = cast(Path, args.runs)
-    labels_path = cast(Path | None, args.labels)
-    labels_release_path = cast(Path | None, args.labels_release)
+    labels_release_path = cast(Path, args.labels_release)
     forecast_release_path = cast(Path | None, args.forecast_release)
     artifact_root = cast(Path | None, args.artifact_root)
     manifest_path = cast(Path | None, args.manifest)
@@ -165,59 +134,35 @@ def run(args: argparse.Namespace) -> int:
     forecast = None
     loaded_manifest = None
     model_registry = None
-    if labels_path is None and labels_release_path is None:
-        raise ValueError("one of --labels or --labels-release is required")
-    if labels_release_path is not None:
-        if (
-            manifest_path is None
-            or forecast_release_path is None
-            or artifact_root is None
-        ):
-            raise ValueError(
-                "--labels-release requires --manifest, --forecast-release, "
-                "and --artifact-root"
-            )
-        forecast, labels_release = validate_release(
-            forecast_release_path,
-            labels_release_path,
-            artifact_root=artifact_root,
+    if manifest_path is None or forecast_release_path is None or artifact_root is None:
+        raise ValueError(
+            "--labels-release requires --manifest, --forecast-release, "
+            "and --artifact-root"
         )
-        loaded_manifest = load_run_manifest(manifest_path)
-        validate_manifest_against_forecast(loaded_manifest.manifest, forecast)
-        (
-            expected_run_identity_sha256,
-            expected_model_registry_sha256,
-        ) = _resolve_locked_authority(
-            expected_run_identity_sha256=expected_run_identity_sha256,
-            expected_model_registry_sha256=expected_model_registry_sha256,
-            model_registry_path=model_registry_path,
-            ledger_path=ledger_path,
-        )
-        registry_bytes = read_single_link_file(
-            cast(Path, model_registry_path),
-            label="model registry",
-        )
-        actual_registry_sha256 = model_registry_sha256(registry_bytes)
-        if actual_registry_sha256 != expected_model_registry_sha256:
-            raise ValueError("model registry bytes differ from frozen authority")
-        model_registry = load_model_registry_bytes(registry_bytes)
-        label_records = ()
-    else:
-        label_records = _cli_ns._read_records(cast(Path, labels_path))
-        if manifest_path is not None:
-            loaded_manifest = load_run_manifest(manifest_path)
-            if forecast_release_path is not None:
-                if artifact_root is None:
-                    raise ValueError("--forecast-release requires --artifact-root")
-                execution = load_forecast_execution(
-                    forecast_release_path,
-                    artifact_root=artifact_root,
-                )
-                forecast = execution.release
-                validate_manifest_against_forecast(
-                    loaded_manifest.manifest,
-                    execution.release,
-                )
+    forecast, labels_release = validate_release(
+        forecast_release_path,
+        labels_release_path,
+        artifact_root=artifact_root,
+    )
+    loaded_manifest = load_run_manifest(manifest_path)
+    validate_manifest_against_forecast(loaded_manifest.manifest, forecast)
+    (
+        expected_run_identity_sha256,
+        expected_model_registry_sha256,
+    ) = _resolve_locked_authority(
+        expected_run_identity_sha256=expected_run_identity_sha256,
+        expected_model_registry_sha256=expected_model_registry_sha256,
+        model_registry_path=model_registry_path,
+        ledger_path=ledger_path,
+    )
+    registry_bytes = read_single_link_file(
+        cast(Path, model_registry_path),
+        label="model registry",
+    )
+    actual_registry_sha256 = model_registry_sha256(registry_bytes)
+    if actual_registry_sha256 != expected_model_registry_sha256:
+        raise ValueError("model registry bytes differ from frozen authority")
+    model_registry = load_model_registry_bytes(registry_bytes)
     unit_scores_output = cast(Path | None, args.unit_scores_output)
     if cast(bool, args.dry_run):
         output_paths = (
@@ -235,55 +180,36 @@ def run(args: argparse.Namespace) -> int:
             output_paths=output_paths,
             record_count=len(run_records),
             log_record_count=len(run_records),
-            label_count=(
-                labels_release.unit_count
-                if labels_release is not None
-                else len(label_records)
-            ),
+            label_count=labels_release.unit_count,
         )
 
-    if labels_release is not None:
-        summaries = score_run_records_against_labels_release(
-            run_records,
-            labels_release,
-            base_rate=cast(float | None, args.base_rate),
-            include_ablation_in_model_id=cast(bool, args.include_ablation_in_model_id),
-            forecast_release=(forecast if loaded_manifest is not None else None),
-            manifest=(
-                loaded_manifest.manifest if loaded_manifest is not None else None
-            ),
-            expected_run_identity_sha256=expected_run_identity_sha256,
-            model_registry=model_registry,
-            expected_model_registry_sha256=expected_model_registry_sha256,
-        )
-    else:
-        summaries = score_run_records(
-            run_records,
-            tuple(outcome_label_from_record(record) for record in label_records),
-            base_rate=cast(float | None, args.base_rate),
-            include_ablation_in_model_id=cast(bool, args.include_ablation_in_model_id),
-        )
+    summaries = score_run_records_against_labels_release(
+        run_records,
+        labels_release,
+        base_rate=cast(float | None, args.base_rate),
+        include_ablation_in_model_id=cast(bool, args.include_ablation_in_model_id),
+        forecast_release=forecast,
+        manifest=loaded_manifest.manifest,
+        expected_run_identity_sha256=expected_run_identity_sha256,
+        model_registry=model_registry,
+        expected_model_registry_sha256=expected_model_registry_sha256,
+    )
     output: dict[str, object] = {
         "generated_at": _cli_ns._iso_datetime(datetime.now(UTC)),
         "summaries": [summary.to_record() for summary in summaries],
     }
-    if (
-        labels_release is not None
-        and forecast is not None
-        and loaded_manifest is not None
-    ):
-        output["identity"] = {
-            "run_manifest_id": str(loaded_manifest.manifest.run_id),
-            "run_manifest_sha256": loaded_manifest.sha256,
-            "forecast_release_id": forecast.release_id,
-            "forecast_release_digest": forecast.release_digest,
-            "labels_release_id": labels_release.release_id,
-            "labels_release_digest": labels_release.release_digest,
-            "labels_forecast_release_digest": labels_release.forecast_release_digest,
-            "run_identity_sha256": cast(str, expected_run_identity_sha256),
-            "model_registry_sha256": cast(str, expected_model_registry_sha256),
-            "models": _locked_model_bindings(run_records),
-        }
+    output["identity"] = {
+        "run_manifest_id": str(loaded_manifest.manifest.run_id),
+        "run_manifest_sha256": loaded_manifest.sha256,
+        "forecast_release_id": forecast.release_id,
+        "forecast_release_digest": forecast.release_digest,
+        "labels_release_id": labels_release.release_id,
+        "labels_release_digest": labels_release.release_digest,
+        "labels_forecast_release_digest": labels_release.forecast_release_digest,
+        "run_identity_sha256": expected_run_identity_sha256,
+        "model_registry_sha256": expected_model_registry_sha256,
+        "models": _locked_model_bindings(run_records),
+    }
     _cli_ns._write_json(output_path, output)
     _cli_ns._log_event("score", "artifact_written", output_path, len(summaries))
     if unit_scores_output is not None:

@@ -28,7 +28,6 @@ dependencies = [
 [project.scripts]
 legalforecast = "legalforecast.cli:main"
 legalforecast-acquisition-systemd-run = "legalforecast.ingestion.infisical_systemd_launcher:main"
-legalforecast-provider-env-run = "legalforecast.labeling.provider_environment:main"
 legalforecast-exact100-convergence = "legalforecast.ingestion.exact100_convergence_invariants_cli:main"
 legalforecast-exact100-successor-v3 = "legalforecast.ingestion.exact100_successor_v3.cli:main"
 
@@ -81,7 +80,7 @@ pythonVersion = "3.14"
 typeCheckingMode = "strict"
 
 [tool.interrogate]
-# CI supplies the intentionally scoped publication, labeling, and release paths.
+# CI supplies the intentionally scoped publication and release paths.
 fail-under = 48
 ignore-nested-classes = true
 ignore-nested-functions = true
