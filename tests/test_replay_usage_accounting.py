@@ -20,7 +20,12 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from legalforecast.evals.live_model_solver import complete_live_prompt
+from legalforecast.evals.live_model_solver import (
+    SettledProviderAccounting,
+    ValidatedProviderResponseFields,
+    complete_live_prompt,
+    resolve_settled_provider_response_fields,
+)
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.evals.provider_spend_attempt_handler import (
     CompositeProviderAttemptHandler,
@@ -231,6 +236,94 @@ def test_settled_replay_still_fails_closed_on_unreproducible_accounting(
                 ),
             ),
         )
+
+
+@pytest.mark.parametrize(
+    "settled",
+    (
+        {
+            "raw_output": RAW_OUTPUT,
+            "input_tokens": "21345",
+            "output_tokens": SUPERSEDED_OUTPUT_TOKENS,
+            "actual_cost_usd": SUPERSEDED_COST_USD,
+        },
+        {
+            "raw_output": RAW_OUTPUT,
+            "input_tokens": 21345,
+            "output_tokens": SUPERSEDED_OUTPUT_TOKENS,
+            "actual_cost_usd": "0.0603945",
+        },
+        {"input_tokens": 21345},
+    ),
+)
+def test_a_malformed_settlement_record_is_ignored_rather_than_trusted(
+    settled: dict[str, object],
+) -> None:
+    response = _replay_with_handler(_SettledReplayAttemptHandler(settled=settled))
+
+    assert response.output_tokens == CURRENT_OUTPUT_TOKENS
+
+
+def test_a_superseded_rule_that_cannot_parse_the_payload_is_skipped() -> None:
+    """An unparsable payload must fall through, not raise out of the replay."""
+
+    entry = _registry_entry()
+    fields = ValidatedProviderResponseFields(
+        raw_output=RAW_OUTPUT,
+        input_tokens=21345,
+        output_tokens=CURRENT_OUTPUT_TOKENS,
+        served_model_version="gemini-thinking-2026-05-14",
+    )
+
+    resolved = resolve_settled_provider_response_fields(
+        entry,
+        {},
+        fields,
+        SettledProviderAccounting(
+            raw_output=RAW_OUTPUT,
+            input_tokens=21345,
+            output_tokens=SUPERSEDED_OUTPUT_TOKENS,
+            actual_cost_usd=SUPERSEDED_COST_USD,
+        ),
+    )
+
+    assert resolved == fields
+
+
+def test_a_handler_without_a_replay_store_reports_no_settlement() -> None:
+    composite = CompositeProviderAttemptHandler(
+        cast(Any, _RecordingAttemptHandler()),
+        cast(Any, _RecordingAttemptHandler()),
+    )
+
+    assert composite.settled_response_accounting(1) is None
+
+
+def test_the_journal_reports_no_settlement_before_one_is_recorded(
+    tmp_path: Path,
+) -> None:
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(journal_path) as journal:
+        assert journal.settled_response_accounting(1) is None
+        journal.run_attempt(1, lambda: THINKING_RESPONSE)
+        # `response_received` holds the bytes but no accounting yet.
+        assert journal.settled_response_accounting(1) is None
+
+
+def test_the_journal_ignores_a_settlement_record_that_is_not_an_object(
+    tmp_path: Path,
+) -> None:
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    authority_path = tmp_path / "provider-spend-authority.sqlite3"
+    _settle_under_the_superseded_rule(journal_path, authority_path)
+    with sqlite3.connect(journal_path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET normalized_response_json = ?",
+            ("[]",),
+        )
+
+    with _journal(journal_path) as journal:
+        assert journal.settled_response_accounting(1) is None
 
 
 def _settle_under_the_superseded_rule(
