@@ -286,6 +286,8 @@
     "tests/test_case_dev_firecrawl_screening_cli.py",
     "tests/test_ci_workflow.py",
     "tests/test_claude_code_cli_characterization.py",
+    "tests/test_claude_code_container_adapter.py",
+    "tests/test_claude_code_container_smoke.py",
     "tests/test_claude_code_native_containment.py",
     "tests/test_cli_corpus_differential.py",
     "tests/test_cli_corpus_identity.py",

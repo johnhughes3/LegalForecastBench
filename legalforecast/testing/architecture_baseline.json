@@ -4074,7 +4074,7 @@
       "legalforecast/ingestion/stage_a_replay_executor": 17,
       "legalforecast/labeling": 13,
       "legalforecast/multiharness": 72,
-      "legalforecast/multiharness/container_harness": 5,
+      "legalforecast/multiharness/container_harness": 6,
       "legalforecast/multiharness/harness_lane": 6,
       "legalforecast/multiharness/harness_vocab": 1,
       "legalforecast/multiharness/subscription": 2,
@@ -4089,7 +4089,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 16,
-      "tests": 520,
+      "tests": 522,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -7875,7 +7875,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 13,
+        "fan_in": 14,
         "fan_out": 2,
         "flags": [
           "watch"
