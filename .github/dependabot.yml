@@ -29,6 +29,14 @@ updates:
       - dependency-name: anthropic
       - dependency-name: claude-agent-sdk
       - dependency-name: openai
+      # pypdf renders the disclosure marker-page prompt whose sha256 is part of
+      # the provider-attempt identity a replay must reproduce, so a version
+      # change retroactively invalidates settled Cycle 1 evidence. #1022's
+      # routine bump did exactly that. Unpinning is a deliberate decision, not a
+      # routine update: unpin after Cycle 1 closes or when renderer versioning
+      # lands. Pinned in pyproject.toml and fenced by
+      # tests/test_pdf_extractor_pin.py.
+      - dependency-name: pypdf
     groups:
       pip-minor-patch:
         update-types:
