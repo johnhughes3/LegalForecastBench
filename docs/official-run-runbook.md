@@ -1885,9 +1885,16 @@ them.) Existing published reports are
 immutable; a new cycle ID is required when the public contract or expected unit
 set changes.
 
+Amending an already-staged official freeze has no Actions route either: neither
+`stage-official-manifest-run.yaml` nor `stage-manifest-run.yaml` exposes an
+`--amendment-bundle` input, so there is nothing to dispatch. That add-models lane
+is tracked as `legalforecastbench-4b6f`. (PR #1019 dropped this pointer along
+with the supplementary lane's section; it is restored here because this is the
+section a reader looking for the amendment route lands on.)
+
 ## Staging A First Official Manifest Run
 
-The route for a **new** official freeze at a **new** corpus manifest digest, dispatched as `stage-official-manifest-run.yaml`. The supplementary lane above stages siblings only, and it rebuilds its corpus bytes from the immutable objects an earlier official staging already wrote — a first official staging is defined by that prefix being empty, so its bytes have to travel instead.
+The route for a **new** official freeze at a **new** corpus manifest digest, dispatched as `stage-official-manifest-run.yaml`. The sibling supplementary lane, `.github/workflows/stage-manifest-run.yaml`, stages supplementary siblings only, and it rebuilds its corpus bytes from the immutable objects an earlier official staging already wrote — a first official staging is defined by that prefix being empty, so its bytes have to travel instead. (PR #1019 removed that lane's own runbook section; the workflow itself is unchanged, and its inputs are documented in the file.)
 
 **They do not travel through this repository.** The 13 frozen artifacts and every model packet are un-run evaluation inputs and the final labels; publishing them before the run would destroy the contamination control. They travel as one closed archive, age-encrypted, uploaded as an asset on a never-published **draft** release and pinned at dispatch by exact release id, asset id, name, size, and digest — the same transport the paid-labeling chain already uses for private source. The upload is a GitHub write through the ordinary broker, never an S3 write: the manifest-staging OIDC role remains the only credential that can create an object in the official prefix.
 
