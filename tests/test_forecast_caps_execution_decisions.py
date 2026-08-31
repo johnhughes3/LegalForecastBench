@@ -75,10 +75,11 @@ def test_checked_in_forecast_caps_pass_execution_decisions_consumer(
         "raw_observation_sha256": "d" * 64,
         "bead_id": "bead",
         # The consumer refuses caps whose sum exceeds the owner ceiling, so
-        # this fixture ceiling tracks the shipped caps: 1337.40 anthropic
-        # (Claude Fable 5 alone, per the 2026-08-31 owner ruling) + 1374.96
-        # openai.
-        "ceiling_usd": "2712.36",
+        # this fixture ceiling tracks the shipped caps: 1705.60 anthropic
+        # (Claude Fable 5 alone, per the 2026-08-31 owner ruling) + 1740.02
+        # openai, both at 130% of the r4 projection per the 2026-08-30
+        # roomier-caps ruling.
+        "ceiling_usd": "3445.62",
         "estimate_usd": "1.00",
         "line_sha256": dict.fromkeys(
             ("manifest", "contamination", "final_provider_spend"), "e" * 64

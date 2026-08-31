@@ -2,11 +2,11 @@
   "cycle_id": "cycle-1-target-100-2026-07-25",
   "providers": [
     {
-      "cycle_reservation_cap_usd": "1337.40",
+      "cycle_reservation_cap_usd": "1705.60",
       "provider": "anthropic"
     },
     {
-      "cycle_reservation_cap_usd": "1374.96",
+      "cycle_reservation_cap_usd": "1740.02",
       "provider": "openai"
     }
   ],

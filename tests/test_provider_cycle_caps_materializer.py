@@ -212,15 +212,30 @@ def test_materializer_builds_deterministic_authority_enabled_successor() -> None
 
 
 def test_materializer_accepts_forecast_only_successor_registry_provider_set() -> None:
-    """Pin the shipped forecast caps against the Claude Fable 5 official set.
+    """Pin the shipped forecast caps at 130% of the r4 corpus projection.
+
+    Both caps are exact derivations from the third-pass local projection of
+    the repaired corpus, sized to the owner ruling of 2026-08-30 ("OK remint
+    roomier caps", ~130% of estimate) rather than to the ~2% headroom the
+    2026-08-25 caps carried:
+
+        openai    = 1.30 x (787.34 + 393.67 + 157.47) = 1.30 x 1338.48 = 1740.02
+        anthropic = 1.30 x (2 x 656.00)               = 1.30 x 1312.00 = 1705.60
 
     The anthropic cap covers exactly one model. Per the owner ruling of
     2026-08-31, Claude Fable 5 replaces Claude Opus 4.8 as the official
-    Anthropic model rather than joining it. Fable 5 is priced at exactly twice
-    Opus 4.8 per token (USD 10/50 against USD 5/25 per MTok), so at the same
-    corpus and the same 128K output bound its ceiling is exactly twice Opus
-    4.8's USD 668.70 reservation: 2 x 668.70 = 1337.40. Realistic spend is far
-    below the ceiling; the cap is the hard stop, not the estimate.
+    Anthropic model rather than joining it, and Fable 5 is priced at exactly
+    twice Opus 4.8 per token (USD 10/50 against USD 5/25 per MTok), so at the
+    same corpus and the same 128K output bound its projection is exactly twice
+    Opus 4.8's USD 656.00.
+
+    The projection is itself a worst case -- ~97.5% of it is the
+    max_output_tokens ceiling term, which assumes every call emits its full
+    128K budget -- so realistic spend is far below either number. The cap is a
+    hard stop enforced cumulatively by the spend authority, not an estimate:
+    raising it authorizes no additional spend, it only keeps a retry storm or a
+    re-dispatch after a partial failure from exhausting the cycle mid-run,
+    which would force another freeze and another staging.
     """
 
     source = FORECAST_LEGACY_CAPS.read_bytes()
@@ -245,10 +260,10 @@ def test_materializer_accepts_forecast_only_successor_registry_provider_set() ->
     assert set(caps.providers) == {"anthropic", "openai"}
     assert caps.account("anthropic") == "cycle1-anthropic"
     assert caps.account("openai") == "cycle1-openai"
-    assert caps.cap_microusd("anthropic") == 1_337_400_000
-    assert caps.cap_microusd("openai") == 1_374_960_000
+    assert caps.cap_microusd("anthropic") == 1_705_600_000
+    assert caps.cap_microusd("openai") == 1_740_020_000
     assert sum(caps.cap_microusd(provider) for provider in caps.providers) == (
-        2_712_360_000
+        3_445_620_000
     )
     authority = caps.require_spend_authority()
     assert authority.backend == "dynamodb"
