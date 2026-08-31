@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
 from legalforecast.evals.corpus_manifest.records import registry_record
@@ -586,3 +589,228 @@ def test_freeze_chain_rewrites_amendment_pointer_and_stages_ancestor(
     finally:
         for path in staged_paths:
             path.unlink(missing_ok=True)
+
+
+class _FakeHead:
+    """Stand in for ``aws s3api head-object`` on the staged freeze key.
+
+    The uploader and the verifier are real subprocess calls to the AWS CLI, and
+    the first-stage precondition is the one place where *which* answer comes back
+    changes the decision rather than merely succeeding or failing. Replacing
+    ``subprocess.run`` at the module boundary is what lets the four answers --
+    present, absent, unseeable, and inconclusive -- be exercised as themselves.
+    """
+
+    def __init__(self, *, returncode: int, stdout: str = "", stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+        self.calls: list[list[str]] = []
+
+    def run(self, args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        self.calls.append(list(args))
+        return subprocess.CompletedProcess(
+            args, self.returncode, stdout=self.stdout, stderr=self.stderr
+        )
+
+
+_ABSENT = _FakeHead(
+    returncode=254,
+    stderr=("An error occurred (404) when calling the HeadObject operation: Not Found"),
+)
+
+
+def _patch_head(monkeypatch: pytest.MonkeyPatch, head: _FakeHead) -> _FakeHead:
+    monkeypatch.setattr(
+        "legalforecast.publication.manifest_forecast_stage.subprocess.run",
+        head.run,
+    )
+    return head
+
+
+def _first_stage_config(
+    tmp_path: Path,
+) -> tuple[ManifestForecastStageConfig, FreezeBundle]:
+    config, bundle = _fixture(tmp_path)
+    return replace(config, first_stage_only=True), bundle
+
+
+def test_first_stage_only_stages_the_freeze_before_any_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The enforcing half of the fence, not a cosmetic ordering.
+
+    The head-object precondition can be blind: the manifest-staging role holds no
+    s3:ListBucket, so S3 answers 403 rather than 404 for a key that is simply not
+    there. Writing freeze.json first under --if-none-match '*' is what makes that
+    blindness harmless -- an occupied prefix stops the run on object one, before
+    any artifact key exists to carry a doubled artifacts/ segment.
+    """
+
+    config, bundle = _first_stage_config(tmp_path)
+    _patch_verify(monkeypatch, bundle)
+    _patch_head(monkeypatch, _ABSENT)
+
+    result = stage_manifest_forecast(config)
+
+    objects = cast(list[dict[str, object]], result.stage_record["objects"])
+    assert objects[0]["key"] == f"{result.prefix}/freeze.json"
+
+    plain, plain_bundle = _fixture(tmp_path / "plain")
+    _patch_verify(monkeypatch, plain_bundle)
+    plain_result = stage_manifest_forecast(plain)
+    plain_objects = cast(list[dict[str, object]], plain_result.stage_record["objects"])
+    # Unchanged without the flag: the ordering is part of the first-stage lane,
+    # not a global change to how official staging lays out its uploads.
+    assert plain_objects[0]["key"] != f"{plain_result.prefix}/freeze.json"
+
+
+def test_first_stage_precondition_heads_the_staged_freeze_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, bundle = _first_stage_config(tmp_path)
+    _patch_verify(monkeypatch, bundle)
+    head = _patch_head(monkeypatch, _FakeHead(returncode=254, stderr=_ABSENT.stderr))
+
+    result = stage_manifest_forecast(config)
+
+    assert len(head.calls) == 1
+    argv = head.calls[0]
+    assert argv[:3] == ["aws", "s3api", "head-object"]
+    assert f"{result.prefix}/freeze.json" in argv
+    assert "results-bucket" in argv
+
+
+def test_first_stage_only_proceeds_when_the_prefix_is_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, bundle = _first_stage_config(tmp_path)
+    _patch_verify(monkeypatch, bundle)
+    _patch_head(monkeypatch, _FakeHead(returncode=254, stderr=_ABSENT.stderr))
+
+    assert stage_manifest_forecast(config).packet_count == 1
+
+
+def test_first_stage_only_proceeds_when_the_role_cannot_see_the_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 403 is absence, not a refusal, and this is the reasoning.
+
+    S3 answers 404 for a missing key only to a caller holding s3:ListBucket. The
+    manifest-staging role deliberately holds none, so a missing key answers 403
+    and the two cases are indistinguishable here. Refusing on 403 would refuse
+    every first staging and brick the lane; proceeding is safe only because the
+    create-once write of freeze.json goes first, so an occupied prefix still
+    stops the run before anything else is written, and a credential that cannot
+    read also cannot write.
+    """
+
+    config, bundle = _first_stage_config(tmp_path)
+    _patch_verify(monkeypatch, bundle)
+    _patch_head(
+        monkeypatch,
+        _FakeHead(
+            returncode=254,
+            stderr=(
+                "An error occurred (403) when calling the HeadObject operation: "
+                "Forbidden"
+            ),
+        ),
+    )
+
+    assert stage_manifest_forecast(config).packet_count == 1
+
+
+def test_first_stage_only_refuses_a_prefix_a_different_staging_occupies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The bh6j case.
+
+    A staged freeze fed back through staging has had its artifact paths rewritten
+    once already, so restaging it would produce artifacts/artifacts/... keys in a
+    prefix no role can delete. Whatever else changed, the freeze bytes at the key
+    differ from the freeze this run would write, and that mismatch is refused
+    before the first upload.
+    """
+
+    config, bundle = _first_stage_config(tmp_path)
+    _patch_verify(monkeypatch, bundle)
+    _patch_head(
+        monkeypatch,
+        _FakeHead(
+            returncode=0,
+            stdout=json.dumps({"ContentLength": 11, "Metadata": {"sha256": "b" * 64}}),
+        ),
+    )
+
+    with pytest.raises(ManifestForecastStageError) as error:
+        stage_manifest_forecast(config)
+
+    assert "a different staging already occupies this prefix" in str(error.value)
+
+
+def test_first_stage_only_resumes_a_prefix_holding_its_own_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A re-dispatch after a timeout must still be able to finish.
+
+    Staging drives roughly a thousand serial S3 calls and is designed to be
+    resumable: every existing object 412s and is verified, and only the missing
+    ones are created. A flat "refuse if freeze.json exists" would convert one
+    timeout into a permanently half-staged prefix that no role can delete, and
+    only a fresh corpus digest could escape it.
+    """
+
+    config, bundle = _first_stage_config(tmp_path)
+    _patch_verify(monkeypatch, bundle)
+    _patch_head(monkeypatch, _FakeHead(returncode=254, stderr=_ABSENT.stderr))
+    planned = cast(
+        list[dict[str, object]],
+        stage_manifest_forecast(config).stage_record["objects"],
+    )[0]
+
+    _patch_head(
+        monkeypatch,
+        _FakeHead(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "ContentLength": planned["size_bytes"],
+                    "Metadata": {"sha256": planned["sha256"]},
+                }
+            ),
+        ),
+    )
+
+    assert stage_manifest_forecast(config).packet_count == 1
+
+
+def test_first_stage_only_refuses_an_inconclusive_head_object(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, bundle = _first_stage_config(tmp_path)
+    _patch_verify(monkeypatch, bundle)
+    _patch_head(
+        monkeypatch,
+        _FakeHead(
+            returncode=254,
+            stderr=(
+                "An error occurred (500) when calling the HeadObject operation: "
+                "InternalError"
+            ),
+        ),
+    )
+
+    with pytest.raises(ManifestForecastStageError) as error:
+        stage_manifest_forecast(config)
+
+    assert "cannot establish" in str(error.value)
+
+
+def test_first_stage_only_is_refused_in_supplementary_mode(tmp_path: Path) -> None:
+    config, _ = _fixture(tmp_path, supplementary=True)
+
+    with pytest.raises(ManifestForecastStageError) as error:
+        replace(config, first_stage_only=True)
+
+    assert "refuses --first-stage-only in supplementary mode" in str(error.value)

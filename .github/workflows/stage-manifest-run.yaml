@@ -373,7 +373,7 @@ jobs:
           # a single object placed outside this prefix is unrecoverable.
           bash "${GITHUB_WORKSPACE}/.github/scripts/assert-manifest-run-lane.sh" \
             "${OUTPUT_ROOT}/stage-plan.json" "${EXPECTED_PREFIX}" \
-            "${LFB_RESULTS_BUCKET}" "${LFB_PACKET_BUCKET}"
+            "${LFB_RESULTS_BUCKET}" "${LFB_PACKET_BUCKET}" supplementary
 
       - name: Stage the manifest run
         id: stage
@@ -402,7 +402,7 @@ jobs:
           # separate invocations, and only this one describes the real writes.
           bash "${GITHUB_WORKSPACE}/.github/scripts/assert-manifest-run-lane.sh" \
             "${OUTPUT_ROOT}/stage-record.json" "${EXPECTED_PREFIX}" \
-            "${LFB_RESULTS_BUCKET}" "${LFB_PACKET_BUCKET}"
+            "${LFB_RESULTS_BUCKET}" "${LFB_PACKET_BUCKET}" supplementary
 
           prefix="$(jq -r '.prefix' "${OUTPUT_ROOT}/stage-record.json")"
           # The staged freeze's RAW SHA-256, which is an output of staging and

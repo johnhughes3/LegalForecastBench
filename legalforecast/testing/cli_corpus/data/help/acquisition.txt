@@ -69,6 +69,12 @@ positional arguments:
     stage-manifest-forecast
                         Stage manifest-mode forecast inputs into immutable S3
                         prefixes.
+    build-manifest-run-source-package
+                        Seal a first official manifest run's corpus into one
+                        archive.
+    open-manifest-run-source-package
+                        Extract a first-stage source package under its pinned
+                        digests.
     plan-attachment-pages
                         Authenticate docket entries whose PACER attachment
                         menu is missing.
