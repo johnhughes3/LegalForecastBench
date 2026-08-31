@@ -20,7 +20,7 @@ from legalforecast.immutable_io import ImmutableIOError, read_single_link_file
 COORDINATION_BEAD_ID: Final = "legalforecastbench-3ak.38"
 OWNER_AUTHOR: Final = "John Hughes"
 SUCCESSOR_REGISTRY_PATH: Final = (
-    "model_registries/cycle-1-2026-06-30-claude-opus-4-8-successor-2026-08-21.json"
+    "model_registries/cycle-1-2026-06-30-claude-fable-5-successor-2026-08-31.json"
 )
 CONTAMINATION_LINE: Final = (
     "contamination: replace claude-sonnet-5 with claude-opus-4-8"
@@ -30,7 +30,7 @@ SUCCESSOR_REGISTRY_KEYS: Final = frozenset(
         "openai:gpt-5.6-sol",
         "openai:gpt-5.6-terra",
         "openai:gpt-5.6-luna",
-        "anthropic:claude-opus-4-8",
+        "anthropic:claude-fable-5",
     }
 )
 _MANIFEST_APPROVAL: Final = re.compile(

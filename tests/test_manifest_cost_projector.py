@@ -60,13 +60,13 @@ ROOT = Path(__file__).resolve().parents[1]
 SUCCESSOR_REGISTRY = (
     ROOT
     / "model_registries"
-    / "cycle-1-2026-06-30-claude-opus-4-8-successor-2026-08-21.json"
+    / "cycle-1-2026-06-30-claude-fable-5-successor-2026-08-31.json"
 )
 SUCCESSOR_MODEL_KEYS = (
     "openai:gpt-5.6-sol",
     "openai:gpt-5.6-terra",
     "openai:gpt-5.6-luna",
-    "anthropic:claude-opus-4-8",
+    "anthropic:claude-fable-5",
 )
 OFFICIAL_PACKET_ABLATIONS = ("full_packet", "metadata_only")
 

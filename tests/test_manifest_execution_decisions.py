@@ -21,6 +21,16 @@ from legalforecast.labeling.provider_journal import (
     ProviderCallIdentity,
 )
 
+# Derived, not spelled out: every other fixture here builds from
+# SUCCESSOR_REGISTRY_KEYS, so an official-model swap lands atomically. A
+# hard-coded key would survive the swap and silently stop perturbing any entry,
+# which turns this negative test into a vacuous pass.
+_ANTHROPIC_SUCCESSOR_KEY = next(
+    key
+    for key in sorted(evidence.SUCCESSOR_REGISTRY_KEYS)
+    if key.startswith("anthropic:")
+)
+
 
 def _sha(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
@@ -347,7 +357,7 @@ def test_successor_registry_safety_ignores_legacy_sampling_fields() -> None:
     (
         ("openai:gpt-5.6-sol", None),
         ("openai:gpt-5.6-terra", OpenAIReasoningEffort.MEDIUM),
-        ("anthropic:claude-opus-4-8", OpenAIReasoningEffort.HIGH),
+        (_ANTHROPIC_SUCCESSOR_KEY, OpenAIReasoningEffort.HIGH),
     ),
 )
 def test_successor_registry_safety_requires_exact_reasoning_settings(
