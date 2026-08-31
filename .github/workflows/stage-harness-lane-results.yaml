@@ -468,6 +468,24 @@ jobs:
             echo "| summary sha256 | \`${SUMMARY_SHA256}\` |"
           } >> "${GITHUB_STEP_SUMMARY}"
 
+      # `!= true` rather than `== false`: an input that is not a real boolean
+      # must fail into running the verification, never silently skip it after a
+      # write that cannot be undone. Only the summary is read back -- the
+      # head-object check above trusts metadata the same put wrote, so this is
+      # the one place bytes are compared. The archive is not read back because
+      # it is the large object and its prefix is its own digest.
+      - name: Verify the staged summary reads back byte-identical
+        if: inputs.dry_run != true
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3api get-object \
+            --bucket "${LFB_RESULTS_BUCKET}" \
+            --key "${EXPECTED_PREFIX}/harness-lane-summary.json" \
+            "${WORK_ROOT}/readback-summary.json" >/dev/null
+          printf '%s  %s\n' "${SUMMARY_SHA256}" \
+            "${WORK_ROOT}/readback-summary.json" | sha256sum --check --strict
+
       - name: Clear decrypted transcripts and AWS credentials
         id: clear_sensitive
         if: always()
