@@ -57,6 +57,20 @@ RUN npm install -g --no-fund --no-audit \
 # Loopback would be the wrong choice -- NO_PROXY covers it, so the refusal
 # would never reach the proxy log.
 #
+# Precedence is verified against the CLI's bundled source, not assumed, because
+# a staged config.toml carries [services.moonshot_search] / [services.
+# moonshot_fetch] blocks naming the real endpoints: withServiceEnv() checks the
+# env base URL FIRST and, when it is set, returns a fresh service entry built
+# from the environment alone -- the configured endpoint, its API key and its
+# OAuth reference are all discarded.  Env wins unconditionally, so the redirect
+# survives credential staging.
+#
+# What this does NOT do is unregister the tools: the model still sees WebSearch
+# and FetchURL and may call them.  That is why the redirect target has to be a
+# host the proxy refuses -- the call fails at the fence and the attempt is
+# counted (parser_kimi.KimiStreamResult.web_tools_invoked) instead of being
+# indistinguishable from allowed provider traffic.
+#
 # These forecasts are about real federal cases whose outcomes are one search
 # away, so this is an integrity control, not a tidiness one.
 ENV KIMI_WEB_SEARCH_BASE_URL=https://web-tools-disabled.invalid/ \
