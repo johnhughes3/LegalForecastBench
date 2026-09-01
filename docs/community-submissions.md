@@ -72,7 +72,7 @@ All contributors receive the same attribution: organization or personal name, pl
 
 ## Large Artifacts And Hugging Face Mirrors
 
-Do not commit raw model transcripts, private logs, source documents, sealed/private materials, or large binary outputs. The checked-in metadata under `community/submissions/` is the registry of record; neither a generated aggregate, GitHub Actions artifact, GitHub Release, nor an external mirror can add or replace an accepted submission.
+Do not commit raw model transcripts, private logs, source documents, sealed/private materials, or large binary outputs. The one exception is a containerized harness-lane package built by the intake tool described in [Containerized Harness-Lane Submissions](#containerized-harness-lane-submissions), whose scrubbed transcripts ride in the pull request precisely so CI can scan them. The checked-in metadata under `community/submissions/` is the registry of record; neither a generated aggregate, GitHub Actions artifact, GitHub Release, nor an external mirror can add or replace an accepted submission.
 
 The optional large-artifact mirror is the Hugging Face Dataset repository [`johnhughes3/legalforecastbench-community-artifacts`](https://huggingface.co/datasets/johnhughes3/legalforecastbench-community-artifacts), owned and administered by John Hughes. Maintainers of `johnhughes3/LegalForecastBench` may publish public-safe artifacts after submission validation. Repository recovery consists of recreating that Dataset repository under the same owner and re-uploading bytes verified against the SHA-256 values in the git registry; mirror access never authorizes changing checked-in metadata.
 
@@ -83,6 +83,40 @@ Accepted metadata and mirrored artifacts are retained indefinitely. Corrections 
 GitHub Releases are not an artifact mirror for community submissions. They may carry versioned LegalForecastBench software and official release notes, but community artifact durability and identity come from the checked-in registry plus the optional commit-pinned Hugging Face mirror.
 
 All public artifact paths must be safe relative paths. Public files are scanned for secrets, provider account IDs, private path segments, raw-document-like suffixes, and audit-only markers.
+
+## Containerized Harness-Lane Submissions
+
+The multi-harness *harness lane* asks a different question from the benchmark proper: does an agentic CLI, running with its own tools live, beat the same model's bare API? The evidence for that question is the transcript. A contributor who runs the lane on their own machine therefore has something worth publishing and nowhere to put it, so this is the one submission shape whose **full results** are accepted, and we host them.
+
+This is a carve-out from "do not commit raw model transcripts" above, and it is narrow: it applies only to a run produced by the containerized harness lane, packaged by the tool below. It exists because a containerized row structurally cannot carry the operator's environment. The harness container receives exactly two bind mounts — the task workspace and a freshly staged HOME holding only the credential files the adapter manifest declared — its environment is constructed rather than inherited from the operator's shell, and it sits on an internal Docker network whose only route off the host is the allowlist CONNECT proxy. There is no home directory, no personal configuration, and no unrelated host data inside the container for a transcript to leak.
+
+So the redaction is deliberately light. What is rewritten is what the *host* half of the run wrote — absolute paths, which become readable placeholders such as `/[host-run-dir]/rows/row-0` and `/[host-home]/…` — plus credential values, since the staged login is copied into the container and a CLI that echoes its own token puts it in a transcript. Prompts, reasoning, tool calls, tool outputs, and answers are kept verbatim. A transcript scrubbed into unreadability would defeat the purpose of accepting it.
+
+Package a completed run:
+
+```bash
+uv run python -m legalforecast.multiharness.harness_lane.community_intake_cli package \
+  --run-dir tmp/multiharness/run \
+  --output-dir community/submissions/2026/<submission-id> \
+  --submission-id <submission-id> \
+  --submitter-name "Your Name" \
+  --submitter-github your-handle \
+  --run-operator-name "Your Name" \
+  --adapter-author-name "Adapter Author or Team"
+```
+
+That writes `community-harness-submission.json`, `harness-lane-summary.json`, `hf-upload-plan.json`, and the scrubbed run under `full-results/`. Provider-token shapes and host paths are rewritten automatically; pass `--secret-value` (repeatable) for any additional exact value that must not survive. Validate before opening the pull request:
+
+```bash
+uv run python -m legalforecast.multiharness.harness_lane.community_intake_cli validate \
+  --submission-dir community/submissions/2026/<submission-id>
+```
+
+Validation is load-bearing, because this accepts bytes from strangers into storage we host, and it is the same code at every stage — contributor, pull-request CI, and the maintainer's publish job. It refuses a package whose declared per-file size or total exceeds the intake caps (8 MiB per artifact, 64 MiB and 2,000 artifacts per submission); whose declared SHA-256 does not match the actual bytes; that carries a file the upload plan does not declare; that fails the publication secret scan; or that does not declare `official: false`, `result_class: community_harness_lane`, and the `not_official_legalforecastbench_result` attestation. The caps are review-sized on purpose: the bytes ride inside the pull request so that CI scans the real files rather than a description of them.
+
+A maintainer merges the pull request and then dispatches `.github/workflows/community-harness-intake.yaml` at that commit, which re-validates from scratch and uploads the package to an immutable path in the community dataset repository. The workflow is `workflow_dispatch` only — no pull-request trigger reaches it — and it obtains a repository-scoped Hugging Face token by exchanging the GitHub OIDC identity, exactly as [hugging-face-publication.md](hugging-face-publication.md) describes for the official lane. No durable `HF_TOKEN` exists and contributors never receive a credential to anything of ours.
+
+**A harness-lane submission is not an official LegalForecastBench result.** It is contributor-run and contributor-funded, it never enters the official aggregate, and it is not comparable to an official row: the lane changes the treatment, not just the model.
 
 ## Partial Runs And Composite Rows
 
