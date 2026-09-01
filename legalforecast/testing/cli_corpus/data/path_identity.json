@@ -303,6 +303,7 @@
     "tests/test_community_lab_quickstart.py",
     "tests/test_community_multiharness_workflow.py",
     "tests/test_community_run_summary_v2.py",
+    "tests/test_container_harness_egress.py",
     "tests/test_contributor_subscription_profile.py",
     "tests/test_corpus_readiness_cli.py",
     "tests/test_courtlistener_bot_challenge.py",
