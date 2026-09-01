@@ -386,9 +386,11 @@ def test_container_lane_runs_a_projected_harvey_lab_selection(
 
 
 def test_lfb_packet_task_source_runs_but_yields_no_score_rows(
-    tmp_path: Path, fake_container: dict[str, Any]
+    tmp_path: Path,
+    fake_container: dict[str, Any],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The packet source runs; it cannot score, and that is structural.
+    """The packet source runs, says so, and cannot score -- structurally.
 
     ``LfbTaskLoader`` packets carry no ``release_schema_version``, so
     ``release_harness`` projects no LFB record for them -- exactly as for every
@@ -397,8 +399,9 @@ def test_lfb_packet_task_source_runs_but_yields_no_score_rows(
     the only ways to make it score would be to fabricate that identity or to
     open a second, unauthenticated door into ``lfb/runs.jsonl``.  The scoring
     route is ``--forecast-release``/``--artifact-root`` on the same task
-    source, pinned by
-    ``test_lfb_release_task_source_scores_end_to_end`` below.
+    source, pinned by ``test_lfb_release_task_source_scores_end_to_end`` in
+    ``test_multiharness_harness_lane_scoring``, and the run says so on stderr
+    before it starts rather than leaving the absence to be discovered.
     """
 
     packets = tmp_path / "packets.jsonl"
@@ -436,6 +439,12 @@ def test_lfb_packet_task_source_runs_but_yields_no_score_rows(
 
     assert (output_dir / "row-results.jsonl").is_file()
     assert not (output_dir / "lfb" / "runs.jsonl").exists()
+    # ...and the operator was told that before the run, not left to infer it
+    # from the file that is missing afterwards.
+    warning = capsys.readouterr().err
+    assert "--packets is a plumbing input" in warning
+    assert "no lfb/runs.jsonl" in warning
+    assert "--forecast-release" in warning
 
 
 def test_registry_adapter_without_a_manifest_is_refused(tmp_path: Path) -> None:
