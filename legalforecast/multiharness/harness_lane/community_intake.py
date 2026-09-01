@@ -184,7 +184,9 @@ def build_community_harness_submission(
             f"{submission_id!r}"
         )
     if output_dir.exists() and any(output_dir.iterdir()):
-        raise CommunityIntakeError(f"refusing to write into a non-empty {output_dir}")
+        raise CommunityIntakeError(
+            f"refusing to write into a non-empty {output_dir}; remove it and re-run"
+        )
     summary = harness_lane_public_summary(run_dir)
     full_results = output_dir / FULL_RESULTS_DIRECTORY
     full_results.mkdir(parents=True, exist_ok=True)
@@ -434,11 +436,17 @@ def _refuse_undeclared_bytes(
 ) -> None:
     allowed = {str(artifact["path"]) for artifact in declared}
     allowed.update({SUBMISSION_RECORD_NAME, UPLOAD_PLAN_NAME})
-    present = {
-        path.relative_to(submission_dir).as_posix()
-        for path in submission_dir.rglob("*")
-        if path.is_file() and not path.is_symlink()
-    }
+    present: set[str] = set()
+    for path in submission_dir.rglob("*"):
+        if path.is_symlink():
+            # Refused rather than skipped: the uploader follows symlinks, so a
+            # link is a way to put bytes nobody hashed into the dataset.
+            raise CommunityIntakeError(
+                f"submission contains a symlink: "
+                f"{path.relative_to(submission_dir).as_posix()}"
+            )
+        if path.is_file():
+            present.add(path.relative_to(submission_dir).as_posix())
     undeclared = sorted(present - allowed)
     if undeclared:
         raise CommunityIntakeError(
