@@ -1,0 +1,13 @@
+{
+  "adapter_id": "claude-code-container-tools-on",
+  "adapter_version": "1.0.0",
+  "capabilities_sha256": "sha256:3920acd88cfc612884ec6d4e5c5a81249ecfb3e102bd620b4b1c969590035de2",
+  "schema_version": "legalforecast.multiharness.adapter_capabilities.v1",
+  "supported_families": [
+    "legalforecast_mtd"
+  ],
+  "supported_scoring_modes": [
+    "lfb_brier"
+  ],
+  "supports_sandbox_policy": true
+}

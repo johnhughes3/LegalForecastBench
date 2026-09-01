@@ -1,0 +1,45 @@
+{
+  "adapter_capabilities": [
+    {
+      "adapter_id": "claude-code-container-tools-on",
+      "adapter_version": "1.0.0",
+      "capabilities_sha256": "sha256:3920acd88cfc612884ec6d4e5c5a81249ecfb3e102bd620b4b1c969590035de2",
+      "schema_version": "legalforecast.multiharness.adapter_capabilities.v1",
+      "supported_families": [
+        "legalforecast_mtd"
+      ],
+      "supported_scoring_modes": [
+        "lfb_brier"
+      ],
+      "supports_sandbox_policy": true
+    }
+  ],
+  "run_config": {
+    "adapters": [
+      {
+        "adapter_id": "claude-code-container-tools-on",
+        "adapter_version": "1.0.0"
+      }
+    ],
+    "container_execution": "plan_only",
+    "incomplete_run_policy": "record_failure",
+    "model_configs": [
+      {
+        "adapter_id": "claude-code-container-tools-on",
+        "lfb_fixture": false,
+        "model_key": "claude-sonnet-4-5"
+      }
+    ],
+    "sandbox_policy": {
+      "policy_id": "harness-lane",
+      "policy_sha256": "sha256:0de022b015c333033fa6c1b534fa9b329f5455e6d283ecaaf9baa6ea6d74b99b"
+    },
+    "solver_input_index_sha256": "sha256:3aae5ee85159de581560c6e01d6cc919e5cda92bacfc99fc6557c5f95f8ad355",
+    "task_index": {
+      "index_id": "legalforecast-release",
+      "index_sha256": "c4529361667859f96e13fea74b7e310ff3b98f21c3d0aeca746c6020104fdc3e",
+      "selection_namespace": "legalforecast_mtd"
+    }
+  },
+  "schema_version": "legalforecast.multiharness.run_compatibility.v1"
+}

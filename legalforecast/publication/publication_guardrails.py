@@ -87,6 +87,22 @@ AUDIT_ONLY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("audit_only", re.compile(r"\baudit[-_ ]only\b", re.IGNORECASE)),
 )
 
+#: The placeholder every blessed redaction path writes in place of a secret.
+#: Spelled here rather than imported from
+#: :mod:`legalforecast.multiharness.local_cli_redaction` so this module keeps no
+#: edge into the application layer; a test pins the two equal.
+REDACTION_PLACEHOLDER = "[redacted]"
+#: An assignment whose value has already been replaced by that placeholder --
+#: ``ANTHROPIC_API_KEY=sk-ant-[redacted]``, ``"api_key": "[redacted]"``.  The
+#: optional run of value characters before the placeholder is the prefix a
+#: rewrite rule deliberately keeps so a reader can still tell *which* credential
+#: appeared.
+REDACTED_ASSIGNMENT_PATTERN: re.Pattern[str] = re.compile(
+    r"[A-Za-z0-9_.\[\]-]{0,64}['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9_.-]{0,24}"
+    + re.escape(REDACTION_PLACEHOLDER)
+    + r"['\"]?"
+)
+
 
 class PublicationGuardrailCode(StrEnum):
     """Machine-readable guardrail finding categories."""
@@ -292,10 +308,18 @@ def _scan_text_content(
     except UnicodeDecodeError:
         return tuple(findings)
     for line_number, line in enumerate(lines, start=1):
+        # A value the scrubber already replaced with the placeholder is not a
+        # secret, and refusing it leaves the author no move: rewriting it again
+        # changes nothing.  So each already-redacted assignment is dropped from
+        # the line before the credential patterns run.  Only the matched span
+        # goes, which is what keeps this from being a weakening: an unscrubbed
+        # secret elsewhere on the same line still reaches the scan, and a
+        # credential name with no redacted value attached still fires.
+        unredacted = REDACTED_ASSIGNMENT_PATTERN.sub("", line)
         findings.extend(
             _pattern_findings(
                 path,
-                line,
+                unredacted,
                 line_number=line_number,
                 role=role,
                 code=PublicationGuardrailCode.SECRET,
@@ -305,7 +329,7 @@ def _scan_text_content(
         findings.extend(
             _pattern_findings(
                 path,
-                line,
+                unredacted,
                 line_number=line_number,
                 role=role,
                 code=PublicationGuardrailCode.PROVIDER_ACCOUNT_ID,

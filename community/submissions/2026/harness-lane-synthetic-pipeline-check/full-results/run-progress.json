@@ -1,0 +1,18 @@
+{
+  "completed_row_ids": [
+    "row-1618240331e8c48d"
+  ],
+  "coverage_kind": "scoped",
+  "identity": {
+    "config_sha256": "sha256:1ae7d2c4cdc70c1895adc8974ec3de8e75140def15704c69a834271484fcb2a4",
+    "runtime_policy_sha256": "sha256:0de022b015c333033fa6c1b534fa9b329f5455e6d283ecaaf9baa6ea6d74b99b",
+    "selection_sha256": "sha256:88a05ab652c28033ee966a6018119d67507334e1a965c949f10e004a2098102d",
+    "solver_identity_key": "sha256:25b9831efd21bf51307d0813d85780c0ef36c65c76edd9ef4d670ebebb90b06c"
+  },
+  "interrupted_row_id": null,
+  "journal_sha256": "sha256:8cb57efd680acc65370e42a03c795bde618ee59a420256a298434475034c9cfb",
+  "run_id": "multiharness-run",
+  "schema_version": "legalforecast.multiharness.run_progress_journal.v1",
+  "selection_label": "scoped:task_ids",
+  "status": "completed"
+}

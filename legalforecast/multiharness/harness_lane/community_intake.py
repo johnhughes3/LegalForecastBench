@@ -77,6 +77,7 @@ from legalforecast.multiharness.harness_lane.sentinel import (
 from legalforecast.multiharness.local_cli_redaction import REDACTED, redact_bytes
 from legalforecast.protocol.freeze import sha256_file
 from legalforecast.publication.publication_guardrails import (
+    RAW_TEXT_SUFFIXES,
     PublicationGuardrailConfig,
     enforce_publication_guardrails,
 )
@@ -87,6 +88,11 @@ COMMUNITY_HARNESS_SUBMISSION_SCHEMA_VERSION: Final = (
     "legalforecast-community-harness-submission-v1"
 )
 SUBMISSION_RECORD_NAME: Final = "community-harness-submission.json"
+#: Wrapper written in place of a plain-text run file; see
+#: :func:`_normalized_text_bytes`.
+NORMALIZED_TEXT_SCHEMA_VERSION: Final = (
+    "legalforecast-community-harness-text-artifact-v1"
+)
 FULL_RESULTS_DIRECTORY: Final = "full-results"
 RESULT_CLASS: Final = "community_harness_lane"
 NOT_OFFICIAL_NOTICE: Final = (
@@ -134,6 +140,7 @@ class CommunityHarnessSubmission:
     total_bytes: int
     redacted_file_count: int
     excluded_workspace_file_count: int
+    normalized_text_file_count: int
     upload_plan_sha256: str
 
 
@@ -185,7 +192,7 @@ def build_community_harness_submission(
     summary = harness_lane_public_summary(run_dir)
     full_results = output_dir / FULL_RESULTS_DIRECTORY
     full_results.mkdir(parents=True, exist_ok=True)
-    redacted_count, excluded_count = _copy_redacted_tree(
+    redacted_count, excluded_count, normalized_count = _copy_redacted_tree(
         run_dir,
         full_results,
         host_roots=(run_dir.resolve(),),
@@ -230,6 +237,7 @@ def build_community_harness_submission(
         "total_bytes": total_bytes,
         "redacted_file_count": redacted_count,
         "excluded_workspace_file_count": excluded_count,
+        "normalized_text_file_count": normalized_count,
     }
     (output_dir / SUBMISSION_RECORD_NAME).write_bytes(_canonical_bytes(record))
     enforce_publication_guardrails(
@@ -242,6 +250,7 @@ def build_community_harness_submission(
         total_bytes=total_bytes,
         redacted_file_count=redacted_count,
         excluded_workspace_file_count=excluded_count,
+        normalized_text_file_count=normalized_count,
         upload_plan_sha256=plan_sha256,
     )
 
@@ -323,10 +332,10 @@ def _copy_redacted_tree(
     *,
     host_roots: Sequence[Path],
     secret_values: Sequence[str],
-) -> tuple[int, int]:
+) -> tuple[int, int, int]:
     """Copy the run's evidence, leaving the mounted workspace behind.
 
-    Returns ``(redacted_file_count, excluded_workspace_file_count)``.
+    Returns ``(redacted, excluded_workspace, normalized_text)`` file counts.
 
     ``container-workspace`` is what this lane *staged into* the container, not
     what the harness produced: on a Harvey LAB row it holds the projected
@@ -343,33 +352,73 @@ def _copy_redacted_tree(
         raise CommunityIntakeError(f"run directory is not a directory: {run_dir}")
     redacted_files = 0
     excluded = 0
+    normalized = 0
     copied = 0
     for path in sorted(run_dir.rglob("*")):
         if path.is_symlink():
             raise CommunityIntakeError(f"run directory contains a symlink: {path}")
         if not path.is_file():
             continue
-        if CONTAINER_WORKSPACE_DIRECTORY in path.relative_to(run_dir).parts:
+        relative = path.relative_to(run_dir)
+        if CONTAINER_WORKSPACE_DIRECTORY in relative.parts:
             excluded += 1
             continue
         payload = path.read_bytes()
-        if len(payload) > MAX_ARTIFACT_BYTES:
-            raise CommunityIntakeError(
-                f"{path.relative_to(run_dir)} is {len(payload)} bytes; the community "
-                f"intake cap is {MAX_ARTIFACT_BYTES}"
-            )
         rewritten = redact_run_bytes(
             payload, host_roots=host_roots, secret_values=secret_values
         )
         if rewritten != payload:
             redacted_files += 1
-        target = destination / path.relative_to(run_dir)
+        if relative.suffix.lower() in RAW_TEXT_SUFFIXES:
+            rewritten = _normalized_text_bytes(relative.as_posix(), rewritten)
+            relative = relative.with_name(f"{relative.name}.json")
+            normalized += 1
+        # After the rewrite: the wrapper is what would travel, and JSON
+        # escaping can push a file that was just under the cap over it.
+        if len(rewritten) > MAX_ARTIFACT_BYTES:
+            raise CommunityIntakeError(
+                f"{relative.as_posix()} is {len(rewritten)} bytes; the community "
+                f"intake cap is {MAX_ARTIFACT_BYTES}"
+            )
+        target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            raise CommunityIntakeError(
+                f"two run files package as {relative.as_posix()}"
+            )
         target.write_bytes(rewritten)
         copied += 1
     if copied == 0:
         raise CommunityIntakeError(f"run directory holds no files: {run_dir}")
-    return redacted_files, excluded
+    return redacted_files, excluded, normalized
+
+
+def _normalized_text_bytes(source: str, payload: bytes) -> bytes:
+    """Return one plain-text run file as a structured artifact.
+
+    A harness writes these through nobody's fault -- codex-cli writes
+    ``codex-last-message.txt``, a failed row writes ``error.txt`` -- and the
+    guardrails refuse a raw-document suffix in a public package, so a
+    contributor whose run held one had no remedy.  Rather than carve an
+    exception in a rule that exists to stop case text being republished, the
+    packager stops producing the suffix: the bytes are kept, named, and still
+    scanned, since ``.json`` is a text suffix to the guardrails too.
+    """
+
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CommunityIntakeError(
+            f"{source} is not UTF-8 text, so it cannot be published as one; "
+            "remove it from the run directory and package again"
+        ) from exc
+    return _canonical_bytes(
+        {
+            "schema_version": NORMALIZED_TEXT_SCHEMA_VERSION,
+            "source_path": source,
+            "text": text,
+        }
+    )
 
 
 def _resolve_declared_path(submission_dir: Path, relative: str) -> Path:

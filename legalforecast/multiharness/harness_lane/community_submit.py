@@ -62,6 +62,7 @@ class CommunitySubmitResult:
     total_bytes: int
     redacted_file_count: int
     excluded_workspace_file_count: int
+    normalized_text_file_count: int
     tracked_submission_dir: str | None
     release_path: str | None
 
@@ -134,6 +135,7 @@ def submit_community_harness_run(
         total_bytes=submission.total_bytes,
         redacted_file_count=submission.redacted_file_count,
         excluded_workspace_file_count=submission.excluded_workspace_file_count,
+        normalized_text_file_count=submission.normalized_text_file_count,
         tracked_submission_dir=tracked,
         release_path=release_path,
     )
@@ -259,7 +261,9 @@ def cmd_harness_submit(args: argparse.Namespace) -> int:
         f"{result.total_bytes} bytes, "
         f"{result.redacted_file_count} file(s) redacted, "
         f"{result.excluded_workspace_file_count} staged workspace file(s) left "
-        f"out, into {result.submission_dir}"
+        f"out, {result.normalized_text_file_count} plain-text file(s) carried as "
+        f"'.json' so the raw-document guardrail still holds, "
+        f"into {result.submission_dir}"
     )
     print("")
     for line in result.next_steps():

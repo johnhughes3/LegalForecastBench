@@ -1,0 +1,33 @@
+{
+  "artifact_count": 22,
+  "attestations": [
+    "not_official_legalforecastbench_result"
+  ],
+  "credits": {
+    "adapter_author": {
+      "name": "LegalForecastBench"
+    },
+    "benchmark_infrastructure": {
+      "name": "LegalForecastBench"
+    },
+    "run_operator": {
+      "name": "John Hughes"
+    },
+    "submitter": {
+      "github": "johnhughes3",
+      "name": "John Hughes"
+    }
+  },
+  "excluded_workspace_file_count": 0,
+  "harness_lane_summary_sha256": "dfba0c3f881030f31062335471d1e8c199906a8b7cf0fd0135ab8b02cbda92af",
+  "normalized_text_file_count": 0,
+  "not_official_notice": "Community harness-lane submission. Contributor-run and contributor-funded. Not an official LegalForecastBench result.",
+  "official": false,
+  "redacted_file_count": 1,
+  "result_class": "community_harness_lane",
+  "run_id": "multiharness-run",
+  "schema_version": "legalforecast-community-harness-submission-v1",
+  "submission_id": "harness-lane-synthetic-pipeline-check",
+  "total_bytes": 72258,
+  "upload_plan_sha256": "90329dd818238abc2eb2a34dcce289d028d01a50750bb8aa2f6db3d71f5d4957"
+}

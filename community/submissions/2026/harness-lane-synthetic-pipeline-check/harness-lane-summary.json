@@ -1,0 +1,53 @@
+{
+  "harnesses": [
+    {
+      "adapter_id": "claude-code-container-tools-on",
+      "adapter_version": "1.0.0",
+      "auth_mode": "contributor-subscription",
+      "container_image_digest": "sha256:449c51a483a38e9fe99a550c6dc983702c37152794b2bd2a24c8bf5f79a7d7fa",
+      "duration_seconds_total": 27.73,
+      "egress_allowed_hosts": [
+        "api.anthropic.com"
+      ],
+      "egress_allowlist": {
+        "hosts": [
+          "api.anthropic.com"
+        ],
+        "ports": [
+          443
+        ],
+        "subdomain_suffixes": []
+      },
+      "egress_refused": [],
+      "executable": "claude",
+      "execution_backend": "container_cli_tools_on",
+      "failure_class_counts": {
+        "none": 1
+      },
+      "harness": "claude-code-container-tools-on",
+      "harness_track": "native",
+      "model_key": "claude-sonnet-4-5",
+      "native_tools_enabled": true,
+      "nonzero_exit_count": 0,
+      "row_count": 1,
+      "server_side_web_tools_disabled": true,
+      "timed_out_count": 0,
+      "tool_policy": "native_cli_builtins:distinct_tool_names",
+      "tool_use_reporting": "distinct_tool_names",
+      "tools_observed": [
+        "Bash"
+      ]
+    }
+  ],
+  "lfb_row_count": 1,
+  "release_receipt_count": 1,
+  "result_count": 1,
+  "run_config_sha256": "sha256:0b13fb1e6ad1206090805bfb654ef38193182421459ac27fe82e78ef103f95a9",
+  "run_id": "multiharness-run",
+  "run_manifest_sha256": "7d201a49edab86af5175e2be3b17d14602242875f18afb1ca5cf0282b319e6a6",
+  "schema_version": "legalforecast-harness-lane-results-v1",
+  "selection_sha256": "88a05ab652c28033ee966a6018119d67507334e1a965c949f10e004a2098102d",
+  "status_counts": {
+    "succeeded": 1
+  }
+}

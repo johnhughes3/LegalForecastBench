@@ -181,9 +181,12 @@ def test_a_residual_secret_the_scrubber_missed_refuses_the_package(
 ) -> None:
     run_dir = _community_run_directory(tmp_path)
     # A shape no rewrite rule claims to know: the guardrails are the backstop,
-    # and a backstop that quietly rewrote this would be worse than one that stops.
+    # and a backstop that quietly rewrote this would be worse than one that
+    # stops.  It shares its line with a value the scrubber *did* rewrite,
+    # because the scan drops only the redacted span -- never the rest of a line.
     (run_dir / "rows" / "row-0" / "container-logs" / "leak.log").write_text(
-        "AWS_ACCESS_KEY_ID=AKIAEXAMPLEEXAMPLE12\n", encoding="utf-8"
+        f"session={_HOST_SESSION} AWS_ACCESS_KEY_ID=AKIAEXAMPLEEXAMPLE12\n",
+        encoding="utf-8",
     )
 
     with pytest.raises(PublicationGuardrailError):
@@ -194,6 +197,7 @@ def test_a_residual_secret_the_scrubber_missed_refuses_the_package(
             submitter_name="Example Contributor",
             run_operator_name="Example Contributor",
             adapter_author_name="Example Contributor",
+            secret_values=(_HOST_SESSION,),
         )
 
 
@@ -427,3 +431,67 @@ def test_the_intake_workflow_binds_the_destination_before_it_uploads() -> None:
         "LFB_HF_OFFICIAL_DATASET_REPO: ${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}"
     ) in workflow
     assert "johnhughes3/legal-quants-community-submissions" in workflow
+
+
+_PLAIN_TEXT_ANSWER = "Motion likely granted: the complaint pleads no scienter.\n"
+
+
+def test_plain_text_and_an_already_scrubbed_credential_no_longer_block_a_run(
+    tmp_path: Path,
+) -> None:
+    """The two shapes a legitimate run produced that nothing could package.
+
+    A ``.txt`` outside ``container-workspace`` -- codex-cli writes one, a failed
+    row writes one -- and a transcript the scrubber had already rewritten, which
+    the scan then refused for the rewrite it had just made.
+    """
+
+    run_dir = _community_run_directory(tmp_path)
+    logs = run_dir / "rows" / "row-0" / "container-logs"
+    (logs / "answer.txt").write_text(_PLAIN_TEXT_ANSWER, encoding="utf-8")
+    (logs / "env.log").write_text(
+        "ANTHROPIC_API_KEY=sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFF\n", encoding="utf-8"
+    )
+
+    result = submit_community_harness_run(
+        run_dir=run_dir,
+        output_dir=tmp_path / "submission",
+        submission_id="community-harness-fixture",
+        submitter_name="Example Contributor",
+        run_operator_name="Example Contributor",
+        adapter_author_name="Example Contributor",
+        secret_values=(_HOST_SESSION,),
+    )
+    full = result.submission_dir / "full-results" / "rows" / "row-0" / "container-logs"
+
+    # The text is kept and told where it came from; only the suffix changed, so
+    # the rule that stops case text being republished is untouched.
+    assert result.normalized_text_file_count == 1
+    carried = json.loads((full / "answer.txt.json").read_text(encoding="utf-8"))
+    assert carried["source_path"] == "rows/row-0/container-logs/answer.txt"
+    assert carried["text"] == _PLAIN_TEXT_ANSWER
+    assert not [path for path in result.submission_dir.rglob("*.txt") if path.is_file()]
+    # End to end, this is the placeholder pin: the exact bytes the scrubber
+    # writes are the exact bytes the scan now lets through.
+    assert (full / "env.log").read_text(encoding="utf-8") == (
+        "ANTHROPIC_API_KEY=sk-ant-[redacted]\n"
+    )
+
+
+def test_a_plain_text_run_file_that_is_not_utf8_is_refused_by_name(
+    tmp_path: Path,
+) -> None:
+    run_dir = _community_run_directory(tmp_path)
+    (run_dir / "rows" / "row-0" / "container-logs" / "blob.txt").write_bytes(
+        b"\xff\xfe"
+    )
+
+    with pytest.raises(CommunityIntakeError, match="is not UTF-8 text"):
+        build_community_harness_submission(
+            run_dir=run_dir,
+            output_dir=tmp_path / "submission",
+            submission_id="community-harness-fixture",
+            submitter_name="Example Contributor",
+            run_operator_name="Example Contributor",
+            adapter_author_name="Example Contributor",
+        )
