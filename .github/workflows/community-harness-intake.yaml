@@ -138,6 +138,7 @@ jobs:
             exit 1
           }
           uv run --no-project --with huggingface_hub==1.28.0 python - <<'PY'
+          import json
           import os
           from pathlib import Path
 
@@ -148,6 +149,16 @@ jobs:
           submission_dir = Path(os.environ["SUBMISSION_DIR"])
           if not release_path:
               raise SystemExit("refusing publication: empty release path")
+          # The destination has to be provable from the bytes that went through
+          # review, not only from a dispatch-time variable: the plan the
+          # contributor signed names the mirror, and this is where they must agree.
+          plan = json.loads((submission_dir / "hf-upload-plan.json").read_text())
+          mirror = str(plan.get("mirror_repository", ""))
+          if not mirror.rstrip("/").endswith(f"/{repository}"):
+              raise SystemExit(
+                  f"refusing publication: the upload plan names {mirror}, "
+                  f"not {repository}"
+              )
           api = HfApi()
           info = api.dataset_info(repository)
           remote = api.list_repo_files(repo_id=repository, repo_type="dataset")
