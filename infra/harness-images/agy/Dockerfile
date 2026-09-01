@@ -66,13 +66,35 @@ RUN printf '%s  %s\n' "${AGY_SHA256}" /usr/local/bin/agy | sha256sum -c - \
 # producing a result step.  The blocked call leaves a gap in the step index,
 # which is what a hard block looks like from the outside.
 #
-# What that run did NOT establish: whether agy's search backend is reachable
-# through this allowlist at all.  The hook blocks the call before any request
-# is made, so a run cannot distinguish "the fence stopped a search that would
-# have worked" from "the search would have failed anyway".  The fence is what
-# the lane requires either way -- the call never leaves the machine -- but do
-# not describe it as the only thing standing between a run and a live search
-# until someone runs the unfenced control.
+# THE UNFENCED CONTROL, RUN 2026-09-01.  Those runs could not distinguish
+# "the fence stopped a search that would have worked" from "the search would
+# have failed anyway", because the hook blocks the call before any request is
+# made.  Two runs of THIS image -- same prompt, same allowlist, same login --
+# settle it, and the control needs no image change: entrypoint.sh only writes
+# a hook file that is ABSENT, so pre-seeding $HOME/.gemini/config/hooks.json
+# and $HOME/.gemini/antigravity-cli/hooks.json with `{}` runs the committed
+# image with no fence loaded.  The test_agy_entrypoint_* cases in
+# tests/test_container_harness_egress.py pin that seed-only-if-absent
+# property, which is the only thing the control rests on.  The prompt asked
+# for the S&P 500 close on 31 August 2026 -- a number in no file in the
+# and could not be in any model's weights -- plus a token planted in a
+# workspace file, so a run that did nothing is distinguishable from one that
+# worked but could not search.
+#
+#   unfenced: answered CLOSE=7,686.14 SOURCE=apnews.com, which is the real
+#             figure; no denial journal was written.
+#   fenced:   answered CLOSE=WEB-BLOCKED, and
+#             /workspace/.lfb-agy-tool-denials.jsonl recorded `search_web`.
+#
+# Both arms echoed the planted token, so local tools stayed live in both.  The
+# domain agy cited is NOT on the allowlist below and appears in NEITHER arm's
+# refusal list -- the two lists are identical -- so the search ran
+# provider-side inside the same TLS session as the model call, exactly as
+# deny_web_tools.py describes, and no egress rule in this file could have
+# reached it.  This hook is therefore the ONLY thing standing between an agy
+# run and a live lookup of the outcome it is being scored on.  Removing it, or
+# letting agy rename search_web out from under the matcher, silently makes
+# every agy row in this lane unpublishable.
 COPY deny_web_tools.py /usr/local/bin/lfb-agy-deny-web-tools
 COPY hooks-shared-root.json /opt/legalforecast/agy-hooks-shared-root.json
 COPY hooks-cli-root.json /opt/legalforecast/agy-hooks-cli-root.json

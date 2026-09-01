@@ -5,12 +5,24 @@ binds another, and the assertions are made on bytes that crossed a socket.  The
 refusal assertions additionally prove the *absence* of a dial by counting
 accepts on a second origin server the allowlist does not name -- a proxy that
 resolved and connected first and refused afterwards would fail that count.
+
+The agy image entrypoint is tested here too, because it is this package's
+answer to the one thing the allowlist cannot reach: a provider-side web tool
+runs inside the model's own TLS session, so it has to be closed per harness by
+a local tool gate rather than by an egress rule.  agy closes it with a
+``PreToolUse`` hook that ``entrypoint.sh`` seeds into the run's throwaway HOME,
+and the seeding rule -- write a hook file only when it is ABSENT -- is what
+makes the 2026-09-01 unfenced control possible.  See the fence note in
+infra/harness-images/agy/Dockerfile.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import socket
+import subprocess
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -27,6 +39,18 @@ from legalforecast.multiharness.container_harness.egress_proxy import (
 )
 
 _ORIGIN_REPLY = b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nORIGIN"
+AGY_IMAGE_DIR = Path(__file__).resolve().parents[1] / "infra" / "harness-images" / "agy"
+AGY_ENTRYPOINT = AGY_IMAGE_DIR / "entrypoint.sh"
+# Where the image stages its two seed files; entrypoint.sh copies from these
+# absolute paths, so a host-side run of the same script has to be retargeted at
+# the committed sources.
+AGY_IMAGE_SEED_PREFIX = "/opt/legalforecast/agy-hooks-"
+AGY_SEED_SOURCES = ("hooks-shared-root.json", "hooks-cli-root.json")
+AGY_SEEDED_HOOK_PATHS = (
+    ".gemini/config/hooks.json",
+    ".gemini/antigravity-cli/hooks.json",
+)
+AGY_HOOK_COMMAND = "/usr/local/bin/lfb-agy-deny-web-tools"
 
 
 class _CountingOrigin:
@@ -303,3 +327,101 @@ def test_allowlist_record_is_deterministic() -> None:
         "subdomain_suffixes": ["anthropic.com"],
         "ports": [443],
     }
+
+
+def _run_agy_entrypoint(
+    tmp_path: Path, *, home: Path | None, argv: tuple[str, ...]
+) -> subprocess.CompletedProcess[str]:
+    """Run the agy image's real entrypoint on the host, seeding from the repo.
+
+    Only the two ``/opt`` seed paths are rewritten, and the rewrite is asserted
+    rather than assumed: renaming a seed file in the Dockerfile must break this
+    test rather than quietly make it test nothing.  Everything else -- the
+    ``[ ! -e ]`` guard, the HOME check and the ``exec agy "$@"`` tail -- runs
+    verbatim.  ``stdout`` is replaced with the argv the stub CLI received.
+    """
+
+    staged = tmp_path / "entrypoint.sh"
+    script = AGY_ENTRYPOINT.read_text(encoding="utf-8").replace(
+        AGY_IMAGE_SEED_PREFIX, f"{AGY_IMAGE_DIR}/hooks-"
+    )
+    assert script.count(f"{AGY_IMAGE_DIR}/hooks-") == len(AGY_SEED_SOURCES)
+    staged.write_text(script, encoding="utf-8")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    argv_log = tmp_path / "agy-argv"
+    stub = bin_dir / "agy"
+    stub.write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > {argv_log}\n', encoding="utf-8")
+    stub.chmod(0o755)
+    # The stub shadows any real ``agy``; the system directories after it are
+    # what the wrapper's own mkdir/cp/dirname calls need.
+    environment = {
+        "PATH": os.pathsep.join((str(bin_dir), os.defpath.lstrip(os.pathsep)))
+    }
+    if home is not None:
+        environment["HOME"] = str(home)
+    shell = shutil.which("sh", path=os.defpath)
+    assert shell is not None, "POSIX sh is required to run the image entrypoint"
+    completed = subprocess.run(
+        (shell, str(staged), *argv),
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    completed.stdout = argv_log.read_text(encoding="utf-8") if argv_log.exists() else ""
+    return completed
+
+
+def test_agy_entrypoint_seeds_the_web_fence_into_an_empty_home(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+
+    completed = _run_agy_entrypoint(
+        tmp_path, home=home, argv=("--model", "m", "-p", "forecast this motion")
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    # The CLI has to receive the manifest argv unchanged: the wrapper seeds the
+    # fence, it does not rewrite the run.
+    assert completed.stdout == "--model\nm\n-p\nforecast this motion\n"
+    for relative, source in zip(AGY_SEEDED_HOOK_PATHS, AGY_SEED_SOURCES, strict=True):
+        assert (home / relative).read_text(encoding="utf-8") == (
+            AGY_IMAGE_DIR / source
+        ).read_text(encoding="utf-8")
+
+
+def test_agy_entrypoint_leaves_a_hook_file_that_is_already_there_alone(
+    tmp_path: Path,
+) -> None:
+    """The property the 2026-09-01 unfenced control rests on.
+
+    Pre-seeding both customization roots is how the *same committed image* is
+    run with no fence loaded, which is what let the control show that agy does
+    reach the web when the hook is absent.  If this wrapper ever started
+    overwriting a hook file it found, the control would silently become a
+    second fenced run and would stop proving anything.
+    """
+
+    home = tmp_path / "home"
+    for relative in AGY_SEEDED_HOOK_PATHS:
+        (home / relative).parent.mkdir(parents=True, exist_ok=True)
+        (home / relative).write_text("{}\n", encoding="utf-8")
+
+    completed = _run_agy_entrypoint(tmp_path, home=home, argv=("-p", "hello"))
+
+    assert completed.returncode == 0, completed.stderr
+    for relative in AGY_SEEDED_HOOK_PATHS:
+        preserved = (home / relative).read_text(encoding="utf-8")
+        assert preserved == "{}\n"
+        assert AGY_HOOK_COMMAND not in preserved
+
+
+def test_agy_entrypoint_refuses_to_run_with_no_home_to_seed(tmp_path: Path) -> None:
+    # Failing closed matters here: an unset HOME would put the fence somewhere
+    # agy never reads while the CLI still started and answered.
+    completed = _run_agy_entrypoint(tmp_path, home=None, argv=("-p", "hello"))
+
+    assert completed.returncode == 78
+    assert completed.stdout == ""
