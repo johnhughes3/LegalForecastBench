@@ -66,6 +66,7 @@ from legalforecast.multiharness.harness_lane.community_upload import (
     declared_artifact,
     enforce_caps,
     plan_artifacts,
+    publication_guardrail_config,
 )
 from legalforecast.multiharness.harness_lane.results_package import (
     SUMMARY_OBJECT_NAME,
@@ -78,7 +79,6 @@ from legalforecast.multiharness.local_cli_redaction import REDACTED, redact_byte
 from legalforecast.protocol.freeze import sha256_file
 from legalforecast.publication.publication_guardrails import (
     RAW_TEXT_SUFFIXES,
-    PublicationGuardrailConfig,
     enforce_publication_guardrails,
 )
 
@@ -240,9 +240,7 @@ def build_community_harness_submission(
         "normalized_text_file_count": normalized_count,
     }
     (output_dir / SUBMISSION_RECORD_NAME).write_bytes(_canonical_bytes(record))
-    enforce_publication_guardrails(
-        PublicationGuardrailConfig(public_paths=(output_dir,))
-    )
+    enforce_publication_guardrails(publication_guardrail_config(output_dir))
     return CommunityHarnessSubmission(
         submission_dir=output_dir,
         submission_id=submission_id,
@@ -320,9 +318,7 @@ def validate_community_harness_submission(
                 f"{artifact['sha256']}"
             )
     _refuse_undeclared_bytes(submission_dir, declared)
-    enforce_publication_guardrails(
-        PublicationGuardrailConfig(public_paths=(submission_dir,))
-    )
+    enforce_publication_guardrails(publication_guardrail_config(submission_dir))
     return tuple(declared)
 
 

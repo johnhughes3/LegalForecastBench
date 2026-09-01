@@ -37,6 +37,11 @@ RAW_DOCUMENT_SUFFIXES = frozenset(
     }
 )
 RAW_TEXT_SUFFIXES = frozenset({".text", ".txt"})
+# ``.stdout``/``.stderr``/``.transcript`` are here because a harness CLI that
+# echoes its own login echoes it to a stream, and those streams are captured
+# under exactly those suffixes -- the largest and most credential-exposed file
+# in a community harness-lane submission.  Leaving them out made this scan
+# claim a backstop it did not provide for the one artifact that needed it.
 TEXT_SUFFIXES = frozenset(
     {
         ".csv",
@@ -45,6 +50,9 @@ TEXT_SUFFIXES = frozenset(
         ".jsonl",
         ".log",
         ".md",
+        ".stderr",
+        ".stdout",
+        ".transcript",
         ".txt",
         ".yaml",
         ".yml",

@@ -184,7 +184,7 @@ def test_a_residual_secret_the_scrubber_missed_refuses_the_package(
     # and a backstop that quietly rewrote this would be worse than one that
     # stops.  It shares its line with a value the scrubber *did* rewrite,
     # because the scan drops only the redacted span -- never the rest of a line.
-    (run_dir / "rows" / "row-0" / "container-logs" / "leak.log").write_text(
+    (run_dir / "rows" / "row-0" / "container-logs" / "leak.stdout").write_text(
         f"session={_HOST_SESSION} AWS_ACCESS_KEY_ID=AKIAEXAMPLEEXAMPLE12\n",
         encoding="utf-8",
     )
