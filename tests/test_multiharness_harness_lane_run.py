@@ -19,7 +19,7 @@ import json
 import zipfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from legalforecast._json_io import write_jsonl_objects
@@ -53,7 +53,6 @@ from legalforecast.multiharness.harness_lane.tool_accounting import (
 )
 from legalforecast.multiharness.local_cli_manifest import (
     LocalCliAdapterManifest,
-    capability_digest_for,
 )
 from legalforecast.multiharness.task_loaders import ReleaseLfbTaskLoader
 from legalforecast.multiharness.validation import validate_public_record
@@ -64,6 +63,7 @@ from tests.test_multiharness_task_loaders import (
 )
 
 CONTAINER_MANIFEST = Path("examples/adapters/claude-code-native")
+LAB_MANIFEST = Path("examples/adapters/claude-code-lab-native")
 LFB_ADAPTER = "claude-code-container-tools-on"
 PROVIDER_HOST = "api.anthropic.com"
 
@@ -77,34 +77,24 @@ def _run_multiharness(argv: list[str]) -> int:
     return int(args.handler(args))
 
 
+def run_legalforecast(argv: list[str]) -> int:
+    """Drive the top-level CLI, so the scoring module reaches it through here.
+
+    Keeping the ``legalforecast.cli`` entry point in one test module is not
+    style: the architecture baseline tracks which test files reach the CLI
+    facade and ratchets that set downward, so a second importer is a
+    regression even when the call is identical.
+    """
+
+    return int(legalforecast_main(argv))
+
+
 def _lane_manifest_record() -> dict[str, Any]:
     return json.loads(
         (CONTAINER_MANIFEST / "local-cli-adapter-manifest.json").read_text(
             encoding="utf-8"
         )
     )
-
-
-def _lab_manifest(destination: Path) -> Path:
-    """Write a LAB-capable sibling of the committed container manifest.
-
-    The committed manifests declare ``legalforecast_mtd``/``lfb_brier`` only,
-    so a LAB row would be refused by ``prepare``.  Everything else -- image
-    digest, argv template, tool posture -- is reused verbatim, and the
-    capability digest is recomputed over the changed payload rather than
-    copied, so the manifest is as self-consistent as a committed one.
-    """
-
-    record = _lane_manifest_record()
-    binding = dict(record["harness_binding"])
-    binding["adapter_id"] = f"{LFB_ADAPTER}-harvey-lab"
-    binding["supported_families"] = ["harvey_lab"]
-    binding["supported_scoring_modes"] = ["lab_native"]
-    record["harness_binding"] = binding
-    record["manifest_id"] = binding["adapter_id"]
-    record["capability_digest"] = capability_digest_for(record)
-    destination.write_text(json.dumps(record, sort_keys=True), encoding="utf-8")
-    return destination
 
 
 def _stream_json(answer: str, tools: tuple[str, ...]) -> str:
@@ -125,12 +115,25 @@ def _stream_json(answer: str, tools: tuple[str, ...]) -> str:
 def fake_container(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
     """Replace the container runtime with a recorder that writes real stdout."""
 
-    state: dict[str, Any] = {"answer": "", "tools": ("Bash", "Read"), "specs": []}
+    state: dict[str, Any] = {
+        "answer": "",
+        "tools": ("Bash", "Read"),
+        "specs": [],
+        # Relative path -> bytes the "harness" leaves in its workspace. A LAB
+        # row is scored from a file the harness wrote, not from its transcript.
+        "workspace_files": {},
+    }
 
     def runner(
         spec: ContainerHarnessSpec, *, backend: str = "docker"
     ) -> ContainerHarnessResult:
         state["specs"].append(spec)
+        for relative, payload in cast(
+            dict[str, bytes], state["workspace_files"]
+        ).items():
+            target = spec.workspace / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(payload)
         spec.log_root.mkdir(parents=True, exist_ok=True)
         stdout = spec.log_root / "stdout.jsonl"
         stdout.write_text(
@@ -343,7 +346,7 @@ def test_container_lane_runs_a_projected_harvey_lab_selection(
                 "--adapter",
                 LFB_ADAPTER,
                 "--local-cli-manifest",
-                str(_lab_manifest(tmp_path / "lab-manifest.json")),
+                str(LAB_MANIFEST / "local-cli-adapter-manifest.json"),
                 "--auth-profile",
                 "fixture-none",
                 "--allow-host",
@@ -389,9 +392,13 @@ def test_lfb_packet_task_source_runs_but_yields_no_score_rows(
 
     ``LfbTaskLoader`` packets carry no ``release_schema_version``, so
     ``release_harness`` projects no LFB record for them -- exactly as for every
-    other command adapter today.  Scoring this lane needs a release-backed
-    index.  This test pins that boundary so it is a known limit rather than a
-    surprise.
+    other command adapter today.  This is not a wiring gap to close: a packet
+    row has no release identity and no per-unit packet/prompt commitment, so
+    the only ways to make it score would be to fabricate that identity or to
+    open a second, unauthenticated door into ``lfb/runs.jsonl``.  The scoring
+    route is ``--forecast-release``/``--artifact-root`` on the same task
+    source, pinned by
+    ``test_lfb_release_task_source_scores_end_to_end`` below.
     """
 
     packets = tmp_path / "packets.jsonl"

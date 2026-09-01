@@ -112,7 +112,17 @@ LOCAL_CLI_COST_BASES = frozenset(
         "unknown",
     }
 )
-LOCAL_CLI_PROMPT_SOURCES = frozenset({"solver_input_prompt"})
+# Where a row's prompt bytes come from. ``solver_input_prompt`` is the private
+# LFB store, whose exact bytes are proved against the task's own commitment.
+# A projected Harvey LAB task has no such store -- its file set is a directory
+# of documents -- so its prompt is the projection's own ``instructions``
+# artifact, staged with the documents and named here so a manifest cannot
+# claim an authenticated prompt source it never reads.
+LOCAL_CLI_SOLVER_INPUT_PROMPT = "solver_input_prompt"
+LOCAL_CLI_PROJECTED_TASK_INSTRUCTIONS = "projected_task_instructions"
+LOCAL_CLI_PROMPT_SOURCES = frozenset(
+    {LOCAL_CLI_SOLVER_INPUT_PROMPT, LOCAL_CLI_PROJECTED_TASK_INSTRUCTIONS}
+)
 LOCAL_CLI_DELIVERABLE_SOURCES = frozenset(
     {
         "structured_stdout",

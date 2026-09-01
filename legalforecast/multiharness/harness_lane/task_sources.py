@@ -6,7 +6,9 @@ therefore first-class and symmetrical:
 
 * ``harvey-lab`` — a *projected* LAB tree, selected whole, by explicit task id,
   by category, or by pointing at one folder of tasks inside it.
-* ``lfb`` — the LegalForecastBench motion-to-dismiss forecast packets.
+* ``lfb`` — the LegalForecastBench motion-to-dismiss corpus, from either an
+  authenticated ``forecast-release.v1`` (the scoreable input) or a legacy
+  model-packet JSONL (a plumbing input that cannot score; see below).
 
 Both resolve to the same pair the run matrix already consumes, a ``TaskIndex``
 plus a ``TaskSelection``, so this adds a front door rather than a parallel
@@ -18,6 +20,17 @@ raw Harvey LAB clone is not a contributor input, because upstream ``task.json``
 carries the evaluator's gold ``criteria``; only a projected root — whose bytes
 ``verify_harvey_lab_projection`` re-hashes and scans for private markers — can
 reach a solver through this function.
+
+Which LFB input scores, and why only one of them does: an LFB row reaches
+``lfb/runs.jsonl`` through ``release_harness``, which projects a score row only
+for a task bound to ``forecast-release.v1`` and only after it re-reads the
+private packet and prompt bytes and re-hashes them against the digests the
+release committed.  A model-packet JSONL carries no release identity — no
+release id, no release digest, no per-unit packet/prompt commitment — so a
+packet-backed run is honest plumbing (it produces ``row-results.jsonl`` and a
+transcript) and nothing more.  Passing ``forecast_release``/``artifact_root``
+is therefore not a variant spelling of ``packets``; it is the difference
+between a run that can be scored and one that cannot.
 """
 
 from __future__ import annotations
@@ -40,7 +53,9 @@ from legalforecast.multiharness.selection import SelectionResult, TaskSelection
 from legalforecast.multiharness.spec import TaskIndex
 from legalforecast.multiharness.task_loaders import (
     DEFAULT_LFB_SUITE_VERSION,
+    DEFAULT_RELEASE_LFB_SUITE_VERSION,
     LfbTaskLoader,
+    ReleaseLfbTaskLoader,
 )
 
 TASK_SOURCE_HARVEY_LAB = "harvey-lab"
@@ -84,6 +99,8 @@ def resolve_task_source(
     *,
     source: str,
     packets: Path | None = None,
+    forecast_release: Path | None = None,
+    artifact_root: Path | None = None,
     projected_root: Path | None = None,
     task_folder: Path | None = None,
     task_ids: Sequence[str] = (),
@@ -109,6 +126,8 @@ def resolve_task_source(
     if source == TASK_SOURCE_LFB:
         return _resolve_lfb(
             packets=packets,
+            forecast_release=forecast_release,
+            artifact_root=artifact_root,
             projected_root=projected_root,
             task_folder=task_folder,
             categories=categories,
@@ -122,6 +141,8 @@ def resolve_task_source(
             suite_version=suite_version,
             solver_input_root=solver_input_root,
         )
+    _refuse(forecast_release, "forecast_release", TASK_SOURCE_HARVEY_LAB)
+    _refuse(artifact_root, "artifact_root", TASK_SOURCE_HARVEY_LAB)
     return _resolve_harvey_lab(
         packets=packets,
         projected_root=projected_root,
@@ -141,6 +162,8 @@ def resolve_task_source(
 def _resolve_lfb(
     *,
     packets: Path | None,
+    forecast_release: Path | None,
+    artifact_root: Path | None,
     projected_root: Path | None,
     task_folder: Path | None,
     categories: Sequence[str],
@@ -148,11 +171,6 @@ def _resolve_lfb(
     suite_version: str | None,
     solver_input_root: Path | None,
 ) -> ResolvedTaskSource:
-    if packets is None:
-        raise TaskSourceError(
-            "task source 'lfb' needs the model-packet JSONL; pass packets=<path> "
-            "(`legalforecast fixture e2e` writes one)"
-        )
     _refuse(projected_root, "projected_root", TASK_SOURCE_LFB)
     _refuse(task_folder, "task_folder", TASK_SOURCE_LFB)
     if tuple(categories):
@@ -160,14 +178,57 @@ def _resolve_lfb(
             "category/module is a Harvey LAB selector and matches nothing on an "
             "LFB packet index; select LFB tasks with task_ids instead"
         )
-    task_index = LfbTaskLoader(
-        suite_version=suite_version or DEFAULT_LFB_SUITE_VERSION,
-    ).load_packet_jsonl(packets, solver_input_root=solver_input_root)
     return ResolvedTaskSource(
         source=TASK_SOURCE_LFB,
-        task_index=task_index,
+        task_index=_lfb_task_index(
+            packets=packets,
+            forecast_release=forecast_release,
+            artifact_root=artifact_root,
+            suite_version=suite_version,
+            solver_input_root=solver_input_root,
+        ),
         selection=selection,
     )
+
+
+def _lfb_task_index(
+    *,
+    packets: Path | None,
+    forecast_release: Path | None,
+    artifact_root: Path | None,
+    suite_version: str | None,
+    solver_input_root: Path | None,
+) -> TaskIndex:
+    """Load the scoreable release index, or the legacy packet index."""
+
+    if packets is not None and forecast_release is not None:
+        raise TaskSourceError(
+            "pass either packets or forecast_release for task source 'lfb', not both"
+        )
+    if forecast_release is not None:
+        if artifact_root is None:
+            raise TaskSourceError(
+                "forecast_release needs artifact_root: the packet, prompt and "
+                "document bytes it commits are re-hashed from that root"
+            )
+        return ReleaseLfbTaskLoader(
+            suite_version=suite_version or DEFAULT_RELEASE_LFB_SUITE_VERSION,
+        ).load_forecast_release(
+            forecast_release,
+            artifact_root=artifact_root,
+            solver_input_root=solver_input_root,
+        )
+    if artifact_root is not None:
+        raise TaskSourceError("artifact_root requires forecast_release")
+    if packets is None:
+        raise TaskSourceError(
+            "task source 'lfb' needs a corpus: pass forecast_release=<path> plus "
+            "artifact_root=<dir> for a scoreable run, or packets=<path> for a "
+            "packet-backed plumbing run that produces no lfb/runs.jsonl"
+        )
+    return LfbTaskLoader(
+        suite_version=suite_version or DEFAULT_LFB_SUITE_VERSION,
+    ).load_packet_jsonl(packets, solver_input_root=solver_input_root)
 
 
 def _resolve_harvey_lab(

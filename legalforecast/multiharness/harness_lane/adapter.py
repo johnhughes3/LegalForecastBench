@@ -69,8 +69,10 @@ from legalforecast.multiharness.harness_lane.usage_accounting import (
 from legalforecast.multiharness.harness_vocab import (
     LOCAL_CLI_CONTAINER_EXECUTION,
     LOCAL_CLI_NATIVE_TOOLS_ENABLED,
+    LOCAL_CLI_PROJECTED_TASK_INSTRUCTIONS,
     LOCAL_CLI_RESTRICTED_EGRESS,
     LOCAL_CLI_SERVER_SIDE_WEB_TOOLS_DISABLED,
+    LOCAL_CLI_SOLVER_INPUT_PROMPT,
 )
 from legalforecast.multiharness.local_cli_contracts import LocalCliFailureClass
 from legalforecast.multiharness.local_cli_manifest import (
@@ -219,11 +221,34 @@ class ContainerCliAdapter:
             raise ContainerCliAdapterError(
                 f"adapter does not support scoring mode: {request.task.scoring_mode}"
             )
+        self._require_prompt_source(request)
         return AdapterPreparation(
             manifest=manifest,
             capabilities=capabilities,
             workspace=workspace,
         )
+
+    def _require_prompt_source(self, request: RunRequest) -> None:
+        """Refuse a manifest whose declared prompt source this row cannot use.
+
+        A projected LAB task has no private solver-input store, and an LFB row
+        must never fall back to task metadata for its prompt.  Each family has
+        exactly one honest source, so a manifest that names the other one is a
+        mislabeled run rather than a variant configuration.
+        """
+
+        declared = self.local_manifest.task_projection.prompt_source
+        expected = (
+            LOCAL_CLI_PROJECTED_TASK_INSTRUCTIONS
+            if request.task.family == HARVEY_LAB_FAMILY
+            else LOCAL_CLI_SOLVER_INPUT_PROMPT
+        )
+        if declared != expected:
+            raise ContainerCliAdapterError(
+                f"{self.local_manifest.manifest_id} declares prompt_source "
+                f"{declared!r}, but a {request.task.family!r} row takes its "
+                f"prompt from {expected!r}"
+            )
 
     def container_spec(
         self,

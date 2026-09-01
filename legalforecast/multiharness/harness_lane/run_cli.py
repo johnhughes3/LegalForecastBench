@@ -123,14 +123,38 @@ def add_harness_lane_run_arguments(parser: argparse.ArgumentParser) -> None:
         choices=TASK_SOURCES,
         help=(
             "Resolve the corpus in place instead of passing --task-index: "
-            "'lfb' needs --packets, 'harvey-lab' needs --projected-root or "
+            "'lfb' needs --forecast-release plus --artifact-root (or --packets "
+            "for a plumbing run), 'harvey-lab' needs --projected-root or "
             "--task-folder."
         ),
     )
     parser.add_argument(
         "--packets",
         type=Path,
-        help="Model-packet JSONL for --task-source lfb.",
+        help=(
+            "Legacy model-packet JSONL for --task-source lfb. Packets carry no "
+            "forecast-release identity, so such a run is plumbing only: it "
+            "writes no lfb/runs.jsonl and cannot be scored. Use "
+            "--forecast-release to score."
+        ),
+    )
+    parser.add_argument(
+        "--forecast-release",
+        type=Path,
+        help=(
+            "Authenticated forecast-release.v1 JSON for --task-source lfb. This "
+            "is the scoreable LFB input: its tasks carry the release identity "
+            "and the packet/prompt commitments that release_harness re-hashes "
+            "before it projects a score row. Requires --artifact-root."
+        ),
+    )
+    parser.add_argument(
+        "--artifact-root",
+        type=Path,
+        help=(
+            "Root holding the packet, prompt and document bytes committed by "
+            "--forecast-release."
+        ),
     )
     parser.add_argument(
         "--projected-root",
@@ -216,6 +240,8 @@ def _resolved_source(
         return resolve_task_source(
             source=source,
             packets=cast(Path | None, getattr(args, "packets", None)),
+            forecast_release=cast(Path | None, getattr(args, "forecast_release", None)),
+            artifact_root=cast(Path | None, getattr(args, "artifact_root", None)),
             projected_root=cast(Path | None, getattr(args, "projected_root", None)),
             task_folder=cast(Path | None, getattr(args, "task_folder", None)),
             task_ids=_strings(args, "task_id"),
