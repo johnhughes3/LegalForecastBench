@@ -92,10 +92,10 @@ This is a carve-out from "do not commit raw model transcripts" above, and it is 
 
 So the redaction is deliberately light. What is rewritten is what the *host* half of the run wrote — absolute paths, which become readable placeholders such as `/[host-run-dir]/rows/row-0` and `/[host-home]/…` — plus credential values, since the staged login is copied into the container and a CLI that echoes its own token puts it in a transcript. Prompts, reasoning, tool calls, tool outputs, and answers are kept verbatim. A transcript scrubbed into unreadability would defeat the purpose of accepting it.
 
-Package a completed run:
+Package a completed run. One command packages it, writes the upload plan, and runs every check the publishing workflow runs, so a problem surfaces on your machine instead of in a failed workflow run days later:
 
 ```bash
-uv run python -m legalforecast.multiharness.harness_lane.community_intake_cli package \
+uv run legalforecast multiharness harness submit \
   --run-dir tmp/multiharness/run \
   --output-dir community/submissions/2026/<submission-id> \
   --submission-id <submission-id> \
@@ -105,16 +105,30 @@ uv run python -m legalforecast.multiharness.harness_lane.community_intake_cli pa
   --adapter-author-name "Adapter Author or Team"
 ```
 
-That writes `community-harness-submission.json`, `harness-lane-summary.json`, `hf-upload-plan.json`, and the scrubbed run under `full-results/`. Provider-token shapes and host paths are rewritten automatically; pass `--secret-value` (repeatable) for any additional exact value that must not survive. Validate before opening the pull request:
+That writes `community-harness-submission.json`, `harness-lane-summary.json`, `hf-upload-plan.json`, and the scrubbed run under `full-results/`, then prints the exact files to commit and the exact `submission_dir` and `release_path` a maintainer will dispatch with. Provider-token shapes and host paths are rewritten automatically; pass `--secret-value` (repeatable) for any additional exact value that must not survive. Package somewhere else and the command tells you where the package has to move to; the intake workflow refuses a `submission_dir` outside `community/submissions/<year>/`.
+
+To re-run the checks against a package that already exists — after a rebase, or before asking a maintainer to dispatch:
 
 ```bash
-uv run python -m legalforecast.multiharness.harness_lane.community_intake_cli validate \
+uv run legalforecast multiharness harness check-submission \
   --submission-dir community/submissions/2026/<submission-id>
 ```
 
-Validation is load-bearing, because this accepts bytes from strangers into storage we host, and it is the same code at every stage — contributor, pull-request CI, and the maintainer's publish job. It refuses a package whose declared per-file size or total exceeds the intake caps (8 MiB per artifact, 64 MiB and 2,000 artifacts per submission); whose declared SHA-256 does not match the actual bytes; that carries a file the upload plan does not declare; that fails the publication secret scan; or that does not declare `official: false`, `result_class: community_harness_lane`, and the `not_official_legalforecastbench_result` attestation. The caps are review-sized on purpose: the bytes ride inside the pull request so that CI scans the real files rather than a description of them. The same scan refuses a `.txt` or `.text` file anywhere in the package, because a public artifact with a raw-document suffix is how case text gets republished by accident; keep transcripts in `.log`, `.json`, or `.jsonl` and no run needs an exception.
+Running the checks locally does not weaken or skip the server-side ones. It is deliberately the same code called earlier: the publishing job still re-validates from scratch at the dispatched commit, because bytes that travelled through a pull request are not the bytes you checked, and because your local run is not evidence about anyone else's package.
 
-A maintainer merges the pull request and then dispatches `.github/workflows/community-harness-intake.yaml` at that commit, which re-validates from scratch and uploads the package to an immutable path in the community dataset repository. The workflow is `workflow_dispatch` only — no pull-request trigger reaches it — and it obtains a repository-scoped Hugging Face token by exchanging the GitHub OIDC identity, exactly as [hugging-face-publication.md](hugging-face-publication.md) describes for the official lane. No durable `HF_TOKEN` exists and contributors never receive a credential to anything of ours.
+Validation is load-bearing, because this accepts bytes from strangers into storage we host, and it is the same code at every stage — contributor, pull-request CI, and the maintainer's publish job. It refuses a package whose declared per-file size or total exceeds the intake caps (8 MiB per artifact, 64 MiB and 2,000 artifacts per submission); whose declared SHA-256 does not match the actual bytes; that carries a file the upload plan does not declare; that carries a symlink; that fails the publication secret scan; whose upload plan names a mirror other than the community dataset repository; or that does not declare `official: false`, `result_class: community_harness_lane`, and the `not_official_legalforecastbench_result` attestation. The caps are review-sized on purpose: the bytes ride inside the pull request so that CI scans the real files rather than a description of them.
+
+### What The Package Leaves Out
+
+The publication guardrails refuse a `.txt` or `.text` file anywhere in a public artifact package, because a raw-document suffix is how case text gets republished by accident. That rule and this lane collide in exactly one place, and the packager resolves it rather than carving an exception: `rows/*/container-workspace/` is dropped and never travels.
+
+That directory is what the lane staged *into* the container, not what the harness produced. Every run writes a tool-use sentinel token there (`harness-sentinel/workspace-token.txt`), and a Harvey LAB row also holds the projected corpus documents themselves. Publishing the first would refuse the package outright; publishing the second would republish case documents through a community mirror. The count of files left behind is recorded as `excluded_workspace_file_count` in `community-harness-submission.json` rather than dropped silently.
+
+Nothing is lost on the LegalForecastBench corpus path: the model's answer is packaged in `full-results/rows/*/private-logs/release-forecast-output.json` and its transcript in `container-logs/` and `private-logs/`, all kept verbatim. **On the Harvey LAB path the deliverable is lost**, because a LAB deliverable exists only as files the agent wrote into that workspace and `lab/scores.jsonl` carries digests rather than text. A LAB harness-lane submission therefore publishes its scores and transcripts but not its written work product. If you are writing an adapter, project the deliverable from `structured_stdout` — every shipped manifest does — so the answer reaches the package through the scored channel.
+
+### What Happens After You Open The Pull Request
+
+A maintainer reviews and merges the pull request, then dispatches `.github/workflows/community-harness-intake.yaml` at that commit, which re-validates from scratch and uploads the package to an immutable path in the community dataset repository `johnhughes3/legal-quants-community-submissions`. That repository is deliberately not the official benchmark dataset: the job reads its destination from the `LFB_HF_COMMUNITY_DATASET_REPO` variable and refuses to publish if it is unset, names any other repository, or equals `LFB_HF_OFFICIAL_DATASET_REPO`, so a community submission cannot land where official results live. The upload path is immutable — an existing prefix is refused, never overwritten. The workflow is `workflow_dispatch` only — no pull-request trigger reaches it — and it obtains a repository-scoped Hugging Face token by exchanging the GitHub OIDC identity, exactly as [hugging-face-publication.md](hugging-face-publication.md) describes for the official lane. No durable `HF_TOKEN` exists and contributors never receive a credential to anything of ours.
 
 **A harness-lane submission is not an official LegalForecastBench result.** It is contributor-run and contributor-funded, it never enters the official aggregate, and it is not comparable to an official row: the lane changes the treatment, not just the model.
 

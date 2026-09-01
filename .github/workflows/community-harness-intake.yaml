@@ -31,16 +31,21 @@ name: Community Harness Lane Intake
 # scan. Contributors never receive a credential to anything of ours.
 #
 # ONE-TIME HUMAN BOOTSTRAP (not reachable from an Actions run):
-#   1. Confirm the Hugging Face dataset repository named by
-#      LFB_HF_COMMUNITY_DATASET_REPO exists and its access settings are the ones
-#      docs/community-submissions.md describes.
+#   1. Create the Hugging Face dataset repository
+#      johnhughes3/legal-quants-community-submissions -- a DIFFERENT repository
+#      from the official LFB_HF_OFFICIAL_DATASET_REPO dataset, so a community
+#      submission can never be mistaken for an official benchmark result -- with
+#      the access settings docs/community-submissions.md describes.
 #   2. Add a Hugging Face Trusted Publisher entry for this repository, branch
 #      main, workflow community-harness-intake.yaml, scoped to that dataset.
 #      Trusted Publisher entries are per workflow FILENAME: an entry naming
 #      fan-in-publish-legacy.yaml will not authorize this file.
 #   3. Create the GitHub environment legalforecastbench-community-artifacts,
 #      restricted to main, and set LFB_HF_COMMUNITY_DATASET_REPO on it through
-#      secure-gate (namespace/repository, no URL and no datasets/ prefix).
+#      secure-gate to exactly johnhughes3/legal-quants-community-submissions
+#      (namespace/repository, no URL and no datasets/ prefix). The job refuses
+#      to publish if it is unset, names another repository, or equals
+#      LFB_HF_OFFICIAL_DATASET_REPO.
 # No durable HF_TOKEN is created at any point.
 
 on:
@@ -123,6 +128,23 @@ jobs:
           set -euo pipefail
           uv run python -m legalforecast.multiharness.harness_lane.community_intake_cli \
             validate --submission-dir "${SUBMISSION_DIR}"
+
+      - name: Bind the destination to the reviewed submission
+        shell: bash
+        env:
+          LFB_HF_COMMUNITY_DATASET_REPO: ${{ vars.LFB_HF_COMMUNITY_DATASET_REPO }}
+          LFB_HF_OFFICIAL_DATASET_REPO: ${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}
+          SUBMISSION_DIR: ${{ inputs.submission_dir }}
+        run: |
+          set -euo pipefail
+          # Fails closed on an unset variable, on a variable naming any other
+          # repository, and on a variable pointed at the official dataset. The
+          # official variable is environment-scoped to the official fan-in, so
+          # it is normally empty here and the equality check only catches a
+          # repository-scoped collision; the check against the expected value
+          # is the one that holds.
+          uv run python -m legalforecast.multiharness.harness_lane.community_upload \
+            --submission-dir "${SUBMISSION_DIR}"
 
       - name: Publish the validated artifacts to the community dataset
         shell: bash
