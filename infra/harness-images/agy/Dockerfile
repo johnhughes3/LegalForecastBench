@@ -49,6 +49,41 @@ RUN printf '%s  %s\n' "${AGY_SHA256}" /usr/local/bin/agy | sha256sum -c - \
  && chmod 0755 /usr/local/bin/agy \
  && test "$(agy --version)" = "${AGY_VERSION}"
 
+# THE WEB-RETRIEVAL FENCE, VERIFIED.  agy 1.1.22 has no tool-denial flag, so
+# the fence is a PreToolUse lifecycle hook: agy hands the pending tool call to
+# this handler on stdin, and a `{"decision": "deny"}` answer is, in the CLI's
+# own embedded hook reference, a hard block of that execution.  The matcher
+# covers `search_web`, `read_url_content` and every browser tool, and nothing
+# else -- this is the tools-on lane, so bash, file and grep tools stay live.
+# See deny_web_tools.py for why a hook rather than the `disabledTools` settings
+# key (that key is scoped to one MCP server entry, not to the built-in suite),
+# and entrypoint.sh for why the hook config is written at run time.
+#
+# Proven live on 2026-08-31, in three independent ways: the run's own denial
+# journal recorded `search_web`; the model answered "WEB-BLOCKED" while still
+# reading its workspace file; and agy's transcript shows the planner issuing
+# `search_web` and `view_file` in the same step, with only `view_file`
+# producing a result step.  The blocked call leaves a gap in the step index,
+# which is what a hard block looks like from the outside.
+#
+# What that run did NOT establish: whether agy's search backend is reachable
+# through this allowlist at all.  The hook blocks the call before any request
+# is made, so a run cannot distinguish "the fence stopped a search that would
+# have worked" from "the search would have failed anyway".  The fence is what
+# the lane requires either way -- the call never leaves the machine -- but do
+# not describe it as the only thing standing between a run and a live search
+# until someone runs the unfenced control.
+COPY deny_web_tools.py /usr/local/bin/lfb-agy-deny-web-tools
+COPY hooks-shared-root.json /opt/legalforecast/agy-hooks-shared-root.json
+COPY hooks-cli-root.json /opt/legalforecast/agy-hooks-cli-root.json
+COPY entrypoint.sh /usr/local/bin/lfb-agy-entrypoint
+RUN chmod 0755 /usr/local/bin/lfb-agy-deny-web-tools /usr/local/bin/lfb-agy-entrypoint \
+ && chmod 0644 /opt/legalforecast/agy-hooks-shared-root.json \
+               /opt/legalforecast/agy-hooks-cli-root.json \
+ && python3 -c "import json,sys;[json.load(open(p)) for p in sys.argv[1:]]" \
+      /opt/legalforecast/agy-hooks-shared-root.json \
+      /opt/legalforecast/agy-hooks-cli-root.json
+
 # NO autoupdater/telemetry ENV BLOCK, because agy 1.1.22 has no kill switch
 # for either: its declared AGY_* variables are cosmetic (logo, LaTeX, escape
 # sequences), DO_NOT_TRACK is not read, and telemetry is a settings.json key
@@ -66,30 +101,37 @@ RUN printf '%s  %s\n' "${AGY_SHA256}" /usr/local/bin/agy | sha256sum -c - \
 WORKDIR /workspace
 
 # The container plan runs `docker run <image> <manifest argv...>` with no
-# --entrypoint of its own, so the CLI has to BE the entrypoint.  The egress
-# sidecar overrides this with --entrypoint python3.
-ENTRYPOINT ["agy"]
+# --entrypoint of its own, so the CLI has to BE the entrypoint -- here, behind
+# the wrapper that seeds the fence into the run's HOME and then execs it.  The
+# egress sidecar overrides this with --entrypoint python3, so it never runs the
+# wrapper.
+ENTRYPOINT ["/usr/local/bin/lfb-agy-entrypoint"]
 
-# EGRESS, MEASURED.  The first containerized run (2026-08-31, one attempt) did
-# not reach the model: agy's startup eligibility check fetches the signed-in
-# operator's Google profile picture from lh3.googleusercontent.com, the
-# provider-only allowlist refused that host, and agy exited 1 with
-# status ERROR before its first turn.  Reaching a first turn therefore costs
-# either that host on the allowlist -- a general user-content CDN, which is a
-# real widening of the fence and a lane decision, not a config tweak -- or an
-# upstream way to skip the check.  Hosts agy did reach, and which a run needs:
-# oauth2.googleapis.com, www.googleapis.com, daily-cloudcode-pa.googleapis.com.
-# Hosts it tried and were correctly refused with no ill effect:
-# antigravity-unleash.goog (feature flags) and the playwright.azureedge.net
-# browser-download CDNs.
+# EGRESS, MEASURED.  The first containerized run (2026-08-31) did not reach the
+# model: agy's startup eligibility check fetches the signed-in operator's
+# Google profile picture from lh3.googleusercontent.com, the provider-only
+# allowlist refused that host, and agy exited 1 with status ERROR before its
+# first turn.  Adding that one host fixed it -- the next run exited 0 with
+# status SUCCESS.  The host set below is what a run needs; it is an operator
+# input (`--allow-host`, `--allow-port`), because the manifest schema carries
+# no allowlist field and an allowlist guessed in code fails open rather than
+# closed:
 #
-# WEB RETRIEVAL, THE OPEN GAP.  Claude Code closes the provider-executed web
-# tools with --disallowedTools WebSearch WebFetch.  agy 1.1.22 exposes no
-# equivalent: `agy --help` lists no tool-selection, tool-denial or
-# web-search flag, and its JSON envelope reports neither a tool inventory nor
-# any tool call, so a run cannot even show after the fact which tools it had.
-# Client-side retrieval is refused by the egress allowlist and journaled; a
-# provider-side Gemini grounding call would run on Google's infrastructure,
-# downstream of every rule here, and is UNVERIFIED either way.  Do not publish
-# an agy forecast row until that is settled upstream or by live
-# characterisation.
+#   oauth2.googleapis.com              token refresh          (reached)
+#   www.googleapis.com                 signed-in profile      (reached)
+#   lh3.googleusercontent.com          eligibility check      (reached)
+#   daily-cloudcode-pa.googleapis.com  model endpoint         (reached)
+#   cloudcode-pa.googleapis.com        model endpoint sibling (not reached)
+#
+# Pass them as EXACT hosts, with no `--allow-subdomains googleapis.com` rule.
+# That rule would also admit aicode.googleapis.com and
+# generativelanguage.googleapis.com, both of which this binary carries, and
+# dropping it is what turned play.googleapis.com (telemetry) from silent reach
+# into a journaled refusal.  lh3.googleusercontent.com is a genuine widening --
+# it is a general user-content CDN, not a provider API -- accepted here because
+# it serves opaque content-addressed objects and cannot be queried: it is a way
+# to fetch a known URL, not a way to look up a case outcome.
+#
+# Hosts agy tried and which were correctly refused with no ill effect:
+# antigravity-unleash.goog (feature flags), play.googleapis.com (telemetry),
+# and the three playwright.azureedge.net browser-download CDNs.

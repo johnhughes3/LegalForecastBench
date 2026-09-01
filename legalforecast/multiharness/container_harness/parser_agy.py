@@ -29,12 +29,15 @@ What it does not give, and what therefore cannot be evidenced per run:
   records, so :attr:`AntigravityResult.tools_used` is empty for every run and
   is not evidence that no tool ran.  ``num_turns`` above one is the only hint,
   and it is a hint, not a count.
-* **Whether provider-executed web retrieval was available.**  agy 1.1.22
-  exposes no tool-denial or web-search flag (``agy --help``), and reports no
-  server-tool counters, so nothing here can close or evidence that fence.  The
-  container's egress allowlist stops *client-side* retrieval and journals the
-  refusal; a provider-side Gemini grounding call would run downstream of every
-  rule the container has.
+* **Whether web retrieval was available.**  The fence itself is no longer
+  open -- the harness image seeds a ``PreToolUse`` lifecycle hook that hard-
+  blocks ``search_web``, ``read_url_content`` and the browser tools, which
+  matters because ``search_web`` is dispatched by the CLI but executed
+  upstream and so runs downstream of every container egress rule.  What this
+  envelope cannot do is *evidence* that fence: it carries no tool inventory
+  and no server-tool counters, so a run proves the block from the denial
+  journal the hook writes into the workspace and from the gap the blocked call
+  leaves in agy's own transcript, never from anything read here.
 
 Parsing is deliberately permissive about shape and strict about outcome.
 Unknown top-level keys are collected by name in ``unknown_fields`` and ignored,

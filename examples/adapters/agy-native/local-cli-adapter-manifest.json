@@ -34,7 +34,7 @@
   "display_name": "Antigravity CLI containerized tools-on local CLI",
   "executable": {
     "basename": "agy",
-    "container_image_digest": "sha256:7037ea80e4e59c82c3b83912d8bbf8df8a7553d780dbbb58080d4154dfd3b300",
+    "container_image_digest": "sha256:bf878580a37061e99e1b2eaf6cfee5010b9dc1728d605045421e694a9943f389",
     "distribution_kind": "standalone-cli",
     "version": "1.1.22"
   },

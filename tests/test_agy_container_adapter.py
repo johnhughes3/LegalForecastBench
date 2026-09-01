@@ -6,6 +6,11 @@ what this lane requires it to say, and that the parser reads an ``agy
 things that envelope does *not* carry, which is the whole reason agy needs its
 own test rather than sharing Claude Code's.
 
+The image's web-retrieval fence is tested here too, and also needs no
+container: it is a ``PreToolUse`` hook, and one that stopped matching
+``search_web`` or crashed instead of answering would leave a tools-on agy row
+able to look up the outcome it is scored on.
+
 Envelope provenance: the shape below is the one characterised live from agy
 1.1.22 on 2026-08-31, with two deliberate differences.  ``conversation_id`` is
 a synthetic UUID, because the observed one is a real session id and this repo
@@ -17,8 +22,12 @@ that needs them adds them.
 
 from __future__ import annotations
 
+import importlib.util
+import io
 import json
+import re
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import pytest
@@ -58,6 +67,19 @@ MANIFEST_PATH = (
 )
 REGISTRY_NAME = "antigravity-cli-container-tools-on"
 SHA256 = "sha256:" + "1" * 64
+FENCE_DIR = ROOT / "infra" / "harness-images" / "agy"
+HOOK_SCRIPT = FENCE_DIR / "deny_web_tools.py"
+HOOK_COMMAND = "/usr/local/bin/lfb-agy-deny-web-tools"
+FENCE_FILES = (
+    ("hooks-shared-root.json", "lfb-web-fence-shared-root"),
+    ("hooks-cli-root.json", "lfb-web-fence-cli-root"),
+)
+# agy's own tool names: its CORTEX_STEP_TYPE_ enum lowercased without the
+# prefix.  Fenced covers a browser name in prefix, infix and suffix position;
+# live keeps two names containing "search" that an unanchored pattern eats.
+FENCED_TOOLS = "search_web read_url_content browser_subagent \
+capture_browser_screenshot click_browser_pixel".split()
+LOCAL_TOOLS = "run_command view_file grep_search code_search find".split()
 
 _ENVELOPE: dict[str, Any] = {
     "conversation_id": "00000000-0000-4000-8000-000000000000",
@@ -429,3 +451,48 @@ def _request(manifest: LocalCliAdapterManifest) -> RunRequest:
         ),
         request_sha256="sha256:" + "3" * 64,
     )
+
+
+def _hook_module(journal: Path) -> ModuleType:
+    spec = importlib.util.spec_from_file_location("lfb_agy_deny_web_tools", HOOK_SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.DENIAL_LOG = str(journal)
+    return module
+
+
+def test_image_fence_denies_web_tools_and_leaves_local_tools_live() -> None:
+    for name, hook_name in FENCE_FILES:
+        hooks = json.loads((FENCE_DIR / name).read_text(encoding="utf-8"))
+        # agy merges hooks from every customization root it loads, so the two
+        # seeded files carry distinct names rather than one arriving twice.
+        assert list(hooks) == [hook_name] and hooks[hook_name]["enabled"] is True
+        (group,) = hooks[hook_name]["PreToolUse"]
+        assert [handler["command"] for handler in group["hooks"]] == [HOOK_COMMAND]
+        # Go matches with an unanchored regexp.MatchString, so mirror it with
+        # search(); the pattern carries its own anchors.
+        matcher = re.compile(group["matcher"])
+        assert [tool for tool in FENCED_TOOLS if not matcher.search(tool)] == []
+        assert [tool for tool in LOCAL_TOOLS if matcher.search(tool)] == []
+
+
+def test_image_fence_hook_denies_every_shape_and_journals_what_it_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A hook that crashed would hand agy no decision at all, so this one must
+    # never be the reason a web call was allowed. The last case cannot write
+    # its journal: losing the record must not lose the denial.
+    journal = tmp_path / "denials.jsonl"
+    search_web = '{"toolCall": {"name": "search_web"}}'
+    shapes = [search_web, '{"toolCall": null}', "[]", "not json at all", ""]
+    unwritable = tmp_path / "absent" / "denials.jsonl"
+    for payload, target in [*((s, journal) for s in shapes), (search_web, unwritable)]:
+        monkeypatch.setattr("sys.stdin", io.StringIO(payload))
+        assert _hook_module(target).main() == 0
+        assert json.loads(capsys.readouterr().out)["decision"] == "deny"
+    written = journal.read_text(encoding="utf-8").splitlines()
+    assert [json.loads(line)["denied_tool"] for line in written] == [
+        "search_web",
+        *("unknown" for _ in range(4)),
+    ]
