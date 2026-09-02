@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.multiharness.harness_lane.cli_parser as harness_cli_parser
 import pytest
 from legalforecast._json_io import write_json_object
 from legalforecast.cli import main
@@ -19,9 +20,14 @@ from legalforecast.multiharness.folder_selection import (
     PROJECTED_LAYOUT_MANIFEST_NAME,
     PROJECTED_LAYOUT_SCHEMA_VERSION,
 )
+from legalforecast.multiharness.harness_lane.harnesses import (
+    CONTAINER_TOOLS_ON_REGISTRY_NAMES,
+)
 from legalforecast.multiharness.spec import CanonicalTask, TaskIndex
 from legalforecast.release.synthetic import issue_synthetic_release
 from pytest import CaptureFixture
+
+from test_multiharness_adapter_registry import container_manifest_record
 
 JsonRecord = dict[str, Any]
 
@@ -599,6 +605,8 @@ def test_cli_lists_builtin_adapters_in_sorted_order(tmp_path: Path) -> None:
     assert record.index(CLAUDE_CODE_REGISTRY_NAME) < record.index(
         LFB_NATIVE_REGISTRY_NAME
     )
+    listed = json.loads(record)["adapters"]
+    assert set(CONTAINER_TOOLS_ON_REGISTRY_NAMES) <= set(listed)
 
 
 def test_cli_inspect_lfb_native_still_works(tmp_path: Path) -> None:
@@ -841,3 +849,148 @@ def _read_jsonl(path: Path) -> list[JsonRecord]:
         assert isinstance(value, dict)
         records.append(cast(JsonRecord, value))
     return records
+
+
+CONTAINER_HARNESS = "claude-code-container-tools-on"
+
+
+def _preflight_argv(
+    tmp_path: Path,
+    *,
+    output_dir: Path,
+    auth_profile: str,
+    task_id: str = "lfb.case-1",
+) -> list[str]:
+    task = CanonicalTask(
+        task_id="lfb.case-1",
+        family="legalforecast_mtd",
+        scoring_mode="lfb_brier",
+        suite_version="fixture",
+        source_id="case-1",
+        task_sha256="sha256:" + "b" * 64,
+        metadata={"solver_prompt": "Forecast the motion to dismiss."},
+    )
+    index_path = tmp_path / "container-index.json"
+    write_json_object(
+        index_path,
+        TaskIndex(
+            index_id="fixture-index",
+            selection_namespace="fixture",
+            tasks=(task,),
+            index_sha256="sha256:" + "a" * 64,
+        ).to_record(),
+    )
+    manifest_path = tmp_path / "container-manifest.json"
+    write_json_object(manifest_path, container_manifest_record())
+    flags = {
+        "--harness": CONTAINER_HARNESS,
+        "--adapter-manifest": str(manifest_path),
+        "--auth-profile": auth_profile,
+        "--task-index": str(index_path),
+        "--output-dir": str(output_dir),
+        "--allow-subdomains": "example.test",
+        "--task-id": task_id,
+    }
+    return ["multiharness", "harness", "preflight"] + [
+        token for pair in flags.items() for token in pair
+    ]
+
+
+def _pin_image_resolver(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Answer the one preflight check that needs a container daemon."""
+
+    monkeypatch.setattr(
+        harness_cli_parser, "default_image_resolver", lambda _backend, image: image
+    )
+
+
+def test_multiharness_harness_preflight_reports_a_ready_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _pin_image_resolver(monkeypatch)
+    output_dir = tmp_path / "ready"
+
+    assert (
+        main(
+            _preflight_argv(
+                tmp_path, output_dir=output_dir, auth_profile="fixture-none"
+            )
+        )
+        == 0
+    )
+
+    report = _read_json(output_dir / "harness-preflight.json")
+    assert report["ok"] is True
+    assert report["harness"] == CONTAINER_HARNESS
+    assert report["auth_profile"] == "fixture-none"
+    assert report["task_count"] == 1
+    assert report["native_tools_enabled"] is True
+    assert report["server_side_web_tools_disabled"] is True
+    assert report["egress_allowlist"] == {
+        "hosts": [],
+        "ports": [443],
+        "subdomain_suffixes": ["example.test"],
+    }
+    assert {check["name"]: check["ok"] for check in report["checks"]} == {
+        "local_login": True,
+        "container_image": True,
+        "egress_allowlist": True,
+        "egress_proxy": True,
+        "task_selection": True,
+    }
+
+
+def test_multiharness_harness_preflight_refuses_an_empty_selection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _pin_image_resolver(monkeypatch)
+    output_dir = tmp_path / "empty"
+
+    assert (
+        main(
+            _preflight_argv(
+                tmp_path,
+                output_dir=output_dir,
+                auth_profile="fixture-none",
+                task_id="lfb.no-such-case",
+            )
+        )
+        == 1
+    )
+
+    report = _read_json(output_dir / "harness-preflight.json")
+    assert report["task_count"] == 0
+    assert {check["name"]: check["ok"] for check in report["checks"]}[
+        "task_selection"
+    ] is False
+
+
+def test_multiharness_harness_preflight_fails_closed_without_a_local_login(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _pin_image_resolver(monkeypatch)
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "empty-home"))
+    output_dir = tmp_path / "no-login"
+
+    assert (
+        main(
+            _preflight_argv(
+                tmp_path,
+                output_dir=output_dir,
+                auth_profile="contributor-subscription",
+            )
+        )
+        == 1
+    )
+
+    report = _read_json(output_dir / "harness-preflight.json")
+    assert report["ok"] is False
+    login = next(check for check in report["checks"] if check["name"] == "local_login")
+    assert login["ok"] is False
+    assert "complete the interactive login" in login["detail"]
+    assert str(tmp_path) not in json.dumps(report)

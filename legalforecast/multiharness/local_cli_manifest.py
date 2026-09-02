@@ -19,6 +19,29 @@ from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Self, cast
 
 from legalforecast.evals.inspect_task import SolverKind
+from legalforecast.multiharness.harness_vocab import (
+    AUTH_PROFILE_NAMES,
+    LOCAL_CLI_ARGV_PLACEHOLDERS,
+    LOCAL_CLI_AUTH_ENV_VARS,
+    LOCAL_CLI_CAPABILITIES,
+    LOCAL_CLI_CONTAINER_EXECUTION,
+    LOCAL_CLI_COST_BASES,
+    LOCAL_CLI_DELIVERABLE_SOURCES,
+    LOCAL_CLI_DISTRIBUTION_KINDS,
+    LOCAL_CLI_EMPTY_TOOLS,
+    LOCAL_CLI_HEADLESS_MODES,
+    LOCAL_CLI_NATIVE_TOOLS_ENABLED,
+    LOCAL_CLI_OUTPUT_FORMATS,
+    LOCAL_CLI_PROMPT_DELIVERY,
+    LOCAL_CLI_PROMPT_SOURCES,
+    LOCAL_CLI_RESTRICTED_EGRESS,
+    LOCAL_CLI_SCHEMA_ENFORCEMENT,
+    LOCAL_CLI_SERVER_SIDE_WEB_TOOLS_DISABLED,
+    LOCAL_CLI_SESSION_PERSISTENCE,
+    LOCAL_CLI_SETTING_SOURCES,
+    LOCAL_CLI_TRANSCRIPT_POINTS,
+    LOCAL_CLI_USAGE_SOLVER_FIELDS,
+)
 from legalforecast.multiharness.sandbox import NETWORK_NONE, PROVIDER_EGRESS_HOST_ONLY
 from legalforecast.multiharness.spec import (
     HOST_PROCESS_CONTAINMENT_MODES,
@@ -44,101 +67,6 @@ LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION = (
     "legalforecast.multiharness.local_cli_adapter_manifest.v1"
 )
 LOCAL_CLI_ADAPTER_KIND = "local_cli"
-
-# Owned by dm0g.4.2.5. This lane stores the name only; do not duplicate profile
-# semantics or credential projection here.
-AUTH_PROFILE_NAMES = frozenset(
-    {
-        "contributor-subscription",
-        "fixture-none",
-        "published-api-key",
-    }
-)
-LOCAL_CLI_AUTH_ENV_VARS = frozenset(
-    {
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_CODE_OAUTH_TOKEN",
-        "OPENAI_API_KEY",
-    }
-)
-LOCAL_CLI_CAPABILITIES = frozenset(
-    {
-        "empty_tools",
-        "headless_print",
-        "isolated_setting_sources",
-        "json_output",
-        "json_schema_enforcement",
-        "max_budget_usd",
-        "model_selection",
-        "no_session_persistence",
-        "permission_mode",
-        "stream_json_output",
-        "strict_mcp_config",
-        "tool_allowlist",
-        "working_directory_isolation",
-    }
-)
-LOCAL_CLI_DISTRIBUTION_KINDS = frozenset(
-    {
-        "fixture",
-        "homebrew-cask",
-        "sdk-bundled",
-        "standalone-cli",
-    }
-)
-LOCAL_CLI_HEADLESS_MODES = frozenset({"exec_subcommand", "print_flag"})
-LOCAL_CLI_OUTPUT_FORMATS = frozenset({"json", "stream_json", "text"})
-LOCAL_CLI_SCHEMA_ENFORCEMENT = frozenset(
-    {
-        "json_schema_flag",
-        "none",
-        "output_schema_file",
-    }
-)
-LOCAL_CLI_PROMPT_DELIVERY = frozenset({"argv_placeholder", "stdin"})
-LOCAL_CLI_SESSION_PERSISTENCE = frozenset({"ephemeral", "forbidden", "none"})
-LOCAL_CLI_SETTING_SOURCES = frozenset({"local", "project", "user"})
-LOCAL_CLI_TRANSCRIPT_POINTS = frozenset(
-    {
-        "private_execution_log",
-        "session_transcript",
-        "stderr",
-        "stdout",
-    }
-)
-LOCAL_CLI_COST_BASES = frozenset(
-    {
-        "estimated_from_pricing_snapshot",
-        "metered",
-        "provider_reported",
-        "subscription_unallocable",
-        "unknown",
-    }
-)
-LOCAL_CLI_PROMPT_SOURCES = frozenset({"solver_input_prompt"})
-LOCAL_CLI_DELIVERABLE_SOURCES = frozenset(
-    {
-        "structured_stdout",
-        "workspace_relative_file",
-    }
-)
-LOCAL_CLI_ARGV_PLACEHOLDERS = frozenset(
-    {
-        "model",
-        "output_schema",
-        "output_schema_path",
-        "prompt",
-        "workspace",
-    }
-)
-LOCAL_CLI_USAGE_SOLVER_FIELDS = frozenset(
-    {
-        "estimated_cost",
-        "input_tokens",
-        "output_tokens",
-        "request_count",
-    }
-)
 SOLVER_RESPONSE_CONTRACT = "legalforecast.evals.inspect_task.SolverResponse"
 HARNESS_ADAPTER_CONTRACT = "legalforecast.multiharness.adapters.HarnessAdapter"
 HARNESS_SOLVER_CONTRACT = "legalforecast.evals.inspect_task.HarnessSolver"
@@ -172,9 +100,13 @@ _EXECUTABLE_FIELDS = frozenset(
         "basename",
         "version",
         "sha256",
+        "container_image_digest",
         "distribution_kind",
     }
 )
+# Exactly one of these is present on any manifest, so both are absent-allowed
+# keys and the exactly-one rule below is what makes the pair required.
+_EXECUTABLE_OPTIONAL_FIELDS = frozenset({"sha256", "container_image_digest"})
 _INVOCATION_FIELDS = frozenset(
     {
         "headless_mode",
@@ -251,12 +183,21 @@ class LocalCliAdapterManifestError(MultiHarnessValidationError):
 
 @dataclass(frozen=True, slots=True)
 class LocalCliExecutableIdentity:
-    """Public executable identity without host paths."""
+    """Public executable identity without host paths.
+
+    A host-executed CLI is pinned by ``sha256`` over the executable bytes.  A
+    containerized CLI is pinned by ``container_image_digest`` instead: the host
+    binary is not what runs, so hashing it would verify the wrong file, and the
+    image digest is the only identity that covers the interpreter, the CLI, and
+    its dependencies together.  Exactly one of the two is set, so a manifest
+    cannot quietly inherit the host-pin pattern into a container.
+    """
 
     basename: str
     version: str
-    sha256: str
+    sha256: str | None
     distribution_kind: str
+    container_image_digest: str | None = None
 
     def __post_init__(self) -> None:
         if _BASENAME_RE.fullmatch(self.basename) is None:
@@ -264,7 +205,23 @@ class LocalCliExecutableIdentity:
                 "executable.basename must be a pathless command name"
             )
         _require_non_empty(self.version, "executable.version")
-        validate_sha256(self.sha256, "executable.sha256", allow_prefix=False)
+        if (self.sha256 is None) == (self.container_image_digest is None):
+            raise LocalCliAdapterManifestError(
+                "executable must set exactly one of sha256 (host executable "
+                "bytes) or container_image_digest (containerized harness)"
+            )
+        if self.sha256 is not None:
+            validate_sha256(self.sha256, "executable.sha256", allow_prefix=False)
+        if self.container_image_digest is not None:
+            # The registry form, so an operator pastes `docker inspect` output
+            # without transforming it, and so the two pins never look alike.
+            if not self.container_image_digest.startswith("sha256:"):
+                raise LocalCliAdapterManifestError(
+                    "executable.container_image_digest must be sha256:-prefixed"
+                )
+            validate_sha256(
+                self.container_image_digest, "executable.container_image_digest"
+            )
         _require_member(
             self.distribution_kind,
             LOCAL_CLI_DISTRIBUTION_KINDS,
@@ -272,21 +229,31 @@ class LocalCliExecutableIdentity:
         )
 
     def to_record(self) -> dict[str, str]:
-        return {
+        record = {
             "basename": self.basename,
             "version": self.version,
-            "sha256": self.sha256,
             "distribution_kind": self.distribution_kind,
         }
+        if self.sha256 is not None:
+            record["sha256"] = self.sha256
+        if self.container_image_digest is not None:
+            record["container_image_digest"] = self.container_image_digest
+        return record
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
-        _require_exact_fields(record, _EXECUTABLE_FIELDS, "executable")
+        _require_exact_fields(
+            record,
+            _EXECUTABLE_FIELDS,
+            "executable",
+            optional=_EXECUTABLE_OPTIONAL_FIELDS,
+        )
         return cls(
             basename=require_str(record, "basename"),
             version=require_str(record, "version"),
-            sha256=require_str(record, "sha256"),
+            sha256=_optional_str(record, "sha256"),
             distribution_kind=require_str(record, "distribution_kind"),
+            container_image_digest=_optional_str(record, "container_image_digest"),
         )
 
 
@@ -903,13 +870,40 @@ class LocalCliAdapterManifest:
         if not self.capabilities:
             raise LocalCliAdapterManifestError("capabilities must not be empty")
         validate_unique_ids(self.capabilities, "capabilities")
-        unknown = [
-            name for name in self.capabilities if name not in LOCAL_CLI_CAPABILITIES
-        ]
+        declared = set(self.capabilities)
+        unknown = declared.difference(LOCAL_CLI_CAPABILITIES)
         if unknown:
             formatted = ", ".join(sorted(unknown))
             raise LocalCliAdapterManifestError(
                 f"capabilities contains unknown token(s): {formatted}"
+            )
+        if {LOCAL_CLI_EMPTY_TOOLS, LOCAL_CLI_NATIVE_TOOLS_ENABLED} <= declared:
+            raise LocalCliAdapterManifestError(
+                "capabilities must not declare both empty_tools and "
+                "native_tools_enabled"
+            )
+        if (
+            LOCAL_CLI_NATIVE_TOOLS_ENABLED in declared
+            and LOCAL_CLI_SERVER_SIDE_WEB_TOOLS_DISABLED not in declared
+        ):
+            raise LocalCliAdapterManifestError(
+                "native_tools_enabled requires server_side_web_tools_disabled: "
+                "no container egress rule can stop provider-executed web search"
+            )
+        if (LOCAL_CLI_CONTAINER_EXECUTION in declared) != (
+            self.executable.container_image_digest is not None
+        ):
+            raise LocalCliAdapterManifestError(
+                "container_execution and executable.container_image_digest must "
+                "be declared together"
+            )
+        if (
+            LOCAL_CLI_RESTRICTED_EGRESS in declared
+            and self.containment.network_policy != PROVIDER_EGRESS_HOST_ONLY
+        ):
+            raise LocalCliAdapterManifestError(
+                "restricted_egress requires containment.network_policy "
+                f"{PROVIDER_EGRESS_HOST_ONLY}"
             )
         _require_member(self.auth_profile_name, AUTH_PROFILE_NAMES, "auth_profile_name")
         if not self.supported_auth_profiles:
@@ -1271,8 +1265,10 @@ def _require_exact_fields(
     record: Mapping[str, Any],
     expected: frozenset[str],
     field_name: str,
+    *,
+    optional: frozenset[str] = frozenset(),
 ) -> None:
-    missing = sorted(expected.difference(record))
+    missing = sorted(expected.difference(optional).difference(record))
     if missing:
         raise LocalCliAdapterManifestError(
             f"{field_name} has missing field(s): {', '.join(missing)}"

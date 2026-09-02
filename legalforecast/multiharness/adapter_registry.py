@@ -78,10 +78,86 @@ def _require_adapter_name(name: object, *, field_name: str = "adapter name") -> 
 
 
 def _register_builtin_adapters(registry: AdapterRegistry) -> None:
+    from legalforecast.multiharness.harness_lane.harnesses import (
+        CONTAINER_TOOLS_ON_REGISTRY_NAMES,
+    )
+
     registry.register(LFB_NATIVE_REGISTRY_NAME, _lfb_native_factory)
     registry.register(HARVEY_LAB_REGISTRY_NAME, _harvey_lab_factory)
     registry.register(CLAUDE_CODE_REGISTRY_NAME, _claude_code_factory)
     registry.register(CODEX_CLI_REGISTRY_NAME, _codex_cli_factory)
+    for name in CONTAINER_TOOLS_ON_REGISTRY_NAMES:
+        registry.register(name, _container_tools_on_factory(name))
+
+
+def _container_tools_on_factory(registry_name: str) -> AdapterFactory:
+    """Bind one containerized harness name to its manifest-driven adapter.
+
+    The manifest is a required keyword rather than a default because this
+    family has no built-in manifest: the image digest, the argv template and
+    the tool posture all come from the operator's own manifest file, and a
+    factory that invented one would run a different program than the run
+    record claims.
+    """
+
+    def factory(**kwargs: object) -> HarnessAdapter:
+        from legalforecast.multiharness.auth_profiles import CONTRIBUTOR_SUBSCRIPTION
+        from legalforecast.multiharness.harness_lane.adapter import (
+            DEFAULT_ALLOWED_PORTS,
+            ContainerCliAdapter,
+        )
+        from legalforecast.multiharness.harness_lane.harnesses import (
+            identity_for_registry_name,
+        )
+        from legalforecast.multiharness.local_cli_manifest import (
+            LocalCliAdapterManifest,
+        )
+
+        manifest = kwargs.get("local_cli_manifest")
+        if not isinstance(manifest, LocalCliAdapterManifest):
+            raise AdapterRegistryError(
+                "local_cli_manifest (a parsed LocalCliAdapterManifest) is required "
+                f"for --adapter {registry_name}"
+            )
+        auth_profile = kwargs.get("auth_profile")
+        backend = kwargs.get("backend")
+        parent_env = kwargs.get("parent_env")
+        return ContainerCliAdapter(
+            identity=identity_for_registry_name(registry_name),
+            local_manifest=manifest,
+            auth_profile=(
+                auth_profile
+                if isinstance(auth_profile, str)
+                else CONTRIBUTOR_SUBSCRIPTION
+            ),
+            allow_hosts=_optional_str_tuple(kwargs.get("allow_hosts")),
+            allow_subdomains=_optional_str_tuple(kwargs.get("allow_subdomains")),
+            allow_ports=_optional_port_tuple(
+                kwargs.get("allow_ports"), DEFAULT_ALLOWED_PORTS
+            ),
+            parent_env=_optional_env(parent_env),
+            backend=backend if isinstance(backend, str) and backend else "docker",
+        )
+
+    return factory
+
+
+def _optional_port_tuple(value: object, default: tuple[int, ...]) -> tuple[int, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        return default
+    ports = tuple(
+        item
+        for item in cast(Sequence[object], value)
+        if isinstance(item, int) and not isinstance(item, bool)
+    )
+    return ports or default
+
+
+def _optional_env(value: object) -> Mapping[str, str] | None:
+    if not isinstance(value, Mapping):
+        return None
+    typed = cast(Mapping[object, object], value)
+    return {str(key): str(item) for key, item in typed.items()}
 
 
 def _lfb_native_factory(**_kwargs: object) -> HarnessAdapter:

@@ -223,6 +223,23 @@ def require_auth_profile_for_run_class(profile_id: str, run_class: str) -> str:
     return canonical
 
 
+def refuse_noninteractive_environment(parent_env: Mapping[str, str]) -> None:
+    """Refuse a contributor-subscription proof in CI or any noninteractive shell.
+
+    A contributor subscription is a human's own interactive login. CI has no
+    such login, so an automated runner must never reach a credential path by
+    claiming one. Provers call this first; the no-prover path below calls it
+    at the same point it always has.
+    """
+
+    for name in ("CI", "GITHUB_ACTIONS"):
+        value = str(parent_env.get(name, "")).strip().lower()
+        if value in {"1", "true", "yes"}:
+            raise AuthProfileError(
+                "contributor-subscription is unsupported in CI/noninteractive"
+            )
+
+
 def require_local_subscription_presence(
     *,
     parent_env: Mapping[str, str],
@@ -233,12 +250,7 @@ def require_local_subscription_presence(
     if presence is not None:
         presence.prove(parent_env)
         return
-    for name in ("CI", "GITHUB_ACTIONS"):
-        value = str(parent_env.get(name, "")).strip().lower()
-        if value in {"1", "true", "yes"}:
-            raise AuthProfileError(
-                "contributor-subscription is unsupported in CI/noninteractive"
-            )
+    refuse_noninteractive_environment(parent_env)
     raise AuthProfileError(
         "contributor-subscription local login is absent; no fallback"
     )

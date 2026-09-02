@@ -517,6 +517,12 @@ MULTIHARNESS_MATCHED_HARNESS_IDENTITY_V1 = SchemaIdentifier(
 MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1 = SchemaIdentifier(
     "legalforecast.multiharness.system_bundle_label.v1"
 )
+MULTIHARNESS_CONTAINER_HARNESS_RESULT_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.container_harness_result.v1"
+)
+MULTIHARNESS_HARNESS_PREFLIGHT_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.harness_preflight.v1"
+)
 
 # This registry names the current recovery vertical slice without changing any
 # producer's local constant.  Migration to these imports is post-Cycle 1 work.
