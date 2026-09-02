@@ -1,0 +1,78 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "release-forecast-output-private",
+      "media_type": "application/json",
+      "path": "private-logs/release-forecast-output.json",
+      "public": false,
+      "sha256": "sha256:ec67a1cd330778c1a4e318aa469cdcc0fe23089a38adc89ab655b30d2221a79c",
+      "size_bytes": 463
+    },
+    {
+      "artifact_id": "release-harness-transcript-private",
+      "media_type": "application/json",
+      "path": "private-logs/harness-lane-transcript.json",
+      "public": false,
+      "sha256": "sha256:84b7086b3b4a9cc3babc541cf94364734c96ef797f32594382df8fca02a56f69",
+      "size_bytes": 365
+    }
+  ],
+  "public_summary": {
+    "adapter_id": "claude-code-container-tools-on",
+    "adapter_version": "1.0.0",
+    "allowed_tools": [
+      "Bash"
+    ],
+    "auth_mode": "contributor-subscription",
+    "container_image_digest": "sha256:449c51a483a38e9fe99a550c6dc983702c37152794b2bd2a24c8bf5f79a7d7fa",
+    "container_image_id": "sha256:449c51a483a38e9fe99a550c6dc983702c37152794b2bd2a24c8bf5f79a7d7fa",
+    "duration_seconds": 27.72970354091376,
+    "egress_allowed_hosts": [
+      "api.anthropic.com"
+    ],
+    "egress_allowlist": {
+      "hosts": [
+        "api.anthropic.com"
+      ],
+      "ports": [
+        443
+      ],
+      "subdomain_suffixes": []
+    },
+    "egress_refused": [],
+    "executable": "claude",
+    "execution_backend": "container_cli_tools_on",
+    "exit_code": 0,
+    "failure_class": null,
+    "harness": "claude-code-container-tools-on",
+    "harness_track": "native",
+    "input_tokens": 25,
+    "model_key": "claude-sonnet-4-5",
+    "native_tools_enabled": true,
+    "output_tokens": 843,
+    "server_side_web_tools_disabled": true,
+    "timed_out": false,
+    "tool_call_count": 1,
+    "tool_policy": "native_cli_builtins:distinct_tool_names",
+    "tool_use_reporting": "distinct_tool_names",
+    "transcript_sha256": "sha256:84b7086b3b4a9cc3babc541cf94364734c96ef797f32594382df8fca02a56f69",
+    "usage": {
+      "cache_read_tokens": 35042,
+      "cache_write_tokens": 18238,
+      "caveats": [],
+      "cost_basis": "subscription_unallocable",
+      "cost_metering": "imputed_list_price",
+      "imputed_cost_usd": 0.1326606,
+      "input_tokens": 25,
+      "output_tokens": 843,
+      "reasoning_tokens": null,
+      "reporting": "cli_reported_usage"
+    },
+    "usage_reporting": "cli_reported_usage"
+  },
+  "request_id": "row-1618240331e8c48d",
+  "result_id": "row-1618240331e8c48d:claude-code-container-tools-on",
+  "result_sha256": "sha256:7b22c782fe07460572d016a0cc4cddd0b43771d644adf70097daf18d5dc10b1a",
+  "schema_version": "legalforecast.multiharness.run_result.v1",
+  "status": "succeeded"
+}

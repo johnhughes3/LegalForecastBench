@@ -1,0 +1,11 @@
+{
+  "claim_kind": "scoped",
+  "coverage_kind": "scoped",
+  "run_status": "completed",
+  "schema_version": "legalforecast.multiharness.selection_manifest.v1",
+  "selection_label": "scoped:task_ids",
+  "selection_sha256": "88a05ab652c28033ee966a6018119d67507334e1a965c949f10e004a2098102d",
+  "task_ids": [
+    "lfb-release:synthetic-three-case-v1:unit-001"
+  ]
+}

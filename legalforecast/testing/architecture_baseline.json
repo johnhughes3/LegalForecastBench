@@ -11102,8 +11102,8 @@
         "largest_symbol": "test_container_lane_lfb_run_produces_scoreable_artifacts",
         "largest_symbol_lines": 120,
         "layer": "test",
-        "line_count": 970,
-        "nonblank_line_count": 845,
+        "line_count": 979,
+        "nonblank_line_count": 854,
         "top_level_definition_count": 32
       },
       "tests/test_multiharness_harvey_lab_adapter.py": {

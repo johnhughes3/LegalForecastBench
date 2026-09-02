@@ -1,0 +1,145 @@
+{
+  "adapter": {
+    "adapter_id": "claude-code-container-tools-on",
+    "adapter_version": "1.0.0",
+    "command": [
+      "legalforecast.multiharness.harness_lane.adapter:ContainerCliAdapter"
+    ],
+    "contributors": [],
+    "display_name": "Claude Code containerized tools-on local CLI",
+    "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
+  },
+  "model_key": "claude-sonnet-4-5",
+  "request_id": "row-1618240331e8c48d",
+  "request_sha256": "sha256:222bba669744501913cc5885438b4328e6e9105fb934e7ae4466e2cb024d7ceb",
+  "sandbox_policy": {
+    "allowed_provider_env_vars": [],
+    "backend": "docker",
+    "cap_drop": [
+      "ALL"
+    ],
+    "cpu_limit": "1",
+    "image": "python:3.12-slim",
+    "memory_limit": "2g",
+    "mounts": [],
+    "network_policy": "provider_egress_host_only",
+    "no_new_privileges": true,
+    "pids_limit": 256,
+    "policy_id": "harness-lane",
+    "schema_version": "legalforecast.multiharness.sandbox_policy.v1",
+    "timeout_seconds": 600,
+    "uid_gid": null,
+    "working_directory": "/workspace"
+  },
+  "schema_version": "legalforecast.multiharness.run_request.v1",
+  "task": {
+    "artifacts": [],
+    "family": "legalforecast_mtd",
+    "metadata": {
+      "ablation": "none",
+      "case_id": "case-001",
+      "claim_name": "Synthetic claim 1",
+      "count": "Count I",
+      "defendant_group": "Synthetic defendants 1",
+      "forecast_release_digest": "b859205c9bd09861e826dffa65797db2d9f61681ca4e96ce5c73d32024e26c50",
+      "model_visible_documents": [
+        {
+          "byte_count": 64,
+          "document_id": "full-01-amended_complaint",
+          "role": "amended_complaint",
+          "sha256": "sha256:ebb4f39480525d60b45919c7596226d2afbbc8a87189ce25f27b854de95d8e27"
+        },
+        {
+          "byte_count": 56,
+          "document_id": "full-02-complaint",
+          "role": "complaint",
+          "sha256": "sha256:d5001feb189ad5b7648a2e655ddbbc0fcb5338bc26221e6b2787d40557f42b9d"
+        },
+        {
+          "byte_count": 59,
+          "document_id": "full-03-counterclaim",
+          "role": "counterclaim",
+          "sha256": "sha256:009cdad00a7b0120031cba020d68a79514715e1dcc974535429f3bf6d4a295dd"
+        },
+        {
+          "byte_count": 57,
+          "document_id": "full-04-crossclaim",
+          "role": "crossclaim",
+          "sha256": "sha256:49be619fdc07f340803d909341ba1384a846f1f130468abe36db30e2d6f5575c"
+        },
+        {
+          "byte_count": 69,
+          "document_id": "full-05-interpleader_complaint",
+          "role": "interpleader_complaint",
+          "sha256": "sha256:67aa3765a4b50cb6f2c8cc66b3443e6db92852fd1d7892f7005497f7db8e395e"
+        },
+        {
+          "byte_count": 75,
+          "document_id": "full-06-motion_to_dismiss_memorandum",
+          "role": "motion_to_dismiss_memorandum",
+          "sha256": "sha256:33f55de8f6d751857a7516595484531acb64766ba29e7618b6284e6bd6ab8a4b"
+        },
+        {
+          "byte_count": 71,
+          "document_id": "full-07-motion_to_dismiss_notice",
+          "role": "motion_to_dismiss_notice",
+          "sha256": "sha256:bc3847a0a308363b6ebd25df678ee62b0e6201d863ae52aa9137a0166ca3f37e"
+        },
+        {
+          "byte_count": 57,
+          "document_id": "full-08-opposition",
+          "role": "opposition",
+          "sha256": "sha256:e54c0860c3816506cc21a4d9790d108f7c27a9ff9c0213537a22a4e0e865295b"
+        },
+        {
+          "byte_count": 73,
+          "document_id": "full-09-other_claim_bearing_filing",
+          "role": "other_claim_bearing_filing",
+          "sha256": "sha256:06041c16bf077ad52d59cf01514508980c721431a82c632e86d3e025eea7cfb1"
+        },
+        {
+          "byte_count": 52,
+          "document_id": "full-10-reply",
+          "role": "reply",
+          "sha256": "sha256:3fa1f545e1da970c95eee7c9e0397497895556d2495d20fa427881cb42b06b12"
+        },
+        {
+          "byte_count": 65,
+          "document_id": "full-11-supplemental_brief",
+          "role": "supplemental_brief",
+          "sha256": "sha256:b40896363a6b4f861f1076b2314a48783bd0fc9b11cbb33c0da9f1fdbb7ef39d"
+        },
+        {
+          "byte_count": 55,
+          "document_id": "full-12-surreply",
+          "role": "surreply",
+          "sha256": "sha256:69cd69ce201977ca7adc1fb5baef45e2f1bbf673c5b33e758fdce3fc849b4392"
+        },
+        {
+          "byte_count": 68,
+          "document_id": "full-13-third_party_complaint",
+          "role": "third_party_complaint",
+          "sha256": "sha256:8745ac16af79a975c03cdc45fe46807d1a0ba8d5c80b42d48cafa26594a078b4"
+        }
+      ],
+      "packet_byte_count": 988,
+      "packet_sha256": "sha256:701c416bbca4ff5d8e0197caa504ca39639262b55023d13c129740b288e9d8dd",
+      "prompt_byte_count": 97,
+      "prompt_sha256": "sha256:88dc41356247438f9fcd7ba1cc824e103444e32d9bb7c7b92f491c44ccb0dc1d",
+      "release_id": "synthetic-three-case-v1",
+      "release_schema_version": "legalforecast.forecast-release.v1",
+      "required_unit_ids": [
+        "unit-001"
+      ],
+      "should_score": true,
+      "suite": "legalforecast_mtd",
+      "unit_id": "unit-001"
+    },
+    "schema_version": "legalforecast.multiharness.task.v1",
+    "scoring_mode": "lfb_brier",
+    "source_id": "unit-001",
+    "suite_version": "forecast-release.v1",
+    "task_id": "lfb-release:synthetic-three-case-v1:unit-001",
+    "task_sha256": "sha256:701c416bbca4ff5d8e0197caa504ca39639262b55023d13c129740b288e9d8dd"
+  }
+}

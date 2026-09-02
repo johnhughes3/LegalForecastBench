@@ -23,6 +23,7 @@ joined at report time.
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +37,7 @@ from legalforecast.multiharness.folder_selection import (
     narrow_selection_to_folder,
 )
 from legalforecast.multiharness.harness_lane.task_sources import (
+    TASK_SOURCE_LFB,
     TASK_SOURCES,
     ResolvedTaskSource,
     TaskSourceError,
@@ -179,6 +181,7 @@ def resolve_run_inputs(args: argparse.Namespace) -> ResolvedRunInputs:
         )
     if source is not None:
         resolved = _resolved_source(args, source, solver_input_root)
+        _warn_if_unscoreable(source, cast(Path | None, getattr(args, "packets", None)))
         return ResolvedRunInputs(
             task_index=resolved.task_index,
             selection=resolved.selection,
@@ -199,6 +202,30 @@ def resolve_run_inputs(args: argparse.Namespace) -> ResolvedRunInputs:
         selection=selection,
         solver_inputs=_store(solver_input_root),
         folder=folder,
+    )
+
+
+def _warn_if_unscoreable(source: str, packets: Path | None) -> None:
+    """Say at the point of use that a packet-backed LFB run cannot be scored.
+
+    The packet source runs -- it is honest plumbing -- but it produces no
+    ``lfb/runs.jsonl``, so an operator who picked it to measure harness-vs-API
+    would otherwise learn that only afterwards, from an absent file. Warn
+    rather than refuse: the plumbing run is a legitimate thing to want.
+    """
+
+    if source != TASK_SOURCE_LFB or packets is None:
+        return
+    print(
+        "warning: --packets is a plumbing input, not a scoreable one. Model "
+        "packets carry no forecast-release identity -- no release id, no "
+        "release digest, no per-unit packet/prompt commitment -- so "
+        "release_harness projects no score row for them: this run will write "
+        "row-results.jsonl and a transcript but no lfb/runs.jsonl, and "
+        "'legalforecast score' will have nothing to read. Re-run with "
+        "--forecast-release <forecast-release.json> --artifact-root <dir> to "
+        "produce a Brier-scoreable run.",
+        file=sys.stderr,
     )
 
 

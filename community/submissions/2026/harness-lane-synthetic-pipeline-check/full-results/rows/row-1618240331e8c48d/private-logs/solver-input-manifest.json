@@ -1,0 +1,53 @@
+{
+  "entrypoint_path": "prompt.txt",
+  "input_tree_sha256": "sha256:4bf60e889f7d3e692c45585e110fc1ee1f64dbb20fd39c11565a55db0d7c990a",
+  "materialization": {
+    "entries": [
+      {
+        "artifact_id": "solver_input:0",
+        "destination_path": "prompt.txt",
+        "sha256": "88dc41356247438f9fcd7ba1cc824e103444e32d9bb7c7b92f491c44ccb0dc1d",
+        "size_bytes": 97,
+        "source_path": "tasks/0035875145c9be0e6de3fce065ddafa39ddeb387b8d246c4762d52fd0819b8d0/prompt.txt"
+      }
+    ],
+    "evaluator_private_artifact_ids": [],
+    "layout_id": "legalforecast.solver_input.v1",
+    "manifest_sha256": "497396b672774888f5a186ff1a7947fbd1445566f94a3f4994c15fabaad196d5",
+    "schema_version": "legalforecast.multiharness.task_materialization.v1",
+    "semantic_bytes_sha256": "ed7516f6551c39ee4150f7a9bc3ce170e0520b1bdbad5cd73d17192bd0e853ff",
+    "task_id": "lfb-release:synthetic-three-case-v1:unit-001",
+    "task_sha256": "sha256:701c416bbca4ff5d8e0197caa504ca39639262b55023d13c129740b288e9d8dd",
+    "total_size_bytes": 97
+  },
+  "schema_version": "legalforecast.multiharness.solver_input_execution_manifest.v1",
+  "solver_input_entry": {
+    "entrypoint_path": "prompt.txt",
+    "files": [
+      {
+        "destination_path": "prompt.txt",
+        "media_type": "text/plain",
+        "sha256": "sha256:88dc41356247438f9fcd7ba1cc824e103444e32d9bb7c7b92f491c44ccb0dc1d",
+        "size_bytes": 97,
+        "solver_visible": true,
+        "source_path": "tasks/0035875145c9be0e6de3fce065ddafa39ddeb387b8d246c4762d52fd0819b8d0/prompt.txt"
+      },
+      {
+        "destination_path": "source/model-packet.json",
+        "media_type": "application/json",
+        "sha256": "sha256:701c416bbca4ff5d8e0197caa504ca39639262b55023d13c129740b288e9d8dd",
+        "size_bytes": 988,
+        "solver_visible": false,
+        "source_path": "tasks/0035875145c9be0e6de3fce065ddafa39ddeb387b8d246c4762d52fd0819b8d0/source/model-packet.json"
+      }
+    ],
+    "prompt_sha256": "sha256:88dc41356247438f9fcd7ba1cc824e103444e32d9bb7c7b92f491c44ccb0dc1d",
+    "task_id": "lfb-release:synthetic-three-case-v1:unit-001",
+    "task_record_sha256": "sha256:f3a091a2cf9e36c8283ff6f72b4c19dadcfc086e665c1277b4058ab70f592dca",
+    "task_sha256": "sha256:701c416bbca4ff5d8e0197caa504ca39639262b55023d13c129740b288e9d8dd",
+    "tree_sha256": "sha256:4bf60e889f7d3e692c45585e110fc1ee1f64dbb20fd39c11565a55db0d7c990a"
+  },
+  "solver_input_index_sha256": "sha256:3aae5ee85159de581560c6e01d6cc919e5cda92bacfc99fc6557c5f95f8ad355",
+  "task_id": "lfb-release:synthetic-three-case-v1:unit-001",
+  "task_sha256": "sha256:701c416bbca4ff5d8e0197caa504ca39639262b55023d13c129740b288e9d8dd"
+}

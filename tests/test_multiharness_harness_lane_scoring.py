@@ -72,7 +72,7 @@ def test_lfb_release_task_source_scores_end_to_end(
     operator drives it: no pre-built ``--task-index``, no hand-written solver
     input store.  The run resolves the release in place, writes the private
     prompts itself, hands the container the exact prompt bytes, and lands a
-    Brier-scoreable row.
+    row that ``legalforecast score`` turns into an actual number.
     """
 
     release_root = tmp_path / "release"
@@ -168,7 +168,25 @@ def test_lfb_release_task_source_scores_end_to_end(
     )
     summaries = json.loads(scores.read_text(encoding="utf-8"))["summaries"]
     assert len(summaries) == 1
-    assert summaries[0]["model_id"] == f"{LFB_ADAPTER}:claude:fixture"
+    summary = summaries[0]
+    assert summary["model_id"] == f"{LFB_ADAPTER}:claude:fixture"
+    # The chain ends in a number, not merely in a row that exists. The scored
+    # unit's label above is "survives in material respect", so the outcome is
+    # 0; a 0.25 forecast against it is a Brier of 0.0625, and the 0.5 base
+    # rate over the label file makes that a skill score of 0.75. Both are
+    # exact in binary floating point, so the value is pinned rather than
+    # bracketed -- a silent change in how the lane's rows reach lfb_brier
+    # moves the number and fails here.
+    assert summary["unit_count"] == 1
+    assert summary["micro_brier"] == 0.0625
+    assert summary["macro_brier"] == 0.0625
+    assert summary["base_rate"] == 0.5
+    assert summary["brier_skill_score"] == 0.75
+    unit_score = summary["unit_scores"][0]
+    assert unit_score["unit_id"] == unit_id
+    assert unit_score["outcome"] == 0
+    assert unit_score["probability_fully_dismissed"] == 0.25
+    assert unit_score["parser_status"] == "valid"
 
 
 def test_lfb_release_task_source_requires_an_artifact_root(tmp_path: Path) -> None:

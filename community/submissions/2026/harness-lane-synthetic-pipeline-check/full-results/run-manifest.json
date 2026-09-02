@@ -1,0 +1,13 @@
+{
+  "request_ids": [
+    "row-1618240331e8c48d"
+  ],
+  "result_ids": [
+    "row-1618240331e8c48d:claude-code-container-tools-on"
+  ],
+  "run_compatibility_sha256": "sha256:c0e19e399e77c8a0ab2882b27fa8059c4bc6cd11f9a2c2429d8c89ff3e02a594",
+  "run_config_sha256": "sha256:0b13fb1e6ad1206090805bfb654ef38193182421459ac27fe82e78ef103f95a9",
+  "run_id": "multiharness-run",
+  "schema_version": "legalforecast.multiharness.run_manifest.v1",
+  "selection_sha256": "88a05ab652c28033ee966a6018119d67507334e1a965c949f10e004a2098102d"
+}

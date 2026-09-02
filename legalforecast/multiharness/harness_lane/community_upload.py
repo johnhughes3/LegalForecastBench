@@ -35,6 +35,9 @@ from pathlib import Path
 from typing import Any, Final, cast
 
 from legalforecast._json_io import read_json_object
+from legalforecast.publication.publication_guardrails import (
+    PublicationGuardrailConfig,
+)
 
 #: The dataset repository this lane publishes to, decided by the owner.  Kept
 #: in code so the error a contributor or a workflow sees can name the exact
@@ -197,6 +200,20 @@ def enforce_caps(artifacts: Sequence[Mapping[str, Any]]) -> None:
             f"the submission declares {total} bytes; the intake cap is "
             f"{MAX_TOTAL_BYTES}"
         )
+
+
+def publication_guardrail_config(package: Path) -> PublicationGuardrailConfig:
+    """Return the scan config for a package, ceiling pinned to the intake cap.
+
+    The guardrails skip a text file larger than ``max_text_bytes`` silently, and
+    their 2 MB default sits below the 8 MiB per-artifact cap above -- a long
+    agentic transcript lands in that gap.  Pinning the two together is what
+    makes the promise hold: anything the caps let travel, the scan has read.
+    """
+
+    return PublicationGuardrailConfig(
+        public_paths=(package,), max_text_bytes=MAX_ARTIFACT_BYTES
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
