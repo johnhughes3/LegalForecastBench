@@ -23,6 +23,18 @@ from legalforecast.multiharness.harness_lane.community_intake import (
     build_community_harness_submission,
     validate_community_harness_submission,
 )
+from legalforecast.multiharness.harness_lane.community_submit import (
+    check_community_harness_submission,
+    submit_community_harness_run,
+)
+from legalforecast.multiharness.harness_lane.community_upload import (
+    COMMUNITY_HARNESS_DATASET_REPO,
+    assert_upload_plan_targets,
+    resolve_community_dataset_repo,
+)
+from legalforecast.multiharness.harness_lane.sentinel import (
+    CONTAINER_WORKSPACE_DIRECTORY,
+)
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailError,
 )
@@ -212,3 +224,206 @@ def test_the_community_intake_workflow_stays_maintainer_triggered() -> None:
     assert "HF_TOKEN:" not in workflow
     assert "secrets." not in workflow
     assert "not an official LegalForecastBench result" in workflow
+
+
+def _run_directory_with_a_staged_workspace(root: Path) -> Path:
+    """A run directory shaped the way a real containerized run leaves one.
+
+    ``container-workspace`` is what the lane staged *into* the container: the
+    sentinel token every row writes, and on a Harvey LAB row the projected
+    corpus documents.  Both were guaranteed to be there and neither had a path
+    out -- ``workspace-token.txt`` alone refuses the package, because the
+    publication guardrails refuse a ``.txt`` in a public artifact.
+    """
+
+    run_dir = _community_run_directory(root)
+    workspace = run_dir / "rows" / "row-0" / CONTAINER_WORKSPACE_DIRECTORY
+    (workspace / "harness-sentinel").mkdir(parents=True)
+    (workspace / "harness-sentinel" / "workspace-token.txt").write_text(
+        "0123456789abcdef0123456789abcdef\n", encoding="utf-8"
+    )
+    (workspace / "complaint.md").write_text(
+        "Projected LAB document text that must not be republished.\n",
+        encoding="utf-8",
+    )
+    return run_dir
+
+
+def test_the_staged_container_workspace_never_reaches_the_package(
+    tmp_path: Path,
+) -> None:
+    result = submit_community_harness_run(
+        run_dir=_run_directory_with_a_staged_workspace(tmp_path),
+        output_dir=tmp_path / "submission",
+        submission_id="community-harness-fixture",
+        submitter_name="Example Contributor",
+        run_operator_name="Example Contributor",
+        adapter_author_name="Example Contributor",
+        secret_values=(_HOST_SESSION,),
+    )
+
+    # Two staged files left behind, counted rather than silently dropped.
+    assert result.excluded_workspace_file_count == 2
+    packaged = {
+        path.relative_to(result.submission_dir).as_posix()
+        for path in result.submission_dir.rglob("*")
+        if path.is_file()
+    }
+    assert not [name for name in packaged if CONTAINER_WORKSPACE_DIRECTORY in name]
+    assert not [name for name in packaged if name.endswith(".txt")]
+    # The evidence the lane exists to publish is still all there.
+    assert "full-results/rows/row-0/container-logs/harness.log" in packaged
+    assert "full-results/rows/row-0/private-logs/harness-lane-transcript.json" in (
+        packaged
+    )
+    plan = json.loads(
+        (result.submission_dir / "hf-upload-plan.json").read_text(encoding="utf-8")
+    )
+    declared = {str(item["path"]) for item in plan["artifacts"]}
+    assert not [name for name in declared if CONTAINER_WORKSPACE_DIRECTORY in name]
+
+
+def test_submit_prints_the_exact_dispatch_inputs_from_the_registry_layout(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "community" / "submissions" / "2026" / "harness-abc"
+    result = submit_community_harness_run(
+        run_dir=_community_run_directory(tmp_path),
+        output_dir=output_dir,
+        submission_id="harness-abc",
+        submitter_name="Example Contributor",
+        run_operator_name="Example Contributor",
+        adapter_author_name="Example Contributor",
+        secret_values=(_HOST_SESSION,),
+    )
+
+    assert result.tracked_submission_dir == "community/submissions/2026/harness-abc"
+    assert result.release_path == "harness-lane/2026/harness-abc"
+    steps = "\n".join(result.next_steps())
+    assert "community/submissions/2026/harness-abc" in steps
+    assert "harness-lane/2026/harness-abc" in steps
+    assert ".github/workflows/community-harness-intake.yaml" in steps
+    assert "not an official LegalForecastBench result" in steps
+
+
+def test_a_package_outside_the_registry_is_told_where_it_has_to_go(
+    tmp_path: Path,
+) -> None:
+    result = submit_community_harness_run(
+        run_dir=_community_run_directory(tmp_path),
+        output_dir=tmp_path / "scratch",
+        submission_id="harness-abc",
+        submitter_name="Example Contributor",
+        run_operator_name="Example Contributor",
+        adapter_author_name="Example Contributor",
+        secret_values=(_HOST_SESSION,),
+    )
+
+    assert result.tracked_submission_dir is None
+    assert "community/submissions/<year>/harness-abc" in "\n".join(result.next_steps())
+
+
+def test_the_local_check_refuses_a_tampered_digest_and_accepts_a_clean_package(
+    tmp_path: Path,
+) -> None:
+    result = submit_community_harness_run(
+        run_dir=_community_run_directory(tmp_path),
+        output_dir=tmp_path / "submission",
+        submission_id="community-harness-fixture",
+        submitter_name="Example Contributor",
+        run_operator_name="Example Contributor",
+        adapter_author_name="Example Contributor",
+        secret_values=(_HOST_SESSION,),
+    )
+    # submit_community_harness_run already ran it once; a clean package passes.
+    assert check_community_harness_submission(result.submission_dir)
+
+    transcript = (
+        result.submission_dir
+        / "full-results"
+        / "rows"
+        / "row-0"
+        / "container-logs"
+        / "harness.log"
+    )
+    transcript.write_bytes(transcript.read_bytes().replace(b"0.35", b"0.95"))
+
+    with pytest.raises(CommunityIntakeError, match="does not match the declared"):
+        check_community_harness_submission(result.submission_dir)
+
+
+def test_the_upload_plan_names_the_community_dataset_and_not_the_official_one(
+    tmp_path: Path,
+) -> None:
+    result = submit_community_harness_run(
+        run_dir=_community_run_directory(tmp_path),
+        output_dir=tmp_path / "submission",
+        submission_id="community-harness-fixture",
+        submitter_name="Example Contributor",
+        run_operator_name="Example Contributor",
+        adapter_author_name="Example Contributor",
+        secret_values=(_HOST_SESSION,),
+    )
+
+    plan = json.loads(
+        (result.submission_dir / "hf-upload-plan.json").read_text(encoding="utf-8")
+    )
+    assert plan["mirror_repository"] == (
+        "https://huggingface.co/datasets/johnhughes3/legal-quants-community-submissions"
+    )
+    assert COMMUNITY_HARNESS_DATASET_REPO == (
+        "johnhughes3/legal-quants-community-submissions"
+    )
+    # A plan naming somewhere else is refused before anything is uploaded.
+    with pytest.raises(CommunityIntakeError, match="names the mirror"):
+        assert_upload_plan_targets(
+            "https://huggingface.co/datasets/johnhughes3/legalforecastbench",
+            COMMUNITY_HARNESS_DATASET_REPO,
+        )
+
+
+def test_the_destination_variable_fails_closed_in_every_direction() -> None:
+    assert (
+        resolve_community_dataset_repo(
+            {"LFB_HF_COMMUNITY_DATASET_REPO": COMMUNITY_HARNESS_DATASET_REPO}
+        )
+        == COMMUNITY_HARNESS_DATASET_REPO
+    )
+
+    with pytest.raises(CommunityIntakeError) as unset:
+        resolve_community_dataset_repo({})
+    # The message has to carry both the variable and the value it should hold:
+    # whoever reads it is configuring an environment, not reading this module.
+    assert "LFB_HF_COMMUNITY_DATASET_REPO" in str(unset.value)
+    assert COMMUNITY_HARNESS_DATASET_REPO in str(unset.value)
+
+    with pytest.raises(CommunityIntakeError, match="publishes only to"):
+        resolve_community_dataset_repo(
+            {"LFB_HF_COMMUNITY_DATASET_REPO": "johnhughes3/some-other-dataset"}
+        )
+
+    with pytest.raises(CommunityIntakeError, match="official benchmark results"):
+        resolve_community_dataset_repo(
+            {
+                "LFB_HF_COMMUNITY_DATASET_REPO": "johnhughes3/legalforecastbench",
+                "LFB_HF_OFFICIAL_DATASET_REPO": "johnhughes3/legalforecastbench",
+            }
+        )
+
+
+def test_the_intake_workflow_binds_the_destination_before_it_uploads() -> None:
+    workflow = Path(".github/workflows/community-harness-intake.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    bind_at = workflow.index("community_upload \\")
+    upload_at = workflow.index("api.upload_folder(")
+    assert bind_at < upload_at
+    # Both variables reach the step, because refusing a collision needs both.
+    assert (
+        "LFB_HF_COMMUNITY_DATASET_REPO: ${{ vars.LFB_HF_COMMUNITY_DATASET_REPO }}"
+    ) in workflow
+    assert (
+        "LFB_HF_OFFICIAL_DATASET_REPO: ${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}"
+    ) in workflow
+    assert "johnhughes3/legal-quants-community-submissions" in workflow

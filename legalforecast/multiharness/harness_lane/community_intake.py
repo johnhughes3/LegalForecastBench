@@ -36,6 +36,11 @@ outputs, answers -- is kept verbatim, because a transcript scrubbed into
 unreadability proves nothing.  The publication guardrails are the fail-closed
 backstop: anything that still reads as a secret refuses the package rather than
 being quietly rewritten.
+
+One tree is dropped rather than redacted: ``container-workspace``, which is what
+this lane staged *into* the container -- projected Harvey LAB documents and the
+tool-use sentinel token -- not what the harness produced.  See
+:func:`_copy_redacted_tree`.
 """
 
 from __future__ import annotations
@@ -51,12 +56,23 @@ from typing import Any, Final, cast
 from legalforecast._json_io import read_json_object
 from legalforecast.multiharness.community import (
     ATTEST_NOT_OFFICIAL,
-    COMMUNITY_ARTIFACT_MIRROR,
     HF_UPLOAD_PLAN_SCHEMA_VERSION,
+)
+from legalforecast.multiharness.harness_lane.community_upload import (
+    COMMUNITY_HARNESS_ARTIFACT_MIRROR,
+    MAX_ARTIFACT_BYTES,
+    UPLOAD_PLAN_NAME,
+    CommunityIntakeError,
+    declared_artifact,
+    enforce_caps,
+    plan_artifacts,
 )
 from legalforecast.multiharness.harness_lane.results_package import (
     SUMMARY_OBJECT_NAME,
     harness_lane_public_summary,
+)
+from legalforecast.multiharness.harness_lane.sentinel import (
+    CONTAINER_WORKSPACE_DIRECTORY,
 )
 from legalforecast.multiharness.local_cli_redaction import REDACTED, redact_bytes
 from legalforecast.protocol.freeze import sha256_file
@@ -71,22 +87,12 @@ COMMUNITY_HARNESS_SUBMISSION_SCHEMA_VERSION: Final = (
     "legalforecast-community-harness-submission-v1"
 )
 SUBMISSION_RECORD_NAME: Final = "community-harness-submission.json"
-UPLOAD_PLAN_NAME: Final = "hf-upload-plan.json"
 FULL_RESULTS_DIRECTORY: Final = "full-results"
 RESULT_CLASS: Final = "community_harness_lane"
 NOT_OFFICIAL_NOTICE: Final = (
     "Community harness-lane submission. Contributor-run and contributor-funded. "
     "Not an official LegalForecastBench result."
 )
-
-# These bytes ride inside a pull request so CI can scan the actual files rather
-# than a description of them, which is what makes the digest check and the secret
-# scan mean anything.  The caps are therefore review-sized, not bucket-sized.
-MAX_ARTIFACT_BYTES: Final = 8 * 1024 * 1024
-MAX_TOTAL_BYTES: Final = 64 * 1024 * 1024
-MAX_ARTIFACT_COUNT: Final = 2_000
-
-_SHA256: Final = re.compile(r"[0-9a-f]{64}")
 
 # Host-root shapes rewritten to a placeholder that keeps the rest of the path
 # readable, longest-context first so /run/user/<uid> is not clipped.  The
@@ -117,18 +123,6 @@ _TOKEN_RULES: Final[tuple[tuple[re.Pattern[bytes], bytes], ...]] = (
     ),
 )
 
-_MEDIA_TYPES: Final[Mapping[str, str]] = {
-    ".json": "application/json",
-    ".jsonl": "application/jsonl",
-    ".log": "text/plain",
-    ".md": "text/markdown",
-    ".txt": "text/plain",
-}
-
-
-class CommunityIntakeError(ValueError):
-    """Raised when a community harness-lane package cannot be built or trusted."""
-
 
 @dataclass(frozen=True, slots=True)
 class CommunityHarnessSubmission:
@@ -139,6 +133,7 @@ class CommunityHarnessSubmission:
     artifact_count: int
     total_bytes: int
     redacted_file_count: int
+    excluded_workspace_file_count: int
     upload_plan_sha256: str
 
 
@@ -190,7 +185,7 @@ def build_community_harness_submission(
     summary = harness_lane_public_summary(run_dir)
     full_results = output_dir / FULL_RESULTS_DIRECTORY
     full_results.mkdir(parents=True, exist_ok=True)
-    redacted_count = _copy_redacted_tree(
+    redacted_count, excluded_count = _copy_redacted_tree(
         run_dir,
         full_results,
         host_roots=(run_dir.resolve(),),
@@ -199,14 +194,15 @@ def build_community_harness_submission(
     summary_path = output_dir / SUMMARY_OBJECT_NAME
     summary_path.write_bytes(_canonical_bytes(summary))
 
-    artifacts = _plan_artifacts(output_dir)
-    _enforce_caps(artifacts)
+    artifacts = plan_artifacts(
+        output_dir, exclude=(SUBMISSION_RECORD_NAME, UPLOAD_PLAN_NAME)
+    )
     plan_path = output_dir / UPLOAD_PLAN_NAME
     plan_path.write_bytes(
         _canonical_bytes(
             {
                 "schema_version": HF_UPLOAD_PLAN_SCHEMA_VERSION,
-                "mirror_repository": COMMUNITY_ARTIFACT_MIRROR,
+                "mirror_repository": COMMUNITY_HARNESS_ARTIFACT_MIRROR,
                 "revision_policy": "immutable-commit",
                 "artifacts": artifacts,
             }
@@ -233,6 +229,7 @@ def build_community_harness_submission(
         "artifact_count": len(artifacts),
         "total_bytes": total_bytes,
         "redacted_file_count": redacted_count,
+        "excluded_workspace_file_count": excluded_count,
     }
     (output_dir / SUBMISSION_RECORD_NAME).write_bytes(_canonical_bytes(record))
     enforce_publication_guardrails(
@@ -244,6 +241,7 @@ def build_community_harness_submission(
         artifact_count=len(artifacts),
         total_bytes=total_bytes,
         redacted_file_count=redacted_count,
+        excluded_workspace_file_count=excluded_count,
         upload_plan_sha256=plan_sha256,
     )
 
@@ -288,15 +286,15 @@ def validate_community_harness_submission(
     plan = _read_object(plan_path)
     if plan.get("schema_version") != HF_UPLOAD_PLAN_SCHEMA_VERSION:
         raise CommunityIntakeError(f"{UPLOAD_PLAN_NAME} has an unexpected schema")
-    if plan.get("mirror_repository") != COMMUNITY_ARTIFACT_MIRROR:
+    if plan.get("mirror_repository") != COMMUNITY_HARNESS_ARTIFACT_MIRROR:
         raise CommunityIntakeError(
-            f"{UPLOAD_PLAN_NAME} must target {COMMUNITY_ARTIFACT_MIRROR}"
+            f"{UPLOAD_PLAN_NAME} must target {COMMUNITY_HARNESS_ARTIFACT_MIRROR}"
         )
     artifacts = plan.get("artifacts")
     if not isinstance(artifacts, list) or not artifacts:
         raise CommunityIntakeError(f"{UPLOAD_PLAN_NAME} declares no artifacts")
-    declared = [_declared_artifact(item) for item in cast(list[object], artifacts)]
-    _enforce_caps(declared)
+    declared = [declared_artifact(item) for item in cast(list[object], artifacts)]
+    enforce_caps(declared)
 
     for artifact in declared:
         path = _resolve_declared_path(submission_dir, str(artifact["path"]))
@@ -325,15 +323,34 @@ def _copy_redacted_tree(
     *,
     host_roots: Sequence[Path],
     secret_values: Sequence[str],
-) -> int:
+) -> tuple[int, int]:
+    """Copy the run's evidence, leaving the mounted workspace behind.
+
+    Returns ``(redacted_file_count, excluded_workspace_file_count)``.
+
+    ``container-workspace`` is what this lane *staged into* the container, not
+    what the harness produced: on a Harvey LAB row it holds the projected
+    corpus documents themselves, and on every row it holds the sentinel token
+    file.  Publishing the first would republish case documents through a
+    community mirror, and the ``.txt`` publication guardrail refuses the second,
+    so a real run could not be packaged at all.  Excluding the tree fixes both,
+    and costs nothing on the LFB path: the answer travels in
+    ``private-logs/release-forecast-output.json`` and the transcript in
+    ``container-logs/`` and ``private-logs/``, all of which are kept.
+    """
+
     if not run_dir.is_dir():
         raise CommunityIntakeError(f"run directory is not a directory: {run_dir}")
     redacted_files = 0
+    excluded = 0
     copied = 0
     for path in sorted(run_dir.rglob("*")):
         if path.is_symlink():
             raise CommunityIntakeError(f"run directory contains a symlink: {path}")
         if not path.is_file():
+            continue
+        if CONTAINER_WORKSPACE_DIRECTORY in path.relative_to(run_dir).parts:
+            excluded += 1
             continue
         payload = path.read_bytes()
         if len(payload) > MAX_ARTIFACT_BYTES:
@@ -352,69 +369,7 @@ def _copy_redacted_tree(
         copied += 1
     if copied == 0:
         raise CommunityIntakeError(f"run directory holds no files: {run_dir}")
-    return redacted_files
-
-
-def _plan_artifacts(submission_dir: Path) -> list[dict[str, Any]]:
-    artifacts: list[dict[str, Any]] = []
-    for path in sorted(submission_dir.rglob("*")):
-        if not path.is_file() or path.is_symlink():
-            continue
-        relative = path.relative_to(submission_dir).as_posix()
-        if relative in {SUBMISSION_RECORD_NAME, UPLOAD_PLAN_NAME}:
-            continue
-        payload = path.read_bytes()
-        artifacts.append(
-            {
-                "artifact_id": relative,
-                "path": relative,
-                "sha256": f"sha256:{hashlib.sha256(payload).hexdigest()}",
-                "media_type": _MEDIA_TYPES.get(
-                    path.suffix.lower(), "application/octet-stream"
-                ),
-                "size_bytes": len(payload),
-            }
-        )
-    return artifacts
-
-
-def _declared_artifact(item: object) -> dict[str, Any]:
-    if not isinstance(item, Mapping):
-        raise CommunityIntakeError(f"{UPLOAD_PLAN_NAME} holds a non-object artifact")
-    record = cast(Mapping[str, Any], item)
-    path = record.get("path")
-    digest = record.get("sha256")
-    size = record.get("size_bytes")
-    if not isinstance(path, str) or not path:
-        raise CommunityIntakeError("declared artifact has no path")
-    if not isinstance(digest, str) or not digest.startswith("sha256:"):
-        raise CommunityIntakeError(f"{path} has no sha256: digest")
-    if _SHA256.fullmatch(digest.removeprefix("sha256:")) is None:
-        raise CommunityIntakeError(f"{path} digest is not a lowercase SHA-256")
-    if not isinstance(size, int) or isinstance(size, bool) or size < 0:
-        raise CommunityIntakeError(f"{path} has no size_bytes")
-    return {"path": path, "sha256": digest, "size_bytes": size}
-
-
-def _enforce_caps(artifacts: Sequence[Mapping[str, Any]]) -> None:
-    if len(artifacts) > MAX_ARTIFACT_COUNT:
-        raise CommunityIntakeError(
-            f"{len(artifacts)} artifacts exceeds the intake cap of {MAX_ARTIFACT_COUNT}"
-        )
-    total = 0
-    for artifact in artifacts:
-        size = int(artifact["size_bytes"])
-        if size > MAX_ARTIFACT_BYTES:
-            raise CommunityIntakeError(
-                f"{artifact['path']} declares {size} bytes; the intake cap is "
-                f"{MAX_ARTIFACT_BYTES}"
-            )
-        total += size
-    if total > MAX_TOTAL_BYTES:
-        raise CommunityIntakeError(
-            f"the submission declares {total} bytes; the intake cap is "
-            f"{MAX_TOTAL_BYTES}"
-        )
+    return redacted_files, excluded
 
 
 def _resolve_declared_path(submission_dir: Path, relative: str) -> Path:

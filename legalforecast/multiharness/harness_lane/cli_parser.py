@@ -6,20 +6,26 @@ each harness needs its own image, its own login, and its own egress
 allowlist, so five harnesses are five invocations with five output
 directories, joined at report time rather than in one process.
 
-Only ``preflight`` is exposed, because only ``preflight`` is honest today --
-it answers "would this run start?" without buying a token.  The flags it takes
-are the run's full control surface (harness, manifest, auth profile, task
-selection, output directory, egress rules) so that wiring an executing
-sibling later is a handler, not a redesign.
+``preflight`` is the only command here that touches a run before it starts,
+because only ``preflight`` is honest today -- it answers "would this run
+start?" without buying a token.  The flags it takes are the run's full control
+surface (harness, manifest, auth profile, task selection, output directory,
+egress rules) so that wiring an executing sibling later is a handler, not a
+redesign.
+
+``submit`` and ``check-submission`` come from :mod:`.community_submit` and act
+on a run that already finished, so a contributor has one place to look for the
+whole lane rather than a subcommand here and a module entry point elsewhere.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from legalforecast._json_io import read_json_object, write_json_object_safe
 from legalforecast.immutable_io import ImmutableIOError, ensure_private_directory
@@ -40,6 +46,26 @@ from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.spec import TaskIndex
 
 PREFLIGHT_REPORT_NAME = "harness-preflight.json"
+
+
+class _ParserRegistration(Protocol):
+    def __call__(self, harness_commands: Any) -> None: ...
+
+
+# Reached through an entry point rather than an import.  ``community_submit``
+# pulls in ``community_intake`` and the publication guardrails, and a static
+# edge from this parser would close an import cycle back through
+# ``legalforecast.protocol`` -- the same reason ``cli_commands`` reaches its
+# verifiers this way.  The subcommands still register eagerly, at parser
+# construction, so ``--help`` lists them.
+_COMMUNITY_SUBMISSION_PARSERS = importlib.metadata.EntryPoint(
+    name="harness-lane-community-submission-parsers",
+    value=(
+        "legalforecast.multiharness.harness_lane.community_submit:"
+        "add_community_submission_parsers"
+    ),
+    group="legalforecast.internal",
+)
 
 
 def add_harness_parser(commands: Any) -> None:
@@ -121,6 +147,7 @@ def add_harness_parser(commands: Any) -> None:
         default=BACKEND_DOCKER,
     )
     preflight.set_defaults(handler=cmd_harness_preflight)
+    cast(_ParserRegistration, _COMMUNITY_SUBMISSION_PARSERS.load())(harness_commands)
 
 
 def cmd_harness_preflight(args: argparse.Namespace) -> int:
