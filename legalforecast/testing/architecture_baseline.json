@@ -78,6 +78,7 @@
       "tests/test_locked_run_manifest_consumer.py",
       "tests/test_multiharness_adapter_registry.py",
       "tests/test_multiharness_cli.py",
+      "tests/test_multiharness_harness_lane_run.py",
       "tests/test_multiharness_tier0_runner.py",
       "tests/test_official_paid_labeling_baton_cli.py",
       "tests/test_official_run_runbook.py",
@@ -221,6 +222,7 @@
       "tests/test_locked_run_manifest_consumer.py",
       "tests/test_multiharness_adapter_registry.py",
       "tests/test_multiharness_cli.py",
+      "tests/test_multiharness_harness_lane_run.py",
       "tests/test_multiharness_tier0_runner.py",
       "tests/test_official_paid_labeling_baton_cli.py",
       "tests/test_official_run_runbook.py",
@@ -2741,6 +2743,7 @@
       "tests/test_locked_run_manifest_consumer.py",
       "tests/test_multiharness_adapter_registry.py",
       "tests/test_multiharness_cli.py",
+      "tests/test_multiharness_harness_lane_run.py",
       "tests/test_multiharness_tier0_runner.py",
       "tests/test_official_paid_labeling_baton_cli.py",
       "tests/test_official_run_runbook.py",
@@ -3262,6 +3265,7 @@
       "tests/test_locked_run_manifest_consumer.py::legalforecast.cli.main",
       "tests/test_multiharness_adapter_registry.py::legalforecast.cli.main",
       "tests/test_multiharness_cli.py::legalforecast.cli.main",
+      "tests/test_multiharness_harness_lane_run.py::legalforecast.cli.main",
       "tests/test_multiharness_tier0_runner.py::legalforecast.cli.main",
       "tests/test_official_paid_labeling_baton_cli.py::legalforecast.cli.main",
       "tests/test_official_run_runbook.py::legalforecast.cli.build_parser",
@@ -4074,8 +4078,8 @@
       "legalforecast/ingestion/stage_a_replay_executor": 17,
       "legalforecast/labeling": 13,
       "legalforecast/multiharness": 72,
-      "legalforecast/multiharness/container_harness": 6,
-      "legalforecast/multiharness/harness_lane": 6,
+      "legalforecast/multiharness/container_harness": 10,
+      "legalforecast/multiharness/harness_lane": 12,
       "legalforecast/multiharness/harness_vocab": 1,
       "legalforecast/multiharness/subscription": 2,
       "legalforecast/protocol": 4,
@@ -4089,7 +4093,7 @@
       "legalforecast/testing/cli_corpus": 12,
       "legalforecast/unitization": 10,
       "scripts": 16,
-      "tests": 522,
+      "tests": 527,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -7619,7 +7623,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 2,
-        "fan_out": 26,
+        "fan_out": 27,
         "flags": [
           "cycle",
           "oversized"
@@ -7628,9 +7632,9 @@
         "largest_symbol": "add_multiharness_parser",
         "largest_symbol_lines": 394,
         "layer": "application",
-        "line_count": 1537,
-        "nonblank_line_count": 1413,
-        "top_level_definition_count": 45
+        "line_count": 1498,
+        "nonblank_line_count": 1380,
+        "top_level_definition_count": 42
       },
       "legalforecast/multiharness/codex_cli.py": {
         "cycle_id": "",
@@ -7654,7 +7658,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 4,
+        "fan_in": 5,
         "fan_out": 8,
         "flags": [
           "oversized"
@@ -7841,7 +7845,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 9,
+        "fan_in": 10,
         "fan_out": 5,
         "flags": [
           "oversized"
@@ -7875,7 +7879,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 14,
+        "fan_in": 18,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -7909,7 +7913,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 8,
+        "fan_in": 9,
         "fan_out": 5,
         "flags": [
           "oversized"
@@ -7961,7 +7965,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 6,
+        "fan_in": 7,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -8014,7 +8018,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 4,
+        "fan_in": 6,
         "fan_out": 9,
         "flags": [
           "watch"
@@ -8065,7 +8069,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 10,
+        "fan_in": 12,
         "fan_out": 6,
         "flags": [
           "watch"
@@ -8082,7 +8086,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 40,
+        "fan_in": 44,
         "fan_out": 1,
         "flags": [
           "watch"
@@ -8116,7 +8120,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 4,
+        "fan_in": 5,
         "fan_out": 10,
         "flags": [
           "watch"
@@ -8220,7 +8224,7 @@
         "cycle_id": "legalforecast/acquisition_completion_summary_cli.py,legalforecast/cli.py,legalforecast/cli_commands/attachment_pages.py,legalforecast/cli_commands/corpus_manifest.py,legalforecast/cli_commands/manifest_run_source_package.py,legalforecast/cli_commands/report.py,legalforecast/cli_commands/score.py,legalforecast/evals/corpus_manifest/cost_projector.py,legalforecast/evals/corpus_manifest/cost_projector_auth.py,legalforecast/evals/corpus_manifest/cost_projector_contract.py,legalforecast/evals/corpus_manifest/execution_decisions.py,legalforecast/evals/corpus_manifest/execution_scope.py,legalforecast/evals/corpus_manifest/stage51_r2.py,legalforecast/evals/corpus_manifest/supplementary_mode.py,legalforecast/evals/corpus_manifest/unitizer.py,legalforecast/evals/corpus_manifest/unitizer_publication.py,legalforecast/evals/corpus_manifest/unitizer_replay.py,legalforecast/evals/per_case_runner.py,legalforecast/extraction/pdf_text.py,legalforecast/ingestion/__init__.py,legalforecast/ingestion/attachment_page/__init__.py,legalforecast/ingestion/attachment_page/authorization.py,legalforecast/ingestion/attachment_page/execute.py,legalforecast/ingestion/attachment_page/journal.py,legalforecast/ingestion/attachment_page/plan.py,legalforecast/ingestion/budgeted_docket_acquisition.py,legalforecast/ingestion/case_dev_provisional_frontier.py,legalforecast/ingestion/case_dev_purchase.py,legalforecast/ingestion/case_dev_ranked_selection.py,legalforecast/ingestion/case_dev_recap_batch.py,legalforecast/ingestion/clearance_replacement.py,legalforecast/ingestion/cohort_document_materializer.py,legalforecast/ingestion/corpus_completion_summary.py,legalforecast/ingestion/courtlistener_case_dev_bridge.py,legalforecast/ingestion/courtlistener_recap_fetch.py,legalforecast/ingestion/cycle_lineage_index.py,legalforecast/ingestion/cycle_manifest_template.py,legalforecast/ingestion/cycle_orchestrator.py,legalforecast/ingestion/cycle_path_metadata.py,legalforecast/ingestion/cycle_preflight_manifest.py,legalforecast/ingestion/decision_text_artifact.py,legalforecast/ingestion/disclosure_clearance.py,legalforecast/ingestion/disclosure_model_review.py,legalforecast/ingestion/disclosure_model_review_authority.py,legalforecast/ingestion/disclosure_review_bundle.py,legalforecast/ingestion/docket_decision_text_source.py,legalforecast/ingestion/document_repair_acquire.py,legalforecast/ingestion/document_repair_executor.py,legalforecast/ingestion/document_repair_purchase_approval.py,legalforecast/ingestion/document_repair_purchase_cli.py,legalforecast/ingestion/document_repair_resume.py,legalforecast/ingestion/document_repair_resume_cli.py,legalforecast/ingestion/downstream_lineage_verification.py,legalforecast/ingestion/downstream_rehearsal.py,legalforecast/ingestion/embedded_text_layer_repair.py,legalforecast/ingestion/exact100_successor_predecessor_coverage_v2.py,legalforecast/ingestion/exact100_successor_replacement.py,legalforecast/ingestion/exact100_successor_replacement_cli.py,legalforecast/ingestion/exact100_successor_replacement_v2.py,legalforecast/ingestion/exact100_successor_replacement_v2_cli.py,legalforecast/ingestion/exact100_successor_v3/cli.py,legalforecast/ingestion/exact100_terminal_recovery_authority_v3/authority.py,legalforecast/ingestion/exact100_zero_cost_recovery.py,legalforecast/ingestion/exact100_zero_cost_recovery_cli.py,legalforecast/ingestion/firecrawl_docket_recovery.py,legalforecast/ingestion/free_only_materialization.py,legalforecast/ingestion/free_support_memorandum_recovery.py,legalforecast/ingestion/frozen_parser_model/loader.py,legalforecast/ingestion/live_parse_record_provenance.py,legalforecast/ingestion/mistral_markdown_parser.py,legalforecast/ingestion/model_packet_assembly.py,legalforecast/ingestion/packet_build_replay.py,legalforecast/ingestion/packet_input_planner.py,legalforecast/ingestion/packet_role_adjudication.py,legalforecast/ingestion/post_selection_terminal_exclusion.py,legalforecast/ingestion/provenance_clearance.py,legalforecast/ingestion/public_packet_planner.py,legalforecast/ingestion/purchase_approval.py,legalforecast/ingestion/purchase_spend_summary.py,legalforecast/ingestion/purchased_document_recovery.py,legalforecast/ingestion/ranked_reserve_replacement.py,legalforecast/ingestion/readiness_provenance.py,legalforecast/ingestion/recap_fetch_attempt_policy.py,legalforecast/ingestion/recap_fetch_broker_policy.py,legalforecast/ingestion/recap_fetch_quarantine_recovery.py,legalforecast/ingestion/recovered_public_replay.py,legalforecast/ingestion/replacement_purchase_approval.py,legalforecast/ingestion/replacement_recovery_v3_register.py,legalforecast/ingestion/resolved_post_recovery.py,legalforecast/ingestion/retained_cohort_extension.py,legalforecast/ingestion/stage_a_lineage_verification.py,legalforecast/ingestion/successor_rerun_impact.py,legalforecast/ingestion/successor_rerun_proposal.py,legalforecast/ingestion/supporting_document_successor_cli.py,legalforecast/ingestion/target_cohort_projection.py,legalforecast/ingestion/target_public_gap_refresh.py,legalforecast/ingestion/target_raw_docket_auxiliary_provenance.py,legalforecast/ingestion/target_raw_docket_recovery.py,legalforecast/ingestion/terminal_purchase_failure.py,legalforecast/ingestion/terminal_subset_promotion.py,legalforecast/ingestion/text_layer_completeness.py,legalforecast/ingestion/zero_cost_successor.py,legalforecast/labeling/cycle_label_audit.py,legalforecast/labeling/llm_pipeline.py,legalforecast/labeling/official_paid_baton.py,legalforecast/labeling/unitizer_terminal.py,legalforecast/protocol/__init__.py,legalforecast/protocol/freeze.py,legalforecast/protocol/policy_artifacts.py,legalforecast/publication/dispatch_provenance.py,legalforecast/publication/manifest_forecast_stage.py,legalforecast/publication/manifest_forecast_stage_lane.py,legalforecast/publication/manifest_run_source_package.py,legalforecast/publication/official_aggregate.py",
         "disposition_kind": "planned-seam",
         "disposition_owner": "LegalForecastBench-l8qv.9",
-        "fan_in": 16,
+        "fan_in": 17,
         "fan_out": 9,
         "flags": [
           "cycle",
@@ -10614,6 +10618,24 @@
         "nonblank_line_count": 567,
         "top_level_definition_count": 21
       },
+      "tests/test_kimi_container_adapter.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_adapter_runs_the_manifest_argv_but_cannot_project_the_answer_yet",
+        "largest_symbol_lines": 72,
+        "layer": "test",
+        "line_count": 522,
+        "nonblank_line_count": 446,
+        "top_level_definition_count": 24
+      },
       "tests/test_live_model_solver.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
@@ -10990,11 +11012,11 @@
           "watch"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "test_multiharness_task_folder_selects_projected_layout",
+        "largest_symbol": "test_multiharness_synthetic_run_and_report",
         "largest_symbol_lines": 68,
         "layer": "test",
-        "line_count": 996,
-        "nonblank_line_count": 907,
+        "line_count": 969,
+        "nonblank_line_count": 879,
         "top_level_definition_count": 27
       },
       "tests/test_multiharness_codex_cli.py": {
@@ -11065,6 +11087,23 @@
         "line_count": 559,
         "nonblank_line_count": 493,
         "top_level_definition_count": 17
+      },
+      "tests/test_multiharness_harness_lane_run.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_container_lane_lfb_run_produces_scoreable_artifacts",
+        "largest_symbol_lines": 120,
+        "layer": "test",
+        "line_count": 766,
+        "nonblank_line_count": 682,
+        "top_level_definition_count": 21
       },
       "tests/test_multiharness_harvey_lab_adapter.py": {
         "cycle_id": "",

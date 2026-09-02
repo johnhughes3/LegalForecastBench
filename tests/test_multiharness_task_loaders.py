@@ -13,6 +13,11 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
+from legalforecast.multiharness.harness_lane.task_sources import (
+    TASK_SOURCE_LFB,
+    TaskSourceError,
+    resolve_task_source,
+)
 from legalforecast.multiharness.task_loaders import (
     HarveyLabTaskLoader,
     LfbTaskLoader,
@@ -202,6 +207,49 @@ def test_harvey_lab_task_loader_rejects_missing_task_json(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match=r"task\.json"):
         HarveyLabTaskLoader(tmp_path).load_task_directory(task_dir)
+
+
+def test_lfb_task_source_selects_benchmark_packets(tmp_path: Path) -> None:
+    """The benchmark corpus stays selectable through the same front door."""
+
+    packet_path = tmp_path / "packets.jsonl"
+    write_jsonl_objects(packet_path, (_model_packet().to_record(),))
+
+    resolved = resolve_task_source(
+        source=TASK_SOURCE_LFB,
+        packets=packet_path,
+        suite_version="fixture-suite",
+    )
+
+    assert resolved.source == TASK_SOURCE_LFB
+    assert resolved.folder is None
+    selected = resolved.select()
+    assert [task.task_id for task in selected.tasks] == [
+        resolved.task_index.tasks[0].task_id
+    ]
+    assert selected.coverage_kind == "full"
+    assert resolved.task_index.tasks[0].family == "legalforecast_mtd"
+    assert resolved.task_index.tasks[0].scoring_mode == "lfb_brier"
+    record = resolved.to_public_record()
+    assert record["task_source"] == TASK_SOURCE_LFB
+    assert str(tmp_path) not in json.dumps(record)
+
+
+def test_lfb_task_source_refuses_a_harvey_lab_category(tmp_path: Path) -> None:
+    packet_path = tmp_path / "packets.jsonl"
+    write_jsonl_objects(packet_path, (_model_packet().to_record(),))
+
+    with pytest.raises(TaskSourceError, match="Harvey LAB selector"):
+        resolve_task_source(
+            source=TASK_SOURCE_LFB,
+            packets=packet_path,
+            categories=("immigration",),
+        )
+
+
+def test_lfb_task_source_needs_the_packet_jsonl() -> None:
+    with pytest.raises(TaskSourceError, match="model-packet JSONL"):
+        resolve_task_source(source=TASK_SOURCE_LFB)
 
 
 def _model_packet():

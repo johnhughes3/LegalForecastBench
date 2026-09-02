@@ -1,0 +1,3 @@
+# The staged agy binary: a 208 MB third-party executable, never committed.
+# Stage it with: cp "$(command -v agy)" infra/harness-images/agy/agy
+agy
