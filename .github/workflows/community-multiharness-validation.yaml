@@ -73,6 +73,7 @@ jobs:
             tests/test_multiharness_lfb_native.py \
             tests/test_multiharness_harvey_lab_adapter.py \
             tests/test_multiharness_cli.py \
+            tests/test_multiharness_harness_lane_community_intake.py \
             tests/test_community_submission.py \
             tests/test_community_publication.py \
             tests/test_community_multiharness_workflow.py
@@ -104,6 +105,28 @@ jobs:
           if roots:
               enforce_publication_guardrails(PublicationGuardrailConfig(public_paths=roots))
           print(f"guardrail-scanned {len(roots)} community submission package(s)")
+          PY
+
+      - name: Validate community harness-lane submissions
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          from legalforecast.multiharness.harness_lane.community_intake import (
+              validate_community_harness_submission,
+          )
+
+          roots = tuple(
+              sorted(
+                  path.parent
+                  for path in Path("community/submissions").rglob(
+                      "community-harness-submission.json"
+                  )
+              )
+          )
+          for root in roots:
+              validate_community_harness_submission(root)
+          print(f"validated {len(roots)} harness-lane submission(s)")
           PY
 
       - name: Plan community aggregate

@@ -1,0 +1,186 @@
+name: Community Harness Lane Intake
+
+# Publishes ONE community harness-lane submission -- the contributor's full,
+# light-redacted run results -- to the Hugging Face dataset repository this
+# project hosts for community artifacts.
+#
+# WHAT A COMMUNITY SUBMISSION IS NOT. It is not an official LegalForecastBench
+# result and never becomes one. It is contributor-run and contributor-funded,
+# it never enters the official aggregate, and the package itself says so:
+# community-harness-submission.json carries official=false, result_class
+# community_harness_lane, and the attestation
+# not_official_legalforecastbench_result. This workflow refuses a package that
+# does not.
+#
+# WHY THE FULL BYTES CAN TRAVEL AT ALL. The lane's evidence is the transcript,
+# and a containerized row's transcript has nothing of the operator in it to
+# begin with: build_harness_run_argv gives the harness container exactly two
+# bind mounts -- the task workspace and a freshly staged HOME holding only the
+# declared credential files -- constructs its environment rather than inheriting
+# one, and puts it on an internal network whose only door is the allowlist
+# proxy. So the intake scrubs what is genuinely host-side (absolute paths from
+# the host half of the run, and credential values) and keeps prompts,
+# reasoning, tool calls, tool outputs and answers verbatim. A transcript
+# scrubbed into unreadability would defeat the point of accepting it.
+#
+# WHY IT IS MAINTAINER-TRIGGERED. This accepts bytes from strangers into storage
+# we host, so nothing here may run from a pull_request event. A maintainer reads
+# the PR, merges it, and then dispatches this workflow at an exact commit. The
+# job re-validates from scratch before it uploads anything: size caps, then
+# every declared digest against the actual bytes, then the publication secret
+# scan. Contributors never receive a credential to anything of ours.
+#
+# ONE-TIME HUMAN BOOTSTRAP (not reachable from an Actions run):
+#   1. Confirm the Hugging Face dataset repository named by
+#      LFB_HF_COMMUNITY_DATASET_REPO exists and its access settings are the ones
+#      docs/community-submissions.md describes.
+#   2. Add a Hugging Face Trusted Publisher entry for this repository, branch
+#      main, workflow community-harness-intake.yaml, scoped to that dataset.
+#      Trusted Publisher entries are per workflow FILENAME: an entry naming
+#      fan-in-publish-legacy.yaml will not authorize this file.
+#   3. Create the GitHub environment legalforecastbench-community-artifacts,
+#      restricted to main, and set LFB_HF_COMMUNITY_DATASET_REPO on it through
+#      secure-gate (namespace/repository, no URL and no datasets/ prefix).
+# No durable HF_TOKEN is created at any point.
+
+on:
+  workflow_dispatch:
+    inputs:
+      submission_dir:
+        description: >-
+          Checked-out path of the merged submission package, e.g.
+          community/submissions/2026/<submission-id>. Must be tracked at the
+          dispatched commit.
+        required: true
+        type: string
+      release_path:
+        description: >-
+          Immutable destination prefix inside the dataset repository, e.g.
+          harness-lane/2026/<submission-id>. Refused if it already exists.
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: community-harness-intake-${{ inputs.release_path }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Validate and publish one community harness-lane submission
+    environment: legalforecastbench-community-artifacts
+    permissions:
+      contents: read
+      id-token: write
+    # Unset CI_RUNNER (Dependabot and public johnhughes3 repos cannot see the
+    # private org variable) must fall back to ubicloud-standard-2, not ubuntu-latest.
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Refuse a submission path outside the community registry
+        shell: bash
+        env:
+          SUBMISSION_DIR: ${{ inputs.submission_dir }}
+          RELEASE_PATH: ${{ inputs.release_path }}
+        run: |
+          set -euo pipefail
+          case "${SUBMISSION_DIR}" in
+            community/submissions/*/*) ;;
+            *)
+              echo "submission_dir must live under community/submissions/<year>/" >&2
+              exit 1
+              ;;
+          esac
+          case "${SUBMISSION_DIR}${RELEASE_PATH}" in
+            *..*|/*|*' '*)
+              echo "submission_dir and release_path must be plain relative paths" >&2
+              exit 1
+              ;;
+          esac
+          # Dispatched inputs are not evidence; the tracked tree is.
+          git ls-files --error-unmatch "${SUBMISSION_DIR}/community-harness-submission.json" >/dev/null
+
+      - name: Validate caps, declared digests, and secret scan
+        shell: bash
+        env:
+          SUBMISSION_DIR: ${{ inputs.submission_dir }}
+        run: |
+          set -euo pipefail
+          uv run python -m legalforecast.multiharness.harness_lane.community_intake_cli \
+            validate --submission-dir "${SUBMISSION_DIR}"
+
+      - name: Publish the validated artifacts to the community dataset
+        shell: bash
+        env:
+          HF_OIDC_RESOURCE: datasets/${{ vars.LFB_HF_COMMUNITY_DATASET_REPO }}
+          HF_REPOSITORY: ${{ vars.LFB_HF_COMMUNITY_DATASET_REPO }}
+          RELEASE_PATH: ${{ inputs.release_path }}
+          SUBMISSION_DIR: ${{ inputs.submission_dir }}
+        run: |
+          set -euo pipefail
+          [[ -n "${HF_REPOSITORY:-}" ]] || {
+            echo "LFB_HF_COMMUNITY_DATASET_REPO must be set on the environment." >&2
+            exit 1
+          }
+          uv run --no-project --with huggingface_hub==1.28.0 python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from huggingface_hub import HfApi
+
+          repository = os.environ["HF_REPOSITORY"]
+          release_path = os.environ["RELEASE_PATH"].strip("/")
+          submission_dir = Path(os.environ["SUBMISSION_DIR"])
+          if not release_path:
+              raise SystemExit("refusing publication: empty release path")
+          # The destination has to be provable from the bytes that went through
+          # review, not only from a dispatch-time variable: the plan the
+          # contributor signed names the mirror, and this is where they must agree.
+          plan = json.loads((submission_dir / "hf-upload-plan.json").read_text())
+          mirror = str(plan.get("mirror_repository", ""))
+          if not mirror.rstrip("/").endswith(f"/{repository}"):
+              raise SystemExit(
+                  f"refusing publication: the upload plan names {mirror}, "
+                  f"not {repository}"
+              )
+          api = HfApi()
+          info = api.dataset_info(repository)
+          remote = api.list_repo_files(repo_id=repository, repo_type="dataset")
+          prefix = f"{release_path}/"
+          if any(name == release_path or name.startswith(prefix) for name in remote):
+              raise SystemExit(
+                  f"refusing publication: immutable path already exists: {release_path}"
+              )
+          commit = api.upload_folder(
+              repo_id=repository,
+              repo_type="dataset",
+              folder_path=str(submission_dir),
+              path_in_repo=release_path,
+              commit_message=(
+                  f"Community harness-lane submission {submission_dir.name} "
+                  "(not an official LegalForecastBench result)"
+              ),
+              parent_commit=info.sha,
+          )
+          print(f"Published community revision: {commit.oid}")
+          print(
+              "This is a community submission. It is not an official "
+              "LegalForecastBench result."
+          )
+          PY

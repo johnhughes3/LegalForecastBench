@@ -247,9 +247,21 @@ def test_lfb_task_source_refuses_a_harvey_lab_category(tmp_path: Path) -> None:
         )
 
 
-def test_lfb_task_source_needs_the_packet_jsonl() -> None:
-    with pytest.raises(TaskSourceError, match="model-packet JSONL"):
+def test_lfb_task_source_needs_a_corpus() -> None:
+    with pytest.raises(TaskSourceError, match="task source 'lfb' needs a corpus"):
         resolve_task_source(source=TASK_SOURCE_LFB)
+
+
+def test_lfb_task_source_refuses_both_corpus_inputs(tmp_path: Path) -> None:
+    """Packets and a forecast release name different corpora, not one corpus."""
+
+    with pytest.raises(TaskSourceError, match=r"not\s+both"):
+        resolve_task_source(
+            source=TASK_SOURCE_LFB,
+            packets=tmp_path / "packets.jsonl",
+            forecast_release=tmp_path / "forecast-release.json",
+            artifact_root=tmp_path,
+        )
 
 
 def _model_packet():

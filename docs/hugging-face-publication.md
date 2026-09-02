@@ -56,6 +56,10 @@ These are access conditions, not a claim that court records are proprietary. Hug
 
 The current publisher accepts only the already sanitized official aggregate. Source documents or other case materials may be added only through an authenticated, separately reviewed public-release artifact; they must never be copied from private-debug, acquisition, provider-response, or audit-store paths merely because the HF repository is gated.
 
+## Community harness-lane artifacts
+
+A second, separate dataset repository holds community submissions, and nothing about it touches the official path above. A contributor packages a containerized harness-lane run, opens a pull request carrying it, and a maintainer dispatches `.github/workflows/community-harness-intake.yaml`, which re-validates every declared digest against the actual bytes and uploads to an immutable path. That workflow uses the same no-durable-token model — GitHub OIDC exchanged for a repository-scoped Hugging Face token — but a *separate* Trusted Publisher entry, because Trusted Publisher entries are scoped to a workflow filename. Community rows are never official results; see [community-submissions.md](community-submissions.md).
+
 ## Current HF limitations
 
 - Manual gating is configured outside repository YAML and should be checked after repository creation.

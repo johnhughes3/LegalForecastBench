@@ -5724,6 +5724,32 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "forecast_release",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--forecast-release"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "artifact_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--artifact-root"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "projected_root",
           "metavar": null,
           "nargs": null,

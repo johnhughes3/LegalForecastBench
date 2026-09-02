@@ -1,0 +1,17 @@
+{
+  "lfb-web-fence-shared-root": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "^(search_web|read_url_content|[a-z_]*browser[a-z_]*)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/local/bin/lfb-agy-deny-web-tools",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
