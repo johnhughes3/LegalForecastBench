@@ -6,7 +6,6 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-import legalforecast.multiharness.harvey_lab_production_runner as production_runner
 import pytest
 from legalforecast.multiharness.deliverables import single_artifact_tree_sha256
 from legalforecast.multiharness.harvey_lab_evaluator import (
@@ -234,8 +233,7 @@ def test_production_runner_parses_the_same_bytes_used_for_private_digest(
         return digest, files
 
     monkeypatch.setattr(
-        production_runner,
-        "harvey_lab_private_material_snapshot",
+        "legalforecast.multiharness.harvey_lab_production_runner.harvey_lab_private_material_snapshot",
         snapshot_then_mutate,
     )
 
