@@ -94,7 +94,7 @@ def test_release_check_plans_installed_artifact_smokes(tmp_path: Path) -> None:
 
     assert labels == [
         "installed wheel CLI help smoke",
-        "installed wheel fixture E2E",
+        "installed wheel fixture run smoke",
         "installed sdist CLI help smoke",
     ]
     assert all("--no-project" in command for command in commands)

@@ -70,8 +70,27 @@ uv run legalforecast run issue-fixture --output-dir tmp/fixture-run
 ```
 
 The fixture writes one packet per prediction unit under
-`tmp/fixture-run/release/packets/`. To use the multiharness indexer, provide a
-JSONL packet export from the public release.
+`tmp/fixture-run/release/packets/`, alongside the `forecast-release.json` that
+commits them. Index that release directly:
+
+```bash
+mkdir -p tmp/multiharness
+
+uv run legalforecast multiharness tasks index \
+  --suite lfb \
+  --forecast-release tmp/fixture-run/release/forecast-release.json \
+  --artifact-root tmp/fixture-run/release \
+  --solver-input-root tmp/multiharness/lfb-solver-input \
+  --output tmp/multiharness/lfb-index.json
+```
+
+That writes an index of three tasks, one per fixture prediction unit.
+`--solver-input-root` is a private store of the exact solver-visible prompts;
+keep it out of anything you publish. Its parent directory has to exist and the
+store itself has to be absent, or indexing refuses with `solver input
+destination must be fresh`; clear a previous one with `chmod -R u+w
+tmp/multiharness/lfb-solver-input && rm -rf tmp/multiharness/lfb-solver-input`
+before re-indexing.
 
 ### Harvey LAB category
 
@@ -154,15 +173,18 @@ Fixture-first run over the LFB index (no credentials):
 ```bash
 uv run legalforecast multiharness run \
   --task-index tmp/multiharness/lfb-index.json \
+  --solver-input-root tmp/multiharness/lfb-solver-input \
   --adapter-manifest examples/adapters/openai-responses/fixture-adapter-manifest.json \
   --model-key fixture-model \
   --output-dir tmp/multiharness/run \
   --run-id fixture-walkthrough
 ```
 
-Stderr reports `Run completed (1/1 succeeded)` and the path of `run-progress.json`. Host process-group containment is the default; you do not pass `--host-process-containment` for this fixture.
+Stderr reports the run tally and the path of `run-progress.json`. Host process-group containment is the default; you do not pass `--host-process-containment` for this fixture.
 
-The LFB fixture index is **one task** and usually finishes in about a second. Ctrl-C often cannot catch it. That is expected. Interrupt and remainder-only resume are for longer selections, which is what a LAB category gives you. After this one-task run finishes, `--resume` is a no-op.
+**Known limitation.** Release-indexed LFB tasks currently refuse the bundled fixture adapter — every row fails with `release adapter requires authenticated solver input`, so this command reports `Run completed (0/3 succeeded)` ([#1051](https://github.com/johnhughes3/LegalForecastBench/issues/1051)). Read the LFB commands as the indexing path, not as a finished end-to-end walkthrough, and use the LAB category below for a fixture run that completes.
+
+Interrupt and remainder-only resume are for longer selections, which is what a LAB category gives you.
 
 Category-scoped LAB run over the index you projected above:
 
@@ -187,6 +209,7 @@ Resume with the same command plus `--resume`:
 ```bash
 uv run legalforecast multiharness run \
   --task-index tmp/multiharness/lfb-index.json \
+  --solver-input-root tmp/multiharness/lfb-solver-input \
   --adapter-manifest examples/adapters/openai-responses/fixture-adapter-manifest.json \
   --model-key fixture-model \
   --output-dir tmp/multiharness/run \

@@ -323,7 +323,7 @@ def build_installed_cli_steps(
             (*base_command, "--with", str(wheel_path), "legalforecast", "--help"),
         ),
         CheckStep(
-            "installed wheel fixture E2E",
+            "installed wheel fixture run smoke",
             (
                 *base_command,
                 "--with",
