@@ -26,9 +26,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Fetch origin/main for the acquisition-config fence
-        run: git fetch --no-tags origin main:refs/remotes/origin/main
+          # Full history/refs (including origin/main) so the acquisition-config
+          # fence step below can `git show origin/main:...` without a separate
+          # authenticated fetch. A bare `git fetch` after this step has no
+          # credentials to use, since persist-credentials is false on purpose
+          # (it stops later steps from reusing the checkout token) — see
+          # legalforecastbench-58v3 for the same failure mode elsewhere.
+          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
