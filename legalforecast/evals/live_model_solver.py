@@ -375,9 +375,11 @@ def complete_live_prompt(
         )
     )
     latency_ms = (time.perf_counter() - started) * 1000
-    if openai_service_tier_observer is not None and _is_openai_provider(registry_entry):
-        openai_service_tier_observer(_observed_openai_service_tier(payload))
     try:
+        if openai_service_tier_observer is not None and _is_openai_provider(
+            registry_entry
+        ):
+            openai_service_tier_observer(_observed_openai_service_tier(payload))
         response_fields = validate_provider_response_fields(registry_entry, payload)
         settled = _prior_settled_accounting(attempt_handler, durable_attempt_ordinal)
         if settled is not None:

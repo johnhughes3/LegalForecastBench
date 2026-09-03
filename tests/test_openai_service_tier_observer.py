@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
@@ -59,6 +61,71 @@ def test_openai_observes_service_tier_before_invalid_response_validation(
         )
 
     assert observed_tiers == [OPENAI_SERVICE_TIER]
+
+
+def test_openai_observer_failure_is_recorded_as_post_response_failure() -> None:
+    handler = _RecordingAttemptHandler()
+
+    def boom(_tier: str) -> None:
+        raise RuntimeError("observer unavailable")
+
+    with pytest.raises(RuntimeError, match="observer unavailable"):
+        complete_live_prompt(
+            _openai_entry(),
+            "Predict the case outcome.",
+            environ={"OPENAI_API_KEY": "openai-secret"},
+            transport=lambda _request, _timeout: {
+                "model": "gpt-test-2026-05-14",
+                "output_text": '{"predictions":[]}',
+                "service_tier": OPENAI_SERVICE_TIER,
+                "status": "completed",
+                "usage": {"input_tokens": 1000, "output_tokens": 250},
+            },
+            attempt_handler=handler,
+            openai_service_tier_observer=boom,
+        )
+
+    assert handler.events == [
+        ("run", 1),
+        ("post_response_failure", 41, "RuntimeError"),
+    ]
+
+
+@dataclass(slots=True)
+class _RecordingAttemptHandler:
+    events: list[tuple[object, ...]] = field(default_factory=list[tuple[object, ...]])
+
+    def run_attempt(
+        self,
+        attempt_ordinal: int,
+        call: Callable[[], Mapping[str, object]],
+    ) -> Mapping[str, object]:
+        self.events.append(("run", attempt_ordinal))
+        return call()
+
+    def settle_attempt(
+        self,
+        attempt_ordinal: int,
+        *,
+        input_tokens: int,
+        output_tokens: int,
+        actual_cost_usd: float,
+        raw_output: str,
+    ) -> None:
+        del attempt_ordinal, input_tokens, output_tokens, actual_cost_usd, raw_output
+
+    def durable_attempt_ordinal(self, local_ordinal: int) -> int:
+        return local_ordinal + 40
+
+    def record_post_response_failure(
+        self,
+        durable_attempt_ordinal: int,
+        *,
+        failure_type: str,
+    ) -> None:
+        self.events.append(
+            ("post_response_failure", durable_attempt_ordinal, failure_type)
+        )
 
 
 def _openai_entry() -> ModelRegistryEntry:
