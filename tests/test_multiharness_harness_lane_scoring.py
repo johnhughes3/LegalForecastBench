@@ -44,6 +44,7 @@ from tests.test_multiharness_harness_lane_run import (
     _label_record,  # pyright: ignore[reportPrivateUsage]
     _lane_manifest_record,  # pyright: ignore[reportPrivateUsage]
     _run_multiharness,  # pyright: ignore[reportPrivateUsage]
+    _scored_spec,  # pyright: ignore[reportPrivateUsage]
     run_legalforecast,
 )
 from tests.test_multiharness_harness_lane_run import (
@@ -128,7 +129,7 @@ def test_lfb_release_task_source_scores_end_to_end(
     )
 
     # The exact private prompt reached the container and nothing published it.
-    assert prompt in fake_container["specs"][0].harness_argv
+    assert prompt in _scored_spec(fake_container).harness_argv
     for name in ("row-results.jsonl", "canonical-runs.jsonl"):
         assert prompt not in (output_dir / name).read_text(encoding="utf-8")
 
@@ -332,7 +333,7 @@ def test_container_lane_harvey_lab_leg_scores_through_its_own_evaluator(
 
     # The harness was told where the scored file goes, and the container was
     # handed the projected instructions rather than any private store.
-    prompt = fake_container["specs"][0].harness_argv
+    prompt = _scored_spec(fake_container).harness_argv
     assert any("output/" in argument for argument in prompt)
     assert any(
         str(task.metadata["expected_deliverable"]) in argument for argument in prompt
@@ -384,7 +385,7 @@ def test_container_lane_harvey_lab_leg_scores_through_its_own_evaluator(
     assert not (output_dir / "lfb" / "runs.jsonl").exists()
 
     # The gold criteria stayed on the evaluator side of the projection.
-    staged = fake_container["specs"][0].workspace
+    staged = _scored_spec(fake_container).workspace
     assert not list(staged.rglob("task.json"))
     assert not list(staged.rglob("gold-answers.json"))
 

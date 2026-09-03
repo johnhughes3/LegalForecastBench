@@ -228,21 +228,36 @@ def _harness_groups(results: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]
 
 def _harness_group(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     group: dict[str, Any] = {}
+    # Adapter-raised failures and web-fence refusals may omit identity fields
+    # or carry a different observed posture.  The harness identity is the
+    # succeeded rows'; failed rows still count in status and failure_class.
+    identity_rows = [row for row in rows if row.get("failure_class") is None]
+    source = identity_rows or list(rows)
     for field in _IDENTITY_FIELDS:
-        values = {json.dumps(row.get(field), sort_keys=True) for row in rows}
+        present = [row[field] for row in source if field in row]
+        if not present:
+            raise HarnessLaneResultsError(
+                f"rows of one harness all omit {field}; refusing to summarize"
+            )
+        values = {json.dumps(value, sort_keys=True) for value in present}
         if len(values) != 1:
             raise HarnessLaneResultsError(
                 f"rows of one harness disagree on {field}; refusing to summarize"
             )
-        group[field] = rows[0].get(field)
+        group[field] = present[0]
+    allowlist_rows = [row for row in source if "egress_allowlist" in row] or [
+        row for row in rows if "egress_allowlist" in row
+    ]
     allowlists = {
-        json.dumps(row.get("egress_allowlist"), sort_keys=True) for row in rows
+        json.dumps(row["egress_allowlist"], sort_keys=True) for row in allowlist_rows
     }
-    if len(allowlists) != 1:
+    if allowlist_rows and len(allowlists) != 1:
         raise HarnessLaneResultsError(
             "rows of one harness ran under different egress allowlists"
         )
-    group["egress_allowlist"] = rows[0].get("egress_allowlist")
+    group["egress_allowlist"] = (
+        allowlist_rows[0]["egress_allowlist"] if allowlist_rows else None
+    )
     group["egress_allowed_hosts"] = sorted(
         {host for row in rows for host in _str_list(row, "egress_allowed_hosts")}
     )

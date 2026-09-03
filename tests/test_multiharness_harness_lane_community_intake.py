@@ -145,6 +145,47 @@ def test_the_packaged_submission_carries_no_credential_or_host_path(
     assert validate_community_harness_submission(submission.submission_dir)
 
 
+def test_a_work_tree_host_path_is_redacted_the_way_home_already_was(
+    tmp_path: Path,
+) -> None:
+    """The Linux builders live under /work/, not /home/.
+
+    A file containing this repo's real path used to package as
+    ``0 file(s) redacted`` because ``_HOST_ROOT_RULES`` only knew /home and
+    /Users.  Do not replace this with a tree-wide absolute-path refusal: that
+    would also refuse ``/workspace/foo``.
+    """
+
+    run_dir = _community_run_directory(tmp_path)
+    host_path = "/work/Development/legal/LegalForecastBench"
+    log = run_dir / "rows" / "row-0" / "container-logs" / "harness.log"
+    log.write_bytes(log.read_bytes() + f"cwd={host_path}\n".encode())
+
+    submission = build_community_harness_submission(
+        run_dir=run_dir,
+        output_dir=tmp_path / "work-submission",
+        submission_id="community-harness-worktree",
+        submitter_name="Example Contributor",
+        submitter_github="example-contributor",
+        run_operator_name="Example Contributor",
+        adapter_author_name="Example Contributor",
+        secret_values=(_HOST_SESSION,),
+    )
+
+    packaged = (
+        submission.submission_dir
+        / "full-results"
+        / "rows"
+        / "row-0"
+        / "container-logs"
+        / "harness.log"
+    ).read_text(encoding="utf-8")
+    assert host_path not in packaged
+    assert "cwd=/[host-work]" in packaged
+    assert submission.redacted_file_count >= 1
+    assert validate_community_harness_submission(submission.submission_dir)
+
+
 def test_a_declared_digest_that_no_longer_matches_the_bytes_is_refused(
     tmp_path: Path,
 ) -> None:

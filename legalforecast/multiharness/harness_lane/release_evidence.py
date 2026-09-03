@@ -72,6 +72,7 @@ def write_container_release_evidence(
     workspace: Path,
     deliverable: str,
     prompt_sha256: str,
+    stdout_bytes: bytes = b"",
 ) -> ContainerReleaseEvidence:
     """Persist the private forecast output and its binding transcript."""
 
@@ -88,6 +89,7 @@ def write_container_release_evidence(
             "packet_sha256": request.task.task_sha256,
             "prompt_sha256": prompt_sha256,
             "response_sha256": output_sha256,
+            "stdout_sha256": release_bytes_sha256(stdout_bytes),
         }
     )
     write_release_create_only(workspace / TRANSCRIPT_PATH, transcript_bytes, mode=0o600)

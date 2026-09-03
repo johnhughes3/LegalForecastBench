@@ -320,6 +320,48 @@ def test_adapter_runs_the_manifest_argv_and_publishes_the_egress_evidence(
     assert "--disallowedTools" in seen[0].harness_argv
 
 
+def test_adapter_refuses_a_row_whose_transcript_still_has_web_search(
+    tmp_path: Path,
+) -> None:
+    events = [dict(event) for event in _TRANSCRIPT_EVENTS]
+    events[0] = {**events[0], "tools": ["Bash", "Read", "WebSearch"]}
+
+    def runner(spec: ContainerHarnessSpec) -> ContainerHarnessResult:
+        spec.log_root.mkdir(parents=True, exist_ok=True)
+        stdout = spec.log_root / "stdout"
+        stderr = spec.log_root / "stderr"
+        stdout.write_text(_stream(*events), encoding="utf-8")
+        stderr.write_text("", encoding="utf-8")
+        return ContainerHarnessResult(
+            run_id=spec.run_id,
+            exit_code=0,
+            timed_out=False,
+            duration_seconds=12.5,
+            stdout_path=stdout,
+            stderr_path=stderr,
+            image_id=spec.image,
+            proxy_image_id=spec.image,
+            allowed_hosts=("api.anthropic.com",),
+            refused=(),
+            allowlist=spec.allowlist().to_record(),
+        )
+
+    manifest = _manifest()
+    result = ContainerCliAdapter(
+        identity=identity_for_registry_name(REGISTRY_NAME),
+        local_manifest=manifest,
+        auth_profile=FIXTURE_NONE,
+        allow_hosts=("api.anthropic.com",),
+        parent_env={},
+        runner=runner,
+    ).run(_request(manifest), tmp_path)
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == "sandbox_denial"
+    assert result.public_summary["server_side_web_tools_disabled"] is False
+    assert result.public_summary["native_tools_enabled"] is True
+
+
 def test_adapter_refuses_the_clean_native_manifest_under_this_family() -> None:
     clean_native = LocalCliAdapterManifest.from_record(
         json.loads(

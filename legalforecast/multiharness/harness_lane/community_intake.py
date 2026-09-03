@@ -38,9 +38,9 @@ backstop: anything that still reads as a secret refuses the package rather than
 being quietly rewritten.
 
 One tree is dropped rather than redacted: ``container-workspace``, which is what
-this lane staged *into* the container -- projected Harvey LAB documents and the
-tool-use sentinel token -- not what the harness produced.  See
-:func:`_copy_redacted_tree`.
+this lane staged *into* the container -- projected Harvey LAB documents, and
+the once-per-harness probe's sentinel token under ``sentinel-probe/`` -- not
+what the harness produced.  See :func:`_copy_redacted_tree`.
 """
 
 from __future__ import annotations
@@ -112,6 +112,12 @@ _HOST_ROOT_RULES: Final[tuple[tuple[re.Pattern[bytes], bytes], ...]] = (
     ),
     (re.compile(rb"(?<![\w])/home/[^/\s\"']+"), b"/[host-home]"),
     (re.compile(rb"(?<![\w])/Users/[^/\s\"']+"), b"/[host-home]"),
+    # This repo actually lives under /work/ on the Linux builders, and a
+    # container host may be /root or /srv.  /home and /Users alone left those
+    # paths in a package that then validated as "0 file(s) redacted".
+    (re.compile(rb"(?<![\w])/work(?:/[^/\s\"']+)+"), b"/[host-work]"),
+    (re.compile(rb"(?<![\w])/root(?:/[^/\s\"']+)*"), b"/[host-root]"),
+    (re.compile(rb"(?<![\w])/srv(?:/[^/\s\"']+)+"), b"/[host-srv]"),
 )
 
 # Provider credential shapes.  The prefix survives so a reader can still tell
@@ -335,8 +341,9 @@ def _copy_redacted_tree(
 
     ``container-workspace`` is what this lane *staged into* the container, not
     what the harness produced: on a Harvey LAB row it holds the projected
-    corpus documents themselves, and on every row it holds the sentinel token
-    file.  Publishing the first would republish case documents through a
+    corpus documents themselves, and the once-per-harness probe run holds the
+    sentinel token file under ``sentinel-probe/container-workspace``.
+    Publishing the first would republish case documents through a
     community mirror, and the ``.txt`` publication guardrail refuses the second,
     so a real run could not be packaged at all.  Excluding the tree fixes both,
     and costs nothing on the LFB path: the answer travels in
