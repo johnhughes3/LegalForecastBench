@@ -106,7 +106,7 @@
       "legalforecast/testing/architecture_rules": 8,
       "legalforecast/testing/cli_corpus": 12,
       "scripts": 9,
-      "tests": 168,
+      "tests": 169,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -283,7 +283,7 @@
         "largest_symbol_lines": 170,
         "layer": "application",
         "line_count": 1960,
-        "nonblank_line_count": 1702,
+        "nonblank_line_count": 1704,
         "top_level_definition_count": 89
       },
       "legalforecast/evals/model_registry.py": {
@@ -2043,9 +2043,9 @@
         "largest_symbol": "test_cli_full_paired_tier0_fake_binary_run",
         "largest_symbol_lines": 100,
         "layer": "test",
-        "line_count": 869,
-        "nonblank_line_count": 777,
-        "top_level_definition_count": 33
+        "line_count": 873,
+        "nonblank_line_count": 779,
+        "top_level_definition_count": 34
       },
       "tests/test_official_eval_bootstrap_infra.py": {
         "cycle_id": "",
