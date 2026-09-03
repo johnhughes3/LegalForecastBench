@@ -14,13 +14,8 @@ from typing import Any, cast
 
 from legalforecast.cli import main
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-FIXTURE_ADAPTER_MANIFEST = (
-    REPO_ROOT
-    / "examples"
-    / "adapters"
-    / "openai-responses"
-    / "fixture-adapter-manifest.json"
+FIXTURE_ADAPTER_MANIFEST = Path(
+    "examples/adapters/openai-responses/fixture-adapter-manifest.json"
 )
 
 

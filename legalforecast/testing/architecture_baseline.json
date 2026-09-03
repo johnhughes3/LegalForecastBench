@@ -1538,8 +1538,8 @@
         "largest_symbol": "_declared_artifact_paths",
         "largest_symbol_lines": 52,
         "layer": "test",
-        "line_count": 769,
-        "nonblank_line_count": 621,
+        "line_count": 778,
+        "nonblank_line_count": 630,
         "top_level_definition_count": 40
       },
       "tests/test_community_lab_quickstart.py": {
