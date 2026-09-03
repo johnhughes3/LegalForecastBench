@@ -109,6 +109,7 @@
     "tests/test_multiharness_local_cli_stream.py",
     "tests/test_official_community_import_budget.py",
     "tests/test_official_eval_bootstrap_infra.py",
+    "tests/test_official_eval_corpus_trust.py",
     "tests/test_official_eval_infra.py",
     "tests/test_official_eval_matrix_workflow.py",
     "tests/test_official_provider_workflow.py",
