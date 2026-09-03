@@ -15,7 +15,7 @@ This Cycle 1 surface characterizes existing byte contracts; it does not migrate 
 
 The blessed entry points reject non-finite numbers before serialization.
 
-The artifact profiles delegate to `legalforecast.ingestion.canonical_json`; the manifest profile delegates to `legalforecast.protocol.manifest.canonical_json`, so valid Cycle 1 payloads retain their exact bytes.
+The artifact profiles delegate to `legalforecast.ingestion.canonical_json`; the manifest profile delegates to `legalforecast._canonical.canonical_json`, so valid Cycle 1 payloads retain their exact bytes.
 
 ## Digest representation and domain
 

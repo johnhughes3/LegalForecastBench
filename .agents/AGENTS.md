@@ -16,7 +16,7 @@ Where an older document in this tree still calls for attestations, sealed delive
 
 ## Priority: the new corpus path (2026-08-30 replan)
 
-**Cycle 1 cannot publish until its corpus is complete** — the 2026-08-30 census found 61 filed oppositions missing from the 100 cases. The owner's replan finishes Cycle 1 *after* the cutover to the new corpus factory rather than on the legacy machinery: new pipeline and corpus repair (`ti2q`, `iot9`) → cutover and deletion of the old runtime (`v7zs`) → run and publish Cycle 1 through the new path. Prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
+**Cycle 1 cannot publish until its corpus is complete** — the 2026-08-30 census found 61 filed oppositions missing from the 100 cases. The owner's replan finishes Cycle 1 *after* the cutover to the new corpus factory rather than on the legacy machinery: new pipeline and corpus repair (`ti2q`, `iot9`) → cutover and deletion of the old runtime (`v7zs`) → run and publish Cycle 1 through the new path. The deletion half of that cutover landed in #1034: the legacy corpus runtime, acquisition, and labeling surfaces are gone from this repository and now live in the companion private corpus repository. What remains open under `v7zs` is the semantic public-boundary fencing (`xvg1`). Prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
 
 - **Anything that spends money follows the Spending guardrails below** — a ceiling, an approval above the threshold, and a journal. That is the entire spend process; do not add authority chains or approval grammars on top of it.
 - Everything else (code, validation, parsing, execution under an existing approval, evidence assembly): **do what needs to be done, promptly**. Halt-and-escalate is for genuine blockers (missing owner approval, failed validation), not for perfectible process.
@@ -94,7 +94,7 @@ For focused runs while iterating, plain serial `uv run pytest tests/<file> -q` i
 
 ## Cycle 1 Change Control
 
-[docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md) still governs the *cadence* of gate-changing work on the legacy chain: one active gate-changing integration lane, focused-before-full test ordering, and the correctness/security emergency path. Its frozen-byte-contract regime is superseded by the 2026-08-30 replan — the new path has one locked run manifest and no per-document digests, so do not mint new schema versions, sidecars, or card variants to preserve byte-identical fields in code that `v7zs` is chartered to delete.
+One cadence rule from [docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md) still applies: keep one active gate-changing integration lane, run focused tests before the full suite, and use the correctness/security emergency path when a gate is genuinely wrong. Everything else in that note is retired. Its frozen-byte-contract regime is superseded by the 2026-08-30 replan — the new path has one locked run manifest and no per-document digests — and the legacy chain it governed left this repository in #1034, so do not mint new schema versions, sidecars, or card variants to preserve byte-identical fields.
 
 ## Non-Interactive Shell Commands
 

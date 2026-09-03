@@ -17,10 +17,9 @@ set of real corpus candidate identifiers was already present in tracked public
 tests and documentation. The owner accepts that pre-existing corpus-membership
 exposure as a disclosed limitation; it is not evidence that the associated
 documents or labels were model-visible. The repository-wide candidate-ID fence
-(`tests/test_public_corpus_id_fence.py`) freezes the accepted inventory and
-rejects new numeric `candidate_id` literals. New fixtures and examples must use
-synthetic identifiers, and any intentional inventory change requires an
-explicitly reviewed baseline update.
+that froze the accepted inventory left this repository with the corpus surfaces
+it guarded; new fixtures and examples must still use synthetic identifiers
+rather than real candidate IDs.
 
 Published scores carry a contamination tier computed from the model's recorded training cutoff and the cohort's `eligibility_anchor`. Contamination-resistant scores are the default claim: the cutoff predates every scored decision. Preliminary (non-contamination-resistant) scores are allowed on a frozen cohort when a later-released model's cutoff overlaps that window; they are marked with an asterisk and a standard caveat. When a later resistant refresh covers the same model, the paired micro-Brier delta is published as drift — a measurement of how much contamination actually moves that model's score, and a first-class result of this benchmark. See [contamination-tier-reporting.md](contamination-tier-reporting.md). The overlay marks a score; it never withholds one, and it does not change authenticated aggregate bytes.
 

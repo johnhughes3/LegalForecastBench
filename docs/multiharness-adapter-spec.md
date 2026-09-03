@@ -108,7 +108,7 @@ Minimal manifest:
   "adapter_id": "example-cli",
   "display_name": "Example CLI Adapter",
   "adapter_version": "0.1.0",
-  "command": ["uv", "run", "python", "examples/example_adapter.py"],
+  "command": ["uv", "run", "python", "examples/adapters/fixture_bridge.py"],
   "contributors": [
     {"role": "adapter_author", "name": "Example Team", "identifiers": {}}
   ]
