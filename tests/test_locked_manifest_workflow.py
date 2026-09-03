@@ -160,7 +160,15 @@ def test_source_identity_concurrency_and_budget_gates_are_fail_closed() -> None:
     }
     for job_name, next_name in next_jobs.items():
         job = _job(job_name, next_name)
-        assert "git fetch --no-tags --depth=1 origin main" in job
+        # origin/main must be resolvable here, but not via a separate `git
+        # fetch`: persist-credentials: false on the checkout step leaves no
+        # token for a later step, so a bare fetch dies with "could not read
+        # Username for 'https://github.com'" (legalforecastbench-2x9o).
+        # fetch-depth: 0 makes the checkout itself fetch full history and
+        # refs, including origin/main, under its own credentials.
+        assert "fetch-depth: 0" in job
+        assert "persist-credentials: false" in job
+        assert "git fetch --no-tags --depth=1 origin main" not in job
         assert "git merge-base --is-ancestor origin/main HEAD" in job
         assert "git rev-parse HEAD" in job
     assert "CEILING_MICROUSD" in _job("prepare-inputs", "run-openai")
