@@ -382,7 +382,9 @@ def test_adapter_runs_the_manifest_argv_and_publishes_the_egress_evidence(
 
     assert result.status == "succeeded"
     assert result.public_summary["executable"] == "agy"
-    assert result.public_summary["native_tools_enabled"] is True
+    # agy's envelope names no tools; publishing True here was a capability
+    # claim, not an observation.  The lane's sentinel probe is what can set it.
+    assert result.public_summary["native_tools_enabled"] is False
     assert result.public_summary["egress_refused"] == [
         {"host": "example.com", "port": 443, "reason": "host_not_allowlisted"}
     ]

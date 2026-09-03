@@ -23,11 +23,12 @@ a number that answers a different question than the one asked:
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from legalforecast.contracts import (
     ARTIFACT_PREFIXED_SHA256_V1,
@@ -59,7 +60,9 @@ from legalforecast.multiharness.harness_lane.release_evidence import (
     write_container_release_evidence,
 )
 from legalforecast.multiharness.harness_lane.tool_accounting import (
+    HarnessFenceObservation,
     HarnessToolUse,
+    harness_fence_observation,
     harness_tool_use,
 )
 from legalforecast.multiharness.harness_lane.usage_accounting import (
@@ -341,25 +344,93 @@ class ContainerCliAdapter:
         prompt: str,
         prompt_sha256: str | None,
     ) -> RunResult:
+        self._ensure_tool_use_proven(request, workspace)
         spec = self.container_spec(request, workspace, prompt=prompt)
-        result = self._execute(spec)
-        stdout = _read_stdout(result)
+        result = self.run_container(spec)
+        stdout_bytes = _read_stdout_bytes(result)
+        stdout = stdout_bytes.decode("utf-8", errors="replace")
         deliverable, failure = self._deliverable(result, spec.workspace, stdout)
         tools = harness_tool_use(self.identity.executable_basename, stdout)
         usage = harness_usage(self.identity.executable_basename, stdout)
+        fence = harness_fence_observation(self.identity.executable_basename, stdout)
+        native_tools_enabled = self._observed_native_tools(workspace, fence)
+        if fence.web_open:
+            deliverable = None
+            failure = LocalCliFailureClass.SANDBOX_DENIAL
         evidence = (
             write_container_release_evidence(
                 request=request,
                 workspace=workspace,
                 deliverable=deliverable,
                 prompt_sha256=prompt_sha256,
+                stdout_bytes=stdout_bytes,
             )
             if prompt_sha256 is not None and deliverable is not None
             else None
         )
         return self._run_result(
-            request, result, deliverable, failure, tools, usage, evidence
+            request,
+            result,
+            deliverable,
+            failure,
+            tools,
+            usage,
+            evidence,
+            native_tools_enabled=native_tools_enabled,
+            server_side_web_tools_disabled=fence.server_side_web_tools_disabled,
         )
+
+    def run_container(self, spec: ContainerHarnessSpec) -> ContainerHarnessResult:
+        """Run one already-built container spec through this adapter's backend."""
+
+        return self._execute(spec)
+
+    def _ensure_tool_use_proven(self, request: RunRequest, workspace: Path) -> None:
+        """Run the once-per-harness workspace sentinel before scored rows.
+
+        Production row workspaces are ``<run>/rows/<row-id>``.  Adapter-level
+        unit tests pass a scratch directory, and those must not launch a live
+        probe or invent a fake scored task.
+        """
+
+        if workspace.parent.name != "rows":
+            return
+        run_root = workspace.parent.parent
+        record_path = run_root / "sentinel-probe.json"
+        if record_path.is_file():
+            self._require_proven_sentinel(record_path)
+            return
+        from legalforecast._json_io import write_json_object_safe
+        from legalforecast.multiharness.harness_lane.sentinel import (
+            probe_workspace_tool_use,
+        )
+
+        probe = probe_workspace_tool_use(
+            self,
+            workspace=run_root / "sentinel-probe",
+            model_key=request.model_key,
+        )
+        write_json_object_safe(record_path, probe.to_public_record())
+        self._require_proven_sentinel(record_path)
+
+    def _require_proven_sentinel(self, record_path: Path) -> None:
+        record = _read_sentinel_record(record_path)
+        if record is None or record.get("sentinel_verdict") != "proven":
+            verdict = None if record is None else record.get("sentinel_verdict")
+            raise ContainerCliAdapterError(
+                f"{self.identity.registry_name} workspace sentinel did not prove "
+                f"tool use (verdict={verdict})"
+            )
+
+    def _observed_native_tools(
+        self, workspace: Path, fence: HarnessFenceObservation
+    ) -> bool:
+        if fence.native_tools_enabled:
+            return True
+        if workspace.parent.name != "rows":
+            return False
+        record = _read_sentinel_record(workspace.parent.parent / "sentinel-probe.json")
+        return record is not None and record.get("sentinel_verdict") == "proven"
 
     def _unauthenticated_prompt(self, request: RunRequest, workspace: Path) -> str:
         """Return the prompt for a task with no private solver-input store."""
@@ -420,6 +491,9 @@ class ContainerCliAdapter:
         tools: HarnessToolUse,
         usage: HarnessUsage,
         evidence: ContainerReleaseEvidence | None,
+        *,
+        native_tools_enabled: bool,
+        server_side_web_tools_disabled: bool,
     ) -> RunResult:
         manifest = self.manifest
         summary: dict[str, Any] = {
@@ -442,8 +516,8 @@ class ContainerCliAdapter:
             "harness": self.identity.registry_name,
             "harness_track": CONTAINER_HARNESS_TRACK,
             "model_key": request.model_key,
-            "native_tools_enabled": True,
-            "server_side_web_tools_disabled": True,
+            "native_tools_enabled": native_tools_enabled,
+            "server_side_web_tools_disabled": server_side_web_tools_disabled,
             "timed_out": result.timed_out,
             "tool_call_count": tools.call_count,
             "tool_policy": tools.policy,
@@ -478,13 +552,23 @@ class ContainerCliAdapter:
         )
 
 
-def _read_stdout(result: ContainerHarnessResult) -> str:
+def _read_stdout_bytes(result: ContainerHarnessResult) -> bytes:
     try:
-        return result.stdout_path.read_text(encoding="utf-8", errors="replace")
+        return result.stdout_path.read_bytes()
     except OSError:
         # A missing stdout file is a failed run, not a crash of the projector;
         # ``_deliverable`` turns the empty transcript into a schema violation.
-        return ""
+        return b""
+
+
+def _read_sentinel_record(path: Path) -> dict[str, object] | None:
+    try:
+        payload: object = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return cast(dict[str, object], payload)
 
 
 def _metadata_prompt(task: CanonicalTask) -> str:

@@ -49,6 +49,7 @@ from legalforecast.multiharness.harness_lane.sentinel import (
 )
 from legalforecast.multiharness.harness_lane.tool_accounting import (
     ToolAccountingError,
+    harness_fence_observation,
     harness_tool_use,
 )
 from legalforecast.multiharness.local_cli_manifest import (
@@ -66,6 +67,18 @@ CONTAINER_MANIFEST = Path("examples/adapters/claude-code-native")
 LAB_MANIFEST = Path("examples/adapters/claude-code-lab-native")
 LFB_ADAPTER = "claude-code-container-tools-on"
 PROVIDER_HOST = "api.anthropic.com"
+
+
+def _scored_spec(state: dict[str, Any]) -> ContainerHarnessSpec:
+    """Return the scored-row spec, skipping the once-per-harness sentinel probe."""
+
+    scored = [
+        spec
+        for spec in cast(list[ContainerHarnessSpec], state["specs"])
+        if "-sentinel-" not in spec.run_id
+    ]
+    assert scored, "expected a scored container spec besides the sentinel probe"
+    return scored[0]
 
 
 def _run_multiharness(argv: list[str]) -> int:
@@ -136,10 +149,18 @@ def fake_container(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
             target.write_bytes(payload)
         spec.log_root.mkdir(parents=True, exist_ok=True)
         stdout = spec.log_root / "stdout.jsonl"
-        stdout.write_text(
-            _stream_json(str(state["answer"]), tuple(state["tools"])),
-            encoding="utf-8",
-        )
+        token_path = spec.workspace / "harness-sentinel" / "workspace-token.txt"
+        if token_path.is_file():
+            token = token_path.read_text(encoding="utf-8").strip()
+            stdout.write_text(
+                _stream_json(f"SENTINEL={token}", ("Read",)),
+                encoding="utf-8",
+            )
+        else:
+            stdout.write_text(
+                _stream_json(str(state["answer"]), tuple(state["tools"])),
+                encoding="utf-8",
+            )
         stderr = spec.log_root / "stderr.log"
         stderr.write_text("", encoding="utf-8")
         return ContainerHarnessResult(
@@ -249,7 +270,12 @@ def test_container_lane_lfb_run_produces_scoreable_artifacts(
 
     # The container was handed the exact private prompt bytes, not task
     # metadata, and could reach nothing but the provider host.
-    spec = fake_container["specs"][0]
+    spec = _scored_spec(fake_container)
+    assert any("-sentinel-" in item.run_id for item in fake_container["specs"])
+    sentinel_record = json.loads(
+        (output_dir / "sentinel-probe.json").read_text(encoding="utf-8")
+    )
+    assert sentinel_record["sentinel_verdict"] == "proven"
     assert spec.allow_hosts == (PROVIDER_HOST,)
     assert str(task["release_prompt"]) in spec.harness_argv
     assert (
@@ -380,7 +406,7 @@ def test_container_lane_runs_a_projected_harvey_lab_selection(
 
     # The harness saw the task's own documents, verified against the projection.
     staged = sorted(
-        path.name for path in fake_container["specs"][0].workspace.iterdir()
+        path.name for path in _scored_spec(fake_container).workspace.iterdir()
     )
     assert "instructions.txt" in staged
 
@@ -574,6 +600,26 @@ def test_every_harness_tool_reader_is_wired_to_its_own_envelope(
 def test_an_unknown_harness_basename_is_refused_rather_than_counted_zero() -> None:
     with pytest.raises(ToolAccountingError, match="no tool-use reader"):
         harness_tool_use("unknown-cli", "{}\n")
+
+
+def test_fence_observation_is_false_when_websearch_is_on_the_init_menu() -> None:
+    stdout = _stream_json("GRANTED", ("Bash", "WebSearch"))
+    observed = harness_fence_observation("claude", stdout)
+
+    assert observed.observable is True
+    assert observed.native_tools_enabled is True
+    assert observed.server_side_web_tools_disabled is False
+    assert observed.web_open is True
+    assert "WebSearch" in observed.web_tools_available
+
+
+def test_fence_observation_does_not_claim_true_for_agy() -> None:
+    observed = harness_fence_observation(
+        "agy", '{"status": "SUCCESS", "response": "x"}'
+    )
+
+    assert observed.observable is False
+    assert observed.native_tools_enabled is False
 
 
 # --- Uploading the full results ------------------------------------------------
@@ -775,6 +821,46 @@ def test_two_builds_of_one_run_directory_agree_on_the_pinned_digest(
     # verifiable only by whoever built it.
     assert first.package_sha256 == second.package_sha256
     assert first.summary_sha256 == second.summary_sha256
+
+
+def test_an_adapter_raised_failure_row_does_not_make_the_run_unpackageable(
+    tmp_path: Path,
+) -> None:
+    """A thin adapter-exception summary must still group with the scored rows.
+
+    ``_failure_result`` used to emit only task_id/adapter_id/model_key/error
+    fields.  Packaging then died on ``adapter_version`` after the money was
+    spent.  Timeout and nonzero-exit rows go through ``_run_result`` and were
+    never the problem.
+    """
+
+    run_dir = _fixture_run_directory(tmp_path)
+    rows = [
+        json.loads(line)
+        for line in (run_dir / "canonical-runs.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    rows[1]["public_summary"] = {
+        "task_id": "task-1",
+        "adapter_id": LFB_ADAPTER,
+        "adapter_version": "1.0.0",
+        "model_key": "claude-opus-4-6",
+        "error_type": "TimeoutError",
+        "error_message": "proxy bind timed out",
+    }
+    (run_dir / "canonical-runs.jsonl").unlink()
+    write_jsonl_objects(run_dir / "canonical-runs.jsonl", rows)
+
+    package = build_harness_lane_results_package(
+        run_dir=run_dir, output_dir=tmp_path / "package"
+    )
+    summary = json.loads(package.summary_path.read_text(encoding="utf-8"))
+    assert summary["result_count"] == 2
+    assert summary["status_counts"] == {"failed": 1, "succeeded": 1}
+    (harness,) = summary["harnesses"]
+    assert harness["adapter_version"] == "1.0.0"
+    assert harness["native_tools_enabled"] is True
 
 
 def test_a_host_path_reaching_a_public_summary_field_is_refused(

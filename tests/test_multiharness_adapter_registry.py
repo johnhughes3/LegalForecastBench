@@ -439,7 +439,11 @@ def test_container_adapter_runs_a_row_and_projects_the_manifest_deliverable(
 
     assert result.status == "succeeded"
     assert result.public_summary["harness"] == "claude-code-container-tools-on"
-    assert result.public_summary["native_tools_enabled"] is True
+    # This fixture's stdout is ``{"text": ...}``, not Claude stream-json, so
+    # the parser cannot observe tools-on or a web fence.  Unobservable native
+    # tools stay False; web-disabled stays True only because nothing evidenced
+    # a server-side retrieval.
+    assert result.public_summary["native_tools_enabled"] is False
     assert result.public_summary["server_side_web_tools_disabled"] is True
     assert result.public_summary["auth_mode"] == "none-offline"
     assert result.public_summary["container_image_digest"] == CONTAINER_IMAGE_DIGEST

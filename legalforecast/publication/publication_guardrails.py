@@ -311,10 +311,7 @@ def _scan_text_content(
     role: str,
 ) -> tuple[PublicationGuardrailFinding, ...]:
     findings: list[PublicationGuardrailFinding] = []
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except UnicodeDecodeError:
-        return tuple(findings)
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     for line_number, line in enumerate(lines, start=1):
         # A value the scrubber already replaced with the placeholder is not a
         # secret, and refusing it leaves the author no move: rewriting it again

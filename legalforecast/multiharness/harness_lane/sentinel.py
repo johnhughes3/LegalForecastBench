@@ -269,10 +269,7 @@ def probe_workspace_tool_use(
     already on the adapter's public surface.
     """
 
-    from legalforecast.multiharness.container_harness import (
-        ContainerHarnessSpec,
-        run_container_harness,
-    )
+    from legalforecast.multiharness.container_harness import ContainerHarnessSpec
     from legalforecast.multiharness.harness_lane.auth import (
         container_child_env,
         container_credentials,
@@ -302,12 +299,7 @@ def probe_workspace_tool_use(
         environment=container_child_env(adapter.identity, adapter.auth_profile),
         timeout_seconds=adapter.local_manifest.timeout_retry.timeout_seconds,
     )
-    runner = adapter.runner
-    result = (
-        runner(spec)
-        if runner is not None
-        else run_container_harness(spec, backend=adapter.backend)
-    )
+    result = adapter.run_container(spec)
     try:
         transcript = result.stdout_path.read_text(encoding="utf-8", errors="replace")
     except OSError:

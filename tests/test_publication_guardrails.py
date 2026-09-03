@@ -94,6 +94,31 @@ def test_publication_guardrails_reject_secrets_provider_ids_and_hidden_files(
     assert PublicationGuardrailCode.HIDDEN_FILE in codes
 
 
+def test_publication_guardrails_scan_non_utf8_stdout_instead_of_skipping(
+    tmp_path: Path,
+) -> None:
+    """A stray 0xff must not hide a named secret on a harness stream.
+
+    ``.stdout`` is a scanned text suffix because a CLI that echoes its login
+    echoes it there.  Decoding as strict UTF-8 used to swallow the file and
+    return no findings, so two streams identical but for one invalid byte
+    diverged: the valid one was caught and the other published the key.
+    """
+
+    public_dir = tmp_path / "public"
+    public_dir.mkdir()
+    (public_dir / "container.stdout").write_bytes(
+        b"ANTHROPIC_API_KEY=sk-ant-api03-fixture-secret\n\xfftrailing\n"
+    )
+
+    findings = scan_publication_guardrails(
+        PublicationGuardrailConfig(public_paths=(public_dir,))
+    )
+    codes = {finding.code for finding in findings}
+
+    assert PublicationGuardrailCode.SECRET in codes
+
+
 def test_publication_guardrails_scan_workflow_logs(tmp_path: Path) -> None:
     log_path = tmp_path / "runner-log.jsonl"
     _write_text(

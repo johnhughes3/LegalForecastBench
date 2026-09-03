@@ -1284,6 +1284,7 @@ def _failure_result(plan: _RowPlan, exc: Exception) -> RunResult:
     summary = {
         "task_id": plan.task.task_id,
         "adapter_id": plan.adapter.manifest.adapter_id,
+        "adapter_version": plan.adapter.manifest.adapter_version,
         "model_key": plan.model_config.model_key,
         "error_type": exc.__class__.__name__,
         "error_message": _plain_error(exc),
@@ -1297,6 +1298,9 @@ def _failure_result(plan: _RowPlan, exc: Exception) -> RunResult:
         )
     except ValueError:
         summary = {
+            "adapter_id": plan.adapter.manifest.adapter_id,
+            "adapter_version": plan.adapter.manifest.adapter_version,
+            "model_key": plan.model_config.model_key,
             "error_type": exc.__class__.__name__,
             "error_message": "adapter failed; see private logs",
         }
@@ -1321,6 +1325,7 @@ def _interrupted_result(plan: _RowPlan, exc: BaseException) -> RunResult:
     summary = {
         "task_id": plan.task.task_id,
         "adapter_id": plan.adapter.manifest.adapter_id,
+        "adapter_version": plan.adapter.manifest.adapter_version,
         "model_key": plan.model_config.model_key,
         "interrupt_class": "interrupted",
         "error_type": exc.__class__.__name__,
