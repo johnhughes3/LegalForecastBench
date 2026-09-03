@@ -463,12 +463,21 @@ def test_recorded_checksum_matches_the_frozen_bytes() -> None:
 
 
 def test_readiness_pack_names_the_hashed_specification() -> None:
-    """The digest must be attributed to the freeze document, not another file."""
+    """The pack's declared path must resolve to a real file in the acceptance dir."""
 
     text = _pack_text()
-    artifact, _, declared = _declared_artifact_paths(text)
-    assert _declared_specification(text) == declared
-    assert artifact.is_file()
+    declared = _declared_specification(text)
+    expected = ROOT / declared
+    assert expected.is_relative_to(ACCEPTANCE_DIR), (
+        f"declared specification {declared!r} must live under "
+        f"{ACCEPTANCE_DIR.relative_to(ROOT)}"
+    )
+    assert expected.is_file()
+    artifact, _, _ = _declared_artifact_paths(text)
+    assert artifact == expected, (
+        f"declared specification {declared!r} must resolve to {expected}, "
+        f"found {artifact}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -728,6 +737,30 @@ def test_declared_artifact_paths_reject_absolute_traversal_and_symlink(
             _pack(COMPLETE_TABLE),
             acceptance_dir=linked_repo / "docs" / "community-acceptance",
         )
+
+
+def test_declared_artifact_paths_map_nested_relative_segments(
+    tmp_path: Path,
+) -> None:
+    """The declared relative path must resolve with nested directories intact."""
+
+    acceptance = tmp_path / "docs" / "community-acceptance"
+    artifact = acceptance / "cycle-1" / "successor-freeze.md"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_bytes(b"nested freeze\n")
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    artifact.with_suffix(".sha256").write_text(
+        f"{digest}  {artifact.name}\n", encoding="utf-8"
+    )
+    relative = "docs/community-acceptance/cycle-1/successor-freeze.md"
+    document = _pack(
+        COMPLETE_TABLE.replace(SYNTHETIC_FREEZE_RELATIVE, relative).replace(
+            SYNTHETIC_DIGEST, digest
+        )
+    )
+
+    resolved, _, _ = _declared_artifact_paths(document, acceptance_dir=acceptance)
+    assert resolved == tmp_path / relative
 
 
 def test_digest_gate_follows_a_renamed_artifact_and_companion(tmp_path: Path) -> None:
