@@ -1,0 +1,52 @@
+usage: legalforecast report [-h] --scores SCORES --output-dir OUTPUT_DIR
+                            [--manifest MANIFEST]
+                            [--forecast-release FORECAST_RELEASE]
+                            [--labels-release LABELS_RELEASE]
+                            [--artifact-root ARTIFACT_ROOT]
+                            [--accounting ACCOUNTING] [--title TITLE]
+                            [--bootstrap-replicates BOOTSTRAP_REPLICATES]
+                            [--bootstrap-seed BOOTSTRAP_SEED] [--dry-run]
+                            [--model-registry MODEL_REGISTRY]
+                            [--frozen-model-registry FROZEN_MODEL_REGISTRY]
+                            [--expected-run-identity-sha256 EXPECTED_RUN_IDENTITY_SHA256]
+                            [--expected-model-registry-sha256 EXPECTED_MODEL_REGISTRY_SHA256]
+                            [--ledger LEDGER]
+                            [--contamination-boundary CONTAMINATION_BOUNDARY]
+                            [--cohort-id COHORT_ID]
+
+options:
+  -h, --help            show this help message and exit
+  --scores SCORES
+  --output-dir OUTPUT_DIR
+  --manifest, --run-manifest MANIFEST
+                        Canonical locked benchmark-run manifest for this
+                        report.
+  --forecast-release, --forecast FORECAST_RELEASE
+                        Forecast-release.json paired with the report's labels
+                        release.
+  --labels-release LABELS_RELEASE
+                        Labels-release.json used by the official scoring
+                        boundary.
+  --artifact-root ARTIFACT_ROOT
+                        Root containing forecast-release referenced public
+                        artifacts.
+  --accounting ACCOUNTING
+  --title TITLE
+  --bootstrap-replicates BOOTSTRAP_REPLICATES
+  --bootstrap-seed BOOTSTRAP_SEED
+  --dry-run
+  --model-registry MODEL_REGISTRY
+  --frozen-model-registry FROZEN_MODEL_REGISTRY
+                        Frozen model registry used for the official score
+                        artifact. When supplied, its bytes and every reported
+                        model binding are checked.
+  --expected-run-identity-sha256, --expected-run-identity EXPECTED_RUN_IDENTITY_SHA256
+                        Expected run identity SHA-256 from the manifest
+                        execution ledger.
+  --expected-model-registry-sha256 EXPECTED_MODEL_REGISTRY_SHA256
+                        Expected frozen model-registry SHA-256.
+  --ledger, --run-ledger LEDGER
+                        Manifest execution ledger supplying expected report
+                        provenance.
+  --contamination-boundary CONTAMINATION_BOUNDARY
+  --cohort-id COHORT_ID

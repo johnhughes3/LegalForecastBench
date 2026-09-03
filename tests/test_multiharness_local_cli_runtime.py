@@ -62,7 +62,6 @@ def test_runtime_module_does_not_import_publication_envelopes() -> None:
         "legalforecast.contracts",
         "legalforecast.multiharness.community",
         "legalforecast.ingestion",
-        "legalforecast.labeling",
         "legalforecast.cli",
     }
     assert not any(

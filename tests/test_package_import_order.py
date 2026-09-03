@@ -25,17 +25,12 @@ ROOT = Path(__file__).resolve().parents[1]
 _PACKAGES = (
     "legalforecast",
     "legalforecast.cli",
-    "legalforecast.extraction",
-    "legalforecast.extraction.ocr",
-    "legalforecast.extraction.pdf_text",
     "legalforecast.ingestion",
-    "legalforecast.ingestion.disclosure_clearance",
-    "legalforecast.ingestion.embedded_text_layer_repair",
-    "legalforecast.ingestion.mistral_markdown_parser",
-    "legalforecast.ingestion.text_layer_completeness",
-    "legalforecast.labeling",
+    "legalforecast.ingestion.canonical_json",
+    "legalforecast.ingestion.provenance",
     "legalforecast.protocol",
-    "legalforecast.selection",
+    "legalforecast.evals",
+    "legalforecast.publication",
 )
 
 

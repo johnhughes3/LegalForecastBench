@@ -29,15 +29,9 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 >
 > See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md) for the one-screen overview and anti-patterns (don't treat JSONL as the source of truth; don't `bd import` during normal operation; don't reach for third-party Dolt hosting before trying the default).
 
-## Spending Guardrails
+## Corpus Spending Boundary
 
-Real money leaves this project in two places: PACER/RECAP document purchases and paid provider runs. On 2026-08-14 the legacy pipeline bought 152 documents (USD 273) that were never admitted to the corpus. The failure was not an unauthorized purchase — it was buying and then losing track — and no amount of approval ceremony would have caught it. These five rules are the whole spend process.
-
-1. **Run ceiling, enforced in code.** Every run that can spend carries an owner-set maximum, and the tool refuses any operation that would push cumulative journaled spend past it. That is the hard stop; below it, and below the per-operation threshold, no per-operation approval is needed. The corpus acquisition CLI implements this as `budget set --run-id <id> --max-usd <amount>`.
-2. **Recorded owner approval above USD 10.** For any single operation or purchase plan projected above the threshold (default USD 10.00), stop and ask. Quote the owner's actual message — any wording that states an amount at or above your estimate — with where and when it was said, into the bead or run journal, then release the operation (`budget approve`). No regex, no mandated sentence, no digest: the point is that the agent stops before spending, not that the approval is cryptographically authenticated.
-3. **Never buy what we already hold.** Before any purchase, check the acquired inventory by (docket, entry) and RECAP document id. A document we already have is refused and the refusal is journaled. This is the control that would have prevented the USD 273 loss.
-4. **One attempt per document, no purchase loops.** Reserve at most the projected amount before calling a provider, and respect the per-document fee (PACER charges USD 0.10 per page, capped at USD 3.00 per document). A failed or ambiguous purchase is journaled and surfaced to the owner, never auto-retried; realized cost above its reservation is a terminal ceiling violation that neither releases capacity nor becomes retryable.
-5. **Journal every spend** — what, why (case, role, docket entry), cost, and which approval it ran under — in one append-only journal. No sealed receipts, no signed scopes, no hashed authorization artifacts.
+Provider purchases and budget consent for corpus construction belong to the private LegalForecastCorpus repository. LegalForecastBench does not ship purchase or budget commands; it consumes an issued immutable, outcome-blinded release and retains the public evaluation, scoring, reporting, publication, and withdrawal boundaries.
 
 ## Public Repository Hygiene
 
@@ -54,7 +48,7 @@ Two AWS accounts matter here, and confusing them wastes hours. Resolve the numer
 - **Artifacts account** — owns everything this benchmark touches: the results and packet buckets, the artifacts KMS key, the `official-eval` OIDC roles, and the provider-authority operator role. The only configured human profile is `cos.benchmark.artifacts` (SSO role `CosBenchmarkArtifactOps`), and since the 2026-08-30 bootstrap lockdown it is **read-only, for verification**: the buckets and their KMS key carry resource policies naming only the OIDC roles, so every write — staging included — goes through an Actions workflow under OIDC, and **local staging is closed**. An identity policy cannot override a resource policy, so a `PutObject` denial here is not a missing grant to go find; it is the boundary working. There is no admin profile for this account.
 - **Org management account** — `cos.admin.breakglass` is AdministratorAccess *there*, not here. It cannot read or write this project's buckets. **An `AccessDenied` under break-glass means wrong account, not a resource policy.** Admin in the artifacts account is reachable only by assuming its `OrganizationAccountAccessRole` cross-account from break-glass, and that is reserved for one-time bootstrap operations.
 
-Use GitHub Actions for anything that writes S3; there is no local alternative. Paid provider cells and fan-in already run under OIDC, and manifest-run staging has its own OIDC role and two workflows on it: `stage-manifest-run.yaml` for supplementary siblings, and `stage-official-manifest-run.yaml` for a first official freeze at a new corpus digest. Creating or repolicying an IAM role is **not** something the routine OIDC operator can do — it holds read-only refresh verbs on exact role ARNs, so new roles are a one-time human-admin bootstrap apply per `infra/official-eval-bootstrap/README.md`.
+Use GitHub Actions for anything that writes official release storage; there is no local alternative. Paid provider cells run under OIDC through `run-benchmark.yaml`, and publication fan-in runs under `fan-in-publish.yaml`; the companion LegalForecastCorpus repository supplies immutable outcome-blinded release inputs. Creating or repolicying an IAM role is **not** something the routine OIDC operator can do — it holds read-only refresh verbs on exact role ARNs, so new roles are a one-time human-admin bootstrap apply per `infra/official-eval-bootstrap/README.md`.
 
 GitHub auth goes through the secure-gate broker: ordinary `git push` and `gh workflow run` work with routine short-lived tokens. Secret and variable writes are human-approved server-side applies (`secure-gate-elevate set-variable --environment ...`); the machine never receives a write token.
 
@@ -69,7 +63,7 @@ Legacy references to those concepts have been removed from the supported tree; d
 
 One narrow carve-out, per the owner directive of 2026-08-29 (bead `legalforecastbench-38gh`): results carry a two-value classification, `official` or `supplementary_post_anchor`, derived mechanically from a model's `release_timestamp` against the cycle's corpus anchor. It exists so a model released after the corpus decision window can run through the same pipeline and publish beside the official four with a dagger marker and a caveat, without ever entering the official set. The dagger is distinct from the contamination-tier asterisk, which marks official models whose training cutoff is undisclosed. It is a presentation flag plus one fail-closed gate (`legalforecast/reporting/result_class.py`), not the four-tier scheme above, which stays unadopted.
 
-The **acquisition** and **withdrawal** code paths are kept — acquisition is core pipeline, withdrawal handles sealed/redacted cases.
+Private corpus acquisition and unitization belong to the companion LegalForecastCorpus repository and are not shipped in this public package. This repository consumes locked outcome-blinded manifests and releases, retains public evaluation and publication paths, and keeps withdrawal handling for sealed or redacted cases.
 
 ## Quick Reference
 

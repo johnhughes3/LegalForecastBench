@@ -323,6 +323,24 @@ def find_new_violations(
     )
 
 
+def find_stale_baseline_entries(
+    findings: Sequence[Finding], baseline: Sequence[BaselineEntry]
+) -> tuple[BaselineEntry, ...]:
+    """Return baseline exceptions that no longer describe a current finding.
+
+    Baseline entries are keyed by the same stable tuple as findings.  Keeping an
+    exception after its file, rule, or subject disappears hides a stale review
+    decision and lets deleted paths accumulate indefinitely.
+    """
+
+    active = {(finding.rule, finding.path, finding.subject) for finding in findings}
+    return tuple(
+        entry
+        for entry in baseline
+        if (entry.rule, entry.path, entry.subject) not in active
+    )
+
+
 def build_baseline(findings: Sequence[Finding]) -> tuple[BaselineEntry, ...]:
     """Turn a raw scan into a reviewed-looking baseline skeleton."""
 
@@ -381,6 +399,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     baseline = load_baseline(baseline_path)
+    stale = find_stale_baseline_entries(findings, baseline)
+    if stale:
+        print(
+            "contract ratchet baseline contains stale exceptions:\n",
+            file=sys.stderr,
+        )
+        for entry in stale:
+            print(
+                f"- {entry.path}: {entry.rule}: {entry.subject}",
+                file=sys.stderr,
+            )
+        print(
+            "Prune exceptions for deleted or otherwise resolved findings with "
+            "--write-baseline after review.",
+            file=sys.stderr,
+        )
+        return 1
     violations = find_new_violations(findings, baseline)
     if not violations:
         print(

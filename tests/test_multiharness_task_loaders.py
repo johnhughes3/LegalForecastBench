@@ -7,6 +7,11 @@ from pathlib import Path
 import pytest
 from legalforecast._json_io import write_jsonl_objects
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
@@ -19,11 +24,6 @@ from legalforecast.multiharness.task_loaders import (
     ReleaseLfbTaskLoader,
 )
 from legalforecast.release.synthetic import issue_synthetic_release
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
-)
 
 
 def test_lfb_task_loader_indexes_packet_jsonl_without_public_packet_text(

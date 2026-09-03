@@ -1,0 +1,9 @@
+{
+  "artifacts": {},
+  "case_id": "score-requires-release",
+  "exit_status": 2,
+  "extra_files": [],
+  "output_tree": [],
+  "stderr": "usage: legalforecast score [-h] --runs RUNS --labels-release LABELS_RELEASE\n                           [--forecast-release FORECAST_RELEASE]\n                           [--artifact-root ARTIFACT_ROOT]\n                           [--manifest MANIFEST]\n                           [--expected-run-identity-sha256 EXPECTED_RUN_IDENTITY_SHA256]\n                           [--model-registry MODEL_REGISTRY]\n                           [--expected-model-registry-sha256 EXPECTED_MODEL_REGISTRY_SHA256]\n                           [--ledger LEDGER] --output OUTPUT\n                           [--unit-scores-output UNIT_SCORES_OUTPUT]\n                           [--base-rate BASE_RATE]\n                           [--include-ablation-in-model-id] [--dry-run]\nlegalforecast score: error: the following arguments are required: --labels-release\n",
+  "stdout": ""
+}

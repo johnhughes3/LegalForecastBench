@@ -39,13 +39,8 @@ LARGE_SYMBOL_THRESHOLD = 400
 NO_MOVE_PATHS: frozenset[str] = frozenset(
     {
         "legalforecast/ingestion/canonical_json.py",
-        "legalforecast/ingestion/http_config.py",
         "legalforecast/ingestion/provenance.py",
-        "legalforecast/ingestion/cycle_preflight.py",
-        "legalforecast/ingestion/cycle_preflight_manifest.py",
-        "legalforecast/ingestion/cycle_lineage_index.py",
-        "legalforecast/ingestion/infisical_systemd_launcher.py",
-        "legalforecast/protocol/manifest.py",
+        "legalforecast/_canonical.py",
     }
 )
 _LANE_BEADS: dict[str, str] = {

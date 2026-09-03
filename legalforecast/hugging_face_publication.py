@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import re
@@ -12,14 +13,18 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
-from legalforecast._json_io import read_json_object, write_json_object
+from legalforecast._canonical import sha256_file
+from legalforecast._json_io import (
+    read_json_object,
+    read_jsonl_objects,
+    write_json_object,
+)
 from legalforecast.immutable_io import (
     ImmutableIOError,
     publish_tree_create_only,
     read_single_link_file,
 )
 from legalforecast.path_safety import safe_path_component
-from legalforecast.protocol import sha256_file
 from legalforecast.publication.official_report_validation import (
     OfficialBundle,
     load_official_bundle,
@@ -48,6 +53,9 @@ for byte as before.
 """
 
 OFFICIAL_HF_UPLOAD_PLAN_SCHEMA_VERSION = "legalforecast-official-hf-upload-plan-v1"
+RETAINED_HF_PUBLICATION_SCHEMA_VERSION = "legalforecast-retained-hf-publication-v1"
+RETAINED_HF_AGGREGATE_SCHEMA_VERSION = "legalforecast-retained-hf-aggregate-v1"
+RETAINED_HF_SOURCE_SCHEMA_VERSION = "legalforecast-retained-hf-source-v1"
 _SUPPLEMENTARY_DIRECTORY = "supplementary"
 _MUTABLE_REVISIONS = frozenset(
     {"default", "develop", "head", "latest", "main", "master", "trunk"}
@@ -94,6 +102,407 @@ class OfficialHFPublicationResult:
     aggregate_artifact_index_sha256: str
     site_artifact_index_sha256: str
     supplementary_artifact_index_sha256: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RetainedHFPublicationConfig:
+    """Inputs for the retained fan-in's public Hugging Face package."""
+
+    score_path: Path
+    unit_scores_path: Path
+    report_dir: Path
+    output_dir: Path
+    cycle_id: str
+    release_version: str
+    dataset_repository: str
+
+    def __post_init__(self) -> None:
+        _validate_release_version(self.release_version)
+        try:
+            safe_path_component(self.cycle_id, field_name="cycle_id")
+        except ValueError as exc:
+            raise OfficialHFPublicationError(str(exc)) from exc
+        if _REPOSITORY_PATTERN.fullmatch(self.dataset_repository) is None:
+            raise OfficialHFPublicationError(
+                "dataset_repository must be an owner/name Hugging Face repository id"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class RetainedHFPublicationResult:
+    """Paths and commitments emitted by a retained fan-in HF package build."""
+
+    output_dir: Path
+    publication_manifest_path: Path
+    upload_plan_path: Path
+    readme_path: Path
+    eval_path: Path
+    cycle_id: str
+    release_version: str
+    artifact_count: int
+
+
+_RETAINED_PUBLIC_IDENTITY_FIELDS = (
+    "run_manifest_id",
+    "run_manifest_sha256",
+    "forecast_release_id",
+    "forecast_release_digest",
+    "labels_release_id",
+    "labels_release_digest",
+    "labels_forecast_release_digest",
+    "run_identity_sha256",
+    "model_registry_sha256",
+    "models",
+)
+_RETAINED_REPORT_FILES = (
+    "leaderboard.json",
+    "leaderboard.csv",
+    "leaderboard.md",
+    "leaderboard.html",
+)
+
+
+def build_retained_hf_publication(
+    config: RetainedHFPublicationConfig,
+) -> RetainedHFPublicationResult:
+    """Build a gated package from the retained protected fan-in outputs.
+
+    The retained fan-in is the authority for scoring and report generation. This
+    adapter deliberately consumes those already-validated outputs rather than
+    reconstructing a private acquisition or aggregate runtime in the public
+    repository.
+    """
+
+    if os.path.lexists(config.output_dir):
+        raise OfficialHFPublicationError(
+            f"publication output already exists: {config.output_dir}"
+        )
+    score = _read_json(config.score_path, "retained score artifact")
+    identity = _retained_public_identity(score)
+    report = _read_json(config.report_dir / "leaderboard.json", "retained leaderboard")
+    provenance_value = report.get("provenance")
+    if not isinstance(provenance_value, Mapping):
+        raise OfficialHFPublicationError("retained leaderboard lacks score provenance")
+    provenance = cast(Mapping[str, Any], provenance_value)
+    for field in _RETAINED_PUBLIC_IDENTITY_FIELDS:
+        if provenance.get(field) != identity[field]:
+            raise OfficialHFPublicationError(
+                f"retained leaderboard provenance differs for {field}"
+            )
+    summaries = score.get("summaries")
+    if not isinstance(summaries, Sequence) or isinstance(summaries, str | bytes):
+        raise OfficialHFPublicationError("retained score artifact lacks summaries")
+    if not summaries:
+        raise OfficialHFPublicationError("retained score artifact has no summaries")
+    unit_records = _retained_unit_records(config.unit_scores_path)
+    release_path = f"releases/{config.release_version}/{config.cycle_id}"
+
+    config.output_dir.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix=f".{config.output_dir.name}.", dir=config.output_dir.parent
+    ) as directory:
+        root = Path(directory)
+        aggregate_root = root / release_path / "aggregate"
+        _copy_retained_file(
+            config.score_path, aggregate_root / "scores.json", "score artifact"
+        )
+        _copy_retained_file(
+            config.unit_scores_path,
+            aggregate_root / "unit-scores.jsonl",
+            "unit-score artifact",
+        )
+        for name in _RETAINED_REPORT_FILES:
+            _copy_retained_file(
+                config.report_dir / name,
+                aggregate_root / "report" / name,
+                f"retained report artifact {name}",
+            )
+        write_json_object(
+            aggregate_root / "source-identity.json",
+            {
+                "schema_version": RETAINED_HF_SOURCE_SCHEMA_VERSION,
+                "cycle_id": config.cycle_id,
+                "score_sha256": _prefixed_digest(config.score_path),
+                "unit_scores_sha256": _prefixed_digest(config.unit_scores_path),
+                "leaderboard_sha256": _prefixed_digest(
+                    config.report_dir / "leaderboard.json"
+                ),
+                "identity": identity,
+            },
+        )
+        aggregate_digest = _write_retained_artifact_index(
+            aggregate_root, config.cycle_id
+        )
+
+        site_root = root / release_path / "site"
+        site_root.mkdir(parents=True, exist_ok=True)
+        (site_root / "index.html").write_text(
+            _retained_site_html(config.cycle_id, config.release_version),
+            encoding="utf-8",
+        )
+        write_json_object(
+            site_root / "site-manifest.json",
+            {
+                "schema_version": "legalforecast-retained-hf-site-v1",
+                "index": "index.html",
+            },
+        )
+        site_digest = _write_retained_artifact_index(site_root, config.cycle_id)
+        (root / "eval.yaml").write_text(
+            _eval_yaml(config.cycle_id, config.release_version), encoding="utf-8"
+        )
+        (root / "README.md").write_text(
+            _dataset_card(
+                cycle_id=config.cycle_id,
+                release_version=config.release_version,
+                release_path=release_path,
+                dataset_repository=config.dataset_repository,
+                aggregate_digest=aggregate_digest,
+                site_digest=site_digest,
+            ),
+            encoding="utf-8",
+        )
+        records = _artifact_records(root)
+        write_json_object(
+            root / "hf-upload-plan.json",
+            {
+                "schema_version": OFFICIAL_HF_UPLOAD_PLAN_SCHEMA_VERSION,
+                "repository": config.dataset_repository,
+                "revision_policy": "immutable-commit",
+                "release_path": release_path,
+                "upload": "protected-oidc-only",
+                "artifacts": records,
+            },
+        )
+        records = _artifact_records(root)
+        write_json_object(
+            root / "publication-manifest.json",
+            {
+                "schema_version": RETAINED_HF_PUBLICATION_SCHEMA_VERSION,
+                "cycle_id": config.cycle_id,
+                "release_version": config.release_version,
+                "release_path": release_path,
+                "dataset_repository": config.dataset_repository,
+                "revision_policy": "immutable-release-path",
+                "manual_gate": {
+                    "mode": "manual",
+                    "scope": "dataset_repository",
+                    "repository_setting_required": True,
+                },
+                "aggregate_artifact_index_sha256": aggregate_digest,
+                "site_artifact_index_sha256": site_digest,
+                "source_identity": identity,
+                "unit_score_count": len(unit_records),
+                "artifacts": records,
+            },
+        )
+        enforce_publication_guardrails(PublicationGuardrailConfig(public_paths=(root,)))
+        payloads = {
+            path.relative_to(root).as_posix(): path.read_bytes()
+            for path in sorted(root.rglob("*"))
+            if path.is_file()
+        }
+        try:
+            publish_tree_create_only(config.output_dir, payloads)
+        except ImmutableIOError as exc:
+            raise OfficialHFPublicationError(str(exc)) from exc
+
+    return validate_retained_hf_publication(config.output_dir)
+
+
+def validate_retained_hf_publication(root: Path) -> RetainedHFPublicationResult:
+    """Verify every byte and identity commitment in a retained HF package."""
+
+    manifest_path = root / "publication-manifest.json"
+    manifest = _read_json(manifest_path, "retained publication manifest")
+    if manifest.get("schema_version") != RETAINED_HF_PUBLICATION_SCHEMA_VERSION:
+        raise OfficialHFPublicationError(
+            "retained publication manifest has an unknown schema"
+        )
+    cycle_id = _required_text(manifest, "cycle_id")
+    release_version = _required_text(manifest, "release_version")
+    _validate_release_version(release_version)
+    release_path = _required_text(manifest, "release_path")
+    expected_release_path = f"releases/{release_version}/{cycle_id}"
+    if release_path != expected_release_path:
+        raise OfficialHFPublicationError(
+            "retained publication release_path does not match its version and cycle"
+        )
+    manual_gate_value = manifest.get("manual_gate")
+    if not isinstance(manual_gate_value, Mapping):
+        raise OfficialHFPublicationError("retained publication must be manually gated")
+    manual_gate = cast(Mapping[str, Any], manual_gate_value)
+    if manual_gate.get("mode") != "manual":
+        raise OfficialHFPublicationError("retained publication must be manually gated")
+    listed: set[str] = set()
+    for record in _mapping_rows(manifest.get("artifacts")):
+        relative = _required_text(record, "path")
+        _safe_relative(relative, "retained publication artifact")
+        path = root / relative
+        if relative in listed or not path.is_file() or path.is_symlink():
+            raise OfficialHFPublicationError(
+                f"retained publication artifact is missing or duplicated: {relative}"
+            )
+        listed.add(relative)
+        if _prefixed_digest(path) != _required_text(record, "sha256"):
+            raise OfficialHFPublicationError(
+                f"retained publication artifact hash mismatch: {relative}"
+            )
+        if path.stat().st_size != record.get("size_bytes"):
+            raise OfficialHFPublicationError(
+                f"retained publication artifact size mismatch: {relative}"
+            )
+    actual = {
+        path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
+    }
+    if actual != listed | {"publication-manifest.json"}:
+        raise OfficialHFPublicationError(
+            "retained publication tree contains files not covered by its manifest"
+        )
+    aggregate_root = root / release_path / "aggregate"
+    site_root = root / release_path / "site"
+    if _prefixed_digest(aggregate_root / "artifact-index.json") != manifest.get(
+        "aggregate_artifact_index_sha256"
+    ):
+        raise OfficialHFPublicationError("retained aggregate index digest mismatch")
+    if _prefixed_digest(site_root / "artifact-index.json") != manifest.get(
+        "site_artifact_index_sha256"
+    ):
+        raise OfficialHFPublicationError("retained site index digest mismatch")
+    source = _read_json(
+        aggregate_root / "source-identity.json", "retained source identity"
+    )
+    if source.get("schema_version") != RETAINED_HF_SOURCE_SCHEMA_VERSION:
+        raise OfficialHFPublicationError(
+            "retained source identity has an unknown schema"
+        )
+    if source.get("cycle_id") != cycle_id:
+        raise OfficialHFPublicationError("retained source identity cycle differs")
+    if source.get("identity") != manifest.get("source_identity"):
+        raise OfficialHFPublicationError("retained source identity differs")
+    if not (site_root / "index.html").is_file():
+        raise OfficialHFPublicationError("retained site is missing index.html")
+    enforce_publication_guardrails(PublicationGuardrailConfig(public_paths=(root,)))
+    return RetainedHFPublicationResult(
+        output_dir=root,
+        publication_manifest_path=manifest_path,
+        upload_plan_path=root / "hf-upload-plan.json",
+        readme_path=root / "README.md",
+        eval_path=root / "eval.yaml",
+        cycle_id=cycle_id,
+        release_version=release_version,
+        artifact_count=len(actual),
+    )
+
+
+def _retained_public_identity(score: Mapping[str, Any]) -> dict[str, Any]:
+    identity_value = score.get("identity")
+    if not isinstance(identity_value, Mapping):
+        raise OfficialHFPublicationError(
+            "retained score artifact lacks identity metadata"
+        )
+    identity = cast(Mapping[str, Any], identity_value)
+    result: dict[str, Any] = {
+        field: identity.get(field) for field in _RETAINED_PUBLIC_IDENTITY_FIELDS
+    }
+    for field in _RETAINED_PUBLIC_IDENTITY_FIELDS:
+        if result[field] is None:
+            raise OfficialHFPublicationError(f"retained score identity lacks {field}")
+    for field in (
+        "run_manifest_sha256",
+        "forecast_release_digest",
+        "labels_release_digest",
+        "labels_forecast_release_digest",
+        "run_identity_sha256",
+        "model_registry_sha256",
+    ):
+        value = result[field]
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+            raise OfficialHFPublicationError(
+                f"retained score identity {field} is not a lowercase SHA-256"
+            )
+    if not isinstance(result["models"], list) or not result["models"]:
+        raise OfficialHFPublicationError("retained score identity lacks model bindings")
+    return result
+
+
+def _retained_unit_records(path: Path) -> tuple[Mapping[str, Any], ...]:
+    if not path.is_file() or path.is_symlink():
+        raise OfficialHFPublicationError(
+            f"unit-score artifact is not a regular file: {path}"
+        )
+    try:
+        records = tuple(
+            read_jsonl_objects(
+                path,
+                error_factory=OfficialHFPublicationError,
+                missing_message=lambda item: (
+                    f"unit-score artifact does not exist: {item}"
+                ),
+                non_object_message=lambda item, line: (
+                    f"unit-score line {line} must be an object: {item}"
+                ),
+            )
+        )
+    except OfficialHFPublicationError:
+        raise
+    if not records:
+        raise OfficialHFPublicationError("unit-score artifact has no records")
+    seen: set[tuple[str, str]] = set()
+    for record in records:
+        key = (
+            _required_text(record, "model_id"),
+            _required_text(record, "unit_id"),
+        )
+        if key in seen:
+            raise OfficialHFPublicationError("unit-score artifact has duplicate units")
+        seen.add(key)
+        _required_text(record, "case_id")
+    return records
+
+
+def _copy_retained_file(source: Path, destination: Path, label: str) -> None:
+    if not source.is_file() or source.is_symlink():
+        raise OfficialHFPublicationError(f"{label} is not a regular file: {source}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(source.read_bytes())
+
+
+def _write_retained_artifact_index(root: Path, cycle_id: str) -> str:
+    artifacts = [
+        {
+            "path": path.relative_to(root).as_posix(),
+            "sha256": _prefixed_digest(path),
+            "size_bytes": path.stat().st_size,
+        }
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.name != "artifact-index.json"
+    ]
+    write_json_object(
+        root / "artifact-index.json",
+        {
+            "schema_version": RETAINED_HF_AGGREGATE_SCHEMA_VERSION,
+            "cycle_id": cycle_id,
+            "artifacts": artifacts,
+        },
+    )
+    return _prefixed_digest(root / "artifact-index.json")
+
+
+def _retained_site_html(cycle_id: str, release_version: str) -> str:
+    title = html.escape(f"LegalForecastBench {cycle_id} Official Results")
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>{title}</title></head>
+<body><main><h1>{title}</h1>
+<p>This immutable release was verified and published by the protected
+LegalForecastBench fan-in workflow.</p>
+<p>Release version: <code>{html.escape(release_version)}</code></p>
+<ul>
+<li><a href="../aggregate/report/leaderboard.html">Leaderboard</a></li>
+<li><a href="../aggregate/report/leaderboard.json">Leaderboard JSON</a></li>
+<li><a href="../aggregate/unit-scores.jsonl">Unit scores</a></li>
+</ul></main></body></html>
+"""
 
 
 def build_official_hf_publication(
@@ -622,7 +1031,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Build one local Hugging Face publication package."""
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--official-artifacts-dir", type=Path, required=True)
+    parser.add_argument("--official-artifacts-dir", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--release-version", required=True)
     parser.add_argument("--dataset-repository", required=True)
@@ -636,16 +1045,59 @@ def main(argv: Sequence[str] | None = None) -> int:
             "the official split."
         ),
     )
-    args = parser.parse_args(argv)
-    result = build_official_hf_publication(
-        OfficialHFPublicationConfig(
-            official_artifacts_dir=args.official_artifacts_dir,
-            output_dir=args.output_dir,
-            release_version=args.release_version,
-            dataset_repository=args.dataset_repository,
-            supplementary_artifacts_dir=args.supplementary_artifacts_dir,
-        )
+    parser.add_argument(
+        "--score",
+        type=Path,
+        help="Retained protected fan-in scores.json output.",
     )
+    parser.add_argument(
+        "--unit-scores",
+        type=Path,
+        help="Retained protected fan-in unit-scores.jsonl output.",
+    )
+    parser.add_argument(
+        "--report-dir",
+        type=Path,
+        help="Directory containing retained leaderboard report outputs.",
+    )
+    parser.add_argument(
+        "--cycle-id",
+        help="Retained fan-in cycle identifier bound into the release path.",
+    )
+    args = parser.parse_args(argv)
+    retained_args = (args.score, args.unit_scores, args.report_dir, args.cycle_id)
+    if any(value is not None for value in retained_args):
+        if any(value is None for value in retained_args):
+            parser.error(
+                "--score, --unit-scores, --report-dir, and --cycle-id must be "
+                "provided together"
+            )
+        result = build_retained_hf_publication(
+            RetainedHFPublicationConfig(
+                score_path=args.score,
+                unit_scores_path=args.unit_scores,
+                report_dir=args.report_dir,
+                output_dir=args.output_dir,
+                cycle_id=args.cycle_id,
+                release_version=args.release_version,
+                dataset_repository=args.dataset_repository,
+            )
+        )
+    else:
+        if args.official_artifacts_dir is None:
+            parser.error(
+                "--official-artifacts-dir is required unless retained fan-in "
+                "inputs are provided"
+            )
+        result = build_official_hf_publication(
+            OfficialHFPublicationConfig(
+                official_artifacts_dir=args.official_artifacts_dir,
+                output_dir=args.output_dir,
+                release_version=args.release_version,
+                dataset_repository=args.dataset_repository,
+                supplementary_artifacts_dir=args.supplementary_artifacts_dir,
+            )
+        )
     print(
         json.dumps({"cycle_id": result.cycle_id, "output_dir": str(result.output_dir)})
     )

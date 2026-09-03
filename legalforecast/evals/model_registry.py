@@ -12,7 +12,43 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, cast
 
-from legalforecast.selection import ModelRunMetadata, TrainingCutoffStatus
+
+class TrainingCutoffStatus(StrEnum):
+    """Whether a model's provider training cutoff is known."""
+
+    KNOWN = "known"
+    UNKNOWN = "unknown"
+    NOT_DISCLOSED = "not_disclosed"
+
+
+@dataclass(frozen=True, slots=True)
+class ModelRunMetadata:
+    """Model metadata retained for cutoff-aware public reporting."""
+
+    provider: str
+    model_name: str
+    model_version_or_snapshot: str
+    evaluation_timestamp: datetime
+    network_disabled: bool
+    search_disabled: bool
+    provider_training_cutoff_status: TrainingCutoffStatus
+    provider_training_cutoff: date | None = None
+
+    def __post_init__(self) -> None:
+        _require_non_empty(self.provider, "provider")
+        _require_non_empty(self.model_name, "model_name")
+        _require_non_empty(self.model_version_or_snapshot, "model_version_or_snapshot")
+        _require_aware(self.evaluation_timestamp, "evaluation_timestamp")
+        if self.provider_training_cutoff_status is TrainingCutoffStatus.KNOWN:
+            if self.provider_training_cutoff is None:
+                raise ValueError(
+                    "provider_training_cutoff is required when cutoff status is known"
+                )
+        elif self.provider_training_cutoff is not None:
+            raise ValueError(
+                "provider_training_cutoff must be omitted when cutoff status is "
+                "not known"
+            )
 
 
 class ToolPolicy(StrEnum):

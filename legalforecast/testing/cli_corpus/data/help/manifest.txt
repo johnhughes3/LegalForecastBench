@@ -1,0 +1,8 @@
+usage: legalforecast manifest [-h] COMMAND ...
+
+positional arguments:
+  COMMAND
+    validate  Validate a locked manifest and optionally its paired releases.
+
+options:
+  -h, --help  show this help message and exit

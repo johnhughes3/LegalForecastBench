@@ -11,6 +11,12 @@ from legalforecast.evals.accounting import accounting_records_from_harness_recor
 from legalforecast.evals.inspect_task import OfflineMockSolver
 from legalforecast.evals.output_parser import parse_model_output
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
+from legalforecast.evals.run_record_scoring import ReleaseOutcomeLabel
 from legalforecast.evals.scorers import ScoringCase, score_cases
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
@@ -18,7 +24,6 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
-from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
 from legalforecast.multiharness.lfb_native import (
     LfbNativeAdapter,
     LfbNativeAdapterError,
@@ -26,11 +31,6 @@ from legalforecast.multiharness.lfb_native import (
 from legalforecast.multiharness.sandbox import sandbox_policy
 from legalforecast.multiharness.spec import RunRequest
 from legalforecast.multiharness.task_loaders import LfbTaskLoader
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
-)
 
 EVALUATION_TIMESTAMP = datetime(2026, 5, 14, 20, 0, tzinfo=UTC)
 
@@ -248,21 +248,8 @@ def _raw_output(*, probability: float) -> str:
     )
 
 
-def _label(unit_id: str, *, dismissed: bool) -> OutcomeLabel:
-    return OutcomeLabel(
-        unit_id=unit_id,
-        fully_dismissed=dismissed,
-        amendment_class=(
-            AmendmentClass.DISMISSED_WITHOUT_EXPRESS_AMENDMENT_OPPORTUNITY
-            if dismissed
-            else AmendmentClass.NOT_FULLY_DISMISSED
-        ),
-        ambiguous=False,
-        label_confidence=0.97,
-        supporting_citations=(OutcomeCitation(document_id="decision-1", page=1),),
-        first_written_disposition_id="decision-1",
-        first_written_disposition_date="2026-05-18",
-    )
+def _label(unit_id: str, *, dismissed: bool) -> ReleaseOutcomeLabel:
+    return ReleaseOutcomeLabel(unit_id=unit_id, primary_outcome=int(dismissed))
 
 
 def _sha256_text(value: object) -> str:

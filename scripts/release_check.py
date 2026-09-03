@@ -16,6 +16,11 @@ from pathlib import Path
 from typing import cast
 
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
@@ -27,12 +32,7 @@ from legalforecast.multiharness.spec import (
     ConformanceReport,
     TaskIndex,
 )
-from legalforecast.protocol.freeze import REQUIRED_FREEZE_ARTIFACTS
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
-)
+from legalforecast.release import validate_release
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "tmp" / "release-check"
@@ -85,7 +85,6 @@ def build_steps(output_dir: Path) -> tuple[CheckStep, ...]:
                 "run",
                 "interrogate",
                 "legalforecast/publication",
-                "legalforecast/labeling",
                 "scripts",
             ),
         ),
@@ -93,21 +92,122 @@ def build_steps(output_dir: Path) -> tuple[CheckStep, ...]:
             "test",
             ("uv", "run", "pytest", "-q", "-n", "4", "--dist=loadscope"),
         ),
-        CheckStep(
-            "review blocker verifier",
-            ("uv", "run", "scripts/verify_review_blockers.py"),
-        ),
         CheckStep("CLI help smoke", ("uv", "run", "legalforecast", "--help")),
         CheckStep(
-            "fixture E2E",
+            "fixture manifest preparation",
+            (
+                "uv",
+                "run",
+                "python",
+                "scripts/release_smoke.py",
+                "manifest",
+                "--output",
+                str(output_dir / "run-manifest.json"),
+            ),
+        ),
+        CheckStep(
+            "fixture release issuance",
             (
                 "uv",
                 "run",
                 "legalforecast",
-                "fixture",
-                "e2e",
+                "run",
+                "issue-fixture",
                 "--output-dir",
                 str(fixture_dir),
+            ),
+        ),
+        CheckStep(
+            "fixture release execution",
+            (
+                "uv",
+                "run",
+                "legalforecast",
+                "run",
+                "execute",
+                "--manifest",
+                str(output_dir / "run-manifest.json"),
+                "--forecast",
+                str(fixture_dir / "release" / "forecast-release.json"),
+                "--artifact-root",
+                str(fixture_dir / "release"),
+                "--model-registry",
+                str(fixture_dir / "model-registry.json"),
+                "--model-key",
+                "openai:legalforecast-fixture",
+                "--ledger",
+                str(output_dir / "ledger.sqlite3"),
+                "--receipts-dir",
+                str(output_dir / "receipts"),
+                "--ceiling-microusd",
+                "30000",
+                "--dry-run",
+            ),
+        ),
+        CheckStep(
+            "fixture receipt collection",
+            (
+                "uv",
+                "run",
+                "python",
+                "scripts/release_smoke.py",
+                "collect-receipts",
+                "--receipts-dir",
+                str(output_dir / "receipts"),
+                "--output",
+                str(output_dir / "runs.jsonl"),
+            ),
+        ),
+        CheckStep(
+            "fixture strict scoring",
+            (
+                "uv",
+                "run",
+                "legalforecast",
+                "score",
+                "--runs",
+                str(output_dir / "runs.jsonl"),
+                "--labels-release",
+                str(fixture_dir / "release" / "labels-release.json"),
+                "--forecast-release",
+                str(fixture_dir / "release" / "forecast-release.json"),
+                "--artifact-root",
+                str(fixture_dir / "release"),
+                "--manifest",
+                str(output_dir / "run-manifest.json"),
+                "--model-registry",
+                str(fixture_dir / "model-registry.json"),
+                "--ledger",
+                str(output_dir / "ledger.sqlite3"),
+                "--output",
+                str(output_dir / "scores.json"),
+                "--unit-scores-output",
+                str(output_dir / "unit-scores.jsonl"),
+            ),
+        ),
+        CheckStep(
+            "fixture leaderboard report",
+            (
+                "uv",
+                "run",
+                "legalforecast",
+                "report",
+                "--scores",
+                str(output_dir / "scores.json"),
+                "--output-dir",
+                str(output_dir / "report"),
+                "--labels-release",
+                str(fixture_dir / "release" / "labels-release.json"),
+                "--forecast-release",
+                str(fixture_dir / "release" / "forecast-release.json"),
+                "--artifact-root",
+                str(fixture_dir / "release"),
+                "--manifest",
+                str(output_dir / "run-manifest.json"),
+                "--frozen-model-registry",
+                str(fixture_dir / "model-registry.json"),
+                "--ledger",
+                str(output_dir / "ledger.sqlite3"),
             ),
         ),
         CheckStep(
@@ -229,8 +329,8 @@ def build_installed_cli_steps(
                 "--with",
                 str(wheel_path),
                 "legalforecast",
-                "fixture",
-                "e2e",
+                "run",
+                "issue-fixture",
                 "--output-dir",
                 str(installed_fixture_dir),
             ),
@@ -243,10 +343,11 @@ def build_installed_cli_steps(
 
 
 def validate_artifacts(output_dir: Path) -> None:
-    """Validate fixture, multi-harness, and package artifacts from a release run."""
+    """Validate release, score/report, multi-harness, and package artifacts."""
 
     fixture_dir = output_dir / "fixture-run"
     _validate_fixture_artifacts(fixture_dir)
+    _validate_release_smoke_artifacts(output_dir)
     _validate_multiharness_smoke_artifacts(multiharness_smoke_paths(output_dir))
 
     dist_dir = output_dir / "dist"
@@ -256,61 +357,51 @@ def validate_artifacts(output_dir: Path) -> None:
 
 
 def _validate_fixture_artifacts(fixture_dir: Path) -> None:
-    """Require the complete fixture-E2E artifact set and a nonempty index."""
+    """Validate the deterministic public release fixture."""
 
     required_paths = (
-        fixture_dir / "artifact-index.json",
-        fixture_dir / "artifact-manifest.json",
-        fixture_dir / "report" / "leaderboard.json",
-        fixture_dir / "report" / "leaderboard.csv",
-        fixture_dir / "report" / "leaderboard.md",
-        fixture_dir / "report" / "leaderboard.html",
-        fixture_dir / "manifests" / "cycle_fixture_e2e.freeze.json",
+        fixture_dir / "release" / "forecast-release.json",
+        fixture_dir / "release" / "labels-release.json",
+        fixture_dir / "model-registry.json",
     )
     missing = [path for path in required_paths if not path.is_file()]
     if missing:
-        formatted = "\n".join(f"- {path.relative_to(REPO_ROOT)}" for path in missing)
+        formatted = "\n".join(f"- {_display_path(path)}" for path in missing)
         raise RuntimeError(f"release-check artifacts missing:\n{formatted}")
 
-    artifact_index = json.loads((fixture_dir / "artifact-index.json").read_text())
-    artifact_count = artifact_index.get("artifact_count")
-    if not isinstance(artifact_count, int) or artifact_count <= 0:
-        raise RuntimeError("artifact-index.json must include a positive artifact_count")
-
-    freeze_record = json.loads(
-        (fixture_dir / "manifests" / "cycle_fixture_e2e.freeze.json").read_text()
+    validate_release(
+        fixture_dir / "release" / "forecast-release.json",
+        fixture_dir / "release" / "labels-release.json",
+        artifact_root=fixture_dir / "release",
     )
-    frozen_artifacts = freeze_record.get("artifacts")
-    if not isinstance(frozen_artifacts, list):
-        raise RuntimeError(
-            "fixture freeze must commit the canonical required artifact set"
-        )
-    typed_frozen_artifacts = cast(list[object], frozen_artifacts)
-    artifact_names: list[str] = []
-    for artifact in typed_frozen_artifacts:
-        if not isinstance(artifact, dict):
-            raise RuntimeError(
-                "fixture freeze must commit the canonical required artifact set"
-            )
-        artifact_record = cast(dict[str, object], artifact)
-        name = artifact_record.get("name")
-        if not isinstance(name, str):
-            raise RuntimeError(
-                "fixture freeze must commit the canonical required artifact set"
-            )
-        artifact_names.append(name)
 
-    required_names = {artifact.value for artifact in REQUIRED_FREEZE_ARTIFACTS}
-    if (
-        len(artifact_names) != len(required_names)
-        or set(artifact_names) != required_names
-    ):
-        raise RuntimeError(
-            "fixture freeze must commit the canonical required artifact set "
-            f"(expected={sorted(required_names)!r}, actual={artifact_names!r})"
-        )
-    if (fixture_dir / "preregistration-validation.json").exists():
-        raise RuntimeError("fixture output contains removed legacy artifact")
+
+def _validate_release_smoke_artifacts(output_dir: Path) -> None:
+    """Require the strict fixture execution, scoring, and report outputs."""
+
+    scores = _read_json_object(output_dir / "scores.json", "fixture scores")
+    summaries = scores.get("summaries")
+    identity = scores.get("identity")
+    if not isinstance(summaries, list) or not summaries:
+        raise RuntimeError("fixture scores must contain at least one summary")
+    if not isinstance(identity, dict):
+        raise RuntimeError("fixture scores must contain strict release identity")
+    required_report_paths = (
+        output_dir / "report" / "leaderboard.json",
+        output_dir / "report" / "leaderboard.csv",
+        output_dir / "report" / "leaderboard.md",
+        output_dir / "report" / "leaderboard.html",
+    )
+    missing = [path for path in required_report_paths if not path.is_file()]
+    if missing:
+        formatted = "\n".join(f"- {_display_path(path)}" for path in missing)
+        raise RuntimeError(f"fixture report artifacts missing:\n{formatted}")
+    report = _read_json_object(
+        output_dir / "report" / "leaderboard.json",
+        "fixture leaderboard",
+    )
+    if not isinstance(report.get("rows"), list) or not report["rows"]:
+        raise RuntimeError("fixture leaderboard must contain rows")
 
 
 def multiharness_smoke_paths(output_dir: Path) -> MultiHarnessSmokePaths:
@@ -500,6 +591,15 @@ def _read_json_object(path: Path, label: str) -> dict[str, object]:
     if not isinstance(record, dict):
         raise RuntimeError(f"{label} must be a JSON object: {path}")
     return cast(dict[str, object], record)
+
+
+def _display_path(path: Path) -> str:
+    """Prefer a repository-relative path while supporting isolated test roots."""
+
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
 
 
 def _sha256_file(path: Path) -> str:

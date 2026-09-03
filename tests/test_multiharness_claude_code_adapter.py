@@ -15,6 +15,11 @@ from legalforecast.evals.inspect_task import (
     SolverKind,
 )
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
@@ -59,11 +64,6 @@ from legalforecast.multiharness.spec import (
     RunRequest,
     RunResult,
     SandboxPolicy,
-)
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
 )
 
 ROOT = Path(__file__).resolve().parents[1]

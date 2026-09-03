@@ -1,4 +1,4 @@
-"""Provider-free CLI differential cases with exact bytes and output trees."""
+"""Provider-free public CLI characterization cases with exact outputs."""
 
 from __future__ import annotations
 
@@ -48,42 +48,18 @@ CASES: tuple[DifferentialCase, ...] = (
         2,
         "empty",
     ),
-    DifferentialCase("freeze-help", ("freeze", "--help"), 0, "empty"),
+    DifferentialCase("manifest-help", ("manifest", "--help"), 0, "empty"),
     DifferentialCase(
-        "publish-aggregate-help",
-        ("publish", "aggregate", "--help"),
-        0,
-        "empty",
-    ),
-    DifferentialCase(
-        "discover-dry-run",
-        (
-            "discover",
-            "--input",
-            "{workspace}/input.jsonl",
-            "--output",
-            "{workspace}/output.jsonl",
-            "--dry-run",
-        ),
-        0,
-        "empty-jsonl",
-        resume=True,
-    ),
-    DifferentialCase(
-        "score-dry-run",
+        "score-requires-release",
         (
             "score",
             "--runs",
             "{workspace}/runs.jsonl",
-            "--labels",
-            "{workspace}/labels.jsonl",
             "--output",
             "{workspace}/scores.json",
-            "--dry-run",
         ),
-        0,
-        "score-inputs",
-        resume=True,
+        2,
+        "empty",
     ),
 )
 
@@ -105,16 +81,12 @@ class DifferentialResult:
 
 
 def validate_case_argv(argv: Sequence[str]) -> None:
-    """Refuse corpus cases that could purchase, freeze, dispatch, or go live."""
+    """Refuse corpus cases that could purchase, dispatch, or go live."""
 
     tokens = set(argv)
     forbidden = sorted(tokens & _FORBIDDEN_TOKENS)
     if forbidden:
         raise ValueError(f"differential case uses forbidden tokens: {forbidden}")
-    if "freeze" in tokens and "--help" not in tokens:
-        raise ValueError("freeze is only allowed as a help bypass in this corpus")
-    if argv[:2] == ("publish", "aggregate") and "--help" not in tokens:
-        raise ValueError("publish aggregate is only allowed as a help bypass")
 
 
 def run_case(case: DifferentialCase, workspace: Path) -> DifferentialResult:

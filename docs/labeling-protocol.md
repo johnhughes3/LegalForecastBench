@@ -1,5 +1,10 @@
 # Labeling Protocol
 
+> Historical Corpus record — non-executable from LegalForecastBench. Current
+> public execution begins only with an issued, outcome-blinded release and a
+> locked manifest; private acquisition, unitization, labeling, and freeze
+> commands below are retained for archaeology and are not Bench CLI instructions.
+
 LegalForecast-MTD labels each frozen prediction unit from the first written disposition of the motion to dismiss. The primary target is whether that claim-defendant unit was dismissed in full. The label is not an assessment of whether dismissal was legally correct, and it is not revised because of later events.
 
 ## Scope

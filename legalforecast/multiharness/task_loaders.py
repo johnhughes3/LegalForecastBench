@@ -17,6 +17,12 @@ from legalforecast.evals.packet_builder import (
     PacketAblation,
     PacketDocument,
 )
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    DefendantGrouping,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 from legalforecast.multiharness.solver_inputs import (
     SolverInputPayload,
@@ -33,12 +39,6 @@ from legalforecast.multiharness.validation import (
 )
 from legalforecast.release.models import ForecastPredictionUnit
 from legalforecast.release.service import ForecastExecution, load_forecast_execution
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    DefendantGrouping,
-    PredictionUnit,
-    SourceCitation,
-)
 
 DEFAULT_LFB_SUITE_VERSION = "legalforecast-mtd-v1"
 DEFAULT_RELEASE_LFB_SUITE_VERSION = "forecast-release.v1"

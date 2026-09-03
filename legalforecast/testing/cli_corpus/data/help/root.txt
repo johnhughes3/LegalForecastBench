@@ -4,39 +4,16 @@ LegalForecast-MTD benchmark utilities.
 
 positional arguments:
   COMMAND
-    discover        Find MTD candidates from docket-entry search records.
-    retrieve        Retrieve candidate dockets and source-document provenance.
-    case-dev-smoke  Run a bounded case.dev Phase 0 smoke pass and write
-                    markdown.
-    extract         Extract PDF text artifacts for source documents.
-    link            Link target MTD docket entries to written dispositions.
-    unitize         Construct frozen Stage A prediction units.
-    label           Create Stage B outcome labels for frozen units.
-    packet-build    Build model-visible packet artifacts from frozen inputs.
-    packet          Packet artifact commands.
-    model-run       Run no-network fixture solvers over packet artifacts.
-    eval            Evaluation run commands.
-    manifest        Validate the locked public benchmark-run manifest.
-    score           Parse model outputs and score them against locked labels.
-    report          Render leaderboard artifacts from score summaries.
-    release         Issue and validate public forecast and labels releases.
-    run             Execute a validated forecast release with durable local
-                    spend control.
-    publish         Aggregate and render official publication artifacts.
-    fixture-e2e     Run a deterministic no-network benchmark fixture end to
-                    end.
-    fixture         Fixture workflow commands.
-    pilot           Pilot readiness commands.
-    multiharness    Run community multi-harness benchmark tasks and adapter
-                    checks.
-    batch-002       Cycle 1 batch-002 decision-first RECAP REST v4 acquisition
-                    driver (discover / seed-direct-search / rebind-direct-
-                    search / rebind-terminal-rest-observations / seed-novel-
-                    direct-search / materialize-direct-search-priority-tranche
-                    / select-case-dev-ranked / observe / seed-batch-001-leads
-                    / snapshot).
-    acquisition     Production acquisition pipeline commands.
+    manifest      Validate the locked public benchmark-run manifest.
+    release       Issue and validate public forecast and labels releases.
+    run           Execute a validated forecast release with durable local
+                  spend control.
+    score         Parse model outputs and score them against locked labels.
+    report        Render leaderboard artifacts from score summaries.
+    publish       Render official publication artifacts.
+    multiharness  Run community multi-harness benchmark tasks and adapter
+                  checks.
 
 options:
-  -h, --help        show this help message and exit
-  --version         show program's version number and exit
+  -h, --help      show this help message and exit
+  --version       show program's version number and exit

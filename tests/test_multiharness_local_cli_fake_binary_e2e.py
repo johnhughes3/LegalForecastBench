@@ -17,6 +17,11 @@ from pathlib import Path
 import pytest
 from legalforecast._json_io import write_jsonl_objects
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
@@ -40,11 +45,6 @@ from legalforecast.multiharness.spec import (
     SandboxPolicy,
 )
 from legalforecast.multiharness.task_loaders import LfbTaskLoader
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
-)
 
 ROOT = Path(__file__).resolve().parents[1]
 FAKE_CLI = ROOT / "tests" / "fixtures" / "local_cli_fake_cli.py"

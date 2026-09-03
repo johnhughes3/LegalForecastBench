@@ -1,380 +1,167 @@
-# Official-run gate pack (Lane F4, preparation only)
+# Official-run gate pack (preparation only)
 
 > [!CAUTION]
-> **DO NOT EXECUTE.** This is a preparation and review artifact only. Do not
-> dispatch workflows, resolve credentials, access provider infrastructure, or
-> run an official cycle from these commands without the separately recorded
-> human approvals and protected-environment evidence.
+> **HOLD.** This pack is for review and input preparation. Do not dispatch a
+> protected workflow, resolve credentials, call a model provider, purchase a
+> document, or publish an official result from these instructions. The held
+> legacy-deletion PR must not merge until `legalforecast-f454` closes live
+> ingest and two-pass QC.
 
-This pack compresses the remaining operator work for the first official cycle. It is intentionally a preparation artifact: publishing the reviewed workflow changes through PR #772 did not apply infrastructure, read or write secrets, dispatch a protected workflow, call a model provider, purchase a document, or run an official cycle.
+This pack describes the retained public release boundary. A public run starts
+with immutable release URIs and a locked manifest, executes the supported
+forecast matrix, and ends at the protected labels fan-in. Private corpus
+construction and source bytes are supplied by the companion
+LegalForecastCorpus repository; they are not reconstructed here.
 
-## Stop condition and ownership
+## Ownership
 
-The official first cycle (`ur6`) remains blocked on `ue7.32` (rehearsal, failure drill, and John’s sign-off). `ue7.32` remains behind the protected infrastructure and workflow gates `hckb.15`, `5qd6.119`, `5qd6.32`, and `5qd6.101`. Secure-gate is down under the standing repository instruction; the workflow files were published only after explicit operator authorization, and landing them is not evidence that any operational gate ran or passed.
+LegalForecastCorpus owns private source bytes, selection, unitization, quality
+control, deterministic release issuance, and the OIDC staging handoff.
+LegalForecastBench owns public release validation, manifest/run execution,
+scoring, reporting, withdrawal records, and community publication.
 
-The corpus dependency is strict: Lane F2 must finish Stage A and Gate 3, then freeze the exact corpus and release inputs. The official evaluation consumes those frozen bytes; it must not start from a fixture, an inferred successor, or a mutable working tree.
+The staging handoff is an interface, not a public acquisition path. It supplies
+immutable `manifest_uri`, `forecast_release_uri`, `artifact_root_uri`,
+`model_registry_uri`, and `labels_release_uri` values to the protected fan-in.
+The forecast job receives only its approved artifact inputs and never receives
+labels or private source bytes.
 
-## Evidence status
+## Retained workflows
 
-| Status | Evidence | Boundary |
+| Workflow | Responsibility | Required evidence |
 | --- | --- | --- |
-| Green — verified today | `actionlint` on `run-benchmark.yaml`, `official-provider-cell.yaml`, and `official-s3-access-validation.yaml`; 0 diagnostics | Static workflow syntax only |
-| Green — verified today | Official workflow/infra/environment contract set: `uv run pytest -q tests/test_official_provider_workflow.py tests/test_official_eval_matrix_workflow.py tests/test_official_eval_infra.py tests/test_official_eval_environment_manifest.py` — 61 passed; runbook contract: `uv run pytest -q tests/test_official_run_runbook.py` — 30 passed; integrated fixture smoke: `uv run pytest -q tests/test_integrated_fixture_pipeline.py` — 1 passed | Provider-free tests and fixture pipeline only |
-| Green — verified today | `uv run pytest -q tests/test_downstream_rehearsal.py` — 92 passed; exact-100 public fixture chain included | Fixture-only rehearsal machinery; no live corpus, provider, or infrastructure |
-| Green — verified today | `terraform fmt -check -recursive infra/official-eval`; backend-free `terraform init`; `terraform validate` | Local Terraform code shape only |
-| Yellow — fixture only | The `hfk` downstream rehearsal and staged-rollout tests exercise deterministic response fixtures, packet exclusion, zero review queues, zero provider billing, and receipt byte identity | Not evidence of a live corpus, provider, S3, OIDC, or protected environment |
-| Red — John gate | Existing-resource import, protected plan review, and apply for `hckb.15` | Requires the protected infrastructure environment, remote state, hidden identifiers, and John’s approval |
-| Red — John gate | Workflow-bearing publication and sanctioned dispatches (`5qd6.119`, `5qd6.32`, `5qd6.101`) | No agent PR or main publication while secure-gate is down |
-| Red — John gate | Provider-free live OIDC/S3 validation, bounded provider smoke, rehearsal sign-off, and `ur6` | Requires applied AWS/GitHub state, Stage A + Gate 3 frozen corpus, and human authority |
+| `.github/workflows/run-benchmark.yaml` | Execute the frozen forecast matrix | Each run receipt binds the locked manifest, release digests, model key, and code revision |
+| `.github/workflows/fan-in-publish.yaml` | Validate receipts, score, report, and publish | Protected environment approval plus complete receipt and release set |
 
-## Draft branch and workflow changes
+Local action references in these workflows must resolve to an action checked
+into this repository. The public release coherence test enforces that boundary
+and rejects references to removed acquisition or legacy provider machinery.
 
-The draft was prepared on `feat/code2`, originally stacked on `feat/code`. After the parent landed, PR #772 was retargeted to `main` for exact-head review and landing.
+## Preparation gates
 
-The draft changes are:
-
-- `.github/workflows/official-provider-cell.yaml` — new reusable provider-cell workflow. It accepts one provider, binds the job environment from the allowlisted `environment_name`, scopes the generic `PROVIDER_API_KEY` only to the provider shell, keeps packet/result AWS authority in the cell role, clears AWS credentials before receipt upload, and uploads receipt-only Actions artifacts.
-- `.github/workflows/run-benchmark.yaml` — partitions the matrix into `run-openai`, `run-anthropic`, and `run-gemini` reusable-workflow lanes; fan-in waits for all three and consumes completion receipts only. Matrix and fan-in jobs do not reference provider API-key secrets.
-- `tests/test_official_provider_workflow.py` and `tests/test_official_eval_matrix_workflow.py` — static provider-boundary, receipt, matrix, and immutable-action contracts.
-- `tests/test_official_eval_infra.py` and `tests/official_infra_trust_helpers.py` — trust satisfiability checks now cover the reusable provider-cell environment input and caller mappings.
-
-Every external action in the three official provider-smoke workflows is pinned to a full commit SHA with a version/provenance comment:
-
-| Action | Full SHA | Comment |
-| --- | --- | --- |
-| `actions/checkout` | `3d3c42e5aac5ba805825da76410c181273ba90b1` | `v7.0.1` |
-| `actions/download-artifact` | `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c` | `v8.0.1` |
-| `actions/upload-artifact` | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | `v7.0.0` |
-| `astral-sh/setup-uv` | `37802adc94f370d6bfd71619e3f0bf239e1f3b78` | `v7.1.6` |
-| `aws-actions/configure-aws-credentials` | `e6de054238d6b7531b4efff3b6587d9aade6a06c` | `v6.2.3` |
-
-`official-s3-access-validation.yaml` already uses the same full-SHA pins and was not changed by this lane.
-
-### Workflow publication record
-
-The reviewed branch and PR already exist; John does not need to repeat the publication step. These are the generic commands corresponding to the completed publication record:
+Run the following provider-free checks against the exact release inputs before
+requesting any protected dispatch:
 
 ```bash
-F4_COMMIT_SHA="$(git rev-parse feat/code2)"
-git show --stat --oneline "$F4_COMMIT_SHA"
-git push origin HEAD:refs/heads/feat/code2
-export GITHUB_REPOSITORY="<owner>/<repository>"
-gh pr create --repo "$GITHUB_REPOSITORY" \
-  --base main --head feat/code2 \
-  --title "feat(eval): prepare provider-isolated official run gates" \
-  --body 'F4 reviewed workflow drafts only. The F4 agent performed no infrastructure apply, protected dispatch, provider call, secret operation, or official run. The PR remains blocked until hckb.15, 5qd6.119, the live validation and smoke gates, and ue7.32 sign-off complete.'
+uv run legalforecast manifest validate \
+  --manifest <run-manifest.json> \
+  --forecast <forecast-release.json> \
+  --labels <labels-release.json> \
+  --artifact-root <release-root>
+
+uv run legalforecast release validate \
+  --forecast <forecast-release.json> \
+  --labels <labels-release.json> \
+  --artifact-root <release-root>
+
+uv run python -m legalforecast.contracts.ratchet
+uv run pytest -q
 ```
 
-The PR body records that the workflow files are reviewed drafts, that F4 itself performed no infrastructure apply or provider call, and that the operational sequence remains blocked until `hckb.15`, `5qd6.119`, the live validation/smoke gates, and `ue7.32` sign-off complete. Do not split, weaken, or force-push the draft.
+Record the exact manifest SHA, release SHAs, model-registry digest, artifact
+root digest, and code revision. A green fixture run or a local Terraform plan
+is not evidence of a live official run.
 
-An earlier non-workflow-capable push was rejected before updating the remote ref:
+## Protected handoff
 
-```text
-! [remote rejected] feat/code2 -> feat/code2 (refusing to allow a GitHub App to create or update workflow `.github/workflows/official-provider-cell.yaml` without `workflows` permission)
-error: failed to push some refs to 'https://github.com/<owner>/<repository>'
-```
-
-That rejected attempt performed no remote mutation. The later operator-authorized publication created PR #772 without a force-push or path split. Before merge, verify that the PR head equals the locally validated commit; after merge, verify the merge commit on remote `main`. Neither proof authorizes an infrastructure apply or workflow dispatch.
-
-All GitHub CLI snippets below assume `GITHUB_REPOSITORY` is exported as the current `<owner>/<repository>` slug; they never require a hard-coded account identifier.
-
-## `hckb.15`: protected import, plan, and apply
-
-The canonical protected workflow is `.github/workflows/official-provider-authority-infra.yaml`. It runs only from `main`, requires the pre-created and reviewer-protected infrastructure environment, uses encrypted remote state and an age-encrypted plan artifact, validates the closed address/action allowlist, and refuses stale `main` before any apply.
-
-The import and exact saved-plan path below is the protected implementation merged by PR #703 (merge `2f4ae2c8e9e3f49cdd53d4cc6d1d701aa7c5308c`). F4 only prepares the operator inputs and records the expected evidence; it does not dispatch or apply that workflow.
-
-### 1. Prepare the protected identity commitments
-
-John supplies these values from the protected infrastructure environment without printing their raw contents: `LFB_AWS_REGION`, `LFB_INFRA_OPERATOR_ROLE_ARN`, `LFB_TERRAFORM_STATE_BUCKET`, `LFB_TERRAFORM_STATE_KEY_PREFIX`, `LFB_TERRAFORM_STATE_KMS_KEY_ID`, `LFB_INFRA_PLAN_AGE_RECIPIENT`, `LFB_GITHUB_OIDC_PROVIDER_ARN`, `LFB_PROVIDER_AUTHORITY_TABLE_ARN`, `LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256`, `LFB_ARTIFACTS_KMS_KEY_ARN`, `LFB_PACKET_BUCKET`, and `LFB_RESULTS_BUCKET`.
-
-The workflow’s identity formulas are reproduced below so request commitments can be computed in the operator session without exposing identifiers:
+After human review and protected-environment approval, dispatch the forecast
+matrix with immutable URIs:
 
 ```bash
-set -euo pipefail
-# Use the exact current-main SHA that contains PR #703's protected infra
-# workflow; F4 workflow pins are published only after this apply completes.
-RELEASE_SHA=<exact-main-sha-before-f4-workflow-publication>
-MODULE=official-eval
-STATE_KEY="${LFB_TERRAFORM_STATE_KEY_PREFIX%/}/official-eval/terraform.tfstate"
-OPERATOR_ROLE_IDENTITY_SHA256="$(jq -cn --arg role "$LFB_INFRA_OPERATOR_ROLE_ARN" '{role:$role}' | sha256sum | cut -d' ' -f1)"
-STATE_BACKEND_IDENTITY_SHA256="$(jq -cn \
-  --arg bucket "$LFB_TERRAFORM_STATE_BUCKET" --arg key "$STATE_KEY" \
-  --arg region "$LFB_AWS_REGION" --arg kms_key "$LFB_TERRAFORM_STATE_KMS_KEY_ID" \
-  '{bucket:$bucket,key:$key,region:$region,kms_key:$kms_key}' | sha256sum | cut -d' ' -f1)"
-TERRAFORM_INPUT_IDENTITY_SHA256="$(jq -cn \
-  --arg module "$MODULE" --arg region "$LFB_AWS_REGION" \
-  --arg oidc "$LFB_GITHUB_OIDC_PROVIDER_ARN" \
-  --arg artifacts_kms_key "$LFB_ARTIFACTS_KMS_KEY_ARN" \
-  --arg identity "$LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256" \
-  --arg packet_bucket "$LFB_PACKET_BUCKET" \
-  --arg results_bucket "$LFB_RESULTS_BUCKET" \
-  --arg table "$LFB_PROVIDER_AUTHORITY_TABLE_ARN" \
-  '{module:$module,region:$region,oidc:$oidc,
-    artifacts_kms_key:$artifacts_kms_key,identity:$identity,
-    packet_bucket:$packet_bucket,results_bucket:$results_bucket,
-    table:$table}' | sha256sum | cut -d' ' -f1)"
+gh workflow run run-benchmark.yaml \
+  --ref <reviewed-commit> \
+  -f release_sha=<full-main-sha> \
+  -f manifest_uri=<immutable-manifest-uri> \
+  -f forecast_release_uri=<immutable-forecast-release-uri> \
+  -f artifact_root_uri=<immutable-artifact-root-uri> \
+  -f model_registry_uri=<immutable-model-registry-uri> \
+  -f model_key=<provider:model-id> \
+  -f ceiling_microusd=<positive-microusd-ceiling> \
+  -f account=default \
+  -f repeat_count=1 \
+  -f max_parallel=4 \
+  -f artifact_retention_days=14
 ```
 
-### 2. Inventory and import every existing official-eval resource
-
-The packet and results buckets and all of their storage subresources remain
-owned by the COS CloudFormation stack. Before any official-eval infrastructure
-operation, the designated operator must verify that live ownership and the
-expected storage controls remain intact using read-only CloudFormation and S3
-inventory. Keep that inventory evidence outside this Terraform state. The
-role-based `.github/workflows/official-s3-access-validation.yaml` run occurs
-after the IAM roles are applied and configured, but only after the first
-explicitly approved bounded non-dry-run shard has produced its immutable
-per-case object/version and shard receipt inputs. Dry runs and fixture
-rehearsals cannot issue those inputs. A missing, failed, or ambiguous storage
-check is a halt; do not add a storage import or broaden this root.
-
-The official-eval Terraform import allowlist is IAM-only. Inventory the exact
-roles and inline policies first; import only an address whose corresponding
-AWS object already exists. Leave an absent reviewed object out of the import
-dispatches so the protected plan can propose its creation.
-
-Import is one protected workflow dispatch per address. The closed address set is:
-
-```text
-aws_iam_role.cell
-aws_iam_role.fan_in
-aws_iam_role_policy.cell_provider_authority
-aws_iam_role_policy.cell_storage
-aws_iam_role_policy.fan_in_storage
-aws_iam_role_policies_exclusive.cell
-aws_iam_role_policies_exclusive.fan_in
-aws_iam_role_policy_attachments_exclusive.cell
-aws_iam_role_policy_attachments_exclusive.fan_in
-```
-
-The fixed role/policy IDs are defined in `scripts/official_infra_contract.py`; bucket names are never import IDs for this root. The following operator function computes the raw-ID SHA-256 and canonical import-authorization commitment, then dispatches the exact IAM request without printing the raw import ID:
+Wait for every matrix receipt and verify that each receipt has the expected
+manifest, release, model, code, and artifact bindings. Then request the
+protected fan-in with the same exact inputs:
 
 ```bash
-import_authorized() {
-  address="$1"
-  case "$address" in
-    aws_iam_role.cell) import_id=legalforecastbench-official-eval ;;
-    aws_iam_role.fan_in) import_id=legalforecastbench-official-eval-fan-in ;;
-    aws_iam_role_policy.cell_provider_authority) import_id=legalforecastbench-official-eval:official-eval-cell-exact-provider-authority ;;
-    aws_iam_role_policy.cell_storage) import_id=legalforecastbench-official-eval:official-eval-cell-storage ;;
-    aws_iam_role_policy.fan_in_storage) import_id=legalforecastbench-official-eval-fan-in:official-eval-fan-in-storage ;;
-    aws_iam_role_policies_exclusive.cell|aws_iam_role_policy_attachments_exclusive.cell) import_id=legalforecastbench-official-eval ;;
-    aws_iam_role_policies_exclusive.fan_in|aws_iam_role_policy_attachments_exclusive.fan_in) import_id=legalforecastbench-official-eval-fan-in ;;
-    *) echo "unallowlisted address: $address" >&2; return 1 ;;
-  esac
-  import_id_sha256="$(printf %s "$import_id" | sha256sum | cut -d' ' -f1)"
-  authorization_sha256="$(uv run python - "$RELEASE_SHA" "$address" "$import_id_sha256" "$OPERATOR_ROLE_IDENTITY_SHA256" "$STATE_BACKEND_IDENTITY_SHA256" "$TERRAFORM_INPUT_IDENTITY_SHA256" <<'PY'
-import sys
-from scripts.official_infra_contract import import_authorization_sha256
-print(import_authorization_sha256(
-    release_sha=sys.argv[1], module="official-eval", address=sys.argv[2],
-    import_id_sha256=sys.argv[3], operator_role_identity_sha256=sys.argv[4],
-    state_backend_identity_sha256=sys.argv[5], terraform_input_identity_sha256=sys.argv[6]))
-PY
-  )"
-  gh workflow run .github/workflows/official-provider-authority-infra.yaml \
-    --repo "$GITHUB_REPOSITORY" --ref main \
-    -f operation=import -f module=official-eval -f release_sha="$RELEASE_SHA" \
-    -f import_address="$address" -f import_id_sha256="$import_id_sha256" \
-    -f import_authorization_sha256="$authorization_sha256" \
-    -f import_operator_role_identity_sha256="$OPERATOR_ROLE_IDENTITY_SHA256" \
-    -f import_state_backend_identity_sha256="$STATE_BACKEND_IDENTITY_SHA256" \
-    -f import_terraform_input_identity_sha256="$TERRAFORM_INPUT_IDENTITY_SHA256"
-}
-
-# Preparation-only pseudocode for the protected operator session.
-EXISTING_IMPORT_ADDRESSES=(...only IAM addresses whose exact objects exist...)
-for address in "${EXISTING_IMPORT_ADDRESSES[@]}"; do
-  import_authorized "$address"
-done
+gh workflow run fan-in-publish.yaml \
+  --ref <reviewed-commit> \
+  -f release_sha=<full-main-sha> \
+  -f cycle_id=<cycle-id> \
+  -f forecast_run_id=<forecast-run-id> \
+  -f forecast_run_attempt=<forecast-run-attempt> \
+  -f manifest_uri=<immutable-manifest-uri> \
+  -f forecast_release_uri=<immutable-forecast-release-uri> \
+  -f artifact_root_uri=<immutable-artifact-root-uri> \
+  -f model_registry_uri=<immutable-model-registry-uri> \
+  -f labels_release_uri=<immutable-labels-release-uri> \
+  -f model_key=<provider:model-id> \
+  -f publish=false \
+  -f hugging_face_release_version=<immutable-hf-release-version> \
+  -f artifact_retention_days=14
 ```
 
-John runs `import_authorized <address>` once for each inventoried existing IAM object and waits for the protected approval and `gh run watch <IMPORT_RUN_ID> --exit-status`. Expected evidence is a successful `state-binding` check and `import-receipt.json` with `result` `imported` or `already_present`; no apply is performed by an import run. An absent reviewed role or inline policy is not an import error and is not fabricated as an import target; it remains a create candidate in the later protected plan.
+The fan-in is the only supported publication boundary. It must fail closed on
+missing receipts, mismatched identities, changed bytes, incomplete model
+coverage, or an unapproved protected environment.
 
-Before importing or planning, inspect any existing official-eval state from the
-previous storage-owning revision. If it contains S3 addresses, do not accept
-the configuration-deletion destroy plan. Dispatch the protected state-only
-operation below. It encrypts and uploads the exact pre-migration state, rejects
-unreviewed S3 addresses, removes only the closed fourteen obsolete storage
-addresses that are actually present, proves that no other state address
-changed, and emits a redacted receipt. It does not mutate live S3.
+## Strict score and report contract
+
+The supported local and protected score path consumes issued releases and
+authenticated run records. It does not consume a private acquisition tree or
+an aggregate command:
 
 ```bash
-gh workflow run .github/workflows/official-provider-authority-infra.yaml \
-  --repo "$GITHUB_REPOSITORY" --ref main \
-  -f operation=detach-external-storage-state \
-  -f module=official-eval -f release_sha="$RELEASE_SHA"
+uv run legalforecast score \
+  --runs <run-records.jsonl> \
+  --labels-release <labels-release.json> \
+  --forecast-release <forecast-release.json> \
+  --artifact-root <release-root> \
+  --manifest <run-manifest.json> \
+  --model-registry <model-registry.json> \
+  --ledger <run-ledger.sqlite3> \
+  --output scores.json \
+  --unit-scores-output unit_scores.jsonl
+
+uv run legalforecast report \
+  --scores scores.json \
+  --labels-release <labels-release.json> \
+  --forecast-release <forecast-release.json> \
+  --artifact-root <release-root> \
+  --manifest <run-manifest.json> \
+  --frozen-model-registry <model-registry.json> \
+  --ledger <run-ledger.sqlite3> \
+  --output-dir reports/
 ```
 
-Wait for protected approval and a successful run, then retain artifact
-`provider-authority-infra-state-detach-official-eval-<run_id>-<run_attempt>`
-with its encrypted pre-migration state and `state-detach-receipt.json`. If the
-reviewed backend is provably fresh and contains no state, no detachment run is
-needed. The final plan must contain no S3 address and no destroy.
+Publication is false by default during reproduction. Public reports may expose
+score arithmetic and release metadata; they must not expose locked labels,
+private withdrawal reasons, provider credentials, or restricted source bytes.
 
-### 3. Read-only protected plan
+## Reporting, withdrawal, and community boundaries
 
-After the IAM imports are reconciled and the read-only COS ownership/storage inventory has passed, dispatch exactly:
+The report output is derived from the strict score output and its release
+identities. A withdrawal records a public erratum and removes the affected
+public result without revealing private reasons or source bytes. Community
+submissions use the documented separate registry and publication path and are
+never silently promoted to official results.
 
-```bash
-gh workflow run .github/workflows/official-provider-authority-infra.yaml \
-  --repo "$GITHUB_REPOSITORY" --ref main \
-  -f operation=plan -f module=official-eval -f release_sha="$RELEASE_SHA"
-```
+## Infrastructure boundary
 
-Watch the resulting run to completion. Successful evidence is `terraform validate`, `terraform plan`, `official_infra_contract.py validate-plan`, encrypted plan upload, and sensitive-file cleanup. Capture the run ID/attempt, artifact name `provider-authority-infra-plan-official-eval-<run_id>-<run_attempt>`, GitHub artifact digest, plaintext plan SHA-256 from `plan-receipt.json`, and the redacted `resource_changes` list. The plan is acceptable only when the contract validator accepts every IAM address, contains no destroy/replace action, and has no S3/storage resource changes.
+The retained Terraform root is `infra/official-eval/`; it describes the IAM
+boundary for the official evaluation handoff and references externally managed
+storage. The bootstrap notes describe the
+**One-time AWS/Terraform bootstrap trust anchor** and its required human
+approval. Source code, a Terraform plan, or merged workflow changes do not
+prove that AWS resources, protected environments, or live storage are applied.
 
-### 4. John-only apply of that exact saved plan
+## Review record
 
-Apply is not a local `terraform apply`. After John reviews the saved plan and approves the protected environment, use the exact plan run identity and digest:
-
-```bash
-PLAN_RUN_ID=<successful-plan-run-id>
-PLAN_RUN_ATTEMPT=<exact-plan-run-attempt>
-PLAN_ARTIFACT_DIGEST=<sha256:...-from-GitHub-artifact-metadata>
-PLAN_FILE_SHA256=<64-lowercase-hex-from-plan-receipt.json>
-PLAN_ARTIFACT_NAME="provider-authority-infra-plan-official-eval-${PLAN_RUN_ID}-${PLAN_RUN_ATTEMPT}"
-
-gh workflow run .github/workflows/official-provider-authority-infra.yaml \
-  --repo "$GITHUB_REPOSITORY" --ref main \
-  -f operation=apply -f module=official-eval -f release_sha="$RELEASE_SHA" \
-  -f plan_run_id="$PLAN_RUN_ID" -f plan_run_attempt="$PLAN_RUN_ATTEMPT" \
-  -f plan_artifact_name="$PLAN_ARTIFACT_NAME" \
-  -f plan_artifact_digest="$PLAN_ARTIFACT_DIGEST" \
-  -f plan_file_sha256="$PLAN_FILE_SHA256"
-```
-
-Expected protected output is successful exact-artifact authentication, age decryption and SHA-256 verification, a fresh `main` equality check, `terraform apply -auto-approve <exact-plan>`, encrypted Terraform outputs, and a redacted `apply-receipt.json`. If any precondition fails, the workflow stops before apply. John records the apply run/attempt, receipt, output digest, and exact role/environment variables assigned server-side; this lane does not read or write those values.
-
-## `5qd6.119`: post-first-shard provider-free dispatches
-
-After the applied outputs and environment variables are assigned, John first
-uses the exact `main` SHA for one explicitly approved bounded non-dry-run
-shard. That shard is the only producer of admissible per-case `VersionId` and
-immutable shard-receipt evidence for this validation; dry-run and fixture
-outputs cannot substitute for it. Capture the exact object keys and
-per-case `VersionId` from that shard before dispatching validation. The five
-validation inputs are operator inputs; the agent must not discover or print
-them:
-
-```bash
-gh workflow run .github/workflows/official-s3-access-validation.yaml \
-  --repo "$GITHUB_REPOSITORY" --ref main \
-  -f release_sha="$RELEASE_SHA" \
-  -f packet_object_key="<existing-model-packets-key>" \
-  -f manifest_object_key="<existing-manifests-key>" \
-  -f per_case_object_key="<existing-per-case-metrics-key>" \
-  -f per_case_version_id="<exact-s3-version-id>" \
-  -f shard_receipt_object_key="<existing-shard-receipt-key>"
-```
-
-Expected evidence is successful cell-role positive reads and fan-in-role positive exact-version/receipt reads, followed by `AccessDenied` for the listed report-prefix write, bucket-wide list, delete, ACL, object-version, and private-prefix negative controls. A successful workflow proves only those operations; it does not prove provider calls or the full DynamoDB transaction contract.
-
-Run the provider-free fan-in verification only after the S3 validation has
-passed and the remaining shard receipts and exact source dispatch attempts are
-available:
-
-```bash
-gh workflow run .github/workflows/fan-in-publish-legacy.yaml \
-  --repo "$GITHUB_REPOSITORY" --ref main \
-  -f release_sha="$RELEASE_SHA" \
-  -f cycle_id="<frozen-cycle-id>" \
-  -f freeze_bundle_path="s3://<results-bucket>/cycle-1/manifest-runs/<manifest-digest>/freeze.json" \
-  -f source_dispatch_run_id="<run-benchmark-run-id>" \
-  -f source_dispatch_run_attempt="<exact-source-attempt>" \
-  -f verify_only=true \
-  -f artifact_retention_days=30
-```
-
-This is the shard-receipt fan-in, restored as `fan-in-publish-legacy.yaml` for the Cycle 1 r4 repair (bead `legalforecastbench-y7hk`); PR #1019 replaced `fan-in-publish.yaml` itself with the per-model locked-manifest boundary, which takes different inputs and cannot read shard receipts. Use `source_dispatch_runs_json` instead of the singular pair when fanning in more than one dispatch. Both legacy workflow files retire when `legalforecastbench-y7hk` closes.
-
-The expected terminal artifact is `fan-in-report.json` with the accepted receipt map, exact S3 VersionId/hash commitments, frozen artifact hashes, derived counts, and no canonical report write. For the bounded provider-authority smoke, John uses the separately protected workflow and its exact main SHA; no provider API key or smoke result is available to this lane.
-
-`RELEASE_SHA` above is the pre-publication tip used by the Terraform import/plan/apply dispatches. Publishing the F4 workflow pins advances `main`, and `official-paid-labeling-authority-smoke.yaml` requires `release_sha` to equal the dispatch `GITHUB_SHA`. Recompute after publication instead of reusing the infra SHA:
-
-```bash
-SMOKE_RELEASE_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
-gh workflow run .github/workflows/official-paid-labeling-authority-smoke.yaml \
-  --repo "$GITHUB_REPOSITORY" --ref main \
-  -f release_sha="$SMOKE_RELEASE_SHA"
-```
-
-## `ue7.32`: annotated fixture rehearsal and failure drill
-
-The supported fixture path is the runbook’s `hfk` machinery. It is provider-free, does not use infrastructure, and cannot produce an official-eligible artifact. The following is the execution map used for this prep:
-
-| Step | Command/evidence | Status |
-| --- | --- | --- |
-| Contract and runbook validation | `uv run pytest -q tests/test_official_run_runbook.py tests/test_downstream_rehearsal.py tests/test_integrated_fixture_pipeline.py` | Green today; 123 provider-free fixture tests passed |
-| Authenticated fixture cohort projection | `uv run legalforecast acquisition project-target-cohort ... --execute --no-resume` from the runbook | Yellow until Lane F2 supplies authenticated free-clearance inputs; no hand-authored substitute is allowed |
-| Fixture purchase-policy/ledger path | `record-purchase-approval`, `verify-purchase-approval`, `generate-purchase-policy`, `generate-recap-fetch-broker-policy`, `init-purchase-ledger`, then `purchase-missing-recap-fetch --courtlistener-fixture ... --purchase-broker-fixture ... --acknowledge-pacer-fees` | Yellow fixture-only; the fee flag is mechanical here and must record `paid_activity_requested=false`, `paid_activity_executed=false`; no PACER/provider call |
-| Fixture recovery, disclosure, materialization, and parser | Runbook commands `recover-purchased`, `plan-disclosure-provenance`, `record-disclosure-review-decisions`, `clear-provenance-disclosures`, `materialize-cohort-documents`, `plan-parse-documents`, `parse-documents` | Yellow fixture-only; authenticated source/clearance inputs and private roots are required |
-| Eight downstream fixture stages | `rehearsal-build-decision-texts`, `rehearsal-stage-a-unitize`, `rehearsal-stage-a-review`, `rehearsal-stage-a-apply`, `rehearsal-stage-b-label`, `rehearsal-stage-b-apply`, `rehearsal-plan-packet-inputs`, `rehearsal-build-packets` with the exact shared `rehearsal_args` in `docs/official-run-runbook.md` | Yellow fixture-only; success requires exact target counts, zero pending review queues, `provider_journal_created=false`, `provider_billing_usd="0.00"`, and `packet_outcome_material_excluded=true` |
-| Fixture finalization | `uv run legalforecast acquisition finalize-rehearsal-corpus ...` | Yellow fixture-only; output must retain `official_eligible=false` |
-| Staged-rollout failure drill | Freeze fixture A, run/aggregate fixture A, amend with fixture B, fan-in the union, and byte-compare every A artifact as specified in the runbook | Red for live sign-off; fixture assertions are covered by `tests/test_official_run_runbook.py` |
-| Live provider-free OIDC/S3 validation | John dispatches `official-s3-access-validation.yaml` from the exact `main` SHA after the first explicitly approved bounded non-dry-run shard supplies the admissible per-case VersionId and immutable shard-receipt key | Red on `hckb.15` + `5qd6.119`; dry runs and fixtures cannot issue these inputs; no agent dispatch |
-| Provider smoke and official run | John executes the bounded provider smoke, then `Run Benchmark` dry-run and official shards, followed by `Fan In Official Shards` | Red on applied infrastructure, workflow publication, provider authority, Stage A + Gate 3 freeze, and sign-off |
-
-The fixture runbook intentionally never self-adjudicates a nonempty review queue. Any nonempty Stage A or Stage B fixture queue is a failed rehearsal that requires correction or a John-review bead.
-
-## John-only PACER broker steps (`5qd6.57.x`)
-
-The `[JOHN/OPERATOR]` items remain untouched by F4. They are context in the gate chain, not implementation work for this branch:
-
-- `5qd6.57.1`: provision the broker-only RECAP identity and reconciliation principals through secure-gate; do not expose PACER credentials to this repository or Agent Sandbox.
-- `5qd6.57.12`: apply the broker infrastructure and populate the exact-five client view (`RECAP_FETCH_BROKER_URL`, `RECAP_FETCH_BROKER_MACHINE_ID`, `RECAP_FETCH_BROKER_PRIVATE_KEY_JWK`, `RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON`, and `RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256`; optional timeout plus the separately scoped CourtListener token remain operator-managed).
-- `5qd6.57.13`: pass the signed non-purchase end-to-end verification; no paid request or fee acknowledgement is implied.
-- `5qd6.57.14`: restage the Broker/Admin workflow-policy tombstone for the current-main transition.
-
-F4 performed none of these operations and did not read any broker credential or secret value.
-
-## Strict sequencing and timing
-
-```text
-Lane F2 Stage A + Gate 3 frozen corpus
-        |  (dependency; attorney/review queues can take hours to days)
-        v
-hckb.15 protected import -> reviewed plan -> John-approved apply
-        |  (one operator sitting, typically 45-90 minutes plus approvals)
-        v
-5qd6.32 / 5qd6.101 workflow pins published on main
-        |  (15-30 minutes once workflow-capable authority is available)
-        v
-Bounded one-provider smoke and provider-authority smoke
-        |  (30-60 minutes; provider spend and smoke freeze are John-gated)
-        v
-ue7.32 fixture rehearsal + staged-rollout failure drill
-        |  (about 1-2 hours when the authenticated fixture packet is ready)
-        v
-John reviews evidence and signs off ue7.32
-        |
-        v
-ur6 dry-run (provider-free; cannot issue S3 validation inputs)
-        |  (seconds to minutes; validates schedule and projected cost only)
-        v
-first explicitly approved bounded non-dry-run shard
-        |  (the only producer of admissible per-case VersionId and shard receipt)
-        v
-capture exact keys/version -> 5qd6.119 provider-free OIDC/S3 validation
-        |  (20-45 minutes; supplied inputs must come from that shard)
-        v
-remaining official shards -> immutable receipts -> provider-free fan-in/publication
-        |  (run duration follows the frozen corpus/model matrix; do not estimate from fixture timing)
-```
-
-The first two lines are a hard dependency, not parallel work: the official run consumes the frozen corpus and cannot be made ready by infrastructure alone. Coordinate exact Stage A/Gate 3 completion and the freeze SHA with Lane F2 (`MagentaGorge`) before starting the operator sitting.
-
-## One ordered checklist for John
-
-1. Confirm Lane F2’s Stage A + Gate 3 completion, exact frozen corpus, model registry, execution policy, and the current-main release SHA.
-2. Verify external COS ownership and storage controls by read-only inventory; detach only reviewed obsolete S3 state addresses if present; run the approved IAM-only `hckb.15` imports and save the protected `official-eval` plan.
-3. Review the complete saved plan and apply only that exact plan through the protected workflow; record the redacted apply receipt and outputs.
-4. Publish this branch through the workflow-capable path, then merge the stacked workflow drafts so `main` contains the exact pinned workflows.
-5. Set the reviewed GitHub environment variables and secret-name inventory server-side; keep fan-in provider-free and verify the Bedrock runtime choice explicitly.
-6. Run the bounded provider-authority and one-provider smoke under the dedicated smoke freeze/prefix; stop on any omission-denial or identity mismatch.
-7. Execute the fixture rehearsal and staged-rollout failure drill; retain the final summary, run card, and byte-identity evidence. Dry-run and fixture outputs cannot issue official S3 validation inputs.
-8. Review and sign `ue7.32`; dispatch `ur6` with `dry_run=true` first, then one explicitly approved bounded non-dry-run shard with `shard_only=true` and `resume_existing_results=true`.
-9. Capture that shard's exact per-case object key/version and immutable shard-receipt key; dispatch `official-s3-access-validation.yaml` from the exact post-publication `main` SHA and require it to pass.
-10. Dispatch the remaining official shards only after validation passes; fan in only accepted immutable shard receipts, prove exact source attempt/release identity, and publish the canonical report through the provider-free fan-in path.
+Before unholding the PR, attach exact commit and workflow run IDs, release and
+manifest digests, model identity, receipt set, artifact index, and protected
+authorization evidence. If any item is absent or mutable, stop and retain the
+hold.

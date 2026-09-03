@@ -5,7 +5,6 @@ from __future__ import annotations
 from legalforecast.testing.cli_corpus.command_manifest import (
     build_command_manifest,
     command_paths,
-    preparser_bypass_paths_from_source,
 )
 from legalforecast.testing.cli_corpus.differential import CASES, run_case
 from legalforecast.testing.cli_corpus.entry_points import (
@@ -31,7 +30,6 @@ __all__ = [
     "main",
     "parse_collect_only",
     "parse_duration_lines",
-    "preparser_bypass_paths_from_source",
     "run_case",
     "scan_path_identity",
 ]

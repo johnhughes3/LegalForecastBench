@@ -15,6 +15,11 @@ from legalforecast.evals.inspect_task import (
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
@@ -22,11 +27,6 @@ from legalforecast.ingestion.provenance import (
     sha256_text,
 )
 from legalforecast.testing import get_mock_model_output
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
-)
 
 
 def test_render_model_prompt_exposes_packet_but_not_excluded_decision() -> None:

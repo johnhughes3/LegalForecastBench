@@ -30,7 +30,7 @@ live COS stack and bucket controls through read-only inventory. After these IAM
 roles are applied and configured, the operator must first run one explicitly
 approved bounded non-dry-run shard. That shard is the only producer of the
 admissible per-case object `VersionId` and immutable shard receipt needed by
-`.github/workflows/official-s3-access-validation.yaml`; dry runs and fixture
+the protected fan-in workflow; dry runs and fixture
 rehearsals cannot issue those inputs. Capture the exact keys and version before
 dispatching that provider-free validation, and require it to pass before the
 remaining official shards. A failed, missing, or ambiguous live-storage check
@@ -52,8 +52,7 @@ The external storage boundary follows one ordered path:
    producer of admissible per-case `VersionId` and immutable shard-receipt
    evidence for storage validation.
 5. Capture the exact packet, manifest, per-case, and shard-receipt keys plus
-   the per-case `VersionId`, then run
-   `.github/workflows/official-s3-access-validation.yaml` from the exact
+   the per-case `VersionId`, then run the protected fan-in from the exact
    trusted `main` SHA.
 6. Dispatch the remaining official shards only after that validation passes;
    fan-in remains provider-free and consumes only accepted immutable receipts.
@@ -175,4 +174,4 @@ uv run pytest -q tests/test_official_eval_infra.py
 The protected workflow may later produce an exact plan, but the plan must
 contain only the IAM addresses listed above. Storage ownership and live S3
 behavior must continue to be proven by the external COS inventory and the
-official S3 validation workflow.
+protected `.github/workflows/fan-in-publish.yaml` workflow.

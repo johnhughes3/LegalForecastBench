@@ -8,8 +8,10 @@ from legalforecast.evals.output_parser import (
     parse_model_output,
     public_parser_record,
 )
-from legalforecast.evals.run_record_scoring import score_run_records
-from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
+from legalforecast.evals.run_record_scoring import (
+    ReleaseOutcomeLabel,
+    score_run_records,
+)
 
 
 def test_score_run_records_groups_models_and_preserves_identity_precedence() -> None:
@@ -271,31 +273,17 @@ def _run_record(
     return record
 
 
-def _label(unit_id: str, dismissed: bool) -> OutcomeLabel:
-    return OutcomeLabel(
+def _label(unit_id: str, dismissed: bool) -> ReleaseOutcomeLabel:
+    return ReleaseOutcomeLabel(
         unit_id=unit_id,
-        fully_dismissed=dismissed,
-        amendment_class=(
-            AmendmentClass.DISMISSED_WITHOUT_EXPRESS_AMENDMENT_OPPORTUNITY
-            if dismissed
-            else AmendmentClass.NOT_FULLY_DISMISSED
-        ),
-        ambiguous=False,
+        primary_outcome=int(dismissed),
         label_confidence=0.97,
-        supporting_citations=(OutcomeCitation(document_id="decision-1", page=1),),
-        first_written_disposition_id="decision-1",
-        first_written_disposition_date="2026-05-18",
     )
 
 
-def _ambiguous_label(unit_id: str) -> OutcomeLabel:
-    return OutcomeLabel(
+def _ambiguous_label(unit_id: str) -> ReleaseOutcomeLabel:
+    return ReleaseOutcomeLabel(
         unit_id=unit_id,
-        fully_dismissed=None,
-        amendment_class=AmendmentClass.AMBIGUOUS,
-        ambiguous=True,
+        primary_outcome=None,
         label_confidence=0.4,
-        supporting_citations=(OutcomeCitation(document_id="decision-1", page=1),),
-        first_written_disposition_id="decision-1",
-        first_written_disposition_date="2026-05-18",
     )

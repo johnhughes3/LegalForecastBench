@@ -20,7 +20,6 @@ classifiers = [
 ]
 dependencies = [
     "cryptography>=50.0.1",
-    "ortools>=9.15.6755",
     "pydantic>=2.13.5,<3",
     # PINNED, not a floor. pypdf is the PDF text extractor behind
     # extract_disclosure_pdf_pages, whose output is rendered into the disclosure
@@ -38,10 +37,6 @@ dependencies = [
 
 [project.scripts]
 legalforecast = "legalforecast.cli:main"
-legalforecast-acquisition-systemd-run = "legalforecast.ingestion.infisical_systemd_launcher:main"
-legalforecast-provider-env-run = "legalforecast.labeling.provider_environment:main"
-legalforecast-exact100-convergence = "legalforecast.ingestion.exact100_convergence_invariants_cli:main"
-legalforecast-exact100-successor-v3 = "legalforecast.ingestion.exact100_successor_v3.cli:main"
 
 [project.optional-dependencies]
 claude-agent-sdk-adapter = [
@@ -92,7 +87,7 @@ pythonVersion = "3.14"
 typeCheckingMode = "strict"
 
 [tool.interrogate]
-# CI supplies the intentionally scoped publication, labeling, and release paths.
+# CI supplies the intentionally scoped publication and release paths.
 fail-under = 48
 ignore-nested-classes = true
 ignore-nested-functions = true

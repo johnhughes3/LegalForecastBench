@@ -16,10 +16,8 @@ The technical documentation in this folder is drafted and maintained with substa
 
 - [METHODS.md](METHODS.md): eval-card-grade methods — construct, frozen inputs, leakage controls, metrics, inference, related work, human-baseline status, limitations, and withdrawal policy.
 - [Contamination-tier reporting](contamination-tier-reporting.md): the mechanical rule that distinguishes contamination-resistant scores from preliminary (non-contamination-resistant) scores, and the paired drift metric.
-- [labeling-protocol.md](labeling-protocol.md): the unit-resolution and edge-case codebook used to label frozen prediction units.
-- [official-run-runbook.md](official-run-runbook.md): operator checklist for protected official cycles — freeze, dispatch, recovery, aggregation, and site rendering.
-- [Official-run gate pack](official-run-gate-pack.md): exact protected infrastructure, workflow, provider-smoke, rehearsal, and sign-off sequence for the first official cycle.
-- [Cycle 1 manifest provider-free freeze v2](cycle-1-manifest-provider-free-freeze-v2.md): create-only issuance and replay of the labels-deferred manifest decisions, execution policy, and bundle without provider, AWS, scoring, or publication activity.
+- [official-run-runbook.md](official-run-runbook.md): retained public release boundary — immutable inputs, protected forecast/fan-in workflows, strict scoring, reporting, and hold conditions.
+- [Official-run gate pack](official-run-gate-pack.md): preparation-only handoff checklist for the retained workflows, release identities, receipts, and protected authorization.
 - [GitHub → AWS OIDC trust claims](github-aws-oidc-trust-claims.md): the verified condition-key surface behind the official roles' trust policies, and the two false review claims it retires.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
 - [Corpus split public-history audit and cutover map](corpus-split-history-audit.md): revision-bound security conclusion and package-level keep, private-port, delete, and archive boundaries for the public/private cutover.
@@ -30,29 +28,44 @@ The technical documentation in this folder is drafted and maintained with substa
 
 - [PyPI trusted publishing and release environment](security/pypi-trusted-publishing.md): the registered trusted-publisher claim set, the three layers that restrict publication to `v*` tags, the recorded self-review/admin-bypass policy, and the revocation and recovery order.
 
-## Acquisition Operations
+## Corpus Handoff Boundary
 
-- [Ingestion module map](ingestion-module-map.md): concern-oriented ownership and entry points for every module in the intentionally shallow `legalforecast.ingestion` package.
-- [Attachment-menu acquisition](attachment-menu-acquisition.md) — plan, authorize, and fetch the PACER attachment menus that make attachment-level documents purchasable.
-- [Repository-wide code organization plan](migration/2026-08-14-repository-code-organization.md): audited umbrella plan and Beads topology for decomposing oversized production, test, and script modules without changing benchmark contracts.
-- [CLI and package reorganization plan](migration/2026-08-12-cli-and-package-reorganization.md): proposed sequence for thinning the CLI, inverting domain dependencies, and later organizing ingestion without changing Cycle 1 contracts.
-- [CLI seam analysis](migration/2026-08-12-cli-seam-analysis.md): empirical measurements, probe-verified extraction mechanics, and slice-sizing data supporting the reorganization plan.
-- [Acquisition systemd launcher](acquisition-systemd-launcher.md): fail-closed Infisical child-status propagation, downstream receipt requirements, and the provider-free transient-unit smoke.
-- [Cycle 1 Target-100 direct prerequisites](cycle-1-target-100-direct-prerequisites.md): the authority and protected-workflow steps that cannot be represented as ordinary coordinator stages.
-- [Cycle 1 v4 ranked-reserve materialization](cycle-1-target-100-v4-ranked-reserve-materialization.md): materializing already-approved v4 ranked-reserve authority without rerunning selection or contacting a provider.
-- [Cycle 1 v4 ranked-reserve continuation](cycle-1-target-100-v4-ranked-reserve-replacement.md): replacing a candidate only on terminal nonretryable exclusion evidence, consuming the reserve in frozen order under the unchanged cap.
-- [Cycle 1 target-100 recovery disclosure continuation](cycle-1-target-100-recovery-disclosure.md): keeping recovered CourtListener material quarantined until public provenance is authenticated and every PDF is scanned.
-- [Cycle 1 exact-100 cohort-policy provenance](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md): value-by-value record of why each committed cohort-policy value is authorized or mechanically derived.
-- [Cycle 1 exact-100 document-selection repair policy provenance](cohort-policy-cycle-1-target-100-2026-08-12-provenance.md): authority and commitments for the versioned packet-completeness successor.
-- [Cycle 1 exact-100 document-selection policy v3 provenance](cohort-policy-cycle-1-target-100-2026-08-13-provenance.md): authority and commitments for complete selection accounting and exclusion-ledger requirements.
-- [Cycle 1 change control](cycle-1-change-control.md): the change-control rules adopted for the remainder of Cycle 1, through the final gate.
-- [Cycle 1 Stage A v4 correctness migration](cycle-1-stage-a-v4-correctness-migration.md): the required citation-integrity, ontology, successor-cohort, and replay path before Cycle 1 Stage B.
-- [Cycle 1 Stage A v5 unitizer-selector migration](cycle-1-stage-a-v5-unitizer-selector-migration.md): the closed v5 unitizer and v4 structural-review pairing that replaces brittle copied citation endpoints with bounded line counts.
-- [Cycle 1 Stage A unitizer terminal-review migration](cycle-1-stage-a-unitizer-terminal-review-migration.md): the provider-free attorney reconstruction route after a v5 unitizer exhausts all three reconstruction attempts without an accepted unit.
-- [Cycle 1 corpus-completion-summary v2 migration](cycle-1-corpus-completion-summary-v2-migration.md): the separate terminal Stage A handoff required to keep exhausted-unitizer candidates visible in the closed corpus audit.
-- [Cycle 1 document-repair contract migration](cycle-1-document-repair-contract-migration.md): the paired execution-schema and body-role-validator version bumps that authenticate snapshot clearance and stop single-keyword briefing admission.
-- [Document-repair purchase issuance](document-repair-purchase-issuance.md): the supported prepare, TTY-confirm, execute flow for a repair tranche, why no command initializes the purchase ledger, and the dated 147-document historical exception.
-- [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for new code without migrating Cycle 1 artifacts.
+Corpus construction, private source bytes, selection, unitization, and quality
+control are owned by the companion LegalForecastCorpus repository. This public
+repository receives only immutable, outcome-blinded release inputs through the
+documented [public/private release boundary](architecture/public-private-release-boundary.md).
+
+- [Repository-wide code organization plan](migration/2026-08-14-repository-code-organization.md): historical organization notes for this public package and its retained benchmark contracts.
+- [CLI and package reorganization plan](migration/2026-08-12-cli-and-package-reorganization.md): historical public-CLI organization notes; private corpus operations are out of scope here.
+- [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for retained public release code.
+
+## Historical and Migration Records
+
+The following records document superseded private-corpus planning, migrations, and provenance. They remain readable for artifact archaeology only; they are not public execution instructions or current release authority.
+
+- [Historical systemd launcher record](acquisition-systemd-launcher.md): superseded local launcher notes for private corpus operations.
+- [Historical attachment-menu record](attachment-menu-acquisition.md): superseded attachment-menu acquisition notes retained for provenance.
+- [Cycle 1 cohort provenance, July 25](cohort-policy-cycle-1-target-100-2026-07-25-provenance.md): immutable provenance for the first target-cohort policy record.
+- [Cycle 1 cohort provenance, August 12](cohort-policy-cycle-1-target-100-2026-08-12-provenance.md): immutable provenance for the document-selection repair policy.
+- [Cycle 1 cohort provenance, August 13](cohort-policy-cycle-1-target-100-2026-08-13-provenance.md): immutable provenance for the complete selection-accounting successor.
+- [Cycle 1 change control](cycle-1-change-control.md): historical control notes for the private corpus cycle.
+- [Cycle 1 completion-summary migration](cycle-1-corpus-completion-summary-v2-migration.md): migration record for the completion-summary artifact.
+- [Cycle 1 document-repair migration](cycle-1-document-repair-contract-migration.md): migration record for document-repair contracts.
+- [Cycle 1 unitizer terminal-review migration](cycle-1-stage-a-unitizer-terminal-review-migration.md): migration record for terminal-review artifacts.
+- [Cycle 1 v4 correctness migration](cycle-1-stage-a-v4-correctness-migration.md): migration record for the v4 correctness contract.
+- [Cycle 1 v5 selector migration](cycle-1-stage-a-v5-unitizer-selector-migration.md): migration record for the v5 selector contract.
+- [Cycle 1 target-100 prerequisites](cycle-1-target-100-direct-prerequisites.md): historical prerequisites for private target-cohort construction.
+- [Cycle 1 recovery-disclosure continuation](cycle-1-target-100-recovery-disclosure.md): historical recovery-disclosure continuation record.
+- [Cycle 1 ranked-reserve materialization](cycle-1-target-100-v4-ranked-reserve-materialization.md): historical ranked-reserve materialization record.
+- [Cycle 1 ranked-reserve continuation](cycle-1-target-100-v4-ranked-reserve-replacement.md): historical ranked-reserve replacement record.
+- [Historical cycle configuration record](cycle-acquisition-config.md): superseded private cycle-configuration notes.
+- [Historical document-repair purchase record](document-repair-purchase-issuance.md): superseded purchase-issuance notes for private recovery.
+- [CLI seam analysis](migration/2026-08-12-cli-seam-analysis.md): historical CLI and package-boundary analysis.
+- [Historical cycle configuration schema](schemas/acquisition-cycle-config-v1.md): superseded schema retained for artifact verification.
+- [Historical cycle template schema](schemas/acquisition-cycle-template-v1.md): superseded template retained for artifact verification.
+- [Historical cycle-lineage schema](schemas/cycle-lineage-index-v1.md): superseded lineage schema retained for artifact verification.
+- [Historical labeling protocol](labeling-protocol.md): private Corpus unitization and labeling record retained for archaeology; it is not a Bench CLI or release instruction.
+- [Historical Cycle 1 provider-free freeze](cycle-1-manifest-provider-free-freeze-v2.md): private Corpus freeze record retained for archaeology; it does not authorize public execution, scoring, or publication.
 
 ## Community Multi-Harness (non-official)
 
@@ -93,9 +106,9 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [preprint/README.md](preprint/README.md): the pre-results preprint package and its approval boundary.
 - [preprint/legalforecast-mtd-cycle-1.md](preprint/legalforecast-mtd-cycle-1.md): the Cycle 1 methods draft, which claims no result.
 
-## Schema Reference
+## Public Release Schema Reference
 
-Artifact and policy contracts consumed by the CLI. Where a schema is versioned, the highest version is current unless the document says otherwise; superseded versions are retained because existing artifacts remain verifiable against them.
+Only the outcome-blinded forecast release, separately controlled labels release, and public/private release boundary below are active Bench contracts. The private-corpus and acquisition schemas that follow are historical records retained for artifact archaeology; they are not current Bench CLI inputs, execution authority, or publication instructions.
 
 **Public/private release boundary**
 
@@ -103,12 +116,13 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [Forecast release v1](schemas/forecast-release-v1.md): canonical cases, prediction units, model-visible document indexes, packets, prompts, and byte commitments.
 - [Labels release v1](schemas/labels-release-v1.md): separately bound unit outcomes and scoring policy with no forecast-execution API path.
 
-**Cycle configuration**
+## Historical private-corpus and migration schemas (non-executable)
 
-- [cycle-acquisition-config.md](cycle-acquisition-config.md): per-cycle acquisition/selection knobs (`legalforecast.config`). Cycle 1 is documentary and not activated; Cycle 2 is an inert draft. Not the frozen orchestrator plan below.
-- [acquisition-cycle-config-v1.md](schemas/acquisition-cycle-config-v1.md): the immutable operator plan consumed by `acquisition run-cycle`.
-- [acquisition-cycle-template-v1.md](schemas/acquisition-cycle-template-v1.md): how `acquisition render-cycle-config` turns a path-parameterized template into that immutable config.
-- [cycle-lineage-index-v1.md](schemas/cycle-lineage-index-v1.md): rebuildable, machine-local discovery of the uniquely current receipt-backed cycle lineage and human-decision state.
+Where a schema is versioned, its recorded version remains useful for verifying historical artifacts. None of the private acquisition, purchase, freeze, labeling, or recovery commands in this section is a current public-repository execution path.
+
+**Historical manifest records**
+
+- [Manifest forecast bundle v2](schemas/manifest-forecast-bundle-v2.md): historical manifest commitments retained for artifact verification; it is not a private source or acquisition executor.
 
 **Discovery and screening**
 
@@ -185,7 +199,7 @@ Artifact and policy contracts consumed by the CLI. Where a schema is versioned, 
 - [successor-rerun-impact-v1.md](schemas/successor-rerun-impact-v1.md): the closed, provider-free proposal and advisory impact contracts for explaining the minimum safe Stage A successor rerun without granting execution authority.
 - [candidate-scoped-stage-a-replay-v1.md](schemas/candidate-scoped-stage-a-replay-v1.md): authenticated reuse of unchanged predecessor Stage A results with unitizer/reviewer execution only for candidates whose successor packet inputs changed.
 - [manifest-unitizer-r2-authority-v1.md](schemas/manifest-unitizer-r2-authority-v1.md): immutable provider-free promotion of the exact owner-approved Stage 5.1 r2 proposal into a corrected-selection-ordered 100-case, 425-unit manifest output without changing the historical finalized-v1 path.
-- `uv run legalforecast acquisition replay-stage-a --replay-spec <path>` is the sole production executor for that replay contract; the self-hashed non-authoritative spec supplies the signed candidate scope, frozen v5/v4 models and configuration hashes, shared provider journal, mechanical ceilings, and receipt paths.
+- Stage A source construction and replay are private Corpus operations. Public execution begins with a locked manifest and outcome-blinded forecast release; see [official-run-runbook.md](official-run-runbook.md) for the retained handoff and protected workflow boundary.
 - [target-document-eligibility-audit-v1.md](schemas/target-document-eligibility-audit-v1.md): the provider-free semantic target-document gate for the line-addressed claim-ontology-v4/v5 contracts; executed `llm-unitize` currently admits only claim-ontology-v5 before provider authority is opened.
 - [stage-a-structural-flag-v2.md](schemas/stage-a-structural-flag-v2.md): claim-ontology-v4 structural flags with locally reconstructed, per-document evidence spans and complete omission evidence.
 - [finalized-prediction-units-v3.md](schemas/finalized-prediction-units-v3.md): the authenticated Stage A successor contract that admits a structurally omitted unit without deriving it from an unrelated raw unit.
@@ -222,4 +236,4 @@ The RECAP Fetch policy records live under [`manifests/recap-fetch-policies/`](..
 
 Within that historical set, `purchase-policy.json` commits the exact approved budget-plan and selection bytes, while `attempt-policy.json` commits the canonical parsed JSON structures derived from those authenticated bytes. Their `budget_plan_sha256` and `selection_sha256` values therefore intentionally differ and must not be rewritten to match; each complete policy body, including its host-bound paths, is protected by its recorded `policy_sha256`.
 
-Historical planning and review documents have been removed from the working tree; they remain available in git history.
+Historical planning and review documents are linked above when they remain tracked; they are retained for artifact archaeology and do not define current public runtime behavior.

@@ -36,6 +36,12 @@ from legalforecast.evals.output_parser import (
     parse_model_output,
 )
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
+from legalforecast.evals.run_record_scoring import ReleaseOutcomeLabel
 from legalforecast.evals.scorers import ScoreSummary, ScoringCase, score_cases
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
@@ -43,7 +49,6 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
-from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
 from legalforecast.reporting.leaderboard import (
     AccountingLeaderboardRow,
     BenchmarkLeaderboardReport,
@@ -54,11 +59,6 @@ from legalforecast.testing import (
     BASE_RATE_PROBABILITY,
     REQUIRED_MOCK_UNIT_IDS,
     get_mock_model_output,
-)
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
 )
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "integrated_pipeline"
@@ -532,7 +532,7 @@ def _prediction_units() -> tuple[PredictionUnit, ...]:
     )
 
 
-def _labels_for_case(case_id: str) -> tuple[OutcomeLabel, ...]:
+def _labels_for_case(case_id: str) -> tuple[ReleaseOutcomeLabel, ...]:
     outcomes = (True, False, False)
     return tuple(
         _label(case_id, unit_id, dismissed)
@@ -540,23 +540,9 @@ def _labels_for_case(case_id: str) -> tuple[OutcomeLabel, ...]:
     )
 
 
-def _label(case_id: str, unit_id: str, dismissed: bool) -> OutcomeLabel:
-    return OutcomeLabel(
-        unit_id=unit_id,
-        fully_dismissed=dismissed,
-        amendment_class=(
-            AmendmentClass.DISMISSED_WITHOUT_EXPRESS_AMENDMENT_OPPORTUNITY
-            if dismissed
-            else AmendmentClass.NOT_FULLY_DISMISSED
-        ),
-        ambiguous=False,
-        label_confidence=0.97,
-        supporting_citations=(
-            OutcomeCitation(document_id=f"decision-{case_id}", page=1),
-        ),
-        first_written_disposition_id=f"decision-{case_id}",
-        first_written_disposition_date="2026-05-20",
-    )
+def _label(case_id: str, unit_id: str, dismissed: bool) -> ReleaseOutcomeLabel:
+    del case_id
+    return ReleaseOutcomeLabel(unit_id=unit_id, primary_outcome=int(dismissed))
 
 
 def _assert_no_secret_material(value: object) -> None:

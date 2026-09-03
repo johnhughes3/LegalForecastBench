@@ -10,12 +10,10 @@ def test_scripts_agents_docs_current_entrypoints() -> None:
 
     for expected in (
         "release_check.py",
-        "build_release_bundle.py",
-        "reconstruct_packets.py",
+        "release_smoke.py",
         "validate_local_assume_access.py",
         "uv run scripts/release_check.py",
-        "uv run scripts/build_release_bundle.py",
-        "uv run scripts/reconstruct_packets.py",
+        "uv run python scripts/release_smoke.py --help",
         "uv run scripts/validate_local_assume_access.py",
     ):
         assert expected in docs

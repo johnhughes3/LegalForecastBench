@@ -49,8 +49,10 @@ def test_dispatch_contract_has_exact_source_run_and_locked_release_inputs() -> N
         "accepted_attempt_map:",
         "official-dispatch-provenance",
         "lfb-run-inputs-frozen",
+        "verify_only:",
     ):
         assert retired_input not in WORKFLOW
+    assert "hugging_face_release_version:" in WORKFLOW
 
 
 def test_source_attempt_is_bound_to_the_exact_main_workflow_path() -> None:
@@ -160,6 +162,36 @@ def test_publish_is_create_once_and_uploads_only_sanitized_outputs() -> None:
     assert "/tmp/lfb-report" in publish
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in publish
     assert "private" not in publish
+
+
+def test_hugging_face_publication_is_retained_publish_only_and_oidc_bound() -> None:
+    build_start = WORKFLOW.index(
+        "- name: Build retained Hugging Face benchmark package"
+    )
+    publish_start = WORKFLOW.index(
+        "- name: Publish immutable benchmark to manually gated Hugging Face Dataset"
+    )
+    build = WORKFLOW[build_start:publish_start]
+    publish = WORKFLOW[publish_start:]
+    assert (
+        "if: ${{ inputs.publish && inputs.hugging_face_release_version != '' }}"
+        in build
+    )
+    assert "--score /tmp/lfb-score.json" in build
+    assert "--unit-scores /tmp/lfb-unit-scores.jsonl" in build
+    assert "--report-dir /tmp/lfb-report" in build
+    assert "--cycle-id" in build
+    assert "legalforecast.hugging_face_publication" in build
+    assert (
+        "HF_OIDC_RESOURCE: datasets/${{ vars.LFB_HF_OFFICIAL_DATASET_REPO }}" in publish
+    )
+    assert "huggingface_hub==1.28.0" in publish
+    assert 'info.gated != "manual"' in publish
+    assert "immutable release already exists" in publish
+    assert "parent_commit=info.sha" in publish
+    assert "HF_TOKEN" not in publish
+    assert "verify_only" not in WORKFLOW
+    assert "fan-in-publish-legacy.yaml" not in WORKFLOW
 
 
 def test_workflow_uses_immutable_action_pins_and_rejects_unsafe_locators() -> None:

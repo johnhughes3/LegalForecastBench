@@ -34,8 +34,8 @@ def invoke_cli(
 ) -> CliCapture:
     """Run ``legalforecast.cli.main`` with a pinned ``COLUMNS`` width.
 
-    ``freeze`` and ``publish aggregate`` keep their pre-parser bypasses because
-    this calls ``main`` rather than ``build_parser().parse_args``.
+    This calls ``main`` rather than ``build_parser().parse_args`` so the
+    capture includes the same parser and error handling as the installed CLI.
     """
 
     previous_env = {name: os.environ.get(name) for name in _PINNED_ENV}

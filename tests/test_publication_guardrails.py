@@ -8,10 +8,14 @@ import pytest
 from legalforecast.hugging_face_publication import (
     OFFICIAL_HF_PUBLICATION_SCHEMA_VERSION,
     OFFICIAL_HF_PUBLICATION_SUPPLEMENTARY_SCHEMA_VERSION,
+    RETAINED_HF_PUBLICATION_SCHEMA_VERSION,
     OfficialHFPublicationConfig,
     OfficialHFPublicationError,
+    RetainedHFPublicationConfig,
     build_official_hf_publication,
+    build_retained_hf_publication,
     validate_official_hf_publication,
+    validate_retained_hf_publication,
 )
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailCode,
@@ -155,6 +159,114 @@ def test_builds_native_manually_gated_hf_package(tmp_path: Path) -> None:
     assert "supplementary_path" not in manifest
     assert result.supplementary_artifact_index_sha256 is None
     assert validate_official_hf_publication(result.output_dir) == result
+
+
+def test_builds_retained_fan_in_hf_package_from_sanitized_outputs(
+    tmp_path: Path,
+) -> None:
+    identity = {
+        "run_manifest_id": "cycle-1-run",
+        "run_manifest_sha256": "a" * 64,
+        "forecast_release_id": "forecast-cycle-1",
+        "forecast_release_digest": "b" * 64,
+        "labels_release_id": "labels-cycle-1",
+        "labels_release_digest": "c" * 64,
+        "labels_forecast_release_digest": "d" * 64,
+        "run_identity_sha256": "e" * 64,
+        "model_registry_sha256": "f" * 64,
+        "models": [
+            {
+                "model_key": "openai:fixture",
+                "model_registry_entry_sha256": "1" * 64,
+                "served_model_version": "fixture-v1",
+            }
+        ],
+    }
+    score_path = tmp_path / "score.json"
+    _write_json(
+        score_path,
+        {"identity": identity, "summaries": [{"model_id": "fixture"}]},
+    )
+    unit_scores_path = tmp_path / "unit-scores.jsonl"
+    _write_text(
+        unit_scores_path,
+        json.dumps({"model_id": "fixture", "unit_id": "unit-1", "case_id": "case-1"})
+        + "\n",
+    )
+    report_dir = tmp_path / "report"
+    _write_json(report_dir / "leaderboard.json", {"provenance": identity})
+    for name in ("leaderboard.csv", "leaderboard.md", "leaderboard.html"):
+        _write_text(report_dir / name, f"{name}\n")
+
+    result = build_retained_hf_publication(
+        RetainedHFPublicationConfig(
+            score_path=score_path,
+            unit_scores_path=unit_scores_path,
+            report_dir=report_dir,
+            output_dir=tmp_path / "hugging-face-retained",
+            cycle_id="cycle-1",
+            release_version="cycle-1.1.0",
+            dataset_repository="example/legalforecastbench",
+        )
+    )
+
+    manifest = json.loads(result.publication_manifest_path.read_text(encoding="utf-8"))
+    release_root = result.output_dir / "releases/cycle-1.1.0/cycle-1"
+    assert manifest["schema_version"] == RETAINED_HF_PUBLICATION_SCHEMA_VERSION
+    assert manifest["manual_gate"]["mode"] == "manual"
+    assert (
+        release_root / "aggregate/scores.json"
+    ).read_bytes() == score_path.read_bytes()
+    assert (release_root / "aggregate/report/leaderboard.html").is_file()
+    assert (release_root / "site/index.html").is_file()
+    assert validate_retained_hf_publication(result.output_dir) == result
+
+
+def test_retained_hf_package_refuses_report_identity_drift(tmp_path: Path) -> None:
+    identity = {
+        "run_manifest_id": "run",
+        "run_manifest_sha256": "a" * 64,
+        "forecast_release_id": "forecast",
+        "forecast_release_digest": "b" * 64,
+        "labels_release_id": "labels",
+        "labels_release_digest": "c" * 64,
+        "labels_forecast_release_digest": "d" * 64,
+        "run_identity_sha256": "e" * 64,
+        "model_registry_sha256": "f" * 64,
+        "models": [{"model_key": "openai:fixture"}],
+    }
+    score_path = tmp_path / "score.json"
+    _write_json(
+        score_path,
+        {"identity": identity, "summaries": [{"model_id": "fixture"}]},
+    )
+    _write_text(
+        tmp_path / "unit-scores.jsonl",
+        '{"model_id":"fixture","unit_id":"u","case_id":"c"}\n',
+    )
+    report_dir = tmp_path / "report"
+    _write_json(
+        report_dir / "leaderboard.json",
+        {"provenance": {**identity, "run_manifest_id": "wrong"}},
+    )
+    for name in ("leaderboard.csv", "leaderboard.md", "leaderboard.html"):
+        _write_text(report_dir / name, name)
+
+    with pytest.raises(
+        OfficialHFPublicationError,
+        match="provenance differs for run_manifest_id",
+    ):
+        build_retained_hf_publication(
+            RetainedHFPublicationConfig(
+                score_path=score_path,
+                unit_scores_path=tmp_path / "unit-scores.jsonl",
+                report_dir=report_dir,
+                output_dir=tmp_path / "output",
+                cycle_id="cycle-1",
+                release_version="cycle-1.1.0",
+                dataset_repository="example/legalforecastbench",
+            )
+        )
 
 
 def test_hf_publication_separates_the_supplementary_split_and_carries_the_caveat(

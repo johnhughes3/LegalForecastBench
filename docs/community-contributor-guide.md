@@ -66,15 +66,12 @@ Index tasks, then select a slice. A scoped run is labeled scoped. It is not a fu
 The quickest zero-credential path: no extra checkout, one packet. The Harvey LAB category below also works without credentials; it just needs the upstream corpus cloned first.
 
 ```bash
-uv run legalforecast fixture e2e --output-dir tmp/fixture-run
-
-uv run legalforecast multiharness tasks index \
-  --suite lfb \
-  --input tmp/fixture-run/packets.jsonl \
-  --output tmp/multiharness/lfb-index.json
+uv run legalforecast run issue-fixture --output-dir tmp/fixture-run
 ```
 
-`--category` is a Harvey LAB module selector. It matches nothing on this LFB index. Do not pass `--category corporate` here.
+The fixture writes one packet per prediction unit under
+`tmp/fixture-run/release/packets/`. To use the multiharness indexer, provide a
+JSONL packet export from the public release.
 
 ### Harvey LAB category
 
