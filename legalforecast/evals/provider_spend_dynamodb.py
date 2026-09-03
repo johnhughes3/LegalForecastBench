@@ -837,6 +837,7 @@ class DynamoDbProviderSpendAuthority:
                                         "SET failure_threshold = :desired"
                                     ),
                                     "ConditionExpression": (
+                                        "schema_version = :schema AND "
                                         "authority_identity_sha256 = :identity AND "
                                         "cycle_id = :cycle AND provider = :provider "
                                         "AND account_sha256 = :account AND "
@@ -849,6 +850,9 @@ class DynamoDbProviderSpendAuthority:
                                     ),
                                     "ExpressionAttributeValues": {
                                         ":desired": _n(desired),
+                                        ":schema": _s(
+                                            DYNAMODB_AUTHORITY_SCHEMA_VERSION
+                                        ),
                                         ":identity": _s(self.authority_identity_sha256),
                                         ":cycle": _s(self.cycle_id),
                                         ":provider": _s(self.provider),

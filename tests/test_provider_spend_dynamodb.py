@@ -954,6 +954,15 @@ def test_scope_ledgers_partition_authority_identity_from_table_resource() -> Non
     assert first.authority_key != second.authority_key
 
 
+def test_remote_authority_does_not_raise_threshold_on_schema_drift() -> None:
+    runner = InMemoryDynamoRunner()
+    _authority(runner, failure_threshold=1)
+    runner.items["LEDGER"]["schema_version"] = {"S": "unexpected-schema"}
+    with pytest.raises(AuthorityIdentityMismatchError, match="schema_version"):
+        _authority(runner, failure_threshold=3)
+    assert runner.items["LEDGER"]["failure_threshold"] == {"N": "1"}
+
+
 def _key(
     *,
     stage: str = "official-eval",

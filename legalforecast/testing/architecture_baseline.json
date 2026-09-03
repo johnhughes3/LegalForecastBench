@@ -361,10 +361,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "DynamoDbProviderSpendAuthority",
-        "largest_symbol_lines": 1227,
+        "largest_symbol_lines": 1231,
         "layer": "application",
-        "line_count": 1437,
-        "nonblank_line_count": 1354,
+        "line_count": 1441,
+        "nonblank_line_count": 1358,
         "top_level_definition_count": 18
       },
       "legalforecast/evals/response_verification.py": {
@@ -2117,20 +2117,20 @@
       },
       "tests/test_provider_spend_dynamodb.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "tests",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
         "fan_in": 0,
         "fan_out": 0,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "tests",
         "largest_symbol": "InMemoryDynamoRunner",
         "largest_symbol_lines": 153,
         "layer": "test",
-        "line_count": 993,
-        "nonblank_line_count": 852,
-        "top_level_definition_count": 34
+        "line_count": 1002,
+        "nonblank_line_count": 859,
+        "top_level_definition_count": 35
       },
       "tests/test_public_runner.py": {
         "cycle_id": "",
