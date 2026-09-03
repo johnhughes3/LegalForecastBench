@@ -39,15 +39,17 @@ It then uploads the validated tree through HF Trusted Publishing, refusing a rep
 
 After publication, record the resulting full HF commit SHA in every model repository result entry and in the LegalForecastBench evidence bundle. Do not treat a successful upload, the HF leaderboard UI, or HF's `verified` presentation as proof that a result satisfied the benchmark's official controls.
 
-## Supplementary (unofficial) models
+## Post-anchor models
 
-A model released after the cycle's corpus decision window closed cannot claim the contamination protection an official row claims, so it is published as *supplementary* rather than official. It runs through the same pipeline and is aggregated into its own official-shaped bundle against a one-model registry, then merged into the published page at render time. It never enters the official aggregate, so no official set-equality or matrix gate ever sees it.
+A model released after the cycle's corpus decision window closed cannot claim contamination resistance on that corpus, so it publishes in its own arm rather than mixed into the pre-anchor rows. It is an official, viable result all the same — a post-anchor score is published rather than withheld, and the separation exists so the two arms stay comparable, not to rank one below the other. See [publication-governance.md](publication-governance.md) for what each arm may claim. It runs through the same pipeline and is aggregated into its own official-shaped bundle against a one-model registry, then merged into the published page at render time. It never enters the pre-anchor aggregate, so no set-equality or matrix gate over that aggregate ever sees it.
+
+The CLI flags, paths, manifest fields, and config names below still spell this arm `supplementary`, which is the wire vocabulary the shipped code uses; bead `legalforecastbench-6qfl` tracks renaming it to name the mechanic rather than a status.
 
 Pass the supplementary bundle to the publisher with `--supplementary-artifacts-dir`. The package then writes it under `releases/<version>/<cycle>/supplementary/`, alongside but separate from `aggregate/`, and the Dataset Card gains a second config, `<cycle>_supplementary`, whose `supplementary` split points at those rows. The official `<cycle>` config and its `test` split remain official-only.
 
 A publication that carries a supplementary split uses the `legalforecast-official-hf-publication-v2` manifest, which additionally commits to `supplementary_path` and `supplementary_artifact_index_sha256`. A publication without supplementary models still emits `legalforecast-official-hf-publication-v1` unchanged, and validation refuses a `-v1` package that carries supplementary files.
 
-On the rendered page a supplementary model appears in the same table as the official models, after them, ordered by model id, badged `Supplementary†` and labelled with a trailing `†`. It is never ranked: it cannot be the best model, does not appear in the headline figures, and its delta-vs-best cell reads "Not ranked". The dagger is deliberately distinct from the contamination-tier asterisk, which marks an *official* model whose training cutoff is undisclosed; a supplementary row can legitimately carry both.
+On the rendered page a post-anchor model appears in the same table as the pre-anchor models, after them, ordered by model id, badged `Supplementary†` and labelled with a trailing `†`. The dagger is deliberately distinct from the contamination-tier asterisk, which marks a model whose training cutoff is undisclosed; a post-anchor row can legitimately carry both. As shipped, a post-anchor row is never ranked: it cannot be the best model, does not appear in the headline figures, and its delta-vs-best cell reads "Not ranked". Whether that exclusion should survive the 2026-09-03 reframing, or whether a post-anchor row should rank within its own arm, is an open question tracked on bead `legalforecastbench-6qfl`; the badge text and caveat wording are tracked there too.
 
 ## Controlled access
 

@@ -15,7 +15,7 @@ The technical documentation in this folder is drafted and maintained with substa
 ## Official Benchmark
 
 - [METHODS.md](METHODS.md): eval-card-grade methods — construct, frozen inputs, leakage controls, metrics, inference, related work, human-baseline status, limitations, and withdrawal policy.
-- [Contamination-tier reporting](contamination-tier-reporting.md): the mechanical rule that distinguishes contamination-resistant scores from preliminary (non-contamination-resistant) scores, and the paired drift metric.
+- [Contamination-tier reporting](contamination-tier-reporting.md): the mechanical rule that distinguishes contamination-resistant scores from preliminary (non-contamination-resistant) scores — both official, viable results — and the paired drift metric between them.
 - [official-run-runbook.md](official-run-runbook.md): retained public release boundary — immutable inputs, protected forecast/fan-in workflows, strict scoring, reporting, and hold conditions.
 - [Official-run gate pack](official-run-gate-pack.md): preparation-only handoff checklist for the retained workflows, release identities, receipts, and protected authorization.
 - [GitHub → AWS OIDC trust claims](github-aws-oidc-trust-claims.md): the verified condition-key surface behind the official roles' trust policies, and the two false review claims it retires.
