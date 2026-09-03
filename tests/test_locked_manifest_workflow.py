@@ -180,6 +180,27 @@ def test_source_identity_concurrency_and_budget_gates_are_fail_closed() -> None:
     )
 
 
+def test_prepare_rejects_repeats_before_any_provider_matrix() -> None:
+    prepare = _job("prepare-inputs", "run-openai")
+    validate_start = prepare.index("Validate dispatch identity and bounded values")
+    matrix_start = prepare.index("Build dynamic logical-cell matrices")
+    assert validate_start < matrix_start
+    validate = prepare[validate_start:matrix_start]
+    matrix = prepare[matrix_start:]
+    reject_message = (
+        "repeat_count must be exactly 1 until repeated-sampling fan-in is supported"
+    )
+    assert '[[ "${REPEAT_COUNT}" == "1" ]]' in validate
+    assert reject_message in validate
+    assert '[[ "${PROVIDER}" == "openai" ]]' not in validate
+    assert "if repeat_count != 1:" in matrix
+    assert reject_message in matrix
+    assert (
+        'if [[ "${PROVIDER}" == "openai" ]] && (( REPEAT_COUNT > 1 ))' not in WORKFLOW
+    )
+    assert "OpenAI repeat samples are not supported" not in WORKFLOW
+
+
 def test_restore_is_attempt_qualified_and_fail_closed() -> None:
     assert "GITHUB_RUN_ATTEMPT" in WORKFLOW
     assert (

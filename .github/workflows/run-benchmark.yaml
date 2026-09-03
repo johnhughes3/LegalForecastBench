@@ -251,6 +251,8 @@ jobs:
           from legalforecast.release import load_forecast_run_inputs
           from legalforecast.runner import derive_cell_id, derive_run_identity_sha256
           repeat_count = int(os.environ["REPEAT_COUNT"])
+          if repeat_count != 1:
+              raise SystemExit("repeat_count must be exactly 1 until repeated-sampling fan-in is supported")
           run_inputs = load_forecast_run_inputs(Path("/tmp/lfb-locked-inputs/run-manifest.json"), Path("/tmp/lfb-locked-inputs/forecast-release.json"), artifact_root=Path("/tmp/lfb-locked-inputs/artifacts"))
           forecast = run_inputs.execution.release
           registry_bytes = read_single_link_file(Path("/tmp/lfb-locked-inputs/model-registry.json"), label="model registry")
