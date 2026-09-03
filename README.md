@@ -34,9 +34,13 @@ For a given universe of models being compared, eligible cases are those with wri
 
 The release-date anchor is a retrospective contamination control, not a guarantee that providers will never update an alias after release. Official runs therefore require non-null release timestamps, dated snapshot metadata in the frozen registry, and run artifacts that record the provider-served model version when the provider exposes it.
 
+The anchor says which arm a result belongs to; it does not decide whether a model gets reported. A model released on or before the anchor is scored **pre-anchor**, and that contamination-resistant score is the gold standard. A model released after it is scored **post-anchor** on the same frozen record, and that result is published too — first class alongside the pre-anchor rows, marked so the two are never confused. Where a model has a score in each arm, the delta between them measures how much contamination actually moves that model, which is a result this benchmark reports rather than a caveat it hides behind.
+
 ### Versioned artifact
 
-Each benchmark run is a versioned artifact tied to a specific set of model deployments. When a new generation of frontier models ships, the benchmark ingests fresh cases — all decided on or after the new deployment anchor — and compares predictions on that cohort. The tradeoff is that the benchmark cannot run immediately on a new model (it takes time for enough eligible decisions to accumulate), and it cannot cleanly demonstrate absolute capability gains across generations because the case mix differs each version. What it does well is compare the relative capabilities of frontier models within a generation, which is the question most useful to practitioners deciding which model to rely on.
+Each benchmark run is a versioned artifact tied to a specific set of model deployments. When a new generation of frontier models ships, the benchmark ingests fresh cases — all decided on or after the new deployment anchor — and compares predictions on that cohort. That fresh-cohort cycle is the contamination-resistant path and the standard this benchmark holds itself to.
+
+Accumulating enough eligible decisions takes time, so a newly released model does not wait for it: it is scored on the existing frozen record as a post-anchor result and published, then scored again on the resistant cohort when one exists. What the benchmark cannot do is cleanly demonstrate absolute capability gains across generations, because the case mix differs each version. What it does well is compare the relative capabilities of frontier models within a generation, which is the question most useful to practitioners deciding which model to rely on.
 
 Current pilot model anchors are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEASE_DATES.md).
 

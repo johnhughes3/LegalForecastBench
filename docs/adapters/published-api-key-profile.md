@@ -40,7 +40,7 @@ Do not copy those values into a second Infisical folder, the host environment, `
 
 ## Production is GitHub Environments, not Infisical
 
-Official production variables and secrets are stored on protected GitHub Environments. The closed inventories are `infra/official-labeling/github-environments.json` and `infra/official-eval/github-environments.json`. This local-CLI profile never reads those environments and never passes `--env prod` to `infisical-agent-sandbox`. Infisical is the sandbox source only (`dev`, or `staging`/`sandbox` if explicitly selected).
+Official production variables and secrets are stored on protected GitHub Environments. The closed inventory is `infra/official-eval/github-environments.json`. This local-CLI profile never reads those environments and never passes `--env prod` to `infisical-agent-sandbox`. Infisical is the sandbox source only (`dev`, or `staging`/`sandbox` if explicitly selected).
 
 ## Fail-closed behavior
 

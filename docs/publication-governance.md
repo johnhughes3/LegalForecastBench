@@ -8,7 +8,7 @@ The machine-readable source of truth is [`publication-governance.json`](publicat
 
 Official LegalForecast-MTD results and Community Harness Comparisons are different products. They use separate result paths, score meanings, and public identities. No surface may rank LegalForecast-MTD Brier scores against Harvey LAB rubric scores or combine the tracks into an overall winner.
 
-No paid community run begins before its specification is committed; a schedule target never substitutes for it. What may be spent, and how the owner's approval is recorded, is governed by the Spending guardrails in [AGENTS.md](/.agents/AGENTS.md).
+No paid community run begins before its specification is committed; a schedule target never substitutes for it. Provider purchases and budget consent for corpus construction are not shipped from this repository at all; they belong to the companion private corpus repository, per the Corpus Spending Boundary in [AGENTS.md](/.agents/AGENTS.md).
 
 Required non-affiliation text:
 
@@ -26,13 +26,17 @@ Every published result carries the exact label its track and evidence basis call
 
 **Preliminary — one task pair, operator-run, not independently reproducible** — a single operator-run task pair. When the complete compatibility key matches, it may report only the observed paired difference for the pinned task and run; when it does not match, publish separately labeled system-bundle observations. It may not claim `estimated harness effect`, `performs better`, a population-average effect, general superiority, contributor safety, or independent reproducibility, and it does not close issue #49.
 
-## Supplementary presentation on official surfaces
+## Pre-anchor and post-anchor results
 
-A model released after the cycle's corpus decision window closed runs through the official pipeline but publishes as supplementary, not official. It is aggregated separately and merged into the official surface only at render time, so it never enters the official set or any official set-equality gate.
+Every published result belongs to one of two arms, decided mechanically by comparing the model's first documented external deployment against the cycle's corpus anchor — the earliest decision date the cycle scores. A model released on or before the anchor is **pre-anchor**; one released after it is **post-anchor**. Per the owner directive of 2026-09-03 (bead `legalforecastbench-wjuo`), both arms are official, viable benchmark results. Pre-anchor is the gold standard, because only it supports the claim that every scored decision postdates the model. Post-anchor is reportable and first class alongside it, so a model released after the corpus was frozen is scored and published rather than withheld until a contamination-resistant corpus exists for it.
 
-Supplementary rows appear beside official rows on the official surface, after them and ordered by model id, marked with a dagger and the standard supplementary caveat. They are never ranked: no rank position, no best-model claim, no delta-vs-best interval. On the Hugging Face distribution surface they occupy their own config and split. A supplementary row may not be presented, cited, or linked as an official LegalForecastBench result, and its presence on an official surface does not promote it.
+The arm is a tracked property of a result, not a permission to publish. What it governs is what may be claimed. A pre-anchor row may claim contamination resistance on this corpus; a post-anchor row may not, and no surface may present, cite, or link a post-anchor row as a contamination-resistant or pre-anchor result. That separation is fail-closed in both directions and is the one property this classification must never lose.
 
-This is not the four-tier result classification the project declined to adopt. It is a two-value presentation flag, `official` or `supplementary_post_anchor`, derived mechanically from a release date against the corpus anchor, plus one fail-closed gate that refuses a post-anchor model inside an official bundle.
+Keeping the arms distinct is what makes the comparison possible. A post-anchor model runs the identical pipeline, prompts, packets, and scoring protocol; it is aggregated separately and merged into the published surface at render time, appearing after the pre-anchor rows, ordered by model id, and marked with a dagger. On the Hugging Face distribution surface it occupies its own config and split. When the same model has a score in both arms, the paired delta between them is drift, and drift is a headline result of this benchmark: a large drift says contamination moves that model's score a great deal, a near-zero drift says it barely does, and both are publishable findings. This is not the four-tier result classification the project declined to adopt; it is two tracked arms, and neither is a tier below the other.
+
+Contamination resistance is not being retired or downgraded by any of this. Acquiring fresh cases over time so a versioned benchmark keeps a contamination-resistant arm remains the goal; the anchor date exists to say which arm a case and a result belong to, and to say which cases to acquire next.
+
+Planned, not yet implemented. The shipped renderers still exclude post-anchor rows from ranking, from the best-model claim, and from every delta-vs-best interval, still badge them "Supplementary", and still emit a caveat that opens with the word "Unofficial"; the code refuses a post-anchor model inside an official bundle outright. Whether a post-anchor row should be ranked within its own arm is an open question for the owner, not something these renderers have decided. The three frozen labels below likewise do not yet name the arms. Bead `legalforecastbench-6qfl` tracks the code and contract change; until it lands, the shipped behaviour is narrower than this section.
 
 ## Canonical public surfaces
 

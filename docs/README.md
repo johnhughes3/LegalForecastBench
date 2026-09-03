@@ -15,7 +15,7 @@ The technical documentation in this folder is drafted and maintained with substa
 ## Official Benchmark
 
 - [METHODS.md](METHODS.md): eval-card-grade methods — construct, frozen inputs, leakage controls, metrics, inference, related work, human-baseline status, limitations, and withdrawal policy.
-- [Contamination-tier reporting](contamination-tier-reporting.md): the mechanical rule that distinguishes contamination-resistant scores from preliminary (non-contamination-resistant) scores, and the paired drift metric.
+- [Contamination-tier reporting](contamination-tier-reporting.md): the mechanical rule that distinguishes contamination-resistant scores from preliminary (non-contamination-resistant) scores — both official, viable results — and the paired drift metric between them.
 - [official-run-runbook.md](official-run-runbook.md): retained public release boundary — immutable inputs, protected forecast/fan-in workflows, strict scoring, reporting, and hold conditions.
 - [Official-run gate pack](official-run-gate-pack.md): preparation-only handoff checklist for the retained workflows, release identities, receipts, and protected authorization.
 - [GitHub → AWS OIDC trust claims](github-aws-oidc-trust-claims.md): the verified condition-key surface behind the official roles' trust policies, and the two false review claims it retires.
@@ -35,8 +35,6 @@ control are owned by the companion LegalForecastCorpus repository. This public
 repository receives only immutable, outcome-blinded release inputs through the
 documented [public/private release boundary](architecture/public-private-release-boundary.md).
 
-- [Repository-wide code organization plan](migration/2026-08-14-repository-code-organization.md): historical organization notes for this public package and its retained benchmark contracts.
-- [CLI and package reorganization plan](migration/2026-08-12-cli-and-package-reorganization.md): historical public-CLI organization notes; private corpus operations are out of scope here.
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for retained public release code.
 
 ## Historical and Migration Records
@@ -60,7 +58,6 @@ The following records document superseded private-corpus planning, migrations, a
 - [Cycle 1 ranked-reserve continuation](cycle-1-target-100-v4-ranked-reserve-replacement.md): historical ranked-reserve replacement record.
 - [Historical cycle configuration record](cycle-acquisition-config.md): superseded private cycle-configuration notes.
 - [Historical document-repair purchase record](document-repair-purchase-issuance.md): superseded purchase-issuance notes for private recovery.
-- [CLI seam analysis](migration/2026-08-12-cli-seam-analysis.md): historical CLI and package-boundary analysis.
 - [Historical cycle configuration schema](schemas/acquisition-cycle-config-v1.md): superseded schema retained for artifact verification.
 - [Historical cycle template schema](schemas/acquisition-cycle-template-v1.md): superseded template retained for artifact verification.
 - [Historical cycle-lineage schema](schemas/cycle-lineage-index-v1.md): superseded lineage schema retained for artifact verification.
@@ -122,7 +119,7 @@ Where a schema is versioned, its recorded version remains useful for verifying h
 
 **Historical manifest records**
 
-- [Manifest forecast bundle v2](schemas/manifest-forecast-bundle-v2.md): historical manifest commitments retained for artifact verification; it is not a private source or acquisition executor.
+- [Manifest forecast bundle v2](schemas/manifest-forecast-bundle-v2.md): the exact labels-deferred, non-scoreable, non-publishable manifest forecast commitment and provider-free run card, retained for artifact verification; it is not a private source or acquisition executor.
 
 **Discovery and screening**
 
@@ -155,9 +152,6 @@ Where a schema is versioned, its recorded version remains useful for verifying h
 - [exact100-successor-predecessor-coverage-v2.md](schemas/exact100-successor-predecessor-coverage-v2.md): versioned coverage that omits authenticated paid-recovery gaps from those three surfaces while keeping the identities on selection and case relevance.
 - [exact100-successor-semantic-repair-v1.md](schemas/exact100-successor-semantic-repair-v1.md): byte-bound recognition of embedded operative complaints and combined motion-to-dismiss memoranda.
 - [exact100-supporting-document-successor-v1.md](schemas/exact100-supporting-document-successor-v1.md): closed, zero-cost exact-100 successor that adds the authenticated ECF 14 supporting memorandum without changing the materializer v1 card.
-- [missing-document-successor-v1.md](schemas/missing-document-successor-v1.md): approved-manifest-bound free-first repair projection with selector-aware document identity, byte-role admission, and complete terminal ledgers.
-- [exact100-missing-document-successor-v1.md](schemas/exact100-missing-document-successor-v1.md): provider-free exact-100 plan bound to an approved repair-manifest digest and spend ceiling, with sealed admission only after byte-role validation and a complete ledger.
-- [exact100-document-repair-pilot-v1.md](schemas/exact100-document-repair-pilot-v1.md): exact ordered five-candidate projection of the authenticated full repair plan without minting independent authority.
 - [free-support-memorandum-recovery-plan-v1.md](schemas/free-support-memorandum-recovery-plan-v1.md): the non-executable, authenticated plan for recovering the one known free supporting memorandum omitted from the selected packet inputs.
 - [missing-document-successor-v1.md](schemas/missing-document-successor-v1.md): generic approved-manifest repair planning with free-first routing, byte-role validation, and complete inclusion or exclusion accounting.
 - [exact100-missing-document-successor-v1.md](schemas/exact100-missing-document-successor-v1.md): historical exact-100 repair contract keyed only by candidate and docket entry, retained for artifact verification.
@@ -188,7 +182,7 @@ Where a schema is versioned, its recorded version remains useful for verifying h
 
 - [disclosure-review-bundle-v1.md](schemas/disclosure-review-bundle-v1.md): the authenticated exact-byte human-review lineage required before a document enters parsing or labeling.
 - [disclosure-model-review-v1.md](schemas/disclosure-model-review-v1.md): the single frozen non-evaluation acquisition reviewer model.
-- [provenance-clearance-v3.md](schemas/provenance-clearance-v3.md): current routing contract, additive to v1 and v2; selected with `plan-disclosure-provenance --schema-version v3`.
+- [provenance-clearance-v3.md](schemas/provenance-clearance-v3.md): the last routing contract, additive to v1 and v2; its issuing command left with the private corpus operations.
 - [provenance-clearance-v2.md](schemas/provenance-clearance-v2.md): the legacy v2 routing artifacts and run-card shape, preserved when `--schema-version` is omitted.
 - [provenance-clearance-v1.md](schemas/provenance-clearance-v1.md): the original provenance-first routing contract, retained for historical artifacts.
 - [provenance-public-marker-clearance-v1.md](schemas/provenance-public-marker-clearance-v1.md): policy-bound provider-free clearance for exact recovered-public marker-only rows.
@@ -200,7 +194,7 @@ Where a schema is versioned, its recorded version remains useful for verifying h
 - [candidate-scoped-stage-a-replay-v1.md](schemas/candidate-scoped-stage-a-replay-v1.md): authenticated reuse of unchanged predecessor Stage A results with unitizer/reviewer execution only for candidates whose successor packet inputs changed.
 - [manifest-unitizer-r2-authority-v1.md](schemas/manifest-unitizer-r2-authority-v1.md): immutable provider-free promotion of the exact owner-approved Stage 5.1 r2 proposal into a corrected-selection-ordered 100-case, 425-unit manifest output without changing the historical finalized-v1 path.
 - Stage A source construction and replay are private Corpus operations. Public execution begins with a locked manifest and outcome-blinded forecast release; see [official-run-runbook.md](official-run-runbook.md) for the retained handoff and protected workflow boundary.
-- [target-document-eligibility-audit-v1.md](schemas/target-document-eligibility-audit-v1.md): the provider-free semantic target-document gate for the line-addressed claim-ontology-v4/v5 contracts; executed `llm-unitize` currently admits only claim-ontology-v5 before provider authority is opened.
+- [target-document-eligibility-audit-v1.md](schemas/target-document-eligibility-audit-v1.md): the provider-free semantic target-document gate for the line-addressed claim-ontology-v4/v5 contracts; the unitizer that consumed it admitted only claim-ontology-v5.
 - [stage-a-structural-flag-v2.md](schemas/stage-a-structural-flag-v2.md): claim-ontology-v4 structural flags with locally reconstructed, per-document evidence spans and complete omission evidence.
 - [finalized-prediction-units-v3.md](schemas/finalized-prediction-units-v3.md): the authenticated Stage A successor contract that admits a structurally omitted unit without deriving it from an unrelated raw unit.
 - [finalized-prediction-units-v2.md](schemas/finalized-prediction-units-v2.md): the authenticated Stage A successor contract that records reviewed unit drops without rewriting the original unitization artifacts.
@@ -221,7 +215,6 @@ Where a schema is versioned, its recorded version remains useful for verifying h
 - [evaluation-policy-artifacts-v1.md](schemas/evaluation-policy-artifacts-v1.md): how decisions made before labeling or acquisition are separated from facts observed later.
 - [evaluation-policy-artifacts-v2.md](schemas/evaluation-policy-artifacts-v2.md): additive truthful lifecycle semantics, journal-derived production start, and authenticated manifest execution decisions; v1 remains unchanged.
 - [execution-policy-artifacts-v4.md](schemas/execution-policy-artifacts-v4.md): provider-free pre-freeze model-scope plan successor; v3 remains strict.
-- [manifest-forecast-bundle-v2.md](schemas/manifest-forecast-bundle-v2.md): the exact labels-deferred, non-scoreable, non-publishable manifest forecast commitment and provider-free run card.
 - [manifest-cost-projection-receipt-v1.md](schemas/manifest-cost-projection-receipt-v1.md): authenticated provider-free cost projection, matrix partitioning, input commitments, and create-only receipt publication for an official manifest run.
 
 **Multi-harness**

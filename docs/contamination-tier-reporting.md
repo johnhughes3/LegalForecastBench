@@ -6,8 +6,8 @@ packet leakage filters, freeze codecs, or authenticated aggregate bytes.
 
 Related code already in the tree:
 
-- Model cutoff and eligibility metadata: `legalforecast.selection.eligibility`
-  (`TrainingCutoffStatus`, `ModelRunMetadata`, `ContaminationMetadata`).
+- Model cutoff and eligibility metadata: `legalforecast.evals.model_registry`
+  (`TrainingCutoffStatus`, `ModelRunMetadata`).
 - Registry cutoff fields: `model_registries/*.json` via
   `ModelRegistryEntry.provider_training_cutoff` /
   `provider_training_cutoff_status`.
@@ -31,9 +31,9 @@ Instead:
 5. When a later resistant cohort covers the same model, publish the paired
    score delta (**drift**) as its own metric.
 
-Holding steady validates both the preliminary number and the contamination
-method. A large drop (resistant micro-Brier worse than the preliminary
-number) is a finding about that provider.
+Both tracks are official, viable benchmark results. Contamination-resistant is the gold standard, and building a fresh cohort for a newly released model is how the benchmark earns it; a preliminary score is reportable and first class alongside it rather than withheld until that cohort exists. The tier records which claim a score supports, never whether the score may be published.
+
+Drift is the reason the two tracks are worth keeping distinct. Holding steady validates both the preliminary number and the contamination method. A large drop — resistant micro-Brier worse than the preliminary number — is a finding about that provider, and a near-zero drift is an equally publishable finding about how much contamination actually moves the score. Either way the delta is a headline result of this benchmark, not an artifact of when a cohort happened to be frozen.
 
 ## Vocabulary (do not collapse these)
 
@@ -43,6 +43,7 @@ number) is a finding about that provider.
 | `preliminary` | The contamination-resistant claim is not available for this (model, cohort) pair. | Publication-governance "Preliminary" (community evidence tier). |
 | Rank tier | Bonferroni grouping on the leaderboard. | Contamination tier. |
 | Estimand Tier-0 | Matched-harness observed difference (`dm0g.4.1.13`). | Contamination tier. |
+| Result class (pre-anchor / post-anchor) | Whether the model's *first external deployment* predates the corpus anchor, the earliest decision date the cycle scores. | Contamination tier, which compares the model's *training cutoff* against the cohort `eligibility_anchor`. Both arms are official; see [publication-governance.md](publication-governance.md). |
 
 Machine field: `contamination_tier`. Human marker for `preliminary`: a
 trailing asterisk on the model label, plus this exact sentence wherever that
@@ -68,12 +69,7 @@ is still contamination-resistant on that cohort if its recorded cutoff
 predates `C`. Release-after-freeze is why we bother scoring the old cohort; it
 is not a separate predicate.
 
-This reporting rule is stricter than the acquisition hard gate, which keys
-off model **release** rather than training cutoff
-(`decision_entered_on_or_after_model_deployment` /
-`decision_before_release_anchor`). Acquisition still decides which cases
-enter the cohort. Contamination tier decides which claim we print next to a
-score.
+This reporting rule keys off the recorded training cutoff. The separate release-date rule — which keys off first external deployment — decides the result class, and cohort acquisition, which decides which cases enter a cohort at all, lives in the companion private corpus repository. None of the three withholds a score; each decides which claim we print next to one.
 
 ## Sidecar (non-authoritative)
 
@@ -112,6 +108,4 @@ Human-readable surfaces that know a row is preliminary must go through
 - `legalforecast report` markdown/HTML when registry + boundary + cohort id
   are passed together
 
-Unauthenticated overlay only: official aggregate `leaderboard.md` /
-`leaderboard.html` generated inside `aggregate_official_results` remain the
-frozen dump and are not rewritten.
+Unauthenticated overlay only: the official aggregate's own `leaderboard.md` and `leaderboard.html` remain the frozen dump and are not rewritten.
