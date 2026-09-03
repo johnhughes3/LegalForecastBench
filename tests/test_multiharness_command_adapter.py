@@ -16,6 +16,7 @@ from legalforecast.multiharness import command_adapter as command_adapter_module
 from legalforecast.multiharness import (
     process_containment as process_containment_module,
 )
+from legalforecast.multiharness.adapters import SolverInputAdapter
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterError,
@@ -27,6 +28,7 @@ from legalforecast.multiharness.process_containment import (
     ProcessContainmentHandle,
     preflight_process_containment,
 )
+from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
 from legalforecast.multiharness.spec import (
     LINUX_SYSTEMD_SCOPE_CONTAINMENT,
     AdapterManifest,
@@ -242,6 +244,35 @@ def test_relative_command_resolution(tmp_path: Path) -> None:
     capabilities = adapter.capabilities(tmp_path / "workspace")
 
     assert capabilities.adapter_version == "0.1.0"
+
+
+def test_command_adapter_run_with_solver_input_stages_then_removes_prompt(
+    tmp_path: Path,
+) -> None:
+    script = _write_adapter_script(tmp_path, capture_prompt=True)
+    adapter = CommandAdapter(
+        manifest=_manifest(command=(sys.executable, str(script))),
+    )
+    workspace = tmp_path / "workspace"
+    solver_root = tmp_path / "solver-input"
+    solver_root.mkdir()
+    (solver_root / SOLVER_INPUT_ENTRY_PATH).write_text(
+        "authenticated prompt\n", encoding="utf-8"
+    )
+
+    assert isinstance(adapter, SolverInputAdapter)
+    result = adapter.run_with_solver_input(
+        _run_request(adapter.manifest),
+        workspace,
+        solver_root,
+    )
+
+    assert result.status == "succeeded"
+    seen = json.loads(
+        (workspace / "private-logs" / "staged-prompt.json").read_text(encoding="utf-8")
+    )
+    assert seen["prompt"] == "authenticated prompt\n"
+    assert not (workspace / SOLVER_INPUT_ENTRY_PATH).exists()
 
 
 def test_command_adapter_run_invocation_and_private_log_handling(
@@ -1421,6 +1452,7 @@ def _write_adapter_script(
     capabilities_hardlink_target: Path | None = None,
     run_result_symlink_target: Path | None = None,
     start_marker: Path | None = None,
+    capture_prompt: bool = False,
 ) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     script = root / "fixture_adapter.py"
@@ -1453,6 +1485,7 @@ def _write_adapter_script(
                 f"CAPABILITIES_HARDLINK_TARGET = {capabilities_hardlink_value}",
                 f"RUN_RESULT_SYMLINK_TARGET = {run_result_symlink_value}",
                 f"START_MARKER = {str(start_marker) if start_marker else None!r}",
+                f"CAPTURE_PROMPT = {capture_prompt!r}",
                 f"SHA256 = {SHA256!r}",
                 f"OTHER_SHA256 = {OTHER_SHA256!r}",
                 "CAP_SCHEMA = 'legalforecast.multiharness.adapter_capabilities.v1'",
@@ -1516,6 +1549,16 @@ def _write_adapter_script(
                 "        private_logs.mkdir(parents=True, exist_ok=True)",
                 "        (private_logs / 'run-environment.json').write_text(",
                 "            json.dumps(dict(os.environ), sort_keys=True),",
+                "            encoding='utf-8',",
+                "        )",
+                "    if CAPTURE_PROMPT:",
+                "        private_logs = pathlib.Path(args.workspace) / 'private-logs'",
+                "        private_logs.mkdir(parents=True, exist_ok=True)",
+                "        prompt = pathlib.Path(args.workspace) / 'prompt.txt'",
+                "        (private_logs / 'staged-prompt.json').write_text(",
+                "            json.dumps(",
+                "                {'prompt': prompt.read_text(encoding='utf-8')}",
+                "            ),",
                 "            encoding='utf-8',",
                 "        )",
                 "    if UNSAFE_ARTIFACT:",

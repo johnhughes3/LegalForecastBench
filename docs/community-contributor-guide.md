@@ -180,9 +180,7 @@ uv run legalforecast multiharness run \
   --run-id fixture-walkthrough
 ```
 
-Stderr reports the run tally and the path of `run-progress.json`. Host process-group containment is the default; you do not pass `--host-process-containment` for this fixture.
-
-**Known limitation.** Release-indexed LFB tasks currently refuse the bundled fixture adapter — every row fails with `release adapter requires authenticated solver input`, so this command reports `Run completed (0/3 succeeded)` ([#1051](https://github.com/johnhughes3/LegalForecastBench/issues/1051)). Read the LFB commands as the indexing path, not as a finished end-to-end walkthrough, and use the LAB category below for a fixture run that completes.
+Stderr reports the run tally and the path of `run-progress.json`. Host process-group containment is the default; you do not pass `--host-process-containment` for this fixture. The bundled fixture adapter answers each of the three indexed units without credentials; that proves the harness path, not model quality.
 
 Interrupt and remainder-only resume are for longer selections, which is what a LAB category gives you.
 

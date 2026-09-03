@@ -128,7 +128,7 @@ def test_multiharness_tasks_index_accepts_forecast_release_v1(tmp_path: Path) ->
     assert str(release_root.resolve()) not in json.dumps(record, sort_keys=True)
 
 
-def test_multiharness_run_refuses_command_adapter_for_release_input(
+def test_multiharness_run_refuses_command_adapter_without_release_artifacts(
     tmp_path: Path,
     capsys: CaptureFixture[str],
 ) -> None:
@@ -180,7 +180,7 @@ def test_multiharness_run_refuses_command_adapter_for_release_input(
         )
         == 2
     )
-    assert "does not support authenticated release solver input" in (
+    assert "release adapter result must contain one forecast output artifact" in (
         capsys.readouterr().err
     )
     assert not (output_dir / "release-harness-receipts.jsonl").exists()

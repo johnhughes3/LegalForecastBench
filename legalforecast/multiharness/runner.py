@@ -80,6 +80,7 @@ from legalforecast.multiharness.sandbox import (
 )
 from legalforecast.multiharness.selection import SelectionResult, TaskSelection
 from legalforecast.multiharness.solver_inputs import (
+    SOLVER_INPUT_ENTRY_PATH,
     PreparedSolverInput,
     SolverInputEntry,
     SolverInputStore,
@@ -408,6 +409,12 @@ def _prepare_incomplete_release_retry(plan: _RowPlan) -> None:
         relative_paths = (
             "private-logs/openai-forecast.json",
             "private-logs/openai-transcript.json",
+        )
+    elif isinstance(adapter, CommandAdapter):
+        relative_paths = (
+            "private-logs/release-forecast-output.json",
+            "private-logs/neutral-api-transcript.json",
+            SOLVER_INPUT_ENTRY_PATH,
         )
     else:
         raise ResumeRefusedError(
