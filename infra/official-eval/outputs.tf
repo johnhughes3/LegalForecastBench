@@ -39,11 +39,12 @@ output "results_bucket_name" {
 }
 
 output "trusted_oidc_subjects" {
-  description = "Exact environment-bound GitHub OIDC subjects admitted by the four roles."
+  description = "Exact environment-bound GitHub OIDC subjects admitted by the four roles. Manifest staging admits two: this repository's staging environment and the corpus repository's release-staging environment."
   value = {
-    cell             = local.cell_subject
-    prepare_inputs   = local.prepare_inputs_subject
-    fan_in           = local.fan_in_subject
-    manifest_staging = local.manifest_staging_subject
+    cell                            = local.cell_subject
+    prepare_inputs                  = local.prepare_inputs_subject
+    fan_in                          = local.fan_in_subject
+    manifest_staging                = local.manifest_staging_subject
+    manifest_staging_corpus_release = local.corpus_github_subject
   }
 }

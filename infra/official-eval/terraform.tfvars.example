@@ -5,6 +5,14 @@ packet_bucket_name       = "replace-with-existing-private-packet-bucket"
 results_bucket_name      = "replace-with-existing-private-results-bucket"
 artifacts_kms_key_arn    = "arn:aws:kms:us-east-1:123456789012:key/replace-with-exact-key-uuid"
 
+# Second subject admitted by the manifest-staging trust: the private corpus
+# repository's release-staging job. Read the two numeric IDs from
+# `GET /repos/<owner>/<repository>` (`.id` and `.owner.id`) with an
+# authorized GitHub credential; they have no defaults because this
+# repository is public.
+corpus_github_repository_id       = "replace-with-corpus-repository-id"
+corpus_github_repository_owner_id = "replace-with-corpus-owner-id"
+
 # Keep false unless the protected environment is intentionally configured to
 # use Bedrock and the matching direct-model or geographic-profile contract has
 # been reviewed. Global inference profiles are deliberately unsupported.

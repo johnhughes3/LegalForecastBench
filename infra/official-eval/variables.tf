@@ -200,3 +200,50 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# The companion private corpus repository issues the outcome-blinded release
+# this benchmark evaluates, and it is the only other repository admitted by the
+# manifest-staging trust. Its GitHub numeric identifiers are deliberately
+# inputs rather than committed constants: this repository is public, and the
+# module stays reviewable without carrying another repository's identifiers.
+variable "corpus_github_repository" {
+  description = "Exact owner/repository of the private corpus repository whose release-staging job may assume the manifest-staging role."
+  type        = string
+  default     = "johnhughes3/LegalForecastCorpus"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._-]{1,39}/[A-Za-z0-9._-]{1,100}$", var.corpus_github_repository))
+    error_message = "corpus_github_repository must be one exact owner/repository pair."
+  }
+}
+
+variable "corpus_github_repository_id" {
+  description = "Immutable GitHub numeric repository ID of corpus_github_repository."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]{0,19}$", var.corpus_github_repository_id))
+    error_message = "corpus_github_repository_id must be a positive GitHub numeric repository ID."
+  }
+}
+
+variable "corpus_github_repository_owner_id" {
+  description = "Immutable GitHub numeric owner ID of corpus_github_repository."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]{0,19}$", var.corpus_github_repository_owner_id))
+    error_message = "corpus_github_repository_owner_id must be a positive GitHub numeric owner ID."
+  }
+}
+
+variable "corpus_github_environment" {
+  description = "Protected GitHub environment in the corpus repository whose release-staging job may assume the manifest-staging role."
+  type        = string
+  default     = "corpus-release-staging"
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9-]{2,62}$", var.corpus_github_environment))
+    error_message = "corpus_github_environment must be a bounded lowercase GitHub environment name."
+  }
+}

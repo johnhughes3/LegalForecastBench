@@ -242,3 +242,177 @@ Inventory it first, confirm it carries no unrelated inline or attached policy th
 Dispatch `.github/workflows/official-provider-authority-infra.yaml` with `module: official-eval` and `operation: plan` from the exact trusted `main` SHA.
 The plan must be a clean no-op across all thirteen addresses.
 A no-op there is the proof that the read-only grant is sufficient and that the admin-created role matches the module byte for byte; a create means stage 2 did not happen, and any other change means the live role drifted from the reviewed module and needs a human admin, not a widened operator policy.
+
+## Admitting the corpus repository to the manifest-staging trust
+
+This is the human-admin procedure for the change that lets the private corpus
+repository hand its issued release to the official results bucket. It replaces
+nothing above; it is one additional trust-policy apply.
+
+**Why it is human-admin, and why there is no workflow for it.** The routine
+OIDC operator holds `GetRole`, `GetRolePolicy`, `ListRolePolicies`,
+`ListAttachedRolePolicies`, and `UpdateRole` on the exact role ARNs.
+`UpdateRole` changes a role's description and `MaxSessionDuration`; it does not
+change trust. `UpdateAssumeRolePolicy` is deliberately withheld, for exactly
+the reason stated at the top of this file: an operator that could rewrite this
+role's trust could mint the only credential in existence that writes the
+official corpus. Separately, `.github/workflows/official-provider-authority-infra.yaml`
+was deleted with the legacy runtime, so the "dispatch a plan" convergence step
+in the sections above no longer has a workflow path either. Every step below is
+local, under separately authorized admin credentials.
+
+### Step 0 — confirm the change is actually sufficient (read-only, ~2 minutes)
+
+The claim this change rests on is that the results and packet bucket policies
+and the artifacts KMS key policy name principals **by role ARN**, and place no
+condition on the GitHub repository or subject. That has to be true for the
+trust widening to be the whole change, and it is not verifiable from this
+repository: those resource policies belong to the external COS CloudFormation
+stack `LegalForecastBenchArtifactStack`, not to any Terraform root here.
+
+Verify it directly, read-only, under the artifacts-account verification
+profile:
+
+```bash
+set -euo pipefail
+profile=cos.benchmark.artifacts   # read-only; there is no admin profile here
+results_bucket="<exact-results-bucket>"
+packet_bucket="<exact-packet-bucket>"
+kms_key_arn="<exact-artifacts-kms-key-arn>"
+
+for bucket in "$results_bucket" "$packet_bucket"; do
+  aws --profile "$profile" s3api get-bucket-policy --bucket "$bucket" \
+    --query Policy --output text | jq .
+done
+aws --profile "$profile" kms get-key-policy --key-id "$kms_key_arn" \
+  --policy-name default --query Policy --output text | jq .
+```
+
+You are looking for two things in all three documents:
+
+1. Every principal that is allowed to read or write is an IAM **role ARN**
+   (or the account root plus an `aws:PrincipalArn` condition naming role ARNs).
+2. No statement conditions on `token.actions.githubusercontent.com:*`,
+   `aws:PrincipalTag/Repository`, or any other claim that could distinguish
+   *which repository* assumed the role.
+
+If both hold, the trust change below is the complete AWS-side change: the
+corpus repository assumes the same role ARN, and S3 and KMS see an identical
+principal. GitHub OIDC claims exist only at `sts:AssumeRoleWithWebIdentity`
+time; this trust grants no `sts:TagSession`, so no repository identity can
+reach a resource policy even in principle.
+
+If either does not hold — a statement conditions on repository identity, or a
+principal is something other than these role ARNs — **stop**. The change is not
+sufficient, and the resource policy has to be reconciled through the COS stack
+first.
+
+### Step 1 — read the corpus repository's OIDC subject contract
+
+```bash
+set -euo pipefail
+gh api repos/<owner>/<corpus-repository> --jq '{id: .id, owner_id: .owner.id}'
+gh api repos/<owner>/<corpus-repository>/actions/oidc/customization/sub
+```
+
+The customization must report `use_immutable_subject: true`. If it does not,
+turn it back on; do not change the Terraform to the mutable subject.
+
+Put the two numeric IDs into the protected variable file as
+`corpus_github_repository_id` and `corpus_github_repository_owner_id`. They
+have no defaults, and they are not committed to this public repository.
+
+### Step 2 — plan and apply the official-eval root
+
+Same protected discipline as everywhere else in this file: an exact reviewed
+commit, the root copied outside the checkout, the variable file outside the
+checkout, no credentials in the variable file, no state or plan JSON in logs.
+Initialize the `official-eval` root against the reviewed backend with
+`key=<state-key-prefix>/official-eval/terraform.tfstate`.
+
+```bash
+set -euo pipefail
+umask 077
+state_dir="${LFB_PROTECTED_BOOTSTRAP_STATE_DIR:?set a protected directory outside the checkout}"
+var_file="${LFB_OFFICIAL_EVAL_VAR_FILE:?set a protected external tfvars path}"
+root_dir="$state_dir/official-eval"
+tf_data_dir="$state_dir/tfdata-official-eval"
+install -d -m 0700 "$state_dir" "$tf_data_dir"
+test -f "$var_file"
+test ! -e "$root_dir"
+cp -rf infra/official-eval "$root_dir"
+
+TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" init \
+  -input=false \
+  -backend-config="bucket=<exact-state-bucket>" \
+  -backend-config="key=<state-key-prefix>/official-eval/terraform.tfstate" \
+  -backend-config="region=<exact-region>" \
+  -backend-config="encrypt=true" \
+  -backend-config="kms_key_id=<exact-kms-key-arn>" \
+  -backend-config="use_lockfile=true"
+terraform -chdir="$root_dir" fmt -check
+TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" validate
+
+TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" plan \
+  -input=false \
+  -var-file="$var_file" \
+  -out="$state_dir/official-eval-corpus-trust.tfplan"
+```
+
+Review the saved plan before applying it, and branch on what it shows:
+
+- **The expected plan is exactly one in-place update** of
+  `aws_iam_role.manifest_staging`, changing only `assume_role_policy` from one
+  statement to two. `aws_iam_role_policy.manifest_staging_storage`,
+  `aws_iam_role_policies_exclusive.manifest_staging`, and
+  `aws_iam_role_policy_attachments_exclusive.manifest_staging` must be
+  unchanged, and every cell, prepare-inputs, and fan-in address must be a
+  no-op. Nothing about the role's *name*, ARN, or write authority changes.
+- **A plan that shows a create for `aws_iam_role.manifest_staging`** means the
+  role has never been provisioned live. Do not apply this plan on its own; run
+  the "Re-applying this root to add an official-eval role grant" procedure
+  above (stages 1 and 2) first, which creates the four manifest-staging
+  addresses, and note that the role it creates will already carry the
+  two-statement trust from this commit.
+- **Any other create, destroy, replacement, or second changed resource** is a
+  halt. Reconcile it before applying, and never apply a plan you did not
+  review.
+
+```bash
+set -euo pipefail
+# Run only after the exact saved plan receives separate authorization.
+TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" apply \
+  -input=false \
+  "$state_dir/official-eval-corpus-trust.tfplan"
+```
+
+### Step 3 — verify the live trust by reading it back
+
+Do not infer the result from a successful apply.
+
+```bash
+set -euo pipefail
+aws --profile "$profile" iam get-role \
+  --role-name legalforecastbench-official-eval-manifest-staging \
+  --query 'Role.AssumeRolePolicyDocument' | jq '.Statement[] | {Sid, Condition}'
+```
+
+Confirm exactly two statements, that the first is unchanged, and that the
+second pins the corpus repository's immutable `sub`, its `repository`,
+`repository_id`, `repository_owner_id`, `environment`, and
+`ref = refs/heads/main`, all as single-valued `StringEquals`.
+
+### Step 4 — configure the corpus repository's environment
+
+The AWS side is now complete, but the corpus repository still needs the
+protected environment the subject names and the role ARN to assume:
+
+- Create the `corpus-release-staging` protected environment in the corpus
+  repository, restricted to `main`.
+- Set, on that environment, `LFB_GITHUB_MANIFEST_STAGING_ROLE_ARN`,
+  `LFB_RESULTS_BUCKET`, and `LFB_AWS_REGION` from verified live outputs, plus
+  the corpus-side read role and region that repository's own contract defines.
+
+Both halves have to be in place before a staging dispatch can succeed: the
+environment name is *inside* the pinned subject, so a mismatch is an
+`AccessDenied` at assume time, not a partial success.
