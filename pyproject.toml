@@ -32,7 +32,7 @@ dependencies = [
     # UNLOCK CONDITION: pinned while Cycle 1's settled disclosure evidence must
     # replay; unpin after Cycle 1 closes or when renderer versioning lands.
     # Fenced by test_pdf_text_extractor_stays_pinned_for_cycle_1_replay.
-    "pypdf==6.14.2",
+    "pypdf==6.16.1",
 ]
 
 [project.scripts]
