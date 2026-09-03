@@ -112,6 +112,10 @@ class _FixtureEvaluatorAuthority:
         }
 
 
+def _fixture_evaluator_authority(**_kwargs: object) -> _FixtureEvaluatorAuthority:
+    return _FixtureEvaluatorAuthority()
+
+
 def test_cli_full_paired_tier0_fake_binary_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -132,19 +136,19 @@ def test_cli_full_paired_tier0_fake_binary_run(
     monkeypatch.setattr(
         runner,
         "load_approved_tier0_approval_authority",
-        lambda: _FixtureApprovalAuthority(),
+        _FixtureApprovalAuthority,
     )
     monkeypatch.setattr(
         runner,
         "load_approved_issuer_authority",
-        lambda **_kwargs: _FixtureEvaluatorAuthority(),
+        _fixture_evaluator_authority,
     )
     import legalforecast.multiharness.cli as multiharness_cli
 
     monkeypatch.setattr(
         multiharness_cli,
         "load_approved_tier0_approval_authority",
-        lambda: _FixtureApprovalAuthority(),
+        _FixtureApprovalAuthority,
     )
     seen_loader: dict[str, object] = {}
 
@@ -256,7 +260,7 @@ def test_tier0_cli_pending_authority_fails_before_infisical(
     monkeypatch.setattr(
         multiharness_cli,
         "load_approved_tier0_approval_authority",
-        lambda: _FixtureApprovalAuthority(),
+        _FixtureApprovalAuthority,
     )
     called = False
 
@@ -663,7 +667,7 @@ def _patch_fixture_authority(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         runner,
         "load_approved_issuer_authority",
-        lambda **_kwargs: _FixtureEvaluatorAuthority(),
+        _fixture_evaluator_authority,
     )
     monkeypatch.setattr(
         multiharness_cli,
@@ -673,7 +677,7 @@ def _patch_fixture_authority(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         multiharness_cli,
         "load_approved_issuer_authority",
-        lambda **_kwargs: _FixtureEvaluatorAuthority(),
+        _fixture_evaluator_authority,
     )
 
 
