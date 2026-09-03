@@ -22,11 +22,7 @@ from legalforecast.testing.cli_corpus.paths import (
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _PYTHON_PATH = re.compile(r"legalforecast/.+\.py\Z")
-_ENTRY_POINT_NAMES = (
-    "legalforecast",
-    "legalforecast-acquisition-systemd-run",
-    "legalforecast-provider-env-run",
-)
+_ENTRY_POINT_NAMES = ("legalforecast",)
 
 
 def scan_path_identity(root: Path) -> dict[str, object]:

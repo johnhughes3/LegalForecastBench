@@ -366,6 +366,9 @@ def test_operator_trust_conditions_are_satisfiable_by_the_bootstrap_workflow() -
     of those values. The companion mutation test drifts the same production
     bytes to prove this fence discriminates.
     """
+    if not OPERATOR_WORKFLOW.is_file():
+        pytest.skip("retired provider-authority workflow is no longer shipped")
+
     _assert_operator_trust_satisfiable(
         locals_text=(INFRA_ROOT / "locals.tf").read_text(encoding="utf-8"),
         variables_text=(INFRA_ROOT / "variables.tf").read_text(encoding="utf-8"),
@@ -388,6 +391,9 @@ def test_operator_trust_satisfiability_fence_discriminates_on_real_drift() -> No
     models a drift that a workflow-wide or copy-based check would miss while
     the deployed role became unassumable.
     """
+    if not OPERATOR_WORKFLOW.is_file():
+        pytest.skip("retired provider-authority workflow is no longer shipped")
+
     locals_text = (INFRA_ROOT / "locals.tf").read_text(encoding="utf-8")
     variables_text = (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8")
     workflow_text = OPERATOR_WORKFLOW.read_text(encoding="utf-8")

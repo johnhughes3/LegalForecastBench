@@ -17,6 +17,7 @@ from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
     ToolPolicy,
+    TrainingCutoffStatus,
 )
 from legalforecast.reporting.contamination_tiers import frozen_result_digest
 from legalforecast.reporting.result_class import (
@@ -35,7 +36,6 @@ from legalforecast.reporting.result_class import (
     supplementary_model_ids,
     write_result_class_sidecar,
 )
-from legalforecast.selection import TrainingCutoffStatus
 
 CORPUS_ANCHOR = date(2026, 6, 26)
 

@@ -1,0 +1,11 @@
+usage: legalforecast release [-h] COMMAND ...
+
+positional arguments:
+  COMMAND
+    issue            Issue a release pair from strict drafts and artifact
+                     bytes.
+    issue-synthetic  Issue the deterministic three-case fixture.
+    validate         Validate a paired release and every referenced artifact.
+
+options:
+  -h, --help         show this help message and exit

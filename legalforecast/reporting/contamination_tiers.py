@@ -18,8 +18,11 @@ from typing import Any, cast
 
 from legalforecast._hashing import is_sha256_digest
 from legalforecast._record_validation import require_non_empty
-from legalforecast.evals.model_registry import ModelRegistry, ModelRegistryEntry
-from legalforecast.selection import TrainingCutoffStatus
+from legalforecast.evals.model_registry import (
+    ModelRegistry,
+    ModelRegistryEntry,
+    TrainingCutoffStatus,
+)
 
 SIDECAR_KIND = "contamination_tier_sidecar"
 PRELIMINARY_MARKER = "*"

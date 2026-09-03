@@ -107,7 +107,6 @@ _PUBLICATION_ENVELOPE_IMPORTS = frozenset(
         "legalforecast.contracts",
         "legalforecast.multiharness.community",
         "legalforecast.ingestion",
-        "legalforecast.labeling",
         "legalforecast.cli",
     }
 )

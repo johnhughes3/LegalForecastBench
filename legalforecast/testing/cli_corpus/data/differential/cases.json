@@ -3,10 +3,8 @@
     "root-help",
     "version",
     "unknown-command",
-    "freeze-help",
-    "publish-aggregate-help",
-    "discover-dry-run",
-    "score-dry-run"
+    "manifest-help",
+    "score-requires-release"
   ],
   "schema_version": 1
 }

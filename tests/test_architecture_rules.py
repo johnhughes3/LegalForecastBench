@@ -22,7 +22,6 @@ ROOT = Path(__file__).resolve().parents[1]
 # an ``if __name__ == "__main__"`` guard still exits 0 under ``python -m``, so a
 # regenerate command silently does nothing; these entrypoints must dispatch.
 RATCHET_ENTRYPOINT_MODULES = (
-    "legalforecast.config.fence",
     "legalforecast.contracts.ratchet",
     "legalforecast.testing.architecture",
     "legalforecast.testing.architecture_rules",

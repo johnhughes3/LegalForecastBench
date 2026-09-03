@@ -11,6 +11,7 @@ from legalforecast.cli_commands import report as report_command
 from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
+    TrainingCutoffStatus,
     dump_model_registry,
 )
 from legalforecast.evals.scorers import CalibrationBin, ScoreSummary
@@ -44,7 +45,6 @@ from legalforecast.reporting.contamination_tiers import (
     write_contamination_tier_sidecar,
 )
 from legalforecast.reporting.leaderboard import build_benchmark_leaderboard_report
-from legalforecast.selection import TrainingCutoffStatus
 from tests.test_static_result_sites import write_official_report_fixture
 
 BOUNDARY = date(2026, 6, 30)

@@ -8,25 +8,21 @@ from legalforecast.evals.human_baseline import (
     CaseComplexityStratum,
     HumanForecast,
     HumanForecastPacket,
+    ReviewerExpertise,
     score_human_baseline,
 )
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
+from legalforecast.evals.run_record_scoring import ReleaseOutcomeLabel
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
     SourceDocumentProvenance,
     sha256_text,
-)
-from legalforecast.labeling import (
-    AmendmentClass,
-    OutcomeCitation,
-    OutcomeLabel,
-    ReviewerExpertise,
-)
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
 )
 
 
@@ -161,20 +157,11 @@ def _forecast(
     )
 
 
-def _label(unit_id: str, *, dismissed: bool) -> OutcomeLabel:
-    return OutcomeLabel(
+def _label(unit_id: str, *, dismissed: bool) -> ReleaseOutcomeLabel:
+    return ReleaseOutcomeLabel(
         unit_id=unit_id,
-        fully_dismissed=dismissed,
-        amendment_class=(
-            AmendmentClass.DISMISSED_WITHOUT_EXPRESS_AMENDMENT_OPPORTUNITY
-            if dismissed
-            else AmendmentClass.NOT_FULLY_DISMISSED
-        ),
-        ambiguous=False,
+        primary_outcome=int(dismissed),
         label_confidence=0.95,
-        supporting_citations=(OutcomeCitation(document_id="decision-1", page=1),),
-        first_written_disposition_id="decision-1",
-        first_written_disposition_date="2026-05-18",
     )
 
 

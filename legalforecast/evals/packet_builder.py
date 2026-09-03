@@ -8,6 +8,7 @@ from datetime import date
 from enum import StrEnum
 from typing import Any
 
+from legalforecast.evals.prediction_units import PredictionUnit
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
@@ -15,7 +16,6 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
-from legalforecast.unitization.schemas import PredictionUnit
 
 
 class PacketAblation(StrEnum):

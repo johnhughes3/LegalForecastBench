@@ -6,7 +6,7 @@ The Hugging Face copy is a distribution surface. The authenticated LegalForecast
 
 ## Version model
 
-Each official publication supplies an immutable `hugging_face_release_version` to the protected `Fan In Official Shards` workflow. The package is written under `releases/<version>/<cycle>/`, and the generated `eval.yaml` uses a cycle-specific task ID such as `legalforecast_mtd_cycle_1`.
+Each official publication supplies an immutable `hugging_face_release_version` to the protected `Protected Labels Fan In` workflow. The package is written under `releases/<version>/<cycle>/`, and the generated `eval.yaml` uses a cycle-specific task ID such as `legalforecast_mtd_cycle_1`.
 
 Model result files should always set `dataset.revision` to the full Hugging Face commit SHA. A mutable branch name or task ID alone is not a reproducible benchmark identity. If a later cycle changes the cohort, task, or scoring semantics, give it a new task ID; never silently reinterpret an old task. Hugging Face preserves earlier repository commits, so older releases remain addressable even as the Dataset Card and current leaderboard evolve.
 
@@ -14,25 +14,28 @@ Model result files should always set `dataset.revision` to the full Hugging Face
 
 1. Create the Dataset repository named by the protected environment variable `LFB_HF_OFFICIAL_DATASET_REPO`.
 2. Make it public and set access requests to **Manual approval**. The card metadata and access form are published by this repository, but the approval mode is an HF repository setting and must be confirmed in the HF UI.
-3. Configure an HF Trusted Publisher for `johnhughes3/LegalForecastBench`, branch `main`, and workflow `fan-in-publish-legacy.yaml`, scoped to that Dataset repository. The publishing steps live in that workflow: PR #1019 replaced `fan-in-publish.yaml` with the per-model locked-manifest boundary, which has no Hugging Face step, and PR #1029's `-legacy` chain restored the shard-receipt fan-in that does. A Trusted Publisher entry naming only `fan-in-publish.yaml` will reject the publish. Both entries can coexist; drop the `-legacy` one when bead `legalforecastbench-y7hk` closes and a Hugging Face step exists on the supported lane again.
+3. Configure an HF Trusted Publisher for `johnhughes3/LegalForecastBench`, branch `main`, and workflow `fan-in-publish.yaml`, scoped to that Dataset repository. The retained workflow sets `HF_OIDC_RESOURCE` and the Hugging Face client exchanges GitHub's protected-environment OIDC identity for a short-lived repository-scoped token. Pin the publisher claims to the exact repository, branch, and workflow; do not add a static token secret.
 4. Configure `LFB_HF_OFFICIAL_DATASET_REPO` on the existing protected `legalforecastbench-official-eval-fan-in` GitHub environment. Store only `namespace/repository`, without a URL or `datasets/` prefix.
 5. Ask Hugging Face to validate and allow-list the repository as an official benchmark. Native benchmark registration is currently beta and is not conferred merely by uploading `eval.yaml`.
 
-No durable `HF_TOKEN` is used. The workflow exchanges GitHub's OIDC identity for a repository-scoped HF token lasting at most 60 minutes.
+No durable Hugging Face token is used. With `id-token: write` on the protected fan-in job, the `huggingface_hub` client exchanges GitHub's OIDC identity for a repository-scoped token lasting at most 60 minutes. The token is never written to the repository, package, logs, or a workflow secret.
 
 ## Publishing
 
-Run the existing fan-in workflow from `main` with `verify_only=false` and an immutable `hugging_face_release_version`. The workflow validates and publishes the official aggregate as usual, builds the HF tree with:
+Run the retained fan-in workflow from `main` with `publish=true` and an immutable `hugging_face_release_version`. The workflow validates and publishes the sanitized official score/report first, then builds the HF tree with:
 
 ```bash
 uv run python -m legalforecast.hugging_face_publication \
-  --official-artifacts-dir tmp/official-fan-in/public \
+  --score /tmp/lfb-score.json \
+  --unit-scores /tmp/lfb-unit-scores.jsonl \
+  --report-dir /tmp/lfb-report \
+  --cycle-id cycle-1 \
   --output-dir tmp/hugging-face-benchmark \
   --release-version cycle-1.0.0 \
   --dataset-repository namespace/repository
 ```
 
-It then uploads the validated tree through HF Trusted Publishing. Leaving `hugging_face_release_version` empty performs no HF build or write. A verify-only fan-in can never publish to HF.
+It then uploads the validated tree through HF Trusted Publishing, refusing a repository that is not manually gated or already contains the immutable release path. Leaving `hugging_face_release_version` empty performs no HF build or write. A `publish=false` fan-in verifies and produces workflow artifacts but can never publish to S3 or HF.
 
 After publication, record the resulting full HF commit SHA in every model repository result entry and in the LegalForecastBench evidence bundle. Do not treat a successful upload, the HF leaderboard UI, or HF's `verified` presentation as proof that a result satisfied the benchmark's official controls.
 

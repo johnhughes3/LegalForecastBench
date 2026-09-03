@@ -1,5 +1,9 @@
 # Cycle 1 manifest provider-free freeze v2
 
+> Historical Corpus record — non-executable from LegalForecastBench. This
+> provider-free commitment record is retained for archaeology and does not
+> authorize public execution, scoring, or publication.
+
 This run card issues and verifies the replacement manifest execution commitments without provider, AWS, dispatch, scoring, or publication activity. Every output parent directory must already exist, and all output locations must be new: the issuers are create-only and will not replace an existing file or directory.
 
 Issue and replay-verify the execution decisions and additive policy v2. The critical issuer itself runs `bd comments legalforecastbench-3ak.38 --json` and publishes the authenticated replay wrapper inside the output tree; it does not accept a caller-supplied Beads observation.

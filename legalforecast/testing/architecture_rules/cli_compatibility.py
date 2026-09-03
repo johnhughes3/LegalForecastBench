@@ -16,22 +16,10 @@ from legalforecast.testing.architecture_rules.imports import (
 from legalforecast.testing.architecture_rules.symbols import line_count, python_paths
 
 CLI_PATH: str = "legalforecast/cli.py"
-UPWARD_IMPORT_ALLOWLIST: frozenset[str] = frozenset(
-    {
-        # Temporary compatibility bridge for extracted adapters.  The adapter
-        # late-binds facade helpers so existing monkeypatch targets keep
-        # working; this exception must disappear once those helpers are
-        # injected through a cycle-neutral command context.
-        "legalforecast/cli_commands/report.py",
-        "legalforecast/cli_commands/score.py",
-        "legalforecast/ingestion/downstream_lineage_verification.py",
-        "legalforecast/ingestion/packet_build_replay.py",
-        "legalforecast/ingestion/purchase_approval.py",
-        "legalforecast/ingestion/recovered_public_replay.py",
-        "legalforecast/ingestion/resolved_post_recovery.py",
-        "legalforecast/ingestion/stage_a_lineage_verification.py",
-    }
-)
+# Command adapters depend on narrow support modules rather than reaching back
+# into this composition root.  Retired acquisition adapters intentionally have
+# no compatibility allowlist entries.
+UPWARD_IMPORT_ALLOWLIST: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)

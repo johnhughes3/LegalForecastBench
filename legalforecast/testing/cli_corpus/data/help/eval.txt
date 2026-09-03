@@ -1,9 +1,0 @@
-usage: legalforecast eval [-h] COMMAND ...
-
-positional arguments:
-  COMMAND
-    run       Run no-network fixture solvers over packet artifacts.
-    run-case  Run one isolated official model-packet shard.
-
-options:
-  -h, --help  show this help message and exit

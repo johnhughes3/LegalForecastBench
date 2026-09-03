@@ -1,9 +1,0 @@
-usage: legalforecast discover [-h] --input INPUT --output OUTPUT [--dry-run]
-                              [--print-search-terms]
-
-options:
-  -h, --help            show this help message and exit
-  --input INPUT
-  --output OUTPUT
-  --dry-run
-  --print-search-terms

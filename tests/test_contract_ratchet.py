@@ -8,8 +8,12 @@ from legalforecast.contracts.ratchet import (
     BaselineEntry,
     build_baseline,
     find_new_violations,
+    find_stale_baseline_entries,
     load_baseline,
     scan_repository,
+)
+from legalforecast.contracts.ratchet import (
+    main as ratchet_main,
 )
 
 
@@ -84,7 +88,6 @@ def test_build_baseline_requires_explicit_reason_on_reload(tmp_path: Path) -> No
         SCHEMA_VERSION = "legalforecast.tool.schema.v1"
         """,
     )
-
     findings = scan_repository(tmp_path)
     generated = build_baseline(findings)
 
@@ -95,6 +98,44 @@ def test_build_baseline_requires_explicit_reason_on_reload(tmp_path: Path) -> No
             subject="legalforecast.tool.schema.v1",
             reason="legacy schema literal pending registry import",
         ),
+    )
+
+
+def test_ratchet_rejects_baseline_entries_without_current_findings(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "legalforecast" / "current.py",
+        'VALUE = "legalforecast.current.v1"',
+    )
+    findings = scan_repository(tmp_path)
+    stale = BaselineEntry(
+        rule="inline_schema_literal",
+        path="legalforecast/" + "deleted.py",
+        subject="legalforecast.deleted.v1",
+        reason="old reviewed exception",
+    )
+
+    assert find_stale_baseline_entries(
+        findings, (*build_baseline(findings), stale)
+    ) == (stale,)
+
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(
+        json.dumps(
+            [
+                {
+                    "rule": stale.rule,
+                    "path": stale.path,
+                    "subject": stale.subject,
+                    "reason": stale.reason,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        ratchet_main(["--root", str(tmp_path), "--baseline", str(baseline_path)]) == 1
     )
 
 

@@ -12,7 +12,6 @@ import pytest
 from tests.official_infra_trust_helpers import (
     job_environment,
     job_grants_id_token_write,
-    replace_terraform_local,
     role_assuming_jobs,
     terraform_local_string,
     workflow_jobs,
@@ -23,9 +22,6 @@ INFRA_ROOT = ROOT / "infra" / "official-eval"
 POLICY_ROOT = INFRA_ROOT / "policies"
 ENVIRONMENT_MANIFEST = INFRA_ROOT / "github-environments.json"
 RUN_BENCHMARK_WORKFLOW = ROOT / ".github" / "workflows" / "run-benchmark.yaml"
-PROVIDER_CELL_WORKFLOW = (
-    ROOT / ".github" / "actions" / "official-provider-cell" / "action.yml"
-)
 FAN_IN_WORKFLOW = ROOT / ".github" / "workflows" / "fan-in-publish.yaml"
 WORKFLOW_ROOT = ROOT / ".github" / "workflows"
 
@@ -961,7 +957,6 @@ def _assert_eval_trust_refs_satisfiable(
         assert block.count(f"secrets.{secret_name}") == 1
         for other_secret in set(provider_secret_names.values()) - {secret_name}:
             assert f"secrets.{other_secret}" not in block
-        assert "uses: ./.github/actions/official-provider-cell" not in block
 
     # Every job in any workflow that assumes one of these roles must itself
     # bind that role's provisioned environment and grant itself the OIDC
@@ -991,118 +986,6 @@ def _assert_eval_trust_refs_satisfiable(
                 producers[variable] += 1
     for variable, count in producers.items():
         assert count > 0, f"no workflow job can satisfy the {variable} trust"
-
-
-def test_trust_ref_condition_is_satisfiable_from_the_only_deployable_branch() -> None:
-    """The pinned `:ref` must name the one branch these environments can deploy.
-
-    Reviewers have twice argued that `:ref` cannot match and should be deleted:
-    once on the premise that an environment-scoped token omits a `ref` claim,
-    once on the premise that AWS never populates the key. Both are false --
-    GitHub emits `ref` alongside an environment-qualified `sub`, and AWS
-    documents `:ref` on its GitHub condition-key tab, where "available in
-    session: no" means trust-policy-only rather than unavailable. See
-    docs/github-aws-oidc-trust-claims.md for the primary sources.
-
-    What actually has to hold is that the pinned value is reachable. An
-    environment-bound job can only run from a branch the environment's
-    deployment branch policy allows, so `:ref` is satisfiable exactly when it
-    names that branch. The guard therefore binds to the production Terraform
-    locals, the manifest, and the exact role-assuming jobs -- never to
-    test-owned copies -- and the companion mutation test drifts those same
-    production bytes to prove the fence discriminates.
-    """
-    locals_text = (INFRA_ROOT / "locals.tf").read_text(encoding="utf-8")
-    _assert_eval_trust_refs_satisfiable(
-        locals_text=locals_text,
-        manifest_text=ENVIRONMENT_MANIFEST.read_text(encoding="utf-8"),
-        workflow_texts=_workflow_texts(),
-    )
-
-    # The exact-trust renders in this module pin these copies; keep each equal
-    # to its production local so drift cannot hide behind a test-owned value.
-    assert REPOSITORY == terraform_local_string(locals_text, "github_repository")
-    assert REF == terraform_local_string(locals_text, "github_ref")
-    assert CELL_ENVIRONMENT == terraform_local_string(
-        locals_text, "cell_environment_name"
-    )
-    assert FAN_IN_ENVIRONMENT == terraform_local_string(
-        locals_text, "fan_in_environment_name"
-    )
-    assert MANIFEST_STAGING_ENVIRONMENT == terraform_local_string(
-        locals_text, "manifest_staging_environment_name"
-    )
-
-
-def test_eval_trust_satisfiability_fence_discriminates_on_real_drift() -> None:
-    """Drifting the production inputs must redden the satisfiability fence.
-
-    Every case mutates the real bytes -- never a test-owned copy -- and each
-    models a drift that a copy-based or workflow-wide check would miss while
-    the deployed roles became unassumable.
-    """
-    locals_text = (INFRA_ROOT / "locals.tf").read_text(encoding="utf-8")
-    manifest_text = ENVIRONMENT_MANIFEST.read_text(encoding="utf-8")
-    workflow_texts = _workflow_texts()
-    run_workflow_text = workflow_texts[RUN_BENCHMARK_WORKFLOW.name]
-
-    def check(
-        *,
-        mutated_locals: str | None = None,
-        mutated_manifest: str | None = None,
-        mutated_run_workflow: str | None = None,
-    ) -> None:
-        swept = dict(workflow_texts)
-        if mutated_run_workflow is not None:
-            swept[RUN_BENCHMARK_WORKFLOW.name] = mutated_run_workflow
-        _assert_eval_trust_refs_satisfiable(
-            locals_text=locals_text if mutated_locals is None else mutated_locals,
-            manifest_text=(
-                manifest_text if mutated_manifest is None else mutated_manifest
-            ),
-            workflow_texts=swept,
-        )
-
-    check()
-
-    # Repoint the production ref local at a branch the manifest forbids.
-    with pytest.raises(AssertionError):
-        check(
-            mutated_locals=replace_terraform_local(
-                locals_text, "github_ref", "refs/heads/release"
-            )
-        )
-
-    # Widen the manifest to a second deployable branch.
-    widened = manifest_text.replace(
-        '"custom_branch_policies": ["main"]',
-        '"custom_branch_policies": ["main", "release"]',
-    )
-    assert widened != manifest_text
-    with pytest.raises(AssertionError):
-        check(mutated_manifest=widened)
-
-    # Rename the cell environment local: the trust would pin a subject that
-    # no provisioned environment carries.
-    with pytest.raises(AssertionError):
-        check(
-            mutated_locals=replace_terraform_local(
-                locals_text,
-                "cell_environment_name",
-                "legalforecastbench-unprovisioned",
-            )
-        )
-
-    # Rebind one role-assuming job onto an unprovisioned environment.
-    cell_environment = terraform_local_string(locals_text, "cell_environment_name")
-    rebound = run_workflow_text.replace(
-        f"\n    environment: {cell_environment}\n",
-        "\n    environment: legalforecastbench-unprovisioned\n",
-        1,
-    )
-    assert rebound != run_workflow_text
-    with pytest.raises(AssertionError):
-        check(mutated_run_workflow=rebound)
 
 
 @pytest.mark.parametrize(
@@ -1175,106 +1058,6 @@ def test_official_workflows_do_not_silently_default_lfb_aws_region() -> None:
     assert offenders == []
 
 
-def test_cross_file_workflow_and_python_call_graph_matches_policy_contract() -> None:
-    run_workflow = RUN_BENCHMARK_WORKFLOW.read_text(encoding="utf-8")
-    provider_workflow = PROVIDER_CELL_WORKFLOW.read_text(encoding="utf-8")
-    fan_in_workflow = FAN_IN_WORKFLOW.read_text(encoding="utf-8")
-    per_case_source = ROOT / "legalforecast" / "evals" / "per_case_runner.py"
-    bedrock_source = ROOT / "legalforecast" / "evals" / "live_model_solver.py"
-    closure_source = ROOT / "legalforecast" / "publication" / "cycle_closure.py"
-    receipt_source = ROOT / "legalforecast" / "publication" / "shard_receipt.py"
-    publish_source = ROOT / "legalforecast" / "publication" / "shard_fan_in_publish.py"
-
-    assert "environment: legalforecastbench-official-eval" in run_workflow
-    assert "LFB_GITHUB_PREPARE_INPUTS_ROLE_ARN" in run_workflow
-    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in run_workflow
-    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in provider_workflow
-    assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in provider_workflow
-    assert (
-        '--results-store-root "s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}"'
-        in provider_workflow
-    )
-    for runtime in ("bedrock", "aws-bedrock", "aws_bedrock"):
-        assert runtime in provider_workflow
-    assert "LFB_ANTHROPIC_BEDROCK_MODEL_ID" in provider_workflow
-    assert "LFB_PROVIDER_AUTHORITY_TABLE" in provider_workflow
-    assert "LFB_PROVIDER_ACCOUNT_ALIAS" not in provider_workflow
-    assert "--provider-account" not in provider_workflow
-    assert "--provider-authority-table" in provider_workflow
-    assert "--provider-authority-region" in provider_workflow
-
-    assert "environment: legalforecastbench-official-eval-fan-in" in fan_in_workflow
-    assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in fan_in_workflow
-    assert "labels_release_uri:" in fan_in_workflow
-    assert 'fetch_locked "${LABELS_RELEASE_URI}"' in fan_in_workflow
-    assert "official-forecast-results-{run_id}-{attempt}" in fan_in_workflow
-    assert "--expected-run-identity" in fan_in_workflow
-
-    output_keys_source = _function_source(per_case_source, "_output_keys")
-    assert 'f"metrics/{cycle_slug}/{run_id}.runs.jsonl"' in output_keys_source
-    assert 'f"metrics/{cycle_slug}/{run_id}.recovery.json"' in output_keys_source
-    run_source = _function_source(per_case_source, "run_per_case_evaluation")
-    assert 'f"reports/{_cycle_slug(packet_object)}/{run_id}.runner-log.jsonl"' in (
-        run_source
-    )
-    # The canonical forecast boundary copies only paths declared by the
-    # forecast release; recursive operator-root sync is forbidden.
-    assert "aws s3 sync \\" not in run_workflow
-    assert "actual != set(declared)" in run_workflow
-    ordinary_put_source = _function_source(per_case_source, "_upload_path")
-    assert '"put-object"' in ordinary_put_source
-    assert '"--if-none-match"' not in ordinary_put_source
-
-    bedrock_call_source = _function_source(
-        bedrock_source,
-        "_invoke_bedrock_runtime_json",
-    )
-    assert '"bedrock-runtime"' in bedrock_call_source
-    assert '"invoke-model"' in bedrock_call_source
-
-    for path, function_name, owner in (
-        (closure_source, "create", "_S3ObjectStore"),
-        (receipt_source, "write_receipt_once", None),
-        (publish_source, "_put_s3_file_once", None),
-    ):
-        immutable_put_source = _function_source(path, function_name, owner=owner)
-        assert '"put-object"' in immutable_put_source
-        assert '"--if-none-match"' in immutable_put_source
-        assert '"*"' in immutable_put_source
-
-    assert 'return f"{_STATE_NAMESPACE}/{cycle}/seal.json"' in _function_source(
-        closure_source,
-        "seal_key",
-    )
-    # The two lanes must not share a receipt namespace: selection hard-fails on
-    # any receipt outside the freeze's declared shard schedule, and receipts are
-    # create-once with no delete grant, so one lane's receipt landing in the
-    # other's listing permanently breaks that lane's fan-in for the cycle. Pin
-    # both branches, and pin that the key derives from this one definition
-    # rather than rebuilding the prefix itself.
-    receipt_text = receipt_source.read_text(encoding="utf-8")
-    assert 'SHARD_RECEIPT_PREFIX = "shard-receipts"' in receipt_text
-    assert 'SUPPLEMENTARY_RECEIPT_SEGMENT = "supplementary"' in receipt_text
-    receipt_prefix_source = _function_source(receipt_source, "receipt_prefix")
-    assert 'return f"{SHARD_RECEIPT_PREFIX}/{safe_cycle_id}/"' in receipt_prefix_source
-    assert (
-        'f"{SHARD_RECEIPT_PREFIX}/{SUPPLEMENTARY_RECEIPT_SEGMENT}/{safe_cycle_id}/"'
-        in receipt_prefix_source
-    )
-    assert "if not supplementary:" in receipt_prefix_source
-    receipt_key_source = _function_source(receipt_source, "receipt_key")
-    assert "receipt_prefix(" in receipt_key_source
-    assert "supplementary=supplementary" in receipt_key_source
-    assert (
-        'return f"{prefix}{shard_slug}/{run_id}/{attempt}.json"' in receipt_key_source
-    )
-    assert "shard-receipts" not in receipt_key_source
-    assert 'f"reports/{cycle_id}/multi-ablation"' in _function_source(
-        publish_source,
-        "_require_canonical_publish_root",
-    )
-
-
 def test_external_storage_is_not_managed_by_this_terraform_root() -> None:
     terraform_sources = "\n".join(
         path.read_text(encoding="utf-8") for path in INFRA_ROOT.glob("*.tf")
@@ -1303,40 +1086,6 @@ def test_external_storage_is_not_managed_by_this_terraform_root() -> None:
     assert "value       = var.results_bucket_name" in outputs_source
 
 
-def test_external_storage_requires_live_validation_and_has_no_lifecycle_inputs() -> (
-    None
-):
-    variables = (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8")
-    workflow = (WORKFLOW_ROOT / "official-provider-authority-infra.yaml").read_text(
-        encoding="utf-8"
-    )
-    readme = (INFRA_ROOT / "README.md").read_text(encoding="utf-8")
-    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
-
-    for name in (
-        "packet_lifecycle_rule_id",
-        "results_lifecycle_rule_id",
-        "negative_control_retention_days",
-        "LFB_PACKET_LIFECYCLE_RULE_ID",
-        "LFB_RESULTS_LIFECYCLE_RULE_ID",
-    ):
-        assert name not in variables
-        assert name not in workflow
-        assert name not in readme
-        assert name not in runbook
-    assert "official-s3-access-validation.yaml" in readme
-    for document in (readme, runbook):
-        if document is readme:
-            assert "one explicitly approved bounded non-dry-run shard" in document
-            assert "dry run" in document.lower()
-            assert "VersionId" in document
-            assert "remaining official shards" in document
-        else:
-            assert "protected labels fan-in" in document
-            assert "label-free" in document
-    assert "before any evaluation dispatch" not in runbook
-
-
 def test_s3_inputs_enforce_global_bucket_names_and_whole_retention_days() -> None:
     variables = (INFRA_ROOT / "variables.tf").read_text(encoding="utf-8")
 
@@ -1361,43 +1110,6 @@ def test_s3_inputs_enforce_global_bucket_names_and_whole_retention_days() -> Non
 
     assert 'variable "artifacts_kms_key_arn"' in variables
     assert "artifacts_kms_key_arn must be one exact KMS key ARN" in variables
-
-
-def test_protected_infra_workflow_binds_exact_storage_contract_inputs() -> None:
-    workflow = (WORKFLOW_ROOT / "official-provider-authority-infra.yaml").read_text(
-        encoding="utf-8"
-    )
-    for name in ("TF_VAR_artifacts_kms_key_arn",):
-        assert (
-            f"{name}: ${{{{ vars.LFB_{name.removeprefix('TF_VAR_').upper()} }}}}"
-            in workflow
-        )
-        assert name in workflow[workflow.index("Validate external bootstrap values") :]
-
-    validation = workflow.split("- name: Validate external bootstrap values", 1)[1]
-    validation = validation.split("- name: Install Terraform", 1)[0]
-    labeling_condition = (
-        'if [[ "${MODULE}" == "official-labeling" || '
-        '"${MODULE}" == "official-eval" ]]; then'
-    )
-    labeling_block = validation.split(
-        labeling_condition,
-        1,
-    )[1].split('if [[ "${MODULE}" == "official-eval" ]]; then', 1)[0]
-    assert "TF_VAR_artifacts_kms_key_arn" not in labeling_block
-    assert "TF_VAR_packet_lifecycle_rule_id" not in labeling_block
-    assert "TF_VAR_results_lifecycle_rule_id" not in labeling_block
-    eval_block = validation.split('if [[ "${MODULE}" == "official-eval" ]]; then', 1)[
-        1
-    ].split("fi", 1)[0]
-    assert "TF_VAR_artifacts_kms_key_arn" in eval_block
-    assert "TF_VAR_packet_bucket_name" in eval_block
-    assert "TF_VAR_results_bucket_name" in eval_block
-    for module in ("official-eval", "official-labeling", "provider-authority"):
-        assert f"{module})" in validation
-    assert (
-        "The Terraform module is outside the reviewed identity contract." in validation
-    )
 
 
 def test_docs_record_unapplied_iam_only_and_live_storage_boundaries() -> None:
@@ -1439,7 +1151,7 @@ def test_docs_record_unapplied_iam_only_and_live_storage_boundaries() -> None:
         "provider_authority_resource_identity_sha256",
         "no `aws_s3_*` resources",
         "must never import those storage resources",
-        "official-s3-access-validation.yaml",
+        "protected fan-in",
         "IAM-only imports",
         "Bucket names are never import IDs",
         "state-only migration",

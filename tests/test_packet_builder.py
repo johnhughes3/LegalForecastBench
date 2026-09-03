@@ -9,17 +9,17 @@ from legalforecast.evals.packet_builder import (
     build_model_packet,
     texts_from_mapping,
 )
+from legalforecast.evals.prediction_units import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
 from legalforecast.ingestion.provenance import (
     CasePacketSchema,
     DocumentRole,
     ExtractedTextArtifact,
     SourceDocumentProvenance,
     sha256_text,
-)
-from legalforecast.unitization.schemas import (
-    ChallengeScope,
-    PredictionUnit,
-    SourceCitation,
 )
 
 
