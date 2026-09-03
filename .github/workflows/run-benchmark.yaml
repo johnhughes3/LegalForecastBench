@@ -99,7 +99,7 @@ jobs:
           git merge-base --is-ancestor origin/main HEAD
           test -n "$(git rev-parse origin/main)"
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
       - name: Validate dispatch identity and bounded values
@@ -342,7 +342,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
       - name: Configure shared provider spend authority access
@@ -509,7 +509,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
       - name: Configure shared provider spend authority access
@@ -671,7 +671,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
       - name: Configure shared provider spend authority access
@@ -821,7 +821,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v7.1.6
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
       - name: Download validated forecast inputs
