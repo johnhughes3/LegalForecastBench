@@ -72,7 +72,17 @@ def test_provider_cells_use_durable_resume_state_and_exact_source_checks() -> No
         ("run-gemini", None),
     ):
         block = _job(name, next_name)
-        assert "git fetch --no-tags --depth=1 origin main" in block
+        # origin/main must be resolvable by the time the source check runs, but
+        # NOT via a separate `git fetch`: the checkout step sets
+        # persist-credentials: false, so no later step holds a token, and a
+        # bare fetch against this repository dies with
+        # "could not read Username for 'https://github.com'"
+        # (legalforecastbench-2x9o). fetch-depth: 0 makes the checkout action
+        # itself fetch full history and refs (including origin/main) under its
+        # own short-lived credentials instead.
+        assert "fetch-depth: 0" in block
+        assert "persist-credentials: false" in block
+        assert "git fetch --no-tags --depth=1 origin main" not in block
         assert "git merge-base --is-ancestor origin/main HEAD" in block
         assert "Restore newest prior valid attempt" in block
         assert "Persist" in block

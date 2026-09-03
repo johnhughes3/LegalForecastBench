@@ -95,7 +95,6 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin main
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
           test -n "$(git rev-parse origin/main)"
@@ -340,7 +339,6 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin main
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
       - name: Install uv
@@ -508,7 +506,6 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin main
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
       - name: Install uv
@@ -671,7 +668,6 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin main
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
       - name: Install uv
@@ -822,7 +818,6 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin main
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor origin/main HEAD
       - name: Install uv

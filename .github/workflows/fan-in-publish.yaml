@@ -129,7 +129,6 @@ jobs:
             echo "checked-out HEAD does not equal release_sha" >&2
             exit 1
           }
-          git fetch --no-tags origin main
           git merge-base --is-ancestor "${RELEASE_SHA}" origin/main || {
             echo "release_sha must remain reachable from origin/main" >&2
             exit 1

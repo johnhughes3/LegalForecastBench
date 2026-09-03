@@ -209,3 +209,18 @@ def test_workflow_uses_immutable_action_pins_and_rejects_unsafe_locators() -> No
     assert "unsafe path" in WORKFLOW
     assert "artifact_root_uri must be a prefix ending in /" in WORKFLOW
     assert re.search(r"reports/\$\{CYCLE_ID\}/multi-ablation", WORKFLOW)
+
+
+def test_origin_main_is_resolvable_without_a_separate_unauthenticated_fetch() -> None:
+    """origin/main must be present for the merge-base check above, but not via
+    a separate `git fetch`: the checkout step sets persist-credentials: false,
+    so no later step holds a token, and a bare fetch against this repository
+    dies with "could not read Username for 'https://github.com'"
+    (legalforecastbench-2x9o). fetch-depth: 0 makes the checkout action itself
+    fetch full history and refs, including origin/main, under its own
+    short-lived credentials instead.
+    """
+
+    assert "fetch-depth: 0" in WORKFLOW
+    assert "persist-credentials: false" in WORKFLOW
+    assert "git fetch --no-tags origin main" not in WORKFLOW
