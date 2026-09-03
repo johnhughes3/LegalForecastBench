@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
@@ -180,6 +181,16 @@ def main(argv: list[str] | None = None) -> int:
         request_id = _required_str(request, "request_id")
         task = _required_mapping(request, "task")
         sandbox_policy = _required_mapping(request, "sandbox_policy")
+        if args.phase == "run" and _is_release_task(task):
+            _write_release_fixture_result(
+                request=request,
+                task=task,
+                profile=profile,
+                sandbox_policy=sandbox_policy,
+                workspace=args.workspace,
+                output=args.output,
+            )
+            return 0
         public_summary = dict(profile["public_summary"])
         public_summary.update(
             {
@@ -228,6 +239,144 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     raise AssertionError(f"unhandled phase: {args.phase}")
+
+
+def _is_release_task(task: Mapping[str, Any]) -> bool:
+    metadata = task.get("metadata")
+    return (
+        isinstance(metadata, dict)
+        and metadata.get("release_schema_version")
+        == "legalforecast.forecast-release.v1"
+    )
+
+
+def _write_release_fixture_result(
+    *,
+    request: Mapping[str, Any],
+    task: Mapping[str, Any],
+    profile: Mapping[str, Any],
+    sandbox_policy: Mapping[str, Any],
+    workspace: Path,
+    output: Path,
+) -> None:
+    from legalforecast.multiharness.release_harness import (
+        RELEASE_FORECAST_OUTPUT_ARTIFACT_ID,
+        RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID,
+        read_release_regular_file,
+        release_bytes_sha256,
+        release_canonical_bytes,
+        release_record_sha256,
+        write_release_create_only,
+    )
+    from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
+    from legalforecast.multiharness.validation import validate_public_record
+
+    request_id = _required_str(request, "request_id")
+    metadata = _required_mapping(task, "metadata")
+    prompt = read_release_regular_file(workspace / SOLVER_INPUT_ENTRY_PATH)
+    prompt_sha256 = release_bytes_sha256(prompt)
+    if prompt_sha256 != metadata.get("prompt_sha256"):
+        raise ValueError("fixture prompt commitment does not match")
+    required_unit_ids = _required_unit_ids(metadata)
+    forecast = {
+        "case_assessment": "Community fixture forecast; not a model quality claim.",
+        "predictions": [
+            {"unit_id": unit_id, "probability_fully_dismissed": 0.5}
+            for unit_id in required_unit_ids
+        ],
+    }
+    output_bytes = json.dumps(forecast, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    private_logs = workspace / "private-logs"
+    private_logs.mkdir(mode=0o700, parents=True, exist_ok=True)
+    write_release_create_only(
+        private_logs / "release-forecast-output.json",
+        output_bytes,
+        mode=0o600,
+    )
+    output_sha256 = release_bytes_sha256(output_bytes)
+    transcript_bytes = release_canonical_bytes(
+        {
+            "request_sha256": _required_str(request, "request_sha256"),
+            "prompt_sha256": prompt_sha256,
+            "packet_sha256": _required_str(task, "task_sha256"),
+            "response_sha256": output_sha256,
+        }
+    )
+    write_release_create_only(
+        private_logs / "neutral-api-transcript.json",
+        transcript_bytes,
+        mode=0o600,
+    )
+    transcript_sha256 = release_bytes_sha256(transcript_bytes)
+    public_summary = dict(profile["public_summary"])
+    public_summary.update(
+        {
+            "adapter_id": profile["adapter_id"],
+            "adapter_version": profile["adapter_version"],
+            "allowed_tools": [],
+            "estimated_cost": 0.0,
+            "execution_backend": "community_fixture_bridge",
+            "family": _required_str(task, "family"),
+            "harness_track": "neutral",
+            "input_tokens": 0,
+            "model_key": _required_str(request, "model_key"),
+            "output_tokens": 0,
+            "provider_request_count": 0,
+            "sandbox_policy_id": _required_str(sandbox_policy, "policy_id"),
+            "scoring_mode": _required_str(task, "scoring_mode"),
+            "task_id": _required_str(task, "task_id"),
+            "tool_call_count": 0,
+            "tool_policy": "none",
+            "transcript_sha256": transcript_sha256,
+        }
+    )
+    validate_public_record(public_summary, "community fixture release summary")
+    artifacts = [
+        {
+            "artifact_id": RELEASE_FORECAST_OUTPUT_ARTIFACT_ID,
+            "path": "private-logs/release-forecast-output.json",
+            "sha256": output_sha256,
+            "media_type": "application/json",
+            "public": False,
+            "size_bytes": len(output_bytes),
+        },
+        {
+            "artifact_id": RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID,
+            "path": "private-logs/neutral-api-transcript.json",
+            "sha256": transcript_sha256,
+            "media_type": "application/json",
+            "public": False,
+            "size_bytes": len(transcript_bytes),
+        },
+    ]
+    commitment = {
+        "request_sha256": _required_str(request, "request_sha256"),
+        "output_sha256": output_sha256,
+        "summary": public_summary,
+    }
+    _write_json(
+        output,
+        {
+            "schema_version": SCHEMA_RESULT,
+            "result_id": f"{request_id}:{profile['adapter_id']}",
+            "request_id": request_id,
+            "status": "succeeded",
+            "result_sha256": release_record_sha256(commitment),
+            "artifacts": artifacts,
+            "public_summary": public_summary,
+        },
+    )
+
+
+def _required_unit_ids(metadata: Mapping[str, Any]) -> list[str]:
+    values = metadata.get("required_unit_ids")
+    if not isinstance(values, list) or not values:
+        raise ValueError("release task required_unit_ids is invalid")
+    if any(not isinstance(item, str) or not item.strip() for item in values):
+        raise ValueError("release task required_unit_ids is invalid")
+    return [item for item in values if isinstance(item, str)]
 
 
 def _read_json(path: Path) -> dict[str, Any]:

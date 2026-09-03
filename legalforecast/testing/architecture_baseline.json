@@ -14,6 +14,7 @@
     "cli_import_files": [
       "tests/test_cli_orchestration.py",
       "tests/test_community_lab_quickstart.py",
+      "tests/test_community_lfb_fixture_quickstart.py",
       "tests/test_community_publication.py",
       "tests/test_community_submission.py",
       "tests/test_locked_run_manifest_consumer.py",
@@ -27,6 +28,7 @@
     "cli_import_occurrences": [
       "tests/test_cli_orchestration.py",
       "tests/test_community_lab_quickstart.py",
+      "tests/test_community_lfb_fixture_quickstart.py",
       "tests/test_community_publication.py",
       "tests/test_community_submission.py",
       "tests/test_locked_run_manifest_consumer.py",
@@ -45,6 +47,7 @@
     "public_cli_files": [
       "tests/test_cli_orchestration.py",
       "tests/test_community_lab_quickstart.py",
+      "tests/test_community_lfb_fixture_quickstart.py",
       "tests/test_community_publication.py",
       "tests/test_community_submission.py",
       "tests/test_locked_run_manifest_consumer.py",
@@ -59,6 +62,7 @@
       "tests/test_cli_orchestration.py::legalforecast.cli.build_parser",
       "tests/test_cli_orchestration.py::legalforecast.cli.main",
       "tests/test_community_lab_quickstart.py::legalforecast.cli.main",
+      "tests/test_community_lfb_fixture_quickstart.py::legalforecast.cli.main",
       "tests/test_community_publication.py::legalforecast.cli.main",
       "tests/test_community_submission.py::legalforecast.cli.main",
       "tests/test_locked_run_manifest_consumer.py::legalforecast.cli.main",
@@ -580,16 +584,16 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 4,
-        "fan_out": 8,
+        "fan_out": 9,
         "flags": [
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "CommandAdapter",
-        "largest_symbol_lines": 518,
+        "largest_symbol_lines": 546,
         "layer": "application",
-        "line_count": 1270,
-        "nonblank_line_count": 1176,
+        "line_count": 1304,
+        "nonblank_line_count": 1208,
         "top_level_definition_count": 27
       },
       "legalforecast/multiharness/community.py": {
@@ -965,8 +969,8 @@
         "largest_symbol": "_MultiHarnessRunner",
         "largest_symbol_lines": 705,
         "layer": "application",
-        "line_count": 1586,
-        "nonblank_line_count": 1466,
+        "line_count": 1593,
+        "nonblank_line_count": 1473,
         "top_level_definition_count": 39
       },
       "legalforecast/multiharness/scoring.py": {
@@ -990,7 +994,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 10,
+        "fan_in": 11,
         "fan_out": 6,
         "flags": [
           "watch"
@@ -1831,11 +1835,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "_write_adapter_script",
-        "largest_symbol_lines": 151,
+        "largest_symbol_lines": 163,
         "layer": "test",
-        "line_count": 1850,
-        "nonblank_line_count": 1640,
-        "top_level_definition_count": 56
+        "line_count": 1893,
+        "nonblank_line_count": 1679,
+        "top_level_definition_count": 57
       },
       "tests/test_multiharness_container_runtime.py": {
         "cycle_id": "",

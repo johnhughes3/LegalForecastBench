@@ -22,7 +22,12 @@ from legalforecast._json_io import (
     read_json_object_safe,
     write_json_object_safe,
 )
-from legalforecast.immutable_io import ImmutableIOError, ensure_private_directory
+from legalforecast.immutable_io import (
+    ImmutableIOError,
+    ensure_private_directory,
+    read_single_link_file,
+    write_file_create_only,
+)
 from legalforecast.multiharness.adapters import (
     AdapterError,
     AdapterPreparation,
@@ -46,6 +51,7 @@ from legalforecast.multiharness.process_containment import (
     prepare_contained_command,
     release_contained_command,
 )
+from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
 from legalforecast.multiharness.spec import (
     LINUX_SYSTEMD_SCOPE_CONTAINMENT,
     POSIX_PROCESS_GROUP_CONTAINMENT,
@@ -249,6 +255,34 @@ class CommandAdapter:
         )
         write_json_object_safe(output_path, result.to_record())
         return result
+
+    def run_with_solver_input(
+        self,
+        request: RunRequest,
+        workspace: Path,
+        solver_input_root: Path,
+    ) -> RunResult:
+        """Stage the authenticated prompt, then run the command adapter."""
+
+        _ensure_private_workspace(workspace)
+        try:
+            prompt = read_single_link_file(
+                solver_input_root / SOLVER_INPUT_ENTRY_PATH,
+                label="solver input prompt",
+            )
+        except ImmutableIOError as exc:
+            raise CommandAdapterError("solver input prompt is unavailable") from exc
+        prompt_path = workspace / SOLVER_INPUT_ENTRY_PATH
+        try:
+            write_file_create_only(prompt_path, prompt, mode=0o400)
+        except ImmutableIOError as exc:
+            raise CommandAdapterError(
+                "solver input prompt could not be staged"
+            ) from exc
+        try:
+            return self.run(request, workspace)
+        finally:
+            prompt_path.unlink(missing_ok=True)
 
     def run_with_tools(
         self,
