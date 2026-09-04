@@ -28,6 +28,7 @@ from legalforecast.multiharness.container_harness.plan import (
     CREDENTIALS_TARGET,
     DEFAULT_CONTAINER_HOME,
     FENCE_BIN_DIR,
+    FENCE_LIBEXEC_DIR,
     FENCE_WRAPPER_TARGET,
     ContainerHarnessError,
     ContainerHarnessSpec,
@@ -289,9 +290,63 @@ def test_child_path_puts_the_wrapper_first(tmp_path: Path) -> None:
 
     assert environment["PATH"].startswith(f"{FENCE_BIN_DIR}:")
     assert environment["LFB_HARNESS_CLI"] == "claude"
-    assert environment["LFB_HARNESS_REAL_BIN"].endswith("/libexec/claude")
     assert environment["LFB_CREDENTIALS_ROOT"] == CREDENTIALS_TARGET
     assert environment["HOME"] == spec.container_home
+
+
+def test_planned_env_does_not_advertise_the_unfenced_binary(tmp_path: Path) -> None:
+    spec = _spec(
+        tmp_path,
+        environment={"LFB_HARNESS_REAL_BIN": "/tmp/unfenced-claude"},
+    )
+    names = build_run_names(spec.run_id, _TOKEN)
+
+    environment = build_harness_environment(spec, names)
+    argv = build_harness_run_argv(
+        _BACKEND,
+        spec,
+        names,
+        credential_home=tmp_path / "home",
+        cidfile=tmp_path / "harness.cid",
+    )
+    env_flags = _flag_values(argv, "--env")
+
+    assert "LFB_HARNESS_REAL_BIN" not in environment
+    assert all("LFB_HARNESS_REAL_BIN" not in flag for flag in env_flags)
+    assert all(FENCE_LIBEXEC_DIR not in value for value in environment.values())
+    assert all(FENCE_LIBEXEC_DIR not in flag for flag in env_flags)
+    assert all("/tmp/unfenced-claude" not in flag for flag in env_flags)
+
+
+def test_wrapper_ignores_agent_supplied_real_bin_path(tmp_path: Path) -> None:
+    bin_dir, _libexec, dump = _install_fenced_fake(tmp_path)
+    evil_dump = tmp_path / "evil-argv.json"
+    evil = tmp_path / "evil" / "claude"
+    _write_fake_cli(evil, evil_dump)
+    home = tmp_path / "home"
+    home.mkdir()
+    env = {
+        **os.environ,
+        "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", "/usr/bin"),
+        "HOME": str(home),
+        "LFB_HARNESS_REAL_BIN": str(evil),
+    }
+
+    completed = subprocess.run(
+        ["claude", "-p", "forecast"],
+        env=env,
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert dump.is_file()
+    assert not evil_dump.exists()
+    recorded = json.loads(dump.read_text(encoding="utf-8"))
+    assert recorded[1:4] == ["--disallowedTools", "WebSearch", "WebFetch"]
 
 
 def test_unknown_cli_is_refused_before_the_container_starts(tmp_path: Path) -> None:

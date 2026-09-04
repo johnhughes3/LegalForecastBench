@@ -296,6 +296,7 @@ def test_child_environment_is_clean_and_points_at_the_sidecar(
     assert "CLAUDE_CODE_OAUTH_TOKEN" not in environment
     assert environment["PATH"].startswith("/opt/legalforecast/bin:")
     assert environment["LFB_HARNESS_CLI"] == "claude"
+    assert "LFB_HARNESS_REAL_BIN" not in environment
 
 
 def test_environment_reaches_the_container_only_through_explicit_env_flags(

@@ -108,7 +108,7 @@
       "legalforecast/testing/architecture_rules": 9,
       "legalforecast/testing/cli_corpus": 12,
       "scripts": 9,
-      "tests": 178,
+      "tests": 179,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -645,7 +645,7 @@
         "largest_symbol": "seed_agy_web_fence",
         "largest_symbol_lines": 37,
         "layer": "application",
-        "line_count": 302,
+        "line_count": 303,
         "nonblank_line_count": 259,
         "top_level_definition_count": 11
       },
@@ -1660,8 +1660,8 @@
         "largest_symbol": "_CountingOrigin",
         "largest_symbol_lines": 39,
         "layer": "test",
-        "line_count": 537,
-        "nonblank_line_count": 455,
+        "line_count": 538,
+        "nonblank_line_count": 456,
         "top_level_definition_count": 26
       },
       "tests/test_contamination_tier_reporting.py": {

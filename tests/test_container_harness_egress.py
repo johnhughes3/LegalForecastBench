@@ -487,9 +487,10 @@ def test_real_tls_clienthello_sni_mismatch_never_dials(
                 assert chunk
                 head.extend(chunk)
             assert bytes(head).startswith(b"HTTP/1.1 200")
-            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            context = ssl.create_default_context()
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             with pytest.raises(OSError):
                 context.wrap_socket(raw, server_hostname="courtlistener.com")
 

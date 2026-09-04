@@ -10,10 +10,10 @@ fence, because the evaluated agent has a shell plus the same executable plus
 credentials and can re-invoke without those flags.
 
 The wrapper always injects the vendor's web/search disable flags, strips the
-flags that would turn those tools back on, and execs the real binary from a
-path that is not itself this file.  It does not consult HOME, settings.json, or
-any other agent-writable config for tool enablement.  Image build should place
-the vendor binary at ``/opt/legalforecast/libexec/<cli>`` via
+flags that would turn those tools back on, and execs the real binary from the
+image-baked libexec path.  It does not consult HOME, settings.json, environment
+overrides, or any other agent-writable config for tool enablement.  Image build
+should place the vendor binary at ``/opt/legalforecast/libexec/<cli>`` via
 :func:`install_cli_fence` so the only ``PATH`` hit for that name is this
 wrapper.
 
@@ -211,17 +211,17 @@ def resolve_cli(argv0: str, args: Sequence[str]) -> tuple[str, list[str]]:
 
 
 def resolve_real_binary(cli: str) -> Path:
-    """Return the vendor binary, refusing to exec this wrapper as that binary."""
+    """Return the vendor binary from the baked libexec path, never from env.
 
-    override = os.environ.get("LFB_HARNESS_REAL_BIN")
-    if override:
-        candidates = (Path(override),)
-    else:
-        here = Path(__file__).resolve().parent
-        candidates = (
-            here.parent / "libexec" / cli,
-            Path(DEFAULT_LIBEXEC_DIR) / cli,
-        )
+    ``LFB_HARNESS_REAL_BIN`` is ignored even if present: the evaluated agent
+    has a shell and would otherwise point this wrapper at an unfenced copy.
+    """
+
+    here = Path(__file__).resolve().parent
+    candidates = (
+        here.parent / "libexec" / cli,
+        Path(DEFAULT_LIBEXEC_DIR) / cli,
+    )
     wrapper = Path(__file__).resolve()
     for candidate in candidates:
         if not candidate.is_file() or candidate.is_symlink():
@@ -250,6 +250,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except CliFenceError as exc:
         print(f"lfb-cli-fence: {exc}", file=sys.stderr)
         return 78
+    os.environ.pop("LFB_HARNESS_REAL_BIN", None)
     os.execv(str(real), [cli, *fenced])
     return 78
 

@@ -244,15 +244,6 @@ def fenced_cli_name(spec: ContainerHarnessSpec) -> str:
     return name
 
 
-def real_cli_path(spec: ContainerHarnessSpec) -> str:
-    """Return the vendor binary path the wrapper execs."""
-
-    entry = spec.harness_entrypoint
-    if entry is not None and PurePosixPath(entry).is_absolute():
-        return entry
-    return f"{FENCE_LIBEXEC_DIR}/{fenced_cli_name(spec)}"
-
-
 def stage_cli_fence(root: Path) -> Path:
     """Copy the wrapper to a 0755 file the container can exec as its entrypoint."""
 
@@ -394,7 +385,6 @@ def build_harness_environment(
             "HOME": spec.container_home,
             "PATH": FENCE_PATH,
             "LFB_HARNESS_CLI": cli,
-            "LFB_HARNESS_REAL_BIN": real_cli_path(spec),
             "LFB_CREDENTIALS_ROOT": CREDENTIALS_TARGET,
             "HTTP_PROXY": proxy_url,
             "HTTPS_PROXY": proxy_url,
@@ -404,6 +394,9 @@ def build_harness_environment(
             "no_proxy": no_proxy,
         }
     )
+    # Never advertise the vendor binary: the agent has a shell and would
+    # invoke it without the wrapper's disable flags.
+    environment.pop("LFB_HARNESS_REAL_BIN", None)
     return environment
 
 
