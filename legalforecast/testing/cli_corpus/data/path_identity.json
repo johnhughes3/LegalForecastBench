@@ -121,6 +121,7 @@
     "tests/test_pdf_extractor_pin.py",
     "tests/test_provider_baselines.py",
     "tests/test_provider_spend_control.py",
+    "tests/test_public_boundary_fences.py",
     "tests/test_public_release_coherence.py",
     "tests/test_publication_governance.py",
     "tests/test_publish_package_workflow.py",
