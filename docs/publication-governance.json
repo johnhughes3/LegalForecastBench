@@ -84,6 +84,14 @@
       ]
     }
   },
+  "result_classes": {
+    "pre_anchor": {
+      "required_label": "Official LegalForecast-MTD Cycle 1 result"
+    },
+    "post_anchor": {
+      "required_label": "Official LegalForecast-MTD Cycle 1 result (post-anchor)"
+    }
+  },
   "public_surfaces": [
     {
       "id": "official-cycle-1-report",

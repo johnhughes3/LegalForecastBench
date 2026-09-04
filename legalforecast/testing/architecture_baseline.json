@@ -435,8 +435,8 @@
         "largest_symbol": "build_retained_hf_publication",
         "largest_symbol_lines": 146,
         "layer": "application",
-        "line_count": 1108,
-        "nonblank_line_count": 1006,
+        "line_count": 1109,
+        "nonblank_line_count": 1007,
         "top_level_definition_count": 30
       },
       "legalforecast/ingestion/canonical_json.py": {
@@ -1192,9 +1192,9 @@
         "largest_symbol": "build_official_report_page",
         "largest_symbol_lines": 149,
         "layer": "application",
-        "line_count": 963,
+        "line_count": 965,
         "nonblank_line_count": 868,
-        "top_level_definition_count": 39
+        "top_level_definition_count": 40
       },
       "legalforecast/publication/official_report_validation.py": {
         "cycle_id": "",
@@ -1263,6 +1263,23 @@
         "line_count": 880,
         "nonblank_line_count": 810,
         "top_level_definition_count": 22
+      },
+      "legalforecast/reporting/result_class.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "reporting",
+        "fan_in": 3,
+        "fan_out": 3,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "reporting",
+        "largest_symbol": "ResultClassSidecar",
+        "largest_symbol_lines": 72,
+        "layer": "domain",
+        "line_count": 536,
+        "nonblank_line_count": 441,
+        "top_level_definition_count": 23
       },
       "legalforecast/runner/ledger.py": {
         "cycle_id": "",
@@ -2166,8 +2183,8 @@
         "largest_symbol": "test_builds_retained_fan_in_hf_package_from_sanitized_outputs",
         "largest_symbol_lines": 59,
         "layer": "test",
-        "line_count": 609,
-        "nonblank_line_count": 535,
+        "line_count": 612,
+        "nonblank_line_count": 538,
         "top_level_definition_count": 21
       },
       "tests/test_static_result_sites.py": {
@@ -2183,9 +2200,9 @@
         "largest_symbol": "write_official_report_fixture",
         "largest_symbol_lines": 237,
         "layer": "test",
-        "line_count": 1468,
-        "nonblank_line_count": 1318,
-        "top_level_definition_count": 46
+        "line_count": 1568,
+        "nonblank_line_count": 1407,
+        "top_level_definition_count": 48
       },
       "tests/test_tier0_operator_half.py": {
         "cycle_id": "",

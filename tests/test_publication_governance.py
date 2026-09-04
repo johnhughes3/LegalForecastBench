@@ -6,6 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from legalforecast.reporting.result_class import (
+    ResultClass,
+    result_class_tier_label,
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 GOVERNANCE_PATH = ROOT / "docs" / "publication-governance.json"
 GOVERNANCE_DOC_PATH = ROOT / "docs" / "publication-governance.md"
@@ -16,6 +21,7 @@ PRELIMINARY_LABEL = (
 )
 REPRODUCIBLE_LABEL = "Reproducible community result — contributor-grade, non-official"
 OFFICIAL_LABEL = "Official LegalForecast-MTD Cycle 1 result"
+POST_ANCHOR_LABEL = "Official LegalForecast-MTD Cycle 1 result (post-anchor)"
 NON_AFFILIATION = (
     "LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and "
     "LegalQuants are not sponsors, partners, or endorsers of this work."
@@ -35,6 +41,7 @@ def test_governance_contract_contains_only_public_fields() -> None:
         "non_affiliation",
         "public_surfaces",
         "repository_url",
+        "result_classes",
         "rules",
         "schema_version",
     }
@@ -53,6 +60,23 @@ def test_governance_contract_contains_only_public_fields() -> None:
     )
     assert governance["evidence_tiers"]["official"]["required_label"] == (
         OFFICIAL_LABEL
+    )
+    assert set(governance["result_classes"]) == {"post_anchor", "pre_anchor"}
+    assert governance["result_classes"]["pre_anchor"]["required_label"] == (
+        OFFICIAL_LABEL
+    )
+    assert governance["result_classes"]["post_anchor"]["required_label"] == (
+        POST_ANCHOR_LABEL
+    )
+    assert POST_ANCHOR_LABEL.startswith(OFFICIAL_LABEL)
+    assert "post-anchor" in POST_ANCHOR_LABEL
+    assert (
+        result_class_tier_label(ResultClass.PRE_ANCHOR)
+        == (governance["result_classes"]["pre_anchor"]["required_label"])
+    )
+    assert (
+        result_class_tier_label(ResultClass.POST_ANCHOR)
+        == (governance["result_classes"]["post_anchor"]["required_label"])
     )
     assert set(governance["rules"]) == {
         "cross_suite_overall_winner_forbidden",
@@ -149,6 +173,7 @@ def test_human_policy_and_docs_index_are_bound_to_the_public_contract() -> None:
     assert PRELIMINARY_LABEL in policy
     assert REPRODUCIBLE_LABEL in policy
     assert OFFICIAL_LABEL in policy
+    assert POST_ANCHOR_LABEL in policy
     assert NON_AFFILIATION in policy
 
     for internal_marker in (

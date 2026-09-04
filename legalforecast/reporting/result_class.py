@@ -1,19 +1,19 @@
-"""Official versus post-anchor supplementary classification for result rows.
+"""Pre-anchor versus post-anchor classification for result rows.
 
 A cycle's *corpus anchor* is the **earliest decision date the cycle scores**.
 
-An official row claims the model already existed when the court decided the
-case, so every scored decision must *postdate* the evaluated models' release.
-Turned around, a model may join the official set only if it was released on or
-before the earliest decision in the corpus -- that date is the anchor.  A model
-released after it cannot support the claim for every scored case, so its rows
-publish as supplementary and are refused inside the official set.
+A pre-anchor row claims the model already existed when the court decided the
+case, so every scored decision must *postdate* the evaluated model's release.
+Turned around, a model may join the pre-anchor set only if it was released on
+or before the earliest decision in the corpus -- that date is the anchor.  A
+model released after it publishes as post-anchor: still an official, viable
+result, but it cannot claim contamination resistance on this corpus.
 
 The classification is mechanical and has no override: it compares the model's
 ``release_timestamp`` against that corpus-derived anchor.  Deriving the anchor
 from the corpus rather than from the registry under evaluation is what keeps the
 check non-vacuous -- a registry containing only post-anchor models would
-otherwise supply its own anchor and trivially certify itself as official.
+otherwise supply its own anchor and trivially certify itself as pre-anchor.
 
 For Cycle 1 the corpus decision window closed 2026-06-30 and the frozen
 registry's latest release is 2026-06-26, so the two candidate definitions
@@ -22,8 +22,9 @@ date throughout, and only that date can be trusted when the registry varies.
 
 This module is a classification overlay in the same spirit as
 ``contamination_tiers``, and the two dimensions are independent.  A model can be
-official yet contamination-preliminary (its cutoff is simply undisclosed), and a
-supplementary model normally carries both markers.
+pre-anchor yet contamination-preliminary (its cutoff is simply undisclosed), and
+a post-anchor model normally carries both markers.  Classification is a tracked
+property of a result, never a permission to publish.
 """
 
 from __future__ import annotations
@@ -45,26 +46,35 @@ _SHA256_PREFIX = "sha256:"
 SUPPLEMENTARY_MARKER = "†"
 """Dagger, deliberately distinct from the contamination-tier asterisk.
 
-``contamination_tiers.PRELIMINARY_MARKER`` already marks official models whose
-training cutoff is undisclosed, so reusing it here would stop the marker from
-separating official rows from unofficial ones.
+``contamination_tiers.PRELIMINARY_MARKER`` already marks models whose training
+cutoff is undisclosed, so reusing it here would stop the marker from separating
+the two result-class arms.
 """
 
 SUPPLEMENTARY_CAVEAT = (
-    "Unofficial (supplementary): model released after the corpus decision "
-    "window closed; training-data contamination cannot be ruled out."
+    "Post-anchor result: the model was released after the corpus decision "
+    "window closed, so this result is not contamination-resistant on this corpus."
 )
+# Frozen public labels from docs/publication-governance.json. Copied verbatim
+# onto public surfaces. The dagger stays a separate row marker.
+PRE_ANCHOR_PUBLIC_LABEL = "Official LegalForecast-MTD Cycle 1 result"
+POST_ANCHOR_PUBLIC_LABEL = "Official LegalForecast-MTD Cycle 1 result (post-anchor)"
+
+_LEGACY_RESULT_CLASS_VALUES = {
+    "official": "pre_anchor",
+    "supplementary_post_anchor": "post_anchor",
+}
 
 
 class ResultClass(StrEnum):
-    """Whether a published row belongs to the official set."""
+    """Whether a published row predates the cycle's corpus anchor."""
 
-    OFFICIAL = "official"
-    SUPPLEMENTARY_POST_ANCHOR = "supplementary_post_anchor"
+    PRE_ANCHOR = "pre_anchor"
+    POST_ANCHOR = "post_anchor"
 
 
 class ResultClassError(ValueError):
-    """Raised when a post-anchor model is presented as an official result."""
+    """Raised when a result class is mislabeled or a model is in the wrong lane."""
 
 
 def classify_result_class(
@@ -75,17 +85,17 @@ def classify_result_class(
     """Classify one model against a cycle's corpus anchor.
 
     Fails closed: a missing ``release_timestamp`` cannot demonstrate that the
-    model predates the anchor, so it classifies as supplementary rather than
-    inheriting official status by omission.
+    model predates the anchor, so it classifies as post-anchor rather than
+    inheriting pre-anchor status by omission.
     """
 
     if release_timestamp is None:
-        return ResultClass.SUPPLEMENTARY_POST_ANCHOR
+        return ResultClass.POST_ANCHOR
     if release_timestamp.tzinfo is None:
         raise ResultClassError("release_timestamp must be timezone-aware")
     if release_timestamp.astimezone(UTC).date() > corpus_anchor:
-        return ResultClass.SUPPLEMENTARY_POST_ANCHOR
-    return ResultClass.OFFICIAL
+        return ResultClass.POST_ANCHOR
+    return ResultClass.PRE_ANCHOR
 
 
 def classify_registry_entry(
@@ -108,44 +118,44 @@ def classify_decision_against_anchor(
 ) -> ResultClass:
     """Classify one scored decision against the evaluated registry's anchor.
 
-    An official row claims the model already existed when the court decided the
+    A pre-anchor row claims the model already existed when the court decided the
     case, which is exactly ``decision_date >= release_anchor``. A decision that
     predates the model's release cannot support that claim, and is therefore
-    supplementary.
+    post-anchor.
 
     This is the same comparison the aggregate performs, expressed per decision so
     the corpus-build and per-case gates can share it. Both directions are
-    refusals: an official run rejects a decision that predates the anchor, and a
-    supplementary run rejects one that does not, so a pre-anchor model cannot be
-    smuggled through the supplementary lane to dodge the official gates.
+    refusals: a pre-anchor run rejects a decision that predates the anchor, and a
+    post-anchor run rejects one that does not, so a pre-anchor model cannot be
+    smuggled through the post-anchor lane to dodge the pre-anchor gates.
     """
 
     if decision_date >= release_anchor:
-        return ResultClass.OFFICIAL
-    return ResultClass.SUPPLEMENTARY_POST_ANCHOR
+        return ResultClass.PRE_ANCHOR
+    return ResultClass.POST_ANCHOR
 
 
 def expected_result_class(*, supplementary: bool) -> ResultClass:
     """Return the only result class the named execution mode may produce."""
 
     if supplementary:
-        return ResultClass.SUPPLEMENTARY_POST_ANCHOR
-    return ResultClass.OFFICIAL
+        return ResultClass.POST_ANCHOR
+    return ResultClass.PRE_ANCHOR
 
 
 def corpus_anchor_from_decision_dates(decision_dates: Iterable[date]) -> date:
     """Derive a cycle's corpus anchor from the decision dates it scores.
 
-    Every official row rests on the claim that the model already existed when the
-    court decided the case, which the per-packet gate enforces as
+    Every pre-anchor row rests on the claim that the model already existed when
+    the court decided the case, which the per-packet gate enforces as
     ``decision_date >= release_anchor``.  Turned around, a model may join the
-    official set only if it was released on or before the *earliest* decision in
-    the corpus.  That earliest decision date is the corpus anchor.
+    pre-anchor set only if it was released on or before the *earliest* decision
+    in the corpus.  That earliest decision date is the corpus anchor.
 
     Deriving the anchor from the corpus rather than from the models under
     evaluation is what makes the classification non-vacuous: a registry
     containing only post-anchor models would otherwise supply its own anchor and
-    trivially certify itself as official.
+    trivially certify itself as pre-anchor.
     """
 
     dates = sorted(decision_dates)
@@ -159,14 +169,14 @@ def supplementary_model_ids(
     *,
     corpus_anchor: date,
 ) -> tuple[str, ...]:
-    """Return the registry keys that classify as supplementary, sorted."""
+    """Return the registry keys that classify as post-anchor, sorted."""
 
     return tuple(
         sorted(
             entry.registry_key
             for entry in entries
             if classify_registry_entry(entry, corpus_anchor=corpus_anchor)
-            is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+            is ResultClass.POST_ANCHOR
         )
     )
 
@@ -175,20 +185,44 @@ def require_official_result_classes(
     entries: Sequence[ModelRegistryEntry],
     *,
     corpus_anchor: date,
+    claimed_classes: Mapping[str, ResultClass] | None = None,
 ) -> None:
-    """Fail closed unless every entry may be published as an official result.
+    """Allow post-anchor models on an official surface; refuse a mismatched label.
 
-    This is the one integrity property the supplementary lane must never be able
-    to defeat: a model released after the corpus anchor cannot appear in the
-    official set, whatever a run card, receipt, or sidecar claims about it.
+    Classification is a tracked property of a result, not a permission to
+    publish. A post-anchor model may appear as an official, viable result. What
+    this function refuses is a claimed label that does not match the mechanical
+    classification, in either direction.
     """
 
-    supplementary = supplementary_model_ids(entries, corpus_anchor=corpus_anchor)
-    if supplementary:
-        raise ResultClassError(
-            "official results refuse models released after the corpus anchor "
-            f"{corpus_anchor.isoformat()}: {list(supplementary)}"
+    if claimed_classes is None:
+        return
+    by_id = {entry.model_id: entry for entry in entries}
+    by_key = {entry.registry_key: entry for entry in entries}
+    post_as_pre: list[str] = []
+    pre_as_post: list[str] = []
+    for model_id, claimed in claimed_classes.items():
+        entry = by_key.get(model_id) or by_id.get(model_id)
+        if entry is None:
+            continue
+        actual = classify_registry_entry(entry, corpus_anchor=corpus_anchor)
+        if claimed is actual:
+            continue
+        if claimed is ResultClass.PRE_ANCHOR:
+            post_as_pre.append(model_id)
+        else:
+            pre_as_post.append(model_id)
+    parts: list[str] = []
+    if post_as_pre:
+        parts.append(
+            f"post-anchor rows cannot be labeled pre-anchor: {sorted(post_as_pre)}"
         )
+    if pre_as_post:
+        parts.append(
+            f"pre-anchor rows cannot be labeled post-anchor: {sorted(pre_as_post)}"
+        )
+    if parts:
+        raise ResultClassError("; ".join(parts))
 
 
 def require_lane_result_classes(
@@ -202,30 +236,37 @@ def require_lane_result_classes(
     Both directions refuse, from one place, so the pre-dispatch authorization
     chain and the aggregate cannot drift into disagreeing about which set a model
     belongs to.  A caller declares which bundle or dispatch it is building; it
-    never gets to declare how a model classifies.
+    never gets to declare how a model classifies.  Publication of a post-anchor
+    row as an official result is a separate question, handled by
+    ``require_official_result_classes``.
     """
 
     if supplementary and not entries:
         # Checked before anything else: without it an empty registry would make a
-        # supplementary lane skip the separation entirely rather than refuse.
+        # post-anchor lane skip the separation entirely rather than refuse.
         raise ResultClassError(
-            "a supplementary result set requires a model registry to classify"
+            "a post-anchor result set requires a model registry to classify"
         )
-    if not supplementary:
-        require_official_result_classes(entries, corpus_anchor=corpus_anchor)
-        return
-    supplementary_keys = set(
+    post_anchor_keys = set(
         supplementary_model_ids(entries, corpus_anchor=corpus_anchor)
     )
-    official = sorted(
+    if not supplementary:
+        if post_anchor_keys:
+            raise ResultClassError(
+                "a pre-anchor result set refuses models released after the "
+                f"corpus anchor {corpus_anchor.isoformat()}: "
+                f"{sorted(post_anchor_keys)}"
+            )
+        return
+    pre_anchor = sorted(
         entry.registry_key
         for entry in entries
-        if entry.registry_key not in supplementary_keys
+        if entry.registry_key not in post_anchor_keys
     )
-    if official:
+    if pre_anchor:
         raise ResultClassError(
-            "a supplementary result set refuses models released on or before the "
-            f"corpus anchor {corpus_anchor.isoformat()}: {official}"
+            "a post-anchor result set refuses models released on or before the "
+            f"corpus anchor {corpus_anchor.isoformat()}: {pre_anchor}"
         )
 
 
@@ -244,8 +285,8 @@ def corpus_anchor_from_decision_rows(
     unavailable -- stays distinguishable from a partially dated one.  A partial
     set is always refused: an anchor taken from the dated rows alone can only be
     later than the true earliest decision, and a later anchor can only
-    under-report supplementary models.  ``required`` makes the all-absent case a
-    refusal too, which is what any supplementary lane passes.
+    under-report post-anchor models.  ``required`` makes the all-absent case a
+    refusal too, which is what any post-anchor lane passes.
     """
 
     dates: list[date] = []
@@ -271,7 +312,7 @@ def corpus_anchor_from_decision_rows(
     if not dates:
         if required:
             raise ResultClassError(
-                "a supplementary result set requires run-input decision dates to "
+                "a post-anchor result set requires run-input decision dates to "
                 "derive the corpus anchor"
             )
         return None
@@ -295,7 +336,7 @@ class ResultClassRow:
     def from_record(cls, record: Mapping[str, Any]) -> ResultClassRow:
         return cls(
             model_id=_required_str(record, "model_id"),
-            result_class=ResultClass(_required_str(record, "result_class")),
+            result_class=_parse_result_class(_required_str(record, "result_class")),
         )
 
 
@@ -306,8 +347,9 @@ class ResultClassSidecar:
     Cycle 1 change control keeps published whole-card bytes frozen, so this
     presentation flag lives in a sidecar rather than as a new field on
     ``legalforecast-official-aggregate-v1``. The sidecar is a rendering
-    convenience: the authoritative property is the aggregate gate that refuses a
-    post-anchor model inside an official bundle, which no sidecar can relax.
+    convenience: the authoritative properties are the lane-separation gate and
+    the arm-membership assertion that a post-anchor row cannot be labeled
+    pre-anchor.
     """
 
     result_digest: str
@@ -462,22 +504,33 @@ def _mapping_record(value: object, index: int) -> Mapping[str, Any]:
     return cast(Mapping[str, Any], value)
 
 
+def _parse_result_class(raw: str) -> ResultClass:
+    """Parse a sidecar result_class, accepting the pre-rename wire values."""
+
+    return ResultClass(_LEGACY_RESULT_CLASS_VALUES.get(raw, raw))
+
+
 def result_class_marker(result_class: ResultClass) -> str:
     """Return the public row marker for a result class."""
 
-    if result_class is ResultClass.SUPPLEMENTARY_POST_ANCHOR:
+    if result_class is ResultClass.POST_ANCHOR:
         return SUPPLEMENTARY_MARKER
     return ""
+
+
+def result_class_tier_label(result_class: ResultClass) -> str:
+    """Return the frozen public label for a result class, without the dagger."""
+
+    if result_class is ResultClass.POST_ANCHOR:
+        return POST_ANCHOR_PUBLIC_LABEL
+    return PRE_ANCHOR_PUBLIC_LABEL
 
 
 def supplementary_caveat_if_needed(
     result_classes: Iterable[ResultClass],
 ) -> str | None:
-    """Return the published caveat when any row is supplementary."""
+    """Return the published caveat when any row is post-anchor."""
 
-    if any(
-        result_class is ResultClass.SUPPLEMENTARY_POST_ANCHOR
-        for result_class in result_classes
-    ):
+    if any(result_class is ResultClass.POST_ANCHOR for result_class in result_classes):
         return SUPPLEMENTARY_CAVEAT
     return None

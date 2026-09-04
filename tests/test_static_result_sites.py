@@ -26,6 +26,8 @@ from legalforecast.publication.static_sites import (
 )
 from legalforecast.reporting.contamination_tiers import frozen_result_digest
 from legalforecast.reporting.result_class import (
+    POST_ANCHOR_PUBLIC_LABEL,
+    PRE_ANCHOR_PUBLIC_LABEL,
     SUPPLEMENTARY_CAVEAT,
     SUPPLEMENTARY_MARKER,
     ResultClass,
@@ -820,25 +822,30 @@ def write_result_class_sidecar_for(
     )
 
 
-def _render_site_with_supplementary(tmp_path: Path) -> str:
+def _render_site_with_supplementary(
+    tmp_path: Path,
+    *,
+    supplementary_dir: Path | None = None,
+    post_anchor_classes: Mapping[str, ResultClass] | None = None,
+) -> str:
     official_dir = write_official_report_fixture(tmp_path)
-    supplementary_dir = write_supplementary_report_fixture(tmp_path)
+    post_anchor_dir = supplementary_dir or write_supplementary_report_fixture(tmp_path)
     write_result_class_sidecar_for(
         official_dir,
         {
-            "model-a": ResultClass.OFFICIAL,
-            "model-b": ResultClass.OFFICIAL,
-            "global_base_rate": ResultClass.OFFICIAL,
+            "model-a": ResultClass.PRE_ANCHOR,
+            "model-b": ResultClass.PRE_ANCHOR,
+            "global_base_rate": ResultClass.PRE_ANCHOR,
         },
     )
     write_result_class_sidecar_for(
-        supplementary_dir,
-        {SUPPLEMENTARY_MODEL_ID: ResultClass.SUPPLEMENTARY_POST_ANCHOR},
+        post_anchor_dir,
+        post_anchor_classes or {SUPPLEMENTARY_MODEL_ID: ResultClass.POST_ANCHOR},
     )
     result = render_official_results_site(
         official_artifacts_dir=official_dir,
         output_dir=tmp_path / "official-site",
-        supplementary_artifacts_dir=supplementary_dir,
+        supplementary_artifacts_dir=post_anchor_dir,
     )
     return result.index_path.read_text(encoding="utf-8")
 
@@ -853,45 +860,106 @@ def _section_html(rendered: str, heading: str) -> str:
     return rendered[start : rendered.index("</section>", start)]
 
 
-def test_official_site_marks_supplementary_rows_and_publishes_the_caveat(
+def test_official_site_marks_post_anchor_rows_and_publishes_the_caveat(
     tmp_path: Path,
 ) -> None:
     rendered = _render_site_with_supplementary(tmp_path)
 
-    supplementary_label = f"{SUPPLEMENTARY_MODEL_ID}{SUPPLEMENTARY_MARKER}"
-    assert f"<th scope='row'>{supplementary_label}</th>" in rendered
-    assert f"Supplementary{SUPPLEMENTARY_MARKER}" in rendered
+    post_anchor_label = f"{SUPPLEMENTARY_MODEL_ID}{SUPPLEMENTARY_MARKER}"
+    assert f"<th scope='row'>{post_anchor_label}</th>" in rendered
+    assert (
+        f"<span class='tier-badge post-anchor'>{POST_ANCHOR_PUBLIC_LABEL}</span>"
+        in rendered
+    )
+    assert f"{POST_ANCHOR_PUBLIC_LABEL}{SUPPLEMENTARY_MARKER}" not in rendered
+    assert f"<span class='tier-badge'>{PRE_ANCHOR_PUBLIC_LABEL}</span>" in rendered
+    assert "Supplementary" not in rendered
     assert SUPPLEMENTARY_CAVEAT in rendered
-    # Supplementary rows sit in the same table, after every official row.
+    assert "Unofficial" not in rendered
+    # Post-anchor rows sit in the same table, after every pre-anchor row.
     assert rendered.index("<th scope='row'>model-a</th>") < rendered.index(
-        f"<th scope='row'>{supplementary_label}</th>"
+        f"<th scope='row'>{post_anchor_label}</th>"
     )
     assert rendered.index("<th scope='row'>model-b</th>") < rendered.index(
-        f"<th scope='row'>{supplementary_label}</th>"
+        f"<th scope='row'>{post_anchor_label}</th>"
     )
 
 
-def test_supplementary_row_never_receives_best_model_or_rank_treatment(
+def test_post_anchor_row_ranks_within_its_arm_and_does_not_take_the_headline(
     tmp_path: Path,
 ) -> None:
+    """Headline stays the best pre-anchor row; post-anchor ranks in its own arm."""
+
     rendered = _render_site_with_supplementary(tmp_path)
 
     headline = _section_html(rendered, "<h2 id='headline-title'>")
     assert SUPPLEMENTARY_MODEL_ID not in headline
     assert "model-a" in headline
-    # model-a's micro-Brier, not the supplementary model's lower 0.0100.
+    # model-a's micro-Brier, not the post-anchor model's lower 0.0100.
     assert "<p class='metric'>0.0880</p>" in headline
 
-    supplementary_row = _table_row_html(
+    post_anchor_row = _table_row_html(
         rendered,
         f"{SUPPLEMENTARY_MODEL_ID}{SUPPLEMENTARY_MARKER}",
     )
-    assert "0.0100" in supplementary_row
-    assert "Not ranked" in supplementary_row
-    assert "Reference (best observed model)" not in supplementary_row
+    assert "0.0100" in post_anchor_row
+    assert "Not ranked" not in post_anchor_row
+    assert "Reference (best observed model)" in post_anchor_row
+    assert POST_ANCHOR_PUBLIC_LABEL in post_anchor_row
+    assert f"{POST_ANCHOR_PUBLIC_LABEL}{SUPPLEMENTARY_MARKER}" not in post_anchor_row
 
     deltas = _section_html(rendered, "Paired micro-Brier difference intervals")
     assert SUPPLEMENTARY_MODEL_ID not in deltas
+
+
+def test_post_anchor_delta_vs_best_is_versus_the_best_model_in_the_same_arm(
+    tmp_path: Path,
+) -> None:
+    """Two post-anchor rows rank among themselves, never against pre-anchor."""
+
+    # Alphabetical order is the reverse of score order, so a model_id sort
+    # would put supp-alpha first and a within-arm rank sort puts supp-zebra
+    # first.
+    post_anchor_dir = write_official_report_fixture(
+        tmp_path,
+        include_baseline=False,
+        model_probabilities={
+            "supp-alpha": (0.6, 0.6, 0.4, 0.4, 0.4),
+            "supp-zebra": (0.9, 0.9, 0.1, 0.1, 0.1),
+        },
+        directory_name="supplementary",
+    )
+    rendered = _render_site_with_supplementary(
+        tmp_path,
+        supplementary_dir=post_anchor_dir,
+        post_anchor_classes={
+            "supp-alpha": ResultClass.POST_ANCHOR,
+            "supp-zebra": ResultClass.POST_ANCHOR,
+        },
+    )
+
+    headline = _section_html(rendered, "<h2 id='headline-title'>")
+    assert "supp-zebra" not in headline
+    assert "supp-alpha" not in headline
+    assert "model-a" in headline
+    assert "<p class='metric'>0.0880</p>" in headline
+
+    best_row = _table_row_html(rendered, f"supp-zebra{SUPPLEMENTARY_MARKER}")
+    worse_row = _table_row_html(rendered, f"supp-alpha{SUPPLEMENTARY_MARKER}")
+    assert "0.0100" in best_row
+    assert "Reference (best observed model)" in best_row
+    assert "Not ranked" not in best_row
+    assert "Not ranked" not in worse_row
+    assert "Reference (best observed model)" not in worse_row
+    assert "0.1600" in worse_row
+    # Ranked within the post-anchor arm: the better score appears first.
+    assert rendered.index(f"<th scope='row'>supp-zebra{SUPPLEMENTARY_MARKER}</th>") < (
+        rendered.index(f"<th scope='row'>supp-alpha{SUPPLEMENTARY_MARKER}</th>")
+    )
+    # Still after every pre-anchor row.
+    assert rendered.index("<th scope='row'>model-b</th>") < rendered.index(
+        f"<th scope='row'>supp-zebra{SUPPLEMENTARY_MARKER}</th>"
+    )
 
 
 def test_official_site_omits_the_supplementary_caveat_without_a_supplementary_bundle(
@@ -908,25 +976,56 @@ def test_official_site_omits_the_supplementary_caveat_without_a_supplementary_bu
     assert SUPPLEMENTARY_CAVEAT not in rendered
     assert SUPPLEMENTARY_MARKER not in rendered
     assert "Supplementary" not in rendered
+    assert "post-anchor" not in rendered
 
 
-def test_official_site_refuses_a_supplementary_classed_row_in_the_official_bundle(
+def test_official_site_refuses_a_post_anchor_classed_row_in_the_pre_anchor_bundle(
     tmp_path: Path,
 ) -> None:
+    """Arm membership: a pre-anchor bundle row cannot be classed post-anchor."""
+
     official_dir = write_official_report_fixture(tmp_path)
     write_result_class_sidecar_for(
         official_dir,
         {
-            "model-a": ResultClass.OFFICIAL,
-            "model-b": ResultClass.SUPPLEMENTARY_POST_ANCHOR,
-            "global_base_rate": ResultClass.OFFICIAL,
+            "model-a": ResultClass.PRE_ANCHOR,
+            "model-b": ResultClass.POST_ANCHOR,
+            "global_base_rate": ResultClass.PRE_ANCHOR,
         },
     )
 
-    with pytest.raises(ResultClassError, match="supplementary-classed rows"):
+    with pytest.raises(ResultClassError, match="post-anchor-classed rows"):
         render_official_results_site(
             official_artifacts_dir=official_dir,
             output_dir=tmp_path / "official-site",
+        )
+
+
+def test_post_anchor_bundle_row_labeled_pre_anchor_is_refused(
+    tmp_path: Path,
+) -> None:
+    """Planted negative: a post-anchor row labeled pre-anchor cannot publish."""
+
+    official_dir = write_official_report_fixture(tmp_path)
+    supplementary_dir = write_supplementary_report_fixture(tmp_path)
+    write_result_class_sidecar_for(
+        official_dir,
+        {
+            "model-a": ResultClass.PRE_ANCHOR,
+            "model-b": ResultClass.PRE_ANCHOR,
+            "global_base_rate": ResultClass.PRE_ANCHOR,
+        },
+    )
+    write_result_class_sidecar_for(
+        supplementary_dir,
+        {SUPPLEMENTARY_MODEL_ID: ResultClass.PRE_ANCHOR},
+    )
+
+    with pytest.raises(ResultClassError, match="classed pre-anchor"):
+        render_official_results_site(
+            official_artifacts_dir=official_dir,
+            output_dir=tmp_path / "official-site",
+            supplementary_artifacts_dir=supplementary_dir,
         )
 
 
@@ -941,8 +1040,8 @@ def test_supplementary_sidecar_cannot_class_a_row_of_the_official_bundle(
     write_result_class_sidecar_for(
         supplementary_dir,
         {
-            SUPPLEMENTARY_MODEL_ID: ResultClass.SUPPLEMENTARY_POST_ANCHOR,
-            "model-a": ResultClass.SUPPLEMENTARY_POST_ANCHOR,
+            SUPPLEMENTARY_MODEL_ID: ResultClass.POST_ANCHOR,
+            "model-a": ResultClass.POST_ANCHOR,
         },
     )
 
@@ -957,7 +1056,7 @@ def test_supplementary_sidecar_cannot_class_a_row_of_the_official_bundle(
     # and model-a is published unmarked.
     write_result_class_sidecar_for(
         supplementary_dir,
-        {SUPPLEMENTARY_MODEL_ID: ResultClass.SUPPLEMENTARY_POST_ANCHOR},
+        {SUPPLEMENTARY_MODEL_ID: ResultClass.POST_ANCHOR},
     )
     result = render_official_results_site(
         official_artifacts_dir=official_dir,
@@ -999,8 +1098,9 @@ def test_official_site_publishes_supplementary_calibration_separately(
 ) -> None:
     rendered = _render_site_with_supplementary(tmp_path)
 
-    assert f"<h3>Supplementary calibration{SUPPLEMENTARY_MARKER}</h3>" in rendered
-    assert "<caption>Supplementary calibration summary</caption>" in rendered
+    assert f"<h3>Post-anchor calibration{SUPPLEMENTARY_MARKER}</h3>" in rendered
+    assert "<caption>Post-anchor calibration summary</caption>" in rendered
+    assert "not official LegalForecastBench results" not in rendered
     assert (
         f"<caption>Calibration bins for {SUPPLEMENTARY_MODEL_ID}"
         f"{SUPPLEMENTARY_MARKER}</caption>" in rendered

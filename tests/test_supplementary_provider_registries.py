@@ -94,7 +94,7 @@ def test_every_shipped_entry_classifies_supplementary(filename: str) -> None:
     for entry in registry.entries:
         assert (
             classify_registry_entry(entry, corpus_anchor=CYCLE_1_CORPUS_ANCHOR)
-            is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+            is ResultClass.POST_ANCHOR
         )
 
     require_lane_result_classes(
@@ -109,7 +109,7 @@ def test_shipped_entries_refuse_the_official_lane(filename: str) -> None:
     """The same registry must be refused if presented as an official result set."""
 
     registry = load_model_registry(REGISTRY_DIR / filename)
-    with pytest.raises(ResultClassError, match="refuse models released after"):
+    with pytest.raises(ResultClassError, match="refuses models released after"):
         require_lane_result_classes(
             list(registry.entries),
             corpus_anchor=CYCLE_1_CORPUS_ANCHOR,
@@ -176,7 +176,7 @@ def test_every_shipped_entry_documents_sources_and_check_dates(filename: str) ->
         # from the release date.
         assert entry.provider_training_cutoff is None
         assert entry.provider_training_cutoff_status.value == "unknown"
-        assert "supplementary" in caveats
+        assert "post-anchor" in caveats
         assert "2026-06-30" in caveats
 
 
@@ -216,10 +216,10 @@ def test_registry_entry_refuses_a_missing_required_field(
 def test_entry_without_a_release_timestamp_fails_closed_to_supplementary(
     filename: str,
 ) -> None:
-    """A model that cannot prove it predates the anchor is never official.
+    """A model that cannot prove it predates the anchor is never pre-anchor.
 
     Fail-closed by omission: the absence of evidence classifies as
-    supplementary rather than inheriting official status.
+    post-anchor rather than inheriting pre-anchor status.
     """
 
     record = _first_record(REGISTRY_DIR / filename)
@@ -230,7 +230,7 @@ def test_entry_without_a_release_timestamp_fails_closed_to_supplementary(
     assert entry.release_timestamp is None
     assert (
         classify_registry_entry(entry, corpus_anchor=CYCLE_1_CORPUS_ANCHOR)
-        is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+        is ResultClass.POST_ANCHOR
     )
 
 

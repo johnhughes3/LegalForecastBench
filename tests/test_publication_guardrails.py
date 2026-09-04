@@ -308,6 +308,9 @@ def test_hf_publication_separates_the_supplementary_split_and_carries_the_caveat
     assert SUPPLEMENTARY_MODEL_ID in supplementary_units
 
     assert SUPPLEMENTARY_CAVEAT in card
+    assert "Unofficial" not in card
+    assert "must not be reported as official" not in card
+    assert "Post-anchor" in card
     assert "config_name: fixture-cycle_supplementary" in card
     assert "split: supplementary" in card
     assert "gated: manual" in card

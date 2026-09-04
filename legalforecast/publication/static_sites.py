@@ -115,7 +115,7 @@ summary:focus-visible {
   border-left-color: var(--baseline);
   background: var(--baseline-soft);
 }
-.supplementary-notice {
+.post-anchor-notice {
   border-left-color: var(--baseline);
   background: var(--baseline-soft);
 }
@@ -184,7 +184,7 @@ caption {
   font-weight: 750;
   padding: 2px 8px;
 }
-.tier-badge.supplementary {
+.tier-badge.post-anchor {
   background: var(--baseline-soft);
   border-color: var(--baseline);
   color: var(--baseline);
