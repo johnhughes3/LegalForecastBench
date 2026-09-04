@@ -40,6 +40,7 @@ from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterCancelled,
 )
+from legalforecast.multiharness.container_execution import container_execution_record
 from legalforecast.multiharness.container_runtime import (
     ContainerRuntimeError,
     ContainerToolSession,
@@ -240,20 +241,6 @@ class MultiHarnessRunRow:
     coverage_kind: str = "full"
 
     def to_record(self) -> dict[str, Any]:
-        container_record: dict[str, Any] = {
-            "mode": self.container_execution,
-            "status": (
-                "not_run"
-                if self.container_execution == "plan_only"
-                else (
-                    "succeeded"
-                    if self.container_receipt_sha256 is not None
-                    else "failed"
-                )
-            ),
-        }
-        if self.container_receipt_sha256 is not None:
-            container_record["receipt_sha256"] = self.container_receipt_sha256
         return {
             "row_id": self.row_id,
             "task_id": self.task.task_id,
@@ -270,7 +257,10 @@ class MultiHarnessRunRow:
             "resumed": self.resumed,
             "selection_label": self.selection_label,
             "coverage_kind": self.coverage_kind,
-            "container_execution": container_record,
+            "container_execution": container_execution_record(
+                configured_mode=self.container_execution,
+                receipt_sha256=self.container_receipt_sha256,
+            ),
         }
 
 
