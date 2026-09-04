@@ -66,7 +66,50 @@ The four managed roles are:
 | `legalforecastbench-official-eval` | GitHub OIDC trust, exact provider-authority DynamoDB data-plane policy, and the cell S3/KMS policy rendered from the verified external inputs. |
 | `legalforecastbench-official-eval-prepare-inputs` | Read-only GitHub OIDC trust for the forecast preparation job. It can read only locked manifest, staged manifest-run, and durable forecast-run objects; it cannot write S3, use provider authority, or invoke a model. |
 | `legalforecastbench-official-eval-fan-in` | GitHub OIDC trust and the provider-free fan-in S3/KMS policy rendered from the verified results bucket and KMS inputs. |
-| `legalforecastbench-official-eval-manifest-staging` | GitHub OIDC trust and the create-only manifest-staging S3/KMS policy: exact-key reads and `if-none-match` writes under `cycle-1/manifest-runs/*` and `model-packets/*`, with no `s3:ListBucket`. |
+| `legalforecastbench-official-eval-manifest-staging` | A two-subject GitHub OIDC trust and the create-only manifest-staging S3/KMS policy: exact-key reads and `if-none-match` writes under `cycle-1/manifest-runs/*` and `model-packets/*`, with no `s3:ListBucket`. |
+
+## The two-subject manifest-staging trust
+
+Manifest staging is the only role whose trust admits two GitHub OIDC subjects,
+so it renders from `policies/manifest-staging-trust.json.tftpl` rather than the
+shared `policies/github-oidc-trust.json.tftpl`. The other three roles keep the
+single-subject template unchanged, which is the point of the split: admitting
+the corpus repository cannot alter what the cell, prepare-inputs, or fan-in
+roles trust.
+
+The two statements are:
+
+| Sid | Subject | Conditions |
+| --- | --- | --- |
+| `GitHubActionsOidc` | this repository's `legalforecastbench-official-eval-manifest-staging` environment | `aud`, `sub`, `repository`, `ref` |
+| `GitHubActionsOidcCorpusReleaseStaging` | the private corpus repository's `corpus-release-staging` environment | `aud`, `sub`, `repository`, `repository_id`, `repository_owner_id`, `environment`, `ref` |
+
+Both are single-valued `StringEquals`. Neither uses a list, a `StringLike`, or a
+wildcard, so there is no cartesian looseness between the two claim sets: a token
+must satisfy one whole statement.
+
+The corpus subject is derived in `locals.tf` rather than accepted as free-form
+input, because that repository opts into GitHub's *immutable* subject claim.
+Its `sub` is `repo:<owner>@<owner_id>/<repository>@<repository_id>:environment:<environment>`,
+not the mutable `repo:<owner>/<repository>:environment:<environment>` this
+repository uses. Encoding that shape here makes the contract reviewable and
+makes a reverted claim customization fail closed: the default subject no longer
+matches the pinned one, and the assume is simply refused.
+
+`corpus_github_repository_id` and `corpus_github_repository_owner_id` have no
+defaults. This repository is public; another repository's numeric identifiers
+are supplied at apply time from the protected variable file. Read them from
+`GET /repos/<owner>/<repository>` (`.id` and `.owner.id`) with an authorized
+GitHub credential, and confirm
+`GET /repos/<owner>/<repository>/actions/oidc/customization/sub` still reports
+`use_immutable_subject: true` before planning. If that customization has been
+turned off, fix the customization; do not widen the trust to the mutable
+subject.
+
+The write authority itself is unchanged. The corpus repository assumes the same
+role ARN with the same inline policy, so what reaches S3 and KMS is byte for
+byte the principal those resource policies already name. Only the trust decides
+who may become that principal.
 
 All four roles use exclusive inline-policy and managed-policy-attachment
 resources. Inventory any existing role policies before an import or apply;
@@ -93,6 +136,10 @@ The protected infrastructure environment supplies the exact values below:
 - `LFB_ARTIFACTS_KMS_KEY_ARN`
 - `LFB_PACKET_BUCKET`
 - `LFB_RESULTS_BUCKET`
+- `LFB_CORPUS_GITHUB_REPOSITORY_ID` and `LFB_CORPUS_GITHUB_REPOSITORY_OWNER_ID`
+  (Terraform inputs `corpus_github_repository_id` and
+  `corpus_github_repository_owner_id`; no defaults, supplied by the protected
+  variable file rather than committed here)
 
 The packet/results names and KMS ARN are external verified values, not
 Terraform storage-management identifiers. Lifecycle-rule IDs and retention

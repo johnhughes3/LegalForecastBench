@@ -15,7 +15,28 @@ validating the wrong text.
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
+from typing import cast
+
+
+def render_policy_template(path: Path, **values: str) -> dict[str, object]:
+    """Render one ``.json.tftpl`` policy template the way ``templatefile`` would.
+
+    Shared by every policy fence so the templates are exercised as JSON rather
+    than matched as text. The unresolved-placeholder guard is the point: a fence
+    that silently rendered a stale placeholder set would assert on a document
+    Terraform never produces.
+    """
+    rendered = path.read_text(encoding="utf-8")
+    for name, value in values.items():
+        rendered = rendered.replace(f"${{{name}}}", value)
+    unresolved = re.findall(r"\$\{[^}]+\}", rendered)
+    assert unresolved == [], f"unrendered placeholders in {path.name}: {unresolved}"
+    loaded: object = json.loads(rendered)
+    assert isinstance(loaded, dict)
+    return cast(dict[str, object], loaded)
 
 
 def terraform_local_string(locals_text: str, name: str) -> str:

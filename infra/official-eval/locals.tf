@@ -20,6 +20,19 @@ locals {
   manifest_staging_subject = (
     "${local.github_subject_prefix}:environment:${local.manifest_staging_environment_name}"
   )
+
+  # The corpus repository opts into GitHub's immutable subject claim, so its
+  # `sub` names the numeric owner and repository IDs rather than the mutable
+  # owner/repository pair. Deriving the subject here rather than accepting it as
+  # a free-form input keeps that contract visible to a reviewer and makes a
+  # reverted claim customization fail closed: the default `sub` no longer
+  # matches, and the role simply refuses the assume.
+  corpus_github_repository_parts = split("/", var.corpus_github_repository)
+  corpus_github_subject = join("", [
+    "repo:${local.corpus_github_repository_parts[0]}@${var.corpus_github_repository_owner_id}",
+    "/${local.corpus_github_repository_parts[1]}@${var.corpus_github_repository_id}",
+    ":environment:${var.corpus_github_environment}",
+  ])
   computed_provider_authority_resource_identity_sha256 = sha256(
     var.provider_authority_table_arn
   )
@@ -54,13 +67,25 @@ locals {
       github_subject           = local.prepare_inputs_subject
     },
   )
+  # Manifest staging is the one lane both repositories drive: this repository
+  # stages supplementary run inputs, and the corpus repository hands off the
+  # release it issues. It therefore renders from its own two-statement template
+  # rather than the shared single-subject one, so admitting the second
+  # repository cannot change what the cell, prepare-inputs, or fan-in roles
+  # trust. Each statement stays exactly pinned; neither uses a list or a
+  # wildcard.
   manifest_staging_trust_policy_json = templatefile(
-    "${path.module}/policies/github-oidc-trust.json.tftpl",
+    "${path.module}/policies/manifest-staging-trust.json.tftpl",
     {
-      github_oidc_provider_arn = var.github_oidc_provider_arn
-      github_repository        = local.github_repository
-      github_ref               = local.github_ref
-      github_subject           = local.manifest_staging_subject
+      github_oidc_provider_arn          = var.github_oidc_provider_arn
+      github_repository                 = local.github_repository
+      github_ref                        = local.github_ref
+      github_subject                    = local.manifest_staging_subject
+      corpus_github_repository          = var.corpus_github_repository
+      corpus_github_repository_id       = var.corpus_github_repository_id
+      corpus_github_repository_owner_id = var.corpus_github_repository_owner_id
+      corpus_github_environment         = var.corpus_github_environment
+      corpus_github_subject             = local.corpus_github_subject
     },
   )
 

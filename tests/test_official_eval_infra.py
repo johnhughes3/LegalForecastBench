@@ -12,6 +12,7 @@ import pytest
 from tests.official_infra_trust_helpers import (
     job_environment,
     job_grants_id_token_write,
+    render_policy_template,
     role_assuming_jobs,
     terraform_local_string,
     workflow_jobs,
@@ -48,14 +49,7 @@ PolicyMutation = Callable[[JsonObject], None]
 
 
 def _render_template(path: Path, **values: str) -> JsonObject:
-    rendered = path.read_text(encoding="utf-8")
-    for name, value in values.items():
-        rendered = rendered.replace(f"${{{name}}}", value)
-    unresolved = re.findall(r"\$\{[^}]+\}", rendered)
-    assert unresolved == []
-    loaded: object = json.loads(rendered)
-    assert isinstance(loaded, dict)
-    return cast(JsonObject, loaded)
+    return render_policy_template(path, **values)
 
 
 def _trust_policy(environment: str) -> JsonObject:
@@ -599,6 +593,7 @@ def test_exact_four_role_topology_and_policy_attachments() -> None:
         "fan-in-storage-policy.json.tftpl",
         "github-oidc-trust.json.tftpl",
         "manifest-staging-policy.json.tftpl",
+        "manifest-staging-trust.json.tftpl",
         "prepare-inputs-storage-policy.json.tftpl",
     }
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in (INFRA_ROOT / "outputs.tf").read_text(
@@ -614,7 +609,7 @@ def test_exact_four_role_topology_and_policy_attachments() -> None:
 
 @pytest.mark.parametrize(
     "environment",
-    [CELL_ENVIRONMENT, FAN_IN_ENVIRONMENT, MANIFEST_STAGING_ENVIRONMENT],
+    [CELL_ENVIRONMENT, FAN_IN_ENVIRONMENT],
 )
 def test_oidc_trust_is_exact_for_repository_ref_and_environment(
     environment: str,
