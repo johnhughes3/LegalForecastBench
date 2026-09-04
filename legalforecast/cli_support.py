@@ -169,6 +169,32 @@ def write_report_artifacts(
         path.write_text(text, encoding="utf-8")
 
 
+def artifact_generated_at(
+    *,
+    locked_at: datetime | None = None,
+    recorded_generated_at: object | None = None,
+) -> datetime:
+    """Stamp score and report JSON from the locked run, not the wall clock.
+
+    Fan-in retries compare exact object bytes. A clock reading would change
+    ``generated_at`` on every rerun and make reconcile refuse the already
+    published scores and report.
+    """
+
+    if locked_at is not None:
+        if locked_at.tzinfo is None or locked_at.utcoffset() is None:
+            raise ValueError("locked run timestamp must be timezone-aware")
+        return locked_at
+    if recorded_generated_at is None:
+        return datetime.now(UTC)
+    if not isinstance(recorded_generated_at, str) or not recorded_generated_at:
+        raise ValueError("score artifact generated_at must be a timestamp")
+    parsed = datetime.fromisoformat(recorded_generated_at.replace("Z", "+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("score artifact generated_at must be timezone-aware")
+    return parsed
+
+
 def iso_datetime(value: datetime) -> str:
     """Format an aware datetime in the repository's canonical UTC form."""
 

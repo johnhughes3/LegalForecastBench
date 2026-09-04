@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -194,7 +193,11 @@ def run(args: argparse.Namespace) -> int:
         expected_model_registry_sha256=expected_model_registry_sha256,
     )
     output: dict[str, object] = {
-        "generated_at": _cli_support.iso_datetime(datetime.now(UTC)),
+        "generated_at": _cli_support.iso_datetime(
+            _cli_support.artifact_generated_at(
+                locked_at=loaded_manifest.manifest.locked_at,
+            )
+        ),
         "summaries": [summary.to_record() for summary in summaries],
     }
     output["identity"] = {

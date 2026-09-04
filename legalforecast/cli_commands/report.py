@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Mapping, Sequence
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -116,8 +116,10 @@ def run(args: argparse.Namespace) -> int:
     summary_records = _cli_support.required_record_sequence(score_payload, "summaries")
     contract = _validate_contract_inputs(args)
     provenance: Mapping[str, Any] | None = None
+    locked_at: datetime | None = None
     if contract is not None:
         loaded_manifest, forecast, labels = contract
+        locked_at = loaded_manifest.manifest.locked_at
         provenance = _validate_score_payload_identity(
             score_payload,
             summary_records,
@@ -182,7 +184,10 @@ def run(args: argparse.Namespace) -> int:
         csv_path=csv_path,
         markdown_path=markdown_path,
         html_path=html_path,
-        generated_at=datetime.now(UTC),
+        generated_at=_cli_support.artifact_generated_at(
+            locked_at=locked_at,
+            recorded_generated_at=score_payload.get("generated_at"),
+        ),
     )
     if provenance is not None:
         report_payload = _cli_support.read_json_object(json_path)

@@ -108,7 +108,7 @@
       "legalforecast/testing/architecture_rules": 9,
       "legalforecast/testing/cli_corpus": 12,
       "scripts": 9,
-      "tests": 178,
+      "tests": 179,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
