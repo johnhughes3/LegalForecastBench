@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import IO, cast
 
 import pytest
 from legalforecast.multiharness import container_harness, container_runtime
@@ -18,6 +19,9 @@ from legalforecast.multiharness.container_harness.plan import (
     ContainerHarnessError,
     ContainerHarnessSpec,
     HarnessCredential,
+)
+from legalforecast.multiharness.container_harness.publication import (
+    DENIED_HOST_PLACEHOLDER,
 )
 from legalforecast.multiharness.container_harness.runtime import (
     STAGING_ROOT_NAME,
@@ -66,6 +70,8 @@ def _install_fake_backend(
     tmp_path: Path,
     *,
     fail_on: tuple[str, ...] | None = None,
+    evidence_payload: dict[str, object] | None = None,
+    harness_stdout: bytes = b"",
 ) -> list[tuple[str, ...]]:
     runtime_dir = tmp_path / "runtime"
     runtime_dir.mkdir()
@@ -100,17 +106,19 @@ def _install_fake_backend(
                 ):
                     source = item.removeprefix("type=bind,src=").split(",", 1)[0]
                     Path(source).mkdir(parents=True, exist_ok=True)
+                    payload = evidence_payload or {
+                        "allowed_hosts": [],
+                        "refused": [],
+                        "decision_count": 0,
+                    }
                     (Path(source) / "egress-evidence.json").write_text(
-                        json.dumps(
-                            {
-                                "allowed_hosts": [],
-                                "refused": [],
-                                "decision_count": 0,
-                            }
-                        )
-                        + "\n",
+                        json.dumps(payload) + "\n",
                         encoding="utf-8",
                     )
+        elif len(argv_t) >= 2 and argv_t[1] == "run" and stdout is not None:
+            writer = cast(IO[bytes], stdout)
+            writer.write(harness_stdout)
+            writer.flush()
         return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
 
     monkeypatch.setattr(
@@ -142,7 +150,7 @@ def test_failed_setup_deletes_the_credential_home(
     _install_fake_backend(monkeypatch, tmp_path, fail_on=("network", "create"))
 
     with pytest.raises(ContainerHarnessError):
-        run_container_harness(spec)
+        run_container_harness(spec, publication_directory=tmp_path / "published")
 
     runtime_dir = tmp_path / "runtime"
     leftover = [
@@ -168,9 +176,31 @@ def test_mocked_run_puts_the_harness_only_on_the_internal_network(
             HarnessCredential(host_path=source, home_relative_path=".claude.json"),
         ),
     )
-    calls = _install_fake_backend(monkeypatch, tmp_path)
+    attacker_host = "attacker-choice.not-allowlisted.test"
+    transcript = (
+        b'{"type":"system","subtype":"init","tools":["Bash","Read"]}\n'
+        b'{"type":"result","usage":{"server_tool_use":'
+        b'{"web_search_requests":0,"web_fetch_requests":0}}}\n'
+    )
+    calls = _install_fake_backend(
+        monkeypatch,
+        tmp_path,
+        evidence_payload={
+            "allowed_hosts": ["api.anthropic.com"],
+            "refused": [
+                {
+                    "host": attacker_host,
+                    "port": 443,
+                    "reason": "host_not_allowlisted",
+                }
+            ],
+            "decision_count": 2,
+        },
+        harness_stdout=transcript,
+    )
 
-    result = run_container_harness(spec)
+    published = tmp_path / "published"
+    result = run_container_harness(spec, publication_directory=published)
 
     assert result.exit_code == 0
     assert result.timed_out is False
@@ -197,6 +227,16 @@ def test_mocked_run_puts_the_harness_only_on_the_internal_network(
     if staging.exists():
         assert list(staging.iterdir()) == []
     assert source.read_text(encoding="utf-8") == _SECRET
+    public_text = "\n".join(
+        path.read_text(encoding="utf-8") for path in sorted(published.iterdir())
+    )
+    assert attacker_host not in public_text
+    proxy = json.loads((published / "proxy-logs.json").read_text(encoding="utf-8"))
+    assert proxy["refused"][0]["host"] == DENIED_HOST_PLACEHOLDER
+    fence = json.loads((published / "fence.json").read_text(encoding="utf-8"))
+    assert fence["server_side_web_tools_disabled"] is True
+    assert fence["native_tools_enabled"] is True
+    assert fence["parser_fields"]["tools_available"] == ["Bash", "Read"]
 
 
 def test_cleanup_deletes_credentials_when_docker_rm_raises(
@@ -213,7 +253,7 @@ def test_cleanup_deletes_credentials_when_docker_rm_raises(
     calls = _install_fake_backend(monkeypatch, tmp_path, fail_on=("rm", "--force"))
 
     with pytest.raises(ContainerHarnessError):
-        run_container_harness(spec)
+        run_container_harness(spec, publication_directory=tmp_path / "published")
 
     rm_calls = [call for call in calls if call[1:3] == ("rm", "--force")]
     network_rms = [call for call in calls if call[1:3] == ("network", "rm")]

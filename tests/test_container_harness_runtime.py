@@ -408,7 +408,7 @@ def test_the_bind_mounted_proxy_source_is_a_real_single_file() -> None:
     assert "import legalforecast" not in source.read_text(encoding="utf-8")
 
 
-def test_result_record_carries_the_egress_evidence_and_no_host_paths(
+def test_result_record_carries_counts_but_no_attacker_controlled_hosts(
     tmp_path: Path,
 ) -> None:
     result = ContainerHarnessResult(
@@ -427,8 +427,9 @@ def test_result_record_carries_the_egress_evidence_and_no_host_paths(
 
     record = result.to_record()
 
-    assert record["egress_allowed_hosts"] == ["api.anthropic.com"]
-    assert record["egress_refused"][0]["host"] == "courtlistener.com"
+    assert record["egress_allowed_host_count"] == 1
+    assert record["egress_refused_count"] == 1
+    assert "courtlistener.com" not in repr(record)
     assert record["duration_seconds"] == 12.346
     assert record["stdout_file"] == "run.stdout"
     assert str(tmp_path) not in repr(record)

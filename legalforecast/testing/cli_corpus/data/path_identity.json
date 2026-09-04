@@ -68,6 +68,7 @@
     "tests/test_community_lab_quickstart.py",
     "tests/test_community_multiharness_workflow.py",
     "tests/test_community_run_summary_v2.py",
+    "tests/test_container_harness_evidence.py",
     "tests/test_contributor_subscription_profile.py",
     "tests/test_cycle1_disclosure_review_model_registry.py",
     "tests/test_dependabot_auto_merge_workflow.py",
