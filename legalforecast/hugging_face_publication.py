@@ -911,19 +911,20 @@ def _dataset_card(
         ""
         if supplementary_digest is None
         else f"""
-## Supplementary (unofficial) results
+## Post-anchor results
 
 {SUPPLEMENTARY_CAVEAT}
 
-Supplementary rows are published in their own `{cycle_id}_supplementary` config
-and `supplementary` split, under `{release_path}/{_SUPPLEMENTARY_DIRECTORY}` with
-artifact-index commitment `{supplementary_digest}`. They are never present in
-the official `{cycle_id}` config or its `test` split.
+Post-anchor rows are official LegalForecast-MTD Cycle 1 results. They are
+published in their own `{cycle_id}_supplementary` config and `supplementary`
+split, under `{release_path}/{_SUPPLEMENTARY_DIRECTORY}` with artifact-index
+commitment `{supplementary_digest}`. They are never present in the pre-anchor
+`{cycle_id}` config or its `test` split.
 
 They carry the `{SUPPLEMENTARY_MARKER}` marker on the rendered result page and
-are excluded from ranking, from the best-model figure, and from every
-delta-vs-best interval. They must not be reported as official
-LegalForecastBench results.
+rank among post-anchor rows only. The headline and overall best-model figure
+remain the best pre-anchor row. Delta-vs-best is versus the best model in the
+same arm.
 """
     )
     return f"""---

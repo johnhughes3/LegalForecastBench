@@ -22,6 +22,7 @@ from legalforecast.reporting.result_class import (
     ResultClass,
     ResultClassError,
     result_class_marker,
+    result_class_tier_label,
     supplementary_caveat_if_needed,
 )
 
@@ -41,7 +42,7 @@ class _TableRow:
     """One rendered table row bound to its score summary and result class.
 
     The leaderboard row and the score summary come from the same bundle, so
-    pairing them here is what lets official and supplementary rows share a
+    pairing them here is what lets pre-anchor and post-anchor rows share a
     single rendering path without a second lookup table.
     """
 
@@ -64,7 +65,7 @@ def build_official_report_page(
     ``supplementary_bundle`` is a separately aggregated, official-shaped bundle
     for post-anchor models. It is merged here, at render time, so that none of
     the official set-equality gates in ``official_report_validation`` ever see a
-    supplementary row.
+    post-anchor row.
     """
 
     validated_bundle = bundle or load_official_bundle(official_artifacts_dir)
@@ -97,9 +98,9 @@ def build_official_report_page(
         cycle_power=cycle_power,
     )
     title = _display_title(report)
-    # Supplementary rows are excluded here by construction: only the official
-    # bundle's model rows can win "best model", the headline cards, or a
-    # delta-vs-best interval.
+    # Headline / overall best stays the best pre-anchor row. Post-anchor rows
+    # rank among themselves; their delta-vs-best is versus the best model in
+    # that arm, never across arms.
     best_model = _best_model_row(model_rows)
     model_entries = _official_table_rows(model_rows, score_rows_by_model)
     baseline_entries = _official_table_rows(baseline_rows, score_rows_by_model)
@@ -234,9 +235,9 @@ def _supplementary_note(entries: Sequence[_TableRow]) -> str:
     caveat = supplementary_caveat_if_needed(entry.result_class for entry in entries)
     if caveat is None:
         return ""
-    marker = result_class_marker(ResultClass.SUPPLEMENTARY_POST_ANCHOR)
+    marker = result_class_marker(ResultClass.POST_ANCHOR)
     return (
-        "<p class='notice supplementary-notice'>"
+        "<p class='notice post-anchor-notice'>"
         f"{html.escape(marker, quote=False)} {html.escape(caveat, quote=False)}</p>"
     )
 
@@ -245,11 +246,12 @@ def _require_official_result_classes(
     rows: Sequence[Mapping[str, Any]],
     result_classes: Mapping[str, ResultClass] | None,
 ) -> None:
-    """Refuse to render an official bundle that contains a supplementary row.
+    """Refuse a post-anchor sidecar label on a pre-anchor bundle row.
 
-    The authoritative refusal lives in the official aggregate gate; this is the
-    render-path restatement, so a supplementary row can never reach the official
-    table even if it somehow reached the official bundle.
+    Pre-anchor bundle rows are rendered as pre-anchor. A sidecar that classes
+    one of them post-anchor would otherwise be ignored, labeling a post-anchor
+    model as pre-anchor. Post-anchor rows publish through the post-anchor
+    bundle, not by being smuggled into this one.
     """
 
     if not result_classes:
@@ -261,12 +263,12 @@ def _require_official_result_classes(
             result_classes.get(
                 model_id := _first_str(row, ("model_id", "model_key", "solver_id"))
             )
-            is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+            is ResultClass.POST_ANCHOR
         )
     )
     if offending:
         raise ResultClassError(
-            f"official bundle contains supplementary-classed rows: {offending}"
+            f"pre-anchor bundle contains post-anchor-classed rows: {offending}"
         )
 
 
@@ -280,7 +282,7 @@ def _official_table_rows(
             score_row=score_rows_by_model[
                 _first_str(row, ("model_id", "model_key", "solver_id"))
             ],
-            result_class=ResultClass.OFFICIAL,
+            result_class=ResultClass.PRE_ANCHOR,
         )
         for row in rows
     )
@@ -292,18 +294,19 @@ def _supplementary_table_rows(
     official_cycle_id: str,
     result_classes: Mapping[str, ResultClass] | None,
 ) -> tuple[_TableRow, ...]:
-    """Build the supplementary model rows from a separately aggregated bundle.
+    """Build the post-anchor model rows from a separately aggregated bundle.
 
-    Membership in this bundle is what makes a row supplementary; the sidecar can
-    only contradict it, never downgrade it, so a missing sidecar cannot silently
-    publish a post-anchor model as official. Rows are ordered by ``model_id`` so
-    the table is deterministic and never interleaves into the official ranking.
+    Membership in this bundle is what makes a row post-anchor; the sidecar can
+    only contradict it, never relabel it pre-anchor, so a missing sidecar cannot
+    silently publish a post-anchor model as pre-anchor. Rows are ordered by
+    micro-Brier then ``model_id`` so they rank within the post-anchor arm and
+    never interleave into the pre-anchor ranking.
     """
 
     cycle_id = _first_str(bundle.report, ("cycle_id",))
     if cycle_id != official_cycle_id:
         raise ResultClassError(
-            f"supplementary bundle cycle_id {cycle_id} differs from official "
+            f"post-anchor bundle cycle_id {cycle_id} differs from official "
             f"cycle {official_cycle_id}"
         )
     # A supplementary bundle is published from these bytes, so it earns the same
@@ -320,33 +323,33 @@ def _supplementary_table_rows(
         allow_single_model_bundle=True,
     )
     score_rows_by_model = {
-        _required_text(row, "model_id", label="supplementary score summary"): row
+        _required_text(row, "model_id", label="post-anchor score summary"): row
         for row in _mapping_rows(bundle.scores.get("summaries", ()))
     }
     model_rows, _ = _partition_official_rows(
         _mapping_rows(bundle.report.get("rows", ()))
     )
     entries: list[_TableRow] = []
-    for row in sorted(model_rows, key=lambda item: _first_str(item, ("model_id",))):
+    for row in sorted(model_rows, key=_arm_rank_key):
         model_id = _required_text(
             row,
             "model_id",
-            label="supplementary leaderboard row",
+            label="post-anchor leaderboard row",
         )
-        if (result_classes or {}).get(model_id) is ResultClass.OFFICIAL:
+        if (result_classes or {}).get(model_id) is ResultClass.PRE_ANCHOR:
             raise ResultClassError(
-                f"supplementary bundle row {model_id} is classed official"
+                f"post-anchor bundle row {model_id} is classed pre-anchor"
             )
         score_row = score_rows_by_model.get(model_id)
         if score_row is None:
             raise ValueError(
-                f"supplementary score summary is missing model_id={model_id}"
+                f"post-anchor score summary is missing model_id={model_id}"
             )
         entries.append(
             _TableRow(
                 row=row,
                 score_row=score_row,
-                result_class=ResultClass.SUPPLEMENTARY_POST_ANCHOR,
+                result_class=ResultClass.POST_ANCHOR,
             )
         )
     return tuple(entries)
@@ -365,19 +368,21 @@ def _partition_official_rows(
     return tuple(models), tuple(baselines)
 
 
+def _arm_rank_key(row: Mapping[str, Any]) -> tuple[float, str]:
+    score = _optional_number(row, "micro_brier")
+    return (
+        score if score is not None else float("inf"),
+        _first_str(row, ("model_id", "model_key", "solver_id")),
+    )
+
+
 def _best_model_row(
     rows: Sequence[Mapping[str, Any]],
 ) -> Mapping[str, Any] | None:
     scored = [row for row in rows if _optional_number(row, "micro_brier") is not None]
     if not scored:
         return rows[0] if rows else None
-    return min(
-        scored,
-        key=lambda row: (
-            cast(float, _optional_number(row, "micro_brier")),
-            _first_str(row, ("model_id", "model_key", "solver_id")),
-        ),
-    )
+    return min(scored, key=_arm_rank_key)
 
 
 def _headline_cards(
@@ -448,16 +453,14 @@ def _official_table(
         row = entry.row
         score_row = entry.score_row
         model = _first_str(row, ("model_id", "model_key", "solver_id"))
-        supplementary = entry.result_class is ResultClass.SUPPLEMENTARY_POST_ANCHOR
+        post_anchor = entry.result_class is ResultClass.POST_ANCHOR
         marker = result_class_marker(entry.result_class)
         label = _display_model_label(model, contamination_tiers) + marker
-        tier_label = f"Supplementary{marker}" if supplementary else "Official"
-        badge_class = "tier-badge supplementary" if supplementary else "tier-badge"
-        # A supplementary bundle is aggregated against a one-model registry, so
-        # its own row is trivially "best" inside it. Rendering that interval here
-        # would read as a rank against the official set, so the cell is
-        # neutralized instead.
-        delta = "Not ranked" if supplementary else _delta_interval(row)
+        tier_label = result_class_tier_label(entry.result_class)
+        badge_class = "tier-badge post-anchor" if post_anchor else "tier-badge"
+        # Delta-vs-best is versus the best model in the same arm. The post-anchor
+        # bundle is aggregated separately, so its interval is already within-arm.
+        delta = _delta_interval(row)
         score = _optional_number(row, "micro_brier")
         invalid_rate = _optional_number(row, "invalid_output_rate")
         refusal_rate = _optional_number(row, "refusal_rate")
@@ -558,13 +561,13 @@ def _supplementary_calibration(
     *,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> str:
-    """Publish the supplementary bundle's own calibration, never merged.
+    """Publish the post-anchor bundle's own calibration, never merged.
 
     Silence would misinform rather than protect: the results table above already
-    publishes an ECE for every supplementary row, so a reader who found no bins
+    publishes an ECE for every post-anchor row, so a reader who found no bins
     could not tell whether the figure was unsupported or merely unshown. These
-    tables therefore come from the supplementary bundle's own frozen leaderboard
-    bytes, stay under their own heading, and carry the supplementary marker.
+    tables therefore come from the post-anchor bundle's own frozen leaderboard
+    bytes, stay under their own heading, and carry the post-anchor marker.
     """
 
     if bundle is None or not entries:
@@ -577,15 +580,14 @@ def _supplementary_calibration(
     )
     if not tables:
         return ""
-    marker = result_class_marker(ResultClass.SUPPLEMENTARY_POST_ANCHOR)
+    marker = result_class_marker(ResultClass.POST_ANCHOR)
     return (
-        f"<h3>Supplementary calibration{html.escape(marker, quote=False)}</h3>"
-        "<p class='muted'>These tables are reconstructed from the supplementary "
-        "bundle and are never merged into the official calibration above. They "
-        "are not official LegalForecastBench results.</p>"
+        f"<h3>Post-anchor calibration{html.escape(marker, quote=False)}</h3>"
+        "<p class='muted'>These tables are reconstructed from the post-anchor "
+        "bundle and are never merged into the pre-anchor calibration above.</p>"
         + _calibration_tables(
             tables,
-            caption="Supplementary calibration summary",
+            caption="Post-anchor calibration summary",
             contamination_tiers=contamination_tiers,
             marker=marker,
         )
