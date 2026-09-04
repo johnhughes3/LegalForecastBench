@@ -159,7 +159,14 @@ jobs:
               echo "official input locators must be s3:// URIs or manifests/ keys" >&2
               exit 1
             }
-            [[ "${locator}" != *..* && "${locator}" != *"//"* ]] || {
+            # The doubled-slash check applies to the key, not the whole
+            # locator: `s3://` carries one itself, so testing the locator
+            # rejected every well-formed s3 URI and left `manifests/` keys as
+            # the only dispatchable form. Stripping the scheme first keeps the
+            # real defence -- an empty path segment in the key -- and leaves
+            # `manifests/` locators, which have no scheme to strip, unchanged.
+            key_only="${locator#s3://}"
+            [[ "${locator}" != *..* && "${key_only}" != *"//"* ]] || {
               echo "official input locator contains an unsafe path" >&2
               exit 1
             }

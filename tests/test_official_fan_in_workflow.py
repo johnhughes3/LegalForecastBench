@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import shlex
+import subprocess
 from pathlib import Path
 
 WORKFLOW_PATH = Path(".github/workflows/fan-in-publish.yaml")
@@ -209,6 +211,54 @@ def test_workflow_uses_immutable_action_pins_and_rejects_unsafe_locators() -> No
     assert "unsafe path" in WORKFLOW
     assert "artifact_root_uri must be a prefix ending in /" in WORKFLOW
     assert re.search(r"reports/\$\{CYCLE_ID\}/multi-ablation", WORKFLOW)
+
+
+def test_the_locator_guard_admits_real_s3_uris_and_still_refuses_unsafe_keys() -> None:
+    """Execute the guard rather than matching its text.
+
+    The doubled-slash check was written against the whole locator, and `s3://`
+    contains a doubled slash of its own, so it rejected every well-formed s3
+    URI -- including the ones the corpus staging lane is the only producer of.
+    The substring assertions above could not see that, because the shell was
+    never run. This runs it.
+    """
+
+    guard = re.search(
+        r'^\s*key_only="\$\{locator#s3://\}"\n\s*(\[\[ "\$\{locator\}".*?\]\])',
+        WORKFLOW,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert guard is not None, "the locator guard is no longer where this test reads it"
+    predicate = guard.group(1)
+
+    def accepts(locator: str) -> bool:
+        script = (
+            "set -u\n"
+            f"locator={shlex.quote(locator)}\n"
+            'key_only="${locator#s3://}"\n'
+            f"if {predicate}; then exit 0; else exit 1; fi\n"
+        )
+        return (
+            subprocess.run(
+                ["bash", "-c", script], capture_output=True, check=False
+            ).returncode
+            == 0
+        )
+
+    assert accepts(
+        "s3://lfb-results/cycle-1/manifest-runs/releases/rel-1/"
+        + "0" * 64
+        + "/forecast-release.json"
+    )
+    assert accepts("s3://lfb-results/cycle-1/manifest-runs/releases/rel-1/artifacts/")
+    assert accepts("manifests/cycle-1/run-manifest.json")
+    for unsafe in (
+        "s3://lfb-results/cycle-1//manifest-runs/x.json",
+        "manifests/cycle-1//run-manifest.json",
+        "s3://lfb-results/../other/x.json",
+        "manifests/../other/x.json",
+    ):
+        assert not accepts(unsafe), unsafe
 
 
 def test_origin_main_is_resolvable_without_a_separate_unauthenticated_fetch() -> None:
