@@ -8,6 +8,8 @@ from legalforecast.multiharness.harness_lane.forecast import (
 )
 from legalforecast.multiharness.harness_lane.staging import (
     CONTAINER_WORKSPACE_ROOT,
+    GRADED_DIRECTORY_MODE,
+    GRADED_FILE_MODE,
     GRADED_PACKET_RELATIVE_PATH,
     HarnessLaneStagingError,
     StagedHarnessWorkspace,
@@ -21,6 +23,8 @@ from legalforecast.multiharness.harness_lane.staging import (
 
 __all__ = [
     "CONTAINER_WORKSPACE_ROOT",
+    "GRADED_DIRECTORY_MODE",
+    "GRADED_FILE_MODE",
     "GRADED_PACKET_RELATIVE_PATH",
     "HarnessForecastRow",
     "HarnessLaneForecastError",

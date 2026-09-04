@@ -29,6 +29,10 @@ from legalforecast.multiharness.validation import validate_safe_relative_path
 
 CONTAINER_WORKSPACE_ROOT = "/workspace"
 GRADED_PACKET_RELATIVE_PATH = "source/model-packet.json"
+# Bind-mounted workspaces keep host ownership; the live sandbox runs as
+# 65532:65532, so other-execute/other-read bits are what that UID uses.
+GRADED_DIRECTORY_MODE = 0o755
+GRADED_FILE_MODE = 0o644
 
 
 class HarnessLaneStagingError(ValueError):
@@ -114,7 +118,7 @@ def stage_graded_container_workspace(
             "invoke prompt names a packet path that is not in the solver input"
         )
     try:
-        destination_root.mkdir(mode=0o700, parents=True)
+        destination_root.mkdir(parents=True)
         for item in entry.files:
             payload = read_single_link_file(
                 store.root / item.source_path,
@@ -122,7 +126,8 @@ def stage_graded_container_workspace(
             )
             destination = destination_root / item.destination_path
             destination.parent.mkdir(parents=True, exist_ok=True)
-            write_file_create_only(destination, payload, mode=0o444)
+            write_file_create_only(destination, payload, mode=GRADED_FILE_MODE)
+        _apply_sandbox_readable_modes(destination_root)
     except (ImmutableIOError, OSError) as exc:
         raise HarnessLaneStagingError("graded workspace could not be staged") from exc
     require_packet_staged(destination_root, invoke_prompt=prompt)
@@ -160,6 +165,19 @@ def read_container_workspace_file(
         raise HarnessLaneStagingError(
             "planned container read path is unreadable"
         ) from exc
+
+
+def _apply_sandbox_readable_modes(root: Path) -> None:
+    """chmod after create so umask cannot leave a 0700 owner-only tree."""
+
+    root.chmod(GRADED_DIRECTORY_MODE)
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise HarnessLaneStagingError("graded workspace contains a symlink")
+        if path.is_dir():
+            path.chmod(GRADED_DIRECTORY_MODE)
+        elif path.is_file():
+            path.chmod(GRADED_FILE_MODE)
 
 
 def _packet_file(entry: SolverInputEntry) -> SolverInputFile:

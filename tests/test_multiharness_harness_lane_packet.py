@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,8 @@ from legalforecast.evals.output_parser import (
 from legalforecast.multiharness.adapter_registry import builtin_adapter_registry
 from legalforecast.multiharness.harness_lane import (
     CONTAINER_WORKSPACE_ROOT,
+    GRADED_DIRECTORY_MODE,
+    GRADED_FILE_MODE,
     GRADED_PACKET_RELATIVE_PATH,
     HarnessLaneForecastError,
     HarnessLaneStagingError,
@@ -89,6 +92,33 @@ def test_correct_staging_puts_packet_on_the_planned_container_read(
     observed = read_container_workspace_file(staged, staged.planned_read_path)
     assert observed == packet_bytes
     assert _bytes_sha256(observed) == task.task_sha256
+
+
+def test_staged_workspace_is_traversable_by_other_uid(tmp_path: Path) -> None:
+    """A 0700 host-owned root is opaque to sandbox UID 65532 on a bind mount."""
+
+    task = _task()
+    store = _store(tmp_path, task=task)
+    staged = stage_graded_container_workspace(
+        store,
+        task,
+        destination_root=tmp_path / "container-workspace",
+    )
+    packet = staged.host_root / GRADED_PACKET_RELATIVE_PATH
+    assert packet.is_file()
+
+    directory = packet.parent
+    while True:
+        mode = stat.S_IMODE(directory.stat().st_mode)
+        assert mode == GRADED_DIRECTORY_MODE
+        assert mode & stat.S_IXOTH
+        if directory == staged.host_root:
+            break
+        directory = directory.parent
+
+    file_mode = stat.S_IMODE(packet.stat().st_mode)
+    assert file_mode == GRADED_FILE_MODE
+    assert file_mode & stat.S_IROTH
 
 
 def test_json_decode_error_is_a_failed_row_not_a_scored_success() -> None:
