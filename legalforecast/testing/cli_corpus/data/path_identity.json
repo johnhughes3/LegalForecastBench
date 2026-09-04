@@ -36,6 +36,7 @@
     "legalforecast/multiharness/claude_agent_sdk.py",
     "legalforecast/multiharness/claude_code.py",
     "legalforecast/multiharness/codex_cli.py",
+    "legalforecast/multiharness/container_harness/cli_fence.py",
     "legalforecast/multiharness/contributor_boundary.py",
     "legalforecast/multiharness/local_cli_runtime.py",
     "legalforecast/multiharness/openai_responses.py",

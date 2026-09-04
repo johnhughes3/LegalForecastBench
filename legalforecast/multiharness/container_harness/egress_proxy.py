@@ -9,12 +9,16 @@ Only ``CONNECT host:port`` is accepted; any other request line -- an absolute-UR
 ``GET`` on the plain-HTTP proxy port included -- is refused with 403 and
 recorded, so a cleartext attempt is seen rather than escaping unseen.  The
 allowlist decision is made on the request string before any DNS lookup or dial,
-so a refused host is never resolved and never contacted.  TLS is never
-terminated, tunnelled bytes are never inspected, and nothing but host, port and
-outcome is ever recorded.  The refusal list is both the evidence that a run
-stayed inside its fence and the discovery loop for a missing token-refresh
-endpoint: an OAuth session that refreshes mid-run surfaces as a refusal naming
-the exact host to add to the manifest allowlist.
+so a refused host is never resolved and never contacted.  After an allowlisted
+CONNECT, the proxy peeks at the HTTP Host header and the TLS ClientHello SNI
+and refuses a tunnel whose advertised name does not match the CONNECT target
+(domain fronting).  TLS is not terminated: only the cleartext ClientHello is
+parsed, peeked bytes are forwarded untouched on a match, and the offered SNI
+or Host is never recorded -- only the authorized CONNECT name and the reason.
+The refusal list is both the evidence that a run stayed inside its fence and
+the discovery loop for a missing token-refresh endpoint: an OAuth session that
+refreshes mid-run surfaces as a refusal naming the exact host to add to the
+manifest allowlist.
 
 Two limits, stated plainly.  Proxy environment variables steer only cooperating
 clients, so the runtime that owns this proxy also puts the harness container on
@@ -50,6 +54,19 @@ REASON_PORT_NOT_ALLOWLISTED: Final[str] = "port_not_allowlisted"
 REASON_METHOD_NOT_CONNECT: Final[str] = "method_not_connect"
 REASON_MALFORMED_REQUEST: Final[str] = "malformed_request"
 REASON_UPSTREAM_UNREACHABLE: Final[str] = "upstream_unreachable"
+REASON_HOST_HEADER_MISMATCH: Final[str] = "host_header_mismatch"
+REASON_SNI_MISMATCH: Final[str] = "sni_mismatch"
+REASON_SNI_MISSING: Final[str] = "sni_missing"
+MAX_TLS_RECORD_BYTES: Final[int] = 16 * 1024 + 256
+_HTTP_METHODS: Final[tuple[bytes, ...]] = (
+    b"GET ",
+    b"POST ",
+    b"HEAD ",
+    b"PUT ",
+    b"PATCH ",
+    b"DELETE ",
+    b"OPTIONS ",
+)
 
 _LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\Z")
 _CONNECT_TARGET = re.compile(
@@ -255,6 +272,7 @@ class _ConnectHandler(socketserver.BaseRequestHandler):
         try:
             head = _read_request_head(client)
             host, port = _parse_connect_target(head)
+            connect_host_header = _ascii_headers(head).get("host")
         except _RefusedRequest as exc:
             server.note("", 0, exc.reason)
             _respond(client, 403, "Forbidden", exc.reason)
@@ -263,9 +281,27 @@ class _ConnectHandler(socketserver.BaseRequestHandler):
             server.note("", 0, REASON_MALFORMED_REQUEST)
             return
         reason = server.allowlist.permits(host, port)
-        server.note(host, port, reason)
         if reason is not None:
+            server.note(host, port, reason)
             _respond(client, 403, "Forbidden", reason)
+            return
+        if connect_host_header is not None and not _names_match(
+            connect_host_header, host
+        ):
+            server.note(host, port, REASON_HOST_HEADER_MISMATCH)
+            _respond(client, 403, "Forbidden", REASON_HOST_HEADER_MISMATCH)
+            return
+        try:
+            client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+            peeked, bind_reason = _peek_tunneled_name(client, host)
+        except _RefusedRequest as exc:
+            server.note(host, port, exc.reason)
+            return
+        except OSError:
+            server.note(host, port, REASON_MALFORMED_REQUEST)
+            return
+        if bind_reason is not None:
+            server.note(host, port, bind_reason)
             return
         try:
             upstream = socket.create_connection(
@@ -273,10 +309,14 @@ class _ConnectHandler(socketserver.BaseRequestHandler):
             )
         except OSError:
             server.note(host, port, REASON_UPSTREAM_UNREACHABLE)
-            _respond(client, 502, "Bad Gateway", REASON_UPSTREAM_UNREACHABLE)
             return
         try:
-            client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+            if peeked:
+                try:
+                    upstream.sendall(peeked)
+                except OSError:
+                    return
+            server.note(host, port, None)
             _relay(client, upstream, server.idle_timeout)
         finally:
             upstream.close()
@@ -316,6 +356,184 @@ def _parse_connect_target(head: bytes) -> tuple[str, int]:
     if not 1 <= port <= 65535:
         raise _RefusedRequest(REASON_MALFORMED_REQUEST)
     return match.group("host"), port
+
+
+def _ascii_headers(head: bytes) -> dict[str, str]:
+    """Return lower-cased header names from a request head."""
+
+    headers: dict[str, str] = {}
+    for line in head.split(b"\r\n")[1:]:
+        if line == b"":
+            break
+        if b":" not in line:
+            raise _RefusedRequest(REASON_MALFORMED_REQUEST)
+        name, value = line.split(b":", 1)
+        try:
+            key = name.decode("ascii").strip().lower()
+            parsed = value.decode("ascii").strip()
+        except UnicodeDecodeError as exc:
+            raise _RefusedRequest(REASON_MALFORMED_REQUEST) from exc
+        if key in headers and headers[key] != parsed:
+            reason = (
+                REASON_HOST_HEADER_MISMATCH
+                if key == "host"
+                else REASON_MALFORMED_REQUEST
+            )
+            raise _RefusedRequest(reason)
+        headers[key] = parsed
+    return headers
+
+
+def _names_match(left: str, right: str) -> bool:
+    """Return True when two hostnames name the same target, ignoring case/port."""
+
+    return _canonical_name(left) == _canonical_name(right) and bool(
+        _canonical_name(left)
+    )
+
+
+def _canonical_name(value: str) -> str:
+    candidate = value.strip().rstrip(".").lower()
+    if candidate.startswith("["):
+        end = candidate.find("]")
+        return candidate[1:end] if end != -1 else candidate
+    if candidate.count(":") == 1:
+        host, port = candidate.rsplit(":", 1)
+        if port.isdigit():
+            return host
+    return candidate
+
+
+def _recv_exact(client: socket.socket, size: int) -> bytes:
+    buffer = bytearray()
+    while len(buffer) < size:
+        chunk = client.recv(size - len(buffer))
+        if not chunk:
+            raise _RefusedRequest(REASON_MALFORMED_REQUEST)
+        buffer.extend(chunk)
+    return bytes(buffer)
+
+
+def _peek_tunneled_name(
+    client: socket.socket, authorized_host: str
+) -> tuple[bytes, str | None]:
+    """Peek TLS SNI or HTTP Host; return (buffered bytes, refusal or None)."""
+
+    first = client.recv(1)
+    if not first:
+        return b"", REASON_SNI_MISSING
+    if first == b"\x16":
+        header_rest = _recv_exact(client, 4)
+        record_len = int.from_bytes(header_rest[2:4], "big")
+        if record_len < 4 or record_len > MAX_TLS_RECORD_BYTES:
+            return first + header_rest, REASON_MALFORMED_REQUEST
+        body = _recv_exact(client, record_len)
+        record = first + header_rest + body
+        sni = _tls_client_hello_sni(record)
+        if sni is None:
+            return record, REASON_SNI_MISSING
+        if not _names_match(sni, authorized_host):
+            return record, REASON_SNI_MISMATCH
+        return record, None
+    buffer = bytearray(first)
+    while b"\r\n\r\n" not in buffer:
+        if len(buffer) > MAX_REQUEST_HEADER_BYTES:
+            return bytes(buffer), REASON_MALFORMED_REQUEST
+        chunk = client.recv(4096)
+        if not chunk:
+            break
+        buffer.extend(chunk)
+    data = bytes(buffer)
+    if not data.startswith(_HTTP_METHODS):
+        return data, REASON_MALFORMED_REQUEST
+    try:
+        headers = _ascii_headers(data)
+    except _RefusedRequest as exc:
+        return data, exc.reason
+    offered = headers.get("host")
+    if offered is None or not _names_match(offered, authorized_host):
+        return data, REASON_HOST_HEADER_MISMATCH
+    return data, None
+
+
+def _tls_client_hello_sni(record: bytes) -> str | None:
+    """Return the SNI hostname from a TLS handshake record, or None."""
+
+    if len(record) < 5 or record[0] != 0x16:
+        return None
+    rec_len = int.from_bytes(record[3:5], "big")
+    handshake = record[5 : 5 + rec_len]
+    if len(handshake) != rec_len or rec_len < 4 or handshake[0] != 0x01:
+        return None
+    hs_len = int.from_bytes(handshake[1:4], "big")
+    body = handshake[4 : 4 + hs_len]
+    if len(body) != hs_len or len(body) < 35:
+        return None
+    offset = 34
+    sid_len = body[offset]
+    offset += 1 + sid_len
+    if offset + 2 > len(body):
+        return None
+    cipher_len = int.from_bytes(body[offset : offset + 2], "big")
+    offset += 2 + cipher_len
+    if offset + 1 > len(body):
+        return None
+    compression_len = body[offset]
+    offset += 1 + compression_len
+    if offset == len(body):
+        return None
+    if offset + 2 > len(body):
+        return None
+    ext_len = int.from_bytes(body[offset : offset + 2], "big")
+    offset += 2
+    end = offset + ext_len
+    if end > len(body):
+        return None
+    sni: str | None = None
+    while offset + 4 <= end:
+        ext_type = int.from_bytes(body[offset : offset + 2], "big")
+        ext_len_one = int.from_bytes(body[offset + 2 : offset + 4], "big")
+        offset += 4
+        if offset + ext_len_one > end:
+            return None
+        data = body[offset : offset + ext_len_one]
+        offset += ext_len_one
+        if ext_type != 0:
+            continue
+        parsed = _parse_sni_extension(data)
+        if parsed is None:
+            return None
+        sni = parsed
+    return sni
+
+
+def _parse_sni_extension(data: bytes) -> str | None:
+    if len(data) < 2:
+        return None
+    list_len = int.from_bytes(data[:2], "big")
+    if list_len != len(data) - 2:
+        return None
+    offset = 2
+    names: list[str] = []
+    while offset < len(data):
+        if offset + 3 > len(data):
+            return None
+        name_type = data[offset]
+        name_len = int.from_bytes(data[offset + 1 : offset + 3], "big")
+        offset += 3
+        if offset + name_len > len(data):
+            return None
+        raw = data[offset : offset + name_len]
+        offset += name_len
+        if name_type != 0:
+            continue
+        try:
+            names.append(raw.decode("ascii"))
+        except UnicodeDecodeError:
+            return None
+    if len(names) != 1:
+        return None
+    return names[0]
 
 
 def _respond(client: socket.socket, status: int, phrase: str, reason: str) -> None:
