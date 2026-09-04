@@ -99,6 +99,7 @@
     "tests/test_multiharness_contributor_boundary.py",
     "tests/test_multiharness_external_adapters.py",
     "tests/test_multiharness_fake_claude_code.py",
+    "tests/test_multiharness_harness_lane_packet.py",
     "tests/test_multiharness_hostile_mcp_e2e.py",
     "tests/test_multiharness_hostile_native_e2e.py",
     "tests/test_multiharness_local_cli_fake_binary_e2e.py",
