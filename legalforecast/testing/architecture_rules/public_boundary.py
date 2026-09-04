@@ -147,7 +147,21 @@ def subprocess_argvs(path: Path) -> tuple[tuple[str, ...], ...]:
 def is_bd_execution(argv: Sequence[str]) -> bool:
     """Return whether ``argv`` invokes ``bd`` as the executable."""
 
-    return bool(argv) and Path(argv[0]).name == "bd"
+    tokens = [token for token in argv if token]
+    if not tokens:
+        return False
+    executable = Path(tokens[0]).name
+    if executable == "bd":
+        return True
+    if executable in {"python", "python3"}:
+        try:
+            module_index = tokens.index("-m") + 1
+        except ValueError:
+            return False
+        return module_index < len(tokens) and tokens[module_index] == "bd"
+    if executable == "uv":
+        return len(tokens) >= 3 and tokens[1] == "run" and Path(tokens[2]).name == "bd"
+    return executable == "env" and any(Path(token).name == "bd" for token in tokens[1:])
 
 
 def bd_execution_argvs(path: Path) -> tuple[tuple[str, ...], ...]:
@@ -212,9 +226,10 @@ def dispatch_input_names(workflow_text: str) -> frozenset[str]:
                 inputs_indent is not None
                 and indent == inputs_indent + 2
                 and stripped.endswith(":")
-                and " " not in stripped[:-1]
             ):
-                names.add(stripped[:-1])
+                key = _dispatch_input_key(stripped)
+                if key is not None:
+                    names.add(key)
                 continue
         if in_dispatch and indent == 0:
             in_dispatch = False
@@ -291,6 +306,7 @@ def _imported_external_modules(path: Path) -> tuple[str, ...]:
     tree = parse_module(path, filename=str(path))
     if tree is None:
         return ()
+    parents = _parent_map(tree)
     modules: set[str] = set()
     importlib_module_aliases = {"importlib"}
     import_module_aliases: set[str] = set()
@@ -320,19 +336,15 @@ def _imported_external_modules(path: Path) -> tuple[str, ...]:
                 for alias in node.names:
                     if alias.name != "*":
                         modules.add(f"{module}.{alias.name}")
-        elif isinstance(node, ast.Call):
+        elif isinstance(node, ast.Call) and _is_dynamic_import(
+            node,
+            importlib_module_aliases=importlib_module_aliases,
+            import_module_aliases=import_module_aliases,
+        ):
             argument = call_argument(node, 0, "name")
-            if (
-                isinstance(argument, ast.Constant)
-                and isinstance(argument.value, str)
-                and not _is_legalforecast_module(argument.value)
-                and _is_dynamic_import(
-                    node,
-                    importlib_module_aliases=importlib_module_aliases,
-                    import_module_aliases=import_module_aliases,
-                )
-            ):
-                modules.add(argument.value)
+            if argument is None:
+                continue
+            modules.update(_resolved_string_values(argument, parents=parents))
     return tuple(sorted(modules))
 
 
@@ -396,18 +408,84 @@ def _static_argv(
         argument = call_argument(node, 0, "command")
     if argument is None:
         return ()
+    assigned = _assigned_value(argument, parents=parents)
+    if assigned is not None:
+        argument = assigned
     if isinstance(argument, (ast.List, ast.Tuple)):
-        argv: list[str] = []
-        for element in argument.elts:
-            values = static_string_values(element, parents=parents)
-            if len(values) != 1:
-                return ()
-            argv.append(values[0])
-        return tuple(argv)
-    values = static_string_values(argument, parents=parents)
+        argv = [
+            _single_static_string(element, parents=parents) or ""
+            for element in argument.elts
+        ]
+        return tuple(argv) if any(argv) else ()
+    values = _resolved_string_values(argument, parents=parents)
     if len(values) != 1:
         return ()
     return tuple(values[0].split())
+
+
+def _dispatch_input_key(stripped: str) -> str | None:
+    key = stripped[:-1].strip()
+    if len(key) >= 2 and key[0] == key[-1] and key[0] in {"'", '"'}:
+        key = key[1:-1]
+    if not key or any(character.isspace() for character in key):
+        return None
+    return key
+
+
+def _resolved_string_values(
+    node: ast.AST, *, parents: Mapping[ast.AST, ast.AST]
+) -> tuple[str, ...]:
+    values = static_string_values(node, parents=parents)
+    if values:
+        return values
+    assigned = _assigned_value(node, parents=parents)
+    if assigned is None:
+        return ()
+    return static_string_values(assigned, parents=parents)
+
+
+def _single_static_string(
+    node: ast.AST, *, parents: Mapping[ast.AST, ast.AST]
+) -> str | None:
+    values = _resolved_string_values(node, parents=parents)
+    if len(values) != 1:
+        return None
+    return values[0]
+
+
+def _assigned_value(
+    node: ast.AST, *, parents: Mapping[ast.AST, ast.AST]
+) -> ast.AST | None:
+    if not isinstance(node, ast.Name):
+        return None
+    current: ast.AST | None = node
+    while current is not None:
+        parent = parents.get(current)
+        if isinstance(parent, (ast.AsyncFunctionDef, ast.FunctionDef, ast.Module)):
+            assigned: ast.AST | None = None
+            for statement in parent.body:
+                if getattr(statement, "lineno", 0) >= node.lineno:
+                    break
+                value = _simple_assignment(statement, node.id)
+                if value is not None:
+                    assigned = value
+            return assigned
+        current = parent
+    return None
+
+
+def _simple_assignment(statement: ast.AST, name: str) -> ast.AST | None:
+    if isinstance(statement, ast.Assign) and len(statement.targets) == 1:
+        target = statement.targets[0]
+        if isinstance(target, ast.Name) and target.id == name:
+            return statement.value
+    if (
+        isinstance(statement, ast.AnnAssign)
+        and isinstance(statement.target, ast.Name)
+        and statement.target.id == name
+    ):
+        return statement.value
+    return None
 
 
 def _approval_prose_path_marker(value: str) -> str | None:

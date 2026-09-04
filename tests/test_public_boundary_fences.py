@@ -15,6 +15,7 @@ from legalforecast.testing.architecture_rules.public_boundary import (
     approval_prose_lookups,
     bd_execution_argvs,
     forbidden_imports_in,
+    is_bd_execution,
     is_forbidden_import,
     private_runtime_help_violations,
     retired_dispatch_inputs,
@@ -59,6 +60,43 @@ _FORBIDDEN_BD_COMMENTS = """\
 import subprocess
 
 subprocess.run(["bd", "comments", "legalforecastbench-xvg1", "--json"])
+"""
+_FORBIDDEN_BD_ASSIGNED = """\
+import subprocess
+
+issue = "legalforecastbench-xvg1"
+argv = ["bd", "comments", issue]
+subprocess.run(argv)
+"""
+_FORBIDDEN_BD_PYTHON_MODULE = """\
+import subprocess
+
+subprocess.run(["python", "-m", "bd", "show", "legalforecastbench-xvg1"])
+"""
+_FORBIDDEN_BD_UV_RUN = """\
+import subprocess
+
+subprocess.run(["uv", "run", "bd", "show", "legalforecastbench-xvg1"])
+"""
+_FORBIDDEN_ASSIGNED_IMPORT = """\
+import importlib
+
+module = "pacer"
+importlib.import_module(module)
+"""
+_FORBIDDEN_QUOTED_FORECAST_WORKFLOW = """\
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_uri:
+        required: true
+      "pacer_login":
+        required: true
+      'courtlistener_token':
+        required: true
+jobs:
+  prepare-inputs:
+    runs-on: ubuntu-latest
 """
 _PERMITTED_APPROVAL_REFERENCE = """\
 def bind_run(*, approval_reference: str | None) -> dict[str, str]:
@@ -147,6 +185,12 @@ def test_dynamic_courtlistener_import_is_rejected(tmp_path: Path) -> None:
     assert "courtlistener" in forbidden_imports_in(_write_probe(tmp_path, source))
 
 
+def test_assigned_dynamic_import_name_is_rejected(tmp_path: Path) -> None:
+    assert "pacer" in forbidden_imports_in(
+        _write_probe(tmp_path, _FORBIDDEN_ASSIGNED_IMPORT)
+    )
+
+
 def test_git_subprocess_near_neighbor_is_allowed(tmp_path: Path) -> None:
     assert bd_execution_argvs(_write_probe(tmp_path, _PERMITTED_GIT)) == ()
 
@@ -154,6 +198,24 @@ def test_git_subprocess_near_neighbor_is_allowed(tmp_path: Path) -> None:
 def test_seeded_bd_execution_is_rejected(tmp_path: Path) -> None:
     found = bd_execution_argvs(_write_probe(tmp_path, _FORBIDDEN_BD))
     assert found == (("bd", "show", "legalforecastbench-xvg1"),)
+
+
+def test_assigned_bd_argv_is_rejected(tmp_path: Path) -> None:
+    probe = _write_probe(tmp_path, _FORBIDDEN_BD_ASSIGNED)
+    found = bd_execution_argvs(probe)
+    assert found
+    assert all(is_bd_execution(argv) for argv in found)
+    assert "bd comments" in approval_prose_lookups(probe)
+
+
+def test_wrapped_bd_execution_is_rejected(tmp_path: Path) -> None:
+    python_found = bd_execution_argvs(
+        _write_probe(tmp_path, _FORBIDDEN_BD_PYTHON_MODULE)
+    )
+    uv_found = bd_execution_argvs(_write_probe(tmp_path, _FORBIDDEN_BD_UV_RUN))
+    assert python_found
+    assert uv_found
+    assert all(is_bd_execution(argv) for argv in (*python_found, *uv_found))
 
 
 def test_approval_reference_string_is_not_prose_lookup(tmp_path: Path) -> None:
@@ -190,6 +252,12 @@ def test_seeded_retired_forecast_inputs_are_rejected() -> None:
         "labels_uri",
         "run_input_manifest_uri",
     )
+
+
+def test_quoted_retired_dispatch_inputs_are_rejected() -> None:
+    assert retired_dispatch_inputs(
+        _FORBIDDEN_QUOTED_FORECAST_WORKFLOW, role="forecast"
+    ) == ("courtlistener_token", "pacer_login")
 
 
 def test_retired_official_workflows_are_absent() -> None:
