@@ -564,18 +564,10 @@ jobs:
         run: |
           set -euo pipefail
           destination="reports/${CYCLE_ID}/multi-ablation"
-          existing="$(aws s3api list-objects-v2 --bucket "${LFB_RESULTS_BUCKET}" --prefix "${destination}/" --max-keys 1 --query 'Key' --output text)"
-          [[ "${existing}" == "None" ]] || {
-            echo "refusing to overwrite existing immutable report prefix: ${destination}" >&2
-            exit 1
-          }
           put_once() {
             local source="$1" key="$2"
-            aws s3api put-object \
-              --bucket "${LFB_RESULTS_BUCKET}" \
-              --key "${key}" \
-              --body "${source}" \
-              --if-none-match '*'
+            bash .github/scripts/reconcile-s3-object.sh \
+              "${LFB_RESULTS_BUCKET}" "${source}" "${key}"
           }
           put_once /tmp/lfb-score.json "${destination}/scores.json"
           put_once /tmp/lfb-unit-scores.jsonl "${destination}/unit-scores.jsonl"
