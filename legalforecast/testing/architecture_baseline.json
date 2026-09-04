@@ -96,7 +96,7 @@
       "legalforecast/contracts": 4,
       "legalforecast/evals": 21,
       "legalforecast/ingestion": 3,
-      "legalforecast/multiharness": 72,
+      "legalforecast/multiharness": 73,
       "legalforecast/protocol": 1,
       "legalforecast/publication": 11,
       "legalforecast/release": 6,
@@ -106,7 +106,7 @@
       "legalforecast/testing/architecture_rules": 8,
       "legalforecast/testing/cli_corpus": 12,
       "scripts": 9,
-      "tests": 170,
+      "tests": 171,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -961,7 +961,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 2,
-        "fan_out": 21,
+        "fan_out": 22,
         "flags": [
           "oversized"
         ],
@@ -969,8 +969,8 @@
         "largest_symbol": "_MultiHarnessRunner",
         "largest_symbol_lines": 705,
         "layer": "application",
-        "line_count": 1593,
-        "nonblank_line_count": 1473,
+        "line_count": 1583,
+        "nonblank_line_count": 1463,
         "top_level_definition_count": 39
       },
       "legalforecast/multiharness/scoring.py": {
@@ -2079,8 +2079,8 @@
         "largest_symbol": "_assert_exact_fan_in_policy",
         "largest_symbol_lines": 152,
         "layer": "test",
-        "line_count": 1176,
-        "nonblank_line_count": 1090,
+        "line_count": 1171,
+        "nonblank_line_count": 1085,
         "top_level_definition_count": 33
       },
       "tests/test_openai_compatible_provider.py": {
