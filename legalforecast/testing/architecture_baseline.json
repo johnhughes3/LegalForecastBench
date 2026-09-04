@@ -1277,8 +1277,8 @@
         "largest_symbol": "ResultClassSidecar",
         "largest_symbol_lines": 72,
         "layer": "domain",
-        "line_count": 524,
-        "nonblank_line_count": 429,
+        "line_count": 536,
+        "nonblank_line_count": 441,
         "top_level_definition_count": 23
       },
       "legalforecast/runner/ledger.py": {
@@ -2200,8 +2200,8 @@
         "largest_symbol": "write_official_report_fixture",
         "largest_symbol_lines": 237,
         "layer": "test",
-        "line_count": 1560,
-        "nonblank_line_count": 1399,
+        "line_count": 1568,
+        "nonblank_line_count": 1407,
         "top_level_definition_count": 48
       },
       "tests/test_tier0_operator_half.py": {

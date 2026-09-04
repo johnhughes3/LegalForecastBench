@@ -55,6 +55,10 @@ SUPPLEMENTARY_CAVEAT = (
     "Post-anchor result: the model was released after the corpus decision "
     "window closed, so this result is not contamination-resistant on this corpus."
 )
+# Frozen public labels from docs/publication-governance.json. Copied verbatim
+# onto public surfaces. The dagger stays a separate row marker.
+PRE_ANCHOR_PUBLIC_LABEL = "Official LegalForecast-MTD Cycle 1 result"
+POST_ANCHOR_PUBLIC_LABEL = "Official LegalForecast-MTD Cycle 1 result (post-anchor)"
 
 _LEGACY_RESULT_CLASS_VALUES = {
     "official": "pre_anchor",
@@ -187,30 +191,38 @@ def require_official_result_classes(
 
     Classification is a tracked property of a result, not a permission to
     publish. A post-anchor model may appear as an official, viable result. What
-    this function refuses is a claimed pre-anchor label on a mechanically
-    post-anchor model.
+    this function refuses is a claimed label that does not match the mechanical
+    classification, in either direction.
     """
 
     if claimed_classes is None:
         return
     by_id = {entry.model_id: entry for entry in entries}
     by_key = {entry.registry_key: entry for entry in entries}
-    mislabeled: list[str] = []
+    post_as_pre: list[str] = []
+    pre_as_post: list[str] = []
     for model_id, claimed in claimed_classes.items():
-        if claimed is not ResultClass.PRE_ANCHOR:
-            continue
         entry = by_key.get(model_id) or by_id.get(model_id)
         if entry is None:
             continue
-        if (
-            classify_registry_entry(entry, corpus_anchor=corpus_anchor)
-            is ResultClass.POST_ANCHOR
-        ):
-            mislabeled.append(model_id)
-    if mislabeled:
-        raise ResultClassError(
-            f"post-anchor rows cannot be labeled pre-anchor: {sorted(mislabeled)}"
+        actual = classify_registry_entry(entry, corpus_anchor=corpus_anchor)
+        if claimed is actual:
+            continue
+        if claimed is ResultClass.PRE_ANCHOR:
+            post_as_pre.append(model_id)
+        else:
+            pre_as_post.append(model_id)
+    parts: list[str] = []
+    if post_as_pre:
+        parts.append(
+            f"post-anchor rows cannot be labeled pre-anchor: {sorted(post_as_pre)}"
         )
+    if pre_as_post:
+        parts.append(
+            f"pre-anchor rows cannot be labeled post-anchor: {sorted(pre_as_post)}"
+        )
+    if parts:
+        raise ResultClassError("; ".join(parts))
 
 
 def require_lane_result_classes(
@@ -233,7 +245,7 @@ def require_lane_result_classes(
         # Checked before anything else: without it an empty registry would make a
         # post-anchor lane skip the separation entirely rather than refuse.
         raise ResultClassError(
-            "a supplementary result set requires a model registry to classify"
+            "a post-anchor result set requires a model registry to classify"
         )
     post_anchor_keys = set(
         supplementary_model_ids(entries, corpus_anchor=corpus_anchor)
@@ -253,7 +265,7 @@ def require_lane_result_classes(
     )
     if pre_anchor:
         raise ResultClassError(
-            "a supplementary result set refuses models released on or before the "
+            "a post-anchor result set refuses models released on or before the "
             f"corpus anchor {corpus_anchor.isoformat()}: {pre_anchor}"
         )
 
@@ -300,7 +312,7 @@ def corpus_anchor_from_decision_rows(
     if not dates:
         if required:
             raise ResultClassError(
-                "a supplementary result set requires run-input decision dates to "
+                "a post-anchor result set requires run-input decision dates to "
                 "derive the corpus anchor"
             )
         return None
@@ -507,11 +519,11 @@ def result_class_marker(result_class: ResultClass) -> str:
 
 
 def result_class_tier_label(result_class: ResultClass) -> str:
-    """Return the compact table badge for a result class."""
+    """Return the frozen public label for a result class, without the dagger."""
 
     if result_class is ResultClass.POST_ANCHOR:
-        return f"Official (post-anchor){result_class_marker(result_class)}"
-    return "Official"
+        return POST_ANCHOR_PUBLIC_LABEL
+    return PRE_ANCHOR_PUBLIC_LABEL
 
 
 def supplementary_caveat_if_needed(

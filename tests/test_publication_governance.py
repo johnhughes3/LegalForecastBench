@@ -6,6 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from legalforecast.reporting.result_class import (
+    ResultClass,
+    result_class_tier_label,
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 GOVERNANCE_PATH = ROOT / "docs" / "publication-governance.json"
 GOVERNANCE_DOC_PATH = ROOT / "docs" / "publication-governance.md"
@@ -65,6 +70,14 @@ def test_governance_contract_contains_only_public_fields() -> None:
     )
     assert POST_ANCHOR_LABEL.startswith(OFFICIAL_LABEL)
     assert "post-anchor" in POST_ANCHOR_LABEL
+    assert (
+        result_class_tier_label(ResultClass.PRE_ANCHOR)
+        == (governance["result_classes"]["pre_anchor"]["required_label"])
+    )
+    assert (
+        result_class_tier_label(ResultClass.POST_ANCHOR)
+        == (governance["result_classes"]["post_anchor"]["required_label"])
+    )
     assert set(governance["rules"]) == {
         "cross_suite_overall_winner_forbidden",
         "no_paid_community_run_before_tier0_specification",

@@ -49,7 +49,7 @@ Pass the supplementary bundle to the publisher with `--supplementary-artifacts-d
 
 A publication that carries a supplementary split uses the `legalforecast-official-hf-publication-v2` manifest, which additionally commits to `supplementary_path` and `supplementary_artifact_index_sha256`. A publication without supplementary models still emits `legalforecast-official-hf-publication-v1` unchanged, and validation refuses a `-v1` package that carries supplementary files.
 
-On the rendered page a post-anchor model appears in the same table as the pre-anchor models, after them, ranked within the post-anchor arm, badged `Official (post-anchor)†` and labelled with a trailing `†`. The dagger is deliberately distinct from the contamination-tier asterisk, which marks a model whose training cutoff is undisclosed; a post-anchor row can legitimately carry both. The headline and overall best-model figure remain the best pre-anchor row. Delta-vs-best is versus the best model in the same arm.
+On the rendered page a post-anchor model appears in the same table as the pre-anchor models, after them, ranked within the post-anchor arm, badged `Official LegalForecast-MTD Cycle 1 result (post-anchor)` and labelled with a trailing `†`. The dagger is deliberately distinct from the contamination-tier asterisk, which marks a model whose training cutoff is undisclosed; a post-anchor row can legitimately carry both. The headline and overall best-model figure remain the best pre-anchor row. Delta-vs-best is versus the best model in the same arm.
 
 ## Controlled access
 

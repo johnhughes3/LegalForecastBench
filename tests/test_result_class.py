@@ -1,10 +1,10 @@
 """Pre-anchor versus post-anchor classification for official result rows.
 
 Both arms are official, viable LegalForecast-MTD results. The integrity
-property under test is arm membership, not a permission to publish: a
-mechanically post-anchor model cannot be labeled pre-anchor, and
-``require_lane_result_classes`` still refuses a model in the wrong execution
-lane. Green here does not prove a live Cycle 1 dispatch.
+property under test is arm membership, not a permission to publish: neither
+arm may be labeled as the other, and ``require_lane_result_classes`` still
+refuses a model in the wrong execution lane. Green here does not prove a
+live Cycle 1 dispatch.
 """
 
 from __future__ import annotations
@@ -22,6 +22,8 @@ from legalforecast.evals.model_registry import (
 )
 from legalforecast.reporting.contamination_tiers import frozen_result_digest
 from legalforecast.reporting.result_class import (
+    POST_ANCHOR_PUBLIC_LABEL,
+    PRE_ANCHOR_PUBLIC_LABEL,
     SUPPLEMENTARY_CAVEAT,
     SUPPLEMENTARY_MARKER,
     ResultClass,
@@ -34,6 +36,7 @@ from legalforecast.reporting.result_class import (
     require_lane_result_classes,
     require_official_result_classes,
     result_class_marker,
+    result_class_tier_label,
     supplementary_caveat_if_needed,
     supplementary_model_ids,
     write_result_class_sidecar,
@@ -146,6 +149,17 @@ def test_post_anchor_row_labeled_pre_anchor_is_refused() -> None:
         )
 
 
+def test_pre_anchor_row_labeled_post_anchor_is_refused() -> None:
+    """Planted negative: a pre-anchor model cannot be labeled post-anchor."""
+
+    with pytest.raises(ResultClassError, match="labeled post-anchor"):
+        require_official_result_classes(
+            [_entry("model-a")],
+            corpus_anchor=CORPUS_ANCHOR,
+            claimed_classes={"model-a": ResultClass.POST_ANCHOR},
+        )
+
+
 def test_matching_claimed_labels_pass_the_arm_membership_gate() -> None:
     pre_anchor = _entry("model-a")
     post_anchor = _entry(
@@ -187,9 +201,21 @@ def test_post_anchor_model_is_refused_in_the_pre_anchor_execution_lane() -> None
 def test_pre_anchor_model_is_refused_in_the_post_anchor_execution_lane() -> None:
     """Planted negative: lane separation stays fail-closed in both directions."""
 
-    with pytest.raises(ResultClassError, match="released on or before the"):
+    with pytest.raises(ResultClassError, match="post-anchor result set refuses"):
         require_lane_result_classes(
             [_entry("model-a")],
+            corpus_anchor=CORPUS_ANCHOR,
+            supplementary=True,
+        )
+
+
+def test_empty_post_anchor_lane_error_names_the_arm() -> None:
+    with pytest.raises(
+        ResultClassError,
+        match="post-anchor result set requires a model registry",
+    ):
+        require_lane_result_classes(
+            [],
             corpus_anchor=CORPUS_ANCHOR,
             supplementary=True,
         )
@@ -207,6 +233,15 @@ def test_corpus_anchor_is_the_earliest_decision_the_cycle_scores() -> None:
 def test_corpus_anchor_requires_at_least_one_decision_date() -> None:
     with pytest.raises(ResultClassError, match="at least one decision date"):
         corpus_anchor_from_decision_dates([])
+
+
+def test_report_helper_emits_frozen_public_labels_without_the_dagger() -> None:
+    """The dagger stays a separate marker; the badge is the governance label."""
+
+    assert result_class_tier_label(ResultClass.PRE_ANCHOR) == PRE_ANCHOR_PUBLIC_LABEL
+    assert result_class_tier_label(ResultClass.POST_ANCHOR) == POST_ANCHOR_PUBLIC_LABEL
+    assert SUPPLEMENTARY_MARKER not in result_class_tier_label(ResultClass.POST_ANCHOR)
+    assert result_class_marker(ResultClass.POST_ANCHOR) == SUPPLEMENTARY_MARKER
 
 
 def test_post_anchor_marker_is_distinct_from_the_contamination_asterisk() -> None:

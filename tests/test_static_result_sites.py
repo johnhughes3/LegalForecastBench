@@ -26,6 +26,8 @@ from legalforecast.publication.static_sites import (
 )
 from legalforecast.reporting.contamination_tiers import frozen_result_digest
 from legalforecast.reporting.result_class import (
+    POST_ANCHOR_PUBLIC_LABEL,
+    PRE_ANCHOR_PUBLIC_LABEL,
     SUPPLEMENTARY_CAVEAT,
     SUPPLEMENTARY_MARKER,
     ResultClass,
@@ -865,7 +867,12 @@ def test_official_site_marks_post_anchor_rows_and_publishes_the_caveat(
 
     post_anchor_label = f"{SUPPLEMENTARY_MODEL_ID}{SUPPLEMENTARY_MARKER}"
     assert f"<th scope='row'>{post_anchor_label}</th>" in rendered
-    assert f"Official (post-anchor){SUPPLEMENTARY_MARKER}" in rendered
+    assert (
+        f"<span class='tier-badge post-anchor'>{POST_ANCHOR_PUBLIC_LABEL}</span>"
+        in rendered
+    )
+    assert f"{POST_ANCHOR_PUBLIC_LABEL}{SUPPLEMENTARY_MARKER}" not in rendered
+    assert f"<span class='tier-badge'>{PRE_ANCHOR_PUBLIC_LABEL}</span>" in rendered
     assert "Supplementary" not in rendered
     assert SUPPLEMENTARY_CAVEAT in rendered
     assert "Unofficial" not in rendered
@@ -898,7 +905,8 @@ def test_post_anchor_row_ranks_within_its_arm_and_does_not_take_the_headline(
     assert "0.0100" in post_anchor_row
     assert "Not ranked" not in post_anchor_row
     assert "Reference (best observed model)" in post_anchor_row
-    assert f"Official (post-anchor){SUPPLEMENTARY_MARKER}" in post_anchor_row
+    assert POST_ANCHOR_PUBLIC_LABEL in post_anchor_row
+    assert f"{POST_ANCHOR_PUBLIC_LABEL}{SUPPLEMENTARY_MARKER}" not in post_anchor_row
 
     deltas = _section_html(rendered, "Paired micro-Brier difference intervals")
     assert SUPPLEMENTARY_MODEL_ID not in deltas
