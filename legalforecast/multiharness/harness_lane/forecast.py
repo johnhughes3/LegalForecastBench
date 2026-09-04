@@ -19,8 +19,6 @@ from legalforecast.evals.output_parser import (
 )
 from legalforecast.multiharness.local_cli_contracts import LocalCliFailureClass
 
-_NONE_FAILURE_CLASSES = frozenset({None, "none"})
-
 
 class HarnessLaneForecastError(ValueError):
     """Raised when an invalid forecast is treated as a scored success."""
@@ -84,16 +82,11 @@ def require_honest_canonical_row(record: Mapping[str, object]) -> None:
     status = record.get("status")
     if not isinstance(status, str) or not status.strip():
         raise HarnessLaneForecastError("canonical row status is missing")
-    summary = _mapping(record.get("public_summary"), "public_summary", required=False)
-    failure_class = summary.get("failure_class")
     parser = _mapping(record.get("parser_output"), "parser_output", required=True)
     invalid = parser.get("is_valid") is False or parser.get("invalid_output") is True
     scored = record.get("scored")
-    none_failure = failure_class in _NONE_FAILURE_CLASSES
-    if invalid and status == "succeeded" and none_failure:
-        raise HarnessLaneForecastError(
-            "invalid forecast cannot be a succeeded row with failure_class=none"
-        )
+    if invalid and status == "succeeded":
+        raise HarnessLaneForecastError("invalid forecast cannot be a succeeded row")
     if invalid and scored is True:
         raise HarnessLaneForecastError("invalid forecast cannot enter a scored success")
     if status == "succeeded" and _has_defaulted_prediction(parser):

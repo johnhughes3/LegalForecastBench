@@ -181,6 +181,25 @@ def test_stack_invalid_success_shape_is_refused() -> None:
         require_honest_canonical_row(record)
 
 
+def test_invalid_output_cannot_succeed_even_with_a_failure_class() -> None:
+    record = {
+        "status": "succeeded",
+        "public_summary": {"failure_class": "schema_violation"},
+        "parser_output": {
+            "is_valid": False,
+            "invalid_output": True,
+            "status": "invalid_json",
+            "issues": [{"code": "json_decode_error", "unit_id": None}],
+            "predictions": [],
+            "defaulted_unit_ids": [],
+        },
+        "scored": False,
+    }
+
+    with pytest.raises(HarnessLaneForecastError, match="succeeded"):
+        require_honest_canonical_row(record)
+
+
 def test_valid_forecast_is_scored_without_defaulted_probability() -> None:
     fixture = get_mock_model_output("mock_calibrated_predictions")
 
