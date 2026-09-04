@@ -12,14 +12,25 @@ This package does not overload
 :mod:`legalforecast.multiharness.container_runtime`, which is the official
 network-disabled tool-protocol session.
 
-What the fence does not reach: a provider-side web tool.  A server-executed
-``web_search``/``web_fetch`` runs on the provider's own infrastructure,
-downstream of every egress rule here.  Closing that path, and binding CONNECT
-authorization to TLS SNI / HTTP Host, are follow-on work
-(legalforecastbench-2ve1.3).  Redacting denied hostnames in published evidence
-is legalforecastbench-2ve1.4.
+The web/search fence is the image-baked wrapper in :mod:`.cli_fence`: it is
+the only ``PATH`` name for the CLI, always injects the vendor disable flags,
+and ignores agent-writable HOME config for tool enablement.  Credential files
+are bind-mounted read-only; HOME is a writable tmpfs so OAuth refresh can
+still land.  CONNECT authorization is bound to the TLS SNI and HTTP Host the
+client actually uses.
+
+What the fence does not reach: a provider-side web tool that ignores the
+vendor disable flag.  That is a parser-observation problem
+(legalforecastbench-2ve1.4).  Redacting denied hostnames in published
+evidence is also 2ve1.4.
 """
 
+from legalforecast.multiharness.container_harness.cli_fence import (
+    FENCED_CLIS,
+    CliFenceError,
+    fenced_argv,
+    install_cli_fence,
+)
 from legalforecast.multiharness.container_harness.egress_proxy import (
     AllowlistConnectProxy,
     EgressAllowlist,
@@ -47,8 +58,11 @@ from legalforecast.multiharness.container_harness.plan import (
     build_network_create_argv,
     build_proxy_run_argv,
     build_run_names,
+    cli_fence_source_path,
     egress_network_name,
     egress_proxy_source_path,
+    fenced_cli_name,
+    stage_cli_fence,
     stage_credential_home,
 )
 from legalforecast.multiharness.container_harness.runtime import (
@@ -56,7 +70,9 @@ from legalforecast.multiharness.container_harness.runtime import (
 )
 
 __all__ = [
+    "FENCED_CLIS",
     "AllowlistConnectProxy",
+    "CliFenceError",
     "ContainerHarnessError",
     "ContainerHarnessNames",
     "ContainerHarnessResult",
@@ -74,12 +90,17 @@ __all__ = [
     "build_network_create_argv",
     "build_proxy_run_argv",
     "build_run_names",
+    "cli_fence_source_path",
     "egress_network_name",
     "egress_proxy_source_path",
+    "fenced_argv",
+    "fenced_cli_name",
+    "install_cli_fence",
     "normalize_host",
     "require_digest_pinned_image",
     "resolve_local_image_id",
     "resolve_rootless_backend",
     "run_container_harness",
+    "stage_cli_fence",
     "stage_credential_home",
 ]

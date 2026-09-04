@@ -185,6 +185,11 @@ def test_mocked_run_puts_the_harness_only_on_the_internal_network(
     assert "--cap-drop" in harness and "ALL" in harness
     assert "no-new-privileges" in harness
     assert "--read-only" in harness
+    assert any(
+        item.endswith("/run/legalforecast/credentials,readonly") for item in harness
+    )
+    assert "--entrypoint" in harness
+    assert "/opt/legalforecast/bin/lfb-cli-fence" in harness
     connect_calls = [call for call in calls if call[1:3] == ("network", "connect")]
     assert connect_calls
     assert all("-harness" not in " ".join(call) for call in connect_calls)

@@ -219,7 +219,7 @@ def test_harness_argv_never_disables_the_network_and_keeps_the_isolation_flags(
     assert argv[-len(spec.harness_argv) - 1] == _IMAGE
 
 
-def test_the_harness_entrypoint_can_be_stated_by_the_manifest(tmp_path: Path) -> None:
+def test_the_harness_entrypoint_is_always_the_fence_wrapper(tmp_path: Path) -> None:
     spec = _spec(tmp_path, harness_entrypoint="claude")
     names = build_run_names(spec.run_id, _TOKEN)
 
@@ -231,17 +231,22 @@ def test_the_harness_entrypoint_can_be_stated_by_the_manifest(tmp_path: Path) ->
         cidfile=tmp_path / "harness.cid",
     )
 
-    assert _flag_values(argv, "--entrypoint") == ["claude"]
-    assert "--entrypoint" not in build_harness_run_argv(
-        _BACKEND,
-        _spec(tmp_path),
-        names,
-        credential_home=tmp_path / "home",
-        cidfile=tmp_path / "harness.cid",
-    )
+    assert _flag_values(argv, "--entrypoint") == [
+        "/opt/legalforecast/bin/lfb-cli-fence"
+    ]
+    assert _flag_values(
+        build_harness_run_argv(
+            _BACKEND,
+            _spec(tmp_path),
+            names,
+            credential_home=tmp_path / "home",
+            cidfile=tmp_path / "harness.cid",
+        ),
+        "--entrypoint",
+    ) == ["/opt/legalforecast/bin/lfb-cli-fence"]
 
 
-def test_workspace_and_credential_home_are_the_only_bind_mounts(
+def test_workspace_credentials_and_fence_are_the_only_bind_mounts(
     tmp_path: Path,
 ) -> None:
     spec = _spec(tmp_path)
@@ -259,10 +264,16 @@ def test_workspace_and_credential_home_are_the_only_bind_mounts(
         "--mount",
     )
 
-    assert mounts == [
-        f"type=bind,src={spec.workspace},dst={WORKSPACE_TARGET}",
-        f"type=bind,src={credential_home},dst=/home/harness",
-    ]
+    assert mounts[0] == f"type=bind,src={spec.workspace},dst={WORKSPACE_TARGET}"
+    assert (
+        f"type=bind,src={credential_home},dst=/run/legalforecast/credentials,readonly"
+        in mounts
+    )
+    assert any(item.endswith("/lfb-cli-fence,readonly") for item in mounts)
+    assert any(item.endswith("/bin/claude,readonly") for item in mounts)
+    assert not any(
+        "dst=/home/harness" in item and "readonly" not in item for item in mounts
+    )
 
 
 def test_child_environment_is_clean_and_points_at_the_sidecar(
@@ -283,7 +294,8 @@ def test_child_environment_is_clean_and_points_at_the_sidecar(
     assert environment["NO_PROXY"] == "localhost,127.0.0.1,::1"
     assert "ANTHROPIC_API_KEY" not in environment
     assert "CLAUDE_CODE_OAUTH_TOKEN" not in environment
-    assert "PATH" not in environment
+    assert environment["PATH"].startswith("/opt/legalforecast/bin:")
+    assert environment["LFB_HARNESS_CLI"] == "claude"
 
 
 def test_environment_reaches_the_container_only_through_explicit_env_flags(

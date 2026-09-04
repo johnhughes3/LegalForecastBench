@@ -97,7 +97,7 @@
       "legalforecast/evals": 21,
       "legalforecast/ingestion": 3,
       "legalforecast/multiharness": 73,
-      "legalforecast/multiharness/container_harness": 6,
+      "legalforecast/multiharness/container_harness": 7,
       "legalforecast/multiharness/harness_lane": 3,
       "legalforecast/protocol": 1,
       "legalforecast/publication": 11,
@@ -631,6 +631,40 @@
         "line_count": 586,
         "nonblank_line_count": 529,
         "top_level_definition_count": 18
+      },
+      "legalforecast/multiharness/container_harness/cli_fence.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 2,
+        "fan_out": 0,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "seed_agy_web_fence",
+        "largest_symbol_lines": 37,
+        "layer": "application",
+        "line_count": 302,
+        "nonblank_line_count": 259,
+        "top_level_definition_count": 11
+      },
+      "legalforecast/multiharness/container_harness/egress_proxy.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 2,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "EgressAllowlist",
+        "largest_symbol_lines": 64,
+        "layer": "application",
+        "line_count": 716,
+        "nonblank_line_count": 611,
+        "top_level_definition_count": 23
       },
       "legalforecast/multiharness/container_runtime.py": {
         "cycle_id": "",
@@ -1612,6 +1646,23 @@
         "line_count": 1522,
         "nonblank_line_count": 1326,
         "top_level_definition_count": 62
+      },
+      "tests/test_container_harness_egress.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "_CountingOrigin",
+        "largest_symbol_lines": 39,
+        "layer": "test",
+        "line_count": 537,
+        "nonblank_line_count": 455,
+        "top_level_definition_count": 26
       },
       "tests/test_contamination_tier_reporting.py": {
         "cycle_id": "",

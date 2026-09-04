@@ -15,6 +15,13 @@ from importlib.resources import files
 from pathlib import Path, PurePosixPath
 from typing import Any, Final
 
+from legalforecast.multiharness.container_harness.cli_fence import (
+    DEFAULT_BIN_DIR,
+    DEFAULT_CREDENTIALS_ROOT,
+    DEFAULT_LIBEXEC_DIR,
+    FENCED_CLIS,
+    WRAPPER_NAME,
+)
 from legalforecast.multiharness.container_harness.egress_proxy import (
     DEFAULT_ALLOWED_PORTS,
     EgressAllowlist,
@@ -23,12 +30,19 @@ from legalforecast.multiharness.container_harness.images import (
     require_digest_pinned_image,
 )
 
+FENCE_BIN_DIR = DEFAULT_BIN_DIR
+CREDENTIALS_TARGET = DEFAULT_CREDENTIALS_ROOT
+FENCE_LIBEXEC_DIR = DEFAULT_LIBEXEC_DIR
 PROXY_SOURCE_TARGET: Final[str] = "/opt/legalforecast/egress_proxy.py"
 PROXY_EVIDENCE_DIR: Final[str] = "/var/legalforecast-egress"
 PROXY_EVIDENCE_TARGET: Final[str] = f"{PROXY_EVIDENCE_DIR}/egress-evidence.json"
 WORKSPACE_TARGET: Final[str] = "/workspace"
 DEFAULT_CONTAINER_HOME: Final[str] = "/home/harness"
 DEFAULT_PROXY_PORT: Final[int] = 3128
+FENCE_WRAPPER_TARGET: Final[str] = f"{FENCE_BIN_DIR}/{WRAPPER_NAME}"
+FENCE_PATH: Final[str] = (
+    f"{FENCE_BIN_DIR}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+)
 _RUN_ID_CHARACTERS: Final[str] = "abcdefghijklmnopqrstuvwxyz0123456789-"
 
 
@@ -72,6 +86,7 @@ class ContainerHarnessSpec:
     credentials: tuple[HarnessCredential, ...] = ()
     environment: Mapping[str, str] = field(default_factory=dict[str, str])
     container_home: str = DEFAULT_CONTAINER_HOME
+    cli_name: str | None = None
     harness_entrypoint: str | None = None
     proxy_image: str | None = None
     proxy_python: str = "python3"
@@ -105,6 +120,7 @@ class ContainerHarnessSpec:
             raise ContainerHarnessError("proxy_port is out of range")
         if self.timeout_seconds <= 0:
             raise ContainerHarnessError("timeout_seconds must be positive")
+        fenced_cli_name(self)
 
     def allowlist(self) -> EgressAllowlist:
         """Return the validated allowlist for this run."""
@@ -194,6 +210,57 @@ def egress_proxy_source_path() -> Path:
             "it, so a zipped or namespace install is not supported"
         )
     return path
+
+
+def cli_fence_source_path() -> Path:
+    """Return the on-disk path of the wrapper bind-mounted into the harness."""
+
+    resource = files("legalforecast.multiharness.container_harness").joinpath(
+        "cli_fence.py"
+    )
+    path = Path(str(resource))
+    if not path.is_file():
+        raise ContainerHarnessError(
+            "cli_fence.py is not available as a real file; the harness bind-mounts "
+            "it, so a zipped or namespace install is not supported"
+        )
+    return path
+
+
+def fenced_cli_name(spec: ContainerHarnessSpec) -> str:
+    """Return the tools-on CLI this run fences, or fail closed."""
+
+    if spec.cli_name is not None:
+        name = spec.cli_name
+    elif spec.harness_entrypoint is not None:
+        name = PurePosixPath(spec.harness_entrypoint).name
+    else:
+        name = PurePosixPath(spec.harness_argv[0]).name
+    if name not in FENCED_CLIS:
+        raise ContainerHarnessError(
+            f"harness CLI {name!r} is not a fenced tools-on CLI; refusing to "
+            "run an unfenced nested-invocable binary"
+        )
+    return name
+
+
+def real_cli_path(spec: ContainerHarnessSpec) -> str:
+    """Return the vendor binary path the wrapper execs."""
+
+    entry = spec.harness_entrypoint
+    if entry is not None and PurePosixPath(entry).is_absolute():
+        return entry
+    return f"{FENCE_LIBEXEC_DIR}/{fenced_cli_name(spec)}"
+
+
+def stage_cli_fence(root: Path) -> Path:
+    """Copy the wrapper to a 0755 file the container can exec as its entrypoint."""
+
+    dest = root / "fence" / WRAPPER_NAME
+    dest.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    dest.write_bytes(cli_fence_source_path().read_bytes())
+    dest.chmod(0o755)
+    return dest
 
 
 def build_network_create_argv(
@@ -311,6 +378,7 @@ def build_harness_environment(
 
     proxy_url = f"http://{names.proxy_container}:{spec.proxy_port}"
     no_proxy = "localhost,127.0.0.1,::1"
+    cli = fenced_cli_name(spec)
     environment = {
         "HOME": spec.container_home,
         "HTTP_PROXY": proxy_url,
@@ -321,6 +389,21 @@ def build_harness_environment(
         "no_proxy": no_proxy,
     }
     environment.update(spec.environment)
+    environment.update(
+        {
+            "HOME": spec.container_home,
+            "PATH": FENCE_PATH,
+            "LFB_HARNESS_CLI": cli,
+            "LFB_HARNESS_REAL_BIN": real_cli_path(spec),
+            "LFB_CREDENTIALS_ROOT": CREDENTIALS_TARGET,
+            "HTTP_PROXY": proxy_url,
+            "HTTPS_PROXY": proxy_url,
+            "http_proxy": proxy_url,
+            "https_proxy": proxy_url,
+            "NO_PROXY": no_proxy,
+            "no_proxy": no_proxy,
+        }
+    )
     return environment
 
 
@@ -331,9 +414,12 @@ def build_harness_run_argv(
     *,
     credential_home: Path,
     cidfile: Path,
+    fence_binary: Path | None = None,
 ) -> tuple[str, ...]:
     """Return argv running the harness on the internal network only."""
 
+    fence = fence_binary if fence_binary is not None else cli_fence_source_path()
+    cli = fenced_cli_name(spec)
     argv: list[str] = [
         str(backend_path),
         "run",
@@ -359,17 +445,20 @@ def build_harness_run_argv(
         "--mount",
         f"type=bind,src={spec.workspace},dst={WORKSPACE_TARGET}",
         "--mount",
-        f"type=bind,src={credential_home},dst={spec.container_home}",
+        f"type=bind,src={credential_home},dst={CREDENTIALS_TARGET},readonly",
+        "--mount",
+        f"type=bind,src={fence},dst={FENCE_WRAPPER_TARGET},readonly",
+        "--mount",
+        f"type=bind,src={fence},dst={FENCE_BIN_DIR}/{cli},readonly",
         "--tmpfs",
         "/tmp:rw,nosuid,nodev,size=512m",
+        "--tmpfs",
+        f"{spec.container_home}:rw,nosuid,nodev,size=64m",
+        "--entrypoint",
+        FENCE_WRAPPER_TARGET,
     ]
     if spec.read_only_rootfs:
         argv.append("--read-only")
-    if spec.harness_entrypoint is not None:
-        # A purpose-built harness image usually puts the CLI on the entrypoint,
-        # but stating it here keeps the whole invocation manifest-declared
-        # rather than inherited from however the image happened to be built.
-        argv.extend(("--entrypoint", spec.harness_entrypoint))
     for name, value in sorted(build_harness_environment(spec, names).items()):
         argv.extend(("--env", f"{name}={value}"))
     argv.append(spec.image)

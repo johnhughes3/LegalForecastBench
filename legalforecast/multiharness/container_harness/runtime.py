@@ -45,6 +45,7 @@ from legalforecast.multiharness.container_harness.plan import (
     build_proxy_run_argv,
     build_run_names,
     egress_proxy_source_path,
+    stage_cli_fence,
     stage_credential_home,
 )
 
@@ -84,6 +85,7 @@ def run_container_harness(
         evidence_directory = staging / "egress"
         evidence_directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         credential_home = stage_credential_home(staging, spec)
+        fence_binary = stage_cli_fence(staging)
         _run_backend(build_network_create_argv(backend_path, names), environment)
         if spec.egress_network is None:
             _run_backend(
@@ -108,6 +110,7 @@ def run_container_harness(
                 names,
                 credential_home=credential_home,
                 cidfile=staging / "harness.cid",
+                fence_binary=fence_binary,
             ),
             environment,
             stdout_path=stdout_path,

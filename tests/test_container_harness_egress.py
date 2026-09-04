@@ -11,16 +11,19 @@ from __future__ import annotations
 
 import json
 import socket
+import ssl
 import threading
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from legalforecast.multiharness.container_harness.egress_proxy import (
+    REASON_HOST_HEADER_MISMATCH,
     REASON_HOST_NOT_ALLOWLISTED,
     REASON_MALFORMED_REQUEST,
     REASON_METHOD_NOT_CONNECT,
     REASON_PORT_NOT_ALLOWLISTED,
+    REASON_SNI_MISMATCH,
     AllowlistConnectProxy,
     EgressAllowlist,
     EgressPolicyError,
@@ -367,6 +370,150 @@ def test_hostile_connect_hosts_are_refused_before_any_dial(host: str) -> None:
     )
 
     assert allowlist.permits(host, 443) == REASON_HOST_NOT_ALLOWLISTED
+
+
+def _minimal_client_hello(sni: str | None) -> bytes:
+    """Return a single TLS record containing a ClientHello, optionally with SNI."""
+
+    random = b"\x11" * 32
+    cipher_suites = b"\x13\x01"
+    compression = b"\x01\x00"
+    extensions = bytearray()
+    if sni is not None:
+        host = sni.encode("ascii")
+        name = b"\x00" + len(host).to_bytes(2, "big") + host
+        name_list = len(name).to_bytes(2, "big") + name
+        extensions.extend(b"\x00\x00")
+        extensions.extend(len(name_list).to_bytes(2, "big"))
+        extensions.extend(name_list)
+    ext_block = (
+        len(extensions).to_bytes(2, "big") + bytes(extensions)
+        if sni is not None
+        else b""
+    )
+    body = (
+        b"\x03\x03"
+        + random
+        + b"\x00"
+        + len(cipher_suites).to_bytes(2, "big")
+        + cipher_suites
+        + compression
+        + ext_block
+    )
+    handshake = b"\x01" + len(body).to_bytes(3, "big") + body
+    return b"\x16\x03\x01" + len(handshake).to_bytes(2, "big") + handshake
+
+
+def test_connect_host_header_mismatch_is_refused_without_dialing(
+    origin: _CountingOrigin,
+) -> None:
+    allowlist = EgressAllowlist.from_rules(hosts=["localhost"], ports=[origin.port])
+    with AllowlistConnectProxy(allowlist) as proxy:
+        received = _proxy_exchange(
+            proxy.port,
+            (
+                f"CONNECT localhost:{origin.port} HTTP/1.1\r\n"
+                "Host: courtlistener.com\r\n"
+                "\r\n"
+            ).encode("ascii"),
+        )
+
+        assert received.startswith(b"HTTP/1.1 403 Forbidden\r\n")
+        assert REASON_HOST_HEADER_MISMATCH.encode("ascii") in received
+        assert origin.accepted == 0
+        refused = proxy.evidence.refused()
+        assert [decision.reason for decision in refused] == [
+            REASON_HOST_HEADER_MISMATCH
+        ]
+        assert refused[0].host == "localhost"
+        assert "courtlistener.com" not in json.dumps(proxy.evidence.to_record())
+
+
+def test_tunneled_http_host_mismatch_is_refused_without_dialing(
+    origin: _CountingOrigin,
+) -> None:
+    allowlist = EgressAllowlist.from_rules(hosts=["localhost"], ports=[origin.port])
+    with AllowlistConnectProxy(allowlist) as proxy:
+        received = _proxy_exchange(
+            proxy.port,
+            f"CONNECT localhost:{origin.port} HTTP/1.1\r\n\r\n".encode("ascii"),
+            follow_up=b"GET / HTTP/1.1\r\nHost: courtlistener.com\r\n\r\n",
+        )
+
+        assert received.startswith(b"HTTP/1.1 200 Connection Established\r\n")
+        assert b"ORIGIN" not in received
+        assert origin.accepted == 0
+        assert [decision.reason for decision in proxy.evidence.refused()] == [
+            REASON_HOST_HEADER_MISMATCH
+        ]
+        assert "courtlistener.com" not in json.dumps(proxy.evidence.to_record())
+
+
+def test_mismatched_tls_sni_is_refused_even_when_connect_target_is_allowlisted(
+    origin: _CountingOrigin,
+) -> None:
+    allowlist = EgressAllowlist.from_rules(
+        hosts=["localhost", "example.com"], ports=[origin.port]
+    )
+    with AllowlistConnectProxy(allowlist) as proxy:
+        received = _proxy_exchange(
+            proxy.port,
+            f"CONNECT localhost:{origin.port} HTTP/1.1\r\n\r\n".encode("ascii"),
+            follow_up=_minimal_client_hello("example.com"),
+        )
+
+        assert received.startswith(b"HTTP/1.1 200 Connection Established\r\n")
+        assert b"ORIGIN" not in received
+        assert origin.accepted == 0
+        refused = proxy.evidence.refused()
+        assert [decision.reason for decision in refused] == [REASON_SNI_MISMATCH]
+        assert refused[0].host == "localhost"
+        record = json.dumps(proxy.evidence.to_record())
+        assert "example.com" not in record
+
+
+def test_real_tls_clienthello_sni_mismatch_never_dials(
+    origin: _CountingOrigin,
+) -> None:
+    allowlist = EgressAllowlist.from_rules(hosts=["localhost"], ports=[origin.port])
+    with AllowlistConnectProxy(allowlist) as proxy:
+        with socket.create_connection(("127.0.0.1", proxy.port), timeout=10) as raw:
+            raw.sendall(
+                f"CONNECT localhost:{origin.port} HTTP/1.1\r\n\r\n".encode("ascii")
+            )
+            head = bytearray()
+            while b"\r\n\r\n" not in head:
+                chunk = raw.recv(4096)
+                assert chunk
+                head.extend(chunk)
+            assert bytes(head).startswith(b"HTTP/1.1 200")
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            with pytest.raises(OSError):
+                context.wrap_socket(raw, server_hostname="courtlistener.com")
+
+        assert origin.accepted == 0
+        assert any(
+            decision.reason == REASON_SNI_MISMATCH
+            for decision in proxy.evidence.refused()
+        )
+        assert "courtlistener.com" not in json.dumps(proxy.evidence.to_record())
+
+
+def test_matching_tls_sni_is_dialed(origin: _CountingOrigin) -> None:
+    allowlist = EgressAllowlist.from_rules(hosts=["localhost"], ports=[origin.port])
+    with AllowlistConnectProxy(allowlist) as proxy:
+        received = _proxy_exchange(
+            proxy.port,
+            f"CONNECT localhost:{origin.port} HTTP/1.1\r\n\r\n".encode("ascii"),
+            follow_up=_minimal_client_hello("localhost"),
+        )
+
+        assert received.startswith(b"HTTP/1.1 200 Connection Established\r\n")
+        assert origin.accepted == 1
+        assert proxy.evidence.allowed_hosts() == ("localhost",)
+        assert proxy.evidence.refused() == ()
 
 
 @pytest.mark.parametrize("request_bytes", MALFORMED_CONNECT_REQUESTS)
