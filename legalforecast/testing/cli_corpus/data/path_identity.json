@@ -112,6 +112,7 @@
     "tests/test_official_eval_corpus_trust.py",
     "tests/test_official_eval_infra.py",
     "tests/test_official_eval_matrix_workflow.py",
+    "tests/test_official_fan_in_workflow.py",
     "tests/test_official_provider_workflow.py",
     "tests/test_openai_compatible_provider.py",
     "tests/test_package_import_order.py",

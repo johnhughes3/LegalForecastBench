@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import shlex
 import subprocess
@@ -7,6 +8,7 @@ from pathlib import Path
 
 WORKFLOW_PATH = Path(".github/workflows/fan-in-publish.yaml")
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_fan_in_is_a_single_protected_provider_free_labels_boundary() -> None:
@@ -157,13 +159,106 @@ def test_run_identity_and_receipt_coverage_are_bound_before_scoring() -> None:
 def test_publish_is_create_once_and_uploads_only_sanitized_outputs() -> None:
     publish = WORKFLOW[WORKFLOW.index("- name: Publish verified report once") :]
     assert "inputs.publish" in publish
-    assert "list-objects-v2" in publish
-    assert "refusing to overwrite existing immutable report prefix" in publish
+    assert ".github/scripts/reconcile-s3-object.sh" in publish
+    assert "--if-none-match '*'" in (
+        Path(".github/scripts/reconcile-s3-object.sh").read_text(encoding="utf-8")
+    )
+    assert "head-object" in (
+        Path(".github/scripts/reconcile-s3-object.sh").read_text(encoding="utf-8")
+    )
+    assert "refusing S3 object mismatch" in (
+        Path(".github/scripts/reconcile-s3-object.sh").read_text(encoding="utf-8")
+    )
     assert "scores.json" in publish
     assert "unit-scores.jsonl" in publish
     assert "/tmp/lfb-report" in publish
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in publish
     assert "private" not in publish
+
+
+def test_s3_objects_reconcile_after_hf_failure_and_refuse_mismatch(
+    tmp_path: Path,
+) -> None:
+    fake_aws = tmp_path / "aws"
+    fake_aws.write_text(
+        """#!/usr/bin/env python3
+import hashlib
+import json
+import os
+import sys
+from pathlib import Path
+
+args = sys.argv[1:]
+if args[:2] != ["s3api", "head-object"] and args[:2] != ["s3api", "put-object"]:
+    raise SystemExit(f"unsupported fake aws call: {args}")
+key = args[args.index("--key") + 1]
+store = Path(os.environ["FAKE_AWS_STORE"])
+store.mkdir(parents=True, exist_ok=True)
+object_path = store / (hashlib.sha256(key.encode()).hexdigest() + ".json")
+if args[1] == "head-object":
+    if not object_path.is_file():
+        print(
+            "An error occurred (404) when calling HeadObject: Not Found",
+            file=sys.stderr,
+        )
+        raise SystemExit(254)
+    record = json.loads(object_path.read_text(encoding="utf-8"))
+    print(json.dumps({"ContentLength": record["size"], "Metadata": record["metadata"]}))
+else:
+    if object_path.exists():
+        print(
+            "An error occurred (412) when calling PutObject: PreconditionFailed",
+            file=sys.stderr,
+        )
+        raise SystemExit(412)
+    body = Path(args[args.index("--body") + 1]).read_bytes()
+    metadata = args[args.index("--metadata") + 1].split("=", 1)
+    object_path.write_text(
+        json.dumps({"size": len(body), "metadata": {metadata[0]: metadata[1]}}),
+        encoding="utf-8",
+    )
+    print("created")
+""",
+        encoding="utf-8",
+    )
+    fake_aws.chmod(0o755)
+    source = tmp_path / "scores.json"
+    store = tmp_path / "objects"
+    environment = {
+        **os.environ,
+        "PATH": f"{tmp_path}:{os.environ['PATH']}",
+        "FAKE_AWS_STORE": str(store),
+    }
+
+    def reconcile(payload: bytes) -> subprocess.CompletedProcess[str]:
+        source.write_bytes(payload)
+        return subprocess.run(
+            [
+                "bash",
+                str(ROOT / ".github/scripts/reconcile-s3-object.sh"),
+                "results-bucket",
+                str(source),
+                "reports/cycle-1/multi-ablation/scores.json",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=environment,
+        )
+
+    created = reconcile(b"verified score bytes\n")
+    assert created.returncode == 0, created.stderr
+    assert "created immutable S3 object" in created.stdout
+
+    # The first run can fail after S3 succeeds while the HF/OIDC step is still
+    # pending. A retry must reconcile the exact object and continue to HF.
+    retried = reconcile(b"verified score bytes\n")
+    assert retried.returncode == 0, retried.stderr
+    assert "reused existing immutable S3 object" in retried.stdout
+
+    mismatch = reconcile(b"changed score bytes!\n")
+    assert mismatch.returncode != 0
+    assert "refusing S3 object mismatch" in mismatch.stderr
 
 
 def test_hugging_face_publication_is_retained_publish_only_and_oidc_bound() -> None:
