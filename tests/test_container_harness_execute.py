@@ -192,3 +192,36 @@ def test_mocked_run_puts_the_harness_only_on_the_internal_network(
     if staging.exists():
         assert list(staging.iterdir()) == []
     assert source.read_text(encoding="utf-8") == _SECRET
+
+
+def test_cleanup_deletes_credentials_when_docker_rm_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "real-credentials.json"
+    source.write_text(_SECRET, encoding="utf-8")
+    spec = _spec(
+        tmp_path,
+        credentials=(
+            HarnessCredential(host_path=source, home_relative_path=".claude.json"),
+        ),
+    )
+    calls = _install_fake_backend(monkeypatch, tmp_path, fail_on=("rm", "--force"))
+
+    with pytest.raises(ContainerHarnessError):
+        run_container_harness(spec)
+
+    rm_calls = [call for call in calls if call[1:3] == ("rm", "--force")]
+    network_rms = [call for call in calls if call[1:3] == ("network", "rm")]
+    assert len(rm_calls) >= 2
+    assert network_rms
+    runtime_dir = tmp_path / "runtime"
+    leftover = [
+        path
+        for path in runtime_dir.rglob("*")
+        if path.is_file() and _SECRET.encode() in path.read_bytes()
+    ]
+    assert leftover == []
+    staging = runtime_dir / STAGING_ROOT_NAME
+    if staging.exists():
+        assert list(staging.iterdir()) == []
+    assert source.read_text(encoding="utf-8") == _SECRET

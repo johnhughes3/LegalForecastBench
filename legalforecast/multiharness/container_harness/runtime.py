@@ -253,11 +253,16 @@ def _cleanup(
     environment: Mapping[str, str],
     staging: Path,
 ) -> None:
-    for argv in (
-        (str(backend_path), "rm", "--force", names.harness_container),
-        (str(backend_path), "rm", "--force", names.proxy_container),
-        (str(backend_path), "network", "rm", names.network),
-        (str(backend_path), "network", "rm", names.egress_network),
-    ):
-        _run_backend(argv, environment, check=False)
-    shutil.rmtree(staging, ignore_errors=True)
+    try:
+        for argv in (
+            (str(backend_path), "rm", "--force", names.harness_container),
+            (str(backend_path), "rm", "--force", names.proxy_container),
+            (str(backend_path), "network", "rm", names.network),
+            (str(backend_path), "network", "rm", names.egress_network),
+        ):
+            try:
+                _run_backend(argv, environment, check=False)
+            except ContainerHarnessError:
+                continue
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)

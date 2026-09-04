@@ -111,3 +111,77 @@ def test_validate_refuses_an_oversized_artifact(tmp_path: Path) -> None:
 
     with pytest.raises(IntakeError, match="intake cap"):
         validate_intake_package(package)
+
+
+def test_validate_refuses_a_symlink_file_inside_the_package(tmp_path: Path) -> None:
+    package = tmp_path / "package"
+    package.mkdir()
+    (package / "summary.json").write_text('{"ok": true}\n', encoding="utf-8")
+    host_file = tmp_path / "host-secret.json"
+    host_file.write_text(
+        '{"ANTHROPIC_API_KEY": "sk-ant-host-file"}\n', encoding="utf-8"
+    )
+    (package / "leak.json").symlink_to(host_file)
+
+    with pytest.raises(IntakeError, match="symlink"):
+        validate_intake_package(package)
+
+
+def test_validate_refuses_a_directory_symlink_inside_the_package(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "package"
+    package.mkdir()
+    (package / "summary.json").write_text('{"ok": true}\n', encoding="utf-8")
+    host_dir = tmp_path / "host-dir"
+    host_dir.mkdir()
+    (host_dir / "secret.json").write_text("{}\n", encoding="utf-8")
+    (package / "nested").symlink_to(host_dir)
+
+    with pytest.raises(IntakeError, match="symlink"):
+        validate_intake_package(package)
+
+
+def test_validate_refuses_a_symlinked_package_root(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "summary.json").write_text('{"ok": true}\n', encoding="utf-8")
+    package = tmp_path / "package"
+    package.symlink_to(real)
+
+    with pytest.raises(IntakeError, match="symlink"):
+        validate_intake_package(package)
+
+
+def test_publish_does_not_copy_through_a_symlink(tmp_path: Path) -> None:
+    package = tmp_path / "package"
+    package.mkdir()
+    (package / "summary.json").write_text('{"ok": true}\n', encoding="utf-8")
+    host_file = tmp_path / "host-secret.json"
+    host_file.write_text("host-bytes-must-not-be-copied\n", encoding="utf-8")
+    (package / "leak.json").symlink_to(host_file)
+    destination = tmp_path / "destination"
+
+    with pytest.raises(IntakeError, match="symlink"):
+        publish_intake_package(package, destination)
+
+    assert not destination.exists()
+
+
+def test_validate_scans_text_up_to_the_intake_cap(tmp_path: Path) -> None:
+    """A secret in a 3 MiB JSON is under the 8 MiB cap and must still be refused.
+
+    The guardrail default of 2_000_000 bytes would skip this file; intake must
+    scan every text artifact the cap permits.
+    """
+
+    package = tmp_path / "package"
+    package.mkdir()
+    padding = "x" * (3 * 1024 * 1024)
+    (package / "notes.json").write_text(
+        f'{{"ANTHROPIC_API_KEY": "sk-ant-not-for-publication", "pad": "{padding}"}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(IntakeError, match="publication guardrail"):
+        validate_intake_package(package)
