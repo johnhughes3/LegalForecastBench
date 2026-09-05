@@ -517,6 +517,19 @@ MULTIHARNESS_MATCHED_HARNESS_IDENTITY_V1 = SchemaIdentifier(
 MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1 = SchemaIdentifier(
     "legalforecast.multiharness.system_bundle_label.v1"
 )
+HARVEY_LAB_EVALUATION_INPUT_V2 = SchemaIdentifier(
+    "legalforecast.harvey_lab_evaluation_input.v2"
+)
+HARVEY_LAB_EVALUATOR_ISSUER_POLICY_V2 = SchemaIdentifier(
+    "legalforecast.harvey_lab_evaluator_issuer_policy.v2"
+)
+HARVEY_LAB_OUTPUT_DISCOVERY_V2 = SchemaIdentifier(
+    "legalforecast.harvey_lab_output_discovery.v2"
+)
+HARVEY_LAB_PROJECTION_V2 = SchemaIdentifier("legalforecast.harvey_lab_projection.v2")
+HARVEY_LAB_TASK_PROJECTION_V2 = SchemaIdentifier(
+    "legalforecast.harvey_lab_task_projection.v2"
+)
 
 # This registry names the current recovery vertical slice without changing any
 # producer's local constant.  Migration to these imports is post-Cycle 1 work.

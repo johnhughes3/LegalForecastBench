@@ -484,38 +484,38 @@ def validate_sealed_deliverable(
     return canonical_manifest
 
 
-# Recomputes this module's existing tree commitment from its own primitives; it
-# defines no new codec and persists nothing.
 # contract-ratchet: allow recomputation of the existing deliverable tree commitment
 def single_artifact_tree_sha256(artifact_path: str, payload: bytes) -> str:
-    """Recompute the tree commitment of a deliverable tree holding one file.
-
-    A consumer that already holds the artifact bytes -- an evaluator reading
-    the overlay copy of a sealed deliverable, for example -- can re-derive the
-    committed ``tree_sha256`` from those bytes alone, without re-walking the
-    sealed root it no longer has access to. That makes the bytes it is about
-    to act on authenticated against the same commitment the sealing step
-    produced.
-
-    Deliberately built from the same primitives ``_bounded_tree_snapshot``
-    uses, so the two encodings cannot drift apart; a tree holding anything
-    other than exactly one root-level file simply will not match.
-    """
-
     if not artifact_path or artifact_path != PurePosixPath(artifact_path).name:
         raise DeliverableValidationError(
             "single-artifact tree path must be a bare filename"
         )
-    entry: dict[str, object] = {
-        "path": artifact_path,
-        "type": "file",
-        "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
-        "size_bytes": len(payload),
-    }
+    return artifact_tree_sha256({artifact_path: payload})
+
+
+# contract-ratchet: allow recomputation of the existing deliverable tree commitment
+def artifact_tree_sha256(artifacts: Mapping[str, bytes]) -> str:
+    if not artifacts:
+        raise DeliverableValidationError("artifact tree requires at least one file")
+    entries_by_path: dict[str, dict[str, object]] = {}
+    for artifact_path, payload in artifacts.items():
+        safe_path = _decoded_safe_path(artifact_path, "artifact_path")
+        if type(payload) is not bytes:
+            raise DeliverableValidationError("artifact payload must be bytes")
+        path = PurePosixPath(safe_path)
+        for parent in reversed(path.parents[:-1]):
+            name = parent.as_posix()
+            entries_by_path.setdefault(name, {"path": name, "type": "directory"})
+        entries_by_path[safe_path] = {
+            "path": safe_path,
+            "type": "file",
+            "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
+            "size_bytes": len(payload),
+        }
     return _record_sha256(
         {
             "schema_version": DELIVERABLE_TREE_COMMITMENT_SCHEMA_VERSION,
-            "entries": [entry],
+            "entries": [entries_by_path[path] for path in sorted(entries_by_path)],
         }
     )
 

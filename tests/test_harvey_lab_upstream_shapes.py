@@ -37,7 +37,7 @@ def test_upstream_deliverables_mapping_projects(tmp_path: Path) -> None:
     result = _project(source, tmp_path)
 
     assert [task.record.lab_task_id for task in result.tasks] == ["corporate/merger"]
-    assert result.manifest.tasks[0].expected_deliverable == "memo.docx"
+    assert result.manifest.tasks[0].expected_deliverables == ("memo.docx",)
     assert result.skipped == ()
 
 
@@ -49,38 +49,37 @@ def test_singular_deliverable_field_still_projects(tmp_path: Path) -> None:
 
     result = _project(source, tmp_path)
 
-    assert result.manifest.tasks[0].expected_deliverable == "memo.docx"
+    assert result.manifest.tasks[0].expected_deliverables == ("memo.docx",)
 
 
-@pytest.mark.parametrize(
-    ("record", "expected_message"),
-    [
-        ({}, "declares no deliverable"),
-        ({"deliverables": {}}, "declares 0 deliverables"),
-        (
-            {"deliverables": {"a.docx": "a.docx", "b.docx": "b.docx"}},
-            "declares 2 deliverables",
-        ),
-        (
-            {"deliverables": {"totals.xlsx": "totals.xlsx"}},
-            "is not a .docx",
-        ),
-    ],
-)
-def test_unsupported_shapes_are_refused_by_task_name(
+def test_multiple_declared_deliverables_project_in_stable_order(tmp_path: Path) -> None:
+    source = _lab_source(
+        tmp_path,
+        {
+            "corporate/merger": {
+                "deliverables": {"b.docx": "b.docx", "a.docx": "a.docx"}
+            }
+        },
+    )
+
+    result = _project(source, tmp_path)
+
+    assert result.manifest.tasks[0].expected_deliverables == (
+        "a.docx",
+        "b.docx",
+    )
+
+
+@pytest.mark.parametrize("record", [{}, {"deliverables": {}}])
+def test_no_declared_deliverables_projects_as_score_all_outputs(
     tmp_path: Path,
     record: dict[str, object],
-    expected_message: str,
 ) -> None:
-    source = _lab_source(tmp_path, {"corporate/merger": record})
+    source = _lab_source(tmp_path, {"contracts/scenario": record})
 
-    with pytest.raises(HarveyLabUnsupportedTaskShapeError) as exc_info:
-        _project(source, tmp_path)
+    result = _project(source, tmp_path)
 
-    message = str(exc_info.value)
-    assert expected_message in message
-    # An operator projecting a whole category has to know *which* task missed.
-    assert message.startswith("corporate/merger: ")
+    assert result.manifest.tasks[0].expected_deliverables == ()
 
 
 def test_disagreeing_deliverables_key_and_value_is_not_a_skippable_shape(
@@ -96,50 +95,6 @@ def test_disagreeing_deliverables_key_and_value_is_not_a_skippable_shape(
 
     assert "key and value disagree" in str(exc_info.value)
     assert not isinstance(exc_info.value, HarveyLabUnsupportedTaskShapeError)
-
-
-def test_skipping_projects_the_supported_tasks_and_reports_the_rest(
-    tmp_path: Path,
-) -> None:
-    source = _lab_source(
-        tmp_path,
-        {
-            "corporate/merger": {"deliverables": {"memo.docx": "memo.docx"}},
-            "corporate/diligence": {
-                "deliverables": {"a.docx": "a.docx", "b.docx": "b.docx"}
-            },
-            "corporate/schedule": {"deliverables": {"plan.xlsx": "plan.xlsx"}},
-        },
-    )
-
-    result = _project(source, tmp_path, skip_unsupported_tasks=True)
-
-    assert [task.record.lab_task_id for task in result.tasks] == ["corporate/merger"]
-    assert [item.lab_task_id for item in result.skipped] == [
-        "corporate/diligence",
-        "corporate/schedule",
-    ]
-    assert "declares 2 deliverables" in result.skipped[0].reason
-    assert "is not a .docx" in result.skipped[1].reason
-    # The reason is already attributed by the skip record; it should not repeat
-    # the task id inside its own text.
-    assert not result.skipped[0].reason.startswith("corporate/diligence")
-
-
-def test_a_projection_with_nothing_left_fails_rather_than_writing_an_empty_layout(
-    tmp_path: Path,
-) -> None:
-    source = _lab_source(
-        tmp_path,
-        {"corporate/diligence": {"deliverables": {"a.docx": "a.docx", "b.docx": "b"}}},
-    )
-
-    with pytest.raises(HarveyLabProjectionError) as exc_info:
-        _project(source, tmp_path, skip_unsupported_tasks=True)
-
-    assert "no Harvey LAB task in the selection could be projected" in str(
-        exc_info.value
-    )
 
 
 def test_skipping_never_swallows_a_tampering_refusal(tmp_path: Path) -> None:

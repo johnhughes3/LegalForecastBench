@@ -10,7 +10,7 @@ the installed digest.
 It is deliberately provider-free and credential-free.
 
 The pinned upstream evaluator exposes only an aggregate CLI: one invocation
-issues all 23 criterion judge calls internally.  A controller cannot check a
+issues all criterion judge calls internally. A controller cannot check a
 ceiling before each of those calls, so running the aggregate path would spend
 provider money that no per-call ceiling authorized.  The paid Tier-0 path
 therefore never executes this wrapper for scoring -- it drives the reviewed
@@ -36,29 +36,30 @@ from pathlib import Path
 from typing import Any, cast
 
 HARVEY_LAB_EVAL_WRAPPER_NAME = "harvey-lab-eval"
-HARVEY_LAB_EVAL_WRAPPER_VERSION = "1.1.0"
+HARVEY_LAB_EVAL_WRAPPER_VERSION = "1.2.0"
 # Must stay byte-identical to
 # ``legalforecast.multiharness.harvey_lab_evaluator.EVALUATION_INPUT_SCHEMA_VERSION``.
 # This wrapper is installed as a standalone file and deliberately imports
 # nothing from the package, so the constant is duplicated here and pinned to
 # the producer's spelling by test, not by import.
-EVALUATION_INPUT_SCHEMA_VERSION = "legalforecast.harvey_lab_evaluation_input.v1"
+EVALUATION_INPUT_SCHEMA_VERSION = "legalforecast.harvey_lab_evaluation_input.v2"
 
 # Exactly the fields the frozen stdin manifest may name as filesystem paths.
 ALLOWED_PATH_FIELDS = (
-    "deliverable_path",
+    "deliverable_root",
     "private_task_json_path",
     "scores_output_path",
 )
 REQUIRED_FIELDS = (
     "schema_version",
     "lab_task_id",
-    "expected_deliverable_basename",
+    "expected_deliverable_basenames",
     "deliverable_manifest_sha256",
     "deliverable_tree_sha256",
     "task_sha256",
     "projection_manifest_sha256",
     "private_material_sha256",
+    "deliverable_paths",
     *ALLOWED_PATH_FIELDS,
 )
 
@@ -122,7 +123,7 @@ def _validate_then_refuse(raw: str) -> int:
         return EXIT_INVALID_INPUT
     print(
         "refusing aggregate Harvey LAB evaluation: this entrypoint would issue "
-        "23 criterion judge calls in one invocation, and no per-call ceiling "
+        "all criterion judge calls in one invocation, and no per-call ceiling "
         "can be checked before them. Run paid evaluation through the reviewed "
         "per-criterion production evaluator seam, which reserves budget "
         "immediately before every paid request.",
@@ -152,10 +153,22 @@ def _require_fields(record: Mapping[str, Any]) -> None:
     schema = record["schema_version"]
     if schema != EVALUATION_INPUT_SCHEMA_VERSION:
         raise _InvalidInput("unsupported evaluation-input schema version")
-    for name in REQUIRED_FIELDS:
+    string_fields = set(REQUIRED_FIELDS) - {
+        "deliverable_paths",
+        "expected_deliverable_basenames",
+    }
+    for name in string_fields:
         value = record[name]
         if not isinstance(value, str) or not value:
             raise _InvalidInput(f"{name} must be a non-empty string")
+    for name in ("deliverable_paths", "expected_deliverable_basenames"):
+        value = record[name]
+        if not isinstance(value, list) or any(
+            not isinstance(item, str) or not item for item in value
+        ):
+            raise _InvalidInput(f"{name} must be an array of non-empty strings")
+    if not record["deliverable_paths"]:
+        raise _InvalidInput("deliverable_paths must not be empty")
 
 
 def _require_manifest_paths(record: Mapping[str, Any]) -> None:
@@ -177,7 +190,25 @@ def _require_manifest_paths(record: Mapping[str, Any]) -> None:
         if candidate in seen:
             raise _InvalidInput("evaluation input paths must be distinct")
         seen.add(candidate)
-    for name in ("deliverable_path", "private_task_json_path"):
+    root = Path(str(record["deliverable_root"]))
+    if not root.is_dir():
+        raise _InvalidInput("deliverable_root does not name an existing directory")
+    for index, value in enumerate(record["deliverable_paths"]):
+        candidate = Path(str(value))
+        if not candidate.is_absolute():
+            raise _InvalidInput("deliverable_paths must contain absolute paths")
+        if candidate.is_symlink() or not candidate.is_file():
+            raise _InvalidInput(
+                "deliverable_paths must contain existing regular files"
+            )
+        try:
+            candidate.relative_to(root)
+        except ValueError as exc:
+            raise _InvalidInput("deliverable path escapes deliverable_root") from exc
+        if candidate in seen:
+            raise _InvalidInput("evaluation input paths must be distinct")
+        seen.add(candidate)
+    for name in ("private_task_json_path",):
         candidate = Path(str(record[name]))
         if not candidate.is_file():
             raise _InvalidInput(f"{name} does not name an existing regular file")

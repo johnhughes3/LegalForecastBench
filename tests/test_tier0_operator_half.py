@@ -145,24 +145,24 @@ def _run_wrapper(args: list[str], stdin: str = "") -> subprocess.CompletedProces
 
 
 def _evaluation_input(tmp_path: Path, **overrides: object) -> dict[str, object]:
-    deliverable = tmp_path / "issue-identification-memo.docx"
+    deliverable_root = tmp_path / "output"
+    deliverable_root.mkdir()
+    deliverable = deliverable_root / "issue-identification-memo.docx"
     deliverable.write_bytes(b"docx")
     private = tmp_path / "task.json"
     private.write_text("{}", encoding="utf-8")
     record: dict[str, object] = {
-        # Taken from the producer, never retyped: the wrapper and the producer
-        # disagreeing on this string is exactly the defect a hand-written
-        # spelling hid, because the suite then only ever fed the wrapper its
-        # own dialect.
+        # Taken from the producer so contract drift remains observable.
         "schema_version": EVALUATION_INPUT_SCHEMA_VERSION,
         "lab_task_id": tier0_mint.PINNED_TASK_ID,
-        "expected_deliverable_basename": "issue-identification-memo.docx",
+        "expected_deliverable_basenames": ["issue-identification-memo.docx"],
         "deliverable_manifest_sha256": "sha256:" + "1" * 64,
         "deliverable_tree_sha256": "sha256:" + "2" * 64,
         "task_sha256": "sha256:" + "3" * 64,
         "projection_manifest_sha256": "sha256:" + "4" * 64,
         "private_material_sha256": "sha256:" + "5" * 64,
-        "deliverable_path": str(deliverable),
+        "deliverable_paths": [str(deliverable)],
+        "deliverable_root": str(deliverable_root),
         "private_task_json_path": str(private),
         "scores_output_path": str(tmp_path / "scores.json"),
     }
@@ -205,7 +205,7 @@ def test_wrapper_refuses_the_unaccounted_aggregate_path(tmp_path: Path) -> None:
     "overrides",
     [
         {"schema_version": EVALUATION_INPUT_SCHEMA_VERSION + "9"},
-        {"deliverable_path": "relative/path.docx"},
+        {"deliverable_paths": ["relative/path.docx"]},
     ],
 )
 def test_wrapper_rejects_malformed_evaluation_input(
@@ -399,7 +399,7 @@ def _deliverable(
 ) -> JudgeDeliverable:
     payload = _docx_bytes(text)
     return JudgeDeliverable(
-        basename=DELIVERABLE_BASENAME,
+        artifact_paths=(DELIVERABLE_BASENAME,),
         text=text,
         sha256="sha256:" + sha256(payload).hexdigest(),
     )
@@ -878,7 +878,7 @@ def test_run_refuses_before_any_billable_call_when_the_deliverable_is_missing(
     )
     runner = _production_runner(tmp_path / "run", projected, transport)
     record = json.loads(run_spec.stdin_bytes.decode("utf-8"))
-    Path(str(record["deliverable_path"])).unlink()
+    Path(str(record["deliverable_paths"][0])).unlink()
     boundary = _RecordingBoundary()
     with pytest.raises(ProductionEvaluatorRunnerError):
         runner(cast(Any, None), run_spec, boundary)
@@ -899,7 +899,7 @@ def test_run_refuses_a_deliverable_that_does_not_match_the_sealed_commitment(
     )
     runner = _production_runner(tmp_path / "run", projected, transport)
     record = json.loads(run_spec.stdin_bytes.decode("utf-8"))
-    overlay_copy = Path(str(record["deliverable_path"]))
+    overlay_copy = Path(str(record["deliverable_paths"][0]))
     # The overlay copy lands read-only; anyone able to swap it would have
     # cleared that first, so the test does too.
     overlay_copy.chmod(0o644)

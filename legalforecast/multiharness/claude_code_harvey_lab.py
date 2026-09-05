@@ -104,6 +104,7 @@ def run_claude_code_clean_native_harvey_lab(
     evaluator_working_directory: Path,
     signer: Callable[[bytes], bytes],
     issuer_public_key: Ed25519PublicKey,
+    lab_task_id: str = ISSUE_196_LAB_TASK_ID,
     pin: HarveyLabPin | None = None,
     model: str = "claude-sonnet-4-6",
     timeout_seconds: float | None = None,
@@ -144,19 +145,19 @@ def run_claude_code_clean_native_harvey_lab(
         solver_root=solver_root,
         evaluator_private_root=evaluator_private_root,
         pin=pin,
-        lab_task_ids=(ISSUE_196_LAB_TASK_ID,),
+        lab_task_ids=(lab_task_id,),
     )
     if (
         len(projection.manifest.tasks) != 1
-        or projection.manifest.tasks[0].lab_task_id != ISSUE_196_LAB_TASK_ID
+        or projection.manifest.tasks[0].lab_task_id != lab_task_id
     ):
         raise ClaudeCodeCliAdapterError(
-            "Harvey LAB projection did not produce exactly the frozen issue-196 task"
+            "Harvey LAB projection did not produce exactly the selected task"
         )
     task = projection.manifest.tasks[0]
     task_dir = projection.solver_root / task.relative_path
     instructions = task_dir / INSTRUCTIONS_NAME
-    prompt = _lab_solver_prompt(instructions, task.expected_deliverable)
+    prompt = _lab_solver_prompt(instructions, task.expected_deliverables)
     sandbox_root.mkdir(parents=True, exist_ok=True)
     resolved_output = require_harvey_lab_sandbox_hosts(
         sandbox_root=sandbox_root,
@@ -257,7 +258,7 @@ def run_claude_code_clean_native_harvey_lab(
     identity = HarveyLabEvaluationIdentity(
         lab_task_id=task.lab_task_id,
         task_sha256=task_digest,
-        expected_deliverable_basename=task.expected_deliverable,
+        expected_deliverable_basenames=task.expected_deliverables,
         projection_manifest_sha256=projection.manifest.manifest_sha256,
         wrapper_sha256=wrapper_sha256,
         run_sha256=run_digest,
@@ -291,6 +292,7 @@ def run_claude_code_clean_native_harvey_lab(
         criteria_sha256=evaluation.spec.criteria_sha256,
         aggregation_sha256=evaluation.spec.aggregation_sha256,
         output_schema_sha256=evaluation.spec.judge_output_schema_sha256,
+        criterion_count=evaluation.criterion_count,
     )
     score = verify_authorized_harvey_lab_receipt(
         evaluation.receipt.to_record(),
@@ -316,7 +318,9 @@ def run_claude_code_clean_native_harvey_lab(
     )
 
 
-def _lab_solver_prompt(instructions: Path, expected_deliverable: str) -> str:
+def _lab_solver_prompt(
+    instructions: Path, expected_deliverables: tuple[str, ...]
+) -> str:
     if not instructions.is_file():
         raise ClaudeCodeCliAdapterError(
             "projected Harvey LAB task is missing instructions.txt"
@@ -326,10 +330,13 @@ def _lab_solver_prompt(instructions: Path, expected_deliverable: str) -> str:
         raise ClaudeCodeCliAdapterError(
             "projected Harvey LAB instructions must be non-empty"
         )
+    declaration = (
+        "Write the expected deliverables " + ", ".join(expected_deliverables)
+        if expected_deliverables
+        else "Write every deliverable requested by the task"
+    )
     return (
-        f"{body}\n\n"
-        "Write the expected deliverable "
-        f"{expected_deliverable} into the output directory under the working "
+        f"{body}\n\n{declaration} into the output directory under the working "
         "directory. Use only in-sandbox native tools."
     )
 

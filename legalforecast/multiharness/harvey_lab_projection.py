@@ -26,6 +26,15 @@ from typing import cast
 from uuid import uuid4
 
 from legalforecast._json_io import read_json_object, write_json_object
+from legalforecast.contracts.schemas import (
+    HARVEY_LAB_PROJECTION_V2,
+    HARVEY_LAB_TASK_PROJECTION_V2,
+)
+from legalforecast.multiharness.harvey_lab_contract import (
+    HarveyLabContractError,
+    HarveyLabUnsupportedOutputError,
+    expected_docx_deliverables,
+)
 from legalforecast.multiharness.material_separation import (
     MaterialSeparationError,
     MaterialSeparationLayout,
@@ -46,14 +55,8 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-PROJECTION_SCHEMA_VERSION = (
-    # contract-ratchet: allow LAB1 projection schema until contracts registry
-    "legalforecast.harvey_lab_projection.v1"
-)
-TASK_PROJECTION_SCHEMA_VERSION = (
-    # contract-ratchet: allow LAB1 task-projection schema until contracts registry
-    "legalforecast.harvey_lab_task_projection.v1"
-)
+PROJECTION_SCHEMA_VERSION = str(HARVEY_LAB_PROJECTION_V2)
+TASK_PROJECTION_SCHEMA_VERSION = str(HARVEY_LAB_TASK_PROJECTION_V2)
 SOLVER_VISIBLE_LAYOUT_ID = "harvey-lab-solver-visible.v1"
 NATIVE_LAYOUT_ID = "harvey-lab-native.v1"
 ROOT_MANIFEST_NAME = "harvey-lab-projection.v1.json"
@@ -100,7 +103,7 @@ _TASK_REQUIRED_FIELDS = frozenset(
         "category",
         "relative_path",
         "task_sha256",
-        "expected_deliverable",
+        "expected_deliverables",
         "files",
     }
 )
@@ -186,7 +189,7 @@ class HarveyLabProjectedTask:
     category: str
     relative_path: str
     task_sha256: str
-    expected_deliverable: str
+    expected_deliverables: tuple[str, ...]
     files: tuple[HarveyLabProjectedFile, ...]
 
     def __post_init__(self) -> None:
@@ -199,12 +202,15 @@ class HarveyLabProjectedTask:
             validate_sha256(self.task_sha256, "task_sha256", allow_prefix=False)
         except MultiHarnessValidationError as extra:
             raise HarveyLabProjectionError(str(extra)) from extra
-        if "/" in self.expected_deliverable or not self.expected_deliverable.endswith(
-            ".docx"
-        ):
-            raise HarveyLabProjectionError(
-                "expected_deliverable must be a .docx basename"
-            )
+        if tuple(sorted(self.expected_deliverables)) != self.expected_deliverables:
+            raise HarveyLabProjectionError("expected_deliverables must be sorted")
+        if len(set(self.expected_deliverables)) != len(self.expected_deliverables):
+            raise HarveyLabProjectionError("expected_deliverables must be unique")
+        for basename in self.expected_deliverables:
+            if basename != Path(basename).name or not basename.endswith(".docx"):
+                raise HarveyLabProjectionError(
+                    "expected_deliverables must contain .docx basenames"
+                )
         if not self.files:
             raise HarveyLabProjectionError("projected task has no files")
 
@@ -215,9 +221,19 @@ class HarveyLabProjectedTask:
             "category": self.category,
             "relative_path": self.relative_path,
             "task_sha256": self.task_sha256,
-            "expected_deliverable": self.expected_deliverable,
+            "expected_deliverables": list(self.expected_deliverables),
             "files": [item.to_record() for item in self.files],
         }
+
+    @property
+    def expected_deliverable(self) -> str:
+        """Compatibility accessor for the retained single-file adapters."""
+
+        if len(self.expected_deliverables) != 1:
+            raise HarveyLabProjectionError(
+                "task does not declare exactly one expected deliverable"
+            )
+        return self.expected_deliverables[0]
 
     def descriptor_record(self) -> dict[str, object]:
         """Return the per-task descriptor without the descriptor file itself."""
@@ -229,7 +245,7 @@ class HarveyLabProjectedTask:
             "category": self.category,
             "relative_path": self.relative_path,
             "task_sha256": self.task_sha256,
-            "expected_deliverable": self.expected_deliverable,
+            "expected_deliverables": list(self.expected_deliverables),
             "files": [
                 item.to_record()
                 for item in self.files
@@ -296,7 +312,7 @@ class ClassifiedHarveyLabTask:
     task: CanonicalTask
     lab_task_id: str
     category: str
-    expected_deliverable: str
+    expected_deliverables: tuple[str, ...]
     staging_root: Path
     solver_artifacts: tuple[TaskArtifactProjection, ...]
     evaluator_private_artifacts: tuple[TaskArtifactProjection, ...]
@@ -320,7 +336,9 @@ def harvey_lab_layout_map() -> dict[str, dict[str, str]]:
         "native": {
             "instructions": "tasks/{lab_task_id}/task.json#instructions",
             "documents": "tasks/{lab_task_id}/documents/{name}",
-            "expected_deliverable": ("tasks/{lab_task_id}/task.json expected basename"),
+            "expected_deliverable": (
+                "tasks/{lab_task_id}/task.json declared basenames"
+            ),
         },
         "external": {
             "instructions": f"tasks/{{lab_task_id}}/{INSTRUCTIONS_NAME}",
@@ -388,7 +406,11 @@ def classify_harvey_lab_task(
     )
     try:
         instructions = _required_instructions(task_record)
-        expected_deliverable = _required_expected_deliverable(task_record)
+        expected_deliverables = expected_docx_deliverables(task_record)
+    except HarveyLabUnsupportedOutputError as exc:
+        raise HarveyLabUnsupportedTaskShapeError(f"{lab_task_id}: {exc}") from exc
+    except HarveyLabContractError as exc:
+        raise HarveyLabProjectionError(f"{lab_task_id}: {exc}") from exc
     except HarveyLabUnsupportedTaskShapeError as exc:
         # Name the task: an operator projecting a 27-task category otherwise
         # learns only that *some* task did not fit.
@@ -429,7 +451,7 @@ def classify_harvey_lab_task(
         projected.append(_projected_file(destination, staging_root, "document"))
 
     expected_path = staging_root / EXPECTED_DELIVERABLE_NAME
-    _write_bytes(expected_path, _canonical_json({"basename": expected_deliverable}))
+    _write_bytes(expected_path, _canonical_json({"basenames": expected_deliverables}))
     artifacts.append(_artifact("expected_deliverable", expected_path, staging_root))
     solver_projections.append(
         TaskArtifactProjection("expected_deliverable", EXPECTED_DELIVERABLE_NAME)
@@ -461,7 +483,7 @@ def classify_harvey_lab_task(
         category=category,
         relative_path=relative_path,
         task_sha256=task_sha256,
-        expected_deliverable=expected_deliverable,
+        expected_deliverables=expected_deliverables,
         files=semantic_files,
     )
     descriptor_path = staging_root / TASK_DESCRIPTOR_NAME
@@ -482,7 +504,7 @@ def classify_harvey_lab_task(
             "suite": "harvey_lab",
             "lab_task_id": lab_task_id,
             "category": category,
-            "expected_deliverable": expected_deliverable,
+            "expected_deliverables": list(expected_deliverables),
         },
         artifacts=tuple(artifacts),
     )
@@ -490,7 +512,7 @@ def classify_harvey_lab_task(
         task=canonical,
         lab_task_id=lab_task_id,
         category=category,
-        expected_deliverable=expected_deliverable,
+        expected_deliverables=expected_deliverables,
         staging_root=staging_root,
         solver_artifacts=tuple(solver_projections),
         evaluator_private_artifacts=tuple(private_projections),
@@ -590,7 +612,7 @@ def project_harvey_lab_suite(
                     category=classified.category,
                     relative_path=f"tasks/{classified.lab_task_id}",
                     task_sha256=classified.task.task_sha256,
-                    expected_deliverable=classified.expected_deliverable,
+                    expected_deliverables=classified.expected_deliverables,
                     files=classified.projected_files,
                 )
                 projected_tasks.append(
@@ -834,7 +856,9 @@ def _task_from_record(value: object) -> HarveyLabProjectedTask:
             "relative_path",
         ),
         task_sha256=_required_str(record, "task_sha256"),
-        expected_deliverable=_required_str(record, "expected_deliverable"),
+        expected_deliverables=_required_string_array(
+            record, "expected_deliverables", allow_empty=True
+        ),
         files=files,
     )
 
@@ -938,81 +962,6 @@ def _required_instructions(record: Mapping[str, object]) -> str:
         if isinstance(value, str) and value.strip():
             return value
     raise HarveyLabProjectionError("task.json is missing solver-visible instructions")
-
-
-def _required_expected_deliverable(record: Mapping[str, object]) -> str:
-    return _supported_deliverable_basename(_declared_deliverable_basename(record))
-
-
-def _declared_deliverable_basename(record: Mapping[str, object]) -> str:
-    for field_name in (
-        "expected_deliverable",
-        "expected_output",
-        "output_file",
-        "deliverable",
-    ):
-        value = record.get(field_name)
-        if isinstance(value, str) and value.strip():
-            return Path(value).name
-    output = record.get("output")
-    if isinstance(output, str) and output.strip():
-        return Path(output).name
-    return _deliverable_from_upstream_mapping(record)
-
-
-def _supported_deliverable_basename(basename: str) -> str:
-    """Reject deliverable kinds this contract cannot carry, as a task shape.
-
-    ``HarveyLabProjectedTask`` enforces the same ``.docx`` rule, but it does so
-    while building the manifest record, too late to be attributed to a task or
-    skipped. Checking here keeps spreadsheet-deliverable tasks (4 in the pinned
-    corpus) in the same reportable class as the multi-deliverable ones.
-    """
-
-    if not basename.endswith(".docx"):
-        raise HarveyLabUnsupportedTaskShapeError(
-            f"deliverable {basename} is not a .docx; "
-            "this projection carries .docx deliverables only"
-        )
-    return basename
-
-
-def _deliverable_from_upstream_mapping(record: Mapping[str, object]) -> str:
-    """Read the pinned upstream ``deliverables`` mapping (GitHub #842).
-
-    Every task in the pinned corpus declares deliverables as a mapping, never
-    as one of the single-basename fields above, so the singular fields alone
-    project nothing at all. Only the one-entry shape fits this contract's
-    single ``expected_deliverable``; the empty and multi-entry shapes are
-    refused as unsupported *shapes* so a suite projection can name them and
-    move on rather than failing an entire category.
-    """
-
-    deliverables = record.get("deliverables")
-    if not isinstance(deliverables, Mapping):
-        raise HarveyLabUnsupportedTaskShapeError(
-            "task.json declares no deliverable; this projection requires exactly one"
-        )
-    entries = cast(Mapping[str, object], deliverables)
-    if len(entries) != 1:
-        raise HarveyLabUnsupportedTaskShapeError(
-            f"task.json declares {len(entries)} deliverables; "
-            "this projection requires exactly one"
-        )
-    key, value = next(iter(entries.items()))
-    if not isinstance(value, str) or not value.strip():
-        raise HarveyLabProjectionError(
-            "task.json deliverables value must be a non-empty string"
-        )
-    if key != value:
-        # Both halves name the same file everywhere in the pinned corpus.
-        # A disagreement means an unreviewed upstream shape, not a basename
-        # worth guessing at.
-        raise HarveyLabProjectionError(
-            "task.json deliverables key and value disagree; "
-            "refusing to guess the deliverable basename"
-        )
-    return Path(value).name
 
 
 def _is_private_filename(name: str) -> bool:
@@ -1407,6 +1356,21 @@ def _required_str(record: Mapping[str, object], field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise HarveyLabProjectionError(f"{field_name} must be a non-empty string")
     return value
+
+
+def _required_string_array(
+    record: Mapping[str, object],
+    field_name: str,
+    *,
+    allow_empty: bool = False,
+) -> tuple[str, ...]:
+    value = record.get(field_name)
+    if not isinstance(value, list) or (not allow_empty and not value):
+        raise HarveyLabProjectionError(f"{field_name} must be an array")
+    strings = tuple(cast(list[object], value))
+    if any(not isinstance(item, str) or not item.strip() for item in strings):
+        raise HarveyLabProjectionError(f"{field_name} must contain non-empty strings")
+    return cast(tuple[str, ...], strings)
 
 
 def _canonical_json(record: Mapping[str, object]) -> bytes:

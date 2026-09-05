@@ -116,6 +116,7 @@ def test_contributor_walkthrough_projects_indexes_selects_and_runs(
     assert [task["task_id"] for task in tasks] == [
         "harvey_lab:immigration/draft-appeal-brief",
         "harvey_lab:immigration/draft-response",
+        "harvey_lab:immigration/extract-penalties",
     ]
     assert tasks[0]["family"] == "harvey_lab"
     assert tasks[0]["scoring_mode"] == "lab_native"
@@ -142,6 +143,7 @@ def test_contributor_walkthrough_projects_indexes_selects_and_runs(
     assert cast(dict[str, Any], selection["selection_result"])["task_ids"] == [
         "harvey_lab:immigration/draft-appeal-brief",
         "harvey_lab:immigration/draft-response",
+        "harvey_lab:immigration/extract-penalties",
     ]
 
     assert (
@@ -171,7 +173,7 @@ def test_contributor_walkthrough_projects_indexes_selects_and_runs(
         .read_text(encoding="utf-8")
         .splitlines()
     ]
-    assert len(results) == 2
+    assert len(results) == 3
     assert {record["result"]["status"] for record in results} == {"succeeded"}
 
 
@@ -285,7 +287,7 @@ def test_index_refuses_both_lab_root_and_projected_root(
     assert "not both" in capsys.readouterr().err
 
 
-def test_project_reports_every_skipped_task(
+def test_project_reports_all_supported_cardinalities(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
     capsys: CaptureFixture[str],
@@ -312,8 +314,8 @@ def test_project_reports_every_skipped_task(
     )
 
     stderr = capsys.readouterr().err
-    assert "Projected 2 of 3 matched Harvey LAB task(s)." in stderr
-    assert "immigration/extract-penalties: task.json declares 2 deliverables" in stderr
+    assert "Projected 3 of 3 matched Harvey LAB task(s)." in stderr
+    assert "Skipped" not in stderr
     assert ROOT_MANIFEST_NAME in stderr
     # A contributor must be told the private root exists and what it means.
     assert "Do not publish them" in stderr
@@ -324,6 +326,11 @@ def test_project_can_refuse_instead_of_skipping(
     monkeypatch: MonkeyPatch,
     capsys: CaptureFixture[str],
 ) -> None:
+    monkeypatch.setitem(
+        UPSTREAM_TASKS,
+        "immigration/unsupported-sheet",
+        {"deliverables": {"analysis.xlsx": "analysis.xlsx"}},
+    )
     lab_root = _pinned_lab_checkout(tmp_path, monkeypatch)
     projected = tmp_path / "projected"
 
@@ -346,7 +353,7 @@ def test_project_can_refuse_instead_of_skipping(
         )
         == 2
     )
-    assert "immigration/extract-penalties" in capsys.readouterr().err
+    assert "immigration/unsupported-sheet" in capsys.readouterr().err
     # A failed projection must not leave a sealed partial tree behind, or the
     # obvious retry fails on "must be a fresh, absent path".
     assert not projected.exists()

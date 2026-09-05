@@ -149,10 +149,7 @@ def test_pipeline_refuses_an_invalid_projection_manifest(
     try:
         with pytest.raises(
             CodexCliAdapterError,
-            match=(
-                "Harvey LAB projection did not produce exactly "
-                "the frozen issue-196 task"
-            ),
+            match="Harvey LAB projection did not produce exactly the selected task",
         ):
             run_codex_cli_clean_native_harvey_lab(
                 adapter=_adapter(env),

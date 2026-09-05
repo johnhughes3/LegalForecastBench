@@ -118,6 +118,7 @@ def test_isolated_evaluator_binds_receipt_without_solver_or_network(
         attempt_nonce="nonce-lab1",
     )
     assert result.receipt.status == "succeeded"
+    assert result.criterion_count == 23
     assert result.spec.judge_requested_identity == "fixture/stub@local"
     assert result.receipt.judge_resolved_identity == "fixture/stub@local"
     assert result.spec.evaluator_commit == projected.manifest.pin.commit
@@ -320,12 +321,12 @@ def test_solver_path_in_evaluation_input_is_refused(tmp_path: Path) -> None:
         identity=_identity(projected, tmp_path),
     )
     malicious = dict(stdin_record)
-    malicious["deliverable_path"] = str(
+    malicious["deliverable_root"] = str(
         projected.solver_root / "tasks" / ISSUE_196_LAB_TASK_ID / "instructions.txt"
     )
     with pytest.raises(
         HarveyLabEvaluationError,
-        match="evaluation input path escapes the overlay: deliverable_path",
+        match="evaluation input path escapes the overlay: deliverable_root",
     ):
         from legalforecast.multiharness.harvey_lab_evaluator import (
             evaluation_input_record,
@@ -334,7 +335,7 @@ def test_solver_path_in_evaluation_input_is_refused(tmp_path: Path) -> None:
         evaluation_input_record(
             hosts=hosts,
             overlay={
-                "deliverable": Path(str(malicious["deliverable_path"])),
+                "deliverable_root": Path(str(malicious["deliverable_root"])),
                 "private_task_json": Path(str(stdin_record["private_task_json_path"])),
                 "scores": Path(str(stdin_record["scores_output_path"])),
             },
@@ -468,7 +469,7 @@ def test_sibling_overlay_name_is_not_treated_as_solver_path(tmp_path: Path) -> N
         sealed_manifest=sealed,
         identity=_identity(projected, tmp_path),
     )
-    assert Path(str(stdin_record["deliverable_path"])).is_relative_to(
+    assert Path(str(stdin_record["deliverable_paths"][0])).is_relative_to(
         (tmp_path / "solver-overlay").resolve()
     )
     del spec
@@ -755,11 +756,11 @@ def test_projected_task_identity_mismatch_is_refused(tmp_path: Path) -> None:
     )
     identity = replace(
         _identity(projected, tmp_path),
-        expected_deliverable_basename="other-memo.docx",
+        expected_deliverable_basenames=("other-memo.docx",),
     )
     with pytest.raises(
         HarveyLabEvaluationError,
-        match="expected_deliverable_basename does not match",
+        match="expected_deliverable_basenames do not match",
     ):
         invoke_isolated_harvey_lab_evaluator(
             hosts=hosts,
@@ -830,7 +831,7 @@ def _identity(
     return HarveyLabEvaluationIdentity(
         lab_task_id=ISSUE_196_LAB_TASK_ID,
         task_sha256=projected.manifest.tasks[0].task_sha256,
-        expected_deliverable_basename="issue-identification-memo.docx",
+        expected_deliverable_basenames=("issue-identification-memo.docx",),
         projection_manifest_sha256=projected.manifest.manifest_sha256,
         wrapper_sha256=digest,
         run_sha256=RUN_DIGEST,

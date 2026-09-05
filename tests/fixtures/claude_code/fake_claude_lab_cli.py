@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -50,10 +51,20 @@ def _write_lab_deliverable(argv: list[str]) -> None:
         raise SystemExit("clean-native LAB --add-dir must be an absolute sandbox path")
     destination_dir = base / LAB_OUTPUT
     destination_dir.mkdir(parents=True, exist_ok=True)
-    destination = destination_dir / LAB_BASENAME
-    if destination.exists() or destination.is_symlink():
-        raise SystemExit(f"refusing to overwrite {LAB_BASENAME}")
-    destination.write_bytes(_docx_bytes())
+    prompt = _flag_value(argv, "-p") or _flag_value(argv, "--print") or ""
+    match = re.search(
+        r"Write the expected deliverables (.+?) into the output directory", prompt
+    )
+    basenames = (
+        tuple(name.strip() for name in match.group(1).split(","))
+        if match is not None
+        else (LAB_BASENAME,)
+    )
+    for basename in basenames:
+        destination = destination_dir / basename
+        if destination.exists() or destination.is_symlink():
+            raise SystemExit(f"refusing to overwrite {basename}")
+        destination.write_bytes(_docx_bytes())
 
 
 def main(argv: list[str] | None = None) -> int:

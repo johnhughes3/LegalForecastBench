@@ -19,6 +19,7 @@ from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
+from legalforecast.contracts.schemas import HARVEY_LAB_OUTPUT_DISCOVERY_V2
 from legalforecast.multiharness.deliverables import (
     DeliverableArtifactProjection,
     DeliverableLimits,
@@ -26,13 +27,14 @@ from legalforecast.multiharness.deliverables import (
     DeliverableValidationError,
     seal_deliverable,
 )
+from legalforecast.multiharness.harvey_lab_contract import (
+    HarveyLabOutputSelectionError,
+    selected_output_paths,
+)
 from legalforecast.multiharness.harvey_lab_projection import HarveyLabProjectedTask
 from legalforecast.multiharness.validation import validate_sha256
 
-HARVEY_LAB_OUTPUT_DISCOVERY_SCHEMA_VERSION = (
-    # contract-ratchet: allow LAB output-discovery schema until contracts registry
-    "legalforecast.harvey_lab_output_discovery.v1"
-)
+HARVEY_LAB_OUTPUT_DISCOVERY_SCHEMA_VERSION = str(HARVEY_LAB_OUTPUT_DISCOVERY_V2)
 HARVEY_LAB_DOCX_MEDIA_TYPE = (
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )
@@ -117,7 +119,7 @@ class HarveyLabOutputDiscoveryResult:
 
     task_id: str
     layout: str
-    expected_deliverable: str
+    expected_deliverables: tuple[str, ...]
     sealed: DeliverableManifest
     quarantined: tuple[HarveyLabQuarantinedFile, ...]
     schema_version: str = HARVEY_LAB_OUTPUT_DISCOVERY_SCHEMA_VERSION
@@ -127,10 +129,21 @@ class HarveyLabOutputDiscoveryResult:
             "schema_version": self.schema_version,
             "task_id": self.task_id,
             "layout": self.layout,
-            "expected_deliverable": self.expected_deliverable,
+            "expected_deliverables": list(self.expected_deliverables),
             "sealed": self.sealed.to_record(),
             "quarantined": [item.to_record() for item in self.quarantined],
         }
+
+    @property
+    def expected_deliverable(self) -> str:
+        """Compatibility accessor for single-file result consumers."""
+
+        if len(self.expected_deliverables) != 1:
+            raise HarveyLabOutputDiscoveryError(
+                "result does not declare exactly one expected deliverable",
+                code=HarveyLabOutputErrorCode.LAYOUT,
+            )
+        return self.expected_deliverables[0]
 
 
 def require_harvey_lab_sandbox_hosts(
@@ -268,11 +281,12 @@ def discover_harvey_lab_outputs(
         _require_disjoint(disjoint_roots)
         _reject_escape_watch(escape_watch_roots, sandbox)
 
-        if "/" in task.expected_deliverable or task.expected_deliverable in {".", ""}:
-            raise HarveyLabOutputDiscoveryError(
-                "expected_deliverable must be a basename inside output/",
-                code=HarveyLabOutputErrorCode.LAYOUT,
-            )
+        for basename in task.expected_deliverables:
+            if "/" in basename or basename in {".", ""}:
+                raise HarveyLabOutputDiscoveryError(
+                    "expected_deliverables must be basenames inside output/",
+                    code=HarveyLabOutputErrorCode.LAYOUT,
+                )
 
         output_fd = _open_nested_directory_from_fd(
             sandbox_fd, output_relative.as_posix()
@@ -309,30 +323,23 @@ def _discover_from_output_fd(
     layout: Literal["native", "external"],
     limits: HarveyLabOutputLimits,
 ) -> HarveyLabOutputDiscoveryResult:
-    expected_under_output = task.expected_deliverable
     entries = _walk_from_fd(output_fd, limits=limits)
-    _reject_duplicate_basename(entries, task.expected_deliverable)
-    expected_hits = [item for item in entries if item.relative == expected_under_output]
-    if not expected_hits:
-        basename_hits = [
-            item
-            for item in entries
-            if PurePosixPath(item.relative).name == task.expected_deliverable
-        ]
-        if basename_hits:
-            raise HarveyLabOutputDiscoveryError(
-                "expected deliverable basename appeared at an undeclared path",
-                code=HarveyLabOutputErrorCode.LAYOUT,
-            )
-        raise HarveyLabOutputDiscoveryError(
-            f"missing required deliverable: {task.expected_deliverable}",
-            code=HarveyLabOutputErrorCode.MISSING_DELIVERABLE,
+    try:
+        selected_paths = selected_output_paths(
+            [item.relative for item in entries], task.expected_deliverables
         )
-    expected = expected_hits[0]
-    _require_expected_docx(expected, limits=limits)
-    _require_zip_magic(output_fd, expected)
+    except HarveyLabOutputSelectionError as exc:
+        raise HarveyLabOutputDiscoveryError(
+            str(exc), code=HarveyLabOutputErrorCode(exc.code)
+        ) from exc
+    by_path = {item.relative: item for item in entries}
+    selected = [by_path[path] for path in selected_paths]
+    for expected in selected:
+        _require_expected_docx(expected, limits=limits)
+        _require_zip_magic(output_fd, expected)
 
-    extras = [item for item in entries if item.relative != expected.relative]
+    selected_set = set(selected_paths)
+    extras = [item for item in entries if item.relative not in selected_set]
     quarantined = _quarantine_extras(
         extras,
         output_fd=output_fd,
@@ -359,15 +366,16 @@ def _discover_from_output_fd(
                 "discovery staging must not share a directory with the sandbox",
                 code=HarveyLabOutputErrorCode.MATERIAL_OVERLAP,
             )
-        _copy_regular_file_from_fd(
-            output_fd,
-            expected.relative,
-            destination_root=staging_root,
-            destination_relative=task.expected_deliverable,
-            expected_stat=expected.file_stat,
-            expected_digest=expected.sha256,
-            max_bytes=limits.max_file_bytes,
-        )
+        for expected in selected:
+            _copy_regular_file_from_fd(
+                output_fd,
+                expected.relative,
+                destination_root=staging_root,
+                destination_relative=expected.relative,
+                expected_stat=expected.file_stat,
+                expected_digest=expected.sha256,
+                max_bytes=limits.max_file_bytes,
+            )
         try:
             sealed = seal_deliverable(
                 source_root=staging_root,
@@ -375,19 +383,20 @@ def _discover_from_output_fd(
                 task_sha256=task_sha256,
                 run_sha256=run_sha256,
                 config_sha256=config_sha256,
-                artifacts=(
+                artifacts=tuple(
                     DeliverableArtifactProjection(
-                        artifact_id="lab-deliverable",
-                        source_path=task.expected_deliverable,
-                        path=task.expected_deliverable,
+                        artifact_id=f"lab-deliverable:{expected.relative}",
+                        source_path=expected.relative,
+                        path=expected.relative,
                         media_type=HARVEY_LAB_DOCX_MEDIA_TYPE,
                         max_size_bytes=limits.max_file_bytes,
-                    ),
+                    )
+                    for expected in selected
                 ),
                 limits=DeliverableLimits(
-                    max_files=1,
+                    max_files=len(selected),
                     max_file_bytes=limits.max_file_bytes,
-                    max_total_bytes=limits.max_file_bytes,
+                    max_total_bytes=limits.max_total_bytes,
                 ),
             )
         except DeliverableValidationError as exc:
@@ -401,7 +410,7 @@ def _discover_from_output_fd(
     return HarveyLabOutputDiscoveryResult(
         task_id=task.task_id,
         layout=layout,
-        expected_deliverable=task.expected_deliverable,
+        expected_deliverables=task.expected_deliverables,
         sealed=sealed,
         quarantined=tuple(quarantined),
     )
@@ -725,22 +734,6 @@ def _copy_regular_file_from_fd(
             os.close(destination_fd)
     finally:
         os.close(source_fd)
-
-
-def _reject_duplicate_basename(
-    entries: Sequence[_OutputEntry],
-    basename: str,
-) -> None:
-    hits = [
-        item.relative
-        for item in entries
-        if PurePosixPath(item.relative).name == basename
-    ]
-    if len(hits) > 1:
-        raise HarveyLabOutputDiscoveryError(
-            f"duplicate deliverable basename: {', '.join(hits)}",
-            code=HarveyLabOutputErrorCode.DUPLICATE_BASENAME,
-        )
 
 
 def _reject_path_name(name: str, relative: str) -> None:
