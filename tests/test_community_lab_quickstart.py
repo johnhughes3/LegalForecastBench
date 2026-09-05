@@ -21,6 +21,7 @@ import pytest
 from legalforecast.cli import main
 from legalforecast.multiharness import cli as multiharness_cli
 from legalforecast.multiharness import harvey_lab_projection
+from legalforecast.multiharness import runner as multiharness_runner
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterCancelled,
@@ -656,6 +657,75 @@ def test_signal_before_journal_creation_honors_startup_interrupt_contract(
     assert "--resume" in stderr
     assert "Traceback" not in stderr
     assert not (run_dir / "run-progress.json").exists()
+
+
+@pytest.mark.parametrize("requested_signal", [signal.SIGINT, signal.SIGTERM])
+def test_signal_before_journal_ownership_preserves_a_prior_completed_run(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+    requested_signal: signal.Signals,
+) -> None:
+    """A new invocation must not interrupt a journal it has not adopted."""
+
+    projected = _projected_root(tmp_path, monkeypatch)
+    index_path = tmp_path / "lab-index.json"
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "harvey-lab",
+                "--projected-root",
+                str(projected),
+                "--output",
+                str(index_path),
+            ]
+        )
+        == 0
+    )
+    run_dir = tmp_path / "run"
+    original_argv = [
+        "multiharness",
+        "run",
+        "--task-index",
+        str(index_path),
+        "--category",
+        "immigration",
+        "--adapter-manifest",
+        str(FIXTURE_ADAPTER_MANIFEST),
+        "--model-key",
+        "fixture-model",
+        "--output-dir",
+        str(run_dir),
+        "--run-id",
+        "completed-owner",
+    ]
+    assert main(original_argv) == 0
+    capsys.readouterr()
+    journal_path = run_dir / "run-progress.json"
+    completed_bytes = journal_path.read_bytes()
+    assert _read_json(journal_path)["status"] == "completed"
+
+    def _signal_before_journal_adoption(*_args: object, **_kwargs: object) -> None:
+        os.kill(os.getpid(), requested_signal)
+
+    monkeypatch.setattr(
+        multiharness_runner,
+        "_identity_binding_for",
+        _signal_before_journal_adoption,
+    )
+
+    replacement_argv = [*original_argv[:-1], "different-run"]
+    assert main(replacement_argv) == 130
+    stderr = capsys.readouterr().err
+    assert "not a crash" in stderr
+    assert "Traceback" not in stderr
+    assert journal_path.read_bytes() == completed_bytes
+    assert _read_json(journal_path)["run_id"] == "completed-owner"
+    assert _read_json(journal_path)["status"] == "completed"
 
 
 @pytest.mark.parametrize("requested_signal", [signal.SIGINT, signal.SIGTERM])
