@@ -11,7 +11,7 @@ import hashlib
 import json
 import signal
 import threading
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -321,15 +321,27 @@ def write_progress_journal(output_dir: Path, journal: RunProgressJournal) -> Non
 JournalOwner = tuple[Path, RunProgressJournal]
 
 
-@contextmanager
-def signal_boundary(
-    journal_owner: JournalOwner | None = None,
-) -> Generator[Callable[[], bool]]:
-    """Convert termination signals and finalize only an adopted journal."""
+@dataclass(slots=True)
+class RunSignalBoundary:
+    """One continuous signal boundary with late-bound journal ownership."""
 
-    requested = {"value": False}
+    requested: bool = False
+    journal_owner: JournalOwner | None = None
+
+    def __call__(self) -> bool:
+        return self.requested
+
+    def adopt(self, output_dir: Path, journal: RunProgressJournal) -> None:
+        self.journal_owner = (output_dir, journal)
+
+
+@contextmanager
+def signal_boundary() -> Generator[RunSignalBoundary]:
+    """Convert termination signals across one optionally adopted journal."""
+
+    boundary = RunSignalBoundary()
     if threading.current_thread() is not threading.main_thread():
-        yield lambda: requested["value"]
+        yield boundary
         return
 
     previous = {
@@ -339,15 +351,15 @@ def signal_boundary(
 
     def mark_stop(requested_signal: int, frame: object) -> None:
         del requested_signal, frame
-        requested["value"] = True
+        boundary.requested = True
         raise KeyboardInterrupt
 
     for requested_signal in previous:
         signal.signal(requested_signal, mark_stop)
     try:
-        yield lambda: requested["value"]
+        yield boundary
     except (CommandAdapterCancelled, KeyboardInterrupt):
-        _mark_owned_journal_stopped(journal_owner)
+        _mark_owned_journal_stopped(boundary.journal_owner)
         raise CommandAdapterCancelled("multi-harness startup was cancelled") from None
     finally:
         for requested_signal, previous_handler in previous.items():

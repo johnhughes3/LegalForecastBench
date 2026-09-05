@@ -63,6 +63,7 @@ from legalforecast.multiharness.run_progress import (
     IdentityBinding,
     ResumeRefusedError,
     RunProgressJournal,
+    RunSignalBoundary,
     bind_run_identity,
     is_partial_label,
     load_progress_journal,
@@ -287,8 +288,8 @@ class _RowPlan:
 def run_multi_harness(config: MultiHarnessRunConfig) -> MultiHarnessRun:
     """Execute a deterministic multi-harness run and write run artifacts."""
 
-    with signal_boundary():
-        return _MultiHarnessRunner(config).run()
+    with signal_boundary() as boundary:
+        return _MultiHarnessRunner(config).run(boundary)
 
 
 def _ensure_private_run_directory(path: Path) -> Path:
@@ -422,7 +423,7 @@ def _prepare_incomplete_release_retry(plan: _RowPlan) -> None:
 class _MultiHarnessRunner:
     config: MultiHarnessRunConfig
 
-    def run(self) -> MultiHarnessRun:
+    def run(self, boundary: RunSignalBoundary) -> MultiHarnessRun:
         adapters = _ordered_adapters(self.config.adapters)
         selection = self.config.selection.select(self.config.task_index)
         _validate_known_release_adapter_routes(
@@ -462,79 +463,79 @@ class _MultiHarnessRunner:
         identity = _identity_binding_for(self.config, selection.selection_sha256)
         _ensure_private_run_directory(self.config.output_dir)
         (self.config.output_dir / "artifact-index.json").unlink(missing_ok=True)
-        journal = self._prepare_journal(selection=selection, identity=identity)
-        with signal_boundary((self.config.output_dir, journal)):
-            with tempfile.TemporaryDirectory(
-                prefix="multiharness-capabilities-"
-            ) as root:
-                capability_root = Path(root)
-                _ensure_private_run_directory(capability_root)
-                capabilities, capability_artifacts = self._load_capabilities(
-                    adapters,
-                    capability_root,
-                )
-                row_plans = self._build_row_plans(selection, adapters, capabilities)
-            self._write_capabilities(capabilities, capability_artifacts)
-            _ensure_private_run_directory(self.config.output_dir / "rows")
-            run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
-            run_compatibility_record = _run_compatibility_record(
-                self.config,
-                capabilities,
+        journal = self._prepare_journal(
+            selection=selection,
+            identity=identity,
+            boundary=boundary,
+        )
+        with tempfile.TemporaryDirectory(prefix="multiharness-capabilities-") as root:
+            capability_root = Path(root)
+            _ensure_private_run_directory(capability_root)
+            capabilities, capability_artifacts = self._load_capabilities(
+                adapters,
+                capability_root,
             )
-            validate_no_secret_values(
-                run_compatibility_record,
-                secret_values,
-                "run compatibility",
-            )
-            run_compatibility_sha256 = _record_sha256(
-                run_compatibility_record,
-                prefixed=True,
-            )
-            write_json_object_safe(
-                self.config.output_dir / "run-compatibility.json",
-                run_compatibility_record,
-            )
-            initial_manifest = RunManifest(
-                run_id=self.config.run_id,
-                selection_sha256=selection.selection_sha256,
-                run_config_sha256=run_config_sha256,
-                request_ids=tuple(plan.request.request_id for plan in row_plans),
-                run_compatibility_sha256=run_compatibility_sha256,
-            )
-            write_json_object_safe(
-                self.config.output_dir / "run-manifest.json",
-                initial_manifest.to_record(),
-            )
-            write_json_object_safe(
-                self.config.output_dir / "selection-manifest.json",
-                _selection_manifest_record(selection, journal),
-            )
+            row_plans = self._build_row_plans(selection, adapters, capabilities)
+        self._write_capabilities(capabilities, capability_artifacts)
+        _ensure_private_run_directory(self.config.output_dir / "rows")
+        run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
+        run_compatibility_record = _run_compatibility_record(
+            self.config,
+            capabilities,
+        )
+        validate_no_secret_values(
+            run_compatibility_record,
+            secret_values,
+            "run compatibility",
+        )
+        run_compatibility_sha256 = _record_sha256(
+            run_compatibility_record,
+            prefixed=True,
+        )
+        write_json_object_safe(
+            self.config.output_dir / "run-compatibility.json",
+            run_compatibility_record,
+        )
+        initial_manifest = RunManifest(
+            run_id=self.config.run_id,
+            selection_sha256=selection.selection_sha256,
+            run_config_sha256=run_config_sha256,
+            request_ids=tuple(plan.request.request_id for plan in row_plans),
+            run_compatibility_sha256=run_compatibility_sha256,
+        )
+        write_json_object_safe(
+            self.config.output_dir / "run-manifest.json",
+            initial_manifest.to_record(),
+        )
+        write_json_object_safe(
+            self.config.output_dir / "selection-manifest.json",
+            _selection_manifest_record(selection, journal),
+        )
 
         rows: list[MultiHarnessRunRow] = []
         interrupted = False
-        with signal_boundary() as stop_requested:
-            try:
-                for plan in row_plans:
-                    if stop_requested() or interrupted:
-                        interrupted = True
-                        break
-                    row = self._execute_row(
-                        plan,
-                        selection_label=selection.selection_label,
-                        coverage_kind=selection.coverage_kind,
-                        journal=journal,
-                    )
-                    rows.append(row)
-                    if row.result.status == "succeeded":
-                        journal = journal.with_completed_row(plan.row_id)
-                    elif row.result.status == "interrupted":
-                        journal = journal.with_interrupted_row(plan.row_id)
-                        interrupted = True
-                    write_progress_journal(self.config.output_dir, journal)
-                    if interrupted:
-                        break
-            except KeyboardInterrupt:
-                interrupted = True
+        try:
+            for plan in row_plans:
+                if boundary() or interrupted:
+                    interrupted = True
+                    break
+                row = self._execute_row(
+                    plan,
+                    selection_label=selection.selection_label,
+                    coverage_kind=selection.coverage_kind,
+                    journal=journal,
+                )
+                rows.append(row)
+                if row.result.status == "succeeded":
+                    journal = journal.with_completed_row(plan.row_id)
+                elif row.result.status == "interrupted":
+                    journal = journal.with_interrupted_row(plan.row_id)
+                    interrupted = True
+                write_progress_journal(self.config.output_dir, journal)
+                if interrupted:
+                    break
+        except KeyboardInterrupt:
+            interrupted = True
 
         if interrupted or len(rows) < len(row_plans):
             interrupted = True
@@ -571,12 +572,14 @@ class _MultiHarnessRunner:
         *,
         selection: SelectionResult,
         identity: IdentityBinding,
+        boundary: RunSignalBoundary,
     ) -> RunProgressJournal:
         existing = load_progress_journal(self.config.output_dir)
         if self.config.resume:
             if existing is None:
                 raise ResumeRefusedError("resume refused: no progress journal")
             refuse_resume_identity_drift(prior=existing.identity, requested=identity)
+            boundary.adopt(self.config.output_dir, existing)
             return existing
         journal = RunProgressJournal(
             run_id=self.config.run_id,
@@ -587,6 +590,7 @@ class _MultiHarnessRunner:
             status="in_progress",
         )
         write_progress_journal(self.config.output_dir, journal)
+        boundary.adopt(self.config.output_dir, journal)
         return journal
 
     def _load_capabilities(
