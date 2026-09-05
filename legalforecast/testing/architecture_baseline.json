@@ -2219,7 +2219,7 @@
         "largest_symbol": "test_runner_halts_on_remote_transport_started_orphan",
         "largest_symbol_lines": 104,
         "layer": "test",
-        "line_count": 1741,
+        "line_count": 1747,
         "nonblank_line_count": 1503,
         "top_level_definition_count": 48
       },
