@@ -162,7 +162,14 @@ uv run legalforecast multiharness tasks select \
 
 ### Folder mode
 
-Folder mode (`tasks select --task-folder`) expects a `projection-manifest.json` layout that `tasks project` does not currently write; the two contracts disagree ([#845](https://github.com/johnhughes3/LegalForecastBench/issues/845)). Use `--projected-root` plus `--category` or `--task-id` until that is reconciled.
+Folder mode accepts the projection root or any directory inside its `tasks/` tree. It authenticates the owning `harvey-lab-projection.v1.json`, re-hashes every listed file, and refuses bytes or task digests that do not match the index.
+
+```bash
+uv run legalforecast multiharness tasks select \
+  --index tmp/multiharness/lab-index.json \
+  --task-folder tmp/lab/projected/tasks/immigration \
+  --output tmp/multiharness/folder-selection.json
+```
 
 You can pass the same selectors on `multiharness run` instead of writing a selection file first.
 
@@ -279,7 +286,7 @@ Public JSON is scanned for secrets and path leakage. If a command’s output con
 | `tasks project` says the category was not found | It lists the categories your checkout actually has. Category names are upstream directory names under `tasks/`. |
 | `tasks index --lab-root` says to use `--projected-root` | You pointed the maintainer flag at a projected layout. Use `--projected-root`. |
 | `--lab-root` fails on a raw Harvey LAB clone | The raw path reads evaluator `criteria`; it is not a contributor input. Project the corpus first. |
-| Folder mode refuses a projected layout | Known contract mismatch ([#845](https://github.com/johnhughes3/LegalForecastBench/issues/845)). Use `--projected-root` with `--category` or `--task-id`. |
+| Folder mode refuses a projected layout | Re-index the same projected root and do not modify its sealed files; folder mode refuses projection or index digest drift. |
 | Ctrl-C does nothing on the fixture walkthrough | The one-task fixture finishes in about a second. That is expected. Use a large LAB category to exercise interrupt and resume. |
 | I want a live provider run instead of `fixture-none` | The profile comes from the adapter manifest's `auth_profile_name`, not a CLI flag ([#853](https://github.com/johnhughes3/LegalForecastBench/issues/853)). Copy a manifest that lists `published-api-key` in `supported_auth_profiles` and set that field in your copy. |
 | Resume says solver, config, policy, or selection identity drifted | Re-run with the original adapter, model key, sandbox flags, and selectors. |

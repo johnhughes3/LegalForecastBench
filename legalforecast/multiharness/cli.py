@@ -540,8 +540,8 @@ def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
         "--task-folder",
         type=Path,
         help=(
-            "Projected task folder with projection-manifest.json. "
-            "Unrecognized or tampered bytes are refused."
+            "Harvey LAB root or subfolder authenticated by "
+            "harvey-lab-projection.v1.json; tampered bytes are refused."
         ),
     )
     parser.add_argument("--limit", type=int)

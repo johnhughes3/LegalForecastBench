@@ -1,22 +1,35 @@
 from __future__ import annotations
 
-import hashlib
 import json
+import stat
 from pathlib import Path
 
 import pytest
-from legalforecast._json_io import write_json_object
 from legalforecast.multiharness.folder_selection import (
-    PROJECTED_LAYOUT_MANIFEST_NAME,
-    PROJECTED_LAYOUT_SCHEMA_VERSION,
     FolderSelectionError,
+    projection_root_for,
     select_tasks_from_folder,
+)
+from legalforecast.multiharness.harvey_lab_projected_tasks import (
+    HarveyLabProjectionTaskLoader,
+)
+from legalforecast.multiharness.harvey_lab_projection import (
+    HarveyLabProjectionResult,
+    project_harvey_lab_suite,
 )
 from legalforecast.multiharness.run_progress import require_honest_coverage_claim
 from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.spec import CanonicalTask, TaskIndex
 
+from test_harvey_lab_projection import (
+    FIXTURE_PIN,
+    ISSUE_196_LAB_TASK_ID,
+    _add_unselected_task,
+    _issue_196_source,
+)
+
 SHA256 = "sha256:" + "a" * 64
+DECOY_LAB_TASK_ID = "aaa-practice/decoy-task"
 
 
 def test_task_id_list_is_labeled_scoped() -> None:
@@ -39,45 +52,63 @@ def test_category_alias_selects_lab_module() -> None:
     assert result.coverage_kind == "scoped"
 
 
-def test_folder_mode_resolves_projected_layout(tmp_path: Path) -> None:
-    folder, index, task = _projected_folder(tmp_path)
-    selected = select_tasks_from_folder(folder, index)
+def test_folder_mode_consumes_a_real_projected_layout(tmp_path: Path) -> None:
+    result, index = _projected_lab_layout(tmp_path)
+    selected = select_tasks_from_folder(result.solver_root, index)
 
-    assert selected.task_ids == (task.task_id,)
     assert selected.selection_method == "folder"
+    assert selected.subtree == ""
+    assert set(selected.task_ids) == {task.task_id for task in index.tasks}
+    assert {ref.family for ref in selected.refs} == {"harvey_lab"}
+    assert {ref.scoring_mode for ref in selected.refs} == {"lab_native"}
+    by_id = {task.task_id: task.task_sha256 for task in index.tasks}
+    assert all(ref.task_sha256 == by_id[ref.task_id] for ref in selected.refs)
     public = json.dumps(selected.to_public_record())
-    assert str(folder.resolve()) not in public
+    assert str(result.solver_root.resolve()) not in public
+    assert str(tmp_path) not in public
     assert "relative_path" in public
 
 
-def test_folder_mode_refuses_missing_manifest(tmp_path: Path) -> None:
-    folder = tmp_path / "empty-folder"
+def test_folder_mode_selects_one_category_folder(tmp_path: Path) -> None:
+    result, index = _projected_lab_layout(tmp_path)
+    category_folder = result.solver_root / "tasks" / DECOY_LAB_TASK_ID.split("/")[0]
+    selected = select_tasks_from_folder(category_folder, index)
+
+    assert selected.subtree == f"tasks/{DECOY_LAB_TASK_ID.split('/')[0]}"
+    assert selected.task_ids == (f"harvey_lab:{DECOY_LAB_TASK_ID}",)
+    assert projection_root_for(category_folder) == result.solver_root.resolve()
+
+
+def test_folder_mode_refuses_a_folder_outside_any_projection(tmp_path: Path) -> None:
+    folder = tmp_path / "not-a-projection"
     folder.mkdir()
     index = _task_index(_task("harvey_lab:corporate/merger", module="corporate"))
 
-    with pytest.raises(FolderSelectionError, match=r"projection-manifest\.json"):
+    with pytest.raises(FolderSelectionError, match=r"harvey-lab-projection\.v1\.json"):
         select_tasks_from_folder(folder, index)
 
 
-def test_folder_mode_refuses_tampered_bytes(tmp_path: Path) -> None:
-    folder, index, _task_ref = _projected_folder(tmp_path)
-    listed = folder / "corporate" / "merger" / "task.json"
-    listed.write_text(listed.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+def test_folder_mode_refuses_tampered_projected_bytes(tmp_path: Path) -> None:
+    result, index = _projected_lab_layout(tmp_path)
+    target = result.solver_root / "tasks" / ISSUE_196_LAB_TASK_ID / "instructions.txt"
+    _make_writable(result.solver_root)
+    target.write_bytes(target.read_bytes() + b"x")
 
-    with pytest.raises(
-        FolderSelectionError, match="do not match the projection manifest"
-    ):
-        select_tasks_from_folder(folder, index)
+    with pytest.raises(FolderSelectionError, match="projected file hash mismatch"):
+        select_tasks_from_folder(result.solver_root, index)
 
 
-def test_folder_mode_refuses_unrecognized_task_files(tmp_path: Path) -> None:
-    folder, index, _task_ref = _projected_folder(tmp_path)
-    extra = folder / "litigation" / "motion"
-    extra.mkdir(parents=True)
-    (extra / "task.json").write_text("{}", encoding="utf-8")
+def test_folder_mode_refuses_a_task_absent_from_the_index(tmp_path: Path) -> None:
+    result, index = _projected_lab_layout(tmp_path)
+    partial = TaskIndex(
+        index_id=index.index_id,
+        selection_namespace=index.selection_namespace,
+        tasks=(index.tasks[0],),
+        index_sha256=index.index_sha256,
+    )
 
-    with pytest.raises(FolderSelectionError, match="unrecognized task files"):
-        select_tasks_from_folder(folder, index)
+    with pytest.raises(FolderSelectionError, match="is not in the task index"):
+        select_tasks_from_folder(result.solver_root, partial)
 
 
 def test_honest_coverage_claim_rejects_deleted_scoped_label() -> None:
@@ -116,41 +147,27 @@ def test_impartial_label_is_not_a_partial_claim() -> None:
         )
 
 
-def _projected_folder(tmp_path: Path) -> tuple[Path, TaskIndex, CanonicalTask]:
-    folder = tmp_path / "projected-layout"
-    relative_path = "corporate/merger/task.json"
-    task_path = folder / relative_path
-    task_path.parent.mkdir(parents=True)
-    payload = {"id": "merger-review", "prompt": "fixture task"}
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    task_path.write_bytes(encoded)
-    digest = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
-    task = CanonicalTask(
-        task_id="harvey_lab:corporate/merger",
-        family="harvey_lab",
-        scoring_mode="lab_native",
+def _projected_lab_layout(
+    tmp_path: Path,
+) -> tuple[HarveyLabProjectionResult, TaskIndex]:
+    source = _issue_196_source(tmp_path / "lab")
+    _add_unselected_task(source)
+    result = project_harvey_lab_suite(
+        source_root=source,
+        solver_root=tmp_path / "projected",
+        evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
+    )
+    index = HarveyLabProjectionTaskLoader(
+        result.solver_root,
         suite_version="fixture-suite",
-        source_id="merger-review",
-        task_sha256=digest,
-        metadata={"module": "corporate"},
-    )
-    write_json_object(
-        folder / PROJECTED_LAYOUT_MANIFEST_NAME,
-        {
-            "schema_version": PROJECTED_LAYOUT_SCHEMA_VERSION,
-            "tasks": [
-                {
-                    "task_id": task.task_id,
-                    "relative_path": relative_path,
-                    "task_sha256": digest,
-                    "family": task.family,
-                    "scoring_mode": task.scoring_mode,
-                    "category": "corporate",
-                }
-            ],
-        },
-    )
-    return folder, _task_index(task), task
+    ).load_task_index()
+    return result, index
+
+
+def _make_writable(root: Path) -> None:
+    for path in [root, *root.rglob("*")]:
+        path.chmod(path.stat().st_mode | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRUSR)
 
 
 def _task_index(*tasks: CanonicalTask) -> TaskIndex:
