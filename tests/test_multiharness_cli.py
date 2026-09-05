@@ -447,6 +447,39 @@ def test_multiharness_run_refuses_unknown_auth_profile_before_plan(
     assert not (output_dir / "run-plan.json").exists()
 
 
+def test_multiharness_run_refuses_explicitly_empty_auth_profile(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    task_index = _lab_task_index(tmp_path)
+    output_dir = tmp_path / "empty-profile"
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(task_index),
+                "--adapter-manifest",
+                str(CLAUDE_MANIFEST),
+                "--auth-profile",
+                "",
+                "--model-key",
+                "anthropic:claude-sonnet-4-6",
+                "--output-dir",
+                str(output_dir),
+                "--dry-run",
+            ]
+        )
+        == 2
+    )
+    assert (
+        "auth_profile must be a single canonical profile ID" in capsys.readouterr().err
+    )
+    assert not output_dir.exists()
+
+
 @pytest.mark.parametrize(
     ("profile", "extra_args", "message"),
     [
@@ -493,6 +526,7 @@ def test_multiharness_run_refuses_unrunnable_auth_profile_before_plan(
         == 2
     )
     assert message in capsys.readouterr().err
+    assert not output_dir.exists()
     assert not (output_dir / "run-plan.json").exists()
     assert not (output_dir / "run-progress.json").exists()
 

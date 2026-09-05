@@ -54,7 +54,9 @@ def adapter_from_manifest_file(
             )
         return CommandAdapter.from_manifest_file(path, timeout_seconds=timeout_seconds)
     manifest = LocalCliAdapterManifest.from_record(record)
-    selected_profile = auth_profile or manifest.auth_profile_name
+    selected_profile = (
+        manifest.auth_profile_name if auth_profile is None else auth_profile
+    )
     _require_cli_profile_execution_boundary(selected_profile, dry_run=dry_run)
     kwargs: dict[str, object] = {
         "auth_profile": selected_profile,

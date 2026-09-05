@@ -820,7 +820,6 @@ def _cmd_run_guarded(args: argparse.Namespace) -> int:
         cast(Path | None, args.task_folder),
     )
     output_dir = cast(Path, args.output_dir)
-    _ensure_cli_private_directory(output_dir)
     adapters = tuple(
         adapter_from_manifest_file(
             path,
@@ -830,6 +829,7 @@ def _cmd_run_guarded(args: argparse.Namespace) -> int:
         )
         for path in _path_tuple_arg(args, "adapter_manifest")
     )
+    _ensure_cli_private_directory(output_dir)
     policy = _sandbox_policy_from_args(args)
     if cast(bool, args.live_tool_container):
         if solver_inputs is None:
