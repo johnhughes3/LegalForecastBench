@@ -122,6 +122,7 @@ class HarveyLabProjectionTaskLoader:
             index_sha256=task_index_sha256(tasks),
         )
 
+
 def _artifact(
     item: HarveyLabProjectedFile,
     *,

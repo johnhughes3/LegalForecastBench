@@ -10,7 +10,6 @@ import hashlib
 import json
 import os
 import shutil
-import stat
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
@@ -41,6 +40,14 @@ from legalforecast.multiharness.harvey_lab.contract import (
     private_criterion_count,
     validated_deliverable_sources,
 )
+from legalforecast.multiharness.harvey_lab.evaluation_contract import (
+    HarveyLabEvaluationError,
+    harvey_lab_private_material_sha256,
+    harvey_lab_private_material_snapshot,
+)
+from legalforecast.multiharness.harvey_lab.evaluation_contract import (
+    read_regular_file as _read_regular_file,
+)
 from legalforecast.multiharness.harvey_lab_projection import (
     HarveyLabPin,
     HarveyLabProjectionError,
@@ -66,10 +73,6 @@ EVALUATOR_COMMAND_NAME = "harvey-lab-eval"
 _OVERLAY_DELIVERABLE = "output"
 _OVERLAY_PRIVATE = "private"
 _OVERLAY_RAW = "raw"
-
-
-class HarveyLabEvaluationError(ValueError):
-    """Raised when isolated LAB evaluation cannot proceed fail-closed."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,6 +343,7 @@ def invoke_isolated_harvey_lab_evaluator(
             raise HarveyLabEvaluationError(
                 "execution service cannot pin the evaluator PATH"
             ) from exc
+        criterion_count = _authenticated_private_criterion_count(stdin_record)
         started_monotonic = _monotonic_ns()
         started_at = datetime.now(UTC)
         if judge_request_boundary is None:
@@ -360,6 +364,7 @@ def invoke_isolated_harvey_lab_evaluator(
             )
         ended_monotonic = _monotonic_ns()
         ended_at = datetime.now(UTC)
+        _require_private_material_unchanged(stdin_record)
         if execution.status != "succeeded" or execution.returncode not in {0, None}:
             raise HarveyLabEvaluationError(
                 "contained LAB evaluator failed; evaluation never reruns the solver"
@@ -377,12 +382,6 @@ def invoke_isolated_harvey_lab_evaluator(
             raise HarveyLabEvaluationError(
                 "evaluator did not write the scores path listed in the input manifest"
             ) from exc
-        try:
-            criterion_count = private_criterion_count(
-                _read_regular_file(Path(str(stdin_record["private_task_json_path"])))
-            )
-        except HarveyLabContractError as exc:
-            raise HarveyLabEvaluationError(f"evaluator-private {exc}") from exc
         evaluation_spec = _evaluation_spec(
             sealed_manifest=sealed_manifest,
             identity=identity,
@@ -493,6 +492,41 @@ def evaluation_input_record(
                 "evaluation input must not name the solver projection root"
             )
     return record
+
+
+def _authenticated_private_criterion_count(record: Mapping[str, object]) -> int:
+    private_path = Path(str(record["private_task_json_path"]))
+    expected_digest = str(record["private_material_sha256"])
+    try:
+        actual_digest, files = harvey_lab_private_material_snapshot(private_path.parent)
+        task_json = files[private_path.name]
+    except (HarveyLabEvaluationError, KeyError) as exc:
+        raise HarveyLabEvaluationError(
+            "evaluator-private task material is not readable"
+        ) from exc
+    if actual_digest != expected_digest:
+        raise HarveyLabEvaluationError(
+            "evaluator-private task material does not match its input digest"
+        )
+    try:
+        return private_criterion_count(task_json)
+    except HarveyLabContractError as exc:
+        raise HarveyLabEvaluationError(f"evaluator-private {exc}") from exc
+
+
+def _require_private_material_unchanged(record: Mapping[str, object]) -> None:
+    private_path = Path(str(record["private_task_json_path"]))
+    expected_digest = str(record["private_material_sha256"])
+    try:
+        actual_digest = harvey_lab_private_material_sha256(private_path.parent)
+    except HarveyLabEvaluationError as exc:
+        raise HarveyLabEvaluationError(
+            "evaluator-private task material changed during evaluation"
+        ) from exc
+    if actual_digest != expected_digest:
+        raise HarveyLabEvaluationError(
+            "evaluator-private task material changed during evaluation"
+        )
 
 
 def _prepare_evaluation_overlay(
@@ -769,26 +803,6 @@ def _copy_regular_file(source: Path, destination: Path) -> None:
     _write_regular_file(destination, payload)
 
 
-def _read_regular_file(path: Path) -> bytes:
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
-    try:
-        fd = os.open(path, flags)
-    except OSError as exc:
-        raise HarveyLabEvaluationError(
-            f"evaluation path must be a regular file: {path.name}"
-        ) from exc
-    try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):
-            raise HarveyLabEvaluationError(
-                f"evaluation path must be a regular file: {path.name}"
-            )
-        with os.fdopen(fd, "rb", closefd=False) as handle:
-            return handle.read()
-    finally:
-        os.close(fd)
-
-
 def _write_regular_file(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     flags = (
@@ -1000,69 +1014,6 @@ def _record_reaches_root(record: Mapping[str, object], root: Path) -> bool:
         if resolved == root or resolved.is_relative_to(root):
             return True
     return False
-
-
-def _directory_digest(root: Path, field_name: str) -> str:
-    digest, _ = _directory_snapshot(root, field_name)
-    return digest
-
-
-def _directory_snapshot(root: Path, field_name: str) -> tuple[str, Mapping[str, bytes]]:
-    if root.is_symlink() or not root.is_dir():
-        raise HarveyLabEvaluationError(f"{field_name} root must be a real directory")
-    entries: list[dict[str, object]] = []
-    payloads: dict[str, bytes] = {}
-    for path in _walk_regular_files(root, field_name):
-        relative = path.relative_to(root).as_posix()
-        payload = _read_regular_file(path)
-        payloads[relative] = payload
-        entries.append(
-            {
-                "path": relative,
-                "sha256": hashlib.sha256(payload).hexdigest(),
-                "size_bytes": len(payload),
-            }
-        )
-    return _prefixed_json({"files": entries}), payloads
-
-
-def harvey_lab_private_material_sha256(root: Path) -> str:
-    """Hash the exact evaluator-private directory supplied to the judge."""
-
-    return _directory_digest(root, "private_material_sha256")
-
-
-def harvey_lab_private_material_snapshot(
-    root: Path,
-) -> tuple[str, Mapping[str, bytes]]:
-    """Return one digest and the exact private bytes used to compute it."""
-
-    return _directory_snapshot(root, "private_material_sha256")
-
-
-def _walk_regular_files(root: Path, field_name: str) -> list[Path]:
-    files: list[Path] = []
-    stack = [root]
-    while stack:
-        current = stack.pop()
-        try:
-            children = sorted(current.iterdir())
-        except OSError as exc:
-            raise HarveyLabEvaluationError(f"{field_name} is unreadable") from exc
-        for child in children:
-            if child.is_symlink():
-                raise HarveyLabEvaluationError(
-                    f"{field_name} must not contain symlinks"
-                )
-            if child.is_dir():
-                stack.append(child)
-            elif child.is_file():
-                files.append(child)
-            else:
-                raise HarveyLabEvaluationError(
-                    f"{field_name} contains an unsupported entry"
-                )
-    return sorted(files)
 
 
 def _fixture_token_usage() -> EvaluationTokenUsage:

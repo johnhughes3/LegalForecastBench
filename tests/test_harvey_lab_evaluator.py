@@ -18,6 +18,9 @@ from legalforecast.multiharness.deliverables import (
     DeliverableManifest,
     seal_deliverable,
 )
+from legalforecast.multiharness.harvey_lab.evaluation_contract import (
+    directory_digest as _directory_digest,
+)
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EVALUATOR_COMMAND_NAME,
     HarveyLabEvaluationError,
@@ -25,7 +28,6 @@ from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabEvaluationIdentity,
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
-    _directory_digest,
     _pin_wrapper_executable,
     build_contained_evaluator_run_spec,
     invoke_isolated_harvey_lab_evaluator,
@@ -266,6 +268,56 @@ def test_receipt_binds_to_copied_private_inputs_not_live_source(
         private_json.parent,
         "private_material_sha256",
     )
+
+
+def test_evaluator_refuses_private_task_mutation_during_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _install_evaluator(tmp_path)
+    projected = _project(tmp_path)
+    sealed_root, sealed = _seal_deliverable(tmp_path, projected)
+    hosts = HarveyLabEvaluationHosts(
+        sealed_deliverable_root=sealed_root,
+        evaluator_private_root=projected.evaluator_private_root,
+        overlay_root=tmp_path / "overlay",
+        working_directory=tmp_path / "work",
+        solver_projection_root=projected.solver_root,
+    )
+    service = LocalCliExecutionService(auth_profile=FIXTURE_NONE, parent_env=env)
+    original_execute = LocalCliExecutionService.execute
+
+    def execute_then_mutate(
+        self: LocalCliExecutionService, spec: RunSpec
+    ) -> ExecutionReceipt:
+        receipt = original_execute(self, spec)
+        private_path = Path(str(json.loads(spec.stdin_bytes)["private_task_json_path"]))
+        os.chmod(private_path, stat.S_IRUSR | stat.S_IWUSR)
+        private_path.write_text(
+            json.dumps(
+                {
+                    "id": "task",
+                    "criteria": [{"id": "mutated", "deliverables": []}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return receipt
+
+    monkeypatch.setattr(LocalCliExecutionService, "execute", execute_then_mutate)
+
+    with pytest.raises(
+        HarveyLabEvaluationError,
+        match="private task material changed during evaluation",
+    ):
+        invoke_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=sealed,
+            identity=_identity(projected, tmp_path),
+            execution_service=service,
+            signer=PRIVATE_KEY.sign,
+            issuer_key_id="evaluation-key-fixture",
+            issuer_policy_sha256=ISSUER_POLICY,
+        )
 
 
 def test_evaluator_env_has_no_ambient_credentials_or_solver_path(

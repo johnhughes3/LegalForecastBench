@@ -87,6 +87,7 @@ def _run_spec(
     deliverables: Mapping[str, bytes] | None = None,
     expected_basenames: tuple[str, ...] | None = None,
     criterion_count: int = 23,
+    criteria: list[dict[str, object]] | None = None,
 ) -> tuple[RunSpec, Path]:
     scores_path = tmp_path / "overlay" / "raw" / "scores.json"
     private_path = tmp_path / "overlay" / "private" / "task.json"
@@ -108,7 +109,9 @@ def _run_spec(
         json.dumps(
             {
                 "id": "task",
-                "criteria": [
+                "criteria": criteria
+                if criteria is not None
+                else [
                     {"id": f"criterion-{ordinal}", "text": f"rule-{ordinal}"}
                     for ordinal in range(1, criterion_count + 1)
                 ],
@@ -222,6 +225,77 @@ def test_production_runner_authenticates_multi_output_and_task_cardinality(
     assert "Analysis body." in calls[0].deliverable.text
     assert "Memo body." in calls[0].deliverable.text
     assert json.loads(scores_path.read_text(encoding="utf-8"))["n_criteria"] == 2
+
+
+def test_production_runner_gives_each_criterion_only_its_declared_deliverable(
+    tmp_path: Path,
+) -> None:
+    spec, _ = _run_spec(
+        tmp_path,
+        deliverables={
+            "analysis.docx": _docx_bytes("Correct analysis."),
+            "misleading.docx": _docx_bytes("Misleading contrary answer."),
+        },
+        criteria=[
+            {
+                "id": "analysis-only",
+                "text": "grade the analysis",
+                "deliverables": ["analysis.docx"],
+            },
+            {
+                "id": "fallback-all",
+                "text": "grade the whole work product",
+                "deliverables": [],
+            },
+        ],
+    )
+    calls: list[ProductionJudgeCall] = []
+    pricing = _pricing()
+
+    ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda call: (calls.append(call), _response(pricing))[1],
+        attempt_writer=lambda _call, _response: None,
+    )(LocalCliExecutionService(), spec, _Boundary())
+
+    assert calls[0].deliverable.artifact_paths == ("analysis.docx",)
+    assert "Correct analysis." in calls[0].deliverable.text
+    assert "Misleading contrary answer." not in calls[0].deliverable.text
+    assert calls[1].deliverable.artifact_paths == (
+        "analysis.docx",
+        "misleading.docx",
+    )
+    assert "Misleading contrary answer." in calls[1].deliverable.text
+
+
+def test_production_runner_refuses_bad_later_criterion_before_any_provider_call(
+    tmp_path: Path,
+) -> None:
+    spec, _ = _run_spec(
+        tmp_path,
+        deliverables={"analysis.docx": _docx_bytes("Correct analysis.")},
+        criteria=[
+            {
+                "id": "valid-first",
+                "text": "valid",
+                "deliverables": ["analysis.docx"],
+            },
+            {
+                "id": "invalid-second",
+                "text": "invalid",
+                "deliverables": ["not-produced.docx"],
+            },
+        ],
+    )
+    calls: list[ProductionJudgeCall] = []
+    pricing = _pricing()
+    runner = ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda call: (calls.append(call), _response(pricing))[1],
+        attempt_writer=lambda _call, _response: None,
+    )
+
+    with pytest.raises(ValueError, match="unknown deliverable"):
+        runner(LocalCliExecutionService(), spec, _Boundary())
+    assert calls == []
 
 
 def test_production_runner_accepts_score_all_outputs_contract(tmp_path: Path) -> None:

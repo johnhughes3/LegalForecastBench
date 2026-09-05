@@ -55,8 +55,10 @@ class ProductionEvaluatorRunnerError(ValueError):
 class JudgeDeliverable:
     """The authenticated candidate work product shown to the judge.
 
-    ``text`` is what actually reaches the provider; ``sha256`` is the sealed
-    tree digest, so a retained attempt names every artifact used for a verdict.
+    ``text`` is what actually reaches the provider; ``sha256`` commits the
+    criterion-selected artifact subset, so a retained attempt names exactly
+    the artifacts used for its verdict. The enclosing run spec retains the
+    authenticated commitment to the full sealed output tree.
     """
 
     artifact_paths: tuple[str, ...]
@@ -217,12 +219,14 @@ class ProductionHarveyLabEvaluatorRunner:
         # Resolved before the loop: a deliverable that cannot be authenticated
         # must refuse the run before any reservation, credential fetch, or
         # billable request, not after the first criterion has been paid for.
-        deliverable = _authenticated_deliverable(spec)
+        deliverables = _authenticated_deliverables(spec, criteria)
         started = time.monotonic_ns()
         final_responses: list[ProductionJudgeResponse] = []
         all_responses: list[ProductionJudgeResponse] = []
         resolved_identity: str | None = None
-        for ordinal, criterion in enumerate(criteria, start=1):
+        for ordinal, (criterion, deliverable) in enumerate(
+            zip(criteria, deliverables, strict=True), start=1
+        ):
             criterion_id = str(criterion["id"])
             final: ProductionJudgeResponse | None = None
             for attempt_index in range(self._max_attempts):
@@ -406,8 +410,10 @@ def _authenticated_criteria(spec: RunSpec) -> tuple[Mapping[str, object], ...]:
     return tuple(normalized)
 
 
-def _authenticated_deliverable(spec: RunSpec) -> JudgeDeliverable:
-    """Return the candidate deliverable text, bound to its sealed commitment.
+def _authenticated_deliverables(
+    spec: RunSpec, criteria: Sequence[Mapping[str, object]]
+) -> tuple[JudgeDeliverable, ...]:
+    """Return criterion-scoped text bound to the full sealed commitment.
 
     The evaluation-input record carries ``deliverable_tree_sha256``, the
     commitment produced when the output set was sealed. The evaluator can
@@ -487,20 +493,67 @@ def _authenticated_deliverable(spec: RunSpec) -> JudgeDeliverable:
         raise ProductionEvaluatorRunnerError(
             "candidate deliverable does not match the sealed tree digest"
         )
-    sections: list[str] = []
+    extracted: dict[str, str] = {}
     for relative in relative_paths:
         try:
-            text = docx_visible_text(payloads[relative])
+            extracted[relative] = docx_visible_text(payloads[relative])
         except (OSError, DeliverableTextError) as exc:
             raise ProductionEvaluatorRunnerError(
                 f"candidate deliverable text is not extractable: {relative}"
             ) from exc
-        sections.append(f"## Agent Output: {relative}\n{text}")
-    return JudgeDeliverable(
-        artifact_paths=tuple(relative_paths),
-        text="\n\n".join(sections),
-        sha256=expected_tree,
+    available = tuple(relative_paths)
+    selected_by_criterion = tuple(
+        _criterion_deliverable_paths(criterion, available) for criterion in criteria
     )
+    return tuple(
+        JudgeDeliverable(
+            artifact_paths=selected,
+            text="\n\n".join(
+                f"## Agent Output: {relative}\n{extracted[relative]}"
+                for relative in selected
+            ),
+            sha256=artifact_tree_sha256(
+                {relative: payloads[relative] for relative in selected}
+            ),
+        )
+        for selected in selected_by_criterion
+    )
+
+
+def _criterion_deliverable_paths(
+    criterion: Mapping[str, object], available: tuple[str, ...]
+) -> tuple[str, ...]:
+    declared = criterion.get("deliverables")
+    if declared is None:
+        return available
+    if not isinstance(declared, Sequence) or isinstance(declared, str | bytes):
+        raise ProductionEvaluatorRunnerError(
+            "criterion deliverables must be an array of filenames"
+        )
+    values = cast(Sequence[object], declared)
+    if not values:
+        return available
+    selected: set[str] = set()
+    for value in values:
+        if (
+            not isinstance(value, str)
+            or not value
+            or value != Path(value).name
+            or value in {".", ".."}
+        ):
+            raise ProductionEvaluatorRunnerError(
+                "criterion deliverables must contain filenames"
+            )
+        if value not in available:
+            raise ProductionEvaluatorRunnerError(
+                f"criterion names unknown deliverable: {value}"
+            )
+        if value in selected:
+            raise ProductionEvaluatorRunnerError(
+                f"criterion names duplicate deliverable: {value}"
+            )
+        selected.add(value)
+    return tuple(path for path in available if path in selected)
 
 
 def _scores_path(spec: RunSpec) -> Path:
