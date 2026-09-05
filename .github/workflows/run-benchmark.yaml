@@ -249,7 +249,7 @@ jobs:
           from legalforecast.evals.model_registry import load_model_registry, model_registry_sha256, require_official_registry_entries
           from legalforecast.immutable_io import read_single_link_file
           from legalforecast.release import load_forecast_run_inputs
-          from legalforecast.runner import derive_cell_id, derive_run_identity_sha256
+          from legalforecast.runner import derive_case_call_id, derive_cell_id, derive_run_identity_sha256
           repeat_count = int(os.environ["REPEAT_COUNT"])
           if repeat_count != 1:
               raise SystemExit("repeat_count must be exactly 1 until repeated-sampling fan-in is supported")
@@ -285,11 +285,25 @@ jobs:
                   provider = "gemini"
               if provider not in matrices:
                   raise SystemExit(f"model registry provider is not supported by the official forecast workflow: {entry.provider}")
-              for unit in forecast.prediction_units:
+              for case in forecast.cases:
+                  case_units = tuple(
+                      sorted(
+                          (unit for unit in forecast.prediction_units if unit.case_id == case.case_id),
+                          key=lambda unit: unit.unit_id,
+                      )
+                  )
+                  required_unit_ids = tuple(unit.unit_id for unit in case_units)
+                  if not required_unit_ids:
+                      raise SystemExit(f"forecast case has no prediction units: {case.case_id}")
                   for repeat_index in range(1, repeat_count + 1):
                       ablation = "none"
-                      cell_id = derive_cell_id(identity_sha256=run_identity_sha256, case_id=unit.case_id, unit_id=unit.unit_id, repeat_index=repeat_index)
-                      matrices[provider].append({"provider": provider, "model_key": entry.registry_key, "model_id": entry.model_id, "cell_id": cell_id, "cell_id_slug": slug(cell_id), "unit_id": unit.unit_id, "case_id": unit.case_id, "repeat_index": repeat_index, "ablation": ablation})
+                      if len(required_unit_ids) == 1:
+                          unit_id = required_unit_ids[0]
+                          cell_id = derive_cell_id(identity_sha256=run_identity_sha256, case_id=case.case_id, unit_id=unit_id, repeat_index=repeat_index)
+                      else:
+                          unit_id = None
+                          cell_id = derive_case_call_id(identity_sha256=run_identity_sha256, case_id=case.case_id, required_unit_ids=required_unit_ids, repeat_index=repeat_index)
+                      matrices[provider].append({"provider": provider, "model_key": entry.registry_key, "model_id": entry.model_id, "cell_id": cell_id, "cell_id_slug": slug(cell_id), "unit_id": unit_id, "required_unit_ids": list(required_unit_ids), "case_id": case.case_id, "repeat_index": repeat_index, "ablation": ablation})
           output = open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")
           with output:
               for provider, rows in matrices.items():
@@ -441,7 +455,8 @@ jobs:
             [[ -n "${value}" ]] || { echo "shared provider spend authority configuration is required" >&2; exit 1; }
           done
           set +e
-          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
+          unit_args=(); if [[ -n "${UNIT_ID}" ]]; then unit_args=(--unit-id "${UNIT_ID}"); fi
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" "${unit_args[@]}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
           status=$?
           set -e
           uv run python - "${status}" <<'PY'
@@ -603,7 +618,8 @@ jobs:
             [[ -n "${value}" ]] || { echo "shared provider spend authority configuration is required" >&2; exit 1; }
           done
           set +e
-          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
+          unit_args=(); if [[ -n "${UNIT_ID}" ]]; then unit_args=(--unit-id "${UNIT_ID}"); fi
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" "${unit_args[@]}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
           status=$?
           set -e
           uv run python - "${status}" <<'PY'
@@ -764,7 +780,8 @@ jobs:
             [[ -n "${value}" ]] || { echo "shared provider spend authority configuration is required" >&2; exit 1; }
           done
           set +e
-          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" --unit-id "${UNIT_ID}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
+          unit_args=(); if [[ -n "${UNIT_ID}" ]]; then unit_args=(--unit-id "${UNIT_ID}"); fi
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" "${unit_args[@]}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
           status=$?
           set -e
           uv run python - "${status}" <<'PY'
@@ -952,12 +969,18 @@ jobs:
               if receipt.get("repeat_index") != 1:
                   raise SystemExit("official fan-in source requires repeat_index 1")
               unit_id, case_id, parser_output = receipt.get("unit_id"), receipt.get("case_id"), receipt.get("parser_output")
-              if not isinstance(unit_id, str) or not unit_id or not isinstance(case_id, str) or not case_id or not isinstance(parser_output, dict):
+              required_unit_ids = receipt.get("required_unit_ids")
+              if not isinstance(required_unit_ids, list) or not required_unit_ids or any(not isinstance(unit, str) or not unit for unit in required_unit_ids) or required_unit_ids != sorted(set(required_unit_ids)):
+                  raise SystemExit("provider receipt lacks canonical required unit set")
+              if (len(required_unit_ids) == 1 and unit_id != required_unit_ids[0]) or (len(required_unit_ids) > 1 and unit_id is not None):
+                  raise SystemExit("provider receipt unit subject does not match case call")
+              if not isinstance(case_id, str) or not case_id or not isinstance(parser_output, dict):
                   raise SystemExit("provider receipt lacks exact prediction identity")
-              key = (unit_id, 1)
-              if key in seen_units:
-                  raise SystemExit(f"duplicate provider receipt unit: {unit_id}")
-              seen_units.add(key)
+              for required_unit_id in required_unit_ids:
+                  key = (required_unit_id, 1)
+                  if key in seen_units:
+                      raise SystemExit(f"duplicate provider receipt unit: {required_unit_id}")
+                  seen_units.add(key)
 
           forecast_release_digest = identity["forecast_release_digest"]
           model_registry_sha256 = identity["model_registry_sha256"]
@@ -1020,6 +1043,7 @@ jobs:
                       cell_id TEXT PRIMARY KEY,
                       case_id TEXT NOT NULL,
                       unit_id TEXT NOT NULL,
+                      required_unit_ids_json TEXT NOT NULL,
                       repeat_index INTEGER NOT NULL,
                       model_key TEXT NOT NULL,
                       status TEXT NOT NULL
@@ -1032,8 +1056,8 @@ jobs:
               )
               for receipt in receipts:
                   connection.execute(
-                      "INSERT INTO cells VALUES (?, ?, ?, ?, ?, ?)",
-                      (str(receipt["cell_id"]), str(receipt["case_id"]), str(receipt["unit_id"]), 1, str(receipt["model_key"]), run_status),
+                      "INSERT INTO cells VALUES (?, ?, ?, ?, ?, ?, ?)",
+                      (str(receipt["cell_id"]), str(receipt["case_id"]), str(receipt["unit_id"] or "case-call:" + str(receipt["case_id"]) + ":" + ",".join(str(unit) for unit in receipt["required_unit_ids"])), json.dumps(receipt["required_unit_ids"], separators=(",", ":")), 1, str(receipt["model_key"]), run_status),
                   )
               connection.commit()
           PY
