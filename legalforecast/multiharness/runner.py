@@ -26,6 +26,7 @@ from legalforecast.immutable_io import (
     read_single_link_file,
     write_file_replace_safe,
 )
+from legalforecast.multiharness.adapter_registry import adapter_auth_profile_record
 from legalforecast.multiharness.adapters import HarnessAdapter, LiveToolAdapter
 from legalforecast.multiharness.artifacts import AdapterRunResult
 from legalforecast.multiharness.auth_profiles import (
@@ -218,6 +219,7 @@ class MultiHarnessRunConfig:
         }
         if self.solver_inputs is not None:
             record["solver_input_index_sha256"] = self.solver_inputs.index.index_sha256
+        record.update(adapter_auth_profile_record(_ordered_adapters(self.adapters)))
         return record
 
 

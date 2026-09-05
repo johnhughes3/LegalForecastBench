@@ -52,10 +52,10 @@ Canonical profile IDs are hyphenated. Underscore aliases are refused.
 | Profile | When to use it | Credentials |
 | --- | --- | --- |
 | `fixture-none` | Default for this walkthrough | None. The profile never reads keys. |
-| `published-api-key` | Live provider call with an explicit key you supply | Contributor-funded. Not part of the fixture walkthrough. Requires spend authorization before anyone runs it here. |
-| `contributor-subscription` | Local subscription login | Not supported yet. Do not attempt it from this guide. |
+| `published-api-key` | Plan a live provider configuration | `multiharness run --dry-run` records this selection, but direct execution is refused. Paid execution requires the guarded Tier-0 spend-control path and its detached approval. |
+| `contributor-subscription` | Reserved local subscription profile | Not runnable yet: there is no production local-login presence probe. The CLI refuses it before writing a run plan. |
 
-Write `fixture-none`, never `fixture_none`. A live `published-api-key` run is a separate, opt-in second leg. Do not put keys in the shell profile, in git, or in public JSON.
+Write `fixture-none`, never `fixture_none`. Do not put keys in the shell profile, in git, or in public JSON. This contributor command does not execute paid profiles; use the separately reviewed Tier-0 specification and approval path for paid work.
 
 ## 4. Task selection
 
@@ -189,6 +189,8 @@ uv run legalforecast multiharness run \
 
 Stderr reports the run tally and the path of `run-progress.json`. Host process-group containment is the default; you do not pass `--host-process-containment` for this fixture. The bundled fixture adapter answers each of the three indexed units without credentials; that proves the harness path, not model quality.
 
+For a bundled local-CLI adapter, pass its local-CLI manifest with `--adapter-manifest`. The manifest's `auth_profile_name` is the default; `--auth-profile published-api-key --dry-run` selects and records the paid profile without modifying the manifest. Direct paid execution is refused here because this command has no spend approval or ceiling. Unsupported profiles, and `contributor-subscription` until a production presence probe exists, are rejected before a run plan is written.
+
 Interrupt and remainder-only resume are for longer selections, which is what a LAB category gives you.
 
 Category-scoped LAB run over the index you projected above:
@@ -258,7 +260,7 @@ Open a pull request that adds only that submission directory. Details, attestati
 
 `fixture-none` conformance and fixture runs do not call a provider. They should cost nothing beyond your machine.
 
-A live `published-api-key` run is contributor-funded. Estimate tokens and USD from the model’s public price list *before* you run it, and do not start it without an explicit spend authorization if you are operating on shared credentials. LegalForecastBench does not pay community API bills.
+Paid execution is contributor-funded and does not run through the ordinary `multiharness run` path. It requires the immutable Tier-0 specification, spend sidecars, and detached approval consumed by `multiharness tier0 run`. LegalForecastBench does not pay community API bills.
 
 ## 8. Privacy
 
@@ -288,7 +290,7 @@ Public JSON is scanned for secrets and path leakage. If a command’s output con
 | `--lab-root` fails on a raw Harvey LAB clone | The raw path reads evaluator `criteria`; it is not a contributor input. Project the corpus first. |
 | Folder mode refuses a projected layout | Re-index the same projected root and do not modify its sealed files; folder mode refuses projection or index digest drift. |
 | Ctrl-C does nothing on the fixture walkthrough | The one-task fixture finishes in about a second. That is expected. Use a large LAB category to exercise interrupt and resume. |
-| I want a live provider run instead of `fixture-none` | The profile comes from the adapter manifest's `auth_profile_name`, not a CLI flag ([#853](https://github.com/johnhughes3/LegalForecastBench/issues/853)). Copy a manifest that lists `published-api-key` in `supported_auth_profiles` and set that field in your copy. |
+| I want a live provider run instead of `fixture-none` | `--auth-profile published-api-key --dry-run` records the intended profile, but this command refuses paid execution. Use the guarded Tier-0 specification, spend policy, and detached approval path instead. |
 | Resume says solver, config, policy, or selection identity drifted | Re-run with the original adapter, model key, sandbox flags, and selectors. |
 | Resume says the progress journal is corrupt | Do not hand-edit `run-progress.json`. Start a new `--output-dir`. |
 | Exit `130` after Ctrl-C | Expected. Resume with the same command plus `--resume`. |

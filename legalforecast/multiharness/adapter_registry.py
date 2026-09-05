@@ -25,6 +25,78 @@ class AdapterRegistryError(ValueError):
     """Raised when an adapter cannot be registered or resolved."""
 
 
+def adapter_from_manifest_file(
+    path: Path,
+    *,
+    auth_profile: str | None = None,
+    dry_run: bool = False,
+    timeout_seconds: float = 300.0,
+) -> HarnessAdapter:
+    """Load a command or built-in local-CLI adapter from its manifest."""
+
+    from legalforecast._json_io import read_json_object
+    from legalforecast.multiharness.command_adapter import CommandAdapter
+    from legalforecast.multiharness.local_cli_manifest import (
+        LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION,
+        LocalCliAdapterManifest,
+    )
+
+    record = read_json_object(
+        path,
+        error_factory=AdapterRegistryError,
+        missing_message=lambda item: f"adapter manifest does not exist: {item}",
+        non_object_message=lambda item: f"adapter manifest must be an object: {item}",
+    )
+    if record.get("schema_version") != LOCAL_CLI_ADAPTER_MANIFEST_SCHEMA_VERSION:
+        if auth_profile is not None:
+            raise AdapterRegistryError(
+                "--auth-profile requires a local-CLI adapter manifest"
+            )
+        return CommandAdapter.from_manifest_file(path, timeout_seconds=timeout_seconds)
+    manifest = LocalCliAdapterManifest.from_record(record)
+    selected_profile = auth_profile or manifest.auth_profile_name
+    _require_cli_profile_execution_boundary(selected_profile, dry_run=dry_run)
+    kwargs: dict[str, object] = {
+        "auth_profile": selected_profile,
+        "dry_run": dry_run,
+        "local_cli_manifest": manifest,
+    }
+    return builtin_adapter_registry().get(manifest.manifest_id, **kwargs)
+
+
+def adapter_auth_profile_record(
+    adapters: Sequence[HarnessAdapter],
+) -> dict[str, object]:
+    """Return the selected non-secret profiles for run-plan identity."""
+
+    profiles = {
+        adapter.manifest.adapter_id: profile
+        for adapter in adapters
+        if isinstance((profile := getattr(adapter, "auth_profile", None)), str)
+    }
+    return {"adapter_auth_profiles": profiles} if profiles else {}
+
+
+def _require_cli_profile_execution_boundary(
+    profile_id: str,
+    *,
+    dry_run: bool,
+) -> None:
+    from legalforecast.multiharness.auth_profiles import (
+        CONTRIBUTOR_SUBSCRIPTION,
+        PUBLISHED_API_KEY,
+    )
+
+    if profile_id == CONTRIBUTOR_SUBSCRIPTION:
+        raise AdapterRegistryError(
+            "contributor-subscription has no production local-login presence probe"
+        )
+    if profile_id == PUBLISHED_API_KEY and not dry_run:
+        raise AdapterRegistryError(
+            "published-api-key execution requires the guarded Tier-0 spend-control path"
+        )
+
+
 class AdapterRegistry:
     """Deterministic name → factory map. Duplicate names are refused."""
 
@@ -111,41 +183,93 @@ def _harvey_lab_factory(**kwargs: object) -> HarnessAdapter:
 
 
 def _claude_code_factory(**kwargs: object) -> HarnessAdapter:
-    from legalforecast.multiharness.claude_code import ClaudeCodeCliAdapter
+    from legalforecast.multiharness.claude_code import (
+        ClaudeCodeCliAdapter,
+        claude_code_local_manifest,
+    )
+    from legalforecast.multiharness.local_cli_manifest import LocalCliAdapterManifest
     from legalforecast.multiharness.local_cli_runtime import (
         LocalCliExecutionService as RuntimeService,
     )
 
+    manifest, auth_profile, service = _local_cli_inputs(
+        kwargs,
+        default_manifest=claude_code_local_manifest,
+    )
     return ClaudeCodeCliAdapter(
-        execution_service=cast(RuntimeService, _execution_service(kwargs))
+        execution_service=cast(RuntimeService, service),
+        local_manifest=cast(LocalCliAdapterManifest, manifest),
+        auth_profile=auth_profile,
     )
 
 
 def _codex_cli_factory(**kwargs: object) -> HarnessAdapter:
-    from legalforecast.multiharness.codex_cli import CodexCliAdapter
+    from legalforecast.multiharness.codex_cli import (
+        CodexCliAdapter,
+        load_codex_local_cli_manifest,
+    )
     from legalforecast.multiharness.local_cli_contracts import LocalCliExecutionService
+    from legalforecast.multiharness.local_cli_manifest import LocalCliAdapterManifest
 
+    manifest, auth_profile, service = _local_cli_inputs(
+        kwargs,
+        default_manifest=load_codex_local_cli_manifest,
+    )
     return CodexCliAdapter(
-        execution_service=cast(LocalCliExecutionService, _execution_service(kwargs))
+        execution_service=cast(LocalCliExecutionService, service),
+        local_cli_manifest=cast(LocalCliAdapterManifest, manifest),
+        auth_profile=auth_profile,
     )
 
 
-def _execution_service(kwargs: Mapping[str, object]) -> object:
-    from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
-    from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
+def _local_cli_inputs(
+    kwargs: Mapping[str, object],
+    *,
+    default_manifest: Callable[[], object],
+) -> tuple[object, str, object]:
+    from legalforecast.multiharness.auth_binding import (
+        bind_adapter_auth_profile,
+        contained_execution_service,
+    )
+    from legalforecast.multiharness.local_cli_identity import ExecutableIdentityPin
+    from legalforecast.multiharness.local_cli_manifest import LocalCliAdapterManifest
 
+    manifest = kwargs.get("local_cli_manifest")
+    if manifest is None:
+        manifest = default_manifest()
+    if not isinstance(manifest, LocalCliAdapterManifest):
+        raise AdapterRegistryError("local_cli_manifest has the wrong type")
+    requested = kwargs.get("auth_profile", manifest.auth_profile_name)
+    bound = bind_adapter_auth_profile(manifest, requested)
+    _require_cli_profile_execution_boundary(
+        bound.profile_id,
+        dry_run=kwargs.get("dry_run") is True,
+    )
     service = kwargs.get("execution_service")
     if service is not None:
-        return service
-    parent_env = kwargs.get("parent_env")
-    environment: Mapping[str, str] | None = None
-    if isinstance(parent_env, Mapping):
-        typed_parent = cast(Mapping[object, object], parent_env)
-        environment = {str(key): str(value) for key, value in typed_parent.items()}
-    return LocalCliExecutionService(
-        auth_profile=FIXTURE_NONE,
-        parent_env=environment,
+        return manifest, bound.profile_id, service
+    environment = _parent_environment(kwargs.get("parent_env"))
+    return (
+        manifest,
+        bound.profile_id,
+        contained_execution_service(
+            bound,
+            parent_env=environment,
+            executable_pin=ExecutableIdentityPin(
+                basename=manifest.executable.basename,
+                version=manifest.executable.version,
+                sha256=manifest.executable.sha256,
+                distribution_kind=manifest.executable.distribution_kind,
+            ),
+        ),
     )
+
+
+def _parent_environment(value: object) -> Mapping[str, str] | None:
+    if not isinstance(value, Mapping):
+        return None
+    typed = cast(Mapping[object, object], value)
+    return {str(key): str(item) for key, item in typed.items()}
 
 
 def _optional_str_tuple(value: object) -> tuple[str, ...]:

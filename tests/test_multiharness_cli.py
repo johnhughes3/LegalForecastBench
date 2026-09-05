@@ -24,6 +24,7 @@ from pytest import CaptureFixture
 from test_harvey_lab_projection import FIXTURE_PIN, _issue_196_source
 
 JsonRecord = dict[str, Any]
+CLAUDE_MANIFEST = Path("examples/adapters/claude-code/local-cli-adapter-manifest.json")
 
 
 def test_multiharness_appears_in_top_level_help(
@@ -384,6 +385,118 @@ def test_multiharness_run_dry_run_does_not_invoke_adapter(tmp_path: Path) -> Non
     assert not (output_dir / "adapter-capabilities").exists()
 
 
+def test_multiharness_run_dry_run_selects_builtin_auth_profile(tmp_path: Path) -> None:
+    task_index = _lab_task_index(tmp_path)
+    output_dir = tmp_path / "dry-run"
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(task_index),
+                "--adapter-manifest",
+                str(CLAUDE_MANIFEST),
+                "--auth-profile",
+                "published-api-key",
+                "--model-key",
+                "anthropic:claude-sonnet-4-6",
+                "--output-dir",
+                str(output_dir),
+                "--allow-provider-egress",
+                "--dry-run",
+            ]
+        )
+        == 0
+    )
+
+    plan = _read_json(output_dir / "run-plan.json")
+    assert plan["adapter_auth_profiles"] == {
+        "claude-code-clean-native": "published-api-key"
+    }
+    assert plan["adapter_manifests"][0]["adapter_id"] == ("claude-code-clean-native")
+
+
+def test_multiharness_run_refuses_unknown_auth_profile_before_plan(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    task_index = _lab_task_index(tmp_path)
+    output_dir = tmp_path / "dry-run"
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(task_index),
+                "--adapter-manifest",
+                str(CLAUDE_MANIFEST),
+                "--auth-profile",
+                "not-a-profile",
+                "--model-key",
+                "anthropic:claude-sonnet-4-6",
+                "--output-dir",
+                str(output_dir),
+                "--dry-run",
+            ]
+        )
+        == 2
+    )
+    assert "auth_profile 'not-a-profile' is unknown" in capsys.readouterr().err
+    assert not (output_dir / "run-plan.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("profile", "extra_args", "message"),
+    [
+        (
+            "published-api-key",
+            (),
+            "requires the guarded Tier-0 spend-control path",
+        ),
+        (
+            "contributor-subscription",
+            ("--dry-run",),
+            "has no production local-login presence probe",
+        ),
+    ],
+)
+def test_multiharness_run_refuses_unrunnable_auth_profile_before_plan(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    profile: str,
+    extra_args: tuple[str, ...],
+    message: str,
+) -> None:
+    task_index = _lab_task_index(tmp_path)
+    output_dir = tmp_path / profile
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(task_index),
+                "--adapter-manifest",
+                str(CLAUDE_MANIFEST),
+                "--auth-profile",
+                profile,
+                "--model-key",
+                "anthropic:claude-sonnet-4-6",
+                "--output-dir",
+                str(output_dir),
+                *extra_args,
+            ]
+        )
+        == 2
+    )
+    assert message in capsys.readouterr().err
+    assert not (output_dir / "run-plan.json").exists()
+    assert not (output_dir / "run-progress.json").exists()
+
+
 def test_multiharness_live_tool_dry_run_requires_solver_input_store(
     tmp_path: Path,
 ) -> None:
@@ -719,6 +832,27 @@ def _lab_root(tmp_path: Path) -> Path:
     )
     (docs_dir / "agreement.md").write_text("agreement text", encoding="utf-8")
     return lab_root
+
+
+def _lab_task_index(tmp_path: Path) -> Path:
+    task_index = tmp_path / "task-index.json"
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "harvey-lab",
+                "--lab-root",
+                str(_lab_root(tmp_path)),
+                "--output",
+                str(task_index),
+            ]
+        )
+        == 0
+    )
+    return task_index
 
 
 def _fixture_adapter_manifest(tmp_path: Path) -> Path:

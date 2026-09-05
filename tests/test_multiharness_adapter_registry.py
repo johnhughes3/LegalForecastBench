@@ -13,11 +13,28 @@ from legalforecast.multiharness.adapter_registry import (
     LFB_NATIVE_REGISTRY_NAME,
     AdapterRegistry,
     AdapterRegistryError,
+    adapter_from_manifest_file,
     builtin_adapter_registry,
 )
-from legalforecast.multiharness.claude_code import ClaudeCodeCliAdapter
+from legalforecast.multiharness.auth_profiles import (
+    CONTRIBUTOR_SUBSCRIPTION,
+    FIXTURE_NONE,
+    PUBLISHED_API_KEY,
+    AuthProfileError,
+)
+from legalforecast.multiharness.claude_code import (
+    ClaudeCodeCliAdapter,
+    claude_code_local_manifest,
+)
 from legalforecast.multiharness.codex_cli import CodexCliAdapter
 from legalforecast.multiharness.lfb_native import LfbNativeAdapter
+from legalforecast.multiharness.local_cli_manifest import (
+    LocalCliAdapterManifest,
+    capability_digest_for,
+)
+from legalforecast.multiharness.runner import ModelConfig, MultiHarnessRunConfig
+from legalforecast.multiharness.sandbox import sandbox_policy
+from legalforecast.multiharness.spec import CanonicalTask, TaskIndex
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_SOURCE = ROOT / "legalforecast" / "multiharness" / "adapter_registry.py"
@@ -79,10 +96,9 @@ def test_builtin_registry_is_deterministic_and_includes_local_cli_adapters() -> 
         LFB_NATIVE_REGISTRY_NAME,
     )
     assert isinstance(first.get(LFB_NATIVE_REGISTRY_NAME), LfbNativeAdapter)
-    assert isinstance(
-        first.get(CLAUDE_CODE_REGISTRY_NAME),
-        ClaudeCodeCliAdapter,
-    )
+    claude = first.get(CLAUDE_CODE_REGISTRY_NAME)
+    assert isinstance(claude, ClaudeCodeCliAdapter)
+    assert claude.auth_profile == FIXTURE_NONE
     assert isinstance(first.get(CODEX_CLI_REGISTRY_NAME), CodexCliAdapter)
 
 
@@ -90,6 +106,139 @@ def test_builtin_harvey_lab_requires_lab_command() -> None:
     registry = builtin_adapter_registry()
     with pytest.raises(AdapterRegistryError, match="lab-command"):
         registry.get(HARVEY_LAB_REGISTRY_NAME)
+
+
+def test_local_cli_registry_adapter_binds_requested_auth_profile() -> None:
+    adapter = builtin_adapter_registry().get(
+        CLAUDE_CODE_REGISTRY_NAME,
+        auth_profile=PUBLISHED_API_KEY,
+        dry_run=True,
+    )
+
+    assert isinstance(adapter, ClaudeCodeCliAdapter)
+    assert adapter.auth_profile == PUBLISHED_API_KEY
+    assert adapter.execution_service.auth_profile == PUBLISHED_API_KEY
+
+
+def test_manifest_loader_refuses_paid_execution_before_adapter_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    factory_called = False
+
+    class _Registry:
+        def get(self, name: str, **kwargs: object) -> object:
+            del name, kwargs
+            nonlocal factory_called
+            factory_called = True
+            raise AssertionError("adapter factory must not run")
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.adapter_registry.builtin_adapter_registry",
+        lambda: _Registry(),
+    )
+
+    with pytest.raises(AdapterRegistryError, match="guarded Tier-0"):
+        adapter_from_manifest_file(
+            ROOT
+            / "examples"
+            / "adapters"
+            / "claude-code"
+            / "local-cli-adapter-manifest.json",
+            auth_profile=PUBLISHED_API_KEY,
+            dry_run=False,
+        )
+    assert not factory_called
+
+
+def test_manifest_loader_refuses_subscription_without_production_presence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    factory_called = False
+
+    class _Registry:
+        def get(self, name: str, **kwargs: object) -> object:
+            del name, kwargs
+            nonlocal factory_called
+            factory_called = True
+            raise AssertionError("adapter factory must not run")
+
+    monkeypatch.setattr(
+        "legalforecast.multiharness.adapter_registry.builtin_adapter_registry",
+        lambda: _Registry(),
+    )
+
+    with pytest.raises(AdapterRegistryError, match="presence probe"):
+        adapter_from_manifest_file(
+            ROOT
+            / "examples"
+            / "adapters"
+            / "claude-code"
+            / "local-cli-adapter-manifest.json",
+            auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+            dry_run=True,
+        )
+    assert not factory_called
+
+
+def test_run_config_identity_records_selected_auth_profile(tmp_path: Path) -> None:
+    adapter = builtin_adapter_registry().get(
+        CLAUDE_CODE_REGISTRY_NAME,
+        auth_profile=PUBLISHED_API_KEY,
+        dry_run=True,
+    )
+    task = CanonicalTask(
+        task_id="fixture-task",
+        family="legalforecast_mtd",
+        scoring_mode="lfb_brier",
+        suite_version="fixture-suite",
+        source_id="fixture-task",
+        task_sha256="a" * 64,
+    )
+    config = MultiHarnessRunConfig(
+        task_index=TaskIndex(
+            index_id="fixture-index",
+            selection_namespace="fixture",
+            tasks=(task,),
+            index_sha256="sha256:" + "b" * 64,
+        ),
+        adapters=(adapter,),
+        model_configs=(ModelConfig(model_key="anthropic:claude-sonnet-4-6"),),
+        sandbox_policy=sandbox_policy(
+            policy_id="fixture",
+            backend="docker",
+            image="python:3.12-slim",
+            mounts=(),
+            timeout_seconds=30,
+        ),
+        output_dir=tmp_path / "run",
+    )
+
+    assert config.to_record()["adapter_auth_profiles"] == {
+        CLAUDE_CODE_REGISTRY_NAME: PUBLISHED_API_KEY
+    }
+
+
+def test_local_cli_registry_adapter_refuses_profile_missing_from_manifest() -> None:
+    record = claude_code_local_manifest().to_record()
+    record["supported_auth_profiles"] = [
+        profile
+        for profile in record["supported_auth_profiles"]
+        if profile != CONTRIBUTOR_SUBSCRIPTION
+    ]
+    record["auth_environment_variables"] = [
+        entry
+        for entry in record["auth_environment_variables"]
+        if entry["profile"] != CONTRIBUTOR_SUBSCRIPTION
+    ]
+    record["capability_digest"] = capability_digest_for(record)
+    restricted = LocalCliAdapterManifest.from_record(record)
+
+    with pytest.raises(AuthProfileError, match="not supported by this adapter"):
+        builtin_adapter_registry().get(
+            CLAUDE_CODE_REGISTRY_NAME,
+            local_cli_manifest=restricted,
+            auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+        )
 
 
 def test_registry_module_has_no_import_time_side_effects() -> None:
