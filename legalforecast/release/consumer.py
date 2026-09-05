@@ -140,21 +140,38 @@ def enumerate_forecast_worker_inputs(
                     case_id=case.case_id,
                 )
             )
+    emitted_prompt_paths: set[str] = set()
+    prompt_commitments: dict[str, tuple[str, str, int, tuple[int, ...]]] = {}
     for unit in forecast.prediction_units:
-        inputs.extend(
-            (
-                ForecastWorkerInput(
-                    relative_path=unit.packet_path,
-                    kind="packet",
-                    case_id=unit.case_id,
-                    unit_id=unit.unit_id,
-                ),
-                ForecastWorkerInput(
-                    relative_path=unit.prompt_path,
-                    kind="prompt",
-                    case_id=unit.case_id,
-                    unit_id=unit.unit_id,
-                ),
+        inputs.append(
+            ForecastWorkerInput(
+                relative_path=unit.packet_path,
+                kind="packet",
+                case_id=unit.case_id,
+                unit_id=unit.unit_id,
+            )
+        )
+        prompt_commitment = (
+            unit.case_id,
+            unit.prompt_sha256,
+            unit.prompt_byte_count,
+            unit.model_visible_document_indexes,
+        )
+        prior_commitment = prompt_commitments.get(unit.prompt_path)
+        if prior_commitment is not None and prior_commitment != prompt_commitment:
+            raise RunManifestError(
+                "shared prompt path has conflicting case or artifact commitment"
+            )
+        if unit.prompt_path in emitted_prompt_paths:
+            continue
+        prompt_commitments[unit.prompt_path] = prompt_commitment
+        emitted_prompt_paths.add(unit.prompt_path)
+        inputs.append(
+            ForecastWorkerInput(
+                relative_path=unit.prompt_path,
+                kind="prompt",
+                case_id=unit.case_id,
+                unit_id=None,
             )
         )
     result = tuple(inputs)

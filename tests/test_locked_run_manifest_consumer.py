@@ -37,6 +37,7 @@ from legalforecast.release import (
     validate_run_manifest_structure,
 )
 from legalforecast.runner import (
+    derive_case_call_id,
     derive_cell_id,
     derive_run_identity_sha256,
     issue_runner_fixture,
@@ -409,6 +410,69 @@ def test_locked_scoring_preserves_case_level_multi_unit_semantics(
     )
     records[1] = second
     manifest = _manifest("case-001", "case-002", "case-003")
+    with pytest.raises(ValueError, match="complete case unit set"):
+        score_run_records_against_labels_release(
+            records,
+            issued.labels,
+            base_rate=None,
+            forecast_release=expanded_release,
+            manifest=manifest,
+            expected_run_identity_sha256="c" * 64,
+            model_registry=load_model_registry(registry_path),
+            expected_model_registry_sha256=model_registry_sha256(
+                registry_path.read_bytes()
+            ),
+        )
+
+    expanded_unit = expanded_unit.model_copy(
+        update={
+            "prompt_path": first_unit.prompt_path,
+            "prompt_sha256": first_unit.prompt_sha256,
+            "prompt_byte_count": first_unit.prompt_byte_count,
+            "model_visible_document_indexes": first_unit.model_visible_document_indexes,
+        }
+    )
+    expanded_release = expanded_release.model_copy(
+        update={
+            "prediction_units": (
+                first_unit,
+                expanded_unit,
+                release.prediction_units[2],
+            )
+        }
+    )
+    full_case_parsed = parse_model_output(
+        json.dumps(
+            {
+                "case_assessment": "provider output",
+                "predictions": [
+                    {
+                        "unit_id": first_unit.unit_id,
+                        "probability_fully_dismissed": 0.5,
+                    },
+                    {
+                        "unit_id": expanded_unit.unit_id,
+                        "probability_fully_dismissed": 0.5,
+                    },
+                ],
+            }
+        ),
+        required_unit_ids=(first_unit.unit_id, expanded_unit.unit_id),
+    )
+    full_case = {
+        **records[0],
+        "cell_id": derive_case_call_id(
+            identity_sha256="c" * 64,
+            case_id=first_case.case_id,
+            required_unit_ids=(first_unit.unit_id, expanded_unit.unit_id),
+            repeat_index=1,
+        ),
+        "case_id": first_case.case_id,
+        "unit_id": None,
+        "required_unit_ids": [first_unit.unit_id, expanded_unit.unit_id],
+        "parser_output": public_parser_record(full_case_parsed),
+    }
+    records = [full_case, records[2]]
     summaries = score_run_records_against_labels_release(
         records,
         issued.labels,

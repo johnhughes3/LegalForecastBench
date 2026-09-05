@@ -120,7 +120,7 @@ def register(
         "--repeat-count",
         type=int,
         default=1,
-        help="Positive repeats per prediction unit (default: 1).",
+        help="Positive repeats per case call (default: 1).",
     )
     execute.add_argument(
         "--account",
@@ -150,23 +150,25 @@ def register(
     execute.add_argument(
         "--unit-id",
         help=(
-            "Execute exactly this manifest-declared prediction unit.  Use with "
-            "--repeat-index or the default repeat 1 for one matrix cell."
+            "Execute exactly this manifest-declared prediction unit when its "
+            "case has one unit.  Multi-unit cases must be selected as one case "
+            "call with --cell-id."
         ),
     )
     execute.add_argument(
         "--repeat-index",
         type=int,
         help=(
-            "Execute exactly this repeat index (1-based) for --unit-id; the "
-            "value must not exceed --repeat-count."
+            "Execute exactly this repeat index (1-based); the value must not "
+            "exceed --repeat-count."
         ),
     )
     execute.add_argument(
         "--cell-id",
         help=(
-            "Execute exactly the manifest-authorized cell ID.  The runner "
-            "derives the ID from its frozen run identity and refuses a mismatch."
+            "Execute exactly the manifest-authorized case-call ID.  The runner "
+            "derives the ID from its frozen run identity and complete case unit "
+            "set, then refuses a mismatch."
         ),
     )
     execute.add_argument(

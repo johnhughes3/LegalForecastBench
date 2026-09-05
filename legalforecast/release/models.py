@@ -406,6 +406,7 @@ class ForecastRelease(ReleaseModel):
         cases_by_id = {case.case_id: case for case in self.cases}
         document_ids: set[str] = set()
         artifact_paths: set[str] = set()
+        prompt_commitments: dict[str, tuple[str, str, int, tuple[int, ...]]] = {}
         for case in self.cases:
             for document in case.documents:
                 if document.document_id in document_ids:
@@ -420,10 +421,53 @@ class ForecastRelease(ReleaseModel):
                 raise ValueError("prediction unit references an unknown case")
             if unit.model_visible_document_indexes[-1] >= len(case.documents):
                 raise ValueError("model-visible document index is out of range")
-            for path in (unit.packet_path, unit.prompt_path):
-                if path in artifact_paths:
-                    raise ValueError(f"artifact path is reused: {path}")
-                artifact_paths.add(path)
+            if unit.packet_path in artifact_paths:
+                raise ValueError(f"artifact path is reused: {unit.packet_path}")
+            artifact_paths.add(unit.packet_path)
+            prompt_commitment = (
+                unit.case_id,
+                unit.prompt_sha256,
+                unit.prompt_byte_count,
+                unit.model_visible_document_indexes,
+            )
+            prior_prompt = prompt_commitments.get(unit.prompt_path)
+            if prior_prompt is not None:
+                if prior_prompt != prompt_commitment:
+                    raise ValueError(
+                        "shared prompt path must have one case, commitment, and "
+                        "model-visible document set"
+                    )
+                continue
+            if unit.prompt_path in artifact_paths:
+                raise ValueError(f"artifact path is reused: {unit.prompt_path}")
+            artifact_paths.add(unit.prompt_path)
+            prompt_commitments[unit.prompt_path] = prompt_commitment
+
+        units_by_case: dict[str, list[ForecastPredictionUnit]] = {}
+        for unit in self.prediction_units:
+            units_by_case.setdefault(unit.case_id, []).append(unit)
+        for case_id, units in units_by_case.items():
+            first = units[0]
+            expected = (
+                first.prompt_path,
+                first.prompt_sha256,
+                first.prompt_byte_count,
+                first.model_visible_document_indexes,
+            )
+            if any(
+                (
+                    unit.prompt_path,
+                    unit.prompt_sha256,
+                    unit.prompt_byte_count,
+                    unit.model_visible_document_indexes,
+                )
+                != expected
+                for unit in units[1:]
+            ):
+                raise ValueError(
+                    "prediction units in one case must share one prompt and "
+                    f"document commitment: {case_id}"
+                )
         return self
 
 

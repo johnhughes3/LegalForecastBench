@@ -5,6 +5,7 @@ from .ledger import RunBinding, RunBlockedError, RunIdentityError, RunValidation
 from .service import (
     RunConfig,
     RunSummary,
+    derive_case_call_id,
     derive_cell_id,
     derive_run_identity_sha256,
     execute_release_run,
@@ -17,6 +18,7 @@ __all__ = [
     "RunIdentityError",
     "RunSummary",
     "RunValidationError",
+    "derive_case_call_id",
     "derive_cell_id",
     "derive_run_identity_sha256",
     "execute_release_run",

@@ -21,6 +21,38 @@ from legalforecast.evals.provider_spend_control import (
 )
 
 
+def _encode_required_unit_ids(required_unit_ids: tuple[str, ...]) -> str:
+    """Encode the full case-call unit set in canonical order."""
+
+    if not required_unit_ids:
+        raise RunValidationError("required_unit_ids must not be empty")
+    if any(not unit_id for unit_id in required_unit_ids):
+        raise RunValidationError("required_unit_ids must contain non-empty IDs")
+    if tuple(required_unit_ids) != tuple(sorted(set(required_unit_ids))):
+        raise RunValidationError("required_unit_ids must be sorted and unique")
+    return json.dumps(list(required_unit_ids), separators=(",", ":"))
+
+
+def _decode_required_unit_ids(value: object, *, fallback: str) -> tuple[str, ...]:
+    """Read the set binding, retaining compatibility with pre-batching rows."""
+
+    if value is None:
+        return (fallback,)
+    try:
+        decoded: object = json.loads(str(value))
+    except json.JSONDecodeError as exc:
+        raise RunValidationError("ledger required unit set is not valid JSON") from exc
+    if not isinstance(decoded, list):
+        raise RunValidationError("ledger required unit set is malformed")
+    raw_ids = cast(list[object], decoded)
+    if any(not isinstance(unit_id, str) or not unit_id for unit_id in raw_ids):
+        raise RunValidationError("ledger required unit set is malformed")
+    required = tuple(cast(str, unit_id) for unit_id in raw_ids)
+    if required != tuple(sorted(set(required))):
+        raise RunValidationError("ledger required unit set is not canonical")
+    return required
+
+
 class RunValidationError(ValueError):
     """Raised when a public run input or durable output is invalid."""
 
@@ -41,6 +73,7 @@ class CellRecord:
     run_identity_sha256: str
     case_id: str
     unit_id: str
+    required_unit_ids: tuple[str, ...]
     repeat_index: int
     status: str
     provider_attempt_id: str | None
@@ -237,6 +270,7 @@ class RunnerLedger:
         run_identity_sha256: str,
         case_id: str,
         unit_id: str,
+        required_unit_ids: tuple[str, ...] | None = None,
         repeat_index: int,
         allow_retryable_nonbillable: bool = False,
         allow_pretransport_reuse: bool = False,
@@ -268,6 +302,9 @@ class RunnerLedger:
             run_identity_sha256=run_identity_sha256,
             case_id=case_id,
             unit_id=unit_id,
+            required_unit_ids=(unit_id,)
+            if required_unit_ids is None
+            else required_unit_ids,
             repeat_index=repeat_index,
         )
         retryable_nonbillable = False
@@ -400,6 +437,7 @@ class RunnerLedger:
         run_identity_sha256: str,
         case_id: str,
         unit_id: str,
+        required_unit_ids: tuple[str, ...] | None = None,
         repeat_index: int,
         provider_attempt_id: str,
         allow_nonbillable_replacement: bool = False,
@@ -429,8 +467,9 @@ class RunnerLedger:
                 """
                 INSERT INTO public_runner_cells(
                     cell_id, run_identity_sha256, case_id, unit_id,
-                    repeat_index, status, provider_attempt_id
-                ) VALUES (?, ?, ?, ?, ?, 'reserved', ?)
+                    repeat_index, required_unit_ids_json, status,
+                    provider_attempt_id
+                ) VALUES (?, ?, ?, ?, ?, ?, 'reserved', ?)
                 """,
                 (
                     cell_id,
@@ -438,6 +477,9 @@ class RunnerLedger:
                     case_id,
                     unit_id,
                     repeat_index,
+                    _encode_required_unit_ids(
+                        (unit_id,) if required_unit_ids is None else required_unit_ids
+                    ),
                     provider_attempt_id,
                 ),
             )
@@ -448,6 +490,9 @@ class RunnerLedger:
             run_identity_sha256=run_identity_sha256,
             case_id=case_id,
             unit_id=unit_id,
+            required_unit_ids=(unit_id,)
+            if required_unit_ids is None
+            else required_unit_ids,
             repeat_index=repeat_index,
         )
         if (
@@ -580,6 +625,7 @@ class RunnerLedger:
         run_identity_sha256: str,
         case_id: str,
         unit_id: str,
+        required_unit_ids: tuple[str, ...] | None = None,
         repeat_index: int,
         provider_attempt_id: str,
         allow_nonbillable_replacement: bool = False,
@@ -595,6 +641,7 @@ class RunnerLedger:
                 run_identity_sha256=run_identity_sha256,
                 case_id=case_id,
                 unit_id=unit_id,
+                required_unit_ids=required_unit_ids,
                 repeat_index=repeat_index,
                 provider_attempt_id=provider_attempt_id,
                 allow_nonbillable_replacement=allow_nonbillable_replacement,
@@ -667,6 +714,7 @@ class RunnerLedger:
                 case_id TEXT NOT NULL,
                 unit_id TEXT NOT NULL,
                 repeat_index INTEGER NOT NULL CHECK(repeat_index > 0),
+                required_unit_ids_json TEXT,
                 status TEXT NOT NULL CHECK(
                     status IN ('reserved', 'blocked', 'ambiguous', 'completed')
                 ),
@@ -713,6 +761,10 @@ class RunnerLedger:
                 "ALTER TABLE public_runner_cells "
                 "ADD COLUMN response_payload_sha256 TEXT"
             )
+        if "required_unit_ids_json" not in columns:
+            self._connection.execute(
+                "ALTER TABLE public_runner_cells ADD COLUMN required_unit_ids_json TEXT"
+            )
 
     @staticmethod
     def _verify_cell_identity(
@@ -722,12 +774,21 @@ class RunnerLedger:
         case_id: str,
         unit_id: str,
         repeat_index: int,
+        required_unit_ids: tuple[str, ...] = (),
     ) -> None:
-        expected = (run_identity_sha256, case_id, unit_id, repeat_index)
+        expected_required_unit_ids = required_unit_ids or (unit_id,)
+        expected = (
+            run_identity_sha256,
+            case_id,
+            unit_id,
+            expected_required_unit_ids,
+            repeat_index,
+        )
         actual = (
             record.run_identity_sha256,
             record.case_id,
             record.unit_id,
+            record.required_unit_ids,
             record.repeat_index,
         )
         if actual != expected:
@@ -756,6 +817,10 @@ class RunnerLedger:
             run_identity_sha256=str(row["run_identity_sha256"]),
             case_id=str(row["case_id"]),
             unit_id=str(row["unit_id"]),
+            required_unit_ids=_decode_required_unit_ids(
+                row["required_unit_ids_json"],
+                fallback=str(row["unit_id"]),
+            ),
             repeat_index=int(row["repeat_index"]),
             status=str(row["status"]),
             provider_attempt_id=(
