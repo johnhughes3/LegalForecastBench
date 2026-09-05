@@ -14,6 +14,7 @@ import json
 import os
 import signal
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -797,6 +798,84 @@ def test_signal_after_capability_probe_honors_startup_interrupt_contract(
                 str(run_dir),
                 "--run-id",
                 "signal-after-probe",
+            ]
+        )
+        == 130
+    )
+    stderr = capsys.readouterr().err
+    assert "not a crash" in stderr
+    assert "--resume" in stderr
+    assert "Traceback" not in stderr
+    assert _read_json(run_dir / "run-progress.json")["status"] == "interrupted"
+
+
+@pytest.mark.parametrize("requested_signal", [signal.SIGINT, signal.SIGTERM])
+def test_signal_after_capability_write_finalizes_the_adopted_journal(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+    requested_signal: signal.Signals,
+) -> None:
+    """The journal-owned boundary covers the full pre-task artifact phase."""
+
+    projected = _projected_root(tmp_path, monkeypatch)
+    index_path = tmp_path / "lab-index.json"
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "harvey-lab",
+                "--projected-root",
+                str(projected),
+                "--output",
+                str(index_path),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    runner_type = vars(multiharness_runner)["_MultiHarnessRunner"]
+    original_write = cast(
+        Callable[[Any, Any, Any], None],
+        vars(runner_type)["_write_capabilities"],
+    )
+
+    def _signal_after_write(
+        runner: Any,
+        capabilities: Any,
+        artifacts: Any,
+    ) -> None:
+        original_write(runner, capabilities, artifacts)
+        os.kill(os.getpid(), requested_signal)
+
+    monkeypatch.setattr(
+        runner_type,
+        "_write_capabilities",
+        _signal_after_write,
+    )
+    run_dir = tmp_path / "run"
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(index_path),
+                "--category",
+                "immigration",
+                "--adapter-manifest",
+                str(FIXTURE_ADAPTER_MANIFEST),
+                "--model-key",
+                "fixture-model",
+                "--output-dir",
+                str(run_dir),
+                "--run-id",
+                "signal-after-capability-write",
             ]
         )
         == 130

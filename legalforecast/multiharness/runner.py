@@ -67,6 +67,7 @@ from legalforecast.multiharness.run_progress import (
     is_partial_label,
     load_progress_journal,
     refuse_resume_identity_drift,
+    signal_boundary,
     write_progress_journal,
 )
 from legalforecast.multiharness.sandbox import (
@@ -77,7 +78,6 @@ from legalforecast.multiharness.sandbox import (
     validate_live_container_policy,
 )
 from legalforecast.multiharness.selection import SelectionResult, TaskSelection
-from legalforecast.multiharness.signal_boundary import signal_boundary
 from legalforecast.multiharness.solver_inputs import (
     SOLVER_INPUT_ENTRY_PATH,
     PreparedSolverInput,
@@ -463,52 +463,52 @@ class _MultiHarnessRunner:
         _ensure_private_run_directory(self.config.output_dir)
         (self.config.output_dir / "artifact-index.json").unlink(missing_ok=True)
         journal = self._prepare_journal(selection=selection, identity=identity)
-        with (
-            signal_boundary((self.config.output_dir, journal)),
-            tempfile.TemporaryDirectory(prefix="multiharness-capabilities-") as root,
-        ):
-            capability_root = Path(root)
-            _ensure_private_run_directory(capability_root)
-            capabilities, capability_artifacts = self._load_capabilities(
-                adapters,
-                capability_root,
+        with signal_boundary((self.config.output_dir, journal)):
+            with tempfile.TemporaryDirectory(
+                prefix="multiharness-capabilities-"
+            ) as root:
+                capability_root = Path(root)
+                _ensure_private_run_directory(capability_root)
+                capabilities, capability_artifacts = self._load_capabilities(
+                    adapters,
+                    capability_root,
+                )
+                row_plans = self._build_row_plans(selection, adapters, capabilities)
+            self._write_capabilities(capabilities, capability_artifacts)
+            _ensure_private_run_directory(self.config.output_dir / "rows")
+            run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
+            run_compatibility_record = _run_compatibility_record(
+                self.config,
+                capabilities,
             )
-            row_plans = self._build_row_plans(selection, adapters, capabilities)
-        self._write_capabilities(capabilities, capability_artifacts)
-        _ensure_private_run_directory(self.config.output_dir / "rows")
-        run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
-        run_compatibility_record = _run_compatibility_record(
-            self.config,
-            capabilities,
-        )
-        validate_no_secret_values(
-            run_compatibility_record,
-            secret_values,
-            "run compatibility",
-        )
-        run_compatibility_sha256 = _record_sha256(
-            run_compatibility_record,
-            prefixed=True,
-        )
-        write_json_object_safe(
-            self.config.output_dir / "run-compatibility.json",
-            run_compatibility_record,
-        )
-        initial_manifest = RunManifest(
-            run_id=self.config.run_id,
-            selection_sha256=selection.selection_sha256,
-            run_config_sha256=run_config_sha256,
-            request_ids=tuple(plan.request.request_id for plan in row_plans),
-            run_compatibility_sha256=run_compatibility_sha256,
-        )
-        write_json_object_safe(
-            self.config.output_dir / "run-manifest.json",
-            initial_manifest.to_record(),
-        )
-        write_json_object_safe(
-            self.config.output_dir / "selection-manifest.json",
-            _selection_manifest_record(selection, journal),
-        )
+            validate_no_secret_values(
+                run_compatibility_record,
+                secret_values,
+                "run compatibility",
+            )
+            run_compatibility_sha256 = _record_sha256(
+                run_compatibility_record,
+                prefixed=True,
+            )
+            write_json_object_safe(
+                self.config.output_dir / "run-compatibility.json",
+                run_compatibility_record,
+            )
+            initial_manifest = RunManifest(
+                run_id=self.config.run_id,
+                selection_sha256=selection.selection_sha256,
+                run_config_sha256=run_config_sha256,
+                request_ids=tuple(plan.request.request_id for plan in row_plans),
+                run_compatibility_sha256=run_compatibility_sha256,
+            )
+            write_json_object_safe(
+                self.config.output_dir / "run-manifest.json",
+                initial_manifest.to_record(),
+            )
+            write_json_object_safe(
+                self.config.output_dir / "selection-manifest.json",
+                _selection_manifest_record(selection, journal),
+            )
 
         rows: list[MultiHarnessRunRow] = []
         interrupted = False
