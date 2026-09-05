@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 from pathlib import Path
@@ -15,13 +14,14 @@ from legalforecast.multiharness.adapter_registry import (
     HARVEY_LAB_REGISTRY_NAME,
     LFB_NATIVE_REGISTRY_NAME,
 )
-from legalforecast.multiharness.folder_selection import (
-    PROJECTED_LAYOUT_MANIFEST_NAME,
-    PROJECTED_LAYOUT_SCHEMA_VERSION,
+from legalforecast.multiharness.harvey_lab_projected_tasks import (
+    HarveyLabProjectionTaskLoader,
 )
-from legalforecast.multiharness.spec import CanonicalTask, TaskIndex
+from legalforecast.multiharness.harvey_lab_projection import project_harvey_lab_suite
 from legalforecast.release.synthetic import issue_synthetic_release
 from pytest import CaptureFixture
+
+from test_harvey_lab_projection import FIXTURE_PIN, _issue_196_source
 
 JsonRecord = dict[str, Any]
 
@@ -232,52 +232,18 @@ def test_multiharness_category_alias_selects_lab_module(tmp_path: Path) -> None:
 
 
 def test_multiharness_task_folder_selects_projected_layout(tmp_path: Path) -> None:
-    folder = tmp_path / "projected-layout"
-    relative_path = "corporate/merger/task.json"
-    task_path = folder / relative_path
-    task_path.parent.mkdir(parents=True)
-    encoded = json.dumps(
-        {"id": "merger-review", "prompt": "fixture task"},
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
-    task_path.write_bytes(encoded)
-    digest = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
-    task = CanonicalTask(
-        task_id="harvey_lab:corporate/merger",
-        family="harvey_lab",
-        scoring_mode="lab_native",
+    result = project_harvey_lab_suite(
+        source_root=_issue_196_source(tmp_path / "lab"),
+        solver_root=tmp_path / "projected",
+        evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
+    )
+    index = HarveyLabProjectionTaskLoader(
+        result.solver_root,
         suite_version="fixture-suite",
-        source_id="merger-review",
-        task_sha256=digest,
-        metadata={"module": "corporate"},
-    )
-    write_json_object(
-        folder / PROJECTED_LAYOUT_MANIFEST_NAME,
-        {
-            "schema_version": PROJECTED_LAYOUT_SCHEMA_VERSION,
-            "tasks": [
-                {
-                    "task_id": task.task_id,
-                    "relative_path": relative_path,
-                    "task_sha256": digest,
-                    "family": task.family,
-                    "scoring_mode": task.scoring_mode,
-                    "category": "corporate",
-                }
-            ],
-        },
-    )
+    ).load_task_index()
     index_path = tmp_path / "index.json"
-    write_json_object(
-        index_path,
-        TaskIndex(
-            index_id="fixture-index",
-            selection_namespace="fixture",
-            tasks=(task,),
-            index_sha256="sha256:" + "a" * 64,
-        ).to_record(),
-    )
+    write_json_object(index_path, index.to_record())
     selection = tmp_path / "selection.json"
     assert (
         main(
@@ -288,7 +254,7 @@ def test_multiharness_task_folder_selects_projected_layout(tmp_path: Path) -> No
                 "--index",
                 str(index_path),
                 "--task-folder",
-                str(folder),
+                str(result.solver_root),
                 "--output",
                 str(selection),
             ]
@@ -296,9 +262,22 @@ def test_multiharness_task_folder_selects_projected_layout(tmp_path: Path) -> No
         == 0
     )
     record = _read_json(selection)
-    assert record["selection_result"]["task_ids"] == [task.task_id]
+    assert record["selection_result"]["task_ids"] == [index.tasks[0].task_id]
     assert record["selection_result"]["coverage_kind"] == "scoped"
-    assert str(folder.resolve()) not in json.dumps(record)
+    assert str(result.solver_root.resolve()) not in json.dumps(record)
+
+
+def test_multiharness_task_folder_help_names_the_real_projection_manifest(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["multiharness", "tasks", "select", "--help"])
+
+    assert exc_info.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "Harvey LAB root or subfolder" in help_text
+    assert "lab-projection.v1.json" in help_text
+    assert "projection-manifest.json" not in help_text
 
 
 def test_multiharness_adapter_inspect_and_conformance_fixture(

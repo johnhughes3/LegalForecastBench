@@ -35,6 +35,52 @@ from legalforecast.multiharness.validation import (
 DEFAULT_PROJECTED_SUITE_VERSION = "harvey-lab"
 
 
+def canonical_task_from_projection(
+    record: HarveyLabProjectedTask,
+    manifest: HarveyLabProjectionManifest,
+    *,
+    suite_version: str = DEFAULT_PROJECTED_SUITE_VERSION,
+) -> CanonicalTask:
+    """Derive one canonical task from authenticated projection data."""
+
+    if not suite_version.strip():
+        raise ValueError("suite_version must be non-empty")
+    documents = tuple(item for item in record.files if item.role == "document")
+    metadata: dict[str, Any] = {
+        "suite": "harvey_lab",
+        "lab_task_id": record.lab_task_id,
+        "lab_task_path": record.relative_path,
+        "lab_commit": manifest.pin.commit,
+        # `module` is what --category/--module matches on; `category` mirrors
+        # the projection manifest's own field name.
+        "module": record.category,
+        "practice_area": record.category,
+        "category": record.category,
+        "expected_deliverable": record.expected_deliverable,
+        "projected_layout_id": manifest.layout_id,
+        # `document_hashes` keyed by document filename is the shape the raw
+        # LAB loader publishes, and the only one the public-record secret
+        # scanner exempts from its filename-looks-like-a-credential rule.
+        "document_hashes": {
+            item.path.removeprefix("documents/"): item.sha256 for item in documents
+        },
+        "document_count": len(documents),
+    }
+    return CanonicalTask(
+        task_id=record.task_id,
+        family="harvey_lab",
+        scoring_mode="lab_native",
+        suite_version=suite_version,
+        source_id=record.lab_task_id,
+        task_sha256=record.task_sha256,
+        metadata=metadata,
+        artifacts=tuple(
+            _artifact(item, task_relative_path=record.relative_path)
+            for item in record.files
+        ),
+    )
+
+
 class HarveyLabProjectionTaskLoader:
     """Load an authenticated projected LAB layout into canonical tasks."""
 
@@ -61,7 +107,12 @@ class HarveyLabProjectionTaskLoader:
             )
         manifest = verify_harvey_lab_projection(self.projection_root)
         tasks = tuple(
-            self._canonical_task(record, manifest) for record in manifest.tasks
+            canonical_task_from_projection(
+                record,
+                manifest,
+                suite_version=self.suite_version,
+            )
+            for record in manifest.tasks
         )
         validate_unique_ids((task.task_id for task in tasks), "tasks")
         return TaskIndex(
@@ -69,46 +120,6 @@ class HarveyLabProjectionTaskLoader:
             selection_namespace=selection_namespace,
             tasks=tasks,
             index_sha256=task_index_sha256(tasks),
-        )
-
-    def _canonical_task(
-        self,
-        record: HarveyLabProjectedTask,
-        manifest: HarveyLabProjectionManifest,
-    ) -> CanonicalTask:
-        documents = tuple(item for item in record.files if item.role == "document")
-        metadata: dict[str, Any] = {
-            "suite": "harvey_lab",
-            "lab_task_id": record.lab_task_id,
-            "lab_task_path": record.relative_path,
-            "lab_commit": manifest.pin.commit,
-            # `module` is what --category/--module matches on; `category` mirrors
-            # the projection manifest's own field name.
-            "module": record.category,
-            "practice_area": record.category,
-            "category": record.category,
-            "expected_deliverable": record.expected_deliverable,
-            "projected_layout_id": manifest.layout_id,
-            # `document_hashes` keyed by document filename is the shape the raw
-            # LAB loader publishes, and the only one the public-record secret
-            # scanner exempts from its filename-looks-like-a-credential rule.
-            "document_hashes": {
-                item.path.removeprefix("documents/"): item.sha256 for item in documents
-            },
-            "document_count": len(documents),
-        }
-        return CanonicalTask(
-            task_id=record.task_id,
-            family="harvey_lab",
-            scoring_mode="lab_native",
-            suite_version=self.suite_version,
-            source_id=record.lab_task_id,
-            task_sha256=record.task_sha256,
-            metadata=metadata,
-            artifacts=tuple(
-                _artifact(item, task_relative_path=record.relative_path)
-                for item in record.files
-            ),
         )
 
 
