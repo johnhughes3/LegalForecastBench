@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import stat
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ from legalforecast.multiharness.harvey_lab_projection import (
 from legalforecast.multiharness.run_progress import require_honest_coverage_claim
 from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.spec import CanonicalTask, TaskIndex
+from legalforecast.multiharness.task_loaders import task_index_sha256
 
 from test_harvey_lab_projection import (
     FIXTURE_PIN,
@@ -104,11 +106,37 @@ def test_folder_mode_refuses_a_task_absent_from_the_index(tmp_path: Path) -> Non
         index_id=index.index_id,
         selection_namespace=index.selection_namespace,
         tasks=(index.tasks[0],),
-        index_sha256=index.index_sha256,
+        index_sha256=task_index_sha256((index.tasks[0],)),
     )
 
     with pytest.raises(FolderSelectionError, match="is not in the task index"):
         select_tasks_from_folder(result.solver_root, partial)
+
+
+def test_folder_mode_refuses_a_stale_or_noncanonical_task_index_digest(
+    tmp_path: Path,
+) -> None:
+    result, index = _projected_lab_layout(tmp_path)
+
+    for digest in ("b" * 64, f"sha256:{index.index_sha256}"):
+        drifted = replace(index, index_sha256=digest)
+        with pytest.raises(FolderSelectionError, match="index_sha256"):
+            select_tasks_from_folder(result.solver_root, drifted)
+
+
+@pytest.mark.parametrize("field", ("family", "scoring_mode", "metadata", "artifacts"))
+def test_folder_mode_refuses_rehashed_projection_field_drift(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    result, index = _projected_lab_layout(tmp_path)
+    target = index.tasks[0]
+    drifted = _drift_projected_task(target, field)
+    tasks = (drifted, *index.tasks[1:])
+    rehashed = replace(index, tasks=tasks, index_sha256=task_index_sha256(tasks))
+
+    with pytest.raises(FolderSelectionError, match=field):
+        select_tasks_from_folder(result.solver_root, rehashed)
 
 
 def test_honest_coverage_claim_rejects_deleted_scoped_label() -> None:
@@ -168,6 +196,18 @@ def _projected_lab_layout(
 def _make_writable(root: Path) -> None:
     for path in [root, *root.rglob("*")]:
         path.chmod(path.stat().st_mode | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRUSR)
+
+
+def _drift_projected_task(task: CanonicalTask, field: str) -> CanonicalTask:
+    if field == "family":
+        return replace(task, family="contract_only")
+    if field == "scoring_mode":
+        return replace(task, scoring_mode="contract_only")
+    if field == "metadata":
+        return replace(task, metadata={"suite": "harvey_lab"})
+    if field == "artifacts":
+        return replace(task, artifacts=())
+    raise AssertionError(f"unsupported field: {field}")
 
 
 def _task_index(*tasks: CanonicalTask) -> TaskIndex:

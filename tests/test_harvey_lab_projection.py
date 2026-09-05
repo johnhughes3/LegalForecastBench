@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -13,9 +14,11 @@ from legalforecast.multiharness.harvey_lab_projection import (
     NATIVE_LAYOUT_ID,
     ROOT_MANIFEST_NAME,
     SOLVER_VISIBLE_LAYOUT_ID,
+    TASK_DESCRIPTOR_NAME,
     HarveyLabPin,
     HarveyLabProjectionError,
     _archive_pinned_source,
+    _record_sha256,
     classify_harvey_lab_task,
     harvey_lab_layout_map,
     issue_196_pin,
@@ -113,6 +116,44 @@ def test_issue_196_projection_is_deterministic_and_omits_private_material(
     assert not first.solver_root.resolve().is_relative_to(
         first.evaluator_private_root.resolve()
     )
+
+
+def test_projection_refuses_a_self_consistent_forged_task_digest(
+    tmp_path: Path,
+) -> None:
+    result = project_harvey_lab_suite(
+        source_root=_issue_196_source(tmp_path / "lab"),
+        solver_root=tmp_path / "solver",
+        evaluator_private_root=tmp_path / "private",
+        pin=FIXTURE_PIN,
+    )
+    _make_tree_writable(result.solver_root)
+    manifest_path = result.solver_root / ROOT_MANIFEST_NAME
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    task = manifest["tasks"][0]
+    forged_digest = "c" * 64
+    task["task_sha256"] = forged_digest
+
+    descriptor_path = result.solver_root / task["relative_path"] / TASK_DESCRIPTOR_NAME
+    descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+    descriptor["task_sha256"] = forged_digest
+    descriptor_path.write_text(
+        json.dumps(descriptor, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    descriptor_payload = descriptor_path.read_bytes()
+    descriptor_entry = next(
+        item for item in task["files"] if item["role"] == "task_descriptor"
+    )
+    descriptor_entry["sha256"] = hashlib.sha256(descriptor_payload).hexdigest()
+    descriptor_entry["size_bytes"] = len(descriptor_payload)
+    manifest["manifest_sha256"] = _record_sha256(
+        {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(HarveyLabProjectionError, match="task_sha256"):
+        verify_harvey_lab_projection(result.solver_root)
 
 
 def test_native_and_external_layouts_have_equal_semantic_bytes(

@@ -171,6 +171,12 @@ class HarveyLabProjectedFile:
         }
 
 
+def projected_task_sha256(files: Sequence[HarveyLabProjectedFile]) -> str:
+    return _record_sha256(
+        [item.to_record() for item in files if item.role != "task_descriptor"]
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class HarveyLabProjectedTask:
     """Self-describing record for one projected LAB task."""
@@ -448,18 +454,7 @@ def classify_harvey_lab_task(
     task_id = f"harvey_lab:{lab_task_id}"
     relative_path = f"tasks/{lab_task_id}"
     semantic_files = tuple(projected)
-    task_sha256 = _record_sha256(
-        [
-            {
-                "path": item.path,
-                "sha256": item.sha256,
-                "size_bytes": item.size_bytes,
-                "role": item.role,
-            }
-            for item in semantic_files
-            if item.role != "task_descriptor"
-        ]
-    )
+    task_sha256 = projected_task_sha256(semantic_files)
     draft = HarveyLabProjectedTask(
         task_id=task_id,
         lab_task_id=lab_task_id,
@@ -684,6 +679,11 @@ def verify_harvey_lab_projection(projection_root: Path) -> HarveyLabProjectionMa
                 raise HarveyLabProjectionError(
                     f"projected file size mismatch: {relative}"
                 )
+        if task.task_sha256 != projected_task_sha256(task.files):
+            raise HarveyLabProjectionError(
+                "projected task_sha256 does not match authenticated semantic "
+                f"files: {task.relative_path}"
+            )
         descriptor_path = task_root / TASK_DESCRIPTOR_NAME
         descriptor_payload = _read_contained_regular_file(
             descriptor_path, root, f"{task.relative_path}/{TASK_DESCRIPTOR_NAME}"

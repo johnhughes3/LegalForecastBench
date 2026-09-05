@@ -11,13 +11,28 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from legalforecast.multiharness.harvey_lab_projected_tasks import (
+    canonical_task_from_projection,
+)
 from legalforecast.multiharness.harvey_lab_projection import (
     ROOT_MANIFEST_NAME,
     HarveyLabProjectedTask,
     HarveyLabProjectionError,
+    HarveyLabProjectionManifest,
     verify_harvey_lab_projection,
 )
 from legalforecast.multiharness.spec import CanonicalTask, TaskIndex
+from legalforecast.multiharness.task_loaders import task_index_sha256
+
+_PROJECTION_BOUND_TASK_FIELDS = (
+    "task_id",
+    "family",
+    "scoring_mode",
+    "source_id",
+    "task_sha256",
+    "metadata",
+    "artifacts",
+)
 
 
 class FolderSelectionError(ValueError):
@@ -95,6 +110,10 @@ def select_tasks_from_folder(
 
     root = projection_root_for(folder)
     subtree = _subtree_prefix(folder.resolve(), root)
+    if task_index.index_sha256 != task_index_sha256(task_index.tasks):
+        raise FolderSelectionError(
+            "task index index_sha256 does not match its loaded task records"
+        )
     try:
         manifest = verify_harvey_lab_projection(root)
     except HarveyLabProjectionError as exc:
@@ -106,7 +125,7 @@ def select_tasks_from_folder(
     for record in manifest.tasks:
         if not _within_subtree(record.relative_path, subtree):
             continue
-        indexed = _indexed_task(record, index_by_id)
+        indexed = _indexed_task(record, manifest, index_by_id)
         refs.append(
             FolderTaskRef(
                 task_id=record.task_id,
@@ -133,6 +152,7 @@ def select_tasks_from_folder(
 
 def _indexed_task(
     record: HarveyLabProjectedTask,
+    manifest: HarveyLabProjectionManifest,
     index_by_id: dict[str, CanonicalTask],
 ) -> CanonicalTask:
     indexed = index_by_id.get(record.task_id)
@@ -141,10 +161,20 @@ def _indexed_task(
             f"folder task {record.task_id} is not in the task index; "
             "index the same projected root the folder belongs to"
         )
-    if _normalize_digest(indexed.task_sha256) != _normalize_digest(record.task_sha256):
+    expected = canonical_task_from_projection(
+        record,
+        manifest,
+        suite_version=indexed.suite_version,
+    )
+    drifted_fields = tuple(
+        field
+        for field in _PROJECTION_BOUND_TASK_FIELDS
+        if getattr(indexed, field) != getattr(expected, field)
+    )
+    if drifted_fields:
         raise FolderSelectionError(
-            f"folder task {record.task_id} bytes do not match the task index; "
-            "refusing tampered or unrecognized content"
+            f"folder task {record.task_id} does not match the verified projection; "
+            f"drifted fields: {', '.join(drifted_fields)}"
         )
     return indexed
 
@@ -158,7 +188,3 @@ def _within_subtree(relative_path: str, subtree: str) -> bool:
     if not subtree:
         return True
     return relative_path == subtree or relative_path.startswith(f"{subtree}/")
-
-
-def _normalize_digest(value: str) -> str:
-    return value.removeprefix("sha256:")
