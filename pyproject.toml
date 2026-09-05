@@ -20,6 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "cryptography>=50.0.1",
+    "openpyxl>=3.1.5,<4",
     "pydantic>=2.13.5,<3",
     # PINNED, not a floor. pypdf is the PDF text extractor behind
     # extract_disclosure_pdf_pages, whose output is rendered into the disclosure

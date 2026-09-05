@@ -125,7 +125,7 @@ uv run legalforecast multiharness tasks project \
 
 Stderr reports how many tasks projected, names every task it skipped and why, and prints the manifest path. The **`--evaluator-private-dir` holds the gold criteria**: never pass it to a solver, never put it in a pull request, and keep it outside the run directory.
 
-The projection carries any number of declared `.docx` deliverables. When a legacy task declares none, bounded `.docx` files written under `output/` become the authenticated scored set, matching the pinned upstream evaluator's score-all-output behavior. Spreadsheet deliverables remain unsupported and are skipped and listed; pass `--refuse-unsupported-tasks` if you would rather fail than accept a partial category. A projected category is a **scoped** run either way, never a full-suite claim.
+The projection carries any number of declared `.docx` and `.xlsx` deliverables. When a legacy task declares none, bounded DOCX or XLSX files written under `output/` become the authenticated scored set, matching the pinned upstream evaluator's score-all-output behavior. Each criterion receives only the filenames it declares, with the authenticated full output set used only when the criterion omits that list. Other output formats remain unsupported and are skipped and listed; pass `--refuse-unsupported-tasks` if you would rather fail than accept a partial category. A projected category is a **scoped** run either way, never a full-suite claim.
 
 Re-projecting into the same directory is refused, because projected files are sealed read-only and a stale tree would be silently reused. Remove the old one first:
 
@@ -284,7 +284,7 @@ Public JSON is scanned for secrets and path leakage. If a command’s output con
 | `--category` says this index has no Harvey LAB modules | You pointed `--category` at the LFB fixture index. Use that index without `--category`, or a projected LAB index. |
 | `tasks project` says the LAB source does not match the recorded pin | Fetch the pinned commit and check it out; a dirty or ignored file also counts as drift. |
 | `tasks project` says the output dir already exists | Projected files are sealed read-only: `chmod -R u+w <dir> && rm -rf <dir>`, then re-project. |
-| `tasks project` skipped tasks in my category | A task declares a non-`.docx` output the evaluator cannot extract yet. The list on stderr names each one. The run is scoped. |
+| `tasks project` skipped tasks in my category | A task declares an output other than DOCX or XLSX. The list on stderr names each one. The run is scoped. |
 | `tasks project` says the category was not found | It lists the categories your checkout actually has. Category names are upstream directory names under `tasks/`. |
 | `tasks index --lab-root` says to use `--projected-root` | You pointed the maintainer flag at a projected layout. Use `--projected-root`. |
 | `--lab-root` fails on a raw Harvey LAB clone | The raw path reads evaluator `criteria`; it is not a contributor input. Project the corpus first. |

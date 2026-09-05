@@ -630,6 +630,46 @@ def test_pinned_checkout_projects_multi_and_undeclared_output_shapes(
     verify_harvey_lab_projection(result.solver_root)
 
 
+def test_pinned_checkout_projects_every_xlsx_output_shape(tmp_path: Path) -> None:
+    raw_root = os.environ.get("HARVEY_LAB_ROOT")
+    if raw_root is None:
+        pytest.skip("set HARVEY_LAB_ROOT to verify the pinned upstream checkout")
+    source_root = Path(raw_root)
+    xlsx_task_ids: list[str] = []
+    mixed_count = 0
+    xlsx_only_count = 0
+    for task_json in sorted((source_root / "tasks").rglob("task.json")):
+        record = json.loads(task_json.read_text(encoding="utf-8"))
+        declared = record.get("deliverables", {})
+        assert isinstance(declared, dict)
+        suffixes = {Path(str(value)).suffix for value in declared.values()}
+        if ".xlsx" not in suffixes:
+            continue
+        xlsx_task_ids.append(
+            task_json.parent.relative_to(source_root / "tasks").as_posix()
+        )
+        if suffixes == {".xlsx"}:
+            xlsx_only_count += 1
+        else:
+            mixed_count += 1
+
+    assert (len(xlsx_task_ids), mixed_count, xlsx_only_count) == (39, 35, 4)
+    result = project_harvey_lab_suite(
+        source_root=source_root,
+        solver_root=tmp_path / "solver",
+        evaluator_private_root=tmp_path / "private",
+        lab_task_ids=tuple(xlsx_task_ids),
+    )
+
+    assert len(result.manifest.tasks) == 39
+    assert result.skipped == ()
+    assert all(
+        any(name.endswith(".xlsx") for name in task.expected_deliverables)
+        for task in result.manifest.tasks
+    )
+    verify_harvey_lab_projection(result.solver_root)
+
+
 def _issue_196_source(lab_root: Path) -> Path:
     task_dir = lab_root / "tasks" / ISSUE_196_LAB_TASK_ID
     documents_dir = task_dir / "documents"

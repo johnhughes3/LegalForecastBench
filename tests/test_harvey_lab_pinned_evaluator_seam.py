@@ -1,14 +1,23 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
 import subprocess
+import zipfile
 from pathlib import Path
 from typing import Any
 
 import pytest
+from legalforecast.multiharness.deliverable_text import (
+    DeliverableTextError,
+    deliverable_visible_text,
+    xlsx_visible_text,
+)
+from openpyxl import Workbook
+from openpyxl.worksheet.formula import ArrayFormula, DataTableFormula
 
 FIXTURE_PATH = (
     Path(__file__).parent
@@ -17,6 +26,112 @@ FIXTURE_PATH = (
     / "pinned-evaluator-seam-73feb91.json"
 )
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _xlsx_bytes(*, empty: bool = False) -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    sheet.title = "Compliance\nTracker"
+    if not empty:
+        sheet.append(("Requirement", "Amount", "Complete"))
+        sheet.append(("File\treport", 1250, False))
+        sheet["D2"] = "=B2*2"
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def _rewrite_xlsx_part(payload: bytes, name: str, body: bytes) -> bytes:
+    target = io.BytesIO()
+    found = False
+    with (
+        zipfile.ZipFile(io.BytesIO(payload)) as source,
+        zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as destination,
+    ):
+        for info in source.infolist():
+            content = source.read(info)
+            if info.filename == name:
+                content = body
+                found = True
+            destination.writestr(info, content)
+        if not found:
+            destination.writestr(name, body)
+    return target.getvalue()
+
+
+def test_xlsx_visible_text_preserves_sheet_cells_and_formulas() -> None:
+    assert xlsx_visible_text(_xlsx_bytes()) == (
+        "=== Sheet: Compliance\\nTracker ===\n"
+        "A1=Requirement\tB1=Amount\tC1=Complete\n"
+        "A2=File\\treport\tB2=1250\tC2=FALSE\tD2==B2*2"
+    )
+
+
+def test_xlsx_visible_text_refuses_empty_workbook() -> None:
+    with pytest.raises(DeliverableTextError, match="no extractable cell values"):
+        xlsx_visible_text(_xlsx_bytes(empty=True))
+
+
+def test_xlsx_visible_text_refuses_oversized_sheet_dimensions() -> None:
+    with pytest.raises(DeliverableTextError, match="too many cell slots"):
+        xlsx_visible_text(_xlsx_bytes(), max_cell_slots=3)
+
+
+def test_xlsx_preflight_refuses_too_many_package_members() -> None:
+    with pytest.raises(DeliverableTextError, match="too many package members"):
+        xlsx_visible_text(_xlsx_bytes(), max_package_members=1)
+
+
+def test_xlsx_preflight_refuses_compressed_oversized_package_part() -> None:
+    payload = _rewrite_xlsx_part(_xlsx_bytes(), "xl/sharedStrings.xml", b"x" * 10_000)
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        planted = archive.getinfo("xl/sharedStrings.xml")
+        assert planted.compress_size < planted.file_size
+    with pytest.raises(DeliverableTextError, match="package part is too large"):
+        xlsx_visible_text(payload, max_package_part_bytes=1_000)
+
+
+def test_xlsx_preflight_refuses_underreported_worksheet_dimension() -> None:
+    payload = _xlsx_bytes()
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        worksheet = archive.read("xl/worksheets/sheet1.xml")
+    planted = re.sub(
+        rb'<dimension ref="[^"]+"\s*/>', b'<dimension ref="A1:A1"/>', worksheet
+    )
+    assert planted != worksheet
+    payload = _rewrite_xlsx_part(payload, "xl/worksheets/sheet1.xml", planted)
+
+    with pytest.raises(DeliverableTextError, match="under-reports populated cells"):
+        xlsx_visible_text(payload)
+
+
+def test_xlsx_visible_text_renders_array_and_data_table_formulas() -> None:
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    sheet["A1"] = ArrayFormula("A1:A1", "=SUM(B1:B2)")
+    sheet["A2"] = DataTableFormula("A2:B3", ca=True, dt2D=True, r1="C1", r2="C2")
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+
+    rendered = xlsx_visible_text(buffer.getvalue())
+    assert "A1=ARRAY_FORMULA(ref=A1:A1,text==SUM(B1:B2))" in rendered
+    assert "A2=DATA_TABLE_FORMULA(ref=A2:B3" in rendered
+
+
+def test_xlsx_dispatch_refuses_docx_bytes_renamed_as_xlsx() -> None:
+    with pytest.raises(DeliverableTextError, match="SpreadsheetML"):
+        deliverable_visible_text(
+            b"PK\x03\x04not-a-spreadsheet", basename="misnamed.xlsx"
+        )
+
+
+def test_deliverable_dispatch_refuses_unknown_suffix() -> None:
+    with pytest.raises(DeliverableTextError, match="unsupported suffix"):
+        deliverable_visible_text(b"payload", basename="tracker.xls")
+
+
 EXTERNAL_EVALUATION_PROBE = r"""
 from __future__ import annotations
 

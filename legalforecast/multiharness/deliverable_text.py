@@ -1,9 +1,9 @@
-"""Deterministic visible-text extraction from a sealed LAB deliverable.
+"""Deterministic visible-text extraction from sealed LAB deliverables.
 
-The Harvey LAB deliverable contract requires a ``.docx`` (see
-``harvey_lab_output_discovery``), which is an OOXML zip container rather than
-text.  A paid judge has to be shown the candidate's actual work product, so
-those bytes must be turned into text before they can reach a provider.
+The Harvey LAB bridge carries DOCX and XLSX OOXML containers rather than plain
+text. A paid judge has to be shown the candidate's actual work product, so
+those bytes must be turned into deterministic text before they reach a
+provider.
 
 This module is therefore *judge-input-determining* code: what it returns is
 what the judge grades, so every ambiguous case fails closed rather than
@@ -11,15 +11,26 @@ returning a partial document.  A silently truncated or silently empty
 extraction would produce a confident, billed verdict about text nobody sent,
 which is the failure mode the per-criterion seam exists to prevent.
 
-Provider-free, dependency-free, and deterministic: the standard library only,
-no network, no credentials, and the same bytes always yield the same string.
+Provider-free and deterministic: no network, no credentials, and the same
+bytes always yield the same string.
 """
 
 from __future__ import annotations
 
 import io
 import zipfile
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from xml.parsers import expat
+
+from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
+from openpyxl.worksheet.formula import ArrayFormula, DataTableFormula
+
+from legalforecast.multiharness.harvey_lab.contract import (
+    HarveyLabContractError,
+    preflight_xlsx_package,
+)
 
 # The main document part every WordprocessingML package must contain.
 DOCX_DOCUMENT_PART = "word/document.xml"
@@ -36,10 +47,26 @@ _WORDPROCESSING_NAMESPACE = (
 # applied to the *declared* and the *decompressed* size, so a zip bomb is
 # refused before it is expanded rather than after.
 DOCX_MAX_DOCUMENT_PART_BYTES = 8 * 1024 * 1024
+XLSX_MAX_WORKSHEETS = 64
+XLSX_MAX_CELL_SLOTS = 250_000
+XLSX_MAX_RENDERED_CHARS = 8 * 1024 * 1024
+XLSX_MAX_PACKAGE_MEMBERS = 512
+XLSX_MAX_PACKAGE_PART_BYTES = 8 * 1024 * 1024
+XLSX_MAX_PACKAGE_BYTES = 32 * 1024 * 1024
 
 
 class DeliverableTextError(ValueError):
     """Raised when deliverable text cannot be extracted fail-closed."""
+
+
+def deliverable_visible_text(payload: bytes, *, basename: str) -> str:
+    """Extract one supported deliverable using its authenticated basename."""
+
+    if basename.endswith(".docx"):
+        return docx_visible_text(payload)
+    if basename.endswith(".xlsx"):
+        return xlsx_visible_text(payload)
+    raise DeliverableTextError("deliverable basename has an unsupported suffix")
 
 
 def _qualified(tag: str) -> str:
@@ -84,6 +111,152 @@ def docx_visible_text(
         # the judge would return a confident verdict about an empty document.
         raise DeliverableTextError("deliverable contains no extractable text")
     return text
+
+
+def xlsx_visible_text(
+    payload: bytes,
+    *,
+    max_worksheets: int = XLSX_MAX_WORKSHEETS,
+    max_cell_slots: int = XLSX_MAX_CELL_SLOTS,
+    max_rendered_chars: int = XLSX_MAX_RENDERED_CHARS,
+    max_package_members: int = XLSX_MAX_PACKAGE_MEMBERS,
+    max_package_part_bytes: int = XLSX_MAX_PACKAGE_PART_BYTES,
+    max_package_bytes: int = XLSX_MAX_PACKAGE_BYTES,
+) -> str:
+    """Render worksheet names, coordinates, values, and formulas in order.
+
+    Coordinates preserve sparse layout without synthesizing a rectangular
+    CSV. Formulas are rendered as formulas (``data_only=False``), because a
+    workbook's cached values are optional and may be stale. The rectangular
+    worksheet dimensions and rendered output are bounded before the text can
+    become judge input.
+    """
+
+    if type(payload) is not bytes or not payload:
+        raise DeliverableTextError("deliverable payload must be non-empty bytes")
+    for value, name in (
+        (max_worksheets, "worksheet cap"),
+        (max_cell_slots, "cell-slot cap"),
+        (max_rendered_chars, "rendered-character cap"),
+        (max_package_members, "package-member cap"),
+        (max_package_part_bytes, "package-part cap"),
+        (max_package_bytes, "package-byte cap"),
+    ):
+        if type(value) is not int or value <= 0:
+            raise DeliverableTextError(f"{name} must be positive")
+    try:
+        preflight_xlsx_package(
+            payload,
+            max_members=max_package_members,
+            max_part_bytes=max_package_part_bytes,
+            max_package_bytes=max_package_bytes,
+            max_cell_slots=max_cell_slots,
+        )
+    except HarveyLabContractError as exc:
+        raise DeliverableTextError(str(exc)) from exc
+    try:
+        workbook = load_workbook(
+            io.BytesIO(payload),
+            read_only=True,
+            data_only=False,
+            keep_links=False,
+            rich_text=False,
+        )
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        zipfile.BadZipFile,
+        InvalidFileException,
+    ) as exc:
+        raise DeliverableTextError(
+            "deliverable is not a readable SpreadsheetML package"
+        ) from exc
+    try:
+        worksheets = workbook.worksheets
+        if not worksheets:
+            raise DeliverableTextError("deliverable contains no worksheets")
+        if len(worksheets) > max_worksheets:
+            raise DeliverableTextError("deliverable contains too many worksheets")
+
+        rendered: list[str] = []
+        total_slots = 0
+        total_chars = 0
+        has_value = False
+        for worksheet in worksheets:
+            rows = max(worksheet.max_row, 1)
+            columns = max(worksheet.max_column, 1)
+            total_slots += rows * columns
+            if total_slots > max_cell_slots:
+                raise DeliverableTextError("deliverable contains too many cell slots")
+            header = f"=== Sheet: {_escape_spreadsheet_text(worksheet.title)} ==="
+            rendered.append(header)
+            total_chars += len(header) + 1
+            for row in worksheet.iter_rows():
+                cells: list[str] = []
+                for cell in row:
+                    if cell.value is None:
+                        continue
+                    has_value = True
+                    cells.append(
+                        f"{cell.coordinate}={_render_spreadsheet_value(cell.value)}"
+                    )
+                if cells:
+                    line = "\t".join(cells)
+                    rendered.append(line)
+                    total_chars += len(line) + 1
+                    if total_chars > max_rendered_chars:
+                        raise DeliverableTextError(
+                            "deliverable renders beyond the character limit"
+                        )
+        if not has_value:
+            raise DeliverableTextError(
+                "deliverable contains no extractable cell values"
+            )
+        return "\n".join(rendered)
+    finally:
+        workbook.close()
+
+
+def _render_spreadsheet_value(value: object) -> str:
+    if isinstance(value, ArrayFormula):
+        return (
+            "ARRAY_FORMULA("
+            f"ref={_escape_spreadsheet_text(value.ref)},"
+            f"text={_escape_spreadsheet_text(value.text or '')})"
+        )
+    if isinstance(value, DataTableFormula):
+        attributes = (
+            ("ref", value.ref),
+            ("ca", value.ca),
+            ("dt2D", value.dt2D),
+            ("dtr", value.dtr),
+            ("r1", value.r1),
+            ("r2", value.r2),
+            ("del1", value.del1),
+            ("del2", value.del2),
+        )
+        rendered = ",".join(
+            f"{name}={_escape_spreadsheet_text(str(item))}"
+            for name, item in attributes
+            if item is not None
+        )
+        return f"DATA_TABLE_FORMULA({rendered})"
+    if isinstance(value, str):
+        return _escape_spreadsheet_text(value)
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, int | float | Decimal):
+        return str(value)
+    if isinstance(value, datetime | date | time):
+        return value.isoformat()
+    if isinstance(value, timedelta):
+        return str(value)
+    raise DeliverableTextError("deliverable contains an unsupported cell value")
+
+
+def _escape_spreadsheet_text(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n")
 
 
 def _read_package_parts(

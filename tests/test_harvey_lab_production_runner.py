@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 from collections.abc import Mapping
 from pathlib import Path
@@ -26,7 +27,22 @@ from legalforecast.multiharness.spend import (
     PricingSnapshot,
     UsageObservation,
 )
+from openpyxl import Workbook
 from tests.test_tier0_operator_half import DELIVERABLE_BASENAME, _docx_bytes
+
+
+def _xlsx_bytes(*, misleading: bool = False) -> bytes:
+    workbook = Workbook()
+    obligations = workbook.active
+    obligations.title = "Obligations"
+    obligations.append(("Requirement", "Amount", "Status"))
+    obligations.append(("File report", 1250, "Open"))
+    obligations["D2"] = "=B2*2"
+    if misleading:
+        obligations["A2"] = "Contrary spreadsheet answer"
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
 
 
 class _Boundary(HarveyLabJudgeRequestBoundary):
@@ -265,6 +281,73 @@ def test_production_runner_gives_each_criterion_only_its_declared_deliverable(
         "misleading.docx",
     )
     assert "Misleading contrary answer." in calls[1].deliverable.text
+
+
+def test_production_runner_extracts_only_each_criterion_xlsx_or_docx_subset(
+    tmp_path: Path,
+) -> None:
+    spec, _ = _run_spec(
+        tmp_path,
+        deliverables={
+            "memo.docx": _docx_bytes("Misleading memo answer."),
+            "tracker.xlsx": _xlsx_bytes(),
+        },
+        criteria=[
+            {
+                "id": "tracker-only",
+                "text": "grade the tracker",
+                "deliverables": ["tracker.xlsx"],
+            },
+            {
+                "id": "memo-only",
+                "text": "grade the memo",
+                "deliverables": ["memo.docx"],
+            },
+        ],
+    )
+    calls: list[ProductionJudgeCall] = []
+    pricing = _pricing()
+
+    ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda call: (calls.append(call), _response(pricing))[1],
+        attempt_writer=lambda _call, _response: None,
+    )(LocalCliExecutionService(), spec, _Boundary())
+
+    assert calls[0].deliverable.artifact_paths == ("tracker.xlsx",)
+    assert "=== Sheet: Obligations ===" in calls[0].deliverable.text
+    assert "A2=File report" in calls[0].deliverable.text
+    assert "D2==B2*2" in calls[0].deliverable.text
+    assert "Misleading memo answer." not in calls[0].deliverable.text
+    assert calls[1].deliverable.artifact_paths == ("memo.docx",)
+    assert "Misleading memo answer." in calls[1].deliverable.text
+    assert "File report" not in calls[1].deliverable.text
+
+
+@pytest.mark.parametrize("mutate_after_receipt", [False, True])
+def test_production_runner_refuses_invalid_xlsx_before_provider(
+    tmp_path: Path, *, mutate_after_receipt: bool
+) -> None:
+    payload = _xlsx_bytes() if mutate_after_receipt else b"PK\x03\x04not-a-workbook"
+    spec, _ = _run_spec(
+        tmp_path,
+        deliverables={"tracker.xlsx": payload},
+        criterion_count=1,
+    )
+    if mutate_after_receipt:
+        input_record = json.loads(spec.stdin_bytes)
+        Path(input_record["deliverable_paths"][0]).write_bytes(
+            _xlsx_bytes(misleading=True)
+        )
+    calls: list[ProductionJudgeCall] = []
+    pricing = _pricing()
+    runner = ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda call: (calls.append(call), _response(pricing))[1],
+        attempt_writer=lambda _call, _response: None,
+    )
+    expected = "sealed tree digest" if mutate_after_receipt else "not extractable"
+    with pytest.raises(ValueError, match=expected):
+        runner(LocalCliExecutionService(), spec, _Boundary())
+    assert calls == []
 
 
 def test_production_runner_refuses_bad_later_criterion_before_any_provider_call(

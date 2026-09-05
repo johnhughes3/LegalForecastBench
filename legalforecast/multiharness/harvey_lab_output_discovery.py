@@ -35,9 +35,10 @@ from legalforecast.multiharness.harvey_lab_projection import HarveyLabProjectedT
 from legalforecast.multiharness.validation import validate_sha256
 
 HARVEY_LAB_OUTPUT_DISCOVERY_SCHEMA_VERSION = str(HARVEY_LAB_OUTPUT_DISCOVERY_V2)
-HARVEY_LAB_DOCX_MEDIA_TYPE = (
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-)
+HARVEY_LAB_MEDIA_TYPES = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
 _ARCHIVE_SUFFIXES = (
     ".7z",
     ".gz",
@@ -335,7 +336,7 @@ def _discover_from_output_fd(
     by_path = {item.relative: item for item in entries}
     selected = [by_path[path] for path in selected_paths]
     for expected in selected:
-        _require_expected_docx(expected, limits=limits)
+        _require_expected_deliverable(expected, limits=limits)
         _require_zip_magic(output_fd, expected)
 
     selected_set = set(selected_paths)
@@ -388,7 +389,9 @@ def _discover_from_output_fd(
                         artifact_id=f"lab-deliverable:{expected.relative}",
                         source_path=expected.relative,
                         path=expected.relative,
-                        media_type=HARVEY_LAB_DOCX_MEDIA_TYPE,
+                        media_type=HARVEY_LAB_MEDIA_TYPES[
+                            PurePosixPath(expected.relative).suffix
+                        ],
                         max_size_bytes=limits.max_file_bytes,
                     )
                     for expected in selected
@@ -562,16 +565,16 @@ def _scan_output(
 def _classify_regular(relative: str, file_stat: os.stat_result) -> str:
     name = PurePosixPath(relative).name
     lowered = name.casefold()
-    if any(lowered.endswith(suffix) for suffix in _ARCHIVE_SUFFIXES) and not (
-        lowered.endswith(".docx")
-    ):
+    if any(
+        lowered.endswith(suffix) for suffix in _ARCHIVE_SUFFIXES
+    ) and not lowered.endswith((".docx", ".xlsx")):
         return "archive"
     if file_stat.st_mode & 0o111:
         return "unexpected_type"
     return "regular"
 
 
-def _require_expected_docx(
+def _require_expected_deliverable(
     entry: _OutputEntry,
     *,
     limits: HarveyLabOutputLimits,
@@ -586,9 +589,9 @@ def _require_expected_docx(
             "expected deliverable exceeds the byte limit",
             code=HarveyLabOutputErrorCode.OVERSIZED,
         )
-    if not PurePosixPath(entry.relative).name.endswith(".docx"):
+    if not PurePosixPath(entry.relative).name.endswith((".docx", ".xlsx")):
         raise HarveyLabOutputDiscoveryError(
-            "expected deliverable must be a .docx file",
+            "expected deliverable must be a .docx or .xlsx file",
             code=HarveyLabOutputErrorCode.UNEXPECTED_TYPE,
         )
 
@@ -607,7 +610,7 @@ def _require_zip_magic(output_fd: int, entry: _OutputEntry) -> None:
         os.close(file_fd)
     if header != _ZIP_MAGIC:
         raise HarveyLabOutputDiscoveryError(
-            "expected deliverable is not a DOCX/ZIP container",
+            "expected deliverable is not an OOXML/ZIP container",
             code=HarveyLabOutputErrorCode.UNEXPECTED_TYPE,
         )
 
