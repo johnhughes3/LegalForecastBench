@@ -23,6 +23,7 @@ from legalforecast.multiharness.command_adapter import (
 from legalforecast.multiharness.run_progress import (
     JOURNAL_FILENAME,
     ResumeRefusedError,
+    RunProgressJournal,
     load_progress_journal,
 )
 from legalforecast.multiharness.runner import (
@@ -733,6 +734,40 @@ def test_signal_immediately_after_journal_prepare_finalizes_its_owner(
 
     with pytest.raises(CommandAdapterCancelled, match="startup was cancelled"):
         run_multi_harness(config)
+    journal = load_progress_journal(run_dir)
+    assert journal is not None
+    assert journal.status == "interrupted"
+
+
+@pytest.mark.parametrize("requested_signal", [signal.SIGINT, signal.SIGTERM])
+def test_signal_at_journal_persistence_seam_has_an_adopted_owner(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    requested_signal: signal.Signals,
+) -> None:
+    """No instruction after persistence can observe an ownerless boundary."""
+
+    run_dir = tmp_path / "run"
+    config = _run_config(output_dir=run_dir, adapter=_fast_adapter(tmp_path))
+    original_write = multiharness_runner.write_progress_journal
+    injected = False
+
+    def _write_then_signal(output_dir: Path, journal: RunProgressJournal) -> None:
+        nonlocal injected
+        original_write(output_dir, journal)
+        if not injected and journal.status == "in_progress":
+            injected = True
+            os.kill(os.getpid(), requested_signal)
+
+    monkeypatch.setattr(
+        multiharness_runner,
+        "write_progress_journal",
+        _write_then_signal,
+    )
+
+    with pytest.raises(CommandAdapterCancelled, match="startup was cancelled"):
+        run_multi_harness(config)
+    assert injected is True
     journal = load_progress_journal(run_dir)
     assert journal is not None
     assert journal.status == "interrupted"

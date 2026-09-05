@@ -589,8 +589,8 @@ class _MultiHarnessRunner:
             completed_row_ids=(),
             status="in_progress",
         )
-        write_progress_journal(self.config.output_dir, journal)
         boundary.adopt(self.config.output_dir, journal)
+        write_progress_journal(self.config.output_dir, journal)
         return journal
 
     def _load_capabilities(
