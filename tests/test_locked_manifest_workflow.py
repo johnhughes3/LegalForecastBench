@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import subprocess
+import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -169,7 +171,7 @@ def test_source_identity_concurrency_and_budget_gates_are_fail_closed() -> None:
         assert "fetch-depth: 0" in job
         assert "persist-credentials: false" in job
         assert "git fetch --no-tags --depth=1 origin main" not in job
-        assert "git merge-base --is-ancestor origin/main HEAD" in job
+        assert "git merge-base --is-ancestor HEAD origin/main" in job
         assert "git rev-parse HEAD" in job
     assert "CEILING_MICROUSD" in _job("prepare-inputs", "run-openai")
     assert '[[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]]' in WORKFLOW
@@ -178,6 +180,70 @@ def test_source_identity_concurrency_and_budget_gates_are_fail_closed() -> None:
         "repeat_count must be exactly 1 until repeated-sampling fan-in is supported"
         in WORKFLOW
     )
+
+
+def _source_check_script() -> str:
+    marker = "      - name: Require an exact main-reachable source revision\n"
+    start = WORKFLOW.index(marker)
+    body_start = WORKFLOW.index("        run: |\n", start) + len("        run: |\n")
+    body_end = WORKFLOW.index("      - name:", body_start)
+    return textwrap.dedent(WORKFLOW[body_start:body_end])
+
+
+def test_source_check_executes_main_ancestry_over_a_git_graph(tmp_path: Path) -> None:
+    """Accept an older main commit and reject a same-root unmerged commit."""
+
+    repository = tmp_path / "repository"
+    subprocess.run(["git", "init", "--quiet", str(repository)], check=True)
+
+    def git(*args: str) -> str:
+        completed = subprocess.run(
+            ["git", "-C", str(repository), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return completed.stdout.strip()
+
+    git("config", "user.name", "workflow-test")
+    git("config", "user.email", "workflow-test@example.invalid")
+    (repository / "history.txt").write_text("root\n", encoding="utf-8")
+    git("add", "history.txt")
+    git("commit", "--quiet", "-m", "root")
+    root = git("rev-parse", "HEAD")
+    git("branch", "--move", "main")
+
+    (repository / "history.txt").write_text("past\n", encoding="utf-8")
+    git("commit", "--quiet", "-am", "past main commit")
+    past = git("rev-parse", "HEAD")
+    (repository / "history.txt").write_text("current\n", encoding="utf-8")
+    git("commit", "--quiet", "-am", "current main commit")
+    main = git("rev-parse", "HEAD")
+
+    git("checkout", "--quiet", "--detach", root)
+    (repository / "unmerged.txt").write_text("unmerged\n", encoding="utf-8")
+    git("add", "unmerged.txt")
+    git("commit", "--quiet", "-m", "unmerged branch commit")
+    unmerged = git("rev-parse", "HEAD")
+    git("update-ref", "refs/remotes/origin/main", main)
+
+    script = _source_check_script()
+
+    def run_source_check(head: str) -> subprocess.CompletedProcess[str]:
+        git("checkout", "--quiet", "--detach", head)
+        return subprocess.run(
+            ["bash", "-c", script],
+            cwd=repository,
+            env={"RELEASE_SHA": head},
+            capture_output=True,
+            text=True,
+        )
+
+    valid = run_source_check(past)
+    assert valid.returncode == 0, valid.stderr
+
+    invalid = run_source_check(unmerged)
+    assert invalid.returncode != 0
 
 
 def test_prepare_rejects_repeats_before_any_provider_matrix() -> None:

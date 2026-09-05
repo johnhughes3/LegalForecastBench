@@ -83,7 +83,7 @@ def test_provider_cells_use_durable_resume_state_and_exact_source_checks() -> No
         assert "fetch-depth: 0" in block
         assert "persist-credentials: false" in block
         assert "git fetch --no-tags --depth=1 origin main" not in block
-        assert "git merge-base --is-ancestor origin/main HEAD" in block
+        assert "git merge-base --is-ancestor HEAD origin/main" in block
         assert "Restore newest prior valid attempt" in block
         assert "Persist" in block
         assert "if: ${{ always() }}" in block
