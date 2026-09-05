@@ -8,15 +8,22 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
+from legalforecast.multiharness import runner as multiharness_runner
 from legalforecast.multiharness.adapters import AdapterPreparation
-from legalforecast.multiharness.command_adapter import CommandAdapter
+from legalforecast.multiharness.command_adapter import (
+    CommandAdapter,
+    CommandAdapterCancelled,
+)
 from legalforecast.multiharness.run_progress import (
     JOURNAL_FILENAME,
     ResumeRefusedError,
+    RunProgressJournal,
     load_progress_journal,
 )
 from legalforecast.multiharness.runner import (
@@ -34,6 +41,7 @@ from legalforecast.multiharness.spec import (
     RunResult,
     TaskIndex,
 )
+from pytest import MonkeyPatch
 
 SHA256 = "sha256:" + "a" * 64
 SATURATED_HOST_TIMEOUT_SECONDS = 60
@@ -699,3 +707,111 @@ def _pid_is_running(pid: int) -> bool:
     except FileNotFoundError:
         return False
     return len(fields) < 3 or fields[2] != "Z"
+
+
+@pytest.mark.parametrize("requested_signal", [signal.SIGINT, signal.SIGTERM])
+def test_signal_immediately_after_journal_prepare_finalizes_its_owner(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    requested_signal: signal.Signals,
+) -> None:
+    """Journal ownership is established before ``_prepare_journal`` returns."""
+
+    run_dir = tmp_path / "run"
+    config = _run_config(output_dir=run_dir, adapter=_fast_adapter(tmp_path))
+    runner_type = vars(multiharness_runner)["_MultiHarnessRunner"]
+    original_prepare = cast(
+        Callable[..., Any],
+        vars(runner_type)["_prepare_journal"],
+    )
+
+    def _signal_after_prepare(*args: Any, **kwargs: Any) -> Any:
+        journal = original_prepare(*args, **kwargs)
+        os.kill(os.getpid(), requested_signal)
+        return journal
+
+    monkeypatch.setattr(runner_type, "_prepare_journal", _signal_after_prepare)
+
+    with pytest.raises(CommandAdapterCancelled, match="startup was cancelled"):
+        run_multi_harness(config)
+    journal = load_progress_journal(run_dir)
+    assert journal is not None
+    assert journal.status == "interrupted"
+
+
+@pytest.mark.parametrize("requested_signal", [signal.SIGINT, signal.SIGTERM])
+def test_signal_at_journal_persistence_seam_has_an_adopted_owner(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    requested_signal: signal.Signals,
+) -> None:
+    """No instruction after persistence can observe an ownerless boundary."""
+
+    run_dir = tmp_path / "run"
+    config = _run_config(output_dir=run_dir, adapter=_fast_adapter(tmp_path))
+    original_write = multiharness_runner.write_progress_journal
+    injected = False
+
+    def _write_then_signal(output_dir: Path, journal: RunProgressJournal) -> None:
+        nonlocal injected
+        original_write(output_dir, journal)
+        if not injected and journal.status == "in_progress":
+            injected = True
+            os.kill(os.getpid(), requested_signal)
+
+    monkeypatch.setattr(
+        multiharness_runner,
+        "write_progress_journal",
+        _write_then_signal,
+    )
+
+    with pytest.raises(CommandAdapterCancelled, match="startup was cancelled"):
+        run_multi_harness(config)
+    assert injected is True
+    journal = load_progress_journal(run_dir)
+    assert journal is not None
+    assert journal.status == "interrupted"
+
+
+@pytest.mark.parametrize("requested_signal", [signal.SIGINT, signal.SIGTERM])
+def test_signal_boundary_is_continuous_from_adoption_into_the_first_row(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    requested_signal: signal.Signals,
+) -> None:
+    """No handler handoff separates owned startup from row execution."""
+
+    run_dir = tmp_path / "run"
+    config = _run_config(output_dir=run_dir, adapter=_fast_adapter(tmp_path))
+    runner_type = vars(multiharness_runner)["_MultiHarnessRunner"]
+    original_prepare = cast(
+        Callable[..., Any],
+        vars(runner_type)["_prepare_journal"],
+    )
+    original_execute = cast(
+        Callable[..., Any],
+        vars(runner_type)["_execute_row"],
+    )
+    transition: dict[str, object] = {}
+
+    def _capture_adopted_handler(*args: Any, **kwargs: Any) -> Any:
+        journal = original_prepare(*args, **kwargs)
+        transition["adopted_handler"] = signal.getsignal(requested_signal)
+        return journal
+
+    def _signal_at_first_row(*args: Any, **kwargs: Any) -> Any:
+        transition["same_handler"] = (
+            signal.getsignal(requested_signal) is transition["adopted_handler"]
+        )
+        os.kill(os.getpid(), requested_signal)
+        return original_execute(*args, **kwargs)
+
+    monkeypatch.setattr(runner_type, "_prepare_journal", _capture_adopted_handler)
+    monkeypatch.setattr(runner_type, "_execute_row", _signal_at_first_row)
+
+    run = run_multi_harness(config)
+    assert run.interrupted is True
+    assert transition["same_handler"] is True
+    journal = load_progress_journal(run_dir)
+    assert journal is not None
+    assert journal.status == "interrupted"

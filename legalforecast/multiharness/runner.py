@@ -5,11 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import signal
 import tempfile
-import threading
-from collections.abc import Callable, Generator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -66,10 +63,12 @@ from legalforecast.multiharness.run_progress import (
     IdentityBinding,
     ResumeRefusedError,
     RunProgressJournal,
+    RunSignalBoundary,
     bind_run_identity,
     is_partial_label,
     load_progress_journal,
     refuse_resume_identity_drift,
+    signal_boundary,
     write_progress_journal,
 )
 from legalforecast.multiharness.sandbox import (
@@ -289,7 +288,8 @@ class _RowPlan:
 def run_multi_harness(config: MultiHarnessRunConfig) -> MultiHarnessRun:
     """Execute a deterministic multi-harness run and write run artifacts."""
 
-    return _MultiHarnessRunner(config).run()
+    with signal_boundary() as boundary:
+        return _MultiHarnessRunner(config).run(boundary)
 
 
 def _ensure_private_run_directory(path: Path) -> Path:
@@ -423,7 +423,7 @@ def _prepare_incomplete_release_retry(plan: _RowPlan) -> None:
 class _MultiHarnessRunner:
     config: MultiHarnessRunConfig
 
-    def run(self) -> MultiHarnessRun:
+    def run(self, boundary: RunSignalBoundary) -> MultiHarnessRun:
         adapters = _ordered_adapters(self.config.adapters)
         selection = self.config.selection.select(self.config.task_index)
         _validate_known_release_adapter_routes(
@@ -463,21 +463,19 @@ class _MultiHarnessRunner:
         identity = _identity_binding_for(self.config, selection.selection_sha256)
         _ensure_private_run_directory(self.config.output_dir)
         (self.config.output_dir / "artifact-index.json").unlink(missing_ok=True)
-        journal = self._prepare_journal(selection=selection, identity=identity)
+        journal = self._prepare_journal(
+            selection=selection,
+            identity=identity,
+            boundary=boundary,
+        )
         with tempfile.TemporaryDirectory(prefix="multiharness-capabilities-") as root:
             capability_root = Path(root)
             _ensure_private_run_directory(capability_root)
-            try:
-                capabilities, capability_artifacts = self._load_capabilities(
-                    adapters,
-                    capability_root,
-                )
-            except CommandAdapterCancelled:
-                journal = journal.mark_stopped()
-                write_progress_journal(self.config.output_dir, journal)
-                raise
+            capabilities, capability_artifacts = self._load_capabilities(
+                adapters,
+                capability_root,
+            )
             row_plans = self._build_row_plans(selection, adapters, capabilities)
-
         self._write_capabilities(capabilities, capability_artifacts)
         _ensure_private_run_directory(self.config.output_dir / "rows")
         run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
@@ -516,29 +514,28 @@ class _MultiHarnessRunner:
 
         rows: list[MultiHarnessRunRow] = []
         interrupted = False
-        with _run_stop_flag() as stop_requested:
-            try:
-                for plan in row_plans:
-                    if stop_requested() or interrupted:
-                        interrupted = True
-                        break
-                    row = self._execute_row(
-                        plan,
-                        selection_label=selection.selection_label,
-                        coverage_kind=selection.coverage_kind,
-                        journal=journal,
-                    )
-                    rows.append(row)
-                    if row.result.status == "succeeded":
-                        journal = journal.with_completed_row(plan.row_id)
-                    elif row.result.status == "interrupted":
-                        journal = journal.with_interrupted_row(plan.row_id)
-                        interrupted = True
-                    write_progress_journal(self.config.output_dir, journal)
-                    if interrupted:
-                        break
-            except KeyboardInterrupt:
-                interrupted = True
+        try:
+            for plan in row_plans:
+                if boundary() or interrupted:
+                    interrupted = True
+                    break
+                row = self._execute_row(
+                    plan,
+                    selection_label=selection.selection_label,
+                    coverage_kind=selection.coverage_kind,
+                    journal=journal,
+                )
+                rows.append(row)
+                if row.result.status == "succeeded":
+                    journal = journal.with_completed_row(plan.row_id)
+                elif row.result.status == "interrupted":
+                    journal = journal.with_interrupted_row(plan.row_id)
+                    interrupted = True
+                write_progress_journal(self.config.output_dir, journal)
+                if interrupted:
+                    break
+        except KeyboardInterrupt:
+            interrupted = True
 
         if interrupted or len(rows) < len(row_plans):
             interrupted = True
@@ -575,12 +572,14 @@ class _MultiHarnessRunner:
         *,
         selection: SelectionResult,
         identity: IdentityBinding,
+        boundary: RunSignalBoundary,
     ) -> RunProgressJournal:
         existing = load_progress_journal(self.config.output_dir)
         if self.config.resume:
             if existing is None:
                 raise ResumeRefusedError("resume refused: no progress journal")
             refuse_resume_identity_drift(prior=existing.identity, requested=identity)
+            boundary.adopt(self.config.output_dir, existing)
             return existing
         journal = RunProgressJournal(
             run_id=self.config.run_id,
@@ -590,6 +589,7 @@ class _MultiHarnessRunner:
             completed_row_ids=(),
             status="in_progress",
         )
+        boundary.adopt(self.config.output_dir, journal)
         write_progress_journal(self.config.output_dir, journal)
         return journal
 
@@ -1554,30 +1554,3 @@ def _selection_manifest_record(
         "task_ids": [task.task_id for task in selection.tasks],
         "run_status": journal.status,
     }
-
-
-@contextmanager
-def _run_stop_flag() -> Generator[Callable[[], bool]]:
-    requested = {"value": False}
-    if threading.current_thread() is not threading.main_thread():
-        yield lambda: requested["value"]
-        return
-
-    watched = (signal.SIGINT, signal.SIGTERM)
-    previous = {
-        requested_signal: signal.getsignal(requested_signal)
-        for requested_signal in watched
-    }
-
-    def mark_stop(requested_signal: int, frame: object) -> None:
-        del requested_signal, frame
-        requested["value"] = True
-        raise KeyboardInterrupt
-
-    for requested_signal in watched:
-        signal.signal(requested_signal, mark_stop)
-    try:
-        yield lambda: requested["value"]
-    finally:
-        for requested_signal, previous_handler in previous.items():
-            signal.signal(requested_signal, previous_handler)
