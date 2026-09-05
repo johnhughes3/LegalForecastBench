@@ -16,6 +16,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
+from legalforecast.multiharness.container_harness.publication import (
+    PublicationError,
+    validate_published_package,
+)
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
     PublicationGuardrailError,
@@ -60,6 +64,10 @@ def validate_intake_package(package_dir: Path) -> tuple[Path, ...]:
         )
     except PublicationGuardrailError as exc:
         raise IntakeError(f"publication guardrail: {exc}") from exc
+    try:
+        validate_published_package(package_dir)
+    except PublicationError as exc:
+        raise IntakeError(str(exc)) from exc
     return files
 
 
