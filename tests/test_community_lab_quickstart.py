@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.multiharness import cli as multiharness_cli
 from legalforecast.multiharness import harvey_lab_projection
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
@@ -602,6 +604,129 @@ def test_interrupt_during_adapter_startup_exits_130_not_a_traceback(
                 str(run_dir),
                 "--run-id",
                 "interrupted-at-startup",
+            ]
+        )
+        == 130
+    )
+    stderr = capsys.readouterr().err
+    assert "not a crash" in stderr
+    assert "--resume" in stderr
+    assert "Traceback" not in stderr
+    assert _read_json(run_dir / "run-progress.json")["status"] == "interrupted"
+
+
+@pytest.mark.parametrize("requested_signal", [signal.SIGINT, signal.SIGTERM])
+def test_signal_before_journal_creation_honors_startup_interrupt_contract(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+    requested_signal: signal.Signals,
+) -> None:
+    """The CLI boundary also covers setup before a progress journal exists."""
+
+    def _signal_while_loading_index(*_args: object, **_kwargs: object) -> None:
+        os.kill(os.getpid(), requested_signal)
+
+    monkeypatch.setattr(
+        multiharness_cli,
+        "_load_task_index",
+        _signal_while_loading_index,
+    )
+    run_dir = tmp_path / "run"
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(tmp_path / "not-read.json"),
+                "--adapter-manifest",
+                str(FIXTURE_ADAPTER_MANIFEST),
+                "--model-key",
+                "fixture-model",
+                "--output-dir",
+                str(run_dir),
+            ]
+        )
+        == 130
+    )
+    stderr = capsys.readouterr().err
+    assert "not a crash" in stderr
+    assert "--resume" in stderr
+    assert "Traceback" not in stderr
+    assert not (run_dir / "run-progress.json").exists()
+
+
+@pytest.mark.parametrize("requested_signal", [signal.SIGINT, signal.SIGTERM])
+def test_signal_after_capability_probe_honors_startup_interrupt_contract(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+    requested_signal: signal.Signals,
+) -> None:
+    """Signals between the probe and task loop use the same resumable exit."""
+
+    projected = _projected_root(tmp_path, monkeypatch)
+    index_path = tmp_path / "lab-index.json"
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "harvey-lab",
+                "--projected-root",
+                str(projected),
+                "--output",
+                str(index_path),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    original_capabilities = CommandAdapter.capabilities
+
+    def _signal_after_probe(
+        adapter: CommandAdapter,
+        workspace: Path,
+        *,
+        host_process_containment: str = "posix_process_group.v1",
+    ) -> object:
+        capabilities = original_capabilities(
+            adapter,
+            workspace,
+            host_process_containment=host_process_containment,
+        )
+        os.kill(os.getpid(), requested_signal)
+        return capabilities
+
+    monkeypatch.setattr(
+        CommandAdapter,
+        "capabilities",
+        _signal_after_probe,
+    )
+    run_dir = tmp_path / "run"
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(index_path),
+                "--category",
+                "immigration",
+                "--adapter-manifest",
+                str(FIXTURE_ADAPTER_MANIFEST),
+                "--model-key",
+                "fixture-model",
+                "--output-dir",
+                str(run_dir),
+                "--run-id",
+                "signal-after-probe",
             ]
         )
         == 130

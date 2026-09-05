@@ -58,6 +58,7 @@ from legalforecast.multiharness.runner import (
     ModelConfig,
     MultiHarnessRunConfig,
     run_multi_harness,
+    signal_boundary,
     validate_provider_environment_scope,
 )
 from legalforecast.multiharness.sandbox import (
@@ -788,6 +789,19 @@ def _cmd_conformance(args: argparse.Namespace) -> int:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
+    try:
+        with signal_boundary():
+            return _cmd_run_guarded(args)
+    except (CommandAdapterCancelled, KeyboardInterrupt):
+        print(
+            "Interrupted before any task started. This is a partial run, not a crash. "
+            "Resume with the same command plus --resume.",
+            file=sys.stderr,
+        )
+        return 130
+
+
+def _cmd_run_guarded(args: argparse.Namespace) -> int:
     task_index = _load_task_index(cast(Path, args.task_index))
     solver_input_root = cast(Path | None, args.solver_input_root)
     solver_inputs = (
@@ -829,7 +843,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
             ),
         )
         return 0
-
     adapters = tuple(
         CommandAdapter.from_manifest_file(
             path,
@@ -837,39 +850,26 @@ def _cmd_run(args: argparse.Namespace) -> int:
         )
         for path in _path_tuple_arg(args, "adapter_manifest")
     )
-    try:
-        run = run_multi_harness(
-            MultiHarnessRunConfig(
-                task_index=task_index,
-                adapters=adapters,
-                model_configs=tuple(
-                    ModelConfig(model_key=model_key)
-                    for model_key in _str_tuple_arg(args, "model_key")
-                ),
-                sandbox_policy=policy,
-                output_dir=output_dir,
-                selection=selection,
-                run_id=_required_str_arg(args, "run_id"),
-                resume=cast(bool, args.resume),
-                incomplete_run_policy=_required_str_arg(args, "incomplete_run_policy"),
-                container_execution=(
-                    "live_tools"
-                    if cast(bool, args.live_tool_container)
-                    else "plan_only"
-                ),
-                solver_inputs=solver_inputs,
-            )
+    run = run_multi_harness(
+        MultiHarnessRunConfig(
+            task_index=task_index,
+            adapters=adapters,
+            model_configs=tuple(
+                ModelConfig(model_key=model_key)
+                for model_key in _str_tuple_arg(args, "model_key")
+            ),
+            sandbox_policy=policy,
+            output_dir=output_dir,
+            selection=selection,
+            run_id=_required_str_arg(args, "run_id"),
+            resume=cast(bool, args.resume),
+            incomplete_run_policy=_required_str_arg(args, "incomplete_run_policy"),
+            container_execution=(
+                "live_tools" if cast(bool, args.live_tool_container) else "plan_only"
+            ),
+            solver_inputs=solver_inputs,
         )
-    except CommandAdapterCancelled:
-        # A Ctrl-C during adapter startup — the capability probe runs before the
-        # task loop owns the signal — otherwise escaped as a traceback and exit 1,
-        # contradicting the documented "not a crash, exit 130, resume" contract.
-        print(
-            "Interrupted before any task started. This is a partial run, not a "
-            "crash. Resume with the same command plus --resume.",
-            file=sys.stderr,
-        )
-        return 130
+    )
     if run.interrupted:
         completed = sum(1 for row in run.rows if row.result.status == "succeeded")
         print(

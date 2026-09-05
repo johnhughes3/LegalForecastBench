@@ -289,7 +289,8 @@ class _RowPlan:
 def run_multi_harness(config: MultiHarnessRunConfig) -> MultiHarnessRun:
     """Execute a deterministic multi-harness run and write run artifacts."""
 
-    return _MultiHarnessRunner(config).run()
+    with signal_boundary(config.output_dir):
+        return _MultiHarnessRunner(config).run()
 
 
 def _ensure_private_run_directory(path: Path) -> Path:
@@ -467,17 +468,11 @@ class _MultiHarnessRunner:
         with tempfile.TemporaryDirectory(prefix="multiharness-capabilities-") as root:
             capability_root = Path(root)
             _ensure_private_run_directory(capability_root)
-            try:
-                capabilities, capability_artifacts = self._load_capabilities(
-                    adapters,
-                    capability_root,
-                )
-            except CommandAdapterCancelled:
-                journal = journal.mark_stopped()
-                write_progress_journal(self.config.output_dir, journal)
-                raise
+            capabilities, capability_artifacts = self._load_capabilities(
+                adapters,
+                capability_root,
+            )
             row_plans = self._build_row_plans(selection, adapters, capabilities)
-
         self._write_capabilities(capabilities, capability_artifacts)
         _ensure_private_run_directory(self.config.output_dir / "rows")
         run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
@@ -516,7 +511,7 @@ class _MultiHarnessRunner:
 
         rows: list[MultiHarnessRunRow] = []
         interrupted = False
-        with _run_stop_flag() as stop_requested:
+        with signal_boundary() as stop_requested:
             try:
                 for plan in row_plans:
                     if stop_requested() or interrupted:
@@ -1557,7 +1552,7 @@ def _selection_manifest_record(
 
 
 @contextmanager
-def _run_stop_flag() -> Generator[Callable[[], bool]]:
+def signal_boundary(output_dir: Path | None = None) -> Generator[Callable[[], bool]]:
     requested = {"value": False}
     if threading.current_thread() is not threading.main_thread():
         yield lambda: requested["value"]
@@ -1578,6 +1573,11 @@ def _run_stop_flag() -> Generator[Callable[[], bool]]:
         signal.signal(requested_signal, mark_stop)
     try:
         yield lambda: requested["value"]
+    except (CommandAdapterCancelled, KeyboardInterrupt):
+        journal = load_progress_journal(output_dir) if output_dir is not None else None
+        if journal is not None:
+            write_progress_journal(cast(Path, output_dir), journal.mark_stopped())
+        raise CommandAdapterCancelled("multi-harness startup was cancelled") from None
     finally:
         for requested_signal, previous_handler in previous.items():
             signal.signal(requested_signal, previous_handler)
