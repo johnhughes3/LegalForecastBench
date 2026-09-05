@@ -132,9 +132,13 @@ def write_published_package(
     )
     canonical_allowlist = _parse_allowlist(resolved_allowlist).to_record()
     proxy_logs = publish_egress_evidence(accounted, canonical_allowlist)
+    published_allowed_hosts = list(proxy_logs["allowed_hosts"])
+    published_refused = list(proxy_logs["refused"])
     published_result = dict(result_record)
-    published_result["egress_allowed_hosts"] = list(proxy_logs["allowed_hosts"])
-    published_result["egress_refused"] = list(proxy_logs["refused"])
+    published_result["egress_allowed_hosts"] = published_allowed_hosts
+    published_result["egress_refused"] = published_refused
+    published_result["egress_allowed_host_count"] = len(published_allowed_hosts)
+    published_result["egress_refused_count"] = len(published_refused)
     published_result["egress_allowlist"] = canonical_allowlist
     fence_record = fence.to_record()
     require_honest_fence_record(fence_record)
@@ -246,6 +250,16 @@ def validate_published_package(root: Path) -> None:
         raise PublicationError("result.json allowed hosts do not match proxy-logs.json")
     if result.get("egress_refused") != [dict(item) for item in accounted.refused]:
         raise PublicationError("result.json refusals do not match proxy-logs.json")
+    _require_evidence_count(
+        result,
+        "egress_allowed_host_count",
+        len(accounted.allowed_hosts),
+    )
+    _require_evidence_count(
+        result,
+        "egress_refused_count",
+        len(accounted.refused),
+    )
     try:
         require_honest_fence_record(fence)
     except ValueError as exc:
@@ -254,6 +268,20 @@ def validate_published_package(root: Path) -> None:
 
 def _require_refused_hosts_redacted(payload: object, origin: str) -> None:
     _walk_refused(payload, origin, under_refused=False)
+
+
+def _require_evidence_count(
+    result: Mapping[str, Any], field_name: str, expected: int
+) -> None:
+    if field_name not in result:
+        raise PublicationError(f"result.json is missing {field_name}")
+    value = result[field_name]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise PublicationError(f"result.json {field_name} must be an integer")
+    if value != expected:
+        raise PublicationError(
+            f"result.json {field_name} does not match proxy-logs.json"
+        )
 
 
 def _walk_refused(value: object, origin: str, *, under_refused: bool) -> None:

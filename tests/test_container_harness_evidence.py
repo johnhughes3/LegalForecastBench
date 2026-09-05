@@ -176,6 +176,8 @@ def test_intake_refuses_forged_fence_and_raw_allowed_label(tmp_path: Path) -> No
                 "egress_allowlist": allowlist,
                 "egress_allowed_hosts": [f"{ATTACKER_LABEL}.api.anthropic.com"],
                 "egress_refused": [],
+                "egress_allowed_host_count": 1,
+                "egress_refused_count": 0,
             }
         ),
         encoding="utf-8",
