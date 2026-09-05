@@ -36,6 +36,19 @@ def test_synthetic_issuer_is_deterministic_complete_and_blinded(tmp_path: Path) 
     first_payloads = _tree_payloads(first)
     assert first_payloads == _tree_payloads(second)
     assert all(payload.endswith(b"\n") for payload in first_payloads.values())
+    legacy_forecast = json.loads((first / "forecast-release.json").read_bytes())
+    assert all(
+        all(
+            field not in document
+            for field in (
+                "supporting_side",
+                "supporting_kind",
+                "target_motion_document_id",
+            )
+        )
+        for case in legacy_forecast["cases"]
+        for document in case["documents"]
+    )
 
     forecast, labels = validate_release(
         first / "forecast-release.json",

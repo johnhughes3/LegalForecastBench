@@ -54,7 +54,19 @@ BriefingRole = Literal[
     "surreply",
     "supplemental_brief",
 ]
-ModelVisibleRole = PleadingRole | BriefingRole | Literal["docket_history"]
+SupportingDocumentSide = Literal["opening", "opposition", "reply"]
+SupportingDocumentKind = Literal[
+    "declaration",
+    "affidavit",
+    "affirmation",
+    "exhibit",
+    "appendix",
+    "attachment",
+    "other",
+]
+ModelVisibleRole = (
+    PleadingRole | BriefingRole | Literal["docket_history", "supporting_document"]
+)
 
 PLEADING_ROLES = frozenset(
     {
@@ -78,7 +90,9 @@ BRIEFING_ROLES = frozenset(
     }
 )
 SUPPORTED_MODEL_VISIBLE_ROLES = (
-    PLEADING_ROLES | BRIEFING_ROLES | frozenset({"docket_history"})
+    PLEADING_ROLES
+    | BRIEFING_ROLES
+    | frozenset({"docket_history", "supporting_document"})
 )
 
 NonEmptyString = Annotated[
@@ -114,14 +128,51 @@ def _validate_relative_path(value: str) -> str:
     return value
 
 
+def _exclude_none(value: object) -> bool:
+    """Keep legacy canonical JSON stable when an optional field is absent."""
+
+    return value is None
+
+
 class DocumentDraft(ReleaseModel):
     """Issuer input for one model-visible predecision document."""
 
     document_id: NonEmptyString
     role: ModelVisibleRole
     path: RelativePath
+    supporting_side: SupportingDocumentSide | None = Field(
+        default=None, exclude_if=_exclude_none
+    )
+    supporting_kind: SupportingDocumentKind | None = Field(
+        default=None, exclude_if=_exclude_none
+    )
+    target_motion_document_id: NonEmptyString | None = Field(
+        default=None, exclude_if=_exclude_none
+    )
 
     _path_is_relative = field_validator("path")(_validate_relative_path)
+
+    @model_validator(mode="after")
+    def require_supporting_metadata(self) -> DocumentDraft:
+        fields = (
+            self.supporting_side,
+            self.supporting_kind,
+            self.target_motion_document_id,
+        )
+        if self.role == "supporting_document" and any(
+            value is None for value in fields
+        ):
+            raise ValueError(
+                "supporting documents require side, kind, and target motion "
+                "document identity"
+            )
+        if self.role != "supporting_document" and any(
+            value is not None for value in fields
+        ):
+            raise ValueError(
+                "supporting metadata is only valid for supporting_document role"
+            )
+        return self
 
 
 class CaseDraft(ReleaseModel):
@@ -213,8 +264,39 @@ class ReleaseDocument(ReleaseModel):
     path: RelativePath
     sha256: Sha256
     byte_count: Annotated[int, Field(strict=True, gt=0)]
+    supporting_side: SupportingDocumentSide | None = Field(
+        default=None, exclude_if=_exclude_none
+    )
+    supporting_kind: SupportingDocumentKind | None = Field(
+        default=None, exclude_if=_exclude_none
+    )
+    target_motion_document_id: NonEmptyString | None = Field(
+        default=None, exclude_if=_exclude_none
+    )
 
     _path_is_relative = field_validator("path")(_validate_relative_path)
+
+    @model_validator(mode="after")
+    def require_supporting_metadata(self) -> ReleaseDocument:
+        fields = (
+            self.supporting_side,
+            self.supporting_kind,
+            self.target_motion_document_id,
+        )
+        if self.role == "supporting_document" and any(
+            value is None for value in fields
+        ):
+            raise ValueError(
+                "supporting documents require side, kind, and target motion "
+                "document identity"
+            )
+        if self.role != "supporting_document" and any(
+            value is not None for value in fields
+        ):
+            raise ValueError(
+                "supporting metadata is only valid for supporting_document role"
+            )
+        return self
 
 
 class ReleaseCase(ReleaseModel):
@@ -230,6 +312,27 @@ class ReleaseCase(ReleaseModel):
             raise ValueError("duplicate document in release case")
         if identifiers != tuple(sorted(identifiers)):
             raise ValueError("documents are not in canonical document order")
+        for document in self.documents:
+            if document.role != "supporting_document":
+                continue
+            target_id = document.target_motion_document_id
+            assert target_id is not None
+            target = next(
+                (
+                    candidate
+                    for candidate in self.documents
+                    if candidate.document_id == target_id
+                ),
+                None,
+            )
+            if target is None or target.role not in {
+                "motion_to_dismiss_notice",
+                "motion_to_dismiss_memorandum",
+            }:
+                raise ValueError(
+                    "supporting document target_motion_document_id must name "
+                    "a motion document"
+                )
         return self
 
 

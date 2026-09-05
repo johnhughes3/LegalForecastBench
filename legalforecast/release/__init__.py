@@ -28,6 +28,8 @@ from .models import (
     ReleaseCase,
     ReleaseDocument,
     ScoringPolicy,
+    SupportingDocumentKind,
+    SupportingDocumentSide,
     UnitOutcome,
 )
 from .run_manifest import (
@@ -92,6 +94,8 @@ __all__ = [
     "RunManifestError",
     "ScoringPolicy",
     "SelectedCase",
+    "SupportingDocumentKind",
+    "SupportingDocumentSide",
     "UnitOutcome",
     "enumerate_forecast_worker_inputs",
     "issue_release",
