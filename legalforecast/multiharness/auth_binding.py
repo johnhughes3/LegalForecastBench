@@ -36,6 +36,7 @@ from legalforecast.multiharness.local_cli_environment import (
     expected_child_environment_names,
     project_profile_credentials,
 )
+from legalforecast.multiharness.local_cli_identity import ExecutableIdentityPin
 from legalforecast.multiharness.local_cli_manifest import LocalCliAdapterManifest
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.sandbox import PROVIDER_EGRESS_HOST_ONLY
@@ -269,6 +270,7 @@ def contained_execution_service(
     adapter_id: str = "contained-local-cli",
     display_name: str = "Contained local CLI",
     adapter_version: str = "1.0.0",
+    executable_pin: ExecutableIdentityPin | None = None,
     subscription_presence: SubscriptionPresence | None = None,
 ) -> LocalCliExecutionService:
     """Return a contained service whose auth_profile matches this binding."""
@@ -299,6 +301,7 @@ def contained_execution_service(
         supported_auth_profiles=bound.supported_profiles,
         profile_env_vars=profile_env_vars,
         credential_source=source,
+        executable_pin=executable_pin,
         infisical_env=bound.profile.infisical_env,
         parent_env=parent_env,
         filesystem_scope=(

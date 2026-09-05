@@ -532,6 +532,7 @@ class LocalCliExecutionService:
     supported_auth_profiles: tuple[str, ...] = ()
     profile_env_vars: tuple[tuple[str, tuple[str, ...]], ...] = ()
     credential_source: CredentialSource | None = None
+    executable_pin: ExecutableIdentityPin | None = None
     infisical_env: str = "dev"
     parent_env: Mapping[str, str] | None = None
     scheduler: ExecutionScheduler | None = None
@@ -566,10 +567,8 @@ class LocalCliExecutionService:
                 returncode=None,
                 status="failed",
             )
-        pin = _pin_run_spec_executable(
-            spec.argv[0],
-            version=self.adapter_version,
-            parent_env=self.parent_env,
+        pin = self.executable_pin or _pin_run_spec_executable(
+            spec.argv[0], version=self.adapter_version, parent_env=self.parent_env
         )
         if pin is None:
             return ExecutionReceipt.from_transcript(

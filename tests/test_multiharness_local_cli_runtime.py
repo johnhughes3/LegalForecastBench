@@ -359,6 +359,78 @@ def test_run_spec_service_binds_receipt_identity_without_ambient_env(
     assert "ANTHROPIC_API_KEY" not in str(public)
 
 
+def test_run_spec_service_rejects_manifest_pin_drift_before_credentials_or_launch(
+    tmp_path: Path,
+) -> None:
+    bindir = tmp_path / "bin"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    executable = bindir / "claude"
+    sentinel = tmp_path / "launched"
+    _write_path_cli(
+        executable, f"from pathlib import Path; Path({str(sentinel)!r}).touch()"
+    )
+    expected_pin = executable_pin_for(executable, version="manifest-version")
+    _write_path_cli(
+        executable,
+        f"from pathlib import Path; Path({str(sentinel)!r}).touch(); print('drifted')",
+    )
+    parent = dict(_CANARY_ENV)
+    parent["PATH"] = f"{bindir}{os.pathsep}/usr/bin"
+
+    class _CredentialsMustNotBeRead:
+        def fetch_projected_env(self, profile: object) -> dict[str, str]:
+            del profile
+            raise AssertionError(
+                "credential lookup must follow executable verification"
+            )
+
+    receipt = LocalCliExecutionService(
+        auth_profile=PUBLISHED_API_KEY,
+        supported_auth_profiles=(PUBLISHED_API_KEY,),
+        profile_env_vars=((PUBLISHED_API_KEY, ("ANTHROPIC_API_KEY",)),),
+        credential_source=_CredentialsMustNotBeRead(),
+        parent_env=parent,
+        executable_pin=expected_pin,
+    ).execute(
+        RunSpec(
+            spec_id="manifest-pin-drift",
+            argv=("claude",),
+            working_directory=workspace,
+            timeout_seconds=5,
+        )
+    )
+
+    assert receipt.status == "failed"
+    assert "executable digest mismatch" in receipt.stderr
+    assert not sentinel.exists()
+
+
+def test_run_spec_service_launches_when_manifest_pin_matches(tmp_path: Path) -> None:
+    bindir = tmp_path / "bin"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    executable = bindir / "fixture-cli"
+    _write_path_cli(executable, "print('pin matched')")
+    parent = dict(_CANARY_ENV)
+    parent["PATH"] = f"{bindir}{os.pathsep}/usr/bin"
+
+    receipt = LocalCliExecutionService(
+        parent_env=parent,
+        executable_pin=executable_pin_for(executable, version="manifest-version"),
+    ).execute(
+        RunSpec(
+            spec_id="manifest-pin-match",
+            argv=("fixture-cli",),
+            working_directory=workspace,
+            timeout_seconds=5,
+        )
+    )
+
+    assert receipt.status == "succeeded"
+    assert receipt.stdout.strip() == "pin matched"
+
+
 def test_run_spec_service_delivers_stdin_and_maps_timeout_and_nonzero(
     tmp_path: Path,
 ) -> None:

@@ -17,7 +17,11 @@ from legalforecast._json_io import (
     write_json_object_safe,
 )
 from legalforecast.immutable_io import ImmutableIOError, ensure_private_directory
-from legalforecast.multiharness.adapter_registry import builtin_adapter_registry
+from legalforecast.multiharness.adapter_registry import (
+    adapter_auth_profile_record,
+    adapter_from_manifest_file,
+    builtin_adapter_registry,
+)
 from legalforecast.multiharness.adapters import HarnessAdapter
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
@@ -74,7 +78,6 @@ from legalforecast.multiharness.solver_inputs import SolverInputStore
 from legalforecast.multiharness.spec import (
     HOST_PROCESS_CONTAINMENT_MODES,
     POSIX_PROCESS_GROUP_CONTAINMENT,
-    AdapterManifest,
     ContributorCredit,
     TaskIndex,
 )
@@ -311,8 +314,9 @@ def add_multiharness_parser(subparsers: Any) -> None:
         type=Path,
         action="append",
         required=True,
-        help="Command adapter manifest. Repeat for multiple adapters.",
+        help="Command or local-CLI adapter manifest. Repeatable.",
     )
+    run.add_argument("--auth-profile", help="Override local-CLI auth_profile_name.")
     run.add_argument(
         "--model-key",
         action="append",
@@ -816,8 +820,16 @@ def _cmd_run_guarded(args: argparse.Namespace) -> int:
         cast(Path | None, args.task_folder),
     )
     output_dir = cast(Path, args.output_dir)
+    adapters = tuple(
+        adapter_from_manifest_file(
+            path,
+            auth_profile=cast(str | None, args.auth_profile),
+            dry_run=cast(bool, args.dry_run),
+            timeout_seconds=cast(float, args.timeout_seconds),
+        )
+        for path in _path_tuple_arg(args, "adapter_manifest")
+    )
     _ensure_cli_private_directory(output_dir)
-    manifests = _adapter_manifests_from_paths(_path_tuple_arg(args, "adapter_manifest"))
     policy = _sandbox_policy_from_args(args)
     if cast(bool, args.live_tool_container):
         if solver_inputs is None:
@@ -827,7 +839,7 @@ def _cmd_run_guarded(args: argparse.Namespace) -> int:
         validate_live_container_policy(policy)
     validate_provider_environment_scope(
         sandbox_policy=policy,
-        adapter_count=len(manifests),
+        adapter_count=len(adapters),
         model_count=len(_str_tuple_arg(args, "model_key")),
     )
     if cast(bool, args.dry_run):
@@ -837,19 +849,12 @@ def _cmd_run_guarded(args: argparse.Namespace) -> int:
                 args=args,
                 task_index=task_index,
                 selection=selection,
-                manifests=manifests,
+                adapters=adapters,
                 policy_record=policy.to_record(),
                 solver_inputs=solver_inputs,
             ),
         )
         return 0
-    adapters = tuple(
-        CommandAdapter.from_manifest_file(
-            path,
-            timeout_seconds=cast(float, args.timeout_seconds),
-        )
-        for path in _path_tuple_arg(args, "adapter_manifest")
-    )
     run = run_multi_harness(
         MultiHarnessRunConfig(
             task_index=task_index,
@@ -1392,7 +1397,7 @@ def _run_plan_record(
     args: argparse.Namespace,
     task_index: TaskIndex,
     selection: TaskSelection,
-    manifests: Sequence[AdapterManifest],
+    adapters: Sequence[HarnessAdapter],
     policy_record: Mapping[str, Any],
     solver_inputs: SolverInputStore | None,
 ) -> dict[str, Any]:
@@ -1409,7 +1414,7 @@ def _run_plan_record(
         },
         "selection": selection.normalized().to_record(),
         "selection_result": selected.to_record(),
-        "adapter_manifests": [manifest.to_record() for manifest in manifests],
+        "adapter_manifests": [adapter.manifest.to_record() for adapter in adapters],
         "model_keys": list(_str_tuple_arg(args, "model_key")),
         "sandbox_policy": dict(policy_record),
         "incomplete_run_policy": _required_str_arg(args, "incomplete_run_policy"),
@@ -1421,6 +1426,7 @@ def _run_plan_record(
     }
     if solver_inputs is not None:
         record["solver_input_index_sha256"] = solver_inputs.index.index_sha256
+    record.update(adapter_auth_profile_record(adapters))
     return record
 
 
@@ -1444,13 +1450,6 @@ def _sandbox_policy_from_args(args: argparse.Namespace):
             args,
             "host_process_containment",
         ),
-    )
-
-
-def _adapter_manifests_from_paths(paths: Sequence[Path]) -> tuple[AdapterManifest, ...]:
-    return tuple(
-        AdapterManifest.from_record(_read_json(path, "adapter manifest"))
-        for path in paths
     )
 
 
