@@ -56,7 +56,7 @@ def canonical_task_from_projection(
         "module": record.category,
         "practice_area": record.category,
         "category": record.category,
-        "expected_deliverable": record.expected_deliverable,
+        "expected_deliverables": list(record.expected_deliverables),
         "projected_layout_id": manifest.layout_id,
         # `document_hashes` keyed by document filename is the shape the raw
         # LAB loader publishes, and the only one the public-record secret

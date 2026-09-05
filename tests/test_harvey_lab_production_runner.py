@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
-from legalforecast.multiharness.deliverables import single_artifact_tree_sha256
+from legalforecast.multiharness.deliverables import artifact_tree_sha256
 from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
@@ -81,23 +81,39 @@ def _response(
     )
 
 
-def _run_spec(tmp_path: Path) -> tuple[RunSpec, Path]:
+def _run_spec(
+    tmp_path: Path,
+    *,
+    deliverables: Mapping[str, bytes] | None = None,
+    expected_basenames: tuple[str, ...] | None = None,
+    criterion_count: int = 23,
+    criteria: list[dict[str, object]] | None = None,
+) -> tuple[RunSpec, Path]:
     scores_path = tmp_path / "overlay" / "raw" / "scores.json"
     private_path = tmp_path / "overlay" / "private" / "task.json"
     private_path.parent.mkdir(parents=True)
     # The runner authenticates the candidate deliverable before any provider
     # call, so a spec without one is refused rather than graded.
-    deliverable_payload = _docx_bytes("Candidate memo body.")
-    deliverable_path = tmp_path / "overlay" / "output" / DELIVERABLE_BASENAME
-    deliverable_path.parent.mkdir(parents=True)
-    deliverable_path.write_bytes(deliverable_payload)
+    payloads = dict(
+        deliverables or {DELIVERABLE_BASENAME: _docx_bytes("Candidate memo body.")}
+    )
+    deliverable_root = tmp_path / "overlay" / "output"
+    deliverable_root.mkdir(parents=True)
+    deliverable_paths: list[Path] = []
+    for relative, payload in sorted(payloads.items()):
+        path = deliverable_root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+        deliverable_paths.append(path)
     private_path.write_text(
         json.dumps(
             {
                 "id": "task",
-                "criteria": [
+                "criteria": criteria
+                if criteria is not None
+                else [
                     {"id": f"criterion-{ordinal}", "text": f"rule-{ordinal}"}
-                    for ordinal in range(1, 24)
+                    for ordinal in range(1, criterion_count + 1)
                 ],
             },
             sort_keys=True,
@@ -116,11 +132,14 @@ def _run_spec(tmp_path: Path) -> tuple[RunSpec, Path]:
                 "private_material_sha256": harvey_lab_private_material_sha256(
                     private_path.parent
                 ),
-                "deliverable_path": str(deliverable_path),
-                "expected_deliverable_basename": DELIVERABLE_BASENAME,
-                "deliverable_tree_sha256": single_artifact_tree_sha256(
-                    DELIVERABLE_BASENAME, deliverable_payload
+                "deliverable_paths": [str(path) for path in deliverable_paths],
+                "deliverable_root": str(deliverable_root),
+                "expected_deliverable_basenames": list(
+                    expected_basenames
+                    if expected_basenames is not None
+                    else tuple(sorted(payloads))
                 ),
+                "deliverable_tree_sha256": artifact_tree_sha256(payloads),
             },
             separators=(",", ":"),
         ).encode("utf-8"),
@@ -176,6 +195,131 @@ def test_production_runner_calls_provider_per_criterion_and_retains_retries(
     assert scores["n_criteria"] == 23
     assert scores["n_passed"] == 23
     assert receipt.usage == {"input_tokens": 240, "output_tokens": 120}
+
+
+def test_production_runner_authenticates_multi_output_and_task_cardinality(
+    tmp_path: Path,
+) -> None:
+    spec, scores_path = _run_spec(
+        tmp_path,
+        deliverables={
+            "analysis.docx": _docx_bytes("Analysis body."),
+            "memo.docx": _docx_bytes("Memo body."),
+        },
+        criterion_count=2,
+    )
+    calls: list[ProductionJudgeCall] = []
+    pricing = _pricing()
+    runner = ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda call: (calls.append(call), _response(pricing))[1],
+        attempt_writer=lambda _call, _response: None,
+    )
+
+    runner(LocalCliExecutionService(), spec, _Boundary())
+
+    assert len(calls) == 2
+    assert calls[0].deliverable.artifact_paths == (
+        "analysis.docx",
+        "memo.docx",
+    )
+    assert "Analysis body." in calls[0].deliverable.text
+    assert "Memo body." in calls[0].deliverable.text
+    assert json.loads(scores_path.read_text(encoding="utf-8"))["n_criteria"] == 2
+
+
+def test_production_runner_gives_each_criterion_only_its_declared_deliverable(
+    tmp_path: Path,
+) -> None:
+    spec, _ = _run_spec(
+        tmp_path,
+        deliverables={
+            "analysis.docx": _docx_bytes("Correct analysis."),
+            "misleading.docx": _docx_bytes("Misleading contrary answer."),
+        },
+        criteria=[
+            {
+                "id": "analysis-only",
+                "text": "grade the analysis",
+                "deliverables": ["analysis.docx"],
+            },
+            {
+                "id": "fallback-all",
+                "text": "grade the whole work product",
+                "deliverables": [],
+            },
+        ],
+    )
+    calls: list[ProductionJudgeCall] = []
+    pricing = _pricing()
+
+    ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda call: (calls.append(call), _response(pricing))[1],
+        attempt_writer=lambda _call, _response: None,
+    )(LocalCliExecutionService(), spec, _Boundary())
+
+    assert calls[0].deliverable.artifact_paths == ("analysis.docx",)
+    assert "Correct analysis." in calls[0].deliverable.text
+    assert "Misleading contrary answer." not in calls[0].deliverable.text
+    assert calls[1].deliverable.artifact_paths == (
+        "analysis.docx",
+        "misleading.docx",
+    )
+    assert "Misleading contrary answer." in calls[1].deliverable.text
+
+
+def test_production_runner_refuses_bad_later_criterion_before_any_provider_call(
+    tmp_path: Path,
+) -> None:
+    spec, _ = _run_spec(
+        tmp_path,
+        deliverables={"analysis.docx": _docx_bytes("Correct analysis.")},
+        criteria=[
+            {
+                "id": "valid-first",
+                "text": "valid",
+                "deliverables": ["analysis.docx"],
+            },
+            {
+                "id": "invalid-second",
+                "text": "invalid",
+                "deliverables": ["not-produced.docx"],
+            },
+        ],
+    )
+    calls: list[ProductionJudgeCall] = []
+    pricing = _pricing()
+    runner = ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda call: (calls.append(call), _response(pricing))[1],
+        attempt_writer=lambda _call, _response: None,
+    )
+
+    with pytest.raises(ValueError, match="unknown deliverable"):
+        runner(LocalCliExecutionService(), spec, _Boundary())
+    assert calls == []
+
+
+def test_production_runner_accepts_score_all_outputs_contract(tmp_path: Path) -> None:
+    spec, _ = _run_spec(
+        tmp_path,
+        deliverables={
+            "issues.docx": _docx_bytes("Issues body."),
+            "redline.docx": _docx_bytes("Redline body."),
+        },
+        expected_basenames=(),
+        criterion_count=1,
+    )
+    calls: list[ProductionJudgeCall] = []
+    pricing = _pricing()
+
+    ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda call: (calls.append(call), _response(pricing))[1],
+        attempt_writer=lambda _call, _response: None,
+    )(LocalCliExecutionService(), spec, _Boundary())
+
+    assert calls[0].deliverable.artifact_paths == (
+        "issues.docx",
+        "redline.docx",
+    )
 
 
 def test_production_runner_rejects_tampered_private_criteria_before_provider(

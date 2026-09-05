@@ -14,6 +14,7 @@ from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from legalforecast.contracts.schemas import HARVEY_LAB_EVALUATOR_ISSUER_POLICY_V2
 from legalforecast.multiharness.evaluation import (
     EVALUATION_RECEIPT_SCHEMA_VERSION,
     EvaluationBindingError,
@@ -35,12 +36,11 @@ from legalforecast.multiharness.validation import (
 
 HARVEY_LAB_EVALUATOR_ISSUER_POLICY_ID = (
     # contract-ratchet: allow LAB issuer policy until contracts registry
-    "legalforecast.harvey-lab-evaluator-issuer.v1"
+    "legalforecast.harvey-lab-evaluator-issuer.v2"
 )
 HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID = "harvey-lab-evaluator-v1"
-HARVEY_LAB_EVALUATOR_ISSUER_POLICY_SCHEMA_VERSION = (
-    # contract-ratchet: allow LAB issuer policy until contracts registry
-    "legalforecast.harvey_lab_evaluator_issuer_policy.v1"
+HARVEY_LAB_EVALUATOR_ISSUER_POLICY_SCHEMA_VERSION = str(
+    HARVEY_LAB_EVALUATOR_ISSUER_POLICY_V2
 )
 
 _RECEIPT_REQUIRED_FIELDS = frozenset(
@@ -94,7 +94,7 @@ def harvey_lab_authorized_issuer_policy() -> dict[str, object]:
         "key_id": HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
         "normalizer_id": HARVEY_LAB_NORMALIZER_ID,
         "metric_id": "harvey-lab-binary-all-pass-v1",
-        "criterion_count": 23,
+        "criterion_count_rule": "authenticated_private_task",
     }
 
 

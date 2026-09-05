@@ -61,7 +61,9 @@ def _docx_bytes() -> bytes:
     return buffer.getvalue()
 
 
-def _task() -> HarveyLabProjectedTask:
+def _task(
+    expected_deliverables: tuple[str, ...] = (BASENAME,),
+) -> HarveyLabProjectedTask:
     payload = b"PK\x03\x04doc"
     return HarveyLabProjectedTask(
         task_id=f"harvey_lab:{PINNED_TASK_ID}",
@@ -69,7 +71,7 @@ def _task() -> HarveyLabProjectedTask:
         category="employment-labor",
         relative_path=f"tasks/{PINNED_TASK_ID}",
         task_sha256="1" * 64,
-        expected_deliverable=BASENAME,
+        expected_deliverables=expected_deliverables,
         files=(
             HarveyLabProjectedFile(
                 path="documents/briggs-declaration.docx",
@@ -128,6 +130,83 @@ def test_valid_docx_seals_and_ignores_empty_quarantine(tmp_path: Path) -> None:
     assert artifact.sha256.startswith("sha256:")
     assert (tmp_path / "sealed" / BASENAME).is_file()
     assert not (tmp_path / "quarantine").exists()
+
+
+def test_multiple_declared_docx_outputs_are_all_sealed(tmp_path: Path) -> None:
+    sandbox = tmp_path / "sandbox"
+    output = sandbox / "output"
+    output.mkdir(parents=True)
+    for basename in ("analysis.docx", "memo.docx"):
+        (output / basename).write_bytes(_docx_bytes())
+
+    result = discover_harvey_lab_outputs(
+        sandbox_root=sandbox,
+        output_root=output,
+        quarantine_root=tmp_path / "quarantine",
+        sealed_root=tmp_path / "sealed",
+        task=_task(("analysis.docx", "memo.docx")),
+        task_sha256=TASK_SHA256,
+        run_sha256=RUN_SHA256,
+        config_sha256=CONFIG_SHA256,
+    )
+
+    assert result.expected_deliverables == ("analysis.docx", "memo.docx")
+    assert [artifact.path for artifact in result.sealed.artifacts] == [
+        "analysis.docx",
+        "memo.docx",
+    ]
+    assert result.quarantined == ()
+
+
+def test_no_declared_names_seals_every_bounded_docx_output(tmp_path: Path) -> None:
+    sandbox = tmp_path / "sandbox"
+    output = sandbox / "output"
+    output.mkdir(parents=True)
+    for basename in ("issues.docx", "redline.docx"):
+        (output / basename).write_bytes(_docx_bytes())
+
+    result = discover_harvey_lab_outputs(
+        sandbox_root=sandbox,
+        output_root=output,
+        quarantine_root=tmp_path / "quarantine",
+        sealed_root=tmp_path / "sealed",
+        task=_task(()),
+        task_sha256=TASK_SHA256,
+        run_sha256=RUN_SHA256,
+        config_sha256=CONFIG_SHA256,
+    )
+
+    assert result.expected_deliverables == ()
+    assert [artifact.path for artifact in result.sealed.artifacts] == [
+        "issues.docx",
+        "redline.docx",
+    ]
+    assert result.quarantined == ()
+
+
+def test_missing_one_of_multiple_declared_outputs_refuses_before_sealing(
+    tmp_path: Path,
+) -> None:
+    sandbox = tmp_path / "sandbox"
+    output = sandbox / "output"
+    output.mkdir(parents=True)
+    (output / "analysis.docx").write_bytes(_docx_bytes())
+
+    with pytest.raises(HarveyLabOutputDiscoveryError) as caught:
+        discover_harvey_lab_outputs(
+            sandbox_root=sandbox,
+            output_root=output,
+            quarantine_root=tmp_path / "quarantine",
+            sealed_root=tmp_path / "sealed",
+            task=_task(("analysis.docx", "memo.docx")),
+            task_sha256=TASK_SHA256,
+            run_sha256=RUN_SHA256,
+            config_sha256=CONFIG_SHA256,
+        )
+
+    assert caught.value.code == HarveyLabOutputErrorCode.MISSING_DELIVERABLE
+    assert "memo.docx" in str(caught.value)
+    assert not (tmp_path / "sealed").exists()
 
 
 def test_fake_solver_output_is_discovered(tmp_path: Path) -> None:

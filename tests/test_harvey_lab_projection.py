@@ -101,7 +101,7 @@ def test_issue_196_projection_is_deterministic_and_omits_private_material(
         )
     )
     assert descriptor["task_sha256"] == task.task_sha256
-    assert descriptor["expected_deliverable"] == task.expected_deliverable
+    assert descriptor["expected_deliverables"] == list(task.expected_deliverables)
     descriptor_paths = {item["path"] for item in descriptor["files"]}
     assert "task-projection.json" not in descriptor_paths
     root_paths = {item.path for item in task.files}
@@ -600,6 +600,34 @@ def test_pinned_checkout_projection_preserves_document_hashes(
     expected = {Path(item["path"]).name: item["sha256"] for item in _pin_documents()}
     assert projected == expected
     scan_projection_for_private_markers(result.solver_root)
+
+
+def test_pinned_checkout_projects_multi_and_undeclared_output_shapes(
+    tmp_path: Path,
+) -> None:
+    raw_root = os.environ.get("HARVEY_LAB_ROOT")
+    if raw_root is None:
+        pytest.skip("set HARVEY_LAB_ROOT to verify the pinned upstream checkout")
+    task_ids = (
+        "contracts/healthcare/clinical-trial-agreement-first-draft",
+        "corporate-governance/draft-markup-of-proposed-settlement-agreement",
+    )
+
+    result = project_harvey_lab_suite(
+        source_root=Path(raw_root),
+        solver_root=tmp_path / "solver",
+        evaluator_private_root=tmp_path / "private",
+        lab_task_ids=task_ids,
+    )
+
+    tasks = {task.lab_task_id: task for task in result.manifest.tasks}
+    assert tasks[task_ids[0]].expected_deliverables == ()
+    assert tasks[task_ids[1]].expected_deliverables == (
+        "redlined-settlement-agreement.docx",
+        "settlement-markup-commentary-memo.docx",
+    )
+    assert result.skipped == ()
+    verify_harvey_lab_projection(result.solver_root)
 
 
 def _issue_196_source(lab_root: Path) -> Path:

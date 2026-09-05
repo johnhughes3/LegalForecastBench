@@ -1,11 +1,7 @@
-"""Isolated Harvey LAB evaluator invocation.
+"""Evaluate sealed Harvey LAB deliverables without rerunning the solver.
 
-Evaluate a sealed external deliverable without rerunning the solver. The
-contained process sees only overlay paths listed in an explicit stdin
-manifest, under the #685 POSIX process-group runtime (fixture-none, fresh
-HOME/XDG, no ambient credentials). POSIX process-group containment does not
-filter host sockets; the signed policy records ``network: host-process``.
-Overlay, solver projection, and evaluator-private roots are pairwise disjoint.
+The #685 process boundary receives only explicit overlay paths. Its signed policy
+records host-process networking; overlay, solver, and private roots stay disjoint.
 """
 
 from __future__ import annotations
@@ -14,16 +10,17 @@ import hashlib
 import json
 import os
 import shutil
-import stat
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 from legalforecast._json_io import write_json_object
+from legalforecast.contracts.schemas import HARVEY_LAB_EVALUATION_INPUT_V2
 from legalforecast.multiharness.deliverables import (
     DeliverableManifest,
     validate_sealed_deliverable,
@@ -37,6 +34,19 @@ from legalforecast.multiharness.evaluation import (
     TokenCount,
     build_evaluation_receipt,
     build_evaluation_spec,
+)
+from legalforecast.multiharness.harvey_lab.contract import (
+    HarveyLabContractError,
+    private_criterion_count,
+    validated_deliverable_sources,
+)
+from legalforecast.multiharness.harvey_lab.evaluation_contract import (
+    HarveyLabEvaluationError,
+    harvey_lab_private_material_sha256,
+    harvey_lab_private_material_snapshot,
+)
+from legalforecast.multiharness.harvey_lab.evaluation_contract import (
+    read_regular_file as _read_regular_file,
 )
 from legalforecast.multiharness.harvey_lab_projection import (
     HarveyLabPin,
@@ -53,10 +63,7 @@ from legalforecast.multiharness.validation import (
     validate_sha256,
 )
 
-EVALUATION_INPUT_SCHEMA_VERSION = (
-    # contract-ratchet: allow LAB1 evaluation-input schema until contracts registry
-    "legalforecast.harvey_lab_evaluation_input.v1"
-)
+EVALUATION_INPUT_SCHEMA_VERSION = str(HARVEY_LAB_EVALUATION_INPUT_V2)
 EVALUATION_OUTPUT_SCHEMA_VERSION = (
     # contract-ratchet: allow LAB1 evaluation-output schema until contracts registry
     "legalforecast.harvey_lab_evaluation_output.v1"
@@ -66,10 +73,6 @@ EVALUATOR_COMMAND_NAME = "harvey-lab-eval"
 _OVERLAY_DELIVERABLE = "output"
 _OVERLAY_PRIVATE = "private"
 _OVERLAY_RAW = "raw"
-
-
-class HarveyLabEvaluationError(ValueError):
-    """Raised when isolated LAB evaluation cannot proceed fail-closed."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,7 +109,7 @@ class HarveyLabJudgeRequestBoundary:
     sending each provider request, and ``after_judge_call`` immediately after
     the response has been converted to an auditable usage observation.  The
     boundary is deliberately an object protocol rather than aggregate hooks:
-    a caller cannot truthfully reserve one call for all 23 criteria.
+    a caller cannot truthfully reserve one call for the whole rubric.
     """
 
     def before_judge_call(self, request: HarveyLabJudgeRequest) -> object:
@@ -145,7 +148,7 @@ class HarveyLabEvaluationIdentity:
 
     lab_task_id: str
     task_sha256: str
-    expected_deliverable_basename: str
+    expected_deliverable_basenames: tuple[str, ...]
     projection_manifest_sha256: str
     wrapper_sha256: str
     run_sha256: str
@@ -234,6 +237,7 @@ class HarveyLabIsolatedEvaluation:
     receipt: EvaluationReceipt
     execution: ExecutionReceipt
     raw_result: bytes
+    criterion_count: int
     overlay_root: Path
     input_manifest: Mapping[str, object]
 
@@ -339,6 +343,7 @@ def invoke_isolated_harvey_lab_evaluator(
             raise HarveyLabEvaluationError(
                 "execution service cannot pin the evaluator PATH"
             ) from exc
+        criterion_count = _authenticated_private_criterion_count(stdin_record)
         started_monotonic = _monotonic_ns()
         started_at = datetime.now(UTC)
         if judge_request_boundary is None:
@@ -359,6 +364,7 @@ def invoke_isolated_harvey_lab_evaluator(
             )
         ended_monotonic = _monotonic_ns()
         ended_at = datetime.now(UTC)
+        _require_private_material_unchanged(stdin_record)
         if execution.status != "succeeded" or execution.returncode not in {0, None}:
             raise HarveyLabEvaluationError(
                 "contained LAB evaluator failed; evaluation never reruns the solver"
@@ -432,6 +438,7 @@ def invoke_isolated_harvey_lab_evaluator(
             receipt=receipt,
             execution=execution,
             raw_result=raw_result,
+            criterion_count=criterion_count,
             overlay_root=hosts.overlay_root.resolve(),
             input_manifest=stdin_record,
         )
@@ -454,7 +461,7 @@ def evaluation_input_record(
         "schema_version": EVALUATION_INPUT_SCHEMA_VERSION,
         "mode": mode,
         "lab_task_id": identity.lab_task_id,
-        "expected_deliverable_basename": identity.expected_deliverable_basename,
+        "expected_deliverable_basenames": list(identity.expected_deliverable_basenames),
         "deliverable_manifest_sha256": sealed_manifest.manifest_sha256,
         "deliverable_tree_sha256": sealed_manifest.tree_sha256,
         "task_sha256": _require_prefixed(identity.task_sha256, "task_sha256"),
@@ -462,16 +469,22 @@ def evaluation_input_record(
         "private_material_sha256": harvey_lab_private_material_sha256(
             overlay["private_task_json"].parent
         ),
-        "deliverable_path": str(overlay["deliverable"]),
+        "deliverable_paths": [
+            str(overlay["deliverable_root"] / artifact.path)
+            for artifact in sealed_manifest.artifacts
+        ],
+        "deliverable_root": str(overlay["deliverable_root"]),
         "private_task_json_path": str(overlay["private_task_json"]),
         "scores_output_path": str(overlay["scores"]),
     }
     for field_name in (
-        "deliverable_path",
         "private_task_json_path",
         "scores_output_path",
+        "deliverable_root",
     ):
         _require_overlay_path(overlay_root, Path(str(record[field_name])), field_name)
+    for deliverable_path in cast(list[str], record["deliverable_paths"]):
+        _require_overlay_path(overlay_root, Path(deliverable_path), "deliverable_paths")
     if hosts.solver_projection_root is not None:
         solver = hosts.solver_projection_root.resolve()
         if _record_reaches_root(record, solver):
@@ -479,6 +492,41 @@ def evaluation_input_record(
                 "evaluation input must not name the solver projection root"
             )
     return record
+
+
+def _authenticated_private_criterion_count(record: Mapping[str, object]) -> int:
+    private_path = Path(str(record["private_task_json_path"]))
+    expected_digest = str(record["private_material_sha256"])
+    try:
+        actual_digest, files = harvey_lab_private_material_snapshot(private_path.parent)
+        task_json = files[private_path.name]
+    except (HarveyLabEvaluationError, KeyError) as exc:
+        raise HarveyLabEvaluationError(
+            "evaluator-private task material is not readable"
+        ) from exc
+    if actual_digest != expected_digest:
+        raise HarveyLabEvaluationError(
+            "evaluator-private task material does not match its input digest"
+        )
+    try:
+        return private_criterion_count(task_json)
+    except HarveyLabContractError as exc:
+        raise HarveyLabEvaluationError(f"evaluator-private {exc}") from exc
+
+
+def _require_private_material_unchanged(record: Mapping[str, object]) -> None:
+    private_path = Path(str(record["private_task_json_path"]))
+    expected_digest = str(record["private_material_sha256"])
+    try:
+        actual_digest = harvey_lab_private_material_sha256(private_path.parent)
+    except HarveyLabEvaluationError as exc:
+        raise HarveyLabEvaluationError(
+            "evaluator-private task material changed during evaluation"
+        ) from exc
+    if actual_digest != expected_digest:
+        raise HarveyLabEvaluationError(
+            "evaluator-private task material changed during evaluation"
+        )
 
 
 def _prepare_evaluation_overlay(
@@ -505,49 +553,35 @@ def _prepare_evaluation_overlay(
         validate_sealed_deliverable(sealed_root, sealed_manifest)
     except (OSError, ValueError) as exc:
         raise HarveyLabEvaluationError(str(exc)) from exc
-    basename = identity.expected_deliverable_basename
-    if basename != Path(basename).name or basename in {".", ".."}:
-        raise HarveyLabEvaluationError(
-            "expected_deliverable_basename must be a single filename"
-        )
+    for basename in identity.expected_deliverable_basenames:
+        if basename != Path(basename).name or basename in {".", ".."}:
+            raise HarveyLabEvaluationError(
+                "expected_deliverable_basenames must contain single filenames"
+            )
+        try:
+            validate_safe_relative_path(basename, "expected_deliverable_basenames")
+        except MultiHarnessValidationError as exc:
+            raise HarveyLabEvaluationError(str(exc)) from exc
     try:
-        validate_safe_relative_path(basename, "expected_deliverable_basename")
-    except MultiHarnessValidationError as exc:
+        sources = validated_deliverable_sources(
+            sealed_root, sealed_manifest, identity.expected_deliverable_basenames
+        )
+    except HarveyLabContractError as exc:
         raise HarveyLabEvaluationError(str(exc)) from exc
-    source = _deliverable_source(sealed_root, sealed_manifest, basename)
-    deliverable_dest = overlay / _OVERLAY_DELIVERABLE / basename
+    deliverable_root = overlay / _OVERLAY_DELIVERABLE
     private_dest = overlay / _OVERLAY_PRIVATE / "task.json"
     scores_dest = overlay / _OVERLAY_RAW / "scores.json"
-    _copy_regular_file(source, deliverable_dest)
+    for artifact, source in zip(sealed_manifest.artifacts, sources, strict=True):
+        _copy_regular_file(source, deliverable_root / artifact.path)
     _copy_regular_file(
         _private_task_json(private_root, identity.lab_task_id), private_dest
     )
     scores_dest.parent.mkdir(parents=True, exist_ok=True)
     return {
-        "deliverable": deliverable_dest,
+        "deliverable_root": deliverable_root,
         "private_task_json": private_dest,
         "scores": scores_dest,
     }
-
-
-def _deliverable_source(
-    sealed_root: Path,
-    manifest: DeliverableManifest,
-    basename: str,
-) -> Path:
-    paths = [artifact.path for artifact in manifest.artifacts]
-    if paths != [basename]:
-        raise HarveyLabEvaluationError(
-            "sealed deliverable must contain exactly the expected basename "
-            "and no extra artifacts"
-        )
-    source = sealed_root / basename
-    payload = _read_regular_file(source)
-    expected = manifest.artifacts[0].sha256.removeprefix("sha256:")
-    actual = hashlib.sha256(payload).hexdigest()
-    if actual != expected:
-        raise HarveyLabEvaluationError(f"sealed deliverable hash mismatch: {basename}")
-    return source
 
 
 def _private_task_root(private_root: Path, lab_task_id: str) -> Path:
@@ -769,26 +803,6 @@ def _copy_regular_file(source: Path, destination: Path) -> None:
     _write_regular_file(destination, payload)
 
 
-def _read_regular_file(path: Path) -> bytes:
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
-    try:
-        fd = os.open(path, flags)
-    except OSError as exc:
-        raise HarveyLabEvaluationError(
-            f"evaluation path must be a regular file: {path.name}"
-        ) from exc
-    try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):
-            raise HarveyLabEvaluationError(
-                f"evaluation path must be a regular file: {path.name}"
-            )
-        with os.fdopen(fd, "rb", closefd=False) as handle:
-            return handle.read()
-    finally:
-        os.close(fd)
-
-
 def _write_regular_file(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     flags = (
@@ -858,9 +872,9 @@ def _require_projected_identity(
         raise HarveyLabEvaluationError(
             "task_sha256 does not match the selected projected task"
         )
-    if identity.expected_deliverable_basename != task.expected_deliverable:
+    if identity.expected_deliverable_basenames != task.expected_deliverables:
         raise HarveyLabEvaluationError(
-            "expected_deliverable_basename does not match the selected projected task"
+            "expected_deliverable_basenames do not match the selected projected task"
         )
 
 
@@ -1000,69 +1014,6 @@ def _record_reaches_root(record: Mapping[str, object], root: Path) -> bool:
         if resolved == root or resolved.is_relative_to(root):
             return True
     return False
-
-
-def _directory_digest(root: Path, field_name: str) -> str:
-    digest, _ = _directory_snapshot(root, field_name)
-    return digest
-
-
-def _directory_snapshot(root: Path, field_name: str) -> tuple[str, Mapping[str, bytes]]:
-    if root.is_symlink() or not root.is_dir():
-        raise HarveyLabEvaluationError(f"{field_name} root must be a real directory")
-    entries: list[dict[str, object]] = []
-    payloads: dict[str, bytes] = {}
-    for path in _walk_regular_files(root, field_name):
-        relative = path.relative_to(root).as_posix()
-        payload = _read_regular_file(path)
-        payloads[relative] = payload
-        entries.append(
-            {
-                "path": relative,
-                "sha256": hashlib.sha256(payload).hexdigest(),
-                "size_bytes": len(payload),
-            }
-        )
-    return _prefixed_json({"files": entries}), payloads
-
-
-def harvey_lab_private_material_sha256(root: Path) -> str:
-    """Hash the exact evaluator-private directory supplied to the judge."""
-
-    return _directory_digest(root, "private_material_sha256")
-
-
-def harvey_lab_private_material_snapshot(
-    root: Path,
-) -> tuple[str, Mapping[str, bytes]]:
-    """Return one digest and the exact private bytes used to compute it."""
-
-    return _directory_snapshot(root, "private_material_sha256")
-
-
-def _walk_regular_files(root: Path, field_name: str) -> list[Path]:
-    files: list[Path] = []
-    stack = [root]
-    while stack:
-        current = stack.pop()
-        try:
-            children = sorted(current.iterdir())
-        except OSError as exc:
-            raise HarveyLabEvaluationError(f"{field_name} is unreadable") from exc
-        for child in children:
-            if child.is_symlink():
-                raise HarveyLabEvaluationError(
-                    f"{field_name} must not contain symlinks"
-                )
-            if child.is_dir():
-                stack.append(child)
-            elif child.is_file():
-                files.append(child)
-            else:
-                raise HarveyLabEvaluationError(
-                    f"{field_name} contains an unsupported entry"
-                )
-    return sorted(files)
 
 
 def _fixture_token_usage() -> EvaluationTokenUsage:

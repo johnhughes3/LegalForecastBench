@@ -22,7 +22,6 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from hashlib import sha256
 from pathlib import Path
 from typing import cast
 
@@ -30,10 +29,7 @@ from legalforecast.multiharness.deliverable_text import (
     DeliverableTextError,
     docx_visible_text,
 )
-from legalforecast.multiharness.deliverables import (
-    DeliverableValidationError,
-    single_artifact_tree_sha256,
-)
+from legalforecast.multiharness.deliverables import artifact_tree_sha256
 from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabJudgeRequest,
     HarveyLabJudgeRequestBoundary,
@@ -46,6 +42,8 @@ from legalforecast.multiharness.local_cli_contracts import (
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.spend import PricingSnapshot, UsageObservation
 
+# Compatibility export for the retained issue-196 task. Runtime cardinality is
+# now authenticated from the selected task rather than fixed to this value.
 HARVEY_LAB_JUDGE_CRITERION_COUNT = 23
 
 
@@ -57,19 +55,22 @@ class ProductionEvaluatorRunnerError(ValueError):
 class JudgeDeliverable:
     """The authenticated candidate work product shown to the judge.
 
-    ``text`` is what actually reaches the provider; ``sha256`` is the digest of
-    the exact deliverable bytes it was rendered from, so a retained attempt can
-    name the bytes each verdict was formed against.
+    ``text`` is what actually reaches the provider; ``sha256`` commits the
+    criterion-selected artifact subset, so a retained attempt names exactly
+    the artifacts used for its verdict. The enclosing run spec retains the
+    authenticated commitment to the full sealed output tree.
     """
 
-    basename: str
+    artifact_paths: tuple[str, ...]
     text: str
     sha256: str
 
     def __post_init__(self) -> None:
-        if not self.basename.strip():
+        if not self.artifact_paths or any(
+            not path.strip() for path in self.artifact_paths
+        ):
             raise ProductionEvaluatorRunnerError(
-                "judge deliverable must name its artifact"
+                "judge deliverable must name its artifacts"
             )
         if not self.text.strip():
             raise ProductionEvaluatorRunnerError(
@@ -218,12 +219,14 @@ class ProductionHarveyLabEvaluatorRunner:
         # Resolved before the loop: a deliverable that cannot be authenticated
         # must refuse the run before any reservation, credential fetch, or
         # billable request, not after the first criterion has been paid for.
-        deliverable = _authenticated_deliverable(spec)
+        deliverables = _authenticated_deliverables(spec, criteria)
         started = time.monotonic_ns()
         final_responses: list[ProductionJudgeResponse] = []
         all_responses: list[ProductionJudgeResponse] = []
         resolved_identity: str | None = None
-        for ordinal, criterion in enumerate(criteria, start=1):
+        for ordinal, (criterion, deliverable) in enumerate(
+            zip(criteria, deliverables, strict=True), start=1
+        ):
             criterion_id = str(criterion["id"])
             final: ProductionJudgeResponse | None = None
             for attempt_index in range(self._max_attempts):
@@ -284,7 +287,7 @@ class ProductionHarveyLabEvaluatorRunner:
                 )
             final_responses.append(final)
 
-        if len(final_responses) != HARVEY_LAB_JUDGE_CRITERION_COUNT:
+        if len(final_responses) != len(criteria):
             raise ProductionEvaluatorRunnerError(
                 "production evaluator did not produce all criterion verdicts"
             )
@@ -381,9 +384,9 @@ def _authenticated_criteria(spec: RunSpec) -> tuple[Mapping[str, object], ...]:
             "private task material must contain a criteria array"
         )
     criterion_values = cast(Sequence[object], raw_criteria)
-    if len(criterion_values) != HARVEY_LAB_JUDGE_CRITERION_COUNT:
+    if not criterion_values:
         raise ProductionEvaluatorRunnerError(
-            "production evaluator requires exactly 23 criterion records"
+            "production evaluator requires at least one criterion record"
         )
     normalized: list[Mapping[str, object]] = []
     seen: set[str] = set()
@@ -407,51 +410,82 @@ def _authenticated_criteria(spec: RunSpec) -> tuple[Mapping[str, object], ...]:
     return tuple(normalized)
 
 
-def _authenticated_deliverable(spec: RunSpec) -> JudgeDeliverable:
-    """Return the candidate deliverable text, bound to its sealed commitment.
+def _authenticated_deliverables(
+    spec: RunSpec, criteria: Sequence[Mapping[str, object]]
+) -> tuple[JudgeDeliverable, ...]:
+    """Return criterion-scoped text bound to the full sealed commitment.
 
     The evaluation-input record carries ``deliverable_tree_sha256``, the
-    commitment produced when the deliverable was sealed. The overlay copy the
-    evaluator can actually read is a single-file tree, so that commitment is
-    recomputable from the bytes on disk: matching it proves the text handed to
-    the judge is the candidate's authenticated work product and not a
-    substituted or mutated file.
+    commitment produced when the output set was sealed. The evaluator can
+    recompute it from the overlay bytes before any provider request, proving
+    the text handed to the judge is the candidate's authenticated work product.
     """
 
     record = _evaluator_input_record(spec)
-    path_value = record.get("deliverable_path")
-    basename = record.get("expected_deliverable_basename")
+    paths_value = record.get("deliverable_paths")
+    root_value = record.get("deliverable_root")
+    expected_basenames = record.get("expected_deliverable_basenames")
     expected_tree = record.get("deliverable_tree_sha256")
-    if not isinstance(path_value, str) or not path_value:
+    if not isinstance(paths_value, list) or not paths_value:
         raise ProductionEvaluatorRunnerError(
-            "evaluator input does not bind a deliverable path"
+            "evaluator input does not bind deliverable paths"
         )
-    if not isinstance(basename, str) or not basename:
+    if not isinstance(root_value, str) or not root_value:
         raise ProductionEvaluatorRunnerError(
-            "evaluator input does not bind the deliverable basename"
+            "evaluator input does not bind the deliverable root"
+        )
+    path_values = cast(list[object], paths_value)
+    if not isinstance(expected_basenames, list) or any(
+        not isinstance(item, str) for item in cast(list[object], expected_basenames)
+    ):
+        raise ProductionEvaluatorRunnerError(
+            "evaluator input does not bind expected deliverable basenames"
         )
     if not isinstance(expected_tree, str) or not expected_tree:
         raise ProductionEvaluatorRunnerError(
             "evaluator input does not bind the deliverable tree digest"
         )
-    path = Path(path_value)
-    if not path.is_absolute() or path.is_symlink() or not path.is_file():
+    root = Path(root_value)
+    if not root.is_absolute() or root.is_symlink() or not root.is_dir():
         raise ProductionEvaluatorRunnerError(
-            "candidate deliverable must be an absolute regular file"
+            "candidate deliverable root must be an absolute real directory"
         )
-    if path.name != basename:
+    paths: list[Path] = []
+    relative_paths: list[str] = []
+    for path_value in path_values:
+        if not isinstance(path_value, str) or not path_value:
+            raise ProductionEvaluatorRunnerError(
+                "evaluator input contains an invalid deliverable path"
+            )
+        path = Path(path_value)
+        try:
+            relative = path.relative_to(root).as_posix()
+        except ValueError as exc:
+            raise ProductionEvaluatorRunnerError(
+                "candidate deliverable escapes the deliverable root"
+            ) from exc
+        if not path.is_absolute() or path.is_symlink() or not path.is_file():
+            raise ProductionEvaluatorRunnerError(
+                "candidate deliverable must be an absolute regular file"
+            )
+        paths.append(path)
+        relative_paths.append(relative)
+    if relative_paths != sorted(relative_paths) or len(set(relative_paths)) != len(
+        relative_paths
+    ):
         raise ProductionEvaluatorRunnerError(
-            "candidate deliverable does not match the expected basename"
+            "candidate deliverable paths must be sorted and unique"
         )
-    try:
-        payload = path.read_bytes()
-    except OSError as exc:
+    if expected_basenames and relative_paths != expected_basenames:
         raise ProductionEvaluatorRunnerError(
-            "candidate deliverable is unreadable"
-        ) from exc
+            "candidate deliverables do not match the expected basenames"
+        )
+    payloads: dict[str, bytes] = {}
     try:
-        actual_tree = single_artifact_tree_sha256(basename, payload)
-    except DeliverableValidationError as exc:
+        for relative, path in zip(relative_paths, paths, strict=True):
+            payloads[relative] = path.read_bytes()
+        actual_tree = artifact_tree_sha256(payloads)
+    except (OSError, ValueError) as exc:
         raise ProductionEvaluatorRunnerError(
             "candidate deliverable tree commitment is not recomputable"
         ) from exc
@@ -459,17 +493,67 @@ def _authenticated_deliverable(spec: RunSpec) -> JudgeDeliverable:
         raise ProductionEvaluatorRunnerError(
             "candidate deliverable does not match the sealed tree digest"
         )
-    try:
-        text = docx_visible_text(payload)
-    except DeliverableTextError as exc:
-        raise ProductionEvaluatorRunnerError(
-            "candidate deliverable text is not extractable"
-        ) from exc
-    return JudgeDeliverable(
-        basename=basename,
-        text=text,
-        sha256="sha256:" + sha256(payload).hexdigest(),
+    extracted: dict[str, str] = {}
+    for relative in relative_paths:
+        try:
+            extracted[relative] = docx_visible_text(payloads[relative])
+        except (OSError, DeliverableTextError) as exc:
+            raise ProductionEvaluatorRunnerError(
+                f"candidate deliverable text is not extractable: {relative}"
+            ) from exc
+    available = tuple(relative_paths)
+    selected_by_criterion = tuple(
+        _criterion_deliverable_paths(criterion, available) for criterion in criteria
     )
+    return tuple(
+        JudgeDeliverable(
+            artifact_paths=selected,
+            text="\n\n".join(
+                f"## Agent Output: {relative}\n{extracted[relative]}"
+                for relative in selected
+            ),
+            sha256=artifact_tree_sha256(
+                {relative: payloads[relative] for relative in selected}
+            ),
+        )
+        for selected in selected_by_criterion
+    )
+
+
+def _criterion_deliverable_paths(
+    criterion: Mapping[str, object], available: tuple[str, ...]
+) -> tuple[str, ...]:
+    declared = criterion.get("deliverables")
+    if declared is None:
+        return available
+    if not isinstance(declared, Sequence) or isinstance(declared, str | bytes):
+        raise ProductionEvaluatorRunnerError(
+            "criterion deliverables must be an array of filenames"
+        )
+    values = cast(Sequence[object], declared)
+    if not values:
+        return available
+    selected: set[str] = set()
+    for value in values:
+        if (
+            not isinstance(value, str)
+            or not value
+            or value != Path(value).name
+            or value in {".", ".."}
+        ):
+            raise ProductionEvaluatorRunnerError(
+                "criterion deliverables must contain filenames"
+            )
+        if value not in available:
+            raise ProductionEvaluatorRunnerError(
+                f"criterion names unknown deliverable: {value}"
+            )
+        if value in selected:
+            raise ProductionEvaluatorRunnerError(
+                f"criterion names duplicate deliverable: {value}"
+            )
+        selected.add(value)
+    return tuple(path for path in available if path in selected)
 
 
 def _scores_path(spec: RunSpec) -> Path:

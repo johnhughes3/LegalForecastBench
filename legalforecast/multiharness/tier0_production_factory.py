@@ -491,7 +491,7 @@ def _judge_prompt(
     return (
         f"Criterion: {heading}\n\n"
         f"Requirement:\n{match_criteria}\n\n"
-        f"Candidate deliverable ({deliverable.basename}):\n"
+        f"Candidate deliverables ({', '.join(deliverable.artifact_paths)}):\n"
         f"<deliverable>\n{deliverable.text}\n</deliverable>\n"
     )
 

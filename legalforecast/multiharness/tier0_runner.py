@@ -2138,7 +2138,7 @@ def _run_native_thin(
     identity = HarveyLabEvaluationIdentity(
         lab_task_id=task.lab_task_id,
         task_sha256=_prefixed(task.task_sha256),
-        expected_deliverable_basename=task.expected_deliverable,
+        expected_deliverable_basenames=task.expected_deliverables,
         projection_manifest_sha256=projection.manifest.manifest_sha256,
         wrapper_sha256=spec.evaluator_wrapper_sha256,
         run_sha256=solver_spec.spec_sha256,
@@ -2375,7 +2375,7 @@ def _identities_match(
                 task.category,
                 task.relative_path,
                 task.task_sha256,
-                task.expected_deliverable,
+                task.expected_deliverables,
                 tuple(tuple(sorted(file.to_record().items())) for file in task.files),
             )
             for task in manifest.tasks

@@ -8,6 +8,7 @@ runs and zero provider spend. Required fail-closed mutations are named.
 
 from __future__ import annotations
 
+import json
 import os
 import stat
 import sys
@@ -62,6 +63,9 @@ FAKE_EVALUATOR = (
 )
 LAB_BASENAME = "issue-identification-memo.docx"
 KEY = Ed25519PrivateKey.from_private_bytes(b"L" * 32)
+MULTI_TASK_ID = "corporate/multi-output"
+MULTI_BASENAMES = ("analysis.docx", "memo.docx")
+UNDECLARED_TASK_ID = "contracts/legacy-output"
 
 
 def test_fake_cli_lab_pipeline_binds_projection_receipt_discovery_and_score(
@@ -115,6 +119,62 @@ def test_fake_cli_lab_pipeline_binds_projection_receipt_discovery_and_score(
     assert FAKE_CLI.is_file()
 
 
+def test_selected_multi_output_task_runs_through_projection_and_scoring(
+    tmp_path: Path,
+) -> None:
+    env = _install_binaries(tmp_path)
+    hosts = _hosts(tmp_path)
+    _add_multi_output_task(hosts["source_root"])
+    try:
+        result = run_claude_code_clean_native_harvey_lab(
+            adapter=_adapter(env),
+            pin=FIXTURE_PIN,
+            signer=KEY.sign,
+            issuer_public_key=KEY.public_key(),
+            lab_task_id=MULTI_TASK_ID,
+            **hosts,
+        )
+    finally:
+        _make_writable(tmp_path)
+
+    assert result.task.expected_deliverables == MULTI_BASENAMES
+    assert result.discovery.expected_deliverables == MULTI_BASENAMES
+    assert (
+        tuple(item.path for item in result.discovery.sealed.artifacts)
+        == MULTI_BASENAMES
+    )
+    assert result.evaluation.criterion_count == 2
+    assert result.score.n_passed == result.score.n_criteria == 2
+    assert result.score.score_value == 1
+
+
+def test_selected_undeclared_output_task_scores_all_bounded_docx_outputs(
+    tmp_path: Path,
+) -> None:
+    env = _install_binaries(tmp_path)
+    hosts = _hosts(tmp_path)
+    _add_undeclared_output_task(hosts["source_root"])
+    try:
+        result = run_claude_code_clean_native_harvey_lab(
+            adapter=_adapter(env),
+            pin=FIXTURE_PIN,
+            signer=KEY.sign,
+            issuer_public_key=KEY.public_key(),
+            lab_task_id=UNDECLARED_TASK_ID,
+            **hosts,
+        )
+    finally:
+        _make_writable(tmp_path)
+
+    assert result.task.expected_deliverables == ()
+    assert result.discovery.expected_deliverables == ()
+    assert tuple(item.path for item in result.discovery.sealed.artifacts) == (
+        LAB_BASENAME,
+    )
+    assert result.evaluation.criterion_count == 1
+    assert result.score.n_passed == result.score.n_criteria == 1
+
+
 def test_pipeline_selects_only_the_frozen_issue_196_task(tmp_path: Path) -> None:
     env = _install_binaries(tmp_path)
     hosts = _hosts(tmp_path)
@@ -159,10 +219,7 @@ def test_pipeline_refuses_an_invalid_projection_manifest(
     try:
         with pytest.raises(
             ClaudeCodeCliAdapterError,
-            match=(
-                "Harvey LAB projection did not produce exactly "
-                "the frozen issue-196 task"
-            ),
+            match="Harvey LAB projection did not produce exactly the selected task",
         ):
             run_claude_code_clean_native_harvey_lab(
                 adapter=_adapter(env),
@@ -333,6 +390,62 @@ def _hosts(tmp_path: Path) -> _LabHosts:
         "overlay_root": tmp_path / "overlay",
         "evaluator_working_directory": tmp_path / "eval-work",
     }
+
+
+def _add_multi_output_task(source_root: Path) -> None:
+    task_dir = source_root / "tasks" / MULTI_TASK_ID
+    (task_dir / "documents").mkdir(parents=True)
+    (task_dir / "documents" / "source.txt").write_text(
+        "Public source material", encoding="utf-8"
+    )
+    (task_dir / "task.json").write_text(
+        json.dumps(
+            {
+                "instructions": "Write analysis.docx and memo.docx.",
+                "deliverables": {name: name for name in MULTI_BASENAMES},
+                "criteria": [
+                    {
+                        "id": "c1",
+                        "title": "Analysis",
+                        "match_criteria": "Analysis criterion",
+                        "deliverables": ["analysis.docx"],
+                    },
+                    {
+                        "id": "c2",
+                        "title": "Memo",
+                        "match_criteria": "Memo criterion",
+                        "deliverables": ["memo.docx"],
+                    },
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _add_undeclared_output_task(source_root: Path) -> None:
+    task_dir = source_root / "tasks" / UNDECLARED_TASK_ID
+    (task_dir / "documents").mkdir(parents=True)
+    (task_dir / "documents" / "source.txt").write_text(
+        "Public source material", encoding="utf-8"
+    )
+    (task_dir / "task.json").write_text(
+        json.dumps(
+            {
+                "instructions": f"Write {LAB_BASENAME}.",
+                "criteria": [
+                    {
+                        "id": "c1",
+                        "title": "Memo",
+                        "match_criteria": "Memo criterion",
+                    }
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
 
 
 def _install_binaries(tmp_path: Path) -> dict[str, str]:

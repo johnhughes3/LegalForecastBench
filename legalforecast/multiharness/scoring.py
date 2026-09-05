@@ -110,8 +110,6 @@ class MetricDefinition:
         if self.metric_id != "harvey-lab-binary-all-pass-v1":
             raise ValueError("metric_id must identify the pinned LAB v1 metric")
         _positive(self.criterion_count, "criterion_count")
-        if self.criterion_count != 23:
-            raise ValueError("criterion_count must be exactly 23")
         _integer(self.raw_min, "raw_min")
         _integer(self.raw_max, "raw_max")
         if self.raw_min >= self.raw_max:
@@ -203,8 +201,6 @@ class ScoreArtifact:
         if self.unit != "binary":
             raise ValueError("score unit must be binary")
         _positive(self.n_criteria, "n_criteria")
-        if self.n_criteria != 23:
-            raise ValueError("n_criteria must be exactly 23")
         _non_negative(self.n_passed, "n_passed")
         if self.n_passed > self.n_criteria:
             raise ValueError("n_passed cannot exceed n_criteria")
@@ -243,13 +239,14 @@ def build_harvey_lab_metric_definition(
     criteria_sha256: str,
     aggregation_sha256: str,
     output_schema_sha256: str,
+    criterion_count: int = 23,
 ) -> MetricDefinition:
-    """Build the exact pinned 23-criterion Harvey LAB all-pass metric."""
+    """Build a task-bound Harvey LAB all-pass metric."""
 
     content: dict[str, object] = {
         "schema_version": METRIC_DEFINITION_SCHEMA_VERSION,
         "metric_id": "harvey-lab-binary-all-pass-v1",
-        "criterion_count": 23,
+        "criterion_count": criterion_count,
         "raw_min": 0,
         "raw_max": 1,
         "direction": "higher_is_better",
@@ -267,7 +264,7 @@ def build_harvey_lab_metric_definition(
     }
     return MetricDefinition(
         metric_id="harvey-lab-binary-all-pass-v1",
-        criterion_count=23,
+        criterion_count=criterion_count,
         raw_min=0,
         raw_max=1,
         direction="higher_is_better",

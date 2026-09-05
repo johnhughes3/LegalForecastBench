@@ -139,12 +139,13 @@ def _receipt(
     )
 
 
-def _metric(spec: EvaluationSpec) -> MetricDefinition:
+def _metric(spec: EvaluationSpec, *, criterion_count: int = 23) -> MetricDefinition:
     return build_harvey_lab_metric_definition(
         rubric_sha256=spec.rubric_sha256,
         criteria_sha256=spec.criteria_sha256,
         aggregation_sha256=spec.aggregation_sha256,
         output_schema_sha256=spec.judge_output_schema_sha256,
+        criterion_count=criterion_count,
     )
 
 
@@ -160,7 +161,7 @@ def _score(
     bound_spec = spec or _spec()
     raw = raw_override or _raw(verdicts)
     receipt = _receipt(bound_spec, raw, status=status)
-    metric = metric_override or _metric(bound_spec)
+    metric = metric_override or _metric(bound_spec, criterion_count=len(verdicts))
     return normalize_harvey_lab_score(
         receipt=receipt,
         raw_result=raw,
@@ -229,9 +230,7 @@ def test_metric_definition_is_externally_pinned_and_matches_spec() -> None:
     ("field", "value"),
     (
         ("metric_id", "other-metric"),
-        ("criterion_count", 1),
-        ("criterion_count", 22),
-        ("criterion_count", 24),
+        ("criterion_count", 0),
     ),
 )
 def test_rehashed_non_lab_v1_definitions_and_normalization_are_rejected(
@@ -343,12 +342,16 @@ def test_score_tampering_and_unknown_fields_fail() -> None:
         ScoreArtifact.from_record(record)
 
 
-@pytest.mark.parametrize("n_criteria", (1, 22, 24))
-def test_correctly_rehashed_non_23_score_artifacts_are_rejected(
-    n_criteria: int,
-) -> None:
+def test_correctly_rehashed_zero_criterion_score_artifact_is_rejected() -> None:
     record = _score(("fail",) * 23).to_record()
-    record["n_criteria"] = n_criteria
+    record["n_criteria"] = 0
     _rehash(record, "score_sha256")
     with pytest.raises(ValueError, match="n_criteria"):
         ScoreArtifact.from_record(record)
+
+
+def test_non_23_task_cardinality_is_bound_and_normalized() -> None:
+    score = _score(("pass", "fail"))
+    assert score.n_criteria == 2
+    assert score.n_passed == 1
+    assert score.score_value == 0
