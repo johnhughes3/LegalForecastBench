@@ -25,6 +25,12 @@ from xml.parsers import expat
 
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
+from openpyxl.worksheet.formula import ArrayFormula, DataTableFormula
+
+from legalforecast.multiharness.harvey_lab.contract import (
+    HarveyLabContractError,
+    preflight_xlsx_package,
+)
 
 # The main document part every WordprocessingML package must contain.
 DOCX_DOCUMENT_PART = "word/document.xml"
@@ -44,6 +50,9 @@ DOCX_MAX_DOCUMENT_PART_BYTES = 8 * 1024 * 1024
 XLSX_MAX_WORKSHEETS = 64
 XLSX_MAX_CELL_SLOTS = 250_000
 XLSX_MAX_RENDERED_CHARS = 8 * 1024 * 1024
+XLSX_MAX_PACKAGE_MEMBERS = 512
+XLSX_MAX_PACKAGE_PART_BYTES = 8 * 1024 * 1024
+XLSX_MAX_PACKAGE_BYTES = 32 * 1024 * 1024
 
 
 class DeliverableTextError(ValueError):
@@ -110,6 +119,9 @@ def xlsx_visible_text(
     max_worksheets: int = XLSX_MAX_WORKSHEETS,
     max_cell_slots: int = XLSX_MAX_CELL_SLOTS,
     max_rendered_chars: int = XLSX_MAX_RENDERED_CHARS,
+    max_package_members: int = XLSX_MAX_PACKAGE_MEMBERS,
+    max_package_part_bytes: int = XLSX_MAX_PACKAGE_PART_BYTES,
+    max_package_bytes: int = XLSX_MAX_PACKAGE_BYTES,
 ) -> str:
     """Render worksheet names, coordinates, values, and formulas in order.
 
@@ -126,9 +138,22 @@ def xlsx_visible_text(
         (max_worksheets, "worksheet cap"),
         (max_cell_slots, "cell-slot cap"),
         (max_rendered_chars, "rendered-character cap"),
+        (max_package_members, "package-member cap"),
+        (max_package_part_bytes, "package-part cap"),
+        (max_package_bytes, "package-byte cap"),
     ):
         if type(value) is not int or value <= 0:
             raise DeliverableTextError(f"{name} must be positive")
+    try:
+        preflight_xlsx_package(
+            payload,
+            max_members=max_package_members,
+            max_part_bytes=max_package_part_bytes,
+            max_package_bytes=max_package_bytes,
+            max_cell_slots=max_cell_slots,
+        )
+    except HarveyLabContractError as exc:
+        raise DeliverableTextError(str(exc)) from exc
     try:
         workbook = load_workbook(
             io.BytesIO(payload),
@@ -194,6 +219,29 @@ def xlsx_visible_text(
 
 
 def _render_spreadsheet_value(value: object) -> str:
+    if isinstance(value, ArrayFormula):
+        return (
+            "ARRAY_FORMULA("
+            f"ref={_escape_spreadsheet_text(value.ref)},"
+            f"text={_escape_spreadsheet_text(value.text or '')})"
+        )
+    if isinstance(value, DataTableFormula):
+        attributes = (
+            ("ref", value.ref),
+            ("ca", value.ca),
+            ("dt2D", value.dt2D),
+            ("dtr", value.dtr),
+            ("r1", value.r1),
+            ("r2", value.r2),
+            ("del1", value.del1),
+            ("del2", value.del2),
+        )
+        rendered = ",".join(
+            f"{name}={_escape_spreadsheet_text(str(item))}"
+            for name, item in attributes
+            if item is not None
+        )
+        return f"DATA_TABLE_FORMULA({rendered})"
     if isinstance(value, str):
         return _escape_spreadsheet_text(value)
     if isinstance(value, bool):
