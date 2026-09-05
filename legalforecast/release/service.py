@@ -272,6 +272,9 @@ def _issue_case(draft: CaseDraft, *, artifact_root: Path) -> ReleaseCase:
                 path=document.path,
                 sha256=_raw_bytes_digest(payload),
                 byte_count=len(payload),
+                supporting_side=document.supporting_side,
+                supporting_kind=document.supporting_kind,
+                target_motion_document_id=document.target_motion_document_id,
             )
         )
     return ReleaseCase(case_id=draft.case_id, documents=tuple(documents))
