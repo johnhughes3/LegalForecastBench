@@ -482,7 +482,7 @@ jobs:
               record = json.loads(path.read_text(encoding="utf-8"))
               if not isinstance(record, dict):
                   raise SystemExit(f"receipt is not an object: {path.name}")
-              required = ("schema_version", "run_identity_sha256", "forecast_release_digest", "model_key", "model_registry_sha256", "case_id", "unit_id", "repeat_index", "parser_output")
+              required = ("schema_version", "run_identity_sha256", "forecast_release_digest", "model_key", "model_registry_sha256", "case_id", "unit_id", "required_unit_ids", "repeat_index", "parser_output")
               if any(field not in record for field in required):
                   raise SystemExit(f"receipt lacks required identity: {path.name}")
               if (
@@ -495,18 +495,24 @@ jobs:
                   or record["repeat_index"] != 1
               ):
                   raise SystemExit(f"receipt identity differs from forecast-run.json: {path.name}")
+              required_unit_ids = record["required_unit_ids"]
               if (
                   not isinstance(record["case_id"], str)
-                  or not isinstance(record["unit_id"], str)
+                  or not isinstance(required_unit_ids, list)
+                  or not required_unit_ids
+                  or any(not isinstance(unit_id, str) or not unit_id for unit_id in required_unit_ids)
+                  or required_unit_ids != sorted(set(required_unit_ids))
+                  or (len(required_unit_ids) == 1 and record["unit_id"] != required_unit_ids[0])
+                  or (len(required_unit_ids) > 1 and record["unit_id"] is not None)
                   or not isinstance(record["parser_output"], dict)
                   or type(record["repeat_index"]) is not int
               ):
                   raise SystemExit(f"receipt identity fields are malformed: {path.name}")
-              key = (record["unit_id"], record["repeat_index"])
-              if not record["unit_id"] or key in seen_units:
-                  raise SystemExit(f"receipt unit coverage is duplicate or malformed: {path.name}")
-              seen_units.add(key)
-              record["required_unit_ids"] = [record["unit_id"]]
+              for unit_id in required_unit_ids:
+                  key = (unit_id, record["repeat_index"])
+                  if key in seen_units:
+                      raise SystemExit(f"receipt unit coverage is duplicate or malformed: {path.name}")
+                  seen_units.add(key)
               record["model_id"] = record["model_key"]
               records.append(record)
           if not records:

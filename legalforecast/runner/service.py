@@ -107,6 +107,42 @@ class RunSummary:
         return asdict(self)
 
 
+@dataclass(frozen=True, slots=True)
+class _CaseCall:
+    """One provider call envelope for every unit in a release case."""
+
+    case_id: str
+    units: tuple[ForecastPredictionUnit, ...]
+
+    @property
+    def required_unit_ids(self) -> tuple[str, ...]:
+        return tuple(unit.unit_id for unit in self.units)
+
+    @property
+    def prompt_sha256(self) -> str:
+        return self.units[0].prompt_sha256
+
+    @property
+    def prompt_path(self) -> str:
+        return self.units[0].prompt_path
+
+    @property
+    def prompt_byte_count(self) -> int:
+        return self.units[0].prompt_byte_count
+
+    @property
+    def model_visible_document_indexes(self) -> tuple[int, ...]:
+        return self.units[0].model_visible_document_indexes
+
+    @property
+    def subject(self) -> str:
+        """Durable ledger subject for a multi-unit case call."""
+
+        if len(self.units) == 1:
+            return self.units[0].unit_id
+        return f"case-call:{self.case_id}:{','.join(self.required_unit_ids)}"
+
+
 class _RequestBodyCommitment:
     def __init__(
         self,
@@ -244,31 +280,32 @@ def execute_release_run(
     config.receipts_dir.mkdir(parents=True, exist_ok=True)
 
     units = tuple(execution.release.prediction_units)
-    selected_units = _select_units(units, unit_id=config.unit_id)
+    case_calls = _case_calls(units)
+    selected_calls = _select_case_calls(case_calls, unit_id=config.unit_id)
     repeat_indices = _select_repeats(
         repeat_count=config.repeat_count,
         repeat_index=config.repeat_index,
     )
-    if (
-        config.cell_id is not None
-        and config.unit_id is None
-        and config.repeat_index is None
-    ):
+    if config.cell_id is not None and config.unit_id is None:
         selected_cell = _select_cell(
-            units,
+            case_calls,
             repeat_count=config.repeat_count,
             identity_sha256=identity_sha256,
             cell_id=config.cell_id,
         )
-        selected_units = (selected_cell[0],)
+        selected_calls = (selected_cell[0],)
+        if config.repeat_index is not None and config.repeat_index != selected_cell[1]:
+            raise RunValidationError(
+                "cell_id does not identify the selected repeat index"
+            )
         repeat_indices = (selected_cell[1],)
     selected_cells = {
-        _cell_id(
+        _case_call_id(
             identity_sha256=identity_sha256,
-            unit=unit,
+            case_call=case_call,
             repeat_index=repeat_index,
         )
-        for unit in selected_units
+        for case_call in selected_calls
         for repeat_index in repeat_indices
     }
     if config.cell_id is not None:
@@ -362,22 +399,25 @@ def execute_release_run(
                 policy=policy,
             )
         with authority_context as authority:
-            for unit in selected_units:
+            for case_call in selected_calls:
                 for repeat_index in repeat_indices:
+                    unit = case_call.units[0]
                     _require_unchanged_registry(
                         config.model_registry_path,
                         registry_sha256,
                     )
-                    prompt_bytes = execution.prompt_bytes(unit.unit_id)
+                    prompt_bytes = execution.prompt_bytes(
+                        case_call.required_unit_ids[0]
+                    )
                     try:
                         prompt = prompt_bytes.decode("utf-8")
                     except UnicodeDecodeError as exc:
                         raise RunValidationError(
                             f"prompt is not UTF-8 for unit {unit.unit_id}"
                         ) from exc
-                    cell_id = _cell_id(
+                    cell_id = _case_call_id(
                         identity_sha256=identity_sha256,
-                        unit=unit,
+                        case_call=case_call,
                         repeat_index=repeat_index,
                     )
                     if config.cell_id is not None and cell_id != config.cell_id:
@@ -397,8 +437,9 @@ def execute_release_run(
                     cell = ledger.inspect_cell(
                         cell_id=cell_id,
                         run_identity_sha256=identity_sha256,
-                        case_id=unit.case_id,
-                        unit_id=unit.unit_id,
+                        case_id=case_call.case_id,
+                        unit_id=case_call.subject,
+                        required_unit_ids=case_call.required_unit_ids,
                         repeat_index=repeat_index,
                         allow_retryable_nonbillable=True,
                         allow_pretransport_reuse=True,
@@ -418,6 +459,7 @@ def execute_release_run(
                             expected_payload=cell.receipt_payload,
                             cell_id=cell_id,
                             run_identity_sha256=identity_sha256,
+                            expected_required_unit_ids=case_call.required_unit_ids,
                         )
                         resumed_cells += 1
                         continue
@@ -520,8 +562,11 @@ def execute_release_run(
                         lease: AttemptLease,
                         *,
                         bound_cell_id: str = cell_id,
-                        bound_case_id: str = unit.case_id,
-                        bound_unit_id: str = unit.unit_id,
+                        bound_case_id: str = case_call.case_id,
+                        bound_unit_id: str = case_call.subject,
+                        bound_required_unit_ids: tuple[str, ...] = (
+                            case_call.required_unit_ids
+                        ),
                         bound_repeat_index: int = repeat_index,
                         bound_authorization_state: list[str | None] = (
                             authorization_state
@@ -533,6 +578,7 @@ def execute_release_run(
                             run_identity_sha256=identity_sha256,
                             case_id=bound_case_id,
                             unit_id=bound_unit_id,
+                            required_unit_ids=bound_required_unit_ids,
                             repeat_index=bound_repeat_index,
                             provider_attempt_id=lease.attempt_id,
                             allow_nonbillable_replacement=(lease.attempt_ordinal == 2),
@@ -566,8 +612,11 @@ def execute_release_run(
                         lease: AttemptLease,
                         *,
                         bound_cell_id: str = cell_id,
-                        bound_case_id: str = unit.case_id,
-                        bound_unit_id: str = unit.unit_id,
+                        bound_case_id: str = case_call.case_id,
+                        bound_unit_id: str = case_call.subject,
+                        bound_required_unit_ids: tuple[str, ...] = (
+                            case_call.required_unit_ids
+                        ),
                         bound_repeat_index: int = repeat_index,
                         bound_authorization_state: list[str | None] = (
                             authorization_state
@@ -578,6 +627,7 @@ def execute_release_run(
                             run_identity_sha256=identity_sha256,
                             case_id=bound_case_id,
                             unit_id=bound_unit_id,
+                            required_unit_ids=bound_required_unit_ids,
                             repeat_index=bound_repeat_index,
                             provider_attempt_id=lease.attempt_id,
                             allow_existing_same_attempt=True,
@@ -649,7 +699,7 @@ def execute_release_run(
                             raise RunValidationError(str(exc)) from exc
                         parsed = parse_model_output(
                             response.raw_output,
-                            required_unit_ids=(unit.unit_id,),
+                            required_unit_ids=case_call.required_unit_ids,
                         )
                         receipt = {
                             "schema_version": str(PUBLIC_RUN_RECEIPT_V1),
@@ -657,9 +707,13 @@ def execute_release_run(
                             "run_identity_sha256": identity_sha256,
                             "forecast_release_digest": execution.release.release_digest,
                             "release_id": execution.release.release_id,
-                            "case_id": unit.case_id,
-                            "unit_id": unit.unit_id,
-                            "required_unit_ids": [unit.unit_id],
+                            "case_id": case_call.case_id,
+                            "unit_id": (
+                                case_call.required_unit_ids[0]
+                                if len(case_call.units) == 1
+                                else None
+                            ),
+                            "required_unit_ids": list(case_call.required_unit_ids),
                             "harness": harness,
                             "model_key": entry.registry_key,
                             "model_id": entry.registry_key,
@@ -667,7 +721,7 @@ def execute_release_run(
                             "model_registry_entry_sha256": entry_sha256,
                             "ablation": ablation,
                             "repeat_index": repeat_index,
-                            "prompt_sha256": unit.prompt_sha256,
+                            "prompt_sha256": case_call.prompt_sha256,
                             "request_body_sha256": request_sha256,
                             "served_model_version": entry.model_version_or_snapshot,
                             "usage": {
@@ -699,6 +753,7 @@ def execute_release_run(
                             expected_payload=receipt_bytes,
                             cell_id=cell_id,
                             run_identity_sha256=identity_sha256,
+                            expected_required_unit_ids=case_call.required_unit_ids,
                         )
                     except BaseException as exc:
                         authorized_attempt_id = authorization_state[0]
@@ -909,6 +964,7 @@ def _restore_or_validate_completed_receipt(
     expected_payload: bytes | None,
     cell_id: str,
     run_identity_sha256: str,
+    expected_required_unit_ids: tuple[str, ...] | None = None,
 ) -> None:
     if expected_sha256 is None or expected_payload is None:
         raise RunValidationError("completed cell lacks durable receipt evidence")
@@ -940,6 +996,17 @@ def _restore_or_validate_completed_receipt(
         or record.get("run_identity_sha256") != run_identity_sha256
     ):
         raise RunValidationError("completed run receipt identity changed")
+    if expected_required_unit_ids is not None:
+        required = record.get("required_unit_ids")
+        if required != list(expected_required_unit_ids):
+            raise RunValidationError("completed run receipt unit set changed")
+        expected_subject: str | None = (
+            expected_required_unit_ids[0]
+            if len(expected_required_unit_ids) == 1
+            else None
+        )
+        if record.get("unit_id") != expected_subject:
+            raise RunValidationError("completed run receipt unit subject changed")
 
 
 def _cell_id(
@@ -977,6 +1044,32 @@ def derive_cell_id(
                 "repeat_index": repeat_index,
                 "run_identity_sha256": identity_sha256,
                 "unit_id": unit_id,
+            },
+            domain=PUBLIC_RUN_RECEIPT_V1,
+        ).digest
+    )
+
+
+def derive_case_call_id(
+    *,
+    identity_sha256: str,
+    case_id: str,
+    required_unit_ids: tuple[str, ...],
+    repeat_index: int,
+) -> str:
+    """Derive a case-call ID bound to the complete sorted unit envelope."""
+
+    if not required_unit_ids:
+        raise ValueError("required_unit_ids must not be empty")
+    if tuple(required_unit_ids) != tuple(sorted(set(required_unit_ids))):
+        raise ValueError("required_unit_ids must be sorted and unique")
+    return str(
+        ARTIFACT_RAW_SHA256_V1.commit(
+            {
+                "case_id": case_id,
+                "required_unit_ids": list(required_unit_ids),
+                "repeat_index": repeat_index,
+                "run_identity_sha256": identity_sha256,
             },
             domain=PUBLIC_RUN_RECEIPT_V1,
         ).digest
@@ -1063,21 +1156,61 @@ def _run_identity_record(
     return identity
 
 
-def _select_units(
-    units: tuple[ForecastPredictionUnit, ...],
+def _case_calls(units: tuple[ForecastPredictionUnit, ...]) -> tuple[_CaseCall, ...]:
+    """Group release units into validated, one-prompt case envelopes."""
+
+    grouped: dict[str, list[ForecastPredictionUnit]] = {}
+    for unit in units:
+        grouped.setdefault(unit.case_id, []).append(unit)
+    calls: list[_CaseCall] = []
+    for case_id in sorted(grouped):
+        case_units = tuple(sorted(grouped[case_id], key=lambda unit: unit.unit_id))
+        first = case_units[0]
+        expected = (
+            first.prompt_path,
+            first.prompt_sha256,
+            first.prompt_byte_count,
+            first.model_visible_document_indexes,
+        )
+        if any(
+            (
+                unit.prompt_path,
+                unit.prompt_sha256,
+                unit.prompt_byte_count,
+                unit.model_visible_document_indexes,
+            )
+            != expected
+            for unit in case_units[1:]
+        ):
+            raise RunValidationError(
+                "prediction units in one case must share one prompt and "
+                f"document commitment: {case_id}"
+            )
+        calls.append(_CaseCall(case_id=case_id, units=case_units))
+    return tuple(calls)
+
+
+def _select_case_calls(
+    case_calls: tuple[_CaseCall, ...],
     *,
     unit_id: str | None,
-) -> tuple[ForecastPredictionUnit, ...]:
-    """Select one manifest-declared unit for a matrix worker, if requested."""
+) -> tuple[_CaseCall, ...]:
+    """Select a complete case call, rejecting partial multi-unit selection."""
 
     if unit_id is None:
-        return units
+        return case_calls
     if not unit_id.strip():
         raise RunValidationError("unit_id must not be empty")
-    selected = tuple(unit for unit in units if unit.unit_id == unit_id)
+    selected = tuple(
+        case_call for case_call in case_calls if unit_id in case_call.required_unit_ids
+    )
     if not selected:
         raise RunValidationError(
             f"unit_id is not declared by the forecast release: {unit_id}"
+        )
+    if len(selected[0].units) != 1:
+        raise RunValidationError(
+            "unit_id cannot select part of a multi-unit case call; use cell_id"
         )
     return selected
 
@@ -1101,21 +1234,21 @@ def _select_repeats(
 
 
 def _select_cell(
-    units: tuple[ForecastPredictionUnit, ...],
+    case_calls: tuple[_CaseCall, ...],
     *,
     repeat_count: int,
     identity_sha256: str,
     cell_id: str,
-) -> tuple[ForecastPredictionUnit, int]:
-    """Resolve one supplied cell ID to its manifest unit and repeat."""
+) -> tuple[_CaseCall, int]:
+    """Resolve one supplied cell ID to its complete case call and repeat."""
 
     matches = [
-        (unit, repeat_index)
-        for unit in units
+        (case_call, repeat_index)
+        for case_call in case_calls
         for repeat_index in range(1, repeat_count + 1)
-        if _cell_id(
+        if _case_call_id(
             identity_sha256=identity_sha256,
-            unit=unit,
+            case_call=case_call,
             repeat_index=repeat_index,
         )
         == cell_id
@@ -1125,6 +1258,25 @@ def _select_cell(
             "cell_id does not identify exactly one manifest-authorized cell"
         )
     return matches[0]
+
+
+def _case_call_id(
+    *, identity_sha256: str, case_call: _CaseCall, repeat_index: int
+) -> str:
+    """Use the legacy singleton cell identity and the full case envelope otherwise."""
+
+    if len(case_call.units) == 1:
+        return _cell_id(
+            identity_sha256=identity_sha256,
+            unit=case_call.units[0],
+            repeat_index=repeat_index,
+        )
+    return derive_case_call_id(
+        identity_sha256=identity_sha256,
+        case_id=case_call.case_id,
+        required_unit_ids=case_call.required_unit_ids,
+        repeat_index=repeat_index,
+    )
 
 
 def _require_unchanged_registry(path: Path, expected_sha256: str) -> None:

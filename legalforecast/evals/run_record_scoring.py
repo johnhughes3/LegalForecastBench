@@ -35,6 +35,7 @@ from legalforecast.release import (
     LabelsRelease,
     validate_manifest_against_forecast,
 )
+from legalforecast.runner.service import derive_case_call_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,7 +142,11 @@ def _score_locked_run_records(
     model_bindings: dict[str, tuple[str, str, str, str]] = {}
     model_units: dict[str, set[str]] = defaultdict(set)
     for record in run_records:
-        required_unit_ids = _required_str_tuple(record, "required_unit_ids")
+        required_unit_ids = _required_str_tuple(
+            record,
+            "required_unit_ids",
+            require_sorted=True,
+        )
         unknown_units = sorted(set(required_unit_ids) - expected_unit_id_set)
         if unknown_units:
             raise ValueError(
@@ -156,14 +161,25 @@ def _score_locked_run_records(
                 "run record case_id does not match forecast unit mapping: "
                 f"case_id={case_id!r}, units={list(required_unit_ids)!r}"
             )
+        expected_case_unit_ids = tuple(
+            unit.unit_id for unit in expected_units if unit.case_id == case_id
+        )
+        if required_unit_ids != expected_case_unit_ids:
+            raise ValueError(
+                "run receipt must identify the complete case unit set: "
+                f"case_id={case_id!r}, units={list(expected_case_unit_ids)!r}"
+            )
         receipt_unit_id = _optional_str(record, "unit_id")
-        if len(required_unit_ids) != 1 or receipt_unit_id != required_unit_ids[0]:
-            raise ValueError("run receipt must identify exactly one forecast unit")
-        unit = units_by_id[required_unit_ids[0]]
+        expected_receipt_unit_id = (
+            required_unit_ids[0] if len(required_unit_ids) == 1 else None
+        )
+        if receipt_unit_id != expected_receipt_unit_id:
+            raise ValueError("run receipt unit subject does not match case call")
+        receipt_units = tuple(units_by_id[unit_id] for unit_id in required_unit_ids)
         _validate_locked_receipt_identity(
             record,
             forecast_release=forecast_release,
-            unit=unit,
+            units=receipt_units,
             expected_run_identity_sha256=expected_run_identity_sha256,
             model_registry=model_registry,
             expected_model_registry_sha256=expected_model_registry_sha256,
@@ -267,7 +283,7 @@ def _validate_locked_receipt_identity(
     record: Mapping[str, Any],
     *,
     forecast_release: ForecastRelease,
-    unit: ForecastPredictionUnit,
+    units: tuple[ForecastPredictionUnit, ...],
     expected_run_identity_sha256: str | None,
     model_registry: ModelRegistry | None,
     expected_model_registry_sha256: str | None,
@@ -321,20 +337,49 @@ def _validate_locked_receipt_identity(
     repeat_index = record.get("repeat_index")
     if type(repeat_index) is not int or repeat_index != 1:
         raise ValueError("run receipt repeat_index must be exactly 1")
-    expected_cell_id = str(
-        ARTIFACT_RAW_SHA256_V1.commit(
-            {
-                "case_id": unit.case_id,
-                "repeat_index": repeat_index,
-                "run_identity_sha256": run_identity,
-                "unit_id": unit.unit_id,
-            },
-            domain=PUBLIC_RUN_RECEIPT_V1,
-        ).digest
+    case_id = units[0].case_id
+    required_unit_ids = tuple(unit.unit_id for unit in units)
+    expected_cell_id = derive_case_call_id(
+        identity_sha256=run_identity,
+        case_id=case_id,
+        required_unit_ids=required_unit_ids,
+        repeat_index=repeat_index,
     )
     if _required_str(record, "cell_id") != expected_cell_id:
-        raise ValueError("run receipt cell identity differs from unit identity")
-    if _required_sha256(record, "prompt_sha256") != unit.prompt_sha256:
+        # Legacy one-unit receipts retain their established cell identity.
+        if len(units) != 1:
+            raise ValueError("run receipt cell identity differs from case call")
+        legacy_cell_id = str(
+            ARTIFACT_RAW_SHA256_V1.commit(
+                {
+                    "case_id": case_id,
+                    "repeat_index": repeat_index,
+                    "run_identity_sha256": run_identity,
+                    "unit_id": required_unit_ids[0],
+                },
+                domain=PUBLIC_RUN_RECEIPT_V1,
+            ).digest
+        )
+        if _required_str(record, "cell_id") != legacy_cell_id:
+            raise ValueError("run receipt cell identity differs from case call")
+    expected_prompt = (
+        units[0].prompt_path,
+        units[0].prompt_sha256,
+        units[0].prompt_byte_count,
+        units[0].model_visible_document_indexes,
+    )
+    if any(
+        (
+            unit.prompt_path,
+            unit.prompt_sha256,
+            unit.prompt_byte_count,
+            unit.model_visible_document_indexes,
+        )
+        != expected_prompt
+        for unit in units[1:]
+    ):
+        raise ValueError("forecast case call has conflicting prompt commitments")
+    if _required_sha256(record, "prompt_sha256") != units[0].prompt_sha256:
         raise ValueError("run receipt prompt identity differs from forecast release")
     _required_sha256(record, "request_body_sha256")
     if _required_str(record, "ablation") != "none":
@@ -576,6 +621,8 @@ def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
 def _required_str_tuple(
     record: Mapping[str, Any],
     field_name: str,
+    *,
+    require_sorted: bool = False,
 ) -> tuple[str, ...]:
     value = _required(record, field_name)
     if not isinstance(value, Sequence) or isinstance(value, str):
@@ -585,4 +632,7 @@ def _required_str_tuple(
         if not isinstance(item, str) or not item.strip():
             raise ValueError(f"{field_name} must contain non-empty strings")
         strings.append(item)
-    return tuple(strings)
+    result = tuple(strings)
+    if require_sorted and result != tuple(sorted(set(result))):
+        raise ValueError(f"{field_name} must be sorted and unique")
+    return result

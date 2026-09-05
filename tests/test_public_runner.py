@@ -694,12 +694,18 @@ def test_runner_spend_keys_use_injective_cell_identity(
         SimpleNamespace(
             case_id="a",
             unit_id="b:c",
+            prompt_path="prompts/a.txt",
             prompt_sha256="1" * 64,
+            prompt_byte_count=1,
+            model_visible_document_indexes=(0,),
         ),
         SimpleNamespace(
             case_id="a:b",
             unit_id="c",
+            prompt_path="prompts/a-b.txt",
             prompt_sha256="2" * 64,
+            prompt_byte_count=1,
+            model_visible_document_indexes=(0,),
         ),
     )
     release = SimpleNamespace(
