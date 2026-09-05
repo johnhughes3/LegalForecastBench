@@ -27,7 +27,7 @@ from legalforecast.multiharness.deliverables import (
     DeliverableValidationError,
     seal_deliverable,
 )
-from legalforecast.multiharness.harvey_lab_contract import (
+from legalforecast.multiharness.harvey_lab.contract import (
     HarveyLabOutputSelectionError,
     selected_output_paths,
 )

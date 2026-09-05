@@ -36,7 +36,7 @@ from legalforecast.multiharness.evaluation import (
     build_evaluation_receipt,
     build_evaluation_spec,
 )
-from legalforecast.multiharness.harvey_lab_contract import (
+from legalforecast.multiharness.harvey_lab.contract import (
     HarveyLabContractError,
     private_criterion_count,
     validated_deliverable_sources,

@@ -30,7 +30,7 @@ from legalforecast.contracts.schemas import (
     HARVEY_LAB_PROJECTION_V2,
     HARVEY_LAB_TASK_PROJECTION_V2,
 )
-from legalforecast.multiharness.harvey_lab_contract import (
+from legalforecast.multiharness.harvey_lab.contract import (
     HarveyLabContractError,
     HarveyLabUnsupportedOutputError,
     expected_docx_deliverables,
