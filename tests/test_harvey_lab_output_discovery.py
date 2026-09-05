@@ -24,9 +24,11 @@ from legalforecast.multiharness.harvey_lab_projection import (
     HarveyLabPin,
     HarveyLabProjectedFile,
     HarveyLabProjectedTask,
+    HarveyLabProjectionError,
     load_harvey_lab_projection_manifest,
     project_harvey_lab_suite,
 )
+from openpyxl import Workbook
 from tests.test_harvey_lab_projection import _issue_196_source
 
 FAKE_SOLVER = (
@@ -58,6 +60,17 @@ def _docx_bytes() -> bytes:
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("[Content_Types].xml", "<Types></Types>")
         archive.writestr("word/document.xml", "<w:document></w:document>")
+    return buffer.getvalue()
+
+
+def _xlsx_bytes() -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Obligations"
+    sheet.append(("Requirement", "Status"))
+    sheet.append(("File report", "Open"))
+    buffer = io.BytesIO()
+    workbook.save(buffer)
     return buffer.getvalue()
 
 
@@ -156,6 +169,48 @@ def test_multiple_declared_docx_outputs_are_all_sealed(tmp_path: Path) -> None:
         "memo.docx",
     ]
     assert result.quarantined == ()
+
+
+def test_mixed_docx_and_xlsx_outputs_are_sealed_with_exact_media_types(
+    tmp_path: Path,
+) -> None:
+    sandbox = tmp_path / "sandbox"
+    output = sandbox / "output"
+    output.mkdir(parents=True)
+    (output / "analysis.docx").write_bytes(_docx_bytes())
+    (output / "tracker.xlsx").write_bytes(_xlsx_bytes())
+
+    result = discover_harvey_lab_outputs(
+        sandbox_root=sandbox,
+        output_root=output,
+        quarantine_root=tmp_path / "quarantine",
+        sealed_root=tmp_path / "sealed",
+        task=_task(("analysis.docx", "tracker.xlsx")),
+        task_sha256=TASK_SHA256,
+        run_sha256=RUN_SHA256,
+        config_sha256=CONFIG_SHA256,
+    )
+
+    assert [(item.path, item.media_type) for item in result.sealed.artifacts] == [
+        (
+            "analysis.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+        (
+            "tracker.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ),
+    ]
+
+
+def test_declared_legacy_xls_output_is_refused() -> None:
+    with pytest.raises(HarveyLabProjectionError, match="supported deliverable"):
+        _task(("tracker.xls",))
+
+
+def test_declared_xlsx_at_nested_path_is_refused() -> None:
+    with pytest.raises(HarveyLabProjectionError, match="supported deliverable"):
+        _task(("nested/tracker.xlsx",))
 
 
 def test_no_declared_names_seals_every_bounded_docx_output(tmp_path: Path) -> None:

@@ -328,8 +328,8 @@ def test_project_can_refuse_instead_of_skipping(
 ) -> None:
     monkeypatch.setitem(
         UPSTREAM_TASKS,
-        "immigration/unsupported-sheet",
-        {"deliverables": {"analysis.xlsx": "analysis.xlsx"}},
+        "immigration/unsupported-slides",
+        {"deliverables": {"analysis.pptx": "analysis.pptx"}},
     )
     lab_root = _pinned_lab_checkout(tmp_path, monkeypatch)
     projected = tmp_path / "projected"
@@ -353,7 +353,7 @@ def test_project_can_refuse_instead_of_skipping(
         )
         == 2
     )
-    assert "immigration/unsupported-sheet" in capsys.readouterr().err
+    assert "immigration/unsupported-slides" in capsys.readouterr().err
     # A failed projection must not leave a sealed partial tree behind, or the
     # obvious retry fails on "must be a fresh, absent path".
     assert not projected.exists()

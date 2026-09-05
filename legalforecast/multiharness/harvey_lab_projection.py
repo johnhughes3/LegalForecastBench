@@ -33,7 +33,7 @@ from legalforecast.contracts.schemas import (
 from legalforecast.multiharness.harvey_lab.contract import (
     HarveyLabContractError,
     HarveyLabUnsupportedOutputError,
-    expected_docx_deliverables,
+    expected_supported_deliverables,
 )
 from legalforecast.multiharness.material_separation import (
     MaterialSeparationError,
@@ -207,9 +207,11 @@ class HarveyLabProjectedTask:
         if len(set(self.expected_deliverables)) != len(self.expected_deliverables):
             raise HarveyLabProjectionError("expected_deliverables must be unique")
         for basename in self.expected_deliverables:
-            if basename != Path(basename).name or not basename.endswith(".docx"):
+            if basename != Path(basename).name or not basename.endswith(
+                (".docx", ".xlsx")
+            ):
                 raise HarveyLabProjectionError(
-                    "expected_deliverables must contain .docx basenames"
+                    "expected_deliverables must contain supported deliverable basenames"
                 )
         if not self.files:
             raise HarveyLabProjectionError("projected task has no files")
@@ -406,7 +408,7 @@ def classify_harvey_lab_task(
     )
     try:
         instructions = _required_instructions(task_record)
-        expected_deliverables = expected_docx_deliverables(task_record)
+        expected_deliverables = expected_supported_deliverables(task_record)
     except HarveyLabUnsupportedOutputError as exc:
         raise HarveyLabUnsupportedTaskShapeError(f"{lab_task_id}: {exc}") from exc
     except HarveyLabContractError as exc:

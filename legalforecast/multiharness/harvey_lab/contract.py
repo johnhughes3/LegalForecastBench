@@ -17,7 +17,7 @@ class HarveyLabContractError(ValueError):
 
 
 class HarveyLabUnsupportedOutputError(HarveyLabContractError):
-    """A task declares an output kind the DOCX bridge cannot carry."""
+    """A task declares an output kind the bridge cannot carry."""
 
 
 class HarveyLabOutputSelectionError(HarveyLabContractError):
@@ -28,8 +28,8 @@ class HarveyLabOutputSelectionError(HarveyLabContractError):
         self.code = code
 
 
-def expected_docx_deliverables(record: Mapping[str, object]) -> tuple[str, ...]:
-    """Return sorted declared DOCX basenames; empty means score all outputs."""
+def expected_supported_deliverables(record: Mapping[str, object]) -> tuple[str, ...]:
+    """Return sorted declared OOXML basenames; empty means score all outputs."""
 
     for field_name in (
         "expected_deliverable",
@@ -40,7 +40,7 @@ def expected_docx_deliverables(record: Mapping[str, object]) -> tuple[str, ...]:
     ):
         value = record.get(field_name)
         if isinstance(value, str) and value.strip():
-            return (_docx_basename(Path(value).name),)
+            return (_supported_basename(Path(value).name),)
     deliverables = record.get("deliverables")
     if deliverables is None:
         return ()
@@ -57,7 +57,7 @@ def expected_docx_deliverables(record: Mapping[str, object]) -> tuple[str, ...]:
                 "task.json deliverables key and value disagree; "
                 "refusing to guess the deliverable basename"
             )
-        basenames.append(_docx_basename(Path(value).name))
+        basenames.append(_supported_basename(Path(value).name))
     return tuple(sorted(basenames))
 
 
@@ -144,10 +144,10 @@ def selected_output_paths(
     return tuple(selected)
 
 
-def _docx_basename(basename: str) -> str:
-    if not basename.endswith(".docx"):
+def _supported_basename(basename: str) -> str:
+    if not basename.endswith((".docx", ".xlsx")):
         raise HarveyLabUnsupportedOutputError(
-            f"deliverable {basename} is not a .docx; "
-            "this projection carries .docx deliverables only"
+            f"deliverable {basename} is not a supported deliverable; "
+            "this projection carries .docx and .xlsx outputs only"
         )
     return basename

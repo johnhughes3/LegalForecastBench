@@ -27,7 +27,7 @@ from typing import cast
 
 from legalforecast.multiharness.deliverable_text import (
     DeliverableTextError,
-    docx_visible_text,
+    deliverable_visible_text,
 )
 from legalforecast.multiharness.deliverables import artifact_tree_sha256
 from legalforecast.multiharness.harvey_lab_evaluator import (
@@ -496,7 +496,9 @@ def _authenticated_deliverables(
     extracted: dict[str, str] = {}
     for relative in relative_paths:
         try:
-            extracted[relative] = docx_visible_text(payloads[relative])
+            extracted[relative] = deliverable_visible_text(
+                payloads[relative], basename=relative
+            )
         except (OSError, DeliverableTextError) as exc:
             raise ProductionEvaluatorRunnerError(
                 f"candidate deliverable text is not extractable: {relative}"
