@@ -13,6 +13,8 @@ from datetime import date
 from pathlib import Path
 from typing import cast
 
+from pydantic import ValidationError
+
 import legalforecast.runner.managed_execution as managed_execution
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
@@ -55,6 +57,7 @@ from legalforecast.evals.response_verification import (
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
 from legalforecast.release import (
+    ExecutableUnitPacket,
     ForecastExecution,
     ForecastPredictionUnit,
     case_has_scored_units,
@@ -246,7 +249,7 @@ def execute_release_run(
         official_entries = require_official_registry_entries((entry,))
     except ValueError as exc:
         raise RunValidationError(f"official model eligibility failed: {exc}") from exc
-    _require_model_release_anchor(
+    validate_executable_packets(
         execution,
         release_anchor=earliest_eligible_decision_date(official_entries),
     )
@@ -854,7 +857,7 @@ def _complete_cell(
     )
 
 
-def _require_model_release_anchor(
+def validate_executable_packets(
     execution: ForecastExecution,
     *,
     release_anchor: date,
@@ -869,37 +872,25 @@ def _require_model_release_anchor(
     decision_dates: dict[str, date] = {}
     for unit in execution.release.prediction_units:
         try:
-            payload: object = json.loads(execution.packet_bytes(unit.unit_id))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise RunValidationError(
-                f"runner packet is not valid JSON for unit {unit.unit_id}"
-            ) from exc
-        if not isinstance(payload, Mapping):
-            raise RunValidationError(
-                f"runner packet must be an object for unit {unit.unit_id}"
+            packet = ExecutableUnitPacket.model_validate_json(
+                execution.packet_bytes(unit.unit_id)
             )
-        packet = cast(Mapping[str, object], payload)
-        packet_case_id = packet.get("case_id")
-        if packet_case_id != unit.case_id:
+        except ValidationError as exc:
+            error = exc.errors(include_url=False, include_input=False)[0]
+            location = ".".join(str(part) for part in error["loc"])
+            raise RunValidationError(
+                "runner packet does not match the executable contract for unit "
+                f"{unit.unit_id}: {location} ({error['type']})"
+            ) from None
+        if packet.case_id != unit.case_id:
             raise RunValidationError(
                 f"runner packet case_id differs for unit {unit.unit_id}"
             )
-        raw_decision_date = packet.get("decision_date")
-        if not isinstance(raw_decision_date, str) or not raw_decision_date:
+        if packet.unit_id != unit.unit_id:
             raise RunValidationError(
-                f"runner packet decision_date is required for case {unit.case_id}"
+                f"runner packet unit_id differs for unit {unit.unit_id}"
             )
-        try:
-            decision_date = date.fromisoformat(raw_decision_date)
-        except ValueError as exc:
-            raise RunValidationError(
-                "runner packet decision_date must be an ISO date for case "
-                f"{unit.case_id}"
-            ) from exc
-        if decision_date.isoformat() != raw_decision_date:
-            raise RunValidationError(
-                f"runner packet decision_date is not canonical for case {unit.case_id}"
-            )
+        decision_date = date.fromisoformat(packet.decision_date)
         prior_date = decision_dates.setdefault(unit.case_id, decision_date)
         if prior_date != decision_date:
             raise RunValidationError(

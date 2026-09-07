@@ -105,6 +105,7 @@ def test_provider_sees_target_case_instructions_and_output_schema(
     assert "partial dismissal" in instructions
     assert "Leave to amend does not change" in instructions
     assert "pre-decision evidence" in instructions
+    assert "documents that are not included in the workspace" in instructions
     assert "later orders, amendments, appeals, settlements" in instructions
     for forbidden in ("label", "confidence", "rationale", "scoring"):
         assert forbidden not in instructions.lower()

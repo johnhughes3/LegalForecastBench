@@ -283,10 +283,10 @@ jobs:
           uv run python - <<'PY'
           import json, os, re
           from pathlib import Path
-          from legalforecast.evals.model_registry import load_model_registry, model_registry_sha256, require_official_registry_entries
+          from legalforecast.evals.model_registry import earliest_eligible_decision_date, load_model_registry, model_registry_sha256, require_official_registry_entries
           from legalforecast.immutable_io import read_single_link_file
           from legalforecast.release import load_forecast_run_inputs
-          from legalforecast.runner import derive_case_call_id, derive_cell_id, derive_run_identity_sha256
+          from legalforecast.runner import derive_case_call_id, derive_cell_id, derive_run_identity_sha256, validate_executable_packets
           repeat_count = int(os.environ["REPEAT_COUNT"])
           if repeat_count != 1:
               raise SystemExit("repeat_count must be exactly 1 until repeated-sampling fan-in is supported")
@@ -309,6 +309,7 @@ jobs:
               raise SystemExit(f"model_key is not the exact key of one eligible registry entry: {requested_model_key}")
           entries = selected
           entry = selected[0]
+          validate_executable_packets(run_inputs.execution, release_anchor=earliest_eligible_decision_date((entry,)))
           run_identity_sha256 = derive_run_identity_sha256(execution=run_inputs.execution, entry=entry, registry_sha256=registry_sha256, ceiling_microusd=int(os.environ["CEILING_MICROUSD"]), harness="native", ablation="none", repeat_count=repeat_count, account=os.environ["ACCOUNT"], manifest_id=str(run_inputs.manifest.run_id), manifest_sha256=run_inputs.manifest_sha256)
           matrices: dict[str, list[dict[str, object]]] = {"openai": [], "anthropic": [], "gemini": []}
           def slug(value: str) -> str:

@@ -36,6 +36,7 @@ from legalforecast.runner import (
     issue_runner_fixture,
 )
 from legalforecast.runner.fixture import FIXTURE_MODEL_KEY, FixtureModelTransport
+from tests.test_executable_packets import executable_packet_bytes
 from tests.test_provider_spend_dynamodb import InMemoryDynamoRunner
 
 JsonRecord = Mapping[str, object]
@@ -341,12 +342,8 @@ def test_runner_rejects_packet_before_selected_model_release_anchor(
         def packet_bytes(self, unit_id: str) -> bytes:
             case_id = "case-001" if unit_id == "unit-001" else "case-002"
             decision_date = "2026-08-23" if unit_id == "unit-001" else "2026-08-22"
-            return runner_service.ARTIFACT_CANONICAL_JSON_V1.encode(
-                {
-                    "case_id": case_id,
-                    "decision_date": decision_date,
-                    "unit_id": unit_id,
-                }
+            return executable_packet_bytes(
+                case_id=case_id, unit_id=unit_id, decision_date=decision_date
             )
 
         def prompt_bytes(self, unit_id: str) -> bytes:
@@ -729,12 +726,8 @@ def test_runner_spend_keys_use_injective_cell_identity(
 
         def packet_bytes(self, unit_id: str) -> bytes:
             case_id = "a" if unit_id == "b:c" else "a:b"
-            return runner_service.ARTIFACT_CANONICAL_JSON_V1.encode(
-                {
-                    "case_id": case_id,
-                    "decision_date": "2026-08-23",
-                    "unit_id": unit_id,
-                }
+            return executable_packet_bytes(
+                case_id=case_id, unit_id=unit_id, decision_date="2026-08-23"
             )
 
     monkeypatch.setattr(

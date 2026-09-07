@@ -48,6 +48,7 @@ from .run_manifest import (
 )
 from .scoring import case_has_scored_units
 from .service import (
+    ExecutableUnitPacket,
     ForecastExecution,
     IssuedRelease,
     ReleaseValidationError,
@@ -70,6 +71,7 @@ __all__ = [
     "CaseDraft",
     "DocumentDraft",
     "DocumentRole",
+    "ExecutableUnitPacket",
     "ForecastDraft",
     "ForecastExecution",
     "ForecastManifestBinding",

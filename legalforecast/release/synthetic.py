@@ -129,11 +129,14 @@ def _synthetic_inputs(
         payloads[packet_path] = ARTIFACT_CANONICAL_JSON_V1.encode(
             {
                 "case_id": case_id,
+                "claim_name": f"Synthetic claim {index}",
+                "count": count_labels[index - 1],
                 "decision_date": "2026-08-23",
-                "documents": [
-                    {"document_id": document.document_id, "role": document.role}
-                    for document in documents
+                "defendant_group": f"Synthetic defendants {index}",
+                "model_visible_document_ids": [
+                    document.document_id for document in documents
                 ],
+                "policy_digest": "1" * 64,
                 "unit_id": unit_id,
             }
         )
