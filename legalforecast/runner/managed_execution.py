@@ -259,11 +259,20 @@ def run_managed_tool_agent(
         output_type=ForecastEnvelope,
         deps_type=ManagedToolAgentDeps,
         instructions=(
-            "Forecast the disposition of the identified motion from only the "
-            "documents available in the workspace. Use the workspace tools to "
-            "read whatever evidence you need; web access is unavailable. Return "
-            "one prediction for every required unit id exactly once. Required "
-            f"unit ids: {unit_ids}."
+            "Forecast the actual first written court disposition of the identified "
+            "motion to dismiss, not what the court should decide or whether "
+            "dismissal would be legally correct. For each prediction unit, forecast "
+            "whether its frozen claim against the identified defendant or defendant "
+            "group is fully dismissed in that disposition. A full dismissal leaves "
+            "no material part of the unit alive; a partial dismissal that leaves "
+            "any theory, claim, defendant group, or requested relief alive is not a "
+            "full dismissal. Leave to amend does not change a full-dismissal outcome. "
+            "Use the workspace tools to inspect the available pre-decision evidence; "
+            "web access is unavailable. Do not substitute later orders, amendments, "
+            "appeals, settlements, or later voluntary dismissals for the first written "
+            "disposition. Return one prediction for every required unit id exactly "
+            "once, with probability_fully_dismissed from 0 to 1. Required unit ids: "
+            f"{unit_ids}."
         ),
         tools=list(MANAGED_TOOLS),
         model_settings=settings,
