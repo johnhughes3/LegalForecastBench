@@ -1,0 +1,14 @@
+{
+  "capsule_sha256": "57a89568ffe83d36db95c0203bd84fa38cc9d701dd85a31f067850dadf3dd43e",
+  "rubric_sha256": "b1ce7a331524d103a4f938c6bdd5b41813366c41022c9dc438b34ce2bab03e8c",
+  "rules_sha256": "3c5e4256cc8f4edabfbe28f9ce13c6adeb6f442d51593e266ec520dfadc09599",
+  "schema_sha256": "1f9474eef30448ab32449ccda404e076a74e9b73309583ff6f27270960954507",
+  "verdict": "PASS",
+  "normalized": 100,
+  "tier": 1,
+  "scorer_models": [
+    "gpt-5.6-sol"
+  ],
+  "run_meta": "tmp/reviews/context-capsule-md/20260907T065200Z-a7-cycle2/g1-run-meta-20260907T063807Z.json",
+  "date": "20260907T063807Z"
+}
