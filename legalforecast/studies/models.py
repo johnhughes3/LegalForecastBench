@@ -22,6 +22,11 @@ from pydantic import (
 )
 
 from legalforecast._canonical import canonical_json
+from legalforecast.contracts.schemas import (
+    STUDY_REPORT_SCHEMA_VERSION,
+    STUDY_SPEC_SCHEMA_VERSION,
+    StudySchemaVersion,
+)
 from legalforecast.evals.model_registry import ModelRegistry
 from legalforecast.release import BenchmarkRunManifest, ForecastRelease, LabelsRelease
 
@@ -228,9 +233,7 @@ class Multiplicity(_FrozenModel):
 class StudySpec(_FrozenModel):
     """Complete reproducible specification for a study report."""
 
-    schema_version: Literal["legalforecast.study-spec.v1"] = (
-        "legalforecast.study-spec.v1"
-    )
+    schema_version: Literal[StudySchemaVersion.SPEC_V1] = STUDY_SPEC_SCHEMA_VERSION
     study_id: NonEmptyString
     study_revision: NonEmptyString
     mode: StudyMode
@@ -409,9 +412,7 @@ class StudyComparison(_FrozenModel):
 class StudyReport(_FrozenModel):
     """Canonical public projection of one reproducible study computation."""
 
-    schema_version: Literal["legalforecast.study-report.v1"] = (
-        "legalforecast.study-report.v1"
-    )
+    schema_version: Literal[StudySchemaVersion.REPORT_V1] = STUDY_REPORT_SCHEMA_VERSION
     study_id: NonEmptyString
     study_revision: NonEmptyString
     mode: StudyMode
