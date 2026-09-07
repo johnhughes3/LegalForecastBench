@@ -76,14 +76,14 @@ def test_provider_baseline_text_matches_exact_project_contract_pins() -> None:
     policy = _policy()
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
-    assert "openai==3.3.1" in project["dependency-groups"]["dev"]
+    assert "openai==3.8.0" in project["dependency-groups"]["dev"]
     assert project["project"]["optional-dependencies"]["tier0-judge-adapter"] == [
         "anthropic==1.0.0"
     ]
     assert project["project"]["optional-dependencies"]["claude-agent-sdk-adapter"] == [
         f"claude-agent-sdk=={CLAUDE_AGENT_SDK_VERSION}"
     ]
-    assert "`openai==3.3.1`" in policy
+    assert "`openai==3.8.0`" in policy
     assert f"`claude-agent-sdk=={CLAUDE_AGENT_SDK_VERSION}`" in policy
     assert f"Claude Agent SDK {CLAUDE_AGENT_SDK_VERSION}" in policy
     assert f"bundled Claude Code {CLAUDE_BUNDLED_CLI_VERSION}" in policy
