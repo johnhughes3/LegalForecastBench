@@ -57,8 +57,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: >-
-    benchmark-${{ inputs.manifest_uri }}-${{ inputs.forecast_release_uri }}-${{ inputs.artifact_root_uri }}-${{ inputs.model_registry_uri }}-${{ inputs.model_key }}-${{ inputs.account }}-${{ inputs.ceiling_microusd }}-${{ inputs.repeat_count }}
+  # Serialize official runs without embedding unbounded artifact locators.
+  group: official-benchmark
   cancel-in-progress: false
 
 jobs:

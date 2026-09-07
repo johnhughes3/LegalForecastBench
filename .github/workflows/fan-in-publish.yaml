@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_sha:
-        description: Exact trusted public commit; it must be the dispatched main commit and remain main-reachable.
+        description: Exact runtime commit used by the forecast; it must remain reachable from main.
         required: true
         type: string
       cycle_id:
@@ -117,10 +117,6 @@ jobs:
             echo "protected labels fan-in is allowed only from refs/heads/main" >&2
             exit 1
           }
-          [[ "${GITHUB_SHA}" == "${RELEASE_SHA}" ]] || {
-            echo "release_sha must equal the exact main commit that triggered this workflow" >&2
-            exit 1
-          }
           [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
             echo "release_sha must be a full lowercase commit SHA" >&2
             exit 1
@@ -211,6 +207,8 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import re
+          import subprocess
           import urllib.error
           import urllib.request
 
@@ -218,7 +216,6 @@ jobs:
           repository = os.environ["GITHUB_REPOSITORY_NAME"]
           run_id = int(os.environ["FORECAST_RUN_ID"])
           attempt = int(os.environ["FORECAST_RUN_ATTEMPT"])
-          expected_sha = os.environ["RELEASE_SHA"]
           path = f"/repos/{repository}/actions/runs/{run_id}/attempts/{attempt}"
           request = urllib.request.Request(
               api_url + path,
@@ -236,9 +233,15 @@ jobs:
               raise SystemExit("could not validate the forecast workflow attempt") from exc
           if not isinstance(run, dict):
               raise SystemExit("forecast workflow attempt response is invalid")
+          # Workflow repairs may land after the immutable runtime release.
+          # Both revisions must be trusted main history; forecast-run.json
+          # below binds the runtime checkout to the requested release SHA.
+          workflow_sha = run.get("head_sha")
+          if not isinstance(workflow_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", workflow_sha):
+              raise SystemExit("forecast workflow source SHA is invalid")
+          subprocess.run(["git", "merge-base", "--is-ancestor", workflow_sha, "origin/main"], check=True)
           checks = {
               "run identity": run.get("id") == run_id and run.get("run_attempt") == attempt,
-              "release": run.get("head_sha") == expected_sha,
               "branch": run.get("head_branch") == "main",
               "event": run.get("event") == "workflow_dispatch",
               "workflow path": run.get("path") == ".github/workflows/run-benchmark.yaml",
@@ -247,7 +250,7 @@ jobs:
           for label, valid in checks.items():
               if not valid:
                   raise SystemExit(f"forecast workflow {label} check failed")
-          print(json.dumps({"run_id": run_id, "run_attempt": attempt, "head_sha": expected_sha}, sort_keys=True))
+          print(json.dumps({"run_id": run_id, "run_attempt": attempt, "head_sha": workflow_sha}, sort_keys=True))
           PY
 
       - name: Download exact durable forecast result artifact

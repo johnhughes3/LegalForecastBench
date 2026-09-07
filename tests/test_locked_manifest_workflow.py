@@ -11,6 +11,15 @@ LEGACY_WORKFLOW_PATH = ROOT / ".github/workflows/run-benchmark-manifest.yaml"
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
 
 
+def test_concurrency_group_remains_bounded_for_long_release_locators() -> None:
+    section = WORKFLOW.split("\nconcurrency:\n", 1)[1].split("\njobs:", 1)[0]
+    group = re.search(r"^  group: (.+)$", section, re.MULTILINE)
+    assert group is not None
+    assert "${{" not in group.group(1)
+    assert 0 < len(group.group(1)) < 400
+    assert "cancel-in-progress: false" in section
+
+
 def _job(name: str, next_name: str | None = None) -> str:
     start = WORKFLOW.index(f"  {name}:")
     end = WORKFLOW.index(f"  {next_name}:", start) if next_name else len(WORKFLOW)
