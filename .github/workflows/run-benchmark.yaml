@@ -159,9 +159,13 @@ jobs:
           fetch_file "${FORECAST_RELEASE_URI}" "${root}/forecast-release.json"
           fetch_file "${MODEL_REGISTRY_URI}" "${root}/model-registry.json"
           export LFB_ARTIFACT_ROOT_URI="${ARTIFACT_ROOT_URI}"
-          uv run python - <<'PY'
-          import json, os, shutil, subprocess
+          uv run --with boto3 python - <<'PY'
+          import os, shutil
+          from concurrent.futures import ThreadPoolExecutor
           from pathlib import Path
+
+          import boto3
+
           from legalforecast.contracts import FORECAST_RELEASE_V1, RAW_BYTES_RAW_SHA256_V1
           from legalforecast.release.models import ForecastRelease
           from legalforecast.release.service import load_forecast_execution
@@ -197,20 +201,53 @@ jobs:
               if not candidate.is_file() or candidate.is_symlink() or not resolved.is_relative_to(base_resolved):
                   raise SystemExit(f"declared artifact is missing: {candidate}")
               return str(candidate), False
-          for relative, (expected_digest, expected_size) in sorted(declared.items()):
+          def s3_location(uri: str) -> tuple[str, str]:
+              if not uri.startswith("s3://"):
+                  raise SystemExit("invalid S3 artifact locator")
+              bucket_and_key = uri.removeprefix("s3://")
+              bucket, separator, key = bucket_and_key.partition("/")
+              if not bucket or not separator or not key:
+                  raise SystemExit("invalid S3 artifact locator")
+              return bucket, key
+
+          def fetch_one(item: tuple[str, tuple[str, int]], s3_client: object | None) -> None:
+              relative, (expected_digest, expected_size) = item
               if not relative or relative.startswith("/") or ".." in Path(relative).parts:
                   raise SystemExit(f"unsafe declared artifact path: {relative!r}")
               destination = root / "artifacts" / relative
               destination.parent.mkdir(parents=True, exist_ok=True)
               source, is_s3 = source_for(relative)
               if is_s3:
-                  subprocess.run(["aws", "s3", "cp", source, str(destination), "--only-show-errors"], check=True)
+                  if s3_client is None:
+                      raise SystemExit("S3 client is required for an S3 artifact")
+                  bucket, key = s3_location(source)
+                  response = s3_client.get_object(Bucket=bucket, Key=key)
+                  body = response["Body"]
+                  try:
+                      destination.write_bytes(body.read())
+                  finally:
+                      body.close()
+              elif s3_client is not None:
+                  raise SystemExit("S3 client must not be used for a local artifact")
               else:
                   shutil.copyfile(source, destination)
               payload = destination.read_bytes()
               actual_digest = str(RAW_BYTES_RAW_SHA256_V1.commit(payload, domain=FORECAST_RELEASE_V1).digest)
               if len(payload) != expected_size or actual_digest != expected_digest:
                   raise SystemExit(f"declared artifact commitment mismatch: {relative}")
+
+          items = sorted(declared.items())
+          if source_root.startswith("s3://") or source_root.startswith("manifests/"):
+              s3_client = boto3.client("s3")
+
+              def fetch_s3(item: tuple[str, tuple[str, int]]) -> None:
+                  fetch_one(item, s3_client)
+
+              with ThreadPoolExecutor(max_workers=min(16, len(items))) as executor:
+                  list(executor.map(fetch_s3, items))
+          else:
+              for item in items:
+                  fetch_one(item, None)
           load_forecast_execution(release_path, artifact_root=root / "artifacts")
           materialized = list((root / "artifacts").rglob("*"))
           if any(path.is_symlink() for path in materialized):
@@ -365,7 +402,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ env.LFB_AWS_REGION }}
-          role-session-name: lfb-provider-authority-${{ github.run_id }}-${{ matrix.cell_id_slug }}
+          role-session-name: lfb-${{ github.run_id }}-${{ strategy.job-index }}
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       - name: Initialize bounded resumable state
         shell: bash
@@ -543,7 +580,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ env.LFB_AWS_REGION }}
-          role-session-name: lfb-provider-authority-${{ github.run_id }}-${{ matrix.cell_id_slug }}
+          role-session-name: lfb-${{ github.run_id }}-${{ strategy.job-index }}
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       - name: Initialize bounded resumable state
         shell: bash
@@ -708,7 +745,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ env.LFB_AWS_REGION }}
-          role-session-name: lfb-provider-authority-${{ github.run_id }}-${{ matrix.cell_id_slug }}
+          role-session-name: lfb-${{ github.run_id }}-${{ strategy.job-index }}
           role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       - name: Initialize bounded resumable state
         shell: bash
