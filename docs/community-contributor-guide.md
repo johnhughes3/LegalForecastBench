@@ -43,7 +43,7 @@ uv run legalforecast multiharness conformance \
 
 Successful commands print one `Wrote …` line on stderr. `adapters inspect` writes `adapter-capabilities.json`. `conformance` writes `conformance-report.json` with `"status": "passed"`. If either command asks for an API key, stop: you are not on `fixture-none`.
 
-Other fixture manifests are listed in [docs/multiharness-adapter-spec.md](multiharness-adapter-spec.md).
+Other fixture manifests are listed in [docs/multiharness/adapter-spec.md](multiharness/adapter-spec.md).
 
 ## 3. Auth decision
 
@@ -254,7 +254,7 @@ Stderr reports each `Wrote …` path. `tmp/community-validation.json` has `"stat
 
 `--task-source-credit-name` names whoever the tasks came from, which is **not** always this project: for a Harvey LAB run it is `Harvey LAB`. `--benchmark-credit-name` stays `LegalForecastBench`. Only the submitter, operator, and adapter-author names are yours to fill in.
 
-Open a pull request that adds only that submission directory. Details, attestations, and credits: [docs/community-submissions.md](community-submissions.md). Adapter contract: [docs/multiharness-adapter-spec.md](multiharness-adapter-spec.md).
+Open a pull request that adds only that submission directory. Details, attestations, and credits: [docs/community-submissions.md](community-submissions.md). Adapter contract: [docs/multiharness/adapter-spec.md](multiharness/adapter-spec.md).
 
 ## 7. Costs
 

@@ -157,6 +157,34 @@ def test_tracked_docs_query_finds_the_docs_set() -> None:
 
     tracked = _tracked_docs()
 
-    assert len(tracked) > 20
+    assert tracked
     assert "docs/METHODS.md" in tracked
-    assert "docs/schemas/forecast-release-v1.md" in tracked
+    assert "docs/release-inputs.md" in tracked
+
+
+def test_reader_documentation_lives_under_docs() -> None:
+    """Keep narrative docs together; agent instructions and fixtures are tooling."""
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z", "--", "*.md"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split("\0")
+    tooling_files = {
+        "CLAUDE.md",
+        ".agents/AGENTS.md",
+        ".agents/context-capsule.md",
+        "scripts/AGENTS.md",
+        "tests/fixtures/multiharness-artifact-characterization/reports/community-comparison.md",
+    }
+    misplaced = [
+        path
+        for path in tracked
+        if path
+        and not path.startswith("docs/")
+        and PurePosixPath(path).name != "README.md"
+        and path not in tooling_files
+        and not (path.startswith(".agents/skills/") and path.endswith("/SKILL.md"))
+    ]
+    assert not misplaced, f"Move reader documentation into docs/: {misplaced}"

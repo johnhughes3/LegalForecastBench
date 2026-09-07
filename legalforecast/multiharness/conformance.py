@@ -33,7 +33,7 @@ _SKIP = "skipped"
 _WARNING = "warning"
 _LFB_FIXTURE_REQUEST_ID = "conformance:lfb-fixture"
 _LAB_FIXTURE_REQUEST_ID = "conformance:lab-fixture"
-_ADAPTER_SPEC_PATH = "docs/multiharness-adapter-spec.md"
+_ADAPTER_SPEC_PATH = "docs/multiharness/adapter-spec.md"
 _PROVIDER_CREDENTIAL_ENV_PATTERN = re.compile(
     r"\b(?:OPENAI|ANTHROPIC|GEMINI|GOOGLE|AZURE|AWS|MISTRAL|COHERE|"
     r"TOGETHER|DEEPSEEK|XAI|HF|HUGGINGFACE|FIREWORKS|OPENROUTER|"

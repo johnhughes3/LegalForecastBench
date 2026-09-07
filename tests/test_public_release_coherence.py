@@ -10,7 +10,6 @@ WORKFLOW_ROOT = ROOT / ".github" / "workflows"
 RETAINED_WORKFLOWS = ("run-benchmark.yaml", "fan-in-publish.yaml")
 BOUNDARY_DOCS = (
     ROOT / "README.md",
-    ROOT / "AGENTS.md",
     ROOT / ".agents" / "AGENTS.md",
     ROOT / "docs" / "official-run-runbook.md",
     ROOT / "docs" / "reproduce-or-audit.md",

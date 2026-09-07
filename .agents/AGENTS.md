@@ -33,6 +33,10 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 
 Provider purchases and budget consent for corpus construction belong to the private LegalForecastCorpus repository. LegalForecastBench does not ship purchase or budget commands; it consumes an issued immutable, outcome-blinded release and retains the public evaluation, scoring, reporting, publication, and withdrawal boundaries.
 
+## Documentation placement
+
+Keep public-facing documentation under `docs/`: explain the benchmark, reproduction, public contracts, and how outsiders can contribute. Save private/internal operating instructions, deployment procedures, credential setup, and corpus administration in the private LegalForecastCorpus repository. Delete obsolete plans rather than archiving them in this repository. Keep the root README concise; the CLAUDE.md symlink points to these contributor instructions.
+
 ## Public Repository Hygiene
 
 This repository is public and open source. Do not commit machine- or user-specific operational details, including hostnames, private network names or addresses, Tailscale node identifiers, email addresses, local filesystem paths, account identifiers, or credentials. Use generic placeholders, environment variables, or generated local metadata instead.
