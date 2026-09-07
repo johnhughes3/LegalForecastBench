@@ -1749,15 +1749,14 @@
         "fan_in": 0,
         "fan_out": 0,
         "flags": [
-          "relative-path",
           "watch"
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_published_api_key_changes_resume_row_identity",
         "largest_symbol_lines": 60,
         "layer": "test",
-        "line_count": 529,
-        "nonblank_line_count": 485,
+        "line_count": 507,
+        "nonblank_line_count": 463,
         "top_level_definition_count": 19
       },
       "tests/test_multiharness_claude_agent_sdk.py": {
@@ -2068,9 +2067,9 @@
         "largest_symbol": "test_operator_policy_cannot_broaden_its_bootstrap_authority",
         "largest_symbol_lines": 200,
         "layer": "test",
-        "line_count": 817,
-        "nonblank_line_count": 740,
-        "top_level_definition_count": 17
+        "line_count": 742,
+        "nonblank_line_count": 668,
+        "top_level_definition_count": 16
       },
       "tests/test_official_eval_infra.py": {
         "cycle_id": "",
@@ -2086,9 +2085,9 @@
         "largest_symbol": "_assert_exact_fan_in_policy",
         "largest_symbol_lines": 152,
         "layer": "test",
-        "line_count": 1171,
-        "nonblank_line_count": 1085,
-        "top_level_definition_count": 33
+        "line_count": 1107,
+        "nonblank_line_count": 1025,
+        "top_level_definition_count": 32
       },
       "tests/test_openai_compatible_provider.py": {
         "cycle_id": "",

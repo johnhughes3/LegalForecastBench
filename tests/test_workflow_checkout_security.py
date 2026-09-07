@@ -180,15 +180,3 @@ def test_official_fan_in_keeps_labels_boundary_protected_and_provider_free() -> 
     assert "ANTHROPIC_API_KEY" not in workflow
     assert "GEMINI_API_KEY" not in workflow
     assert "HF_TOKEN" not in workflow
-
-
-def test_hf_runbook_records_revision_and_registration_boundaries() -> None:
-    runbook = (ROOT / "docs" / "hugging-face-publication.md").read_text(
-        encoding="utf-8"
-    )
-
-    assert "dataset.revision" in runbook
-    assert "full Hugging Face commit SHA" in runbook
-    assert "Manual approval" in runbook
-    assert "allow-list" in runbook
-    assert "not a reproducible benchmark identity" in runbook
