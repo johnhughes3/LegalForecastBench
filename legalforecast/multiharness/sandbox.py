@@ -25,7 +25,7 @@ LIVE_WORKING_DIRECTORY = "/workspace"
 LIVE_INPUT_TARGET = f"{LIVE_WORKING_DIRECTORY}/input"
 LIVE_OUTPUT_TARGET = f"{LIVE_WORKING_DIRECTORY}/output"
 LIVE_TMPFS = "/tmp:rw,noexec,nosuid,nodev,size=64m"
-LIVE_OUTPUT_TMPFS = f"{LIVE_OUTPUT_TARGET}:rw,noexec,nosuid,nodev,size=64m"
+LIVE_OUTPUT_TMPFS = f"{LIVE_OUTPUT_TARGET}:rw,noexec,nosuid,nodev,size=64m,mode=1777"
 LIVE_SESSION_LABEL = "legalforecast.multiharness.session"
 
 _CONTAINER_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")

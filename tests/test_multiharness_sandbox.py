@@ -174,7 +174,7 @@ def test_live_container_create_plan_has_fixed_bounded_hardening(
     assert "--read-only" in plan.argv
     assert (
         "--tmpfs",
-        "/workspace/output:rw,noexec,nosuid,nodev,size=64m",
+        "/workspace/output:rw,noexec,nosuid,nodev,size=64m,mode=1777",
     ) in _pairs(plan.argv)
     assert ("--cap-drop", "ALL") in _pairs(plan.argv)
     assert ("--security-opt", "no-new-privileges") in _pairs(plan.argv)
