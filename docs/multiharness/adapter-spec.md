@@ -6,6 +6,8 @@ The multi-harness package is an additive community benchmark layer under `legalf
 
 Canonical records live in `legalforecast.multiharness.spec`.
 
+The current sealed-deliverable, evaluation, scoring, identity, compatibility, and Harvey LAB source boundaries are summarized in [contracts.md](contracts.md).
+
 - `CanonicalTask`: one task projected into a common contract. Current families are `legalforecast_mtd`, `harvey_lab`, and `contract_only`; current scoring modes are `lfb_brier`, `lab_native`, and `contract_only`.
 - `TaskIndex`: ordered task collection with `index_sha256` and `selection_namespace`.
 - `TaskSelection`: deterministic selectors for family, task ID, case ID, candidate ID, ablation, LAB module, practice area, tags, seed, and limit.
