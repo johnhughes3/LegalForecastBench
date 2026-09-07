@@ -29,7 +29,6 @@ EXPECTED_SHA256 = "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c
 PINNED_PROJECTION = Path("/opt/legalforecastbench/claude-code/pinned/claude")
 PUBLIC_CONTAINMENT_FILES = (
     ROOT / "docs" / "README.md",
-    ROOT / "docs" / "adapters" / "claude-code-native-containment.md",
     PROBE,
     ROOT / "tests" / "fixtures" / "README.md",
     Path(__file__),

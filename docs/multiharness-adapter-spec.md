@@ -73,14 +73,11 @@ Release-backed rows use the existing `RunRequest`, `RunResult`, and LFB scoring 
 
 The LAB examples require a user-supplied LAB checkout. Harvey LAB is a separate Harvey AI project and task corpus; credit and license language for any public-facing use must remain explicit, and final branding is subject to John Hughes/Legal Quants approval.
 
-## First-Class Adapter Examples
+## Supported Adapter Examples
 
 The first-class adapter examples live under `examples/adapters/`.
 
-- The LQ.AI fixture bridge is documented in `docs/adapters/lq-ai.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/lq-ai/adapter-manifest.json --output-dir tmp/lq-ai-conformance`.
-- The Hermes Agent fixture bridge is documented in `docs/adapters/hermes-agent.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/hermes-agent/adapter-manifest.json --output-dir tmp/hermes-agent-conformance`.
-- The OpenClaw fixture bridge is documented in `docs/adapters/openclaw.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/openclaw/adapter-manifest.json --output-dir tmp/openclaw-conformance`.
-- The real OpenAI Responses and Claude Agent SDK community baselines are documented in `docs/adapters/provider-baselines.md`. Both adapters support `legalforecast_mtd` with `lfb_brier`, advertise the v1 tool protocol, and keep their ordinary `run` paths credential-free and conformance-only; live provider execution uses `run-with-tools`. Their manifests live under `examples/adapters/openai-responses/` and `examples/adapters/claude-agent-sdk/`, while separate fixture manifests preserve the historical no-network examples.
+- The OpenAI Responses and Claude Agent SDK community baselines are documented in `docs/adapters/provider-baselines.md`. Both adapters support `legalforecast_mtd` with `lfb_brier`, advertise the v1 tool protocol, and keep their ordinary `run` paths credential-free and conformance-only; live provider execution uses `run-with-tools`. Their manifests live under `examples/adapters/openai-responses/` and `examples/adapters/claude-agent-sdk/`.
 
 ## Command Adapter Protocol
 

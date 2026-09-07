@@ -13,7 +13,6 @@ BOUNDARY_DOCS = (
     ROOT / "AGENTS.md",
     ROOT / ".agents" / "AGENTS.md",
     ROOT / "docs" / "official-run-runbook.md",
-    ROOT / "docs" / "official-run-gate-pack.md",
     ROOT / "docs" / "reproduce-or-audit.md",
     ROOT / "scripts" / "AGENTS.md",
     ROOT / "infra" / "official-eval" / "README.md",
@@ -60,12 +59,8 @@ def test_boundary_docs_have_no_removed_runtime_references() -> None:
 
 def test_boundary_docs_name_the_strict_release_contract() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
-    gate_pack = (ROOT / "docs" / "official-run-gate-pack.md").read_text(
-        encoding="utf-8"
-    )
     for workflow in RETAINED_WORKFLOWS:
         assert workflow in runbook
-        assert workflow in gate_pack
     for option in (
         "--labels-release",
         "--forecast-release",
@@ -74,23 +69,6 @@ def test_boundary_docs_name_the_strict_release_contract() -> None:
         "--ledger",
     ):
         assert option in runbook
-        assert option in gate_pack
-
-
-def test_gate_pack_dispatch_examples_match_workflow_inputs() -> None:
-    gate_pack = (ROOT / "docs" / "official-run-gate-pack.md").read_text(
-        encoding="utf-8"
-    )
-    run_workflow = (WORKFLOW_ROOT / "run-benchmark.yaml").read_text(encoding="utf-8")
-    fan_in_workflow = (WORKFLOW_ROOT / "fan-in-publish.yaml").read_text(
-        encoding="utf-8"
-    )
-    run_fields = _dispatch_input_names(run_workflow)
-    fan_in_fields = _dispatch_input_names(fan_in_workflow)
-    assert set(_gate_pack_fields(gate_pack, "run-benchmark.yaml")) == set(run_fields)
-    assert set(_gate_pack_fields(gate_pack, "fan-in-publish.yaml")) == set(
-        fan_in_fields
-    )
 
 
 def test_docs_index_describes_the_retained_corpus_handoff() -> None:
@@ -106,21 +84,3 @@ def test_docs_index_describes_the_retained_corpus_handoff() -> None:
         "legalforecast acquisition replay-stage-a",
     ):
         assert stale not in docs_index, stale
-
-
-def _dispatch_input_names(workflow: str) -> tuple[str, ...]:
-    """Extract the workflow-dispatch input names from a checked-in workflow."""
-
-    dispatch = workflow.split("workflow_dispatch:\n", maxsplit=1)[1]
-    inputs = dispatch.split("\n\npermissions:", maxsplit=1)[0]
-    return tuple(re.findall(r"^      ([a-z][a-z0-9_]*)\s*:\s*$", inputs, re.M))
-
-
-def _gate_pack_fields(document: str, workflow_name: str) -> tuple[str, ...]:
-    """Extract ``-f`` fields from one workflow command in the gate pack."""
-
-    blocks = re.findall(r"```bash\n(.*?)\n```", document, re.DOTALL)
-    command = next(
-        block for block in blocks if f"gh workflow run {workflow_name}" in block
-    )
-    return tuple(re.findall(r"^\s*-f ([a-z][a-z0-9_]*)=", command, re.M))

@@ -17,10 +17,9 @@ This index covers the current public contracts, operator guides, and reproducibl
 - [METHODS.md](METHODS.md): eval-card-grade methods — construct, frozen inputs, leakage controls, metrics, inference, related work, human-baseline status, limitations, and withdrawal policy.
 - [Contamination-tier reporting](contamination-tier-reporting.md): the mechanical rule that distinguishes contamination-resistant scores from preliminary (non-contamination-resistant) scores — both official, viable results — and the paired drift metric between them.
 - [official-run-runbook.md](official-run-runbook.md): the public release boundary — immutable inputs, protected forecast/fan-in workflows, strict scoring, reporting, and hold conditions.
-- [Official-run gate pack](official-run-gate-pack.md): preparation-only handoff checklist for the retained workflows, release identities, receipts, and protected authorization.
 - [GitHub → AWS OIDC trust claims](github-aws-oidc-trust-claims.md): the verified condition-key surface behind the official roles' trust policies.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
-- [Publication governance](publication-governance.md): public evidence labels, forbidden claims, canonical result destinations, track-separation rules, and non-affiliation language.
+- [Publication governance](publication-governance.md): current track-separation, arm, reporting, and non-affiliation rules.
 - [Hugging Face benchmark publication](hugging-face-publication.md): manually gated access, immutable dataset revisions, native leaderboard registration, and short-lived automated publication.
 
 ## Release Security
@@ -50,22 +49,10 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 
 ### Adapter tracks
 
-- [lq-ai.md](adapters/lq-ai.md): LegalQuants LQ.AI fixture track.
-- [hermes-agent.md](adapters/hermes-agent.md): Hermes CLI/batch/API/library fixture track.
-- [openclaw.md](adapters/openclaw.md): OpenClaw harness/plugin fixture track.
 - [provider-baselines.md](adapters/provider-baselines.md): provider/runtime reference points and the publication terms they rest on.
 - [harvey-lab-pinned-evaluator-seam.md](adapters/harvey-lab-pinned-evaluator-seam.md): the pinned upstream evaluator boundary the deliverable, evaluation, and score contracts rely on.
-- [codex-cli-characterization.md](adapters/codex-cli-characterization.md): pinned offline interface characterization of the installed Codex CLI; not activated for benchmark execution.
-- [claude-code-cli-characterization.md](adapters/claude-code-cli-characterization.md): pinned offline interface characterization of the installed standalone Claude Code CLI; not activated for benchmark execution.
-- [codex-native-containment.md](adapters/codex-native-containment.md): why the pinned Codex CLI does not qualify as clean-native containment on this host.
-- [claude-code-native-containment.md](adapters/claude-code-native-containment.md): pending zero-provider-spend containment characterization; no successful capture or fixture is claimed.
 - [published-api-key-profile.md](adapters/published-api-key-profile.md): Infisical layout for the portable `published-api-key` local-CLI profile.
 - [Local CLI adapter manifest](schemas/local-cli-adapter-manifest-v1.md): the current generic manifest contract for local agentic CLI adapters.
-
-## Preprint
-
-- [preprint/README.md](preprint/README.md): the pre-results preprint package and its approval boundary.
-- [preprint/legalforecast-mtd-cycle-1.md](preprint/legalforecast-mtd-cycle-1.md): the Cycle 1 methods draft, which claims no result.
 
 ## Public Release Schema Reference
 

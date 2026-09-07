@@ -26,7 +26,6 @@ FIXTURE = (
     / "codex_cli_characterization"
     / "codex-cli-interface-0.147.0.json"
 )
-DOC = ROOT / "docs" / "adapters" / "codex-cli-characterization.md"
 EXPECTED_SHA256 = "cb0a15567e9a60a5820d54b0f6ae86d504dc3805c1eab21a47f70e3eb7b73a40"
 
 
@@ -107,17 +106,6 @@ def test_identity_is_distinct_and_unverified_activation_is_blocked() -> None:
         "native model tool inventory not observed for this binary",
         "resolved model not observed for this binary",
     }
-
-
-def test_documentation_preserves_the_non_spending_claim_boundary() -> None:
-    documentation = DOC.read_text(encoding="utf-8")
-
-    assert "`codex-cli 0.147.0`" in documentation
-    assert EXPECTED_SHA256 in documentation
-    assert "does not prove JSONL event semantics" in documentation
-    assert "does not supersede" in documentation
-    assert "OpenAI Responses adapter" in documentation
-    assert "Activation remains blocked" in documentation
 
 
 def test_help_parsers_extract_only_public_interface_data() -> None:

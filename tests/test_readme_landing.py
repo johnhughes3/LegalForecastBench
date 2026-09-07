@@ -11,17 +11,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 README_PATH = ROOT / "README.md"
-PUBLICATION_GOVERNANCE_PATH = ROOT / "docs" / "publication-governance.md"
 PREPUBLICATION_MARKER = "<!-- result-publication-state: pre-publication -->"
 UNPUBLISHED_STATUS = "No official or community benchmark score is published yet"
 NON_AFFILIATION_TEXT = (
     "LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and "
     "LegalQuants are not sponsors, partners, or endorsers of this work."
-)
-RESULT_LABELS = (
-    "Preliminary — one task pair, operator-run, not independently reproducible",
-    "Reproducible community result — contributor-grade, non-official",
-    "Official LegalForecast-MTD Cycle 1 result",
 )
 
 
@@ -36,10 +30,6 @@ class _Tier(TypedDict):
 
 def _readme() -> str:
     return README_PATH.read_text(encoding="utf-8")
-
-
-def _publication_governance() -> str:
-    return PUBLICATION_GOVERNANCE_PATH.read_text(encoding="utf-8")
 
 
 def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
@@ -72,19 +62,19 @@ def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
 
 def test_readme_exposes_governed_result_anchors_without_tier_upgrade() -> None:
     readme = _readme()
-    governance = _publication_governance()
 
     assert "## Official Benchmark Results" in readme
     assert "## Preliminary Community Result" in readme
     assert "## Reproducible Community Comparisons" in readme
 
-    for label in RESULT_LABELS:
-        assert label in governance
-        assert label in readme
+    assert (
+        "Preliminary — one task pair, operator-run, not independently reproducible"
+        in readme
+    )
+    assert "Reproducible community result — contributor-grade, non-official" in readme
+    assert "Official LegalForecast-MTD Cycle 1 result" in readme
 
     assert "No official result is claimed by this README revision" in readme
-    assert "does not close issue #49" in readme
-    assert NON_AFFILIATION_TEXT in governance
     assert NON_AFFILIATION_TEXT in readme
 
     heading_anchors = {
@@ -134,7 +124,10 @@ def test_published_result_fixture_rejects_a_stale_prepublication_readme(
         required_label=(
             "Official LegalForecast-MTD Cycle 1 result"
             if surface_id == "official-cycle-1-report"
-            else RESULT_LABELS[0]
+            else (
+                "Preliminary — one task pair, operator-run, not independently "
+                "reproducible"
+            )
         )
     )
     surface = surface_data
