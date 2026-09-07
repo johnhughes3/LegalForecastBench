@@ -459,26 +459,18 @@ def complete_managed_tool_cell(
     if api_key is None or not api_key.strip():
         raise RunValidationError("OPENAI_API_KEY is required")
 
-    def call() -> Mapping[str, object]:
+    def call(executor: ToolExecutor, workspace: Path) -> Mapping[str, object]:
         request_body_observer(commitment)
         try:
-            with TemporaryDirectory(prefix="lfb-official-tools-") as temporary:
-                workspace = Path(temporary)
-                with open_official_tool_session(
-                    documents=managed_case.documents,
-                    workspace=workspace,
-                    session_id=managed_case.cell_id,
-                    environ=environ,
-                ) as executor:
-                    result = run_managed_tool_agent(
-                        entry,
-                        initial_prompt=initial_prompt,
-                        required_unit_ids=managed_case.required_unit_ids,
-                        executor=executor,
-                        workspace=workspace,
-                        request_id=managed_case.cell_id,
-                        api_key=api_key.strip(),
-                    )
+            result = run_managed_tool_agent(
+                entry,
+                initial_prompt=initial_prompt,
+                required_unit_ids=managed_case.required_unit_ids,
+                executor=executor,
+                workspace=workspace,
+                request_id=managed_case.cell_id,
+                api_key=api_key.strip(),
+            )
         except ModelHTTPError as exc:
             raise LiveModelProviderError(
                 "managed OpenAI agent request failed",
@@ -509,7 +501,24 @@ def complete_managed_tool_cell(
             "estimated_cost_usd": estimated_cost_usd,
         }
 
-    payload = handler.run_attempt(1, call)
+    if handler.replayable_response is not None:
+
+        def refuse_replay_transport() -> Mapping[str, object]:
+            raise RuntimeError("replay attempted to invoke provider transport")
+
+        payload = handler.run_attempt(1, refuse_replay_transport)
+    else:
+        # Local setup can fail without making a billable request. Complete it
+        # before reserving spend or marking provider transport as started.
+        with TemporaryDirectory(prefix="lfb-official-tools-") as temporary:
+            workspace = Path(temporary)
+            with open_official_tool_session(
+                documents=managed_case.documents,
+                workspace=workspace,
+                session_id=managed_case.cell_id,
+                environ=environ,
+            ) as executor:
+                payload = handler.run_attempt(1, lambda: call(executor, workspace))
     durable_attempt_ordinal = handler.durable_attempt_ordinal(1)
     try:
         raw_output = _managed_required_str(payload, "raw_output")

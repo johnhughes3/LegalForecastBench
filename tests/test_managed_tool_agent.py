@@ -187,6 +187,7 @@ class _AttemptHandler:
     def __init__(self) -> None:
         self.settlement: tuple[int, int, float, str] | None = None
         self.run_count = 0
+        self.replayable_response: dict[str, object] | None = None
 
     def run_attempt(self, _ordinal: int, call: Any) -> Any:
         self.run_count += 1
@@ -219,6 +220,7 @@ class _ReplayHandler(_AttemptHandler):
     def __init__(self, payload: dict[str, object]) -> None:
         super().__init__()
         self.payload = payload
+        self.replayable_response = payload
 
     def run_attempt(self, _ordinal: int, call: Any) -> dict[str, object]:
         self.run_count += 1

@@ -116,7 +116,7 @@
       "legalforecast/testing/architecture_rules": 9,
       "legalforecast/testing/cli_corpus": 12,
       "scripts": 4,
-      "tests": 182,
+      "tests": 183,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -1353,10 +1353,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "complete_managed_tool_cell",
-        "largest_symbol_lines": 137,
+        "largest_symbol_lines": 146,
         "layer": "application",
-        "line_count": 643,
-        "nonblank_line_count": 566,
+        "line_count": 652,
+        "nonblank_line_count": 573,
         "top_level_definition_count": 23
       },
       "legalforecast/runner/service.py": {
