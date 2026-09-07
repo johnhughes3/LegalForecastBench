@@ -168,7 +168,7 @@ jobs:
           root = Path("/tmp/lfb-locked-inputs")
           source_root = os.environ["LFB_ARTIFACT_ROOT_URI"]
           release_path = root / "forecast-release.json"
-          release = ForecastRelease.model_validate(json.loads(release_path.read_text()))
+          release = ForecastRelease.model_validate_json(release_path.read_bytes())
           declared: dict[str, tuple[str, int]] = {}
           for case in release.cases:
               for document in case.documents:
@@ -229,7 +229,7 @@ jobs:
           from legalforecast.release.consumer import load_run_manifest, validate_manifest_against_forecast
           from legalforecast.release.models import ForecastRelease
           loaded = load_run_manifest(Path("/tmp/lfb-locked-inputs/run-manifest.json"))
-          forecast = ForecastRelease.model_validate(json.loads(Path("/tmp/lfb-locked-inputs/forecast-release.json").read_text()))
+          forecast = ForecastRelease.model_validate_json(Path("/tmp/lfb-locked-inputs/forecast-release.json").read_bytes())
           validate_manifest_against_forecast(loaded.manifest, forecast)
           PY
       - name: Build dynamic logical-cell matrices from validated releases

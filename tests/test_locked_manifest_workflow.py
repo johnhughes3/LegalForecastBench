@@ -1,14 +1,45 @@
 from __future__ import annotations
 
+import ast
+import json
 import re
 import subprocess
 import textwrap
 from pathlib import Path
 
+from legalforecast.release import ForecastRelease, issue_synthetic_release
+
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = ROOT / ".github/workflows/run-benchmark.yaml"
 LEGACY_WORKFLOW_PATH = ROOT / ".github/workflows/run-benchmark-manifest.yaml"
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
+
+
+def test_workflow_loads_serialized_release_through_json_validation(
+    tmp_path: Path,
+) -> None:
+    issue_synthetic_release(tmp_path / "release")
+    release_path = tmp_path / "release" / "forecast-release.json"
+    expressions = re.findall(
+        r"^          (?:release|forecast) = (ForecastRelease\..+)$",
+        WORKFLOW,
+        re.MULTILINE,
+    )
+    assert len(expressions) == 2
+    for expression in expressions:
+        # Run the actual workflow expressions over an issued JSON artifact.
+        loaded = eval(
+            compile(ast.parse(expression, mode="eval"), "workflow-loader", "eval"),
+            {
+                "ForecastRelease": ForecastRelease,
+                "release_path": release_path,
+                "Path": lambda _: release_path,
+                "json": json,
+            },
+        )
+        assert isinstance(loaded, ForecastRelease)
+        assert len(loaded.cases) == 3
+        assert len(loaded.prediction_units) == 3
 
 
 def test_concurrency_group_remains_bounded_for_long_release_locators() -> None:
