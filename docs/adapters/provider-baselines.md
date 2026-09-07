@@ -1,6 +1,6 @@
 # Provider Runtime Baseline Adapters
 
-The provider/runtime baseline tracks give community users reference points for interpreting LQ.AI, Hermes Agent, OpenClaw, and other harness comparisons. They are not official LegalForecastBench evaluation paths, and their results publish only to community comparison surfaces.
+The provider/runtime baseline tracks give community users reference points for interpreting provider-backed harness comparisons. They are not official LegalForecastBench evaluation paths, and their results publish only to community comparison surfaces.
 
 Decision reviewed: 2026-07-17.
 
@@ -76,6 +76,6 @@ The public-repository CI boundary is fail-closed: neither a cached interactive l
 
 Do not report subscription usage as API spend. For subscription rows, report the plan category and public-safe token or usage dimensions that the CLI itself emits, and label monetary cost as unavailable or subscription-included unless an authoritative attributable charge exists. For API rows, report the provider-billed amount separately from evaluator and experiment costs and retain the private billing receipt only in the trusted evidence boundary.
 
-Scores and aggregates are project-authored research data. Published output excerpts must be human-reviewed, attributed to the project, and conspicuously identified as AI-generated where the provider policy requires it. The project must use the exact evidence-tier label and non-affiliation statement from `docs/publication-governance.json`; provider names identify the measured product surface and never imply provider endorsement.
+Scores and aggregates are project-authored research data. Published output excerpts must be human-reviewed, attributed to the project, and conspicuously identified as AI-generated where the provider policy requires it. Apply the track, arm, and non-affiliation rules in [publication governance](../publication-governance.md); provider names identify the measured product surface and never imply provider endorsement.
 
 Only allowlisted aggregate fields and deliberately reviewed excerpts may leave the trusted boundary; raw transcripts remain private. If current provider sources no longer support a profile, if applicable organization-specific terms differ, or if a publication would require material whose rights or confidentiality are unclear, the run or publication remains blocked under that profile.

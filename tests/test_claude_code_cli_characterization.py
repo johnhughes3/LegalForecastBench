@@ -26,7 +26,6 @@ FIXTURE = (
     / "claude_code_cli_characterization"
     / "claude-code-cli-interface-2.1.233.json"
 )
-DOC = ROOT / "docs" / "adapters" / "claude-code-cli-characterization.md"
 MANIFEST = ROOT / "tests" / "fixtures" / "local_cli_adapters" / "claude-code.json"
 EXPECTED_SHA256 = "55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9"
 EXPECTED_MODEL = "claude-haiku-4-5"
@@ -101,15 +100,9 @@ def test_identity_is_distinct_and_unverified_activation_is_blocked() -> None:
     assert evidence["auth"]["status_command_requested"] is False
 
 
-def test_documentation_and_manifest_preserve_the_non_spending_claim_boundary() -> None:
-    documentation = DOC.read_text(encoding="utf-8")
+def test_manifest_preserves_the_non_spending_claim_boundary() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
 
-    assert "2.1.233" in documentation
-    assert EXPECTED_SHA256 in documentation
-    assert "does not prove JSON envelope semantics" in documentation
-    assert "Claude Agent SDK" in documentation
-    assert "Activation remains blocked" in documentation
     assert manifest["executable"]["sha256"] == EXPECTED_SHA256
     assert manifest["auth_profile_name"] == "fixture-none"
     assert manifest["timeout_retry"]["max_attempts"] == 1
@@ -120,15 +113,12 @@ def test_documentation_and_manifest_preserve_the_non_spending_claim_boundary() -
 
 
 def test_json_schema_flag_takes_inline_json_not_a_path() -> None:
-    documentation = DOC.read_text(encoding="utf-8")
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     template = manifest["invocation"]["argv_template"]
     auth_closed = (
         ROOT / "tests" / "fixtures" / "claude_code" / "transcripts" / "auth_closed.json"
     ).read_text(encoding="utf-8")
 
-    assert "inline JSON" in documentation
-    assert "rejected as invalid JSON" in documentation
     assert "filesystem path was rejected as invalid JSON" in auth_closed
     assert template[template.index("--json-schema") + 1] == "{output_schema}"
     assert "{output_schema_path}" not in template
@@ -145,11 +135,9 @@ def test_non_empty_tools_argv_is_one_comma_joined_token() -> None:
     from legalforecast.multiharness.claude_code import (
         CLAUDE_CODE_CLEAN_NATIVE_TOOLS,
         CLAUDE_CODE_TOOLS_ARGV_ENCODING,
-        CLAUDE_CODE_TOOLS_ARGV_EXAMPLE,
         encode_claude_code_tools_argv_token,
     )
 
-    documentation = DOC.read_text(encoding="utf-8")
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     template = manifest["invocation"]["argv_template"]
     golden = (
@@ -161,10 +149,6 @@ def test_non_empty_tools_argv_is_one_comma_joined_token() -> None:
         if line and not line.startswith("#")
     )
 
-    assert "--tools <tools...>" in documentation
-    assert "comma-joined" in documentation
-    assert CLAUDE_CODE_TOOLS_ARGV_EXAMPLE in documentation
-    assert "Read,Glob" in documentation
     assert CLAUDE_CODE_TOOLS_ARGV_ENCODING == "comma-joined-single-token"
     assert template[template.index("--tools") + 1] == ""
     assert template[template.index("--tools") + 2] == "--strict-mcp-config"

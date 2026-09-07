@@ -10,7 +10,7 @@ Eligible decisions follow the models' latest first external deployment; known ou
 
 ## Start Here
 
-[Read the methods](docs/METHODS.md) · [Reproduce or audit](docs/reproduce-or-audit.md) · [Check publication rules](docs/publication-governance.md) · [Track execution in issue #203](https://github.com/johnhughes3/LegalForecastBench/issues/203)
+[Read the methods](docs/METHODS.md) · [Reproduce or audit](docs/reproduce-or-audit.md) · [Check publication rules](docs/publication-governance.md)
 
 ## Why This Exists
 
@@ -50,7 +50,7 @@ Current pilot model anchors are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEAS
 
 ## Preliminary Community Result
 
-**No validated result is linked yet.** Its reserved label is **Preliminary — one task pair, operator-run, not independently reproducible**. This non-official tier does not close issue #49.
+**No validated result is linked yet.** Its reserved label is **Preliminary — one task pair, operator-run, not independently reproducible**.
 
 ## Reproducible Community Comparisons
 

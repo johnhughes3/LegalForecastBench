@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import textwrap
 from pathlib import Path
@@ -12,9 +11,12 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 README_PATH = ROOT / "README.md"
-GOVERNANCE_PATH = ROOT / "docs" / "publication-governance.json"
 PREPUBLICATION_MARKER = "<!-- result-publication-state: pre-publication -->"
 UNPUBLISHED_STATUS = "No official or community benchmark score is published yet"
+NON_AFFILIATION_TEXT = (
+    "LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and "
+    "LegalQuants are not sponsors, partners, or endorsers of this work."
+)
 
 
 class _Surface(TypedDict):
@@ -60,27 +62,30 @@ def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
 
 def test_readme_exposes_governed_result_anchors_without_tier_upgrade() -> None:
     readme = _readme()
-    governance = json.loads(GOVERNANCE_PATH.read_text(encoding="utf-8"))
 
     assert "## Official Benchmark Results" in readme
     assert "## Preliminary Community Result" in readme
     assert "## Reproducible Community Comparisons" in readme
 
-    for tier in governance["evidence_tiers"].values():
-        assert tier["required_label"] in readme
+    assert (
+        "Preliminary — one task pair, operator-run, not independently reproducible"
+        in readme
+    )
+    assert "Reproducible community result — contributor-grade, non-official" in readme
+    assert "Official LegalForecast-MTD Cycle 1 result" in readme
 
     assert "No official result is claimed by this README revision" in readme
-    assert "does not close issue #49" in readme
-    assert governance["non_affiliation"]["required_text"] in readme
+    assert NON_AFFILIATION_TEXT in readme
 
     heading_anchors = {
         _github_heading_anchor(match.group(1))
         for match in re.finditer(r"^#{1,6} +(.*)$", readme, flags=re.MULTILINE)
     }
-    for surface in governance["public_surfaces"]:
-        if not surface["canonical_path"].startswith("README.md#"):
-            continue
-        anchor = surface["canonical_path"].split("#", maxsplit=1)[1]
+    for anchor in (
+        "official-benchmark-results",
+        "preliminary-community-result",
+        "reproducible-community-comparisons",
+    ):
         assert anchor in heading_anchors
 
 
@@ -99,15 +104,33 @@ def test_published_result_fixture_rejects_a_stale_prepublication_readme(
     stale_surface_claim: str,
 ) -> None:
     readme = _readme()
-    governance = json.loads(GOVERNANCE_PATH.read_text(encoding="utf-8"))
-    surfaces = {surface["id"]: surface for surface in governance["public_surfaces"]}
-    surface_data = surfaces[surface_id]
-    tier_data = governance["evidence_tiers"][surface_data["evidence_tier"]]
-    surface = _Surface(
-        canonical_path=str(surface_data["canonical_path"]),
-        call_to_action=str(surface_data["call_to_action"]),
+    surface_data = {
+        "official-cycle-1-report": _Surface(
+            canonical_path="results/official/cycle-1/README.md",
+            call_to_action=(
+                "Read the report, then follow the immutable audit and methods "
+                "links before interpreting model differences."
+            ),
+        ),
+        "tier0-claude-writeup": _Surface(
+            canonical_path="results/community/harvey-lab/claude-code-tier0.md",
+            call_to_action=(
+                "Inspect the pinned specification and machine evidence before "
+                "interpreting the observed result."
+            ),
+        ),
+    }[surface_id]
+    tier = _Tier(
+        required_label=(
+            "Official LegalForecast-MTD Cycle 1 result"
+            if surface_id == "official-cycle-1-report"
+            else (
+                "Preliminary — one task pair, operator-run, not independently "
+                "reproducible"
+            )
+        )
     )
-    tier = _Tier(required_label=str(tier_data["required_label"]))
+    surface = surface_data
 
     with pytest.raises(AssertionError):
         _assert_published_surface(readme, surface, tier, stale_surface_claim)
