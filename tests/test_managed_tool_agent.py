@@ -187,6 +187,7 @@ class _AttemptHandler:
     def __init__(self) -> None:
         self.settlement: tuple[int, int, float, str] | None = None
         self.run_count = 0
+        self.replayable_response: dict[str, object] | None = None
 
     def run_attempt(self, _ordinal: int, call: Any) -> Any:
         self.run_count += 1
@@ -219,6 +220,7 @@ class _ReplayHandler(_AttemptHandler):
     def __init__(self, payload: dict[str, object]) -> None:
         super().__init__()
         self.payload = payload
+        self.replayable_response = payload
 
     def run_attempt(self, _ordinal: int, call: Any) -> dict[str, object]:
         self.run_count += 1
@@ -469,3 +471,41 @@ def test_managed_cost_applies_long_context_surcharge_per_provider_request() -> N
 
     assert below_threshold_turns == pytest.approx(0.00024)
     assert one_surcharged_turn == pytest.approx(0.000401)
+
+
+def test_sandbox_setup_failure_does_not_authorize_spend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler = _AttemptHandler()
+    observed: list[bytes] = []
+
+    def unavailable(**_kwargs: Any) -> Any:
+        raise RuntimeError("Docker backend must be rootless")
+
+    monkeypatch.setattr(
+        "legalforecast.runner.tool_runtime.open_official_tool_session", unavailable
+    )
+    monkeypatch.setattr(
+        managed_execution,
+        "run_managed_tool_agent",
+        lambda *_args, **_kwargs: pytest.fail("provider must not be called"),
+    )
+    with pytest.raises(RuntimeError, match="Docker backend must be rootless"):
+        managed_execution.complete_managed_tool_cell(
+            _entry(),
+            handler=cast(Any, handler),
+            managed_case=ManagedCaseInput(
+                case_id="case-1",
+                required_unit_ids=("unit-a",),
+                documents={"documents/motion.txt": b"motion"},
+                unit_descriptions=(),
+                document_descriptions=(),
+                cell_id="a" * 64,
+            ),
+            request_body_observer=observed.append,
+            environ={"OPENAI_API_KEY": "fixture-key"},
+            registry_sha256="b" * 64,
+        )
+    assert handler.run_count == 0
+    assert handler.settlement is None
+    assert observed == []
