@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from datetime import date
 from types import SimpleNamespace
 from typing import cast
@@ -27,27 +28,48 @@ def executable_packet_bytes(*, case_id: str, unit_id: str, decision_date: str) -
     )
 
 
-def test_executable_packet_rejects_unit_binding_mismatch() -> None:
+def _execution(packet: bytes) -> ForecastExecution:
     unit = SimpleNamespace(case_id="case-001", unit_id="unit-001")
     release = SimpleNamespace(
         cases=(SimpleNamespace(case_id="case-001"),),
         prediction_units=(unit,),
     )
+    value = SimpleNamespace(
+        release=release,
+        packet_bytes=lambda unit_id: packet if unit_id == "unit-001" else b"",
+    )
+    return cast(ForecastExecution, value)
 
-    class MismatchedExecution:
-        def __init__(self) -> None:
-            self.release = release
 
-        def packet_bytes(self, unit_id: str) -> bytes:
-            assert unit_id == "unit-001"
-            return executable_packet_bytes(
-                case_id="case-001",
-                unit_id="unit-other",
-                decision_date="2026-08-23",
-            )
-
+def test_executable_packet_rejects_unit_binding_mismatch() -> None:
     with pytest.raises(RunValidationError, match="unit_id differs for unit unit-001"):
         validate_executable_packets(
-            cast(ForecastExecution, MismatchedExecution()),
+            _execution(
+                executable_packet_bytes(
+                    case_id="case-001",
+                    unit_id="unit-other",
+                    decision_date="2026-08-23",
+                )
+            ),
             release_anchor=date(2026, 8, 23),
         )
+
+
+def test_executable_packet_error_hides_rejected_input() -> None:
+    sentinel = "PRIVATE-PACKET-VALUE"
+    with pytest.raises(RunValidationError, match="decision_date") as caught:
+        validate_executable_packets(
+            _execution(
+                executable_packet_bytes(
+                    case_id="case-001",
+                    unit_id="unit-001",
+                    decision_date=sentinel,
+                )
+            ),
+            release_anchor=date(2026, 8, 23),
+        )
+
+    rendered = "".join(traceback.format_exception(caught.value))
+    assert sentinel not in rendered
+    assert caught.value.__cause__ is None
+    assert caught.value.__suppress_context__

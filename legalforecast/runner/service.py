@@ -881,7 +881,7 @@ def validate_executable_packets(
             raise RunValidationError(
                 "runner packet does not match the executable contract for unit "
                 f"{unit.unit_id}: {location} ({error['type']})"
-            ) from exc
+            ) from None
         if packet.case_id != unit.case_id:
             raise RunValidationError(
                 f"runner packet case_id differs for unit {unit.unit_id}"
