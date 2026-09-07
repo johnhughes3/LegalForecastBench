@@ -594,54 +594,6 @@
     "subject": "_file_sha256"
   },
   {
-    "path": "scripts/probe_claude_code_native_containment.py",
-    "reason": "legacy schema literal pending registry import",
-    "rule": "inline_schema_literal",
-    "subject": "legalforecast.claude_code_native_containment_probe.v2"
-  },
-  {
-    "path": "scripts/probe_claude_code_native_containment.py",
-    "reason": "legacy schema literal pending registry import",
-    "rule": "inline_schema_literal",
-    "subject": "legalforecast.claude_outer_boundary_attestation.v2"
-  },
-  {
-    "path": "scripts/probe_claude_code_native_containment.py",
-    "reason": "legacy private commitment helper pending shared-contract migration",
-    "rule": "private_commitment_helper",
-    "subject": "_sha256"
-  },
-  {
-    "path": "scripts/probe_codex_cli_interface.py",
-    "reason": "legacy schema literal pending registry import",
-    "rule": "inline_schema_literal",
-    "subject": "legalforecast.codex_cli_interface_characterization.v1"
-  },
-  {
-    "path": "scripts/probe_codex_cli_interface.py",
-    "reason": "legacy private commitment helper pending shared-contract migration",
-    "rule": "private_commitment_helper",
-    "subject": "_sha256_file"
-  },
-  {
-    "path": "scripts/probe_codex_cli_interface.py",
-    "reason": "legacy private commitment helper pending shared-contract migration",
-    "rule": "private_commitment_helper",
-    "subject": "_sha256_text"
-  },
-  {
-    "path": "scripts/probe_codex_native_containment.py",
-    "reason": "legacy schema literal pending registry import",
-    "rule": "inline_schema_literal",
-    "subject": "legalforecast.codex_native_containment_probe.v1"
-  },
-  {
-    "path": "scripts/probe_codex_native_containment.py",
-    "reason": "legacy private commitment helper pending shared-contract migration",
-    "rule": "private_commitment_helper",
-    "subject": "_sha256"
-  },
-  {
     "path": "scripts/release_check.py",
     "reason": "legacy schema literal pending registry import",
     "rule": "inline_schema_literal",

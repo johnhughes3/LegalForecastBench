@@ -184,7 +184,7 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `community/submissions/`: reviewed community submission examples and future accepted metadata packages.
 - `docs/`: methods, official-run runbook, reproduction/audit guide, schema contracts, and community/adapter docs — start at [docs/README.md](docs/README.md). Corpus construction and acquisition live in the companion LegalForecastCorpus repository.
 - `tests/`: synthetic fixtures and regression coverage.
-- `scripts/`: release checks, deterministic fixture input preparation, and offline adapter probes.
+- `scripts/`: release checks, deterministic fixture input preparation, and provider/runtime validation utilities.
 - `model_registries/`: frozen evaluation registries and public release metadata. Locked run manifests are issued release inputs in official storage, not files in this tree.
 - `infra/`: Terraform roots for the retained official evaluation IAM boundary and bootstrap trust anchor.
 - `docs/MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.

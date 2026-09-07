@@ -115,8 +115,8 @@
       "legalforecast/testing": 4,
       "legalforecast/testing/architecture_rules": 9,
       "legalforecast/testing/cli_corpus": 12,
-      "scripts": 8,
-      "tests": 186,
+      "scripts": 4,
+      "tests": 182,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -1462,58 +1462,6 @@
         "nonblank_line_count": 217,
         "top_level_definition_count": 9
       },
-      "scripts/probe_claude_code_native_containment.py": {
-        "cycle_id": "",
-        "disposition_kind": "planned-seam",
-        "disposition_owner": "legalforecastbench-m1pv.7",
-        "fan_in": 0,
-        "fan_out": 0,
-        "flags": [
-          "relative-path",
-          "monolith"
-        ],
-        "lane_owner": "scripts",
-        "largest_symbol": "_inner_probe",
-        "largest_symbol_lines": 175,
-        "layer": "entrypoint",
-        "line_count": 2187,
-        "nonblank_line_count": 2023,
-        "top_level_definition_count": 63
-      },
-      "scripts/probe_codex_cli_interface.py": {
-        "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "scripts",
-        "fan_in": 0,
-        "fan_out": 0,
-        "flags": [
-          "watch"
-        ],
-        "lane_owner": "scripts",
-        "largest_symbol": "observe",
-        "largest_symbol_lines": 175,
-        "layer": "entrypoint",
-        "line_count": 510,
-        "nonblank_line_count": 450,
-        "top_level_definition_count": 20
-      },
-      "scripts/probe_codex_native_containment.py": {
-        "cycle_id": "",
-        "disposition_kind": "planned-seam",
-        "disposition_owner": "legalforecastbench-m1pv.7",
-        "fan_in": 0,
-        "fan_out": 0,
-        "flags": [
-          "oversized"
-        ],
-        "lane_owner": "scripts",
-        "largest_symbol": "build_evidence",
-        "largest_symbol_lines": 282,
-        "layer": "entrypoint",
-        "line_count": 1185,
-        "nonblank_line_count": 1068,
-        "top_level_definition_count": 41
-      },
       "scripts/probe_openai_compatible_provider.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",
@@ -1583,24 +1531,6 @@
         "line_count": 554,
         "nonblank_line_count": 486,
         "top_level_definition_count": 29
-      },
-      "tests/test_claude_code_native_containment.py": {
-        "cycle_id": "",
-        "disposition_kind": "planned-seam",
-        "disposition_owner": "legalforecastbench-m1pv.7",
-        "fan_in": 0,
-        "fan_out": 0,
-        "flags": [
-          "relative-path",
-          "oversized"
-        ],
-        "lane_owner": "tests",
-        "largest_symbol": "_realistic_runtime_receipt",
-        "largest_symbol_lines": 68,
-        "layer": "test",
-        "line_count": 1854,
-        "nonblank_line_count": 1611,
-        "top_level_definition_count": 64
       },
       "tests/test_community_lab_quickstart.py": {
         "cycle_id": "",

@@ -23,9 +23,9 @@
     "tests/test_publication_guardrails.py",
     "tests/test_multiharness_local_cli_stream.py",
     "tests/test_multiharness_conformance.py",
-    "tests/test_claude_code_native_containment.py",
     "tests/test_multiharness_cli.py",
-    "tests/test_multiharness_local_cli_scheduler.py"
+    "tests/test_multiharness_local_cli_scheduler.py",
+    "tests/test_multiharness_codex_cli.py"
   ],
   "critical_path_rank": "duration",
   "dist": "loadscope",
@@ -75,14 +75,6 @@
       "duration_seconds": null,
       "test_count": 5
     },
-    "tests/test_claude_code_cli_characterization.py": {
-      "duration_seconds": 0.12,
-      "test_count": 13
-    },
-    "tests/test_claude_code_native_containment.py": {
-      "duration_seconds": 2.2,
-      "test_count": 125
-    },
     "tests/test_cli_corpus_differential.py": {
       "duration_seconds": 0.04,
       "test_count": 9
@@ -98,14 +90,6 @@
     "tests/test_cli_orchestration.py": {
       "duration_seconds": 0.1,
       "test_count": 2
-    },
-    "tests/test_codex_cli_characterization.py": {
-      "duration_seconds": 0.21,
-      "test_count": 11
-    },
-    "tests/test_codex_native_containment.py": {
-      "duration_seconds": 0.08,
-      "test_count": 11
     },
     "tests/test_commitment_contracts.py": {
       "duration_seconds": null,
