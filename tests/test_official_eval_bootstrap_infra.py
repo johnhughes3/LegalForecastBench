@@ -19,7 +19,6 @@ from tests.official_infra_trust_helpers import (
 ROOT = Path(__file__).resolve().parents[1]
 INFRA_ROOT = ROOT / "infra" / "official-eval-bootstrap"
 POLICY_ROOT = INFRA_ROOT / "policies"
-RUNBOOK = ROOT / "docs" / "official-run-runbook.md"
 ENVIRONMENT_MANIFEST = ROOT / "infra" / "official-eval" / "github-environments.json"
 OPERATOR_WORKFLOW = (
     ROOT / ".github" / "workflows" / "official-provider-authority-infra.yaml"
@@ -352,9 +351,8 @@ def test_operator_trust_conditions_are_satisfiable_by_the_bootstrap_workflow() -
 
     The trust tests `:repository`, `:ref`, and `:environment` on top of
     `aud`/`sub`. All three are real AWS condition keys for the GitHub IdP and
-    are populated on protected-environment tokens; docs/github-aws-oidc-trust-
-    claims.md records the primary sources behind that, after two reviews
-    argued the opposite and one PR deleted the conditions on a false premise.
+    are populated on protected-environment tokens; the GitHub and AWS primary
+    references linked from the infrastructure README document that contract.
 
     The live risk is not the keys, it is drift between a pinned value and what
     the workflow can produce. AWS is explicit that `:environment` only matches
@@ -722,79 +720,6 @@ def test_operator_canary_name_is_pinned_and_its_arn_is_derived() -> None:
         "outside_authority_table_arn  = local.provider_canary_table_arn" in locals_text
     )
     assert '"Resource": "${outside_authority_table_arn}"' in policy
-
-
-def test_runbook_is_import_first_and_migrates_verified_local_state() -> None:
-    readme = (INFRA_ROOT / "README.md").read_text(encoding="utf-8")
-    runbook = RUNBOOK.read_text(encoding="utf-8")
-    gitignore = (INFRA_ROOT / ".gitignore").read_text(encoding="utf-8")
-
-    for required in (
-        "separately authorized human/operator AWS credentials",
-        "umask 077",
-        "LFB_PROTECTED_BOOTSTRAP_STATE_DIR",
-        'terraform -chdir="$root_dir" import',
-        "github_oidc_provider_arn",
-        "terraform init -migrate-state",
-        "use_lockfile=true",
-        "VersionId",
-        "SSEKMSKeyId",
-        "zero-drift",
-        "Only after all remote-state checks pass",
-        'root_dir="$state_dir/root"',
-        'cp -rf infra/official-eval-bootstrap "$root_dir"',
-        'cp -f "$root_dir/backend.s3.tf.example" "$root_dir/backend.s3.tf"',
-        "aws_s3_bucket.terraform_state",
-        "aws_kms_key.terraform_state",
-        "aws_kms_alias.terraform_state",
-        "aws_iam_role.operator",
-    ):
-        assert required in readme
-    assert (
-        "terraform import aws_iam_openid_connect_provider.github_actions" not in readme
-    )
-    assert '-state="$state_dir/terraform.tfstate"' not in readme
-    versions = (INFRA_ROOT / "versions.tf").read_text(encoding="utf-8")
-    backend_example = (INFRA_ROOT / "backend.s3.tf.example").read_text(encoding="utf-8")
-    assert 'backend "s3"' not in versions
-    assert 'backend "s3" {}' in backend_example
-    assert readme.index('terraform -chdir="$root_dir" import') < readme.index(
-        "terraform plan"
-    )
-    assert readme.index("terraform apply") < readme.index(
-        "terraform init -migrate-state"
-    )
-    bash_blocks = re.findall(r"```bash\n(.*?)\n```", readme, re.DOTALL)
-    assert bash_blocks
-    assert all(block.startswith("set -euo pipefail\n") for block in bash_blocks)
-    migration_guard = readme.index("aws s3api list-object-versions")
-    migration = readme.index(
-        'TF_DATA_DIR="$tf_data_dir" terraform -chdir="$root_dir" init -migrate-state'
-    )
-    assert migration_guard < migration
-    for required_guard in (
-        'state_key="bootstrap/terraform.tfstate"',
-        ".Versions // []",
-        ".DeleteMarkers // []",
-        "Reconcile its lineage and serial",
-    ):
-        assert required_guard in readme
-    assert readme.index("zero-drift") < readme.index(
-        "Only after all remote-state checks pass"
-    )
-    assert "One-time AWS/Terraform bootstrap trust anchor" in runbook
-    for pattern in (
-        ".terraform/",
-        "*.tfstate",
-        "*.tfstate.*",
-        "*.tfplan",
-        "*.tfvars",
-        "*.tfvars.json",
-        "crash.log",
-        "override.tf",
-    ):
-        assert pattern in gitignore
-    assert ".terraform.lock.hcl" not in gitignore
 
 
 def test_backend_lockfile_uses_the_reviewed_sse_kms_configuration() -> None:

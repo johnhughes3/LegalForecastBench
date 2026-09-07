@@ -80,7 +80,6 @@
     "tests/test_model_registry.py",
     "tests/test_multiharness_adapter_registry.py",
     "tests/test_multiharness_artifact_characterization.py",
-    "tests/test_multiharness_auth_binding.py",
     "tests/test_multiharness_claude_agent_sdk.py",
     "tests/test_multiharness_claude_clean_native_lab_e2e.py",
     "tests/test_multiharness_claude_code_adapter.py",

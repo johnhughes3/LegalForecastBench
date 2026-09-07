@@ -17,14 +17,9 @@ This index covers the current public contracts, operator guides, and reproducibl
 - [METHODS.md](METHODS.md): eval-card-grade methods — construct, frozen inputs, leakage controls, metrics, inference, related work, human-baseline status, limitations, and withdrawal policy.
 - [Contamination-tier reporting](contamination-tier-reporting.md): the mechanical rule that distinguishes contamination-resistant scores from preliminary (non-contamination-resistant) scores — both official, viable results — and the paired drift metric between them.
 - [official-run-runbook.md](official-run-runbook.md): the public release boundary — immutable inputs, protected forecast/fan-in workflows, strict scoring, reporting, and hold conditions.
-- [GitHub → AWS OIDC trust claims](github-aws-oidc-trust-claims.md): the verified condition-key surface behind the official roles' trust policies.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
 - [Publication governance](publication-governance.md): current track-separation, arm, reporting, and non-affiliation rules.
 - [Hugging Face benchmark publication](hugging-face-publication.md): manually gated access, immutable dataset revisions, native leaderboard registration, and short-lived automated publication.
-
-## Release Security
-
-- [PyPI trusted publishing and release environment](security/pypi-trusted-publishing.md): the registered trusted-publisher claim set, the layers that restrict publication to `v*` tags, and the revocation and recovery order.
 
 ## Corpus Handoff Boundary
 
@@ -46,7 +41,6 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 ### Adapter tracks
 
 - [provider-baselines.md](adapters/provider-baselines.md): provider/runtime reference points and the publication terms they rest on.
-- [published-api-key-profile.md](adapters/published-api-key-profile.md): Infisical layout for the portable `published-api-key` local-CLI profile.
 - [Local CLI adapter manifest](schemas/local-cli-adapter-manifest-v1.md): the current generic manifest contract for local agentic CLI adapters.
 
 ## Public Release Schema Reference

@@ -69,7 +69,7 @@ _PROFILE_INFISICAL_PATH: Final[Mapping[str, str]] = {
 }
 
 # Infisical secret names this profile may project. Each adapter takes a
-# subset. See docs/adapters/published-api-key-profile.md.
+# subset. Operator setup is documented in the companion private Corpus runbook.
 PUBLISHED_API_KEY_SECRET_KEYS: Final[frozenset[str]] = frozenset(
     {
         "ANTHROPIC_API_KEY",

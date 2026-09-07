@@ -90,28 +90,6 @@ def test_published_api_key_layout_names_wrapper_path_and_keys() -> None:
     assert "GEMINI_API_KEY" not in str(layout)
     assert "harness-runtime/published-api-key" not in str(layout)
     assert "prod" not in layout["allowed_environments"]
-    docs = (
-        Path(__file__).resolve().parents[1]
-        / "docs"
-        / "adapters"
-        / "published-api-key-profile.md"
-    ).read_text(encoding="utf-8")
-    assert str(layout["infisical_path"]) in docs
-    assert INFISICAL_WRAPPER_NAME in docs
-    assert "ANTHROPIC_API_KEY" in docs
-    assert "OPENAI_API_KEY" in docs
-    assert "`dev`" in docs
-    assert "GitHub Environment" in docs
-    docs = (
-        Path(__file__).resolve().parents[1]
-        / "docs"
-        / "adapters"
-        / "published-api-key-profile.md"
-    ).read_text(encoding="utf-8")
-    assert str(layout["infisical_path"]) in docs
-    assert str(layout["wrapper"]) in docs
-    for _executable, name in keys:
-        assert f"`{name}`" in docs
 
 
 def test_shipped_manifests_match_published_api_key_layout() -> None:

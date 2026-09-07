@@ -100,7 +100,7 @@ Default checks must not require live credentials. The release check runs locked 
 
 Tags matching `v*` run the package-publish workflow. That workflow reruns the release check, publishes the built wheel/sdist from `tmp/release-check/dist` to PyPI with trusted publishing, and attaches the wheel, sdist, and package hash file to the GitHub release. Publishing is tag-only; the workflow cannot be dispatched manually from an arbitrary branch.
 
-Official benchmark cycles can also be published as immutable revisions of a public, manually gated Hugging Face Dataset through the protected fan-in workflow. See [Hugging Face benchmark publication](docs/hugging-face-publication.md) for versioning, access terms, one-time setup, and the distinction between HF distribution and the benchmark's authoritative evidence.
+Official benchmark cycles can also be published as immutable revisions of a public, manually gated Hugging Face Dataset through the protected fan-in workflow. See [Hugging Face benchmark publication](docs/hugging-face-publication.md) for immutable versioning, access terms, and the distinction between HF distribution and the benchmark's authoritative evidence.
 
 ## Community Multi-Harness Contributor Details
 
