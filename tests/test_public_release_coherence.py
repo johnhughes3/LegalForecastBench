@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -84,3 +85,47 @@ def test_docs_index_describes_the_retained_corpus_handoff() -> None:
         "legalforecast acquisition replay-stage-a",
     ):
         assert stale not in docs_index, stale
+
+
+def test_public_tree_does_not_keep_retired_cycle_acquisition_templates() -> None:
+    manifests = ROOT / "manifests"
+    leftover = (
+        sorted(
+            path.relative_to(ROOT).as_posix()
+            for path in manifests.glob("cycle-1-target-100*.template.json")
+        )
+        if manifests.is_dir()
+        else []
+    )
+    recap_policies = manifests / "recap-fetch-policies"
+    assert leftover == []
+    assert not recap_policies.exists()
+    assert not (ROOT / "docs" / "labeling-policy.json").exists()
+    assert not (
+        ROOT / "docs" / "cohort-policy-cycle-1-target-100-2026-07-25.json"
+    ).exists()
+
+
+def test_tracked_manifest_templates_resolve_repo_root_inputs() -> None:
+    manifests = ROOT / "manifests"
+    if not manifests.is_dir():
+        return
+
+    missing: list[str] = []
+    local_paths: list[str] = []
+    for path in manifests.rglob("*"):
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        relative = path.relative_to(ROOT).as_posix()
+        if "/work/" in text or "/Users/" in text:
+            local_paths.append(relative)
+        if path.suffix != ".json" or ".template." not in path.name:
+            continue
+        json.loads(text)
+        for match in re.findall(r"\$\{REPO_ROOT\}/([^\"\s]+)", text):
+            if not (ROOT / match).exists():
+                missing.append(f"{relative} -> {match}")
+
+    assert local_paths == []
+    assert missing == []
