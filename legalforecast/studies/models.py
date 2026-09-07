@@ -225,7 +225,7 @@ class Multiplicity(_FrozenModel):
     @field_validator("alpha")
     @classmethod
     def _finite_alpha(cls, value: float) -> float:
-        if value != value or value in {float("inf"), float("-inf")}:
+        if not math.isfinite(value):
             raise ValueError("alpha must be finite")
         return value
 
@@ -256,7 +256,7 @@ class StudySpec(_FrozenModel):
     @field_validator("confidence_level")
     @classmethod
     def _finite_confidence(cls, value: float) -> float:
-        if value != value or value in {float("inf"), float("-inf")}:
+        if not math.isfinite(value):
             raise ValueError("confidence_level must be finite")
         return value
 

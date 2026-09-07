@@ -84,6 +84,63 @@ def test_study_computes_cross_cohort_change_from_strict_scores(tmp_path: Path) -
     )
 
 
+def test_study_scores_the_protocols_exact_later_repeat(tmp_path: Path) -> None:
+    artifacts = _artifacts(tmp_path, repeat_index=2)
+    spec = _spec(artifacts, mode="clean", repeat_index=2)
+
+    report = evaluate_study(spec, arm_inputs=artifacts)
+
+    assert all(
+        observation.status == "complete" for observation in report.arm_observations
+    )
+    assert report.comparisons[0].status == "complete"
+
+
+def test_same_model_entry_can_span_distinct_registry_snapshots(tmp_path: Path) -> None:
+    artifacts = _artifacts(tmp_path)
+    spec = _spec(artifacts, mode="clean")
+    original = artifacts["b-a"]
+    entry = original.model_registry.entries[0]
+    registry_bytes = json.dumps(
+        [entry.to_record(), _registry_entry("unrelated-model").to_record()],
+        sort_keys=True,
+    ).encode()
+    registry = load_model_registry_bytes(registry_bytes)
+    registry_sha256 = model_registry_sha256(registry_bytes)
+    changed_inputs = dict(artifacts)
+    changed_inputs["b-a"] = StudyArmInput(
+        forecast_release=original.forecast_release,
+        labels_release=original.labels_release,
+        manifest=original.manifest,
+        model_registry=registry,
+        run_records=tuple(
+            {**record, "model_registry_sha256": registry_sha256}
+            for record in (original.run_records or ())
+        ),
+    )
+    changed_arms = []
+    for arm in spec.arms:
+        if arm.arm_id != "b-a":
+            changed_arms.append(arm)
+            continue
+        binding = arm.suitability.binding.model_dump(mode="python")
+        binding["model_registry_sha256"] = registry_sha256
+        suitability = arm.suitability.model_dump(mode="python")
+        suitability["binding"] = binding
+        arm_record = arm.model_dump(mode="python")
+        arm_record["model_registry_sha256"] = registry_sha256
+        arm_record["suitability"] = suitability
+        changed_arms.append(StudyArm.model_validate(arm_record))
+    changed_spec = StudySpec.model_validate(
+        {**spec.model_dump(mode="python"), "arms": tuple(changed_arms)}
+    )
+
+    report = evaluate_study(changed_spec, arm_inputs=changed_inputs)
+
+    assert report.arm_observations[2].status == "complete"
+    assert report.comparisons[0].status == "complete"
+
+
 def test_linked_matter_clusters_are_explicit_and_order_invariant(
     tmp_path: Path,
 ) -> None:
@@ -477,6 +534,7 @@ def _spec(
     suitability: str = "suitable_under_policy",
     comparisons: int = 1,
     shared_cluster: bool = False,
+    repeat_index: int = 1,
 ) -> StudySpec:
     cohorts = (
         _cohort("a", artifacts["a-a"], shared_cluster=shared_cluster),
@@ -504,6 +562,7 @@ def _spec(
     protocol = StudyProtocol(
         protocol_id="protocol-v1",
         scoring_policy_id="policy-v1",
+        repeat_index=repeat_index,
     )
     cohorts_by_id = {cohort.cohort_id: cohort for cohort in cohorts}
     arms = tuple(
@@ -621,11 +680,13 @@ def _study_arm(
     )
 
 
-def _artifacts(tmp_path: Path) -> dict[str, StudyArmInput]:
-    return _build_artifacts(tmp_path)
+def _artifacts(tmp_path: Path, *, repeat_index: int = 1) -> dict[str, StudyArmInput]:
+    return _build_artifacts(tmp_path, repeat_index=repeat_index)
 
 
-def _build_artifacts(tmp_path: Path) -> dict[str, StudyArmInput]:
+def _build_artifacts(
+    tmp_path: Path, *, repeat_index: int = 1
+) -> dict[str, StudyArmInput]:
     result: dict[str, StudyArmInput] = {}
     for prefix, case_ids in (
         ("a", ("a-case-001", "a-case-002")),
@@ -646,6 +707,7 @@ def _build_artifacts(tmp_path: Path) -> dict[str, StudyArmInput]:
                     identity,
                     probability,
                     unit,
+                    repeat_index=repeat_index,
                 )
                 for unit in release.forecast.prediction_units
             )
@@ -769,7 +831,13 @@ def _issue_release(tmp_path: Path, case_ids: tuple[str, ...], prefix: str):
 
 
 def _registry(model_id: str) -> tuple[ModelRegistry, bytes]:
-    entry = ModelRegistryEntry(
+    entry = _registry_entry(model_id)
+    payload = json.dumps([entry.to_record()], sort_keys=True).encode()
+    return load_model_registry_bytes(payload), payload
+
+
+def _registry_entry(model_id: str) -> ModelRegistryEntry:
+    return ModelRegistryEntry(
         provider="fixture",
         model_id=model_id,
         display_name=model_id,
@@ -786,17 +854,25 @@ def _registry(model_id: str) -> tuple[ModelRegistry, bytes]:
         input_token_price=0,
         output_token_price=0,
     )
-    payload = json.dumps([entry.to_record()], sort_keys=True).encode()
-    return load_model_registry_bytes(payload), payload
 
 
-def _receipt(release, manifest, registry, registry_bytes, identity, probability, unit):
+def _receipt(
+    release,
+    manifest,
+    registry,
+    registry_bytes,
+    identity,
+    probability,
+    unit,
+    *,
+    repeat_index: int = 1,
+):
     entry = registry.entries[0]
     cell_id = str(
         ARTIFACT_RAW_SHA256_V1.commit(
             {
                 "case_id": unit.case_id,
-                "repeat_index": 1,
+                "repeat_index": repeat_index,
                 "run_identity_sha256": identity,
                 "unit_id": unit.unit_id,
             },
@@ -830,7 +906,7 @@ def _receipt(release, manifest, registry, registry_bytes, identity, probability,
         "model_id": entry.registry_key,
         "harness": "native",
         "ablation": "none",
-        "repeat_index": 1,
+        "repeat_index": repeat_index,
         "model_registry_sha256": model_registry_sha256(registry_bytes),
         "model_registry_entry_sha256": model_registry_entry_sha256(entry),
         "prompt_sha256": unit.prompt_sha256,

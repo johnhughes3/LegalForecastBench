@@ -57,6 +57,8 @@ def evaluate_study(
     observation and cannot be converted into a zero score or a complete-case
     contrast.  Inputs contain only public releases, manifests, registries, and
     persisted receipt records; no provider or Corpus API is reachable here.
+    The specification is an ordinary computation input that may be assembled
+    post hoc; it is not a preregistration record or an execution prerequisite.
     """
 
     cohorts = {cohort.cohort_id: cohort for cohort in spec.cohorts}
@@ -218,6 +220,7 @@ def _score_arm(
             expected_run_identity_sha256=arm.run_identity_sha256,
             model_registry=captured.model_registry,
             expected_model_registry_sha256=arm.model_registry_sha256,
+            expected_repeat_index=spec.protocol.repeat_index,
         )
         summary = _single_model_summary(scored, arm.model_key)
         unit_scores = _apply_cluster_projection(
@@ -656,7 +659,7 @@ def _evaluate_comparison(
             base,
             updates={
                 "status": "refused",
-                "reason": "model registry or served revision differs across cohorts",
+                "reason": "model entry or served revision differs across cohorts",
             },
         )
     model_a_summary_in_a = summaries[arm_a.arm_id]
@@ -820,12 +823,10 @@ def _find_arm(
 def _same_model_binding(left: StudyArm, right: StudyArm) -> bool:
     return (
         left.model_key,
-        left.model_registry_sha256,
         left.model_registry_entry_sha256,
         left.served_model_version,
     ) == (
         right.model_key,
-        right.model_registry_sha256,
         right.model_registry_entry_sha256,
         right.served_model_version,
     )

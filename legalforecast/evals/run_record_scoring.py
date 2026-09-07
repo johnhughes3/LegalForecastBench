@@ -75,6 +75,7 @@ def score_run_records_against_labels_release(
     expected_run_identity_sha256: str | None = None,
     model_registry: ModelRegistry | None = None,
     expected_model_registry_sha256: str | None = None,
+    expected_repeat_index: int = 1,
 ) -> tuple[ScoreSummary, ...]:
     """Score run records using only the validated public labels release.
 
@@ -88,6 +89,8 @@ def score_run_records_against_labels_release(
         raise ValueError(
             "forecast_release and manifest must be supplied together for strict scoring"
         )
+    if type(expected_repeat_index) is not int or expected_repeat_index < 1:
+        raise ValueError("expected_repeat_index must be a positive integer")
     if forecast_release is not None and manifest is not None:
         _require_locked_provenance_inputs(
             expected_run_identity_sha256=expected_run_identity_sha256,
@@ -104,6 +107,7 @@ def score_run_records_against_labels_release(
             expected_run_identity_sha256=expected_run_identity_sha256,
             model_registry=model_registry,
             expected_model_registry_sha256=expected_model_registry_sha256,
+            expected_repeat_index=expected_repeat_index,
         )
 
     labels: tuple[ScoreLabel, ...] = tuple(
@@ -128,6 +132,7 @@ def _score_locked_run_records(
     expected_run_identity_sha256: str | None,
     model_registry: ModelRegistry | None,
     expected_model_registry_sha256: str | None,
+    expected_repeat_index: int,
 ) -> tuple[ScoreSummary, ...]:
     """Score only a complete, identity-consistent locked forecast run."""
 
@@ -203,6 +208,7 @@ def _score_locked_run_records(
             expected_run_identity_sha256=expected_run_identity_sha256,
             model_registry=model_registry,
             expected_model_registry_sha256=expected_model_registry_sha256,
+            expected_repeat_index=expected_repeat_index,
         )
         parsed = _record_parsed_output(record, required_unit_ids)
         model_key = _required_str(record, "model_key")
@@ -310,6 +316,7 @@ def _validate_locked_receipt_identity(
     expected_run_identity_sha256: str | None,
     model_registry: ModelRegistry | None,
     expected_model_registry_sha256: str | None,
+    expected_repeat_index: int,
 ) -> None:
     """Validate receipt identity before any parser output reaches scoring."""
 
@@ -358,8 +365,8 @@ def _validate_locked_receipt_identity(
     if _required_str(record, "served_model_version") != entry.model_version_or_snapshot:
         raise ValueError("run receipt served model differs from frozen registry")
     repeat_index = record.get("repeat_index")
-    if type(repeat_index) is not int or repeat_index != 1:
-        raise ValueError("run receipt repeat_index must be exactly 1")
+    if type(repeat_index) is not int or repeat_index != expected_repeat_index:
+        raise ValueError("run receipt repeat_index differs from expected repeat index")
     case_id = units[0].case_id
     required_unit_ids = tuple(unit.unit_id for unit in units)
     expected_cell_id = derive_case_call_id(
