@@ -28,12 +28,15 @@ def test_workflow_loads_serialized_release_through_json_validation(
     assert len(expressions) == 2
     for expression in expressions:
         # Run the actual workflow expressions over an issued JSON artifact.
+        def path_loader(_: object) -> Path:
+            return release_path
+
         loaded = eval(
             compile(ast.parse(expression, mode="eval"), "workflow-loader", "eval"),
             {
                 "ForecastRelease": ForecastRelease,
                 "release_path": release_path,
-                "Path": lambda _: release_path,
+                "Path": path_loader,
                 "json": json,
             },
         )
@@ -86,9 +89,10 @@ def test_prepare_materializes_only_forecast_release_declared_artifacts() -> None
     assert "declared: dict[str, tuple[str, int]]" in prepare
     assert "load_forecast_execution" in prepare
     assert "actual != set(declared)" in prepare
-    assert "aws s3 sync" not in prepare
-    assert "fetch_tree" not in prepare
-    assert "cp -a" not in prepare
+    assert "uv run --with boto3 python" in prepare
+    assert "from concurrent.futures import ThreadPoolExecutor" in prepare
+    assert "s3_client.get_object(Bucket=bucket, Key=key)" in prepare
+    assert "ThreadPoolExecutor(max_workers=min(16, len(items)))" in prepare
     assert "labels" not in prepare.lower()
     assert "Build dynamic logical-cell matrices" in prepare
     assert "model_registry" in prepare
@@ -96,6 +100,14 @@ def test_prepare_materializes_only_forecast_release_declared_artifacts() -> None
     assert '"unit_id"' in prepare
     assert '"repeat_index"' in prepare
     assert '"ablation"' in prepare
+
+
+def prepare_inline_script() -> str:
+    prepare = _job("prepare-inputs", "run-openai")
+    marker = "          uv run --with boto3 python - <<'PY'\n"
+    body_start = prepare.index(marker) + len(marker)
+    body_end = prepare.index("          PY\n", body_start)
+    return textwrap.dedent(prepare[body_start:body_end])
 
 
 def test_prepare_exports_real_provider_matrices_from_registry_and_release() -> None:
@@ -168,6 +180,29 @@ def test_provider_jobs_are_secret_isolated_and_outcome_blinded() -> None:
             "max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}"
             in job
         )
+
+
+def test_provider_role_session_names_fit_sts_limit_with_long_cell_slug() -> None:
+    long_cell_id_slug = "c" * 64
+    assert len(long_cell_id_slug) == 64
+    rendered_run_id = "9" * 20
+    rendered_job_index = "31"
+    for name, next_name in (
+        ("run-openai", "run-anthropic"),
+        ("run-anthropic", "run-gemini"),
+        ("run-gemini", None),
+    ):
+        job = _job(name, next_name)
+        match = re.search(r"^          role-session-name: (.+)$", job, re.MULTILINE)
+        assert match is not None
+        session_name = (
+            match.group(1)
+            .replace("${{ github.run_id }}", rendered_run_id)
+            .replace("${{ strategy.job-index }}", rendered_job_index)
+            .replace("${{ matrix.cell_id_slug }}", long_cell_id_slug)
+        )
+        assert len(session_name) <= 64
+        assert "matrix.cell_id_slug" not in match.group(1)
 
 
 def test_provider_jobs_execute_one_exact_cell_and_do_not_score() -> None:
