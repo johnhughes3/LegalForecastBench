@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import legalforecast
 import pytest
+from legalforecast.multiharness.container_harness.egress_proxy import (
+    REASON_HOST_NOT_ALLOWLISTED,
+)
+from legalforecast.multiharness.container_harness.fence import (
+    ParserFenceFields,
+    fence_from_parser_fields,
+)
 from legalforecast.multiharness.container_harness.intake import (
     IntakeError,
     publish_intake_package,
     validate_intake_package,
+)
+from legalforecast.multiharness.container_harness.publication import (
+    write_published_package,
 )
 
 ROOT = Path(legalforecast.__file__).resolve().parents[1]
@@ -184,4 +195,105 @@ def test_validate_scans_text_up_to_the_intake_cap(tmp_path: Path) -> None:
     )
 
     with pytest.raises(IntakeError, match="publication guardrail"):
+        validate_intake_package(package)
+
+
+def _write_counted_package(destination: Path) -> None:
+    write_published_package(
+        destination,
+        result_record={"run_id": "cycle1-claude-code"},
+        egress_evidence={
+            "allowed_hosts": ["api.anthropic.com"],
+            "refused": [
+                {
+                    "host": "attacker-choice.not-allowlisted.test",
+                    "port": 443,
+                    "reason": REASON_HOST_NOT_ALLOWLISTED,
+                }
+            ],
+            "decision_count": 2,
+        },
+        fence=fence_from_parser_fields(
+            ParserFenceFields(
+                parse_ok=True,
+                reports_fence=True,
+                tools_available=("Bash",),
+            )
+        ),
+        allowlist={
+            "hosts": ["api.anthropic.com"],
+            "subdomain_suffixes": [],
+            "ports": [443],
+        },
+    )
+
+
+def test_matching_egress_counts_are_accepted_at_intake(tmp_path: Path) -> None:
+    package = tmp_path / "published"
+    _write_counted_package(package)
+
+    result = json.loads((package / "result.json").read_text(encoding="utf-8"))
+    assert result["egress_allowed_host_count"] == 1
+    assert result["egress_refused_count"] == 1
+    validate_intake_package(package)
+
+
+def test_writer_counts_the_sanitized_evidence_lists(tmp_path: Path) -> None:
+    package = tmp_path / "published"
+    write_published_package(
+        package,
+        result_record={"run_id": "cycle1-claude-code"},
+        egress_evidence={
+            "allowed_hosts": [
+                "first-secret.api.anthropic.com",
+                "second-secret.api.anthropic.com",
+            ],
+            "refused": [],
+            "decision_count": 2,
+        },
+        fence=fence_from_parser_fields(
+            ParserFenceFields(parse_ok=True, reports_fence=False)
+        ),
+        allowlist={
+            "hosts": [],
+            "subdomain_suffixes": ["anthropic.com"],
+            "ports": [443],
+        },
+    )
+
+    result = json.loads((package / "result.json").read_text(encoding="utf-8"))
+    assert result["egress_allowed_hosts"] == ["*.anthropic.com"]
+    assert result["egress_allowed_host_count"] == 1
+    validate_intake_package(package)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "bad_value", "remove", "match"),
+    [
+        ("egress_allowed_host_count", None, True, "missing"),
+        ("egress_refused_count", None, True, "missing"),
+        ("egress_allowed_host_count", True, False, "integer"),
+        ("egress_refused_count", False, False, "integer"),
+        ("egress_allowed_host_count", 2, False, "does not match"),
+        ("egress_refused_count", 0, False, "does not match"),
+    ],
+)
+def test_intake_refuses_missing_bool_or_mismatched_egress_counts(
+    tmp_path: Path,
+    field_name: str,
+    bad_value: object,
+    remove: bool,
+    match: str,
+) -> None:
+    package = tmp_path / "published"
+    _write_counted_package(package)
+    result_path = package / "result.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    if remove:
+        del result[field_name]
+    else:
+        result[field_name] = bad_value
+    result_path.write_text(json.dumps(result), encoding="utf-8")
+
+    with pytest.raises(IntakeError, match=match):
         validate_intake_package(package)

@@ -26,8 +26,13 @@ import subprocess
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, cast
 
+from legalforecast.multiharness.container_harness.evidence import (
+    AccountedEgress,
+    EgressEvidenceError,
+    parse_egress_evidence,
+)
+from legalforecast.multiharness.container_harness.fence import fence_from_cli_output
 from legalforecast.multiharness.container_harness.images import (
     ContainerImageError,
     resolve_local_image_id,
@@ -45,8 +50,12 @@ from legalforecast.multiharness.container_harness.plan import (
     build_proxy_run_argv,
     build_run_names,
     egress_proxy_source_path,
+    fenced_cli_name,
     stage_cli_fence,
     stage_credential_home,
+)
+from legalforecast.multiharness.container_harness.publication import (
+    write_published_package,
 )
 
 STAGING_ROOT_NAME = "legalforecast-multiharness"
@@ -55,9 +64,12 @@ EVIDENCE_FILE_NAME = "egress-evidence.json"
 
 
 def run_container_harness(
-    spec: ContainerHarnessSpec, *, backend: str = "docker"
+    spec: ContainerHarnessSpec,
+    *,
+    publication_directory: Path,
+    backend: str = "docker",
 ) -> ContainerHarnessResult:
-    """Execute one harness run in a container fenced by the allowlist proxy."""
+    """Execute one fenced run and write its sole public result representation."""
 
     spec.allowlist()
     backend_path, environment = resolve_rootless_backend(backend)
@@ -133,7 +145,7 @@ def run_container_harness(
         evidence = _read_evidence(evidence_directory / EVIDENCE_FILE_NAME)
     finally:
         _cleanup(backend_path, names, environment, staging)
-    return ContainerHarnessResult(
+    result = ContainerHarnessResult(
         run_id=spec.run_id,
         exit_code=exit_code,
         timed_out=timed_out,
@@ -142,10 +154,28 @@ def run_container_harness(
         stderr_path=stderr_path,
         image_id=image_id,
         proxy_image_id=proxy_image_id,
-        allowed_hosts=tuple(evidence.get("allowed_hosts", ())),
-        refused=tuple(evidence.get("refused", ())),
+        allowed_hosts=evidence.allowed_hosts,
+        refused=evidence.refused,
         allowlist=spec.allowlist().to_record(),
     )
+    try:
+        stdout = stdout_path.read_bytes()
+    except OSError as exc:
+        raise ContainerHarnessError(
+            "harness stdout is unreadable; fence evidence cannot be derived"
+        ) from exc
+    write_published_package(
+        publication_directory,
+        result_record=result.to_record(),
+        egress_evidence={
+            "allowed_hosts": list(evidence.allowed_hosts),
+            "refused": [dict(record) for record in evidence.refused],
+            "decision_count": evidence.decision_count,
+        },
+        fence=fence_from_cli_output(fenced_cli_name(spec), stdout),
+        allowlist=spec.allowlist().to_record(),
+    )
+    return result
 
 
 def _staging_directory(environment: Mapping[str, str], token: str) -> Path:
@@ -237,7 +267,7 @@ def _run_harness(
     return completed.returncode, False
 
 
-def _read_evidence(path: Path) -> Mapping[str, Any]:
+def _read_evidence(path: Path) -> AccountedEgress:
     try:
         decoded: object = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -245,9 +275,13 @@ def _read_evidence(path: Path) -> Mapping[str, Any]:
             "egress evidence is missing or unreadable; a run whose egress cannot be "
             "accounted for is not a usable benchmark row"
         ) from exc
-    if not isinstance(decoded, dict):
-        raise ContainerHarnessError("egress evidence must be a JSON object")
-    return cast(dict[str, Any], decoded)
+    try:
+        return parse_egress_evidence(decoded)
+    except EgressEvidenceError as exc:
+        raise ContainerHarnessError(
+            "egress evidence is missing or unreadable; a run whose egress cannot be "
+            "accounted for is not a usable benchmark row"
+        ) from exc
 
 
 def _cleanup(

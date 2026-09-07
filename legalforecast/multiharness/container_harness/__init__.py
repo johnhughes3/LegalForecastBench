@@ -20,9 +20,9 @@ still land.  CONNECT authorization is bound to the TLS SNI and HTTP Host the
 client actually uses.
 
 What the fence does not reach: a provider-side web tool that ignores the
-vendor disable flag.  That is a parser-observation problem
-(legalforecastbench-2ve1.4).  Redacting denied hostnames in published
-evidence is also 2ve1.4.
+vendor disable flag.  :mod:`.fence` derives web-disable flags from parser
+observations, never from a hardcoded True.  :mod:`.publication` redacts
+denied hostnames before a results package or community tree is written.
 """
 
 from legalforecast.multiharness.container_harness.cli_fence import (
@@ -38,6 +38,20 @@ from legalforecast.multiharness.container_harness.egress_proxy import (
     EgressEvidence,
     EgressPolicyError,
     normalize_host,
+)
+from legalforecast.multiharness.container_harness.evidence import (
+    AccountedEgress,
+    EgressEvidenceError,
+    is_clean_egress,
+    parse_egress_evidence,
+)
+from legalforecast.multiharness.container_harness.fence import (
+    FenceEvidenceError,
+    FenceObservation,
+    ParserFenceFields,
+    fence_from_cli_output,
+    fence_from_parser_fields,
+    require_honest_fence_record,
 )
 from legalforecast.multiharness.container_harness.images import (
     ContainerImageError,
@@ -65,12 +79,18 @@ from legalforecast.multiharness.container_harness.plan import (
     stage_cli_fence,
     stage_credential_home,
 )
+from legalforecast.multiharness.container_harness.publication import (
+    PublicationError,
+    denied_host_token,
+    write_published_package,
+)
 from legalforecast.multiharness.container_harness.runtime import (
     run_container_harness,
 )
 
 __all__ = [
     "FENCED_CLIS",
+    "AccountedEgress",
     "AllowlistConnectProxy",
     "CliFenceError",
     "ContainerHarnessError",
@@ -81,8 +101,13 @@ __all__ = [
     "EgressAllowlist",
     "EgressDecision",
     "EgressEvidence",
+    "EgressEvidenceError",
     "EgressPolicyError",
+    "FenceEvidenceError",
+    "FenceObservation",
     "HarnessCredential",
+    "ParserFenceFields",
+    "PublicationError",
     "build_egress_network_create_argv",
     "build_harness_environment",
     "build_harness_run_argv",
@@ -91,16 +116,23 @@ __all__ = [
     "build_proxy_run_argv",
     "build_run_names",
     "cli_fence_source_path",
+    "denied_host_token",
     "egress_network_name",
     "egress_proxy_source_path",
+    "fence_from_cli_output",
+    "fence_from_parser_fields",
     "fenced_argv",
     "fenced_cli_name",
     "install_cli_fence",
+    "is_clean_egress",
     "normalize_host",
+    "parse_egress_evidence",
     "require_digest_pinned_image",
+    "require_honest_fence_record",
     "resolve_local_image_id",
     "resolve_rootless_backend",
     "run_container_harness",
     "stage_cli_fence",
     "stage_credential_home",
+    "write_published_package",
 ]

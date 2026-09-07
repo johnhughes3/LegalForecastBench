@@ -164,7 +164,12 @@ class ContainerHarnessResult:
     allowlist: Mapping[str, Any]
 
     def to_record(self) -> dict[str, Any]:
-        """Return a JSON-ready record with no host paths in it."""
+        """Return a public JSON record without attacker-controlled hostnames.
+
+        The raw decisions remain available on this in-process result for operator
+        diagnosis. The runtime's mandatory publication step replaces them with
+        policy-derived public forms before writing any package.
+        """
 
         return {
             "run_id": self.run_id,
@@ -176,8 +181,8 @@ class ContainerHarnessResult:
             "image_id": self.image_id,
             "proxy_image_id": self.proxy_image_id,
             "egress_allowlist": dict(self.allowlist),
-            "egress_allowed_hosts": list(self.allowed_hosts),
-            "egress_refused": [dict(record) for record in self.refused],
+            "egress_allowed_host_count": len(self.allowed_hosts),
+            "egress_refused_count": len(self.refused),
         }
 
 
