@@ -10,7 +10,7 @@ This index covers the current public contracts, operator guides, and reproducibl
 | Reproduce or audit a published result | [reproduce-or-audit.md](reproduce-or-audit.md) |
 | Know what may and may not be claimed publicly | [publication-governance.md](publication-governance.md) |
 | Operate a protected official cycle | [official-run-runbook.md](official-run-runbook.md) |
-| Submit a community harness comparison | [community-contributor-guide.md](community-contributor-guide.md), then [multiharness-adapter-spec.md](multiharness-adapter-spec.md) and [community-submissions.md](community-submissions.md) |
+| Submit a community harness comparison | [community-contributor-guide.md](community-contributor-guide.md), then [multiharness-adapter-spec.md](multiharness/adapter-spec.md) and [community-submissions.md](community-submissions.md) |
 
 ## Official Benchmark
 
@@ -28,7 +28,7 @@ This index covers the current public contracts, operator guides, and reproducibl
 
 ## Corpus Handoff Boundary
 
-Corpus construction, private source bytes, selection, unitization, and quality control are owned by the companion LegalForecastCorpus repository. This public repository receives only immutable, outcome-blinded release inputs through the documented [public/private release boundary](architecture/public-private-release-boundary.md).
+Corpus construction, private source bytes, selection, unitization, and quality control are owned by the companion LegalForecastCorpus repository. This public repository receives only immutable, outcome-blinded release inputs through the documented [public/private release boundary](release-inputs.md).
 
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for retained public release code.
 
@@ -37,15 +37,15 @@ Corpus construction, private source bytes, selection, unitization, and quality c
 The multi-harness layer is a separate, non-official track. Its results never rank alongside official results.
 
 - [community-contributor-guide.md](community-contributor-guide.md): install, probe, select, run, interrupt, resume, validate, and package from a dedicated environment.
-- [multiharness-adapter-spec.md](multiharness-adapter-spec.md): the community adapter contract.
+- [multiharness-adapter-spec.md](multiharness/adapter-spec.md): the community adapter contract.
 - [community-submissions.md](community-submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
 - [harness-efficiency-observations.md](harness-efficiency-observations.md): receipt-backed duration, cost, and token accounting published as peer columns.
-- [multiharness-deliverable-contract.md](multiharness-deliverable-contract.md): the harness-independent sealed boundary between a solver run and later evaluation.
-- [multiharness-evaluation-contract.md](multiharness-evaluation-contract.md): `EvaluationSpec` precommitments for deliverables, evaluator identity, judge settings, and runtime policy.
-- [multiharness-score-contract.md](multiharness-score-contract.md): the pinned score contract — deliberately a strict Harvey LAB specialization, not generic metric arithmetic.
-- [multiharness-artifact-compatibility.md](multiharness-artifact-compatibility.md): the compatibility baseline for community artifact readers and writers.
-- [multiharness-identity-keys.md](multiharness-identity-keys.md): harness-independent task, solver, run, and matched-harness identity keys shared by community submissions and official runs.
-- [multiharness-receipt-authority.md](multiharness-receipt-authority.md): the external Ed25519 evaluator-issuer seam and credential-free executable probe procedure.
+- [multiharness-deliverable-contract.md](multiharness/deliverable-contract.md): the harness-independent sealed boundary between a solver run and later evaluation.
+- [multiharness-evaluation-contract.md](multiharness/evaluation-contract.md): `EvaluationSpec` precommitments for deliverables, evaluator identity, judge settings, and runtime policy.
+- [multiharness-score-contract.md](multiharness/score-contract.md): the pinned score contract — deliberately a strict Harvey LAB specialization, not generic metric arithmetic.
+- [multiharness-artifact-compatibility.md](multiharness/artifact-compatibility.md): the compatibility baseline for community artifact readers and writers.
+- [multiharness-identity-keys.md](multiharness/identity-keys.md): harness-independent task, solver, run, and matched-harness identity keys shared by community submissions and official runs.
+- [multiharness-receipt-authority.md](multiharness/receipt-authority.md): the external Ed25519 evaluator-issuer seam and credential-free executable probe procedure.
 
 ### Adapter tracks
 
@@ -58,6 +58,10 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 
 Only the outcome-blinded forecast release, separately controlled labels release, and public/private release boundary below are active Bench contracts.
 
-- [Public/private release boundary](architecture/public-private-release-boundary.md): the additive split between outcome-blinded public execution inputs and separately controlled labels.
-- [Forecast release v1](schemas/forecast-release-v1.md): canonical cases, prediction units, model-visible document indexes, packets, prompts, and byte commitments.
-- [Labels release v1](schemas/labels-release-v1.md): separately bound unit outcomes and scoring policy with no forecast-execution API path.
+- [Public/private release boundary](release-inputs.md): the additive split between outcome-blinded public execution inputs and separately controlled labels.
+- [Forecast release v1](release-inputs.md): canonical cases, prediction units, model-visible document indexes, packets, prompts, and byte commitments.
+- [Labels release v1](release-inputs.md): separately bound unit outcomes and scoring policy with no forecast-execution API path.
+
+## Model metadata
+
+- [Model release dates](MODEL_RELEASE_DATES.md): model anchor sources and dates.

@@ -42,7 +42,7 @@ Each benchmark run is a versioned artifact tied to a specific set of model deplo
 
 Accumulating enough eligible decisions takes time, so a newly released model does not wait for it: it is scored on the existing frozen record as a post-anchor result and published, then scored again on the resistant cohort when one exists. What the benchmark cannot do is cleanly demonstrate absolute capability gains across generations, because the case mix differs each version. What it does well is compare the relative capabilities of frontier models within a generation, which is the question most useful to practitioners deciding which model to rely on.
 
-Current pilot model anchors are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEASE_DATES.md).
+Current pilot model anchors are tracked in [docs/MODEL_RELEASE_DATES.md](docs/MODEL_RELEASE_DATES.md).
 
 ## Official Benchmark Results
 
@@ -54,7 +54,7 @@ Current pilot model anchors are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEAS
 
 ## Reproducible Community Comparisons
 
-**No row is accepted yet.** Its reserved label is **Reproducible community result — contributor-grade, non-official**. Contributor path: [adapter spec](docs/multiharness-adapter-spec.md) · [contributor guide](docs/community-contributor-guide.md) · [submission guide](docs/community-submissions.md).
+**No row is accepted yet.** Its reserved label is **Reproducible community result — contributor-grade, non-official**. Contributor path: [adapter spec](docs/multiharness/adapter-spec.md) · [contributor guide](docs/community-contributor-guide.md) · [submission guide](docs/community-submissions.md).
 
 LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work.
 
@@ -115,7 +115,7 @@ uv run legalforecast multiharness --help
 Contributor docs:
 
 - [Community Contributor Guide](docs/community-contributor-guide.md)
-- [Multi-Harness Adapter Spec](docs/multiharness-adapter-spec.md)
+- [Multi-Harness Adapter Spec](docs/multiharness/adapter-spec.md)
 - [Community Submissions](docs/community-submissions.md)
 
 Community submissions live under `community/submissions/` and are rebuilt into a separate community registry/site. They are not official LegalForecastBench results.
@@ -188,7 +188,7 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `manifests/`: public run manifests and other release inputs.
 - `model_registries/`: frozen evaluation registries and public release metadata.
 - `infra/`: Terraform roots for the retained official evaluation IAM boundary and bootstrap trust anchor.
-- `MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.
+- `docs/MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.
 
 ## Authorship
 
