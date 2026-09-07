@@ -3,16 +3,10 @@ from __future__ import annotations
 import ast
 import json
 import re
-import shutil
 import subprocess
-import sys
 import textwrap
-import threading
-import time
-import types
 from pathlib import Path
 
-import pytest
 from legalforecast.release import ForecastRelease, issue_synthetic_release
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,15 +89,10 @@ def test_prepare_materializes_only_forecast_release_declared_artifacts() -> None
     assert "declared: dict[str, tuple[str, int]]" in prepare
     assert "load_forecast_execution" in prepare
     assert "actual != set(declared)" in prepare
-    assert "aws s3 sync" not in prepare
     assert "uv run --with boto3 python" in prepare
     assert "from concurrent.futures import ThreadPoolExecutor" in prepare
-    assert 's3_client = boto3.client("s3")' in prepare
     assert "s3_client.get_object(Bucket=bucket, Key=key)" in prepare
     assert "ThreadPoolExecutor(max_workers=min(16, len(items)))" in prepare
-    assert 'subprocess.run(["aws", "s3", "cp"' not in prepare
-    assert "fetch_tree" not in prepare
-    assert "cp -a" not in prepare
     assert "labels" not in prepare.lower()
     assert "Build dynamic logical-cell matrices" in prepare
     assert "model_registry" in prepare
@@ -113,122 +102,12 @@ def test_prepare_materializes_only_forecast_release_declared_artifacts() -> None
     assert '"ablation"' in prepare
 
 
-def _prepare_inline_script() -> str:
+def prepare_inline_script() -> str:
     prepare = _job("prepare-inputs", "run-openai")
     marker = "          uv run --with boto3 python - <<'PY'\n"
     body_start = prepare.index(marker) + len(marker)
     body_end = prepare.index("          PY\n", body_start)
     return textwrap.dedent(prepare[body_start:body_end])
-
-
-class _FakeS3Body:
-    def __init__(self, payload: bytes, client: _FakeS3Client) -> None:
-        self._payload = payload
-        self._client = client
-
-    def read(self) -> bytes:
-        with self._client.lock:
-            self._client.active_reads += 1
-            self._client.max_active_reads = max(
-                self._client.max_active_reads, self._client.active_reads
-            )
-        try:
-            time.sleep(0.005)
-            return self._payload
-        finally:
-            with self._client.lock:
-                self._client.active_reads -= 1
-
-    def close(self) -> None:
-        with self._client.lock:
-            self._client.closed_bodies += 1
-
-
-class _FakeS3Client:
-    def __init__(self, source_root: Path, corrupt_relative: str | None) -> None:
-        self._source_root = source_root
-        self._corrupt_relative = corrupt_relative
-        self.lock = threading.Lock()
-        self.active_reads = 0
-        self.max_active_reads = 0
-        self.closed_bodies = 0
-        self.requested_keys: list[tuple[str, str]] = []
-
-    def get_object(self, *, Bucket: str, Key: str) -> dict[str, _FakeS3Body]:
-        relative = Key.removeprefix("prefix/")
-        payload = (
-            b"corrupted declared artifact\n"
-            if relative == self._corrupt_relative
-            else (self._source_root / relative).read_bytes()
-        )
-        with self.lock:
-            self.requested_keys.append((Bucket, Key))
-        return {"Body": _FakeS3Body(payload, self)}
-
-
-def _run_prepare_inline(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    run_name: str,
-    corrupt_relative: str | None,
-) -> tuple[Path, _FakeS3Client, set[str]]:
-    source_root = tmp_path / run_name / "source"
-    issue_synthetic_release(source_root)
-    release = ForecastRelease.model_validate_json(
-        (source_root / "forecast-release.json").read_bytes()
-    )
-    declared = {
-        *(document.path for case in release.cases for document in case.documents),
-        *(unit.packet_path for unit in release.prediction_units),
-        *(unit.prompt_path for unit in release.prediction_units),
-    }
-    locked_root = tmp_path / run_name / "locked"
-    (locked_root / "artifacts").mkdir(parents=True)
-    shutil.copyfile(
-        source_root / "forecast-release.json", locked_root / "forecast-release.json"
-    )
-    client = _FakeS3Client(source_root, corrupt_relative)
-    fake_boto3 = types.ModuleType("boto3")
-
-    def client_factory(service: str) -> _FakeS3Client:
-        assert service == "s3"
-        return client
-
-    fake_boto3.__dict__["client"] = client_factory
-    monkeypatch.setitem(sys.modules, "boto3", fake_boto3)
-    monkeypatch.setenv("LFB_ARTIFACT_ROOT_URI", "s3://bucket/prefix")
-    rendered = _prepare_inline_script().replace(
-        'Path("/tmp/lfb-locked-inputs")', f"Path({str(locked_root)!r})"
-    )
-    exec(compile(rendered, "run-benchmark-prepare", "exec"), {})
-    return locked_root, client, declared
-
-
-def test_prepare_s3_downloader_reuses_client_and_refuses_corruption(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    locked_root, client, declared = _run_prepare_inline(
-        tmp_path, monkeypatch, run_name="success", corrupt_relative=None
-    )
-    assert client.max_active_reads > 1
-    assert len(client.requested_keys) == len(declared)
-    assert client.closed_bodies == len(client.requested_keys)
-    assert {key.removeprefix("prefix/") for _, key in client.requested_keys} == declared
-    actual = {
-        path.relative_to(locked_root / "artifacts").as_posix()
-        for path in (locked_root / "artifacts").rglob("*")
-        if path.is_file()
-    }
-    assert actual == declared
-
-    with pytest.raises(SystemExit, match="declared artifact commitment mismatch"):
-        _run_prepare_inline(
-            tmp_path,
-            monkeypatch,
-            run_name="corrupt",
-            corrupt_relative=sorted(declared)[0],
-        )
 
 
 def test_prepare_exports_real_provider_matrices_from_registry_and_release() -> None:

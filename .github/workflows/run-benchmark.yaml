@@ -210,7 +210,7 @@ jobs:
                   raise SystemExit("invalid S3 artifact locator")
               return bucket, key
 
-          def fetch_one(item: tuple[str, tuple[str, int]], s3_client: object | None) -> None:
+          def fetch_one(item: tuple[str, tuple[str, int]], s3_client) -> None:
               relative, (expected_digest, expected_size) = item
               if not relative or relative.startswith("/") or ".." in Path(relative).parts:
                   raise SystemExit(f"unsafe declared artifact path: {relative!r}")
