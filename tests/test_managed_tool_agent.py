@@ -4,15 +4,16 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
-import legalforecast.runner.service as runner_service
+import legalforecast.runner.managed_execution as managed_execution
 import pytest
 from legalforecast.evals.live_model_solver import LiveModelProviderError
-from legalforecast.evals.managed_tool_agent import (
+from legalforecast.evals.model_registry import LongContextSurcharge, ModelRegistryEntry
+from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
+from legalforecast.runner.managed_execution import (
+    ManagedCaseInput,
     ManagedToolAgentResult,
     run_managed_tool_agent,
 )
-from legalforecast.evals.model_registry import LongContextSurcharge, ModelRegistryEntry
-from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 from pydantic_ai import ModelHTTPError
 from pydantic_ai.messages import ModelResponse, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
@@ -260,14 +261,14 @@ def test_official_cell_settles_the_entire_agent_session_once(
             response_usages=((40, 5), (30, 5), (30, 10)),
         )
 
-    monkeypatch.setattr(runner_service, "run_managed_tool_agent", managed_agent)
+    monkeypatch.setattr(managed_execution, "run_managed_tool_agent", managed_agent)
     observed: list[bytes] = []
     handler = _AttemptHandler()
 
-    response = runner_service._complete_managed_tool_cell(
+    response = managed_execution.complete_managed_tool_cell(
         _entry(),
         handler=cast(Any, handler),
-        managed_case=runner_service._ManagedCaseInput(
+        managed_case=ManagedCaseInput(
             case_id="case-1",
             required_unit_ids=("unit-a",),
             documents={"documents/case-1/motion.txt": b"FULL DOCUMENT BODY"},
@@ -336,10 +337,10 @@ def test_official_cell_replays_aggregate_response_without_starting_container(
     )
     observed: list[bytes] = []
 
-    response = runner_service._complete_managed_tool_cell(
+    response = managed_execution.complete_managed_tool_cell(
         _entry(),
         handler=cast(Any, handler),
-        managed_case=runner_service._ManagedCaseInput(
+        managed_case=ManagedCaseInput(
             case_id="case-1",
             required_unit_ids=("unit-a",),
             documents={"documents/0000.txt": b"motion"},
@@ -403,7 +404,7 @@ def test_late_managed_429_keeps_the_case_reservation_ambiguous(
         "legalforecast.runner.tool_runtime.open_official_tool_session", session
     )
     monkeypatch.setattr(
-        runner_service,
+        managed_execution,
         "run_managed_tool_agent",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             ModelHTTPError(429, "gpt-5.6-luna", {"error": "rate limited"})
@@ -412,10 +413,10 @@ def test_late_managed_429_keeps_the_case_reservation_ambiguous(
     handler = _FailureHandler()
 
     with pytest.raises(LiveModelProviderError) as exc_info:
-        runner_service._complete_managed_tool_cell(
+        managed_execution.complete_managed_tool_cell(
             _entry(),
             handler=cast(Any, handler),
-            managed_case=runner_service._ManagedCaseInput(
+            managed_case=ManagedCaseInput(
                 case_id="case-1",
                 required_unit_ids=("unit-a",),
                 documents={"documents/0000.txt": b"motion"},
@@ -458,11 +459,11 @@ def test_managed_cost_applies_long_context_surcharge_per_provider_request() -> N
         ),
     )
 
-    below_threshold_turns = runner_service._managed_estimated_cost(
+    below_threshold_turns = managed_execution._managed_estimated_cost(
         entry,
         response_usages=((60, 10), (60, 10)),
     )
-    one_surcharged_turn = runner_service._managed_estimated_cost(
+    one_surcharged_turn = managed_execution._managed_estimated_cost(
         entry,
         response_usages=((101, 10), (19, 10)),
     )
