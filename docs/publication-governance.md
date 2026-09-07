@@ -14,6 +14,8 @@ Every official result is assigned an arm from the model's first documented exter
 
 The arm is a claim boundary. A pre-anchor result may claim contamination resistance on this corpus when its recorded training cutoff predates every scored decision. A post-anchor result may not make that claim. The two arms use the same pipeline and are aggregated and ranked separately; no post-anchor result enters the pre-anchor aggregate.
 
+The published arm labels are **Official LegalForecast-MTD Cycle 1 result** (pre-anchor) and **Official LegalForecast-MTD Cycle 1 result (post-anchor)** (post-anchor).
+
 ## Reporting
 
 An official report identifies the frozen model and arm, score, uncertainty, coverage, accounting, baseline context, and limitations. It preserves the distinction between requested and served model identities and records the evidence needed to reproduce the published aggregate.

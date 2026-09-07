@@ -8,15 +8,26 @@ from pathlib import Path
 from typing import TypedDict
 
 import pytest
+from legalforecast.reporting.result_class import (
+    POST_ANCHOR_PUBLIC_LABEL,
+    PRE_ANCHOR_PUBLIC_LABEL,
+    ResultClass,
+    result_class_tier_label,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 README_PATH = ROOT / "README.md"
+PUBLICATION_GOVERNANCE_PATH = ROOT / "docs" / "publication-governance.md"
 PREPUBLICATION_MARKER = "<!-- result-publication-state: pre-publication -->"
 UNPUBLISHED_STATUS = "No official or community benchmark score is published yet"
 NON_AFFILIATION_TEXT = (
     "LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and "
     "LegalQuants are not sponsors, partners, or endorsers of this work."
 )
+PRELIMINARY_LABEL = (
+    "Preliminary — one task pair, operator-run, not independently reproducible"
+)
+REPRODUCIBLE_LABEL = "Reproducible community result — contributor-grade, non-official"
 
 
 class _Surface(TypedDict):
@@ -30,6 +41,10 @@ class _Tier(TypedDict):
 
 def _readme() -> str:
     return README_PATH.read_text(encoding="utf-8")
+
+
+def _publication_governance() -> str:
+    return PUBLICATION_GOVERNANCE_PATH.read_text(encoding="utf-8")
 
 
 def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
@@ -62,20 +77,23 @@ def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
 
 def test_readme_exposes_governed_result_anchors_without_tier_upgrade() -> None:
     readme = _readme()
+    governance = _publication_governance()
 
     assert "## Official Benchmark Results" in readme
     assert "## Preliminary Community Result" in readme
     assert "## Reproducible Community Comparisons" in readme
 
-    assert (
-        "Preliminary — one task pair, operator-run, not independently reproducible"
-        in readme
-    )
-    assert "Reproducible community result — contributor-grade, non-official" in readme
-    assert "Official LegalForecast-MTD Cycle 1 result" in readme
+    assert result_class_tier_label(ResultClass.PRE_ANCHOR) == PRE_ANCHOR_PUBLIC_LABEL
+    assert result_class_tier_label(ResultClass.POST_ANCHOR) == POST_ANCHOR_PUBLIC_LABEL
+    assert f"**{PRELIMINARY_LABEL}**" in readme
+    assert f"**{REPRODUCIBLE_LABEL}**" in readme
+    for label in (PRE_ANCHOR_PUBLIC_LABEL, POST_ANCHOR_PUBLIC_LABEL):
+        assert f"**{label}**" in readme
+        assert f"**{label}**" in governance
 
     assert "No official result is claimed by this README revision" in readme
     assert NON_AFFILIATION_TEXT in readme
+    assert NON_AFFILIATION_TEXT in governance
 
     heading_anchors = {
         _github_heading_anchor(match.group(1))
@@ -122,12 +140,9 @@ def test_published_result_fixture_rejects_a_stale_prepublication_readme(
     }[surface_id]
     tier = _Tier(
         required_label=(
-            "Official LegalForecast-MTD Cycle 1 result"
+            PRE_ANCHOR_PUBLIC_LABEL
             if surface_id == "official-cycle-1-report"
-            else (
-                "Preliminary — one task pair, operator-run, not independently "
-                "reproducible"
-            )
+            else PRELIMINARY_LABEL
         )
     )
     surface = surface_data

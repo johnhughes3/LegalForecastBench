@@ -46,7 +46,7 @@ Current pilot model anchors are tracked in [docs/MODEL_RELEASE_DATES.md](docs/MO
 
 ## Official Benchmark Results
 
-**No official result is claimed by this README revision.** Its reserved label is **Official LegalForecast-MTD Cycle 1 result**. Publication adds the audited report, leaderboard, and evidence; official and community scores are never ranked together.
+**No official result is claimed by this README revision.** Its reserved labels are **Official LegalForecast-MTD Cycle 1 result** (pre-anchor) and **Official LegalForecast-MTD Cycle 1 result (post-anchor)** (post-anchor). Publication adds the audited report, leaderboard, and evidence; official and community scores are never ranked together.
 
 ## Preliminary Community Result
 
@@ -185,8 +185,7 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `docs/`: methods, official-run runbook, reproduction/audit guide, schema contracts, and community/adapter docs — start at [docs/README.md](docs/README.md). Corpus construction and acquisition live in the companion LegalForecastCorpus repository.
 - `tests/`: synthetic fixtures and regression coverage.
 - `scripts/`: release checks, deterministic fixture input preparation, and offline adapter probes.
-- `manifests/`: public run manifests and other release inputs.
-- `model_registries/`: frozen evaluation registries and public release metadata.
+- `model_registries/`: frozen evaluation registries and public release metadata. Locked run manifests are issued release inputs in official storage, not files in this tree.
 - `infra/`: Terraform roots for the retained official evaluation IAM boundary and bootstrap trust anchor.
 - `docs/MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.
 

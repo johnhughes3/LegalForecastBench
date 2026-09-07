@@ -36,7 +36,7 @@ LegalForecastBench is an academic, open-source benchmark that measures how well 
 | `.github/workflows/` | 9 workflows. `ci.yaml` is the only required status check (`Python quality gates`); `run-benchmark.yaml` and `fan-in-publish.yaml` are the protected OIDC lanes. | `.github/workflows/ci.yaml` |
 | `infra/official-eval/`, `infra/official-eval-bootstrap/` | Terraform roots for the official-evaluation IAM boundary and its one-time human-admin trust anchor. | `infra/official-eval-bootstrap/README.md` |
 | `docs/` | Methods, runbooks, three active public release schemas, and current multi-harness contracts. Retired acquisition and migration records are removed from the public tree. | `docs/README.md` |
-| `manifests/`, `model_registries/` | Locked public run-manifest templates and frozen evaluation registries / provider caps. | `model_registries/cycle-1-2026-06-30.json` |
+| `model_registries/` | Frozen evaluation registries and provider caps. Locked run manifests live in official release storage, not this tree. | `model_registries/cycle-1-2026-06-30.json` |
 | `community/submissions/`, `examples/adapters/` | Reviewed community submission examples and no-network fixture manifests for adapter tracks. | `docs/community-submissions.md` |
 | `.agents/` | Agent-facing instructions and repo-local skills. `.agents/AGENTS.md` is the only real file; root `AGENTS.md` and `CLAUDE.md` are symlinks to it (`git ls-files -s`: mode `120000`). | `.agents/AGENTS.md`, `.agents/skills/execution-lane-discipline/SKILL.md` |
 
