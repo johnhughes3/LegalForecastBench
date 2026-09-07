@@ -9,19 +9,27 @@ from legalforecast.publication.community_aggregate import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLES_ROOT = ROOT / "community" / "submissions" / "2026"
-EXPECTED_EXAMPLES = {
+FIXTURE_EXAMPLES_ROOT = ROOT / "tests" / "fixtures" / "community_submissions" / "2026"
+EXPECTED_FIXTURE_EXAMPLES = {
     "lq-ai-fixture-bridge": "lq-ai-fixture-bridge",
     "hermes-agent-fixture-bridge": "hermes-agent-fixture-bridge",
     "openclaw-fixture-bridge": "openclaw-fixture-bridge",
     "openai-responses-fixture-baseline": "openai-responses-fixture-baseline",
     "claude-agent-sdk-fixture-baseline": "claude-agent-sdk-fixture-baseline",
 }
+EXPECTED_HISTORICAL_SMOKE_ADAPTERS = {
+    "claude-agent-sdk-baseline",
+    "openai-responses-baseline",
+}
+EXPECTED_HISTORICAL_SMOKE_SUBMISSIONS = {
+    "claude-agent-sdk-community-smoke-20260809",
+    "openai-responses-community-smoke-20260805",
+}
 
 
-def test_first_class_adapter_community_examples_validate() -> None:
-    for submission_id, adapter_id in EXPECTED_EXAMPLES.items():
-        root = EXAMPLES_ROOT / submission_id
+def test_first_class_adapter_fixture_examples_validate() -> None:
+    for submission_id, adapter_id in EXPECTED_FIXTURE_EXAMPLES.items():
+        root = FIXTURE_EXAMPLES_ROOT / submission_id
         manifest = validate_submission_file(root / "submission.json")
 
         assert manifest.submission_id == submission_id
@@ -39,16 +47,24 @@ def test_first_class_adapter_community_examples_validate() -> None:
         assert (root / "hf-upload-plan.json").is_file()
 
 
-def test_first_class_adapter_community_examples_aggregate(tmp_path: Path) -> None:
+def test_community_aggregate_contains_only_historical_provider_smokes(
+    tmp_path: Path,
+) -> None:
+    submissions_root = ROOT / "community" / "submissions"
+    submission_ids = {
+        path.parent.name for path in submissions_root.rglob("submission.json")
+    }
+    assert submission_ids == EXPECTED_HISTORICAL_SMOKE_SUBMISSIONS
+
     result = build_community_aggregate(
         CommunityAggregateConfig(
-            submissions_dir=ROOT / "community" / "submissions",
+            submissions_dir=submissions_root,
             output_dir=tmp_path / "aggregate",
         )
     )
 
     adapter_ids = {row.adapter_id for row in result.rows}
-    assert set(EXPECTED_EXAMPLES.values()).issubset(adapter_ids)
+    assert adapter_ids == EXPECTED_HISTORICAL_SMOKE_ADAPTERS
     assert all(row.row_type == "single-shard" for row in result.rows)
     assert (result.output_dir / "reports" / "community-comparison.json").is_file()
     assert (result.output_dir / "registry" / "site-summary.json").is_file()

@@ -24,6 +24,8 @@ Directory roles:
 - `manifests/`: reserved for manifest fixtures.
 - `golden_cases/`: catalog of reusable synthetic legal edge cases.
 - `mock_model_outputs/`: catalog of deterministic model-output scenarios.
+- `community_submissions/`: no-network community package fixtures used by the
+  adapter and publication tests; these are not publication inputs.
 - `packet_render_ci/`: deterministic production packet-builder input plus independently reviewed exact-output and SHA-256 goldens used by the packet-render workflow gate.
 See `tests/fixtures/golden_cases/README.md` for fixture IDs and expected uses.
 
