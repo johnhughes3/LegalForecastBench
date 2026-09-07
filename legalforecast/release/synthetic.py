@@ -35,10 +35,14 @@ from .run_manifest import (
 from .service import IssuedRelease, issue_release
 
 
-def issue_synthetic_release(output_dir: Path) -> IssuedRelease:
+def issue_synthetic_release(
+    output_dir: Path, *, all_cases_scoreable: bool = False
+) -> IssuedRelease:
     """Issue and publish the complete provider-free three-case fixture."""
 
-    payloads, forecast_draft, labels_draft = _synthetic_inputs()
+    payloads, forecast_draft, labels_draft = _synthetic_inputs(
+        all_cases_scoreable=all_cases_scoreable
+    )
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
         prefix="legalforecast-release-", dir=output_dir.parent
@@ -57,7 +61,9 @@ def issue_synthetic_release(output_dir: Path) -> IssuedRelease:
     return issued
 
 
-def _synthetic_inputs() -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
+def _synthetic_inputs(
+    *, all_cases_scoreable: bool = False
+) -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
     roles: tuple[ModelVisibleRole, ...] = (
         "amended_complaint",
         "complaint",
@@ -142,7 +148,7 @@ def _synthetic_inputs() -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
                 claim_name=f"Synthetic claim {index}",
                 defendant_group=f"Synthetic defendants {index}",
                 count=count_labels[index - 1],
-                should_score=index < 3,
+                should_score=index < 3 or all_cases_scoreable,
                 model_visible_document_ids=tuple(
                     document.document_id for document in documents
                 ),
@@ -163,13 +169,16 @@ def _synthetic_inputs() -> tuple[dict[str, bytes], ForecastDraft, LabelsDraft]:
         ),
         prediction_units=tuple(units),
     )
+    outcomes = [
+        UnitOutcome(unit_id="unit-001", outcome=0),
+        UnitOutcome(unit_id="unit-002", outcome=1),
+    ]
+    if all_cases_scoreable:
+        outcomes.append(UnitOutcome(unit_id="unit-003", outcome=0))
     labels = LabelsDraft(
         release_id=forecast.release_id,
         scoring_policy=ScoringPolicy(policy_id="synthetic-micro-brier-v1"),
-        unit_outcomes=(
-            UnitOutcome(unit_id="unit-001", outcome=0),
-            UnitOutcome(unit_id="unit-002", outcome=1),
-        ),
+        unit_outcomes=tuple(outcomes),
     )
     return payloads, forecast, labels
 

@@ -57,6 +57,20 @@ class RunValidationError(ValueError):
     """Raised when a public run input or durable output is invalid."""
 
 
+class UnscoredCaseError(RunValidationError):
+    """Raised when a release contains a case with no scoreable unit."""
+
+    code = "case_has_no_scored_units"
+
+    def __init__(self, case_ids: tuple[str, ...]) -> None:
+        self.case_ids = case_ids
+        super().__init__(
+            f"{self.code}: forecast release contains no scoreable units for "
+            f"case(s): {', '.join(case_ids)}; issue a release with at least "
+            "one scoreable unit per case"
+        )
+
+
 class RunIdentityError(RunValidationError):
     """Raised when a ledger is reused for a different frozen run."""
 

@@ -46,6 +46,7 @@ from .run_manifest import (
     serialize_run_manifest,
     validate_run_manifest_structure,
 )
+from .scoring import case_has_scored_units
 from .service import (
     ForecastExecution,
     IssuedRelease,
@@ -97,6 +98,7 @@ __all__ = [
     "SupportingDocumentKind",
     "SupportingDocumentSide",
     "UnitOutcome",
+    "case_has_scored_units",
     "enumerate_forecast_worker_inputs",
     "issue_release",
     "issue_synthetic_release",

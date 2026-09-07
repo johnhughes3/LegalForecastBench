@@ -76,7 +76,7 @@ def issue_runner_fixture(output_dir: Path) -> None:
         dir=output_dir.parent,
     ) as temporary:
         release_dir = Path(temporary) / "release"
-        issue_synthetic_release(release_dir)
+        issue_synthetic_release(release_dir, all_cases_scoreable=True)
         payloads = {
             f"release/{path.relative_to(release_dir).as_posix()}": path.read_bytes()
             for path in release_dir.rglob("*")

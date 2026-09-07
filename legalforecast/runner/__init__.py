@@ -1,7 +1,13 @@
 """Release-only public benchmark runner."""
 
 from .fixture import issue_runner_fixture
-from .ledger import RunBinding, RunBlockedError, RunIdentityError, RunValidationError
+from .ledger import (
+    RunBinding,
+    RunBlockedError,
+    RunIdentityError,
+    RunValidationError,
+    UnscoredCaseError,
+)
 from .service import (
     RunConfig,
     RunSummary,
@@ -18,6 +24,7 @@ __all__ = [
     "RunIdentityError",
     "RunSummary",
     "RunValidationError",
+    "UnscoredCaseError",
     "derive_case_call_id",
     "derive_cell_id",
     "derive_run_identity_sha256",

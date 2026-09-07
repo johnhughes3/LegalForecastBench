@@ -694,6 +694,7 @@ def test_runner_spend_keys_use_injective_cell_identity(
         SimpleNamespace(
             case_id="a",
             unit_id="b:c",
+            should_score=True,
             prompt_path="prompts/a.txt",
             prompt_sha256="1" * 64,
             prompt_byte_count=1,
@@ -702,6 +703,7 @@ def test_runner_spend_keys_use_injective_cell_identity(
         SimpleNamespace(
             case_id="a:b",
             unit_id="c",
+            should_score=True,
             prompt_path="prompts/a-b.txt",
             prompt_sha256="2" * 64,
             prompt_byte_count=1,
