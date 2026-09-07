@@ -4,10 +4,22 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import StrEnum
 
 _SCHEMA_IDENTIFIER = re.compile(
     r"legalforecast(?:\.[a-z0-9][a-z0-9_-]*)+\.v[1-9][0-9]*"
 )
+
+
+class StudySchemaVersion(StrEnum):
+    """Exact public schema versions for evaluation-study artifacts."""
+
+    REPORT_V1 = "legalforecast.study-report.v1"
+    SPEC_V1 = "legalforecast.study-spec.v1"
+
+
+STUDY_REPORT_SCHEMA_VERSION = StudySchemaVersion.REPORT_V1
+STUDY_SPEC_SCHEMA_VERSION = StudySchemaVersion.SPEC_V1
 
 
 @dataclass(frozen=True, slots=True)
@@ -530,6 +542,8 @@ HARVEY_LAB_PROJECTION_V2 = SchemaIdentifier("legalforecast.harvey_lab_projection
 HARVEY_LAB_TASK_PROJECTION_V2 = SchemaIdentifier(
     "legalforecast.harvey_lab_task_projection.v2"
 )
+STUDY_REPORT_V1 = SchemaIdentifier(STUDY_REPORT_SCHEMA_VERSION)
+STUDY_SPEC_V1 = SchemaIdentifier(STUDY_SPEC_SCHEMA_VERSION)
 
 # This registry names the current recovery vertical slice without changing any
 # producer's local constant.  Migration to these imports is post-Cycle 1 work.

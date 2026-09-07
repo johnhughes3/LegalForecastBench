@@ -264,11 +264,12 @@ def test_architecture_baseline_requires_reduced_metrics_to_shrink(
     tmp_path: Path,
 ) -> None:
     baseline = load_baseline(ROOT / BASELINE_PATH)
+    observed_line_count = scan_repository(ROOT).cli_metrics.line_count
     payload = {
         "schema_version": 1,
         "cli_metrics": {
             **asdict(baseline.cli_metrics),
-            "line_count": baseline.cli_metrics.line_count + 1,
+            "line_count": observed_line_count + 1,
         },
         "upward_cli_dependencies": list(baseline.upward_cli_dependencies),
         "compatibility": asdict(baseline.compatibility),
@@ -280,8 +281,8 @@ def test_architecture_baseline_requires_reduced_metrics_to_shrink(
 
     assert (
         "stale cli_metrics.line_count must be reduced: "
-        f"reviewed {baseline.cli_metrics.line_count + 1} "
-        f"> observed {baseline.cli_metrics.line_count}" in violations
+        f"reviewed {observed_line_count + 1} "
+        f"> observed {observed_line_count}" in violations
     )
 
 

@@ -10,6 +10,8 @@ positional arguments:
                   spend control.
     score         Parse model outputs and score them against locked labels.
     report        Render leaderboard artifacts from score summaries.
+    study         Compute reproducible evaluation-study reports from public
+                  artifacts.
     publish       Render official publication artifacts.
     multiharness  Run community multi-harness benchmark tasks and adapter
                   checks.

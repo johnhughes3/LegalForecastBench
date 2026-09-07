@@ -1,0 +1,8 @@
+usage: legalforecast study [-h] COMMAND ...
+
+positional arguments:
+  COMMAND
+    report    Evaluate a frozen study specification and write its JSON report.
+
+options:
+  -h, --help  show this help message and exit

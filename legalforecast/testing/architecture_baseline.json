@@ -2,9 +2,9 @@
   "cli_metrics": {
     "command_handler_count": 0,
     "command_handler_lines": 0,
-    "line_count": 131,
-    "nonblank_line_count": 111,
-    "parser_line_count": 22,
+    "line_count": 133,
+    "nonblank_line_count": 113,
+    "parser_line_count": 23,
     "top_level_class_count": 1,
     "top_level_definition_count": 5,
     "verifier_family_count": 0,
@@ -23,7 +23,8 @@
       "tests/test_package_skeleton.py",
       "tests/test_public_runner.py",
       "tests/test_release_artifact_contract.py",
-      "tests/test_release_cli.py"
+      "tests/test_release_cli.py",
+      "tests/test_study_cli.py"
     ],
     "cli_import_occurrences": [
       "tests/test_cli_orchestration.py",
@@ -37,7 +38,8 @@
       "tests/test_package_skeleton.py",
       "tests/test_public_runner.py",
       "tests/test_release_artifact_contract.py",
-      "tests/test_release_cli.py"
+      "tests/test_release_cli.py",
+      "tests/test_study_cli.py"
     ],
     "monkeypatch_occurrences": [],
     "monkeypatch_targets": [],
@@ -56,7 +58,8 @@
       "tests/test_package_skeleton.py",
       "tests/test_public_runner.py",
       "tests/test_release_artifact_contract.py",
-      "tests/test_release_cli.py"
+      "tests/test_release_cli.py",
+      "tests/test_study_cli.py"
     ],
     "public_cli_occurrences": [
       "tests/test_cli_orchestration.py::legalforecast.cli.build_parser",
@@ -71,7 +74,8 @@
       "tests/test_package_skeleton.py::legalforecast.cli.main",
       "tests/test_public_runner.py::legalforecast.cli.main",
       "tests/test_release_artifact_contract.py::legalforecast.cli.main",
-      "tests/test_release_cli.py::legalforecast.cli.main"
+      "tests/test_release_cli.py::legalforecast.cli.main",
+      "tests/test_study_cli.py::legalforecast.cli.main"
     ],
     "public_cli_targets": [
       "legalforecast.cli.build_parser",
@@ -92,7 +96,7 @@
       "examples/adapters/codex-cli": 1,
       "examples/adapters/openai-responses": 1,
       "legalforecast": 13,
-      "legalforecast/cli_commands": 6,
+      "legalforecast/cli_commands": 7,
       "legalforecast/contracts": 4,
       "legalforecast/evals": 21,
       "legalforecast/evals/corpus_manifest": 3,
@@ -105,11 +109,12 @@
       "legalforecast/release": 6,
       "legalforecast/reporting": 8,
       "legalforecast/runner": 4,
+      "legalforecast/studies": 3,
       "legalforecast/testing": 4,
       "legalforecast/testing/architecture_rules": 9,
       "legalforecast/testing/cli_corpus": 12,
       "scripts": 9,
-      "tests": 186,
+      "tests": 188,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -1369,6 +1374,23 @@
         "nonblank_line_count": 1213,
         "top_level_definition_count": 24
       },
+      "legalforecast/studies/service.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "root",
+        "fan_in": 2,
+        "fan_out": 6,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "_evaluate_comparison",
+        "largest_symbol_lines": 230,
+        "layer": "application",
+        "line_count": 776,
+        "nonblank_line_count": 727,
+        "top_level_definition_count": 18
+      },
       "legalforecast/testing/architecture_rules/cli_compatibility.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -2274,6 +2296,23 @@
         "line_count": 1568,
         "nonblank_line_count": 1407,
         "top_level_definition_count": 48
+      },
+      "tests/test_studies.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "_issue_release",
+        "largest_symbol_lines": 101,
+        "layer": "test",
+        "line_count": 523,
+        "nonblank_line_count": 489,
+        "top_level_definition_count": 15
       },
       "tests/test_tier0_operator_half.py": {
         "cycle_id": "",
