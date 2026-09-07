@@ -1,7 +1,7 @@
 # 2026 Community Submission Examples
 
-These checked-in submissions are no-network fixture examples for first-class multi-harness adapters. They are not official LegalForecastBench results.
+These checked-in submissions are dated provider smoke examples for the public community comparison surface. They are not official LegalForecastBench results.
 
-Each folder contains a validated PR-ready community package generated with `legalforecast multiharness community package`: `submission.json`, `public-summary.json`, `conformance-report.json`, `run-manifest.json`, `selection-manifest.json`, `artifact-manifest.json`, `row-results.jsonl`, `canonical-runs.jsonl`, and `hf-upload-plan.json`.
+Each folder contains a validated PR-ready community package generated with `legalforecast multiharness community package`: `submission.json`, `public-summary.json`, `conformance-report.json`, `run-manifest.json`, `selection-manifest.json`, `artifact-manifest.json`, `row-results.jsonl`, and `canonical-runs.jsonl`; packages may also contain an `hf-upload-plan.json`.
 
-The examples cover LQ.AI, Hermes Agent, OpenClaw, OpenAI Responses, and Claude Agent SDK fixture bridges. Each conformance report exercises both LegalForecastBench and Harvey LAB fixtures; each public submission package uses a small LegalForecastBench fixture subset so the repository examples stay compact.
+The examples cover the dated OpenAI Responses and Claude Agent SDK provider smoke rows. The no-network adapter fixture packages used to test all first-class bridges live under `tests/fixtures/community_submissions/2026/`; they are test inputs and do not enter the published community aggregate.
