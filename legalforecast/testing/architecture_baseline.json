@@ -97,7 +97,7 @@
       "legalforecast/evals": 21,
       "legalforecast/evals/corpus_manifest": 3,
       "legalforecast/ingestion": 3,
-      "legalforecast/multiharness": 73,
+      "legalforecast/multiharness": 74,
       "legalforecast/multiharness/container_harness": 10,
       "legalforecast/multiharness/harness_lane": 3,
       "legalforecast/protocol": 1,
@@ -109,7 +109,7 @@
       "legalforecast/testing/architecture_rules": 9,
       "legalforecast/testing/cli_corpus": 12,
       "scripts": 9,
-      "tests": 184,
+      "tests": 186,
       "tests/fakes": 1,
       "tests/fixtures": 2,
       "tests/fixtures/claude_code": 3,
@@ -1334,6 +1334,23 @@
         "line_count": 855,
         "nonblank_line_count": 797,
         "top_level_definition_count": 8
+      },
+      "legalforecast/runner/managed_execution.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "root",
+        "fan_in": 1,
+        "fan_out": 10,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "complete_managed_tool_cell",
+        "largest_symbol_lines": 139,
+        "layer": "application",
+        "line_count": 634,
+        "nonblank_line_count": 557,
+        "top_level_definition_count": 23
       },
       "legalforecast/runner/service.py": {
         "cycle_id": "",

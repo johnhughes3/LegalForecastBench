@@ -80,6 +80,46 @@
       "imported": "legalforecast.multiharness.validation",
       "importer": "legalforecast.publication.static_sites",
       "reason": "The shared static-site renderer still validates the community bundle schema."
+    },
+    {
+      "imported": "legalforecast.multiharness.adapters",
+      "importer": "legalforecast.runner.managed_execution",
+      "reason": "The official managed agent reuses the ToolExecutor interface so tools remain container-backed."
+    },
+    {
+      "imported": "legalforecast.multiharness.tool_protocol",
+      "importer": "legalforecast.runner.managed_execution",
+      "reason": "The official managed agent sends the existing typed tool protocol instead of creating a second protocol."
+    },
+    {
+      "imported": "legalforecast.multiharness.adapters",
+      "importer": "legalforecast.runner.tool_runtime",
+      "reason": "The official factory returns the shared ToolExecutor interface used by the managed agent."
+    },
+    {
+      "imported": "legalforecast.multiharness.container_runtime",
+      "importer": "legalforecast.runner.tool_runtime",
+      "reason": "The official document tools reuse the existing isolated container lifecycle and cleanup."
+    },
+    {
+      "imported": "legalforecast.multiharness.harvey_tools",
+      "importer": "legalforecast.runner.tool_runtime",
+      "reason": "The official tool factory uses the same six-tool policy as its production container."
+    },
+    {
+      "imported": "legalforecast.multiharness.sandbox",
+      "importer": "legalforecast.runner.tool_runtime",
+      "reason": "The official runner reuses the existing network-disabled read-only-input sandbox policy."
+    },
+    {
+      "imported": "legalforecast.multiharness.solver_inputs",
+      "importer": "legalforecast.runner.tool_runtime",
+      "reason": "The official factory reuses authenticated input staging instead of duplicating file validation."
+    },
+    {
+      "imported": "legalforecast.multiharness.spec",
+      "importer": "legalforecast.runner.tool_runtime",
+      "reason": "The official factory supplies the existing container runtime request contracts."
     }
   ]
 }

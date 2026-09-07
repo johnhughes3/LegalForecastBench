@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 from typing import cast
 
+import legalforecast.runner.managed_execution as managed_execution
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
     ARTIFACT_RAW_SHA256_V1,
@@ -123,14 +124,6 @@ class _CaseCall:
     @property
     def prompt_sha256(self) -> str:
         return self.units[0].prompt_sha256
-
-    @property
-    def prompt_path(self) -> str:
-        return self.units[0].prompt_path
-
-    @property
-    def prompt_byte_count(self) -> int:
-        return self.units[0].prompt_byte_count
 
     @property
     def model_visible_document_indexes(self) -> tuple[int, ...]:
@@ -403,24 +396,21 @@ def execute_release_run(
         with authority_context as authority:
             for case_call in selected_calls:
                 for repeat_index in repeat_indices:
-                    unit = case_call.units[0]
                     _require_unchanged_registry(
                         config.model_registry_path,
                         registry_sha256,
                     )
-                    prompt_bytes = execution.prompt_bytes(
-                        case_call.required_unit_ids[0]
-                    )
-                    try:
-                        prompt = prompt_bytes.decode("utf-8")
-                    except UnicodeDecodeError as exc:
-                        raise RunValidationError(
-                            f"prompt is not UTF-8 for unit {unit.unit_id}"
-                        ) from exc
                     cell_id = _case_call_id(
                         identity_sha256=identity_sha256,
                         case_call=case_call,
                         repeat_index=repeat_index,
+                    )
+                    prompt = managed_execution.case_prompt(
+                        entry,
+                        execution,
+                        case_call.units,
+                        case_call.model_visible_document_indexes,
+                        cell_id,
                     )
                     if config.cell_id is not None and cell_id != config.cell_id:
                         raise RunValidationError(
@@ -797,7 +787,7 @@ def execute_release_run(
 
 def _complete_cell(
     entry: ModelRegistryEntry,
-    prompt: str,
+    prompt: str | managed_execution.ManagedCaseInput,
     *,
     key: ProviderSpendKey,
     registry_sha256: str,
@@ -835,6 +825,15 @@ def _complete_cell(
         transport_start_observer=transport_start_observer,
         response_observer=response_observer,
     )
+    if isinstance(prompt, managed_execution.ManagedCaseInput):
+        return managed_execution.complete_managed_tool_cell(
+            entry,
+            handler=handler,
+            managed_case=prompt,
+            request_body_observer=request_body_observer,
+            environ=environ,
+            registry_sha256=registry_sha256,
+        )
     return complete_live_prompt(
         entry,
         prompt,

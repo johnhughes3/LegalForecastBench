@@ -435,6 +435,14 @@ jobs:
         with:
           name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: /tmp/lfb-forecast-inputs
+      - name: Build isolated document tool image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -f infra/tool-runtime/Containerfile -t lfb-harvey-tools:local .
+          tool_image_id="$(docker image inspect --format '{{.Id}}' lfb-harvey-tools:local)"
+          [[ "${tool_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" >> "${GITHUB_ENV}"
       - name: Execute exact OpenAI forecast cell
         shell: bash
         env:
@@ -465,6 +473,7 @@ jobs:
           status = int(sys.argv[1]); model_key = os.environ["MODEL_KEY"]
           summary = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": model_key.split(":", 1)[0], "model_key": model_key, "cell_id": os.environ["CELL_ID"], "unit_id": os.environ["UNIT_ID"], "repeat_index": int(os.environ["REPEAT_INDEX"]), "ablation": os.environ["ABLATION"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "completed" if status == 0 else "failed", "failure_type": None if status == 0 else "provider_or_runner_failure", "exit_status": status}
           if status != 0:
+              Path("/tmp/lfb-run/run-summary.json").rename("/tmp/lfb-run/runner-failure.log")
               Path("/tmp/lfb-run/run-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
           ledger_path = Path("/tmp/lfb-run/ledger.sqlite3")
           if not ledger_path.exists():
@@ -486,6 +495,7 @@ jobs:
             /tmp/lfb-run/failure-summary.json
             /tmp/lfb-run/ledger.sqlite3
             /tmp/lfb-run/run-summary.json
+            /tmp/lfb-run/runner-failure.log
             /tmp/lfb-run/receipts
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
@@ -628,6 +638,7 @@ jobs:
           status = int(sys.argv[1]); model_key = os.environ["MODEL_KEY"]
           summary = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": model_key.split(":", 1)[0], "model_key": model_key, "cell_id": os.environ["CELL_ID"], "unit_id": os.environ["UNIT_ID"], "repeat_index": int(os.environ["REPEAT_INDEX"]), "ablation": os.environ["ABLATION"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "completed" if status == 0 else "failed", "failure_type": None if status == 0 else "provider_or_runner_failure", "exit_status": status}
           if status != 0:
+              Path("/tmp/lfb-run/run-summary.json").rename("/tmp/lfb-run/runner-failure.log")
               Path("/tmp/lfb-run/run-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
           ledger_path = Path("/tmp/lfb-run/ledger.sqlite3")
           if not ledger_path.exists():
@@ -649,6 +660,7 @@ jobs:
             /tmp/lfb-run/failure-summary.json
             /tmp/lfb-run/ledger.sqlite3
             /tmp/lfb-run/run-summary.json
+            /tmp/lfb-run/runner-failure.log
             /tmp/lfb-run/receipts
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
@@ -790,6 +802,7 @@ jobs:
           status = int(sys.argv[1]); model_key = os.environ["MODEL_KEY"]
           summary = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": model_key.split(":", 1)[0], "model_key": model_key, "cell_id": os.environ["CELL_ID"], "unit_id": os.environ["UNIT_ID"], "repeat_index": int(os.environ["REPEAT_INDEX"]), "ablation": os.environ["ABLATION"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "completed" if status == 0 else "failed", "failure_type": None if status == 0 else "provider_or_runner_failure", "exit_status": status}
           if status != 0:
+              Path("/tmp/lfb-run/run-summary.json").rename("/tmp/lfb-run/runner-failure.log")
               Path("/tmp/lfb-run/run-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
           ledger_path = Path("/tmp/lfb-run/ledger.sqlite3")
           if not ledger_path.exists():
@@ -811,6 +824,7 @@ jobs:
             /tmp/lfb-run/failure-summary.json
             /tmp/lfb-run/ledger.sqlite3
             /tmp/lfb-run/run-summary.json
+            /tmp/lfb-run/runner-failure.log
             /tmp/lfb-run/receipts
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
