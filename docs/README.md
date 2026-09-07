@@ -40,17 +40,12 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [multiharness-adapter-spec.md](multiharness/adapter-spec.md): the community adapter contract.
 - [community-submissions.md](community-submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
 - [harness-efficiency-observations.md](harness-efficiency-observations.md): receipt-backed duration, cost, and token accounting published as peer columns.
-- [multiharness-deliverable-contract.md](multiharness/deliverable-contract.md): the harness-independent sealed boundary between a solver run and later evaluation.
-- [multiharness-evaluation-contract.md](multiharness/evaluation-contract.md): `EvaluationSpec` precommitments for deliverables, evaluator identity, judge settings, and runtime policy.
-- [multiharness-score-contract.md](multiharness/score-contract.md): the pinned score contract — deliberately a strict Harvey LAB specialization, not generic metric arithmetic.
-- [multiharness-artifact-compatibility.md](multiharness/artifact-compatibility.md): the compatibility baseline for community artifact readers and writers.
-- [multiharness-identity-keys.md](multiharness/identity-keys.md): harness-independent task, solver, run, and matched-harness identity keys shared by community submissions and official runs.
+- [Multiharness contracts](multiharness/contracts.md): the current sealed-deliverable, evaluation, scoring, identity, compatibility, and Harvey LAB source boundaries.
 - [multiharness-receipt-authority.md](multiharness/receipt-authority.md): the external Ed25519 evaluator-issuer seam and credential-free executable probe procedure.
 
 ### Adapter tracks
 
 - [provider-baselines.md](adapters/provider-baselines.md): provider/runtime reference points and the publication terms they rest on.
-- [harvey-lab-pinned-evaluator-seam.md](adapters/harvey-lab-pinned-evaluator-seam.md): the pinned upstream evaluator boundary the deliverable, evaluation, and score contracts rely on.
 - [published-api-key-profile.md](adapters/published-api-key-profile.md): Infisical layout for the portable `published-api-key` local-CLI profile.
 - [Local CLI adapter manifest](schemas/local-cli-adapter-manifest-v1.md): the current generic manifest contract for local agentic CLI adapters.
 

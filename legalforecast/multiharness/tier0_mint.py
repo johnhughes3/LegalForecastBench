@@ -86,7 +86,7 @@ CLAUDE_BUDGET_ARGUMENT = "--max-budget-usd"
 LAB_CRITERION_COUNT = 23
 ARM_IDS = ("arm-opaque-01", "arm-opaque-02")
 
-# The retained issue-196 pin, from docs/adapters/harvey-lab-pinned-evaluator-seam.md.
+# The retained issue-196 pin, documented in docs/multiharness/contracts.md.
 SOURCE_PIN = HarveyLabPin(
     repository="https://github.com/harveyai/harvey-labs",
     commit="73feb91d63d53b1a44151d99329779c4defcdb72",
