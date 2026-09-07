@@ -1,14 +1,79 @@
 from __future__ import annotations
 
+import io
+import json
 import os
 import re
 import shlex
 import subprocess
+import textwrap
+import urllib.request
 from pathlib import Path
+
+import pytest
 
 WORKFLOW_PATH = Path(".github/workflows/fan-in-publish.yaml")
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_forecast_attempt_accepts_newer_main_workflow_but_rejects_other_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def git(*args: str) -> str:
+        return subprocess.check_output(["git", *args], cwd=tmp_path, text=True).strip()
+
+    git("init", "-b", "main")
+    git("config", "user.name", "Test")
+    git("config", "user.email", "test@example.invalid")
+    git("-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "runtime")
+    runtime_sha = git("rev-parse", "HEAD")
+    git(
+        "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "workflow repair"
+    )
+    workflow_sha = git("rev-parse", "HEAD")
+    git("update-ref", "refs/remotes/origin/main", workflow_sha)
+    git("checkout", "-b", "unmerged")
+    git("-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "untrusted")
+    unmerged_sha = git("rev-parse", "HEAD")
+    git("checkout", "--detach", runtime_sha)
+    monkeypatch.chdir(tmp_path)
+    for key, value in {
+        "GITHUB_API_URL": "https://api.example.invalid",
+        "GITHUB_REPOSITORY_NAME": "example/benchmark",
+        "GITHUB_TOKEN": "synthetic-token",
+        "FORECAST_RUN_ID": "123",
+        "FORECAST_RUN_ATTEMPT": "1",
+        "RELEASE_SHA": runtime_sha,
+    }.items():
+        monkeypatch.setenv(key, value)
+    section = WORKFLOW.split("- name: Validate exact forecast workflow attempt", 1)[1]
+    script = textwrap.dedent(
+        section.split("python - <<'PY'\n", 1)[1].split("          PY", 1)[0]
+    )
+    run = {
+        "id": 123,
+        "run_attempt": 1,
+        "head_sha": workflow_sha,
+        "head_branch": "main",
+        "event": "workflow_dispatch",
+        "path": ".github/workflows/run-benchmark.yaml",
+        "status": "completed",
+        "conclusion": "success",
+    }
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: io.BytesIO(json.dumps(run).encode()),
+    )
+    exec(compile(script, "workflow-attempt", "exec"), {})
+    run["head_sha"] = unmerged_sha
+    with pytest.raises(subprocess.CalledProcessError):
+        exec(compile(script, "workflow-attempt", "exec"), {})
+    run["head_sha"] = workflow_sha
+    run["conclusion"] = "failure"
+    with pytest.raises(SystemExit, match="success check failed"):
+        exec(compile(script, "workflow-attempt", "exec"), {})
 
 
 def test_fan_in_is_a_single_protected_provider_free_labels_boundary() -> None:
@@ -70,7 +135,7 @@ def test_source_attempt_is_bound_to_the_exact_main_workflow_path() -> None:
     for required in (
         'run.get("id") == run_id',
         'run.get("run_attempt") == attempt',
-        'run.get("head_sha") == expected_sha',
+        '"--is-ancestor", workflow_sha, "origin/main"',
         'run.get("head_branch") == "main"',
         'run.get("event") == "workflow_dispatch"',
         'run.get("path") == ".github/workflows/run-benchmark.yaml"',
