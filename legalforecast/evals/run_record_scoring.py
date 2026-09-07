@@ -38,6 +38,23 @@ from legalforecast.release import (
 from legalforecast.runner.service import derive_case_call_id
 
 
+class IncompleteLockedRun(ValueError):
+    """A receipt set passed identity checks but lacks one or more forecast units."""
+
+    def __init__(
+        self,
+        *,
+        expected_unit_ids: frozenset[str],
+        completed_unit_ids_by_model: Mapping[str, frozenset[str]],
+    ) -> None:
+        self.expected_unit_ids = expected_unit_ids
+        self.completed_unit_ids_by_model = dict(completed_unit_ids_by_model)
+        super().__init__(
+            "run records are incomplete for forecast release: "
+            f"expected_units={len(expected_unit_ids)}"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class ReleaseOutcomeLabel:
     """Minimal score-label view for the public labels-release contract."""
@@ -128,7 +145,10 @@ def _score_locked_run_records(
     if labels_release.forecast_release_digest != forecast_release.release_digest:
         raise ValueError("labels release binds a different forecast release")
     if not run_records:
-        raise ValueError("at least one locked run receipt is required")
+        raise IncompleteLockedRun(
+            expected_unit_ids=frozenset(expected_unit_id_set),
+            completed_unit_ids_by_model={},
+        )
 
     labels_by_unit_id = {
         outcome.unit_id: ReleaseOutcomeLabel(
@@ -217,9 +237,12 @@ def _score_locked_run_records(
         if unit_ids != expected_unit_id_set
     }
     if missing_by_model:
-        raise ValueError(
-            "run records are incomplete for forecast release: "
-            f"missing_units={missing_by_model}"
+        raise IncompleteLockedRun(
+            expected_unit_ids=frozenset(expected_unit_id_set),
+            completed_unit_ids_by_model={
+                model_id: frozenset(unit_ids)
+                for model_id, unit_ids in model_units.items()
+            },
         )
 
     cases_by_model: dict[str, list[ScoringCase]] = defaultdict(list)

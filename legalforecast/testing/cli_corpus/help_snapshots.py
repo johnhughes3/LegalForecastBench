@@ -15,6 +15,8 @@ HELP_SNAPSHOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("run", ("run", "--help")),
     ("score", ("score", "--help")),
     ("report", ("report", "--help")),
+    ("study", ("study", "--help")),
+    ("study-report", ("study", "report", "--help")),
     ("multiharness", ("multiharness", "--help")),
 )
 

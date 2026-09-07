@@ -560,7 +560,8 @@ def _resampled_micro_brier(
     )
 
 
-def _quantile(values: tuple[float, ...], q: float) -> float:
+def quantile(values: tuple[float, ...], q: float) -> float:
+    """Return the validated linear-interpolation bootstrap quantile."""
     if not values:
         raise ValueError("values must not be empty")
     if not 0 <= q <= 1:
@@ -575,6 +576,9 @@ def _quantile(values: tuple[float, ...], q: float) -> float:
     return sorted_values[lower_index] + (
         (sorted_values[upper_index] - sorted_values[lower_index]) * fraction
     )
+
+
+_quantile = quantile
 
 
 def _mean(values: Iterable[float]) -> float:

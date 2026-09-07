@@ -21,6 +21,7 @@ from legalforecast.cli_commands import release as _release_cmd
 from legalforecast.cli_commands import report as _report_cmd
 from legalforecast.cli_commands import run as _run_cmd
 from legalforecast.cli_commands import score as _score_cmd
+from legalforecast.cli_commands import study as _study_cmd
 from legalforecast.multiharness.cli import add_multiharness_parser
 from legalforecast.publication.static_sites import render_official_results_site
 
@@ -48,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     _run_cmd.register(subparsers)
     _score_cmd.register(subparsers)
     _report_cmd.register(subparsers)
+    _study_cmd.register(subparsers)
     _register_publish(subparsers)
     add_multiharness_parser(subparsers)
     return parser

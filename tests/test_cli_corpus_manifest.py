@@ -33,6 +33,8 @@ def test_manifest_contains_only_supported_public_families() -> None:
         ("run", "execute"),
         ("score",),
         ("report",),
+        ("study",),
+        ("study", "report"),
         ("publish", "site"),
         ("multiharness", "run"),
     ):
@@ -54,6 +56,8 @@ def test_help_snapshots_are_current_and_byte_stable() -> None:
             ("run", ("run", "--help")),
             ("score", ("score", "--help")),
             ("report", ("report", "--help")),
+            ("study", ("study", "--help")),
+            ("study-report", ("study", "report", "--help")),
             ("multiharness", ("multiharness", "--help")),
         )
     }

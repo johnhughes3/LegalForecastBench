@@ -1,0 +1,19 @@
+usage: legalforecast study report [-h] --spec SPEC --inputs INPUTS
+                                  [--artifact-root ARTIFACT_ROOT]
+                                  --output OUTPUT [--json]
+
+Read a StudySpec JSON and an arm-to-artifact JSON mapping. The mapping may
+omit an arm or set run_records to null for a typed missing-arm observation.
+
+options:
+  -h, --help            show this help message and exit
+  --spec SPEC           Frozen public study specification JSON.
+  --inputs INPUTS       JSON object mapping arm IDs to forecast, labels,
+                        manifest, registry, and optional run-record paths.
+  --artifact-root ARTIFACT_ROOT
+                        Default root for paths referenced by each release. An
+                        arm-level artifact_root takes precedence; otherwise
+                        the forecast directory is used.
+  --output OUTPUT       Destination JSON report.
+  --json                Emit the stable JSON report (the default output
+                        format).

@@ -4,6 +4,6 @@
   "exit_status": 2,
   "extra_files": [],
   "output_tree": [],
-  "stderr": "usage: legalforecast [-h] [--version] COMMAND ...\nlegalforecast: error: argument COMMAND: invalid choice: 'definitely-not-a-command' (choose from manifest, release, run, score, report, publish, multiharness)\n",
+  "stderr": "usage: legalforecast [-h] [--version] COMMAND ...\nlegalforecast: error: argument COMMAND: invalid choice: 'definitely-not-a-command' (choose from manifest, release, run, score, report, study, publish, multiharness)\n",
   "stdout": ""
 }
