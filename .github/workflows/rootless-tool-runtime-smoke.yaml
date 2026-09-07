@@ -1,0 +1,89 @@
+name: Rootless tool runtime smoke
+
+on:
+  pull_request:
+    paths:
+      - .github/scripts/setup-rootless-docker.sh
+      - .github/workflows/rootless-tool-runtime-smoke.yaml
+      - infra/tool-runtime/**
+      - legalforecast/multiharness/container_runtime.py
+      - legalforecast/runner/tool_runtime.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Fresh rootless daemon and production tool image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Configure rootless Docker
+        run: .github/scripts/setup-rootless-docker.sh
+
+      - name: Build production document tool image
+        run: |
+          set -euo pipefail
+          docker build -f infra/tool-runtime/Containerfile -t lfb-harvey-tools:smoke .
+          tool_image_id="$(docker image inspect --format '{{.Id}}' lfb-harvey-tools:smoke)"
+          [[ "${tool_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" >> "${GITHUB_ENV}"
+
+      - name: Execute production document tool session
+        env:
+          AWS_SECRET_ACCESS_KEY: must-not-reach-tool-container
+          OPENAI_API_KEY: must-not-reach-tool-container
+        run: |
+          uv run python - <<'PY'
+          import os
+          from pathlib import Path
+          from legalforecast.multiharness.tool_protocol import ToolRequest
+          from legalforecast.runner.tool_runtime import open_official_tool_session
+
+          workspace = Path(os.environ["RUNNER_TEMP"]) / "official-tool-smoke"
+          with open_official_tool_session(
+              documents={"documents/smoke.txt": b"rootless document tool smoke\n"},
+              workspace=workspace,
+              session_id="rootless-workflow-smoke",
+          ) as session:
+              read_response = session.execute(
+                  ToolRequest(
+                      request_id="smoke-read",
+                      operation="read",
+                      arguments={"file_path": "documents/smoke.txt"},
+                  ),
+                  workspace,
+              )
+              assert read_response.status == "succeeded"
+              assert read_response.output["content"] == "rootless document tool smoke\n"
+              env_response = session.execute(
+                  ToolRequest(
+                      request_id="smoke-environment",
+                      operation="bash",
+                      arguments={"command": "env"},
+                  ),
+                  workspace,
+              )
+              assert env_response.status == "succeeded"
+              environment = env_response.output["output"]
+              assert "AWS_SECRET_ACCESS_KEY" not in environment
+              assert "OPENAI_API_KEY" not in environment
+          PY
