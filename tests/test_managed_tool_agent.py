@@ -319,7 +319,6 @@ def test_official_cell_replays_aggregate_response_without_starting_container(
     )
     handler = _ReplayHandler(
         {
-            "schema_version": "legalforecast.managed-tool-response.v1",
             "raw_output": raw_output,
             "request_count": 2,
             "input_tokens": 80,

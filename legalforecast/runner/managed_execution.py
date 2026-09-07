@@ -436,7 +436,6 @@ def complete_managed_tool_cell(
     initial_prompt = _managed_initial_prompt(managed_case)
     commitment = ARTIFACT_CANONICAL_JSON_V1.encode(
         {
-            "schema_version": "legalforecast.managed-tool-request.v1",
             "model": entry.model_id,
             "case_id": managed_case.case_id,
             "required_unit_ids": list(managed_case.required_unit_ids),
@@ -488,7 +487,6 @@ def complete_managed_tool_cell(
             entry, response_usages=result.response_usages
         )
         return {
-            "schema_version": "legalforecast.managed-tool-response.v1",
             "raw_output": result.raw_output,
             "request_count": result.request_count,
             "input_tokens": result.input_tokens,
