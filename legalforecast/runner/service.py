@@ -56,6 +56,7 @@ from legalforecast.immutable_io import read_single_link_file, write_file_create_
 from legalforecast.release import (
     ForecastExecution,
     ForecastPredictionUnit,
+    case_has_scored_units,
     load_forecast_execution,
     load_forecast_run_inputs,
 )
@@ -65,6 +66,7 @@ from .ledger import (
     RunIdentityError,
     RunnerLedger,
     RunValidationError,
+    UnscoredCaseError,
 )
 
 
@@ -1162,6 +1164,13 @@ def _case_calls(units: tuple[ForecastPredictionUnit, ...]) -> tuple[_CaseCall, .
     grouped: dict[str, list[ForecastPredictionUnit]] = {}
     for unit in units:
         grouped.setdefault(unit.case_id, []).append(unit)
+    unscored_case_ids = tuple(
+        case_id
+        for case_id in sorted(grouped)
+        if not case_has_scored_units(unit.should_score for unit in grouped[case_id])
+    )
+    if unscored_case_ids:
+        raise UnscoredCaseError(unscored_case_ids)
     calls: list[_CaseCall] = []
     for case_id in sorted(grouped):
         case_units = tuple(sorted(grouped[case_id], key=lambda unit: unit.unit_id))
