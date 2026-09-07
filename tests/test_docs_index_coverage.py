@@ -12,7 +12,7 @@ Coverage is decided by exact path match against the index's actual Markdown
 link targets, never by substring search over the file text. Substring matching
 silently passes a document whose path is contained in another entry —
 ``audit.md`` inside ``reproduce-or-audit.md``, ``change-control.md`` inside
-``cycle-1-change-control.md`` — and also counts a path merely mentioned in
+``current-change-control.md`` — and also counts a path merely mentioned in
 prose or a code block as linked. Those false passes would defeat the drift
 protection these tests exist to provide.
 
@@ -124,14 +124,14 @@ def test_index_links_all_resolve() -> None:
 def test_coverage_requires_an_exact_link_not_a_substring() -> None:
     """A document whose path is a substring of another entry is still unlisted."""
 
-    index = "- [Cycle 1 change control](cycle-1-change-control.md): adopted rules.\n"
+    index = "- [Current change control](current-change-control.md): adopted rules.\n"
     linked = {
         resolved
         for target in _link_targets(index)
         if (resolved := _resolve_in_repo(target)) is not None
     }
 
-    assert "docs/cycle-1-change-control.md" in linked
+    assert "docs/current-change-control.md" in linked
     assert "docs/change-control.md" not in linked
 
 
@@ -147,7 +147,7 @@ def test_out_of_tree_link_targets_are_rejected() -> None:
 def test_prose_mentions_do_not_count_as_links() -> None:
     """A path named in prose or a code block is not a Markdown link."""
 
-    index = "See `cycle-1-change-control.md` and docs/METHODS.md for detail.\n"
+    index = "See `current-change-control.md` and docs/METHODS.md for detail.\n"
 
     assert _link_targets(index) == []
 
@@ -159,4 +159,4 @@ def test_tracked_docs_query_finds_the_docs_set() -> None:
 
     assert len(tracked) > 20
     assert "docs/METHODS.md" in tracked
-    assert "docs/schemas/cohort-policy-v1.md" in tracked
+    assert "docs/schemas/forecast-release-v1.md" in tracked

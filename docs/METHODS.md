@@ -79,4 +79,4 @@ Live requests omit temperature, top-p, and equivalent sampling controls, so each
 
 The Cycle 1 successor registry requests OpenAI reasoning effort `high` for GPT-5.6 Sol, Terra, and Luna. Claude Opus 4.8 uses adaptive thinking in both the direct Anthropic and Amazon Bedrock paths; the request omits Anthropic `output_config.effort`, leaving the adaptive-thinking effort at the provider-default high level. All four entries retain a 128,000-token output ceiling, which is an output allowance rather than a substitute for the explicit reasoning settings. The registry bytes and runtime contracts bind these settings, and per-response observational metadata records the requested OpenAI effort or Anthropic adaptive-thinking policy.
 
-See [labeling-protocol.md](labeling-protocol.md), [official-run-runbook.md](official-run-runbook.md), and [reproduce-or-audit.md](reproduce-or-audit.md) for the operational contracts.
+See [official-run-runbook.md](official-run-runbook.md), [publication-governance.md](publication-governance.md), and [reproduce-or-audit.md](reproduce-or-audit.md) for the operational contracts.

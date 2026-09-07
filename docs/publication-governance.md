@@ -2,7 +2,7 @@
 
 Status: public result-label and publication-surface contract, effective 2026-07-16 · trimmed 2026-08-30 to the boundaries the project actually keeps.
 
-The machine-readable source of truth is [`publication-governance.json`](publication-governance.json). Downstream report, leaderboard, README, writeup, community-site, and preprint work must use that contract rather than restating the roadmap from memory.
+This document is the source of truth for public result labels and publication surfaces. Downstream report, leaderboard, README, writeup, community-site, and preprint work must use this contract rather than restating the roadmap from memory.
 
 ## Fixed boundaries
 
@@ -18,7 +18,7 @@ Repository and publication credits do not imply review, approval, sponsorship, p
 
 ## Required labels
 
-Every published result carries the exact label its track and evidence basis calls for, copied verbatim onto the public surface and onto every README or preprint link to it. The three labels are frozen in the JSON contract, which is authoritative wherever this summary is shorter — in particular for each label's `forbidden_claims` list.
+Every published result carries the exact label its track and evidence basis calls for, copied verbatim onto the public surface and onto every README or preprint link to it. The labels and their forbidden claims are defined in this contract.
 
 **Official LegalForecast-MTD Cycle 1 result** — the official track. It reports the frozen model identities, micro-Brier results, clustered uncertainty, coverage, accounting, baseline context, and limitations, and it may compare frozen Cycle 1 model configurations on the shared cohort. It may not claim absolute legal intelligence, infer capability gains across cycles with different case mixes, rank official Brier scores against Harvey LAB rubric scores, imply affiliation, or combine official and community rows into an overall winner. A post-anchor official row carries this same label plus an arm qualifier: **Official LegalForecast-MTD Cycle 1 result (post-anchor)**.
 
@@ -50,4 +50,4 @@ Contamination resistance is not being retired or downgraded by any of this. Acqu
 | README contributor block | `README.md#reproducible-community-comparisons` | Community | Reproducible |
 | Methods preprint | `docs/preprint/legalforecast-mtd-cycle-1.md` | Official | Official |
 
-The canonical GitHub URLs are frozen in the JSON contract. README and preprint sections that link results must reproduce each result's label next to the link. A community appendix in the official preprint keeps its own preliminary or reproducible label; placement does not promote it to official evidence.
+README and preprint sections that link results must reproduce each result's label next to the link. A community appendix in the official preprint keeps its own preliminary or reproducible label; placement does not promote it to official evidence.

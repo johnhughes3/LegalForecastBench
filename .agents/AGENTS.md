@@ -92,7 +92,7 @@ For focused runs while iterating, plain serial `uv run pytest tests/<file> -q` i
 
 ## Cycle 1 Change Control
 
-One cadence rule from [docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md) still applies: keep one active gate-changing integration lane, run focused tests before the full suite, and use the correctness/security emergency path when a gate is genuinely wrong. Everything else in that note is retired. Its frozen-byte-contract regime is superseded by the 2026-08-30 replan — the new path has one locked run manifest and no per-document digests — and the legacy chain it governed left this repository in #1034, so do not mint new schema versions, sidecars, or card variants to preserve byte-identical fields.
+Keep one active gate-changing integration lane, run focused tests before the full suite, and use the correctness/security emergency path when a gate is genuinely wrong. The old Cycle 1 change-control record and its frozen-byte-contract regime are retired; the new path has one locked run manifest and no per-document digests. Do not mint new schema versions, sidecars, or card variants to preserve byte-identical fields.
 
 ## Non-Interactive Shell Commands
 

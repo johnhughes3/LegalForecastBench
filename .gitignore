@@ -4,7 +4,7 @@
 .vscode/
 
 # Local secrets. Credentials come from Infisical, not a checkout-root .env —
-# see docs/acquisition-systemd-launcher.md. A .env here is a contamination
+# A local .env is a contamination
 # hazard that tests/test_publication_guardrails.py treats as a leak.
 .env
 .env.*
@@ -51,7 +51,6 @@ local-data/
 *.sqlite3-journal
 *.sqlite3-wal
 *.sqlite3-shm
-docs/cohort-policy-*.json.lock
 
 # Beads / Dolt local runtime
 .beads/

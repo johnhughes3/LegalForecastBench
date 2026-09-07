@@ -7,7 +7,7 @@ description: "How to run a scoped work lane in this repo without burning hours o
 
 These rules come from a session autopsy of a lane that ran roughly eleven hours and landed nothing: it built enforcement for an artifact no supported tool could produce, then polished the prerequisite instead of reporting that the payoff was unreachable. Each rule below is the cheap check that would have caught it.
 
-They apply to any scoped work lane here, alongside the standing priorities in [AGENTS.md](/.agents/AGENTS.md) and the cadence rules in [docs/cycle-1-change-control.md](/docs/cycle-1-change-control.md).
+They apply to any scoped work lane here, alongside the standing priorities in [AGENTS.md](/.agents/AGENTS.md) and the cadence rules in [AGENTS.md](/.agents/AGENTS.md).
 
 ## 0. Executability audit — before you build anything
 

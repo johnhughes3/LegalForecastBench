@@ -55,7 +55,7 @@ SUPPLEMENTARY_CAVEAT = (
     "Post-anchor result: the model was released after the corpus decision "
     "window closed, so this result is not contamination-resistant on this corpus."
 )
-# Frozen public labels from docs/publication-governance.json. Copied verbatim
+# Frozen public labels from the publication governance contract. Copied verbatim.
 # onto public surfaces. The dagger stays a separate row marker.
 PRE_ANCHOR_PUBLIC_LABEL = "Official LegalForecast-MTD Cycle 1 result"
 POST_ANCHOR_PUBLIC_LABEL = "Official LegalForecast-MTD Cycle 1 result (post-anchor)"

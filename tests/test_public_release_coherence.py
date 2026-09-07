@@ -96,7 +96,6 @@ def test_gate_pack_dispatch_examples_match_workflow_inputs() -> None:
 def test_docs_index_describes_the_retained_corpus_handoff() -> None:
     docs_index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
     assert "## Corpus Handoff Boundary" in docs_index
-    active_index = docs_index.split("## Historical and Migration Records", 1)[0]
     for stale in (
         "## Acquisition Operations",
         "[Attachment-menu acquisition]",
@@ -106,24 +105,7 @@ def test_docs_index_describes_the_retained_corpus_handoff() -> None:
         "acquisition-cycle-template-v1.md",
         "legalforecast acquisition replay-stage-a",
     ):
-        assert stale not in active_index, stale
-
-
-def test_private_labeling_and_freeze_records_are_historical_only() -> None:
-    docs_index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
-    active_index = docs_index.split("## Historical and Migration Records", 1)[0]
-    for document in (
-        "labeling-protocol.md",
-        "cycle-1-manifest-provider-free-freeze-v2.md",
-    ):
-        assert document not in active_index
-        text = (ROOT / "docs" / document).read_text(encoding="utf-8")
-        assert "Historical Corpus record" in text
-        assert "non-executable" in text
-    assert (
-        "## Historical private-corpus and migration schemas (non-executable)"
-        in docs_index
-    )
+        assert stale not in docs_index, stale
 
 
 def _dispatch_input_names(workflow: str) -> tuple[str, ...]:
