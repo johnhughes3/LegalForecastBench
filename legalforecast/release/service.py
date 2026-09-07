@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
@@ -27,13 +28,42 @@ from .models import (
     ForecastRelease,
     LabelsDraft,
     LabelsRelease,
+    NonEmptyString,
     ReleaseCase,
     ReleaseDocument,
+    ReleaseModel,
+    Sha256,
 )
 
 
 class ReleaseValidationError(ValueError):
     """Raised when release structure, commitments, or paired semantics fail."""
+
+
+class ExecutableUnitPacket(ReleaseModel):
+    """Strict outcome-blinded packet profile required by the public runner."""
+
+    case_id: NonEmptyString
+    claim_name: NonEmptyString
+    count: NonEmptyString
+    defendant_group: NonEmptyString
+    model_visible_document_ids: tuple[NonEmptyString, ...] = Field(min_length=1)
+    policy_digest: Sha256
+    unit_id: NonEmptyString
+    decision_date: NonEmptyString
+
+    @field_validator("decision_date", mode="before")
+    @classmethod
+    def require_canonical_decision_date(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError("decision_date must be an ISO date") from exc
+        if parsed.isoformat() != value:
+            raise ValueError("decision_date must be canonical")
+        return value
 
 
 @dataclass(frozen=True, slots=True)

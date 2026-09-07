@@ -15,6 +15,7 @@ from .service import (
     derive_cell_id,
     derive_run_identity_sha256,
     execute_release_run,
+    validate_executable_packets,
 )
 
 __all__ = [
@@ -30,4 +31,5 @@ __all__ = [
     "derive_run_identity_sha256",
     "execute_release_run",
     "issue_runner_fixture",
+    "validate_executable_packets",
 ]

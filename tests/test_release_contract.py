@@ -15,6 +15,7 @@ from legalforecast.contracts import (
 from legalforecast.release import (
     BRIEFING_ROLES,
     PLEADING_ROLES,
+    ExecutableUnitPacket,
     ForecastRelease,
     LabelsRelease,
     ReleaseValidationError,
@@ -24,6 +25,31 @@ from legalforecast.release import (
     validate_release,
 )
 from pydantic import ValidationError
+
+
+def test_executable_unit_packet_requires_canonical_decision_date() -> None:
+    record = {
+        "case_id": "case-001",
+        "claim_name": "Synthetic claim",
+        "count": "Count I",
+        "decision_date": "2026-08-23",
+        "defendant_group": "Synthetic defendants",
+        "model_visible_document_ids": ["case-001-complaint"],
+        "policy_digest": "1" * 64,
+        "unit_id": "unit-001",
+    }
+
+    def parse(value: dict[str, object]) -> ExecutableUnitPacket:
+        return ExecutableUnitPacket.model_validate_json(
+            ARTIFACT_CANONICAL_JSON_V1.encode(value)
+        )
+
+    assert parse(record).decision_date == "2026-08-23"
+    for invalid in (None, "2026-8-23", " 2026-08-23 "):
+        with pytest.raises(ValidationError, match="decision_date"):
+            parse({**record, "decision_date": invalid})
+    with pytest.raises(ValidationError, match="model_visible_document_ids"):
+        parse({**record, "model_visible_document_ids": []})
 
 
 def test_synthetic_issuer_is_deterministic_complete_and_blinded(tmp_path: Path) -> None:

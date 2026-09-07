@@ -195,7 +195,12 @@ def _case_config(
         payloads[f"packets/{unit_id}.json"] = ARTIFACT_CANONICAL_JSON_V1.encode(
             {
                 "case_id": "case-001",
+                "claim_name": unit_id,
+                "count": "Count I",
                 "decision_date": "2026-08-23",
+                "defendant_group": "defendants",
+                "model_visible_document_ids": ["case-001-motion"],
+                "policy_digest": "1" * 64,
                 "unit_id": unit_id,
             }
         )
@@ -272,10 +277,28 @@ def _all_unscored_case_config(tmp_path: Path) -> RunConfig:
             "prompts/case-001.txt": b"Forecast the all-unscored case.\n",
             "prompts/case-002.txt": b"Forecast the scoreable case.\n",
             "packets/unit-a.json": ARTIFACT_CANONICAL_JSON_V1.encode(
-                {"case_id": "case-001", "decision_date": "2026-08-23"}
+                {
+                    "case_id": "case-001",
+                    "claim_name": "unscored",
+                    "count": "Count I",
+                    "decision_date": "2026-08-23",
+                    "defendant_group": "defendants",
+                    "model_visible_document_ids": ["case-001-motion"],
+                    "policy_digest": "1" * 64,
+                    "unit_id": "unit-a",
+                }
             ),
             "packets/unit-b.json": ARTIFACT_CANONICAL_JSON_V1.encode(
-                {"case_id": "case-002", "decision_date": "2026-08-23"}
+                {
+                    "case_id": "case-002",
+                    "claim_name": "scoreable",
+                    "count": "Count I",
+                    "decision_date": "2026-08-23",
+                    "defendant_group": "defendants",
+                    "model_visible_document_ids": ["case-002-motion"],
+                    "policy_digest": "1" * 64,
+                    "unit_id": "unit-b",
+                }
             ),
         }
     )

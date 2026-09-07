@@ -139,6 +139,11 @@ def test_prepare_exports_real_provider_matrices_from_registry_and_release() -> N
     assert "prediction_units" in prepare
     assert "derive_cell_id" in prepare
     assert "derive_run_identity_sha256" in prepare
+    assert "validate_executable_packets" in prepare
+    assert "earliest_eligible_decision_date" in prepare
+    assert prepare.index("validate_executable_packets(") < prepare.index(
+        "run_identity_sha256 = derive_run_identity_sha256("
+    )
 
 
 def test_provider_jobs_are_secret_isolated_and_outcome_blinded() -> None:
