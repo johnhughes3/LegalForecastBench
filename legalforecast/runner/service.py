@@ -5,13 +5,17 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import sqlite3
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import cast
+
+from pydantic_ai import ModelAPIError, ModelHTTPError
 
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
@@ -21,10 +25,15 @@ from legalforecast.contracts import (
     RAW_BYTES_RAW_SHA256_V1,
 )
 from legalforecast.evals.live_model_solver import (
+    LiveModelProviderError,
     LiveModelTransport,
     SolverResponse,
     complete_live_prompt,
     default_live_model_transport,
+)
+from legalforecast.evals.managed_tool_agent import (
+    ManagedToolAgentError,
+    run_managed_tool_agent,
 )
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
@@ -51,6 +60,7 @@ from legalforecast.evals.provider_spend_control import (
 from legalforecast.evals.provider_spend_dynamodb import DynamoDbProviderSpendAuthority
 from legalforecast.evals.response_verification import (
     require_publishable_response_metadata,
+    verify_provider_response,
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
 from legalforecast.release import (
@@ -141,6 +151,18 @@ class _CaseCall:
         if len(self.units) == 1:
             return self.units[0].unit_id
         return f"case-call:{self.case_id}:{','.join(self.required_unit_ids)}"
+
+
+@dataclass(frozen=True, slots=True)
+class _ManagedCaseInput:
+    """The locations and bytes exposed to one official tool container."""
+
+    case_id: str
+    required_unit_ids: tuple[str, ...]
+    documents: Mapping[str, bytes]
+    unit_descriptions: tuple[Mapping[str, str], ...]
+    document_descriptions: tuple[Mapping[str, str], ...]
+    cell_id: str
 
 
 class _RequestBodyCommitment:
@@ -420,6 +442,15 @@ def execute_release_run(
                         case_call=case_call,
                         repeat_index=repeat_index,
                     )
+                    managed_case = (
+                        _managed_case_input(
+                            execution=execution,
+                            case_call=case_call,
+                            cell_id=cell_id,
+                        )
+                        if _uses_managed_document_tools(entry)
+                        else None
+                    )
                     if config.cell_id is not None and cell_id != config.cell_id:
                         raise RunValidationError(
                             "cell_id does not match the selected manifest cell"
@@ -686,6 +717,7 @@ def execute_release_run(
                                 else None
                             ),
                             response_observer=persist_provider_response,
+                            managed_case=managed_case,
                         )
                         request_sha256 = capture.request_body_sha256
                         if request_sha256 is None:
@@ -815,6 +847,7 @@ def _complete_cell(
     pretransport_attempt_observer: Callable[[AttemptLease], None],
     transport_start_observer: Callable[[AttemptLease], None] | None,
     response_observer: Callable[[AttemptLease, Mapping[str, object]], None],
+    managed_case: _ManagedCaseInput | None = None,
 ) -> SolverResponse:
     handler = ProviderSpendAttemptHandler(
         authority=authority,
@@ -833,6 +866,15 @@ def _complete_cell(
         transport_start_observer=transport_start_observer,
         response_observer=response_observer,
     )
+    if managed_case is not None:
+        return _complete_managed_tool_cell(
+            entry,
+            handler=handler,
+            managed_case=managed_case,
+            request_body_observer=request_body_observer,
+            environ=environ,
+            registry_sha256=registry_sha256,
+        )
     return complete_live_prompt(
         entry,
         prompt,
@@ -851,6 +893,193 @@ def _complete_cell(
         attempt_handler=handler,
         request_body_observer=request_body_observer,
     )
+
+
+def _complete_managed_tool_cell(
+    entry: ModelRegistryEntry,
+    *,
+    handler: ProviderSpendAttemptHandler,
+    managed_case: _ManagedCaseInput,
+    request_body_observer: Callable[[bytes], None],
+    environ: Mapping[str, str] | None,
+    registry_sha256: str,
+) -> SolverResponse:
+    """Authorize, run, and settle one entire managed agent session as one case."""
+
+    from legalforecast.runner.tool_runtime import open_official_tool_session
+
+    initial_prompt = _managed_initial_prompt(managed_case)
+    commitment = ARTIFACT_CANONICAL_JSON_V1.encode(
+        {
+            "schema_version": "legalforecast.managed-tool-request.v1",
+            "model": entry.model_id,
+            "case_id": managed_case.case_id,
+            "required_unit_ids": list(managed_case.required_unit_ids),
+            "initial_prompt": initial_prompt,
+            "tools": ["bash", "read", "write", "edit", "glob", "grep"],
+        }
+    )
+    values = environ if environ is not None else os.environ
+    api_key = values.get("OPENAI_API_KEY")
+    if api_key is None or not api_key.strip():
+        raise RunValidationError("OPENAI_API_KEY is required")
+
+    def call() -> Mapping[str, object]:
+        request_body_observer(commitment)
+        try:
+            with TemporaryDirectory(prefix="lfb-official-tools-") as temporary:
+                workspace = Path(temporary)
+                with open_official_tool_session(
+                    documents=managed_case.documents,
+                    workspace=workspace,
+                    session_id=managed_case.cell_id,
+                    environ=environ,
+                ) as executor:
+                    result = run_managed_tool_agent(
+                        entry,
+                        initial_prompt=initial_prompt,
+                        required_unit_ids=managed_case.required_unit_ids,
+                        executor=executor,
+                        workspace=workspace,
+                        request_id=managed_case.cell_id,
+                        api_key=api_key.strip(),
+                    )
+        except ModelHTTPError as exc:
+            raise LiveModelProviderError(
+                "managed OpenAI agent request failed",
+                status_code=exc.status_code,
+                retryable=False,
+            ) from exc
+        except ModelAPIError as exc:
+            raise LiveModelProviderError(
+                "managed OpenAI agent request failed",
+                retryable=False,
+            ) from exc
+        if not result.called_tools:
+            raise ManagedToolAgentError(
+                "managed official agent returned without reading case documents"
+            )
+        estimated_cost_usd = _managed_estimated_cost(
+            entry, response_usages=result.response_usages
+        )
+        return {
+            "schema_version": "legalforecast.managed-tool-response.v1",
+            "raw_output": result.raw_output,
+            "request_count": result.request_count,
+            "input_tokens": result.input_tokens,
+            "output_tokens": result.output_tokens,
+            "served_model": result.served_model,
+            "finish_reason": result.finish_reason,
+            "service_tier": result.service_tier,
+            "called_tools": list(result.called_tools),
+            "estimated_cost_usd": estimated_cost_usd,
+        }
+
+    payload = handler.run_attempt(1, call)
+    durable_attempt_ordinal = handler.durable_attempt_ordinal(1)
+    try:
+        raw_output = _managed_required_str(payload, "raw_output")
+        request_count = _managed_required_int(payload, "request_count", positive=True)
+        input_tokens = _managed_required_int(payload, "input_tokens")
+        output_tokens = _managed_required_int(payload, "output_tokens")
+        served_model = _managed_required_str(payload, "served_model")
+        finish_reason = _managed_required_str(payload, "finish_reason")
+        service_tier = _managed_required_str(payload, "service_tier")
+        estimated_cost = _managed_required_float(payload, "estimated_cost_usd")
+        if served_model != entry.model_version_or_snapshot:
+            raise RunValidationError(
+                "managed provider served model differs from frozen registry"
+            )
+        if service_tier != "flex":
+            raise RunValidationError(
+                "managed OpenAI response did not use requested Flex service tier"
+            )
+        verification = verify_provider_response(
+            {"finish_reason": finish_reason}, provider="openai"
+        )
+        metadata = {
+            "provider": entry.provider,
+            "model": entry.model_id,
+            "model_id": entry.model_id,
+            "model_version_or_snapshot": entry.model_version_or_snapshot,
+            "served_model_version": served_model,
+            "execution_backend": "pydantic_ai",
+            "provider_attempt_count": str(request_count),
+            "model_registry_sha256": registry_sha256,
+            "tool_policy": "closed_harvey_tools",
+            "service_tier": service_tier,
+            "requested_service_tier": "flex",
+            "observed_service_tier": service_tier,
+            **verification.to_metadata(),
+        }
+        require_publishable_response_metadata(metadata)
+    except BaseException as exc:
+        handler.record_post_response_failure(
+            durable_attempt_ordinal,
+            failure_type=type(exc).__name__,
+        )
+        raise
+    handler.settle_attempt(
+        durable_attempt_ordinal,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        actual_cost_usd=estimated_cost,
+        raw_output=raw_output,
+    )
+    return SolverResponse(
+        raw_output=raw_output,
+        request_count=request_count,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        estimated_cost=estimated_cost,
+        metadata=metadata,
+    )
+
+
+def _managed_required_str(payload: Mapping[str, object], field_name: str) -> str:
+    value = payload.get(field_name)
+    if not isinstance(value, str) or not value:
+        raise RunValidationError(f"managed response field is invalid: {field_name}")
+    return value
+
+
+def _managed_required_int(
+    payload: Mapping[str, object], field_name: str, *, positive: bool = False
+) -> int:
+    value = payload.get(field_name)
+    minimum = 1 if positive else 0
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise RunValidationError(f"managed response field is invalid: {field_name}")
+    return value
+
+
+def _managed_estimated_cost(
+    entry: ModelRegistryEntry,
+    *,
+    response_usages: Sequence[tuple[int, int]],
+) -> float:
+    total = 0.0
+    for input_tokens, output_tokens in response_usages:
+        input_price = entry.input_token_price
+        output_price = entry.output_token_price
+        surcharge = entry.long_context_surcharge
+        if surcharge is not None and input_tokens > surcharge.threshold_input_tokens:
+            input_price *= surcharge.input_price_multiplier
+            output_price *= surcharge.output_price_multiplier
+        total += (input_tokens * input_price) + (output_tokens * output_price)
+    return total / 1_000_000
+
+
+def _managed_required_float(payload: Mapping[str, object], field_name: str) -> float:
+    value = payload.get(field_name)
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise RunValidationError(f"managed response field is invalid: {field_name}")
+    return float(value)
 
 
 def _require_model_release_anchor(
@@ -1188,6 +1417,76 @@ def _case_calls(units: tuple[ForecastPredictionUnit, ...]) -> tuple[_CaseCall, .
             )
         calls.append(_CaseCall(case_id=case_id, units=case_units))
     return tuple(calls)
+
+
+def _uses_managed_document_tools(entry: ModelRegistryEntry) -> bool:
+    """Select the owner-authorized official Luna tool condition."""
+
+    return entry.provider == "openai" and entry.model_id == "gpt-5.6-luna"
+
+
+def _managed_case_input(
+    *,
+    execution: ForecastExecution,
+    case_call: _CaseCall,
+    cell_id: str,
+) -> _ManagedCaseInput:
+    case = next(
+        release_case
+        for release_case in execution.release.cases
+        if release_case.case_id == case_call.case_id
+    )
+    first_unit_id = case_call.required_unit_ids[0]
+    documents: dict[str, bytes] = {}
+    document_descriptions: list[Mapping[str, str]] = []
+    for index in case_call.model_visible_document_indexes:
+        document = case.documents[index]
+        suffix = Path(document.path).suffix or ".txt"
+        destination = f"documents/{index:04d}{suffix}"
+        documents[destination] = execution.document_bytes(first_unit_id, index)
+        description = {
+            "path": f"/workspace/{destination}",
+            "document_id": document.document_id,
+            "role": document.role,
+        }
+        if document.supporting_side is not None:
+            description["supporting_side"] = document.supporting_side
+        if document.supporting_kind is not None:
+            description["supporting_kind"] = document.supporting_kind
+        if document.target_motion_document_id is not None:
+            description["target_motion_document_id"] = (
+                document.target_motion_document_id
+            )
+        document_descriptions.append(description)
+    return _ManagedCaseInput(
+        case_id=case_call.case_id,
+        required_unit_ids=case_call.required_unit_ids,
+        documents=documents,
+        unit_descriptions=tuple(
+            {
+                "unit_id": unit.unit_id,
+                "claim_name": unit.claim_name,
+                "defendant_group": unit.defendant_group,
+                "count": unit.count,
+            }
+            for unit in case_call.units
+        ),
+        document_descriptions=tuple(document_descriptions),
+        cell_id=cell_id,
+    )
+
+
+def _managed_initial_prompt(managed_case: _ManagedCaseInput) -> str:
+    return json.dumps(
+        {
+            "case_id": managed_case.case_id,
+            "task": "forecast_motion_to_dismiss",
+            "prediction_units": list(managed_case.unit_descriptions),
+            "documents": list(managed_case.document_descriptions),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 def _select_case_calls(
