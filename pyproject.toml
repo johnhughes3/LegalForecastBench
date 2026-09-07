@@ -33,7 +33,7 @@ dependencies = [
     # UNLOCK CONDITION: pinned while Cycle 1's settled disclosure evidence must
     # replay; unpin after Cycle 1 closes or when renderer versioning lands.
     # Fenced by test_pdf_text_extractor_stays_pinned_for_cycle_1_replay.
-    "pydantic-ai-slim[openai]==2.37.0",
+    "pydantic-ai-slim[openai]==2.39.0",
     "pypdf==6.14.2",
 ]
 
@@ -51,7 +51,7 @@ tier0-judge-adapter = [
 [dependency-groups]
 dev = [
   "interrogate>=1.7.0",
-  "openai==3.3.1",
+  "openai==3.8.0",
   "pyright>=1.1.411",
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
