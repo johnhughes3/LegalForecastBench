@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Auditable JSONL worker for the opt-in container-runtime negative control."""
+"""JSONL worker for the network-disabled Harvey tool container fixture."""
 
 from __future__ import annotations
 
@@ -8,14 +8,22 @@ import os
 import socket
 import subprocess
 import sys
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, cast
+
+sys.path.insert(0, "/opt/legalforecast")
+from harvey_tools import HarveyToolExecutor
 
 MAX_MESSAGE_BYTES = 1_048_576
 INPUT_ROOT = Path("/workspace/input")
 OUTPUT_ROOT = Path("/workspace/output")
 REQUEST_SCHEMA = "legalforecast.multiharness.tool_request.v1"
 RESPONSE_SCHEMA = "legalforecast.multiharness.tool_response.v1"
+TOOLS = HarveyToolExecutor(
+    INPUT_ROOT,
+    documents_root=INPUT_ROOT / "documents",
+    output_root=OUTPUT_ROOT,
+)
 
 
 def main() -> int:
@@ -44,6 +52,7 @@ def main() -> int:
             return 2
         sys.stdout.buffer.write(encoded)
         sys.stdout.buffer.flush()
+    TOOLS.close()
     return 0
 
 
@@ -56,46 +65,20 @@ def _request(line: bytes) -> dict[str, Any]:
     value = cast(dict[str, Any], decoded)
     if value.get("schema_version") != REQUEST_SCHEMA:
         raise ValueError("request schema does not match")
-    request_id = value.get("request_id")
-    operation = value.get("operation")
-    if not isinstance(request_id, str) or not request_id:
+    if not isinstance(value.get("request_id"), str) or not value["request_id"]:
         raise ValueError("request_id is invalid")
-    if not isinstance(operation, str) or not operation:
+    if not isinstance(value.get("operation"), str) or not value["operation"]:
         raise ValueError("operation is invalid")
     return value
 
 
 def _execute(request: dict[str, Any]) -> dict[str, Any]:
-    operation = request["operation"]
-    if operation == "read_text":
-        raw_paths = cast(object, request.get("input_paths"))
-        if not isinstance(raw_paths, list):
-            raise ValueError("read_text requires one input path")
-        paths = cast(list[object], raw_paths)
-        if len(paths) != 1:
-            raise ValueError("read_text requires one input path")
-        source = _safe_input_path(paths[0])
-        data = source.read_bytes()
-        if len(data) > MAX_MESSAGE_BYTES // 2:
-            raise ValueError("input is too large")
-        return {"text": data.decode("utf-8")}
-    if operation == "negative_control":
+    if request["operation"] == "negative_control":
         return _negative_control()
-    raise ValueError("unsupported operation")
-
-
-def _safe_input_path(value: object) -> Path:
-    if not isinstance(value, str):
-        raise ValueError("input path must be a string")
-    relative = PurePosixPath(value)
-    if relative.is_absolute() or any(
-        part in {"", ".", ".."} for part in relative.parts
-    ):
-        raise ValueError("input path is unsafe")
-    source = INPUT_ROOT.joinpath(*relative.parts)
-    if source.is_symlink() or not source.is_file():
-        raise ValueError("input path is unavailable")
-    return source
+    arguments = request.get("arguments", {})
+    if not isinstance(arguments, dict):
+        raise ValueError("arguments must be an object")
+    return TOOLS.handle(request["operation"], cast(dict[str, Any], arguments))
 
 
 def _negative_control() -> dict[str, Any]:
@@ -128,7 +111,6 @@ def _negative_control() -> dict[str, Any]:
             Path("/run/podman/podman.sock"),
         )
     }
-
     try:
         Path("/rootfs-write-probe").write_text("unexpected", encoding="utf-8")
     except OSError:

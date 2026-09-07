@@ -53,6 +53,29 @@ class SolverInputError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class SolverInputVisibleFile:
+    """One authenticated document exposed to a solver inside its workspace.
+
+    Visible files are deliberately restricted to ``documents/``.  The packet
+    remains under ``source/`` and is always hidden from the solver, while the
+    materializer mounts the complete tree read-only.
+    """
+
+    destination_path: str
+    media_type: str
+    content: bytes = field(repr=False)
+
+    def __post_init__(self) -> None:
+        validate_safe_relative_path(self.destination_path, "destination_path")
+        if not self.destination_path.startswith("documents/"):
+            raise SolverInputError("visible solver files must be under documents/")
+        if not self.media_type.strip():
+            raise ValueError("media_type must be non-empty")
+        if not self.content:
+            raise ValueError("content must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
 class SolverInputPayload:
     """Complete solver-visible LFB input, kept outside public task records."""
 
@@ -60,6 +83,7 @@ class SolverInputPayload:
     prompt: str = field(repr=False)
     source_packet: Mapping[str, Any] | None = field(default=None, repr=False)
     source_packet_bytes: bytes | None = field(default=None, repr=False)
+    visible_files: tuple[SolverInputVisibleFile, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.prompt.strip():
@@ -72,6 +96,10 @@ class SolverInputPayload:
             raise ValueError("source_packet must not be empty")
         if self.source_packet_bytes is not None and not self.source_packet_bytes:
             raise ValueError("source_packet_bytes must not be empty")
+        if len({item.destination_path for item in self.visible_files}) != len(
+            self.visible_files
+        ):
+            raise ValueError("visible solver file paths must be unique")
 
     def encoded_source_packet(self) -> bytes:
         """Return the exact private source bytes bound to ``task_sha256``."""
@@ -180,12 +208,31 @@ class SolverInputEntry:
         }:
             raise SolverInputError("solver input entrypoint is not in the file tree")
         files_by_path = {item.destination_path: item for item in self.files}
-        if set(files_by_path) != {SOLVER_INPUT_ENTRY_PATH, _SOURCE_PACKET_PATH}:
+        expected_paths = {
+            SOLVER_INPUT_ENTRY_PATH,
+            _SOURCE_PACKET_PATH,
+            *(
+                item.destination_path
+                for item in visible_files
+                if item.destination_path.startswith("documents/")
+            ),
+        }
+        if set(files_by_path) != expected_paths:
             raise SolverInputError("solver input entry has an unexpected file layout")
         prompt_file = files_by_path[SOLVER_INPUT_ENTRY_PATH]
         source_file = files_by_path[_SOURCE_PACKET_PATH]
         if not prompt_file.solver_visible or source_file.solver_visible:
             raise SolverInputError("solver input file visibility is invalid")
+        if any(
+            item.destination_path != SOLVER_INPUT_ENTRY_PATH
+            and item.destination_path != _SOURCE_PACKET_PATH
+            and (
+                not item.solver_visible
+                or not item.destination_path.startswith("documents/")
+            )
+            for item in self.files
+        ):
+            raise SolverInputError("visible solver files must be under documents/")
         if _normalized_sha256(prompt_file.sha256) != _normalized_sha256(
             self.prompt_sha256
         ):
@@ -489,7 +536,7 @@ def write_solver_input_store(
         prompt_sha256 = payload.task.metadata.get("prompt_sha256")
         if not isinstance(prompt_sha256, str):
             raise SolverInputError("task metadata prompt_sha256 is required")
-        file_payloads = (
+        file_payloads = [
             (
                 SOLVER_INPUT_ENTRY_PATH,
                 "text/plain",
@@ -502,6 +549,10 @@ def write_solver_input_store(
                 payload.encoded_source_packet(),
                 False,
             ),
+        ]
+        file_payloads.extend(
+            (item.destination_path, item.media_type, item.content, True)
+            for item in payload.visible_files
         )
         files: list[SolverInputFile] = []
         for relative_name, media_type, encoded, solver_visible in file_payloads:
