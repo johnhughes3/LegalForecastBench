@@ -22,6 +22,11 @@ def test_provider_guidance_names_current_community_surfaces() -> None:
         "tests/fixtures/community_submissions/2026/",
         "credential-free conformance",
         "run-with-tools",
+        "gpt-5.6-sol",
+        "Vercel AI Gateway",
+        "OPENAI_API_KEY",
+        "2026-09-18 UTC",
+        "2026-09-19 UTC",
     ):
         assert required_surface in policy
 

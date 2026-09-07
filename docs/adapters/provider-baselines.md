@@ -2,7 +2,7 @@
 
 These are community comparison adapters. They are not official LegalForecastBench evaluation paths, and their results never rank with official results.
 
-The maintained examples are [`openai-responses`](../../examples/adapters/openai-responses/adapter-manifest.json) and [`claude-agent-sdk`](../../examples/adapters/claude-agent-sdk/adapter-manifest.json). Their ordinary `run` commands are credential-free conformance paths; live provider execution is an explicit `run-with-tools` path using the adapter's allowlisted provider environment and host-owned tool channel. Both are source-checkout adapters whose manifest, code, lockfile, and runtime pins must be used together.
+The maintained examples are [`openai-responses`](../../examples/adapters/openai-responses/adapter-manifest.json) and [`claude-agent-sdk`](../../examples/adapters/claude-agent-sdk/adapter-manifest.json). Their ordinary `run` commands are credential-free conformance paths; live provider execution is an explicit `run-with-tools` path using the adapter's allowlisted provider environment and host-owned tool channel. Both are source-checkout adapters whose manifest, code, lockfile, and runtime pins must be used together. Through 2026-09-18 UTC, live `gpt-5.6-sol` `run-with-tools` requests use Vercel AI Gateway; the `OPENAI_API_KEY` grant must be that gateway credential for Sol runs and the direct OpenAI credential for other models. Direct OpenAI routing resumes on 2026-09-19 UTC.
 
 The historical provider smoke submissions under [`community/submissions/2026/`](../../community/submissions/2026/) remain examples only. The no-network packages under [`tests/fixtures/community_submissions/2026/`](../../tests/fixtures/community_submissions/2026/) are test inputs and never publication evidence.
 
