@@ -242,10 +242,32 @@ class HarveyToolExecutor:
         return {"matches": matches[:MAX_SEARCH_MATCHES]}
 
     def _read_path(self, value: str) -> Path:
-        path = self._resolve_workspace_path(value)
-        if not path.is_file() or path.is_symlink():
+        path = self._resolve_read_path(value)
+        if path is None:
             raise HarveyToolError("file is unavailable")
         return path
+
+    def _resolve_read_path(self, value: str) -> Path | None:
+        """Resolve a read path using Harvey's workspace lookup order."""
+
+        if value.startswith("/") or value.split("/", 1)[0] in {
+            "documents",
+            "output",
+        }:
+            candidate = self._resolve_workspace_path(value)
+            return (
+                candidate
+                if candidate.is_file() and not candidate.is_symlink()
+                else None
+            )
+        # Relative paths first probe the agent workspace, then the read-only
+        # documents and writable output mounts, matching Harvey's reference
+        # executor.  This matters when a document is addressed by basename.
+        for root in (self.workspace_root, self.documents_root, self.output_root):
+            candidate = self._resolve_workspace_path(value, relative_root=root)
+            if candidate.is_file() and not candidate.is_symlink():
+                return candidate
+        return None
 
     def _output_path(self, value: str) -> Path:
         candidate = self._resolve_workspace_path(value, relative_root=self.output_root)
@@ -262,7 +284,25 @@ class HarveyToolExecutor:
             return self.documents_root
         if not isinstance(value, str):
             raise HarveyToolError("path must be a string")
-        root = self._resolve_workspace_path(value)
+        if value.startswith("/") or value.split("/", 1)[0] in {
+            "documents",
+            "output",
+        }:
+            candidates = (self._resolve_workspace_path(value),)
+        else:
+            # Search paths use Harvey's documents, workspace, output order.
+            candidates = tuple(
+                self._resolve_workspace_path(value, relative_root=root)
+                for root in (
+                    self.documents_root,
+                    self.workspace_root,
+                    self.output_root,
+                )
+            )
+        root = next(
+            (candidate for candidate in candidates if candidate.is_dir()),
+            candidates[0],
+        )
         if not root.is_dir() or root.is_symlink():
             raise HarveyToolError("search path is unavailable")
         return root

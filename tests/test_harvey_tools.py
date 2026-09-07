@@ -55,6 +55,25 @@ def test_harvey_tools_read_search_and_output_workspace(tmp_path: Path) -> None:
     executor.close()
 
 
+def test_harvey_tools_relative_reads_probe_documents_and_output(tmp_path: Path) -> None:
+    documents = tmp_path / "documents"
+    output = tmp_path / "output"
+    documents.mkdir()
+    output.mkdir()
+    (documents / "motion.txt").write_text("motion\n", encoding="utf-8")
+    (output / "answer.md").write_text("answer\n", encoding="utf-8")
+    executor = HarveyToolExecutor(
+        tmp_path,
+        documents_root=documents,
+        output_root=output,
+    )
+
+    document = _call(executor, tmp_path, "read", file_path="motion.txt")
+    result = _call(executor, tmp_path, "read", file_path="answer.md")
+    assert document["content"] == "motion\n"
+    assert result["content"] == "answer\n"
+
+
 def test_harvey_tools_reads_a_requested_slice_of_a_large_document(
     tmp_path: Path,
 ) -> None:
