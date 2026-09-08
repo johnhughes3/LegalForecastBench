@@ -1725,6 +1725,23 @@
         "nonblank_line_count": 605,
         "top_level_definition_count": 16
       },
+      "tests/test_managed_transcript_recovery.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_successful_transcript_restores_typed_replay_payload_without_transport",
+        "largest_symbol_lines": 172,
+        "layer": "test",
+        "line_count": 545,
+        "nonblank_line_count": 507,
+        "top_level_definition_count": 13
+      },
       "tests/test_multiharness_auth_binding.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
