@@ -212,7 +212,7 @@ def test_test_model_toolcall_output_failure_saves_partial_history_without_api_ke
     assert "api_key" not in serialized.lower()
 
 
-def test_managed_case_can_finish_after_twenty_five_document_reads(
+def test_managed_case_can_finish_after_sixty_five_document_reads(
     tmp_path: Path,
 ) -> None:
     calls = 0
@@ -220,7 +220,7 @@ def test_managed_case_can_finish_after_twenty_five_document_reads(
     async def read_then_finish(_messages: list[Any], _info: Any) -> ModelResponse:
         nonlocal calls
         calls += 1
-        if calls <= 25:
+        if calls <= 65:
             parts = [
                 ToolCallPart("read", {"file_path": "/workspace/documents/motion.txt"})
             ]
@@ -243,8 +243,8 @@ def test_managed_case_can_finish_after_twenty_five_document_reads(
         **_run_kwargs(tmp_path),
         model=FunctionModel(read_then_finish),
     )
-    assert result.request_count == 26
-    assert len(result.called_tools) == 25
+    assert result.request_count == 66
+    assert len(result.called_tools) == 65
     assert json.loads(result.raw_output)["predictions"][0]["unit_id"] == "unit-a"
 
 
