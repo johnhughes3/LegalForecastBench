@@ -80,6 +80,10 @@ private withdrawal reasons, or restricted source-document bytes.
 
 ## Audit Checklist
 
+Managed document-tool runs retain a JSON conversation in `transcripts/<cell_id>.json` beside the run's receipts. The conversation includes the task instructions, model-visible prompt, tool calls and arguments, tool results, intermediate model messages, and final response. It captures only reasoning the provider exposes; it cannot reveal hidden internal reasoning. Failed runs retain the available conversation when the model runtime captured messages before the failure. Older runs may have no transcript, and resuming an older result does not recreate one.
+
+The Run Benchmark workflow retains these files in its per-case state artifacts and combined forecast artifact. Inspect transcripts as part of the source audit: tool results can contain document text. They are separate from the score and leaderboard reports and must not be committed to this repository.
+
 1. Confirm the forecast and labels release SHAs and locked manifest predate the
    run records.
 2. Verify the manifest, releases, model registry, artifact commitments, scorer,

@@ -93,7 +93,13 @@ def test_source_state_with_failure_is_skipped(tmp_path: Path) -> None:
 
 
 def _write_state_archive(
-    root: Path, *, run_id: str, cell_id: str, status: str = "completed"
+    root: Path,
+    *,
+    run_id: str,
+    cell_id: str,
+    status: str = "completed",
+    transcript: bytes | None = None,
+    transcript_name: str | None = None,
 ) -> Path:
     (root / "receipts").mkdir(parents=True)
     state = {
@@ -113,6 +119,10 @@ def _write_state_archive(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(value))
     (root / "ledger.sqlite3").write_bytes(b"ledger")
+    if transcript is not None:
+        transcript_path = root / "transcripts" / (transcript_name or f"{cell_id}.json")
+        transcript_path.parent.mkdir(parents=True, exist_ok=True)
+        transcript_path.write_bytes(transcript)
     if status != "completed":
         (root / "runner-failure.log").write_text("provider job failed\n")
     archive = root.with_suffix(".zip")
@@ -282,6 +292,72 @@ def test_source_failure_skips_to_next_explicit_source(
     assert downloaded == [31, 47]
     assert restored["restored_from_run_id"] == "222"
     assert restored["restored_from_attempt"] == 1
+
+
+def test_resume_copies_optional_transcript_bytes_without_parsing_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cell_id = "cell"
+    transcript = b'{"messages":[{"kind":"tool-result","content":"docs"}]}\n'
+    source_archive = _write_state_archive(
+        tmp_path / "source",
+        run_id="222",
+        cell_id=cell_id,
+        transcript=transcript,
+    )
+    current_metadata = tmp_path / "current-artifacts.json"
+    current_metadata.write_text(json.dumps([{"total_count": 0, "artifacts": []}]))
+    source_metadata = {
+        "id": 222,
+        "run_attempt": 1,
+        "path": ".github/workflows/run-benchmark.yaml",
+        "event": "workflow_dispatch",
+        "head_branch": "main",
+        "status": "completed",
+        "conclusion": "success",
+    }
+
+    def fake_api(endpoint: str, *, paginate: bool = False) -> object:
+        del paginate
+        if endpoint.endswith("/runs/222/attempts/1"):
+            return source_metadata
+        if endpoint.endswith("/runs/222/artifacts?per_page=100"):
+            return [
+                {
+                    "id": 47,
+                    "name": "locked-run-state-openai-cell-attempt-1",
+                    "created_at": "2026-09-08T00:00:00Z",
+                }
+            ]
+        raise AssertionError(f"unexpected metadata endpoint: {endpoint}")
+
+    def fake_download(artifact_id: int, archive: Path) -> None:
+        assert artifact_id == 47
+        shutil.copyfile(source_archive, archive)
+
+    monkeypatch.setattr(_restore, "_api_json", fake_api)
+    monkeypatch.setattr(_restore, "_download_artifact", fake_download)
+    run_root = tmp_path / "run"
+    for name, value in {
+        "PROVIDER": "openai",
+        "CELL_ID": cell_id,
+        "CELL_ID_SLUG": cell_id,
+        "GITHUB_RUN_ATTEMPT": "1",
+        "GITHUB_RUN_ID": "333",
+        "GITHUB_REPOSITORY": "owner/repo",
+        "RUNNER_TEMP": str(tmp_path / "runner"),
+        "METADATA_PATH": str(current_metadata),
+        "RESUME_SOURCES": json.dumps([{"run_id": "222", "run_attempt": 1}]),
+        "LFB_RUN_ROOT": str(run_root),
+    }.items():
+        monkeypatch.setenv(name, value)
+    (tmp_path / "runner").mkdir()
+    run_root.mkdir()
+
+    _restore.restore()
+
+    assert (run_root / "transcripts" / f"{cell_id}.json").read_bytes() == transcript
+    assert list((run_root / "receipts").glob("*.json"))
 
 
 def test_legacy_single_resume_source_pair_remains_supported(

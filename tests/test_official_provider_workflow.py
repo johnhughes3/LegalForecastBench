@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import shlex
 import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,6 +99,7 @@ def test_provider_cells_use_durable_resume_state_and_exact_source_checks() -> No
         assert "if: ${{ always() }}" in block
         assert "ledger.sqlite3" in block
         assert "receipts" in block
+        assert "transcripts" in block
         assert "failure-summary.json" in block
         assert "if-no-files-found: error" in block
         assert "--cell-id" in block
@@ -295,3 +299,195 @@ fi
     finally:
         if daemon_pid_path.exists():
             os.kill(int(daemon_pid_path.read_text(encoding="utf-8")), 15)
+
+
+def test_fan_in_assembles_optional_transcripts_with_preserved_cell_ids(
+    tmp_path: Path,
+) -> None:
+    inputs = tmp_path / "inputs"
+    (inputs / "artifacts").mkdir(parents=True)
+    for name in (
+        "run-manifest.json",
+        "forecast-release.json",
+        "model-registry.json",
+    ):
+        (inputs / name).write_bytes(b"{}\n")
+    (inputs / "artifacts" / "packet.json").write_bytes(b"packet\n")
+    state_root = tmp_path / "state"
+    state_root.mkdir()
+    identity = {
+        "run_identity_sha256": "1" * 64,
+        "forecast_release_digest": "2" * 64,
+        "model_registry_sha256": "3" * 64,
+        "model_key": "openai:gpt-5.6-luna",
+    }
+    transcript = b'{ "messages": [{"type":"tool_result","output":"docs"}] }\n'
+
+    def write_state(
+        name: str,
+        cell_id: str,
+        receipt_name: str | None,
+        transcript_bytes: bytes | None = None,
+        status: str = "completed",
+    ) -> None:
+        state = state_root / name
+        state.mkdir(parents=True)
+        if receipt_name is not None:
+            (state / "receipts").mkdir()
+        (state / "state.json").write_text(
+            json.dumps({"cell_id": cell_id, "status": status}) + "\n",
+            encoding="utf-8",
+        )
+        (state / "failure-summary.json").write_text(
+            json.dumps({"status": status}) + "\n", encoding="utf-8"
+        )
+        if receipt_name is not None:
+            receipt = {
+                **identity,
+                "cell_id": cell_id,
+                "case_id": f"case-{name}",
+                "unit_id": f"unit-{name}",
+                "required_unit_ids": [f"unit-{name}"],
+                "repeat_index": 1,
+                "parser_output": {"probability_fully_dismissed": 0.5},
+            }
+            (state / "receipts" / receipt_name).write_text(
+                json.dumps(receipt) + "\n", encoding="utf-8"
+            )
+        if transcript_bytes is not None:
+            (state / "transcripts").mkdir()
+            (state / "transcripts" / f"{cell_id}.json").write_bytes(transcript_bytes)
+
+    write_state("cell-a-state", "cell-a", "receipt-a.json", transcript)
+    # An older cell artifact can be complete without a transcript directory.
+    write_state("cell-b-state", "cell-b", "receipt-b.json")
+    # A failed cell may have a transcript even when no receipt was produced.
+    write_state(
+        "cell-failed-state",
+        "cell-failed",
+        None,
+        b'{"messages":[{"type":"tool_result"}]}\n',
+        status="failed",
+    )
+
+    section = WORKFLOW[
+        WORKFLOW.index(
+            "      - name: Assemble exact protected fan-in source artifact"
+        ) :
+    ]
+    script = textwrap.dedent(
+        section.split("python - <<'PY'\n", 1)[1].split("          PY", 1)[0]
+    )
+    output = tmp_path / "output"
+    script = (
+        script.replace('Path("/tmp/lfb-forecast-inputs")', f"Path({str(inputs)!r})")
+        .replace('Path("/tmp/lfb-state-artifacts")', f"Path({str(state_root)!r})")
+        .replace('Path("/tmp/lfb-forecast-results")', f"Path({str(output)!r})")
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "RELEASE_SHA": "a" * 40,
+            "MANIFEST_URI": "manifests/cycle-1/run-manifest.json",
+            "FORECAST_RELEASE_URI": "manifests/cycle-1/forecast-release.json",
+            "ARTIFACT_ROOT_URI": "s3://results/cycle-1/artifacts/",
+            "MODEL_REGISTRY_URI": "model_registries/openai.json",
+            "MODEL_KEY": "openai:gpt-5.6-luna",
+            "REPEAT_COUNT": "1",
+            "GITHUB_RUN_ID": "123",
+            "GITHUB_RUN_ATTEMPT": "1",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert (output / "transcripts" / "cell-a.json").read_bytes() == transcript
+    assert (output / "transcripts" / "cell-failed.json").read_bytes() == (
+        b'{"messages":[{"type":"tool_result"}]}\n'
+    )
+    assert not (output / "transcripts" / "cell-b.json").exists()
+
+
+def test_fan_in_refuses_conflicting_transcript_destinations(
+    tmp_path: Path,
+) -> None:
+    inputs = tmp_path / "inputs"
+    (inputs / "artifacts").mkdir(parents=True)
+    for name in (
+        "run-manifest.json",
+        "forecast-release.json",
+        "model-registry.json",
+    ):
+        (inputs / name).write_bytes(b"{}\n")
+    (inputs / "artifacts" / "packet.json").write_bytes(b"packet\n")
+    state_root = tmp_path / "state"
+    state_root.mkdir()
+    identity = {
+        "run_identity_sha256": "1" * 64,
+        "forecast_release_digest": "2" * 64,
+        "model_registry_sha256": "3" * 64,
+        "model_key": "openai:gpt-5.6-luna",
+    }
+    for name, transcript in (("first", b"first"), ("second", b"second")):
+        state = state_root / name
+        (state / "receipts").mkdir(parents=True)
+        (state / "state.json").write_text(
+            json.dumps({"cell_id": "same-cell", "status": "completed"}) + "\n",
+            encoding="utf-8",
+        )
+        (state / "failure-summary.json").write_text(
+            json.dumps({"status": "completed"}) + "\n", encoding="utf-8"
+        )
+        receipt = {
+            **identity,
+            "cell_id": "same-cell",
+            "case_id": f"case-{name}",
+            "unit_id": f"unit-{name}",
+            "required_unit_ids": [f"unit-{name}"],
+            "repeat_index": 1,
+            "parser_output": {"probability_fully_dismissed": 0.5},
+        }
+        (state / "receipts" / f"{name}.json").write_text(
+            json.dumps(receipt) + "\n", encoding="utf-8"
+        )
+        (state / "transcripts").mkdir()
+        (state / "transcripts" / "same-cell.json").write_bytes(transcript)
+
+    section = WORKFLOW[
+        WORKFLOW.index(
+            "      - name: Assemble exact protected fan-in source artifact"
+        ) :
+    ]
+    script = textwrap.dedent(
+        section.split("python - <<'PY'\n", 1)[1].split("          PY", 1)[0]
+    )
+    output = tmp_path / "output"
+    script = (
+        script.replace('Path("/tmp/lfb-forecast-inputs")', f"Path({str(inputs)!r})")
+        .replace('Path("/tmp/lfb-state-artifacts")', f"Path({str(state_root)!r})")
+        .replace('Path("/tmp/lfb-forecast-results")', f"Path({str(output)!r})")
+    )
+    failed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "RELEASE_SHA": "a" * 40,
+            "MANIFEST_URI": "manifests/cycle-1/run-manifest.json",
+            "FORECAST_RELEASE_URI": "manifests/cycle-1/forecast-release.json",
+            "ARTIFACT_ROOT_URI": "s3://results/cycle-1/artifacts/",
+            "MODEL_REGISTRY_URI": "model_registries/openai.json",
+            "MODEL_KEY": "openai:gpt-5.6-luna",
+            "REPEAT_COUNT": "1",
+            "GITHUB_RUN_ID": "123",
+            "GITHUB_RUN_ATTEMPT": "1",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert failed.returncode != 0
+    assert "duplicate durable transcript destination" in failed.stderr
