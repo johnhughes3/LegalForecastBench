@@ -275,8 +275,8 @@
         "largest_symbol": "ModelRegistryEntry",
         "largest_symbol_lines": 173,
         "layer": "application",
-        "line_count": 683,
-        "nonblank_line_count": 567,
+        "line_count": 692,
+        "nonblank_line_count": 576,
         "top_level_definition_count": 39
       },
       "legalforecast/evals/output_parser.py": {
@@ -1313,17 +1313,34 @@
         "disposition_kind": "watch",
         "disposition_owner": "root",
         "fan_in": 2,
-        "fan_out": 11,
+        "fan_out": 12,
         "flags": [
           "watch"
         ],
         "lane_owner": "root",
         "largest_symbol": "complete_managed_tool_cell",
-        "largest_symbol_lines": 172,
+        "largest_symbol_lines": 227,
         "layer": "application",
-        "line_count": 826,
-        "nonblank_line_count": 735,
-        "top_level_definition_count": 27
+        "line_count": 971,
+        "nonblank_line_count": 877,
+        "top_level_definition_count": 28
+      },
+      "legalforecast/runner/managed_transcript_recovery.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "root",
+        "fan_in": 0,
+        "fan_out": 6,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "managed_result_from_transcript",
+        "largest_symbol_lines": 157,
+        "layer": "application",
+        "line_count": 511,
+        "nonblank_line_count": 477,
+        "top_level_definition_count": 9
       },
       "legalforecast/runner/service.py": {
         "cycle_id": "",
@@ -1339,7 +1356,7 @@
         "largest_symbol_lines": 609,
         "layer": "application",
         "line_count": 1312,
-        "nonblank_line_count": 1209,
+        "nonblank_line_count": 1216,
         "top_level_definition_count": 24
       },
       "legalforecast/studies/service.py": {
@@ -1710,20 +1727,20 @@
       },
       "tests/test_managed_tool_agent.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "tests",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv.7",
         "fan_in": 0,
         "fan_out": 0,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_google_managed_agent_uses_native_tools_and_bills_thoughts",
         "largest_symbol_lines": 86,
         "layer": "test",
-        "line_count": 683,
-        "nonblank_line_count": 605,
-        "top_level_definition_count": 16
+        "line_count": 1010,
+        "nonblank_line_count": 903,
+        "top_level_definition_count": 26
       },
       "tests/test_managed_transcript_recovery.py": {
         "cycle_id": "",
@@ -1738,9 +1755,9 @@
         "largest_symbol": "test_successful_transcript_restores_typed_replay_payload_without_transport",
         "largest_symbol_lines": 172,
         "layer": "test",
-        "line_count": 545,
-        "nonblank_line_count": 507,
-        "top_level_definition_count": 13
+        "line_count": 633,
+        "nonblank_line_count": 589,
+        "top_level_definition_count": 16
       },
       "tests/test_multiharness_auth_binding.py": {
         "cycle_id": "",
@@ -2170,12 +2187,12 @@
           "oversized"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "test_runner_halts_on_remote_transport_started_orphan",
-        "largest_symbol_lines": 104,
+        "largest_symbol": "test_runner_replays_remote_settlement_using_exact_attempt_id",
+        "largest_symbol_lines": 145,
         "layer": "test",
         "line_count": 1985,
-        "nonblank_line_count": 1592,
-        "top_level_definition_count": 49
+        "nonblank_line_count": 1727,
+        "top_level_definition_count": 50
       },
       "tests/test_publication_guardrails.py": {
         "cycle_id": "",

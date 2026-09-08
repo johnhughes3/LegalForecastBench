@@ -86,13 +86,15 @@ def _response(parts: list[Any], *, inputs: int, outputs: int) -> ModelResponse:
     )
 
 
-def _gateway_entry() -> ModelRegistryEntry:
+def _gateway_entry(
+    model_id: str = "meta/muse-spark-1.3-contributor",
+) -> ModelRegistryEntry:
     record = _entry().to_record()
     record.update(
         {
             "provider": "vercel_ai_gateway",
-            "model_id": "meta/muse-spark-1.3-contributor",
-            "model_version_or_snapshot": "meta/muse-spark-1.3-contributor",
+            "model_id": model_id,
+            "model_version_or_snapshot": model_id,
             "reasoning_effort": "high",
             "thinking_level": None,
             "max_output_tokens": 128000,
@@ -119,7 +121,34 @@ def _gateway_metadata() -> dict[str, str]:
     }
 
 
-def _gateway_response(parts: list[Any], *, inputs: int, outputs: int) -> ModelResponse:
+def _grok_gateway_entry() -> ModelRegistryEntry:
+    record = _gateway_entry("spacexai/grok-4.6").to_record()
+    record.update({"reasoning_effort": "high", "thinking_level": None})
+    return ModelRegistryEntry.from_record(record)
+
+
+def _grok_gateway_metadata() -> dict[str, str]:
+    return {
+        "original_model_id": "spacexai/grok-4.6",
+        "resolved_provider": "xai",
+        "canonical_slug": "xai/grok-4.6",
+        "final_provider": "xai",
+        "generation_id": "redacted-grok-generation-id",
+        "cost_usd": "0.001",
+        "market_cost_usd": "0.001",
+        "model_attempt_count": "1",
+        "total_provider_attempt_count": "1",
+    }
+
+
+def _gateway_response(
+    parts: list[Any],
+    *,
+    inputs: int,
+    outputs: int,
+    model_name: str = "meta/muse-spark-1.3-contributor",
+    metadata: dict[str, str] | None = None,
+) -> ModelResponse:
     return ModelResponse(
         parts=parts,
         usage=RequestUsage(
@@ -127,14 +156,14 @@ def _gateway_response(parts: list[Any], *, inputs: int, outputs: int) -> ModelRe
             output_tokens=outputs,
             details={"thoughts_tokens": 2},
         ),
-        model_name="meta/muse-spark-1.3-contributor",
+        model_name=model_name,
         # The native Gateway transport uses PydanticAI's OpenAI adapter.
         provider_name="openai",
         finish_reason="stop",
         provider_details={
             "finish_reason": "STOP",
             "service_tier": "standard",
-            "gateway_metadata": _gateway_metadata(),
+            "gateway_metadata": metadata or _gateway_metadata(),
         },
     )
 
@@ -371,10 +400,36 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
                 )
 
 
+@pytest.mark.parametrize(
+    ("entry", "model_name", "metadata", "agent_status", "expected_cost"),
+    [
+        pytest.param(
+            _gateway_entry(),
+            "meta/muse-spark-1.3-contributor",
+            _gateway_metadata(),
+            "succeeded",
+            0.0003314,
+            id="muse",
+        ),
+        pytest.param(
+            _grok_gateway_entry(),
+            "xai/grok-4.6",
+            _grok_gateway_metadata(),
+            "failed",
+            0.002,
+            id="grok-post-response-validation-failure",
+        ),
+    ],
+)
 def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    entry: ModelRegistryEntry,
+    model_name: str,
+    metadata: dict[str, str],
+    agent_status: str,
+    expected_cost: float,
 ) -> None:
-    entry = _gateway_entry()
     prompt = _prompt()
     turns = [
         _gateway_response(
@@ -387,6 +442,8 @@ def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
             ],
             inputs=100,
             outputs=10,
+            model_name=model_name,
+            metadata=metadata,
         ),
         _gateway_response(
             [
@@ -406,6 +463,8 @@ def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
             ],
             inputs=150,
             outputs=20,
+            model_name=model_name,
+            metadata=metadata,
         ),
     ]
 
@@ -429,14 +488,15 @@ def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
             # FunctionModel replaces provider-owned identity fields in its
             # transcript; restore the native Gateway response projection while
             # retaining the SDK adapter's actual provider name.
-            message["model_name"] = entry.model_version_or_snapshot
+            message["model_name"] = model_name
             message["provider_name"] = "openai"
             message["finish_reason"] = "stop"
             message["provider_details"] = {
                 "finish_reason": "STOP",
                 "service_tier": "standard",
-                "gateway_metadata": _gateway_metadata(),
+                "gateway_metadata": metadata,
             }
+    transcript["agent_status"] = agent_status
     transcript_path.write_text(json.dumps(transcript, sort_keys=True))
 
     def fail_if_provider_constructed(*_args: Any, **_kwargs: Any) -> None:
@@ -458,21 +518,49 @@ def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
             transcript_path=transcript_path,
             cell_id="cell-1",
         )
-        assert recovered.result.gateway_response_metadata == (
-            _gateway_metadata(),
-            _gateway_metadata(),
-        )
-        assert recovered.estimated_cost_usd == pytest.approx(0.0003314)
+        assert recovered.result.gateway_response_metadata == (metadata, metadata)
+        assert recovered.estimated_cost_usd == pytest.approx(expected_cost)
         assert live_result.input_tokens == recovered.result.input_tokens == 250
         assert live_result.output_tokens == recovered.result.output_tokens == 30
         record = ledger.read_cell_for_recovery("cell-1")
         assert record.response_payload is not None
         payload = json.loads(record.response_payload)
-        assert payload["gateway_response_metadata"] == [
-            _gateway_metadata(),
-            _gateway_metadata(),
-        ]
-        assert payload["estimated_cost_usd"] == pytest.approx(0.0003314)
+        assert payload["gateway_response_metadata"] == [metadata, metadata]
+        assert payload["estimated_cost_usd"] == pytest.approx(expected_cost)
+
+
+def test_failed_transcript_without_messages_is_rejected_before_restore(
+    tmp_path: Path,
+) -> None:
+    entry = _grok_gateway_entry()
+    prompt = _prompt()
+    transcript_path = tmp_path / "incomplete-grok-transcript.json"
+    transcript_path.write_text(
+        json.dumps(
+            {
+                "model": entry.registry_key,
+                "cell": "cell-1",
+                "agent_status": "failed",
+                "messages": [],
+            },
+            sort_keys=True,
+        )
+    )
+    with RunnerLedger(
+        tmp_path / "ledger.sqlite3", state_only_provider_attempts=True
+    ) as ledger:
+        _reserve_cell(ledger, entry, prompt)
+        ledger.mark_ambiguous(
+            "cell-1", provider_attempt_id="attempt-1", failure_type="SettlementError"
+        )
+        with pytest.raises(RunValidationError, match="no SDK messages"):
+            recover_managed_transcript(
+                ledger,
+                entry=entry,
+                transcript_path=transcript_path,
+                cell_id="cell-1",
+            )
+        assert ledger.read_cell_for_recovery("cell-1").response_payload is None
 
 
 def test_ambiguous_settlement_failure_retains_response_for_normal_replay(

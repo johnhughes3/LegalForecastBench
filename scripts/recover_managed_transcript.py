@@ -1,6 +1,6 @@
 # pyright: reportPrivateUsage=false
 
-"""Restore one completed managed transcript into the normal runner replay path."""
+"""Restore one terminal managed transcript into the normal runner replay path."""
 
 from __future__ import annotations
 
@@ -25,7 +25,8 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(
         description=(
-            "Restore a successful managed SDK transcript into a runner ledger; "
+            "Restore a provider-recorded managed SDK transcript with a validated "
+            "terminal result into a runner ledger; "
             "this command never calls a model provider."
         )
     )
@@ -36,7 +37,10 @@ def main() -> int:
         "--registry", type=Path, required=True, help="frozen model registry bytes"
     )
     parser.add_argument(
-        "--transcript", type=Path, required=True, help="successful SDK transcript JSON"
+        "--transcript",
+        type=Path,
+        required=True,
+        help="provider-recorded SDK transcript JSON",
     )
     parser.add_argument("--cell-id", required=True, help="exact ledger cell ID")
     args = parser.parse_args()

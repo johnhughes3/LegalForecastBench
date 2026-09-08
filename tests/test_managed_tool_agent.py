@@ -127,6 +127,20 @@ def _gateway_response_metadata() -> dict[str, str]:
     }
 
 
+def _grok_gateway_response_metadata() -> dict[str, str]:
+    return {
+        "original_model_id": "spacexai/grok-4.6",
+        "resolved_provider": "xai",
+        "canonical_slug": "xai/grok-4.6",
+        "final_provider": "xai",
+        "generation_id": "redacted-grok-generation-id",
+        "cost_usd": "0.001",
+        "market_cost_usd": "0.001",
+        "model_attempt_count": "1",
+        "total_provider_attempt_count": "1",
+    }
+
+
 def test_gateway_response_metadata_is_extracted_from_openai_compatible_envelope() -> (
     None
 ):
@@ -154,6 +168,36 @@ def test_gateway_response_metadata_is_extracted_from_openai_compatible_envelope(
         }
     )
     assert managed_execution.gateway_response_metadata(cast(Any, response)) == metadata
+
+
+def test_gateway_grok_alias_preserves_request_and_route_identity() -> None:
+    metadata = _grok_gateway_response_metadata()
+    assert (
+        managed_execution.gateway_normalize_model_identity(
+            "spacexai/grok-4.6", "xai/grok-4.6"
+        )
+        == "spacexai/grok-4.6"
+    )
+    assert (
+        managed_execution.validate_gateway_metadata(
+            metadata,
+            expected_model_id="spacexai/grok-4.6",
+            expected_provider="xai",
+        )
+        == metadata
+    )
+    with pytest.raises(ValueError, match="requested model"):
+        managed_execution.validate_gateway_metadata(
+            {**metadata, "original_model_id": "xai/grok-4.6"},
+            expected_model_id="spacexai/grok-4.6",
+            expected_provider="xai",
+        )
+    with pytest.raises(ValueError, match="canonical model"):
+        managed_execution.validate_gateway_metadata(
+            {**metadata, "canonical_slug": "xai/grok-4.5"},
+            expected_model_id="spacexai/grok-4.6",
+            expected_provider="xai",
+        )
 
 
 def test_gateway_metadata_accepts_omitted_api_model_id_and_prefers_gateway_cost() -> (
@@ -822,6 +866,48 @@ def test_official_cell_replays_aggregate_response_without_starting_container(
     assert response.raw_output == raw_output
     assert handler.settlement == (80, 10, 0.00014, raw_output)
     assert handler.run_count == 1
+
+
+def test_gateway_cell_normalizes_grok_served_alias_before_settlement() -> None:
+    raw_output = (
+        '{"case_assessment":"Assessment","predictions":['
+        '{"unit_id":"unit-a","probability_fully_dismissed":0.5}]}'
+    )
+    metadata = _grok_gateway_response_metadata()
+    handler = _ReplayHandler(
+        {
+            "raw_output": raw_output,
+            "request_count": 2,
+            "input_tokens": 80,
+            "output_tokens": 10,
+            "served_model": "xai/grok-4.6",
+            "finish_reason": "stop",
+            "service_tier": "standard",
+            "called_tools": ["read"],
+            "gateway_response_metadata": [metadata, metadata],
+            "estimated_cost_usd": 0.002,
+        }
+    )
+
+    response = managed_execution.complete_managed_tool_cell(
+        _gateway_entry("spacexai/grok-4.6"),
+        handler=cast(Any, handler),
+        managed_case=ManagedCaseInput(
+            case_id="case-1",
+            required_unit_ids=("unit-a",),
+            documents={},
+            unit_descriptions=(),
+            document_descriptions=(),
+            cell_id="cell-1",
+        ),
+        request_body_observer=lambda _body: None,
+        environ={"AI_GATEWAY_API_KEY": "fixture-key"},
+        registry_sha256="sha256:" + "b" * 64,
+    )
+
+    assert response.metadata is not None
+    assert response.metadata["served_model_version"] == "spacexai/grok-4.6"
+    assert handler.settlement == (80, 10, 0.002, raw_output)
 
 
 class _FailureHandler(_AttemptHandler):

@@ -61,7 +61,7 @@ def recover_managed_transcript(
     transcript_path: Path,
     cell_id: str,
 ) -> ManagedTranscriptRecovery:
-    """Validate one successful transcript and install its replay payload.
+    """Validate one terminal transcript and install its replay payload.
 
     This function never creates a model or opens provider transport.  It binds
     the transcript to the durable request commitment, frozen registry entry,
@@ -153,8 +153,9 @@ def managed_result_from_transcript(
         raise RunValidationError("managed transcript model differs from registry")
     if record.get("cell") != cell.cell_id:
         raise RunValidationError("managed transcript cell differs from ledger")
-    if record.get("agent_status") != "succeeded":
-        raise RunValidationError("managed transcript does not record success")
+    agent_status = record.get("agent_status")
+    if agent_status not in {"succeeded", "failed"}:
+        raise RunValidationError("managed transcript has an invalid agent status")
     messages_value = record.get("messages")
     if not isinstance(messages_value, list) or not messages_value:
         raise RunValidationError("managed transcript has no SDK messages")
@@ -180,11 +181,6 @@ def managed_result_from_transcript(
     }
     if len(served_models) != 1:
         raise RunValidationError("managed transcript changed or omitted served model")
-    served_model = next(iter(served_models))
-    if served_model != entry.model_version_or_snapshot:
-        raise RunValidationError(
-            "managed transcript served model differs from registry"
-        )
     provider = entry.provider.strip().lower()
     if provider not in {"openai", "google", "gemini", "vercel_ai_gateway"}:
         raise RunValidationError(
@@ -197,13 +193,28 @@ def managed_result_from_transcript(
         if isinstance(response.provider_name, str) and response.provider_name.strip()
     }
     allowed_provider_names = {provider}
+    expected_provider: str | None = None
     if provider == "vercel_ai_gateway":
+        expected_provider = managed_execution.gateway_route_provider(entry.model_id)
         # The Gateway transport uses PydanticAI's OpenAI-compatible adapter, so
         # native SDK responses identify the adapter as ``openai`` while their
         # Gateway routing metadata retains the actual provider route.
-        allowed_provider_names.add("openai")
+        allowed_provider_names.update({"openai", expected_provider})
     if provider_names and not provider_names.issubset(allowed_provider_names):
         raise RunValidationError("managed transcript provider differs from registry")
+    served_model = next(iter(served_models))
+    if provider == "vercel_ai_gateway":
+        try:
+            served_model = managed_execution.gateway_normalize_model_identity(
+                entry.model_version_or_snapshot,
+                served_model,
+            )
+        except ValueError as exc:
+            raise RunValidationError(str(exc)) from exc
+    elif served_model != entry.model_version_or_snapshot:
+        raise RunValidationError(
+            "managed transcript served model differs from registry"
+        )
     finish_reason = responses[-1].finish_reason
     if not isinstance(finish_reason, str) or not finish_reason:
         raise RunValidationError("managed transcript lacks finish reason")
@@ -215,7 +226,7 @@ def managed_result_from_transcript(
 
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
     if provider == "vercel_ai_gateway":
-        expected_provider = managed_execution.gateway_route_provider(entry.model_id)
+        assert expected_provider is not None
         metadata_rows: list[Mapping[str, str]] = []
         for response in responses:
             row = (response.provider_details or {}).get("gateway_metadata")
@@ -480,10 +491,14 @@ def _verify_final_envelope(
     *,
     required_unit_ids: tuple[str, ...],
 ) -> managed_execution.ForecastEnvelope:
-    if not isinstance(final_call.args, Mapping):
-        raise RunValidationError("managed final result arguments are not an object")
     try:
-        envelope = managed_execution.ForecastEnvelope.model_validate(final_call.args)
+        args = final_call.args_as_dict(raise_if_invalid=True)
+    except (AssertionError, ValueError) as exc:
+        raise RunValidationError(
+            "managed final result arguments are not a valid object"
+        ) from exc
+    try:
+        envelope = managed_execution.ForecastEnvelope.model_validate(args)
     except ValueError as exc:
         raise RunValidationError(
             "managed final result is not a forecast envelope"
