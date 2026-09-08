@@ -126,7 +126,10 @@ class ManagedToolAgentDeps:
         if response.status != "succeeded":
             return {"error": response.error_code or "tool_failed"}
         self.called_tools.append(operation)
-        return dict(response.output)
+        # ToolProtocol freezes nested payloads for ownership safety. Materialize the
+        # canonical record before returning to PydanticAI, whose provider serializers
+        # require ordinary JSON-compatible containers.
+        return response.to_record()["output"]
 
 
 async def bash(ctx: RunContext[ManagedToolAgentDeps], command: str) -> dict[str, Any]:
