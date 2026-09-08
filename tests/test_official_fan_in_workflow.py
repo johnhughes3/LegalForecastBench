@@ -5,9 +5,11 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import textwrap
 import urllib.request
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -152,7 +154,10 @@ def test_forecast_artifact_is_durable_complete_and_cannot_transport_labels() -> 
         ) : WORKFLOW.index("- name: Configure protected fan-in storage access")
     ]
     assert "official-forecast-results-{run_id}-{attempt}" in download
-    assert "archive_download_url" in download
+    assert "actions/artifacts/{artifact_id}/zip" in download
+    assert "--allow-escape-sequences" in download
+    assert "GH_TOKEN: ${{ github.token }}" in download
+    assert "archive_download_url" not in download
     assert "expired" in download
     assert "ledger/ledger.sqlite3" in download
     for required in (
@@ -171,6 +176,87 @@ def test_forecast_artifact_is_durable_complete_and_cannot_transport_labels() -> 
     ):
         assert required in download
     assert "official-dispatch-provenance" not in download
+
+
+def test_forecast_artifact_download_uses_exact_gh_artifact_endpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive_bytes = io.BytesIO()
+    with zipfile.ZipFile(archive_bytes, "w") as archive:
+        for name, content in {
+            "forecast-run.json": b"{}",
+            "run-manifest.json": b"{}",
+            "forecast-release.json": b"{}",
+            "model-registry.json": b"{}",
+            "run-summary.json": b"{}",
+            "ledger/ledger.sqlite3": b"ledger",
+            "receipts/receipt.json": b"{}",
+            "artifacts/forecast.json": b"forecast",
+        }.items():
+            archive.writestr(name, content)
+    zip_path = tmp_path / "forecast-results.zip"
+    zip_path.write_bytes(archive_bytes.getvalue())
+    call_path = tmp_path / "gh-call.txt"
+    fake_gh = tmp_path / "gh"
+    fake_gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os\n"
+        "import pathlib\n"
+        "import sys\n"
+        "expected = ['api', '--allow-escape-sequences', "
+        "'/repos/example/benchmark/actions/artifacts/456/zip']\n"
+        "if sys.argv[1:] != expected or os.environ.get('GH_TOKEN') != 'test-token':\n"
+        "    raise SystemExit(f'unexpected gh invocation: {sys.argv!r}')\n"
+        "pathlib.Path(os.environ['GH_CALL_PATH']).write_text(' '.join(sys.argv[1:]))\n"
+        "sys.stdout.buffer.write(pathlib.Path(os.environ['GH_ZIP_PATH']).read_bytes())\n",
+        encoding="utf-8",
+    )
+    fake_gh.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
+    monkeypatch.setenv("GH_TOKEN", "test-token")
+    monkeypatch.setenv("GH_CALL_PATH", str(call_path))
+    monkeypatch.setenv("GH_ZIP_PATH", str(zip_path))
+    monkeypatch.setenv("GITHUB_API_URL", "https://api.example.invalid")
+    monkeypatch.setenv("GITHUB_REPOSITORY_NAME", "example/benchmark")
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    monkeypatch.setenv("FORECAST_RUN_ID", "123")
+    monkeypatch.setenv("FORECAST_RUN_ATTEMPT", "1")
+    listing = {
+        "artifacts": [
+            {
+                "id": 456,
+                "name": "official-forecast-results-123-1",
+                "expired": False,
+                "archive_download_url": "https://signed.example.invalid/ignored",
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: io.BytesIO(json.dumps(listing).encode()),
+    )
+    download = WORKFLOW[
+        WORKFLOW.index(
+            "- name: Download exact durable forecast result artifact"
+        ) : WORKFLOW.index("- name: Configure protected fan-in storage access")
+    ]
+    script = textwrap.dedent(
+        download.split("python - <<'PY'\n", 1)[1].split("          PY", 1)[0]
+    )
+    output_root = tmp_path / "restored"
+    script = script.replace('Path("/tmp/lfb-forecast")', f"Path({str(output_root)!r})")
+    shutil.rmtree(output_root, ignore_errors=True)
+    try:
+        exec(compile(script, "workflow-forecast-download", "exec"), {})
+        assert call_path.read_text(encoding="utf-8") == (
+            "api --allow-escape-sequences "
+            "/repos/example/benchmark/actions/artifacts/456/zip"
+        )
+        assert (output_root / "ledger/ledger.sqlite3").read_bytes() == b"ledger"
+        assert (output_root / "artifacts/forecast.json").read_bytes() == b"forecast"
+    finally:
+        shutil.rmtree(output_root, ignore_errors=True)
 
 
 def test_labels_are_fetched_only_after_public_and_source_checks() -> None:
