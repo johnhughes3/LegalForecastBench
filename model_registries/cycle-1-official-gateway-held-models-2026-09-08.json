@@ -1,0 +1,56 @@
+[
+  {
+    "context_limit": 1000000,
+    "display_name": "Kimi K3 via Vercel AI Gateway",
+    "input_token_price": 2.85,
+    "known_cutoff_publicity_caveats": [
+      "Moonshot AI does not publish a training-data cutoff for Kimi K3; the structured cutoff remains unknown. The release date is not used as a cutoff proxy.",
+      "Kimi K3 is post-anchor for Cycle 1 because its 2026-07 release follows the 2026-06-30 corpus anchor; this entry must not be substituted into a historical registry.",
+      "The Gateway route is hard allowlisted to DeepInfra with providerOptions.gateway.only. The held direct-provider registry remains immutable and is not changed by this file.",
+      "Kimi K3 accepts low, high, and max reasoning effort; high is sent explicitly to match the official successor execution policy rather than inheriting the provider default.",
+      "Vercel's model page documents the canonical id moonshotai/kimi-k3 and DeepInfra's current USD 2.85/M input and USD 14.25/M output prices. Checked 2026-09-08.",
+      "Live provider tool use, Gateway response metadata, deployment credentials, and a protected dispatch remain unverified in this held lane. No provider call is authorized by this registry change."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "moonshotai/kimi-k3",
+    "model_version_or_snapshot": "moonshotai/kimi-k3",
+    "network_disabled": true,
+    "output_token_price": 14.25,
+    "pricing_source": "https://vercel.com/ai-gateway/models/kimi-k3 (DeepInfra provider row; USD 2.85/M input and USD 14.25/M output), checked 2026-09-08",
+    "provider": "vercel_ai_gateway",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-07-17T00:00:00Z",
+    "release_timestamp_source": "https://www.kimi.ai/blog/kimi-k3 (launch publication date), checked 2026-09-08",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  },
+  {
+    "context_limit": 1000000,
+    "display_name": "Muse Spark 1.3 via Vercel AI Gateway",
+    "input_token_price": 1.25,
+    "known_cutoff_publicity_caveats": [
+      "Meta does not publish a structured training-data cutoff for Muse Spark 1.3; the cutoff remains unknown and the release date is not used as a cutoff proxy.",
+      "Muse Spark 1.3 is post-anchor for Cycle 1 because its 2026-09 release follows the 2026-06-30 corpus anchor; this entry must not be substituted into a historical registry.",
+      "The Gateway route is hard allowlisted to Meta with providerOptions.gateway.only. The held direct-provider registry remains immutable and is not changed by this file.",
+      "Vercel's model page documents the canonical id meta/muse-spark-1.3 and Meta's current USD 1.25/M input and USD 4.25/M output prices. Checked 2026-09-08.",
+      "The cheaper meta/muse-spark-1.3-contributor route (https://vercel.com/ai-gateway/models/muse-spark-1.3-contributor) is held separately pending explicit owner approval because its Vercel terms permit usage to improve Meta products. This entry retains the standard Meta route and its documented no-training owner terms.",
+      "Live provider tool use, Gateway response metadata, deployment credentials, and a protected dispatch remain unverified in this held lane. No provider call is authorized by this registry change."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "meta/muse-spark-1.3",
+    "model_version_or_snapshot": "meta/muse-spark-1.3",
+    "network_disabled": true,
+    "output_token_price": 4.25,
+    "pricing_source": "https://vercel.com/ai-gateway/models/muse-spark-1.3 (Meta provider row; USD 1.25/M input and USD 4.25/M output), checked 2026-09-08",
+    "provider": "vercel_ai_gateway",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-09-02T00:00:00Z",
+    "release_timestamp_source": "https://research.meta.ai/blog/introducing-muse-spark-1-3, September 2, 2026 announcement; checked 2026-09-08",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

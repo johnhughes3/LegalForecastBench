@@ -92,6 +92,8 @@ jobs:
       anthropic_count: ${{ steps.matrix.outputs.anthropic_count }}
       gemini_matrix: ${{ steps.matrix.outputs.gemini_matrix }}
       gemini_count: ${{ steps.matrix.outputs.gemini_count }}
+      gateway_matrix: ${{ steps.matrix.outputs.gateway_matrix }}
+      gateway_count: ${{ steps.matrix.outputs.gateway_count }}
       max_parallel: ${{ steps.matrix.outputs.max_parallel }}
     env:
       LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
@@ -365,7 +367,7 @@ jobs:
           entry = selected[0]
           validate_executable_packets(run_inputs.execution)
           run_identity_sha256 = derive_run_identity_sha256(execution=run_inputs.execution, entry=entry, registry_sha256=registry_sha256, ceiling_microusd=int(os.environ["CEILING_MICROUSD"]), harness="native", ablation="none", repeat_count=repeat_count, account=os.environ["ACCOUNT"], manifest_id=str(run_inputs.manifest.run_id), manifest_sha256=run_inputs.manifest_sha256)
-          matrices: dict[str, list[dict[str, object]]] = {"openai": [], "anthropic": [], "gemini": []}
+          matrices: dict[str, list[dict[str, object]]] = {"openai": [], "anthropic": [], "gemini": [], "gateway": []}
           def slug(value: str) -> str:
               value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_.-")
               if not value:
@@ -375,7 +377,8 @@ jobs:
               provider = entry.provider.strip().casefold()
               if provider == "google":
                   provider = "gemini"
-              if provider not in matrices:
+              matrix_provider = "gateway" if provider == "vercel_ai_gateway" else provider
+              if matrix_provider not in matrices:
                   raise SystemExit(f"model registry provider is not supported by the official forecast workflow: {entry.provider}")
               for case in forecast.cases:
                   case_units = tuple(
@@ -395,7 +398,7 @@ jobs:
                       else:
                           unit_id = None
                           cell_id = derive_case_call_id(identity_sha256=run_identity_sha256, case_id=case.case_id, required_unit_ids=required_unit_ids, repeat_index=repeat_index)
-                      matrices[provider].append({"provider": provider, "model_key": entry.registry_key, "model_id": entry.model_id, "cell_id": cell_id, "cell_id_slug": slug(cell_id), "unit_id": unit_id, "required_unit_ids": list(required_unit_ids), "case_id": case.case_id, "repeat_index": repeat_index, "ablation": ablation})
+                      matrices[matrix_provider].append({"provider": provider, "model_key": entry.registry_key, "model_id": entry.model_id, "cell_id": cell_id, "cell_id_slug": slug(cell_id), "unit_id": unit_id, "required_unit_ids": list(required_unit_ids), "case_id": case.case_id, "repeat_index": repeat_index, "ablation": ablation})
           output = open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")
           with output:
               for provider, rows in matrices.items():
@@ -901,10 +904,160 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
 
+  run-gateway:
+    name: Vercel AI Gateway resumable forecast cells
+    if: ${{ startsWith(inputs.model_key, 'vercel_ai_gateway:') && needs.prepare-inputs.outputs.gateway_count != '0' }}
+    needs: prepare-inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment: legalforecastbench-official-eval
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    env:
+      LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
+      matrix: ${{ fromJSON(needs.prepare-inputs.outputs.gateway_matrix) }}
+    steps:
+      - name: Checkout and verify trusted source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require main-reachable exact source
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
+          git merge-base --is-ancestor HEAD origin/main
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+      - name: Configure shared provider spend authority access
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          aws-region: ${{ env.LFB_AWS_REGION }}
+          role-session-name: lfb-${{ github.run_id }}-${{ strategy.job-index }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      - name: Initialize bounded resumable state
+        shell: bash
+        env:
+          PROVIDER: ${{ matrix.provider }}
+          CELL_ID: ${{ matrix.cell_id }}
+          CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-run/receipts /tmp/lfb-run/transcripts
+          uv run python - <<'PY'
+          import json, os
+          from pathlib import Path
+          record = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": os.environ["PROVIDER"], "cell_id": os.environ["CELL_ID"], "cell_id_slug": os.environ["CELL_ID_SLUG"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "initialized"}
+          Path("/tmp/lfb-run/state.json").write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+          Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps({**record, "failure_type": None}, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - name: Restore prior completed cell state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROVIDER: ${{ matrix.provider }}
+          CELL_ID: ${{ matrix.cell_id }}
+          CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+          RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
+          RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
+          RESUME_SOURCES: ${{ inputs.resume_sources }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-current-artifacts.json"
+          export METADATA_PATH="${RUNNER_TEMP}/forecast-current-artifacts.json"
+          uv run python .github/scripts/restore-forecast-state.py
+      - name: Download outcome-blinded inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: /tmp/lfb-forecast-inputs
+      - name: Configure rootless Docker for document tools
+        shell: bash
+        run: .github/scripts/setup-rootless-docker.sh
+      - name: Build isolated document tool image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -f infra/tool-runtime/Containerfile -t lfb-harvey-tools:local .
+          tool_image_id="$(docker image inspect --format '{{.Id}}' lfb-harvey-tools:local)"
+          [[ "${tool_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" >> "${GITHUB_ENV}"
+      - name: Execute exact Vercel AI Gateway forecast cell
+        shell: bash
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          MODEL_KEY: ${{ matrix.model_key }}
+          CELL_ID: ${{ matrix.cell_id }}
+          UNIT_ID: ${{ matrix.unit_id }}
+          REPEAT_INDEX: ${{ matrix.repeat_index }}
+          ABLATION: ${{ matrix.ablation }}
+          ACCOUNT: ${{ inputs.account }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          PROVIDER_AUTHORITY_TABLE: ${{ env.LFB_PROVIDER_AUTHORITY_TABLE }}
+          PROVIDER_AUTHORITY_REGION: ${{ env.LFB_AWS_REGION }}
+          PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ env.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
+        run: |
+          set -euo pipefail
+          for value in "${PROVIDER_AUTHORITY_TABLE}" "${PROVIDER_AUTHORITY_REGION}" "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}"; do
+            [[ -n "${value}" ]] || { echo "shared provider spend authority configuration is required" >&2; exit 1; }
+          done
+          set +e
+          unit_args=(); if [[ -n "${UNIT_ID}" ]]; then unit_args=(--unit-id "${UNIT_ID}"); fi
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" "${unit_args[@]}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
+          status=$?
+          set -e
+          uv run python - "${status}" <<'PY'
+          import json, os, sqlite3, sys
+          from pathlib import Path
+          status = int(sys.argv[1]); model_key = os.environ["MODEL_KEY"]
+          summary = {"schema_version": "legalforecast.forecast-cell-state.v1", "provider": model_key.split(":", 1)[0], "model_key": model_key, "cell_id": os.environ["CELL_ID"], "unit_id": os.environ["UNIT_ID"], "repeat_index": int(os.environ["REPEAT_INDEX"]), "ablation": os.environ["ABLATION"], "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]), "status": "completed" if status == 0 else "failed", "failure_type": None if status == 0 else "provider_or_runner_failure", "exit_status": status}
+          if status != 0:
+              Path("/tmp/lfb-run/run-summary.json").rename("/tmp/lfb-run/runner-failure.log")
+              Path("/tmp/lfb-run/run-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+          ledger_path = Path("/tmp/lfb-run/ledger.sqlite3")
+          if not ledger_path.exists():
+              with sqlite3.connect(ledger_path) as connection:
+                  connection.execute("CREATE TABLE runs(status TEXT NOT NULL)")
+                  connection.execute("INSERT INTO runs(status) VALUES (?)", (summary["status"],))
+                  connection.commit()
+          Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+          state_path = Path("/tmp/lfb-run/state.json"); state = json.loads(state_path.read_text()); state.update({"status": summary["status"], "model_key": model_key}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+          exit "${status}"
+      - name: Persist Vercel AI Gateway ledger, receipts, and structured state
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: locked-run-state-${{ matrix.provider }}-${{ matrix.cell_id_slug }}-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/lfb-run/state.json
+            /tmp/lfb-run/failure-summary.json
+            /tmp/lfb-run/ledger.sqlite3
+            /tmp/lfb-run/run-summary.json
+            /tmp/lfb-run/runner-failure.log
+            /tmp/lfb-run/receipts
+            /tmp/lfb-run/transcripts
+          if-no-files-found: error
+          retention-days: ${{ inputs.artifact_retention_days }}
+
   persist-forecast-results:
     name: Persist combined forecast result
     if: ${{ always() && needs.prepare-inputs.result == 'success' }}
-    needs: [prepare-inputs, run-openai, run-anthropic, run-gemini]
+    needs: [prepare-inputs, run-openai, run-anthropic, run-gemini, run-gateway]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

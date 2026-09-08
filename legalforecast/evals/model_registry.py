@@ -88,6 +88,15 @@ class GoogleThinkingLevel(StrEnum):
 
 _REASONING_EFFORT_PROVIDERS: Final[Mapping[str, frozenset[OpenAIReasoningEffort]]] = {
     "openai": frozenset(OpenAIReasoningEffort),
+    # Vercel AI Gateway exposes these OpenAI Responses controls unchanged while
+    # routing the request to an explicitly allowlisted upstream provider.
+    "vercel_ai_gateway": frozenset(
+        {
+            OpenAIReasoningEffort.LOW,
+            OpenAIReasoningEffort.HIGH,
+            OpenAIReasoningEffort.MAX,
+        }
+    ),
     # xAI's Chat Completions API spells this control exactly as OpenAI does --
     # a top-level ``reasoning_effort`` string -- so the same field carries it
     # rather than a parallel one. The accepted values are narrower, though:

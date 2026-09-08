@@ -52,6 +52,15 @@ from legalforecast.immutable_io import write_file_replace_safe
 from legalforecast.multiharness.adapters import ToolExecutor
 from legalforecast.multiharness.tool_protocol import ToolRequest
 from legalforecast.release import ForecastExecution, ForecastPredictionUnit
+from legalforecast.runner.gateway import (
+    VERCEL_AI_GATEWAY_BASE_URL,
+    gateway_model_is_allowlisted,
+    gateway_model_profile,
+    gateway_request_extra_body,
+    gateway_response_metadata,
+    gateway_route_provider,
+    validate_gateway_metadata,
+)
 from legalforecast.runner.ledger import RunValidationError
 
 # Long briefing records can require more than 24 sequential document reads.
@@ -92,6 +101,9 @@ class _ObservedTierOpenAIResponsesModel(OpenAIResponsesModel):
         details = dict(normalized.provider_details or {})
         if isinstance(service_tier, str) and service_tier:
             details["service_tier"] = service_tier
+        gateway_metadata = gateway_response_metadata(response)
+        if gateway_metadata is not None:
+            details["gateway_metadata"] = gateway_metadata
         return replace(normalized, provider_details=details or None)
 
 
@@ -235,6 +247,7 @@ class ManagedToolAgentResult:
     called_tools: tuple[str, ...]
     response_usages: tuple[tuple[int, int], ...]
     thoughts_tokens: int = 0
+    gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
 
 
 def run_managed_tool_agent(
@@ -252,9 +265,10 @@ def run_managed_tool_agent(
     """Run one case with Pydantic AI's native tool loop and bounded usage."""
 
     provider = entry.provider.strip().lower()
-    if provider not in {"openai", "google", "gemini"}:
+    if provider not in {"openai", "google", "gemini", "vercel_ai_gateway"}:
         raise ManagedToolAgentError(
-            "managed document tools currently require OpenAI or Google"
+            "managed document tools currently require OpenAI, Google, or "
+            "Vercel AI Gateway"
         )
     if not required_unit_ids:
         raise ManagedToolAgentError("managed agent requires prediction unit ids")
@@ -264,6 +278,17 @@ def run_managed_tool_agent(
         resolved_model = _ObservedTierOpenAIResponsesModel(
             cast(Any, entry.model_id),
             provider=OpenAIProvider(api_key=api_key),
+        )
+    elif provider == "vercel_ai_gateway":
+        gateway_provider = OpenAIProvider(
+            api_key=api_key,
+            base_url=VERCEL_AI_GATEWAY_BASE_URL,
+        )
+        gateway_profile = gateway_model_profile(gateway_provider, entry.model_id)
+        resolved_model = _ObservedTierOpenAIResponsesModel(
+            cast(Any, entry.model_id),
+            provider=gateway_provider,
+            profile=gateway_profile,
         )
     else:
         resolved_model = GoogleModel(
@@ -276,6 +301,17 @@ def run_managed_tool_agent(
             parallel_tool_calls=False,
             openai_service_tier="flex",
             openai_store=False,
+        )
+        if entry.reasoning_effort is not None:
+            cast(dict[str, Any], settings)["openai_reasoning_effort"] = cast(
+                Any, entry.reasoning_effort.value
+            )
+    elif provider == "vercel_ai_gateway":
+        settings = OpenAIResponsesModelSettings(
+            max_tokens=entry.max_output_tokens,
+            parallel_tool_calls=False,
+            openai_store=False,
+            extra_body=gateway_request_extra_body(entry.model_id),
         )
         if entry.reasoning_effort is not None:
             cast(dict[str, Any], settings)["openai_reasoning_effort"] = cast(
@@ -337,6 +373,7 @@ def run_managed_tool_agent(
             managed_result = _managed_result_from_run(
                 result,
                 provider=provider,
+                expected_model_id=entry.model_id,
                 required_unit_ids=required_unit_ids,
                 usage=usage,
                 deps=deps,
@@ -364,6 +401,7 @@ def _managed_result_from_run(
     result: AgentRunResult[ForecastEnvelope],
     *,
     provider: str,
+    expected_model_id: str,
     required_unit_ids: Sequence[str],
     usage: RunUsage,
     deps: ManagedToolAgentDeps,
@@ -416,6 +454,28 @@ def _managed_result_from_run(
         # truthful explicit value when the provider supplies one and otherwise
         # record that it was not reported.
         service_tier = next(iter(service_tiers), "unreported")
+    gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
+    if provider == "vercel_ai_gateway":
+        expected_provider = gateway_route_provider(expected_model_id)
+        metadata_rows: list[Mapping[str, str]] = []
+        for item in responses:
+            row = (item.provider_details or {}).get("gateway_metadata")
+            if not isinstance(row, Mapping):
+                raise ManagedToolAgentError(
+                    "Vercel AI Gateway response omitted routing and usage metadata"
+                )
+            row = cast(Mapping[str, object], row)
+            try:
+                metadata_rows.append(
+                    validate_gateway_metadata(
+                        row,
+                        expected_model_id=expected_model_id,
+                        expected_provider=expected_provider,
+                    )
+                )
+            except ValueError as exc:
+                raise ManagedToolAgentError(str(exc)) from exc
+        gateway_response_metadata = tuple(metadata_rows)
     response_usages: list[tuple[int, int]] = []
     thoughts_tokens = 0
     for item in responses:
@@ -435,6 +495,7 @@ def _managed_result_from_run(
         called_tools=tuple(deps.called_tools),
         response_usages=tuple(response_usages),
         thoughts_tokens=thoughts_tokens,
+        gateway_response_metadata=gateway_response_metadata,
     )
 
 
@@ -477,9 +538,17 @@ def uses_managed_document_tools(entry: ModelRegistryEntry) -> bool:
     """Select provider entries authorized for the closed document-tool session."""
 
     provider = entry.provider.strip().lower()
-    return (provider == "openai" and entry.model_id == "gpt-5.6-luna") or (
-        provider in {"google", "gemini"}
-        and entry.tool_policy.value == "controlled_docket_tool_only"
+    return (
+        (provider == "openai" and entry.model_id == "gpt-5.6-luna")
+        or (
+            provider in {"google", "gemini"}
+            and entry.tool_policy.value == "controlled_docket_tool_only"
+        )
+        or (
+            provider == "vercel_ai_gateway"
+            and gateway_model_is_allowlisted(entry.model_id)
+            and entry.tool_policy.value == "controlled_docket_tool_only"
+        )
     )
 
 
@@ -585,7 +654,10 @@ def complete_managed_tool_cell(
     )
     values = environ if environ is not None else os.environ
     provider = entry.provider.strip().lower()
-    api_key_name = "OPENAI_API_KEY" if provider == "openai" else "GEMINI_API_KEY"
+    api_key_name = {
+        "openai": "OPENAI_API_KEY",
+        "vercel_ai_gateway": "AI_GATEWAY_API_KEY",
+    }.get(provider, "GEMINI_API_KEY")
     api_key = values.get(api_key_name)
     if api_key is None or not api_key.strip():
         raise RunValidationError(f"{api_key_name} is required")
@@ -643,6 +715,9 @@ def complete_managed_tool_cell(
             "service_tier": result.service_tier,
             "called_tools": list(result.called_tools),
             "thoughts_tokens": result.thoughts_tokens,
+            "gateway_response_metadata": [
+                dict(row) for row in result.gateway_response_metadata
+            ],
             "estimated_cost_usd": estimated_cost_usd,
         }
 
@@ -675,6 +750,36 @@ def complete_managed_tool_cell(
         service_tier = _managed_required_str(payload, "service_tier")
         thoughts_tokens = _managed_optional_int(payload, "thoughts_tokens")
         estimated_cost = _managed_required_float(payload, "estimated_cost_usd")
+        gateway_metadata: tuple[Mapping[str, str], ...] = ()
+        if provider == "vercel_ai_gateway":
+            raw_gateway_metadata = payload.get("gateway_response_metadata")
+            if not isinstance(raw_gateway_metadata, (list, tuple)):
+                raise RunValidationError(
+                    "managed Gateway response omitted response metadata"
+                )
+            expected_provider = gateway_route_provider(entry.model_id)
+            rows: list[Mapping[str, str]] = []
+            for raw_row in cast(Sequence[object], raw_gateway_metadata):
+                if not isinstance(raw_row, Mapping):
+                    raise RunValidationError(
+                        "managed Gateway response metadata row is invalid"
+                    )
+                raw_row = cast(Mapping[str, object], raw_row)
+                try:
+                    rows.append(
+                        validate_gateway_metadata(
+                            raw_row,
+                            expected_model_id=entry.model_id,
+                            expected_provider=expected_provider,
+                        )
+                    )
+                except ValueError as exc:
+                    raise RunValidationError(str(exc)) from exc
+            if not rows:
+                raise RunValidationError(
+                    "managed Gateway response omitted response metadata"
+                )
+            gateway_metadata = tuple(rows)
         if served_model != entry.model_version_or_snapshot:
             raise RunValidationError(
                 "managed provider served model differs from frozen registry"
@@ -707,6 +812,11 @@ def complete_managed_tool_cell(
                     "observed_service_tier": service_tier,
                 }
             )
+        if provider == "vercel_ai_gateway":
+            metadata["gateway_response_metadata"] = json.dumps(
+                list(gateway_metadata), sort_keys=True, separators=(",", ":")
+            )
+            metadata["gateway_route_provider"] = gateway_route_provider(entry.model_id)
         if entry.thinking_level is not None:
             metadata["thinking_level"] = entry.thinking_level.value
         require_publishable_response_metadata(metadata)
