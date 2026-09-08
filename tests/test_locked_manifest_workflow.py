@@ -11,6 +11,7 @@ from legalforecast.release import ForecastRelease, issue_synthetic_release
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = ROOT / ".github/workflows/run-benchmark.yaml"
+RESTORE_HELPER = ROOT / ".github/scripts/restore-forecast-state.py"
 LEGACY_WORKFLOW_PATH = ROOT / ".github/workflows/run-benchmark-manifest.yaml"
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
 
@@ -353,14 +354,19 @@ def test_restore_is_attempt_qualified_and_fail_closed() -> None:
         "locked-run-state-${{ matrix.provider }}-${{ matrix.cell_id_slug }}-"
         "attempt-${{ github.run_attempt }}" in WORKFLOW
     )
-    assert "newest prior valid attempt" in WORKFLOW
+    assert "Restore prior completed cell state" in WORKFLOW
     assert (
         "all prior state artifacts were corrupt; refusing a fresh duplicate call"
-        in WORKFLOW
+        in RESTORE_HELPER.read_text(encoding="utf-8")
     )
     assert "gh api --paginate --slurp" in WORKFLOW
+    assert "resume_source_run_id" in WORKFLOW
+    assert "resume_source_run_attempt" in WORKFLOW
+    assert ".github/scripts/restore-forecast-state.py" in WORKFLOW
+    assert "SOURCE_RUN_METADATA_PATH" in WORKFLOW
     assert (
-        "prior state download/API failure; refusing a fresh duplicate call" in WORKFLOW
+        "prior state download/API failure; refusing a fresh duplicate call"
+        in RESTORE_HELPER.read_text(encoding="utf-8")
     )
     assert "if status != 0:" in WORKFLOW
     assert "CREATE TABLE runs(status TEXT NOT NULL)" in WORKFLOW
