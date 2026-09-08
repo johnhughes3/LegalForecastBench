@@ -87,13 +87,30 @@ def recover_managed_transcript(
     payload = managed_replay_payload(result, entry=entry)
     payload_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(payload)
     payload_sha256 = hashlib.sha256(payload_bytes).hexdigest()
+    persisted_payload_sha256 = payload_sha256
     if cell.response_payload is not None:
-        if cell.response_payload_sha256 != payload_sha256 or cell.response_payload != (
-            payload_bytes
-        ):
+        if cell.response_payload_sha256 is None:
+            raise RunValidationError("existing durable response lacks its digest")
+        matches_current_payload = (
+            cell.response_payload_sha256 == payload_sha256
+            and cell.response_payload == payload_bytes
+        )
+        matches_legacy_payload = False
+        if not matches_current_payload:
+            legacy_payload = _legacy_managed_replay_payload(result, entry=entry)
+            if legacy_payload is not None:
+                legacy_payload_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(legacy_payload)
+                matches_legacy_payload = (
+                    cell.response_payload_sha256
+                    == hashlib.sha256(legacy_payload_bytes).hexdigest()
+                    and cell.response_payload == legacy_payload_bytes
+                )
+        if not matches_current_payload and not matches_legacy_payload:
             raise RunValidationError(
                 "existing durable response differs from transcript recovery"
             )
+        if matches_legacy_payload:
+            persisted_payload_sha256 = cell.response_payload_sha256
     else:
         ledger.restore_ambiguous_response_payload(
             cell_id,
@@ -104,7 +121,7 @@ def recover_managed_transcript(
     return ManagedTranscriptRecovery(
         cell_id=cell_id,
         provider_attempt_id=cell.provider_attempt_id,
-        payload_sha256=payload_sha256,
+        payload_sha256=persisted_payload_sha256,
         response_sha256=hashlib.sha256(result.raw_output.encode("utf-8")).hexdigest(),
         estimated_cost_usd=managed_execution._managed_result_cost(
             entry,
@@ -271,7 +288,7 @@ def managed_replay_payload(
 
     # Recompute from the per-response usage captured in the transcript so the
     # persisted payload remains derived data rather than a caller-supplied claim.
-    return {
+    payload: dict[str, object] = {
         "raw_output": result.raw_output,
         "request_count": result.request_count,
         "input_tokens": result.input_tokens,
@@ -289,6 +306,23 @@ def managed_replay_payload(
             result=result,
         ),
     }
+    return payload
+
+
+def _legacy_managed_replay_payload(
+    result: managed_execution.ManagedToolAgentResult,
+    *,
+    entry: ModelRegistryEntry,
+) -> dict[str, object] | None:
+    """Encode the pre-Gateway payload shape for non-Gateway replay matches."""
+
+    if entry.provider.strip().lower() not in {"openai", "google", "gemini"}:
+        return None
+    if result.gateway_response_metadata:
+        return None
+    payload = managed_replay_payload(result, entry=entry)
+    payload.pop("gateway_response_metadata", None)
+    return payload
 
 
 def _service_tier(responses: Sequence[ModelResponse], *, provider: str) -> str:
