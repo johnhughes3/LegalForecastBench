@@ -16,7 +16,7 @@ The [additional comparison registry](../model_registries/cycle-1-official-held-m
 | Claude Opus 5 | May 2026 | Predates all 91 decisions; exact day undisclosed; [Anthropic model documentation](https://platform.claude.com/docs/en/models/overview). |
 | Claude Fable 5.1 | June 2026 | Does not establish a cutoff before the earliest June 30 decision; [Anthropic model documentation](https://platform.claude.com/docs/en/models/fable-5-1/overview). |
 | Kimi K3 | Unknown | Reuses the existing DeepInfra configuration and its probe requirements; no verified cutoff claim. |
-| Muse Spark 1.3 | Unknown | Registered with standard-tier pricing supplied from Meta’s pricing page; native runtime support remains pending. [Meta announcement](https://research.meta.ai/blog/introducing-muse-spark-1-3). |
+| Muse Spark 1.3 | Unknown | Future runs use the [standard-tier Gateway registry](../model_registries/cycle-1-official-muse-spark-1.3-standard-2026-09-08.json). The contributor-tier run completed; standard-tier execution is not yet measured. [Meta announcement](https://research.meta.ai/blog/introducing-muse-spark-1-3). |
 
 ## Current Pilot Registry
 

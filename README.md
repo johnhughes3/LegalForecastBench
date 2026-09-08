@@ -4,9 +4,9 @@ LegalForecast-MTD tests whether frontier models can forecast federal motion-to-d
 
 Eligible decisions follow the models' latest first external deployment; known outcome leakage is excluded, and official models run without web access. This reduces a defined leakage path; it does not prove zero contamination or frozen served weights.
 
-<!-- result-publication-state: pre-publication -->
+<!-- result-publication-state: completed-cycle-1-runs -->
 
-**Current status — 2026-07-17:** No official or community benchmark score is published yet. Official LegalForecast-MTD Cycle 1 and non-official Community Harness Comparisons remain in preparation. After validation, publication owners replace this line and add canonical links within 24 hours.
+**Current status — 2026-09-08:** GPT-5.6 Luna and Meta Muse Spark 1.3 have completed the 91-case Cycle 1 benchmark. [Results and run artifacts](#official-benchmark-results) are below. Community Harness Comparisons remain a separate, non-official track.
 
 ## Start Here
 
@@ -46,7 +46,18 @@ Current pilot model anchors are tracked in [docs/MODEL_RELEASE_DATES.md](docs/MO
 
 ## Official Benchmark Results
 
-**No official result is claimed by this README revision.** Its reserved labels are **Official LegalForecast-MTD Cycle 1 result** (pre-anchor) and **Official LegalForecast-MTD Cycle 1 result (post-anchor)** (post-anchor). Publication adds the audited report, leaderboard, and evidence; official and community scores are never ranked together.
+The completed runs below use the same repaired release, `cycle-1-91-2026-09-08-luna-r5`: **91 cases, 409 prediction units, and 387 scored units**. Lower Brier score and log loss are better. Accuracy uses a 50% probability threshold. Both runs produced valid predictions without defaults or refusals.
+
+| Model | Arm | Micro-Brier | Case-macro Brier | Log loss | Accuracy | Completed-case cost |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| GPT-5.6 Luna | Pre-anchor | **0.1432** | **0.1508** | **0.4562** | **80.9%** | $16.57 |
+| Meta Muse Spark 1.3 Contributor | Post-anchor | 0.1812 | 0.1784 | 0.5357 | 72.1% | **$0.53** |
+
+The pre-anchor arm is the **Official LegalForecast-MTD Cycle 1 result**; the post-anchor arm is the **Official LegalForecast-MTD Cycle 1 result (post-anchor)**. These are single-run point estimates on a shared record, not evidence that the models have equal contamination exposure. Costs are summed from completed-case receipts and exclude infrastructure, smoke tests, and unresolved holds from failed attempts.
+
+Luna's [completed scoring workflow](https://github.com/johnhughes3/LegalForecastBench/actions/runs/34224826104) provides the scored report. Meta's [completed forecast workflow](https://github.com/johnhughes3/LegalForecastBench/actions/runs/34272944667) provides all 91 case receipts and transcripts; its values above were calculated with the repository's identity-aware scorer against the same labels. Meta's protected scoring/publication step remains pending.
+
+Future Muse runs use the **standard tier**, through `vercel_ai_gateway:meta/muse-spark-1.3`, with the [standard-tier registry](model_registries/cycle-1-official-muse-spark-1.3-standard-2026-09-08.json). The completed contributor-tier row retains its original identity and measured cost. Repricing that run's recorded cached and uncached token usage at standard rates gives approximately **$8.78**; this is an estimate, not a standard-tier run result.
 
 ## Preliminary Community Result
 
@@ -199,4 +210,4 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 ## Citation
 
-Citation metadata is in [CITATION.cff](CITATION.cff). Before citing a result, follow the dated status and canonical evidence links at the top of this README; this revision claims no released benchmark result.
+Citation metadata is in [CITATION.cff](CITATION.cff). Before citing a result, follow the dated status and canonical evidence links at the top of this README; the table distinguishes completed runs from any pending publication steps.
