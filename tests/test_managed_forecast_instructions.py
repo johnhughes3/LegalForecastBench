@@ -5,8 +5,11 @@ from typing import Any, cast
 
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
-from legalforecast.runner.managed_execution import run_managed_tool_agent
-from pydantic_ai.messages import ModelResponse, ToolCallPart
+from legalforecast.runner.managed_execution import (
+    ManagedToolAgentDeps,
+    run_managed_tool_agent,
+)
+from pydantic_ai.messages import ModelResponse, ToolCallPart, ToolReturnPart
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.usage import RequestUsage
 
@@ -130,3 +133,32 @@ def test_provider_sees_target_case_instructions_and_output_schema(
     )
     assert probability_schema["minimum"] == 0.0
     assert probability_schema["maximum"] == 1.0
+
+
+def test_managed_tool_result_is_serializable_by_pydantic_ai(tmp_path: Path) -> None:
+    """Nested ToolProtocol output must cross the provider serializer boundary."""
+
+    class NestedExecutor:
+        def execute(self, request: ToolRequest, workspace: Path) -> ToolResponse:
+            return ToolResponse(
+                request_id=request.request_id,
+                status="succeeded",
+                output={
+                    "rows": [{"metadata": {"source": "fixture"}, "content": "Motion"}]
+                },
+            )
+
+    deps = ManagedToolAgentDeps(
+        executor=NestedExecutor(),
+        workspace=tmp_path / "workspace",
+        request_id="cell-serialization",
+    )
+    result = deps.invoke("read", {})
+
+    # This is the same PydanticAI serializer used when rendering a tool return
+    # into the next OpenAI request. It raises on a nested MappingProxyType.
+    serialized = ToolReturnPart(tool_name="read", content=result).model_response_str()
+
+    assert (
+        serialized == '{"rows":[{"metadata":{"source":"fixture"},"content":"Motion"}]}'
+    )
