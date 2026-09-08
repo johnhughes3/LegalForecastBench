@@ -56,7 +56,10 @@ def _source_identity(source_run: dict[str, Any], run_id: str, attempt: int) -> N
 
 
 def _extract_artifacts(path: Path) -> list[dict[str, Any]]:
-    value = json.loads(path.read_text(encoding="utf-8"))
+    return _extract_artifact_value(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _extract_artifact_value(value: Any) -> list[dict[str, Any]]:
     if isinstance(value, list) and all(
         isinstance(item, dict) and "name" in item for item in value
     ):
@@ -76,6 +79,77 @@ def _extract_artifacts(path: Path) -> list[dict[str, Any]]:
     if any(not isinstance(item, dict) for item in artifacts):
         raise ValueError("workflow artifact listing contains a non-object")
     return artifacts
+
+
+def _api_json(endpoint: str, *, paginate: bool = False) -> Any:
+    command = ["gh", "api"]
+    if paginate:
+        command.extend(("--paginate", "--slurp"))
+    command.append(endpoint)
+    try:
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError(f"workflow metadata API failure for {endpoint}") from exc
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"workflow metadata API returned invalid JSON for {endpoint}"
+        ) from exc
+
+
+def _positive_decimal(value: Any, label: str) -> str:
+    text = str(value)
+    if not re.fullmatch(r"[1-9][0-9]*", text):
+        raise ValueError(f"{label} must be a positive integer")
+    return text
+
+
+def _resume_sources() -> list[tuple[str, int]]:
+    raw_sources = os.environ.get("RESUME_SOURCES", "")
+    legacy_id = os.environ.get("RESUME_SOURCE_RUN_ID", "")
+    legacy_attempt = os.environ.get("RESUME_SOURCE_RUN_ATTEMPT", "")
+    if raw_sources and (legacy_id or legacy_attempt):
+        raise ValueError("resume_sources cannot be combined with legacy source inputs")
+    if raw_sources:
+        try:
+            value = json.loads(raw_sources)
+        except json.JSONDecodeError as exc:
+            raise ValueError("resume_sources must be a JSON array") from exc
+        if not isinstance(value, list) or not value or len(value) > 8:
+            raise ValueError("resume_sources must contain between 1 and 8 sources")
+        sources: list[tuple[str, int]] = []
+        seen: set[tuple[str, int]] = set()
+        for entry in value:
+            if not isinstance(entry, dict) or set(entry) != {"run_id", "run_attempt"}:
+                raise ValueError(
+                    "resume_sources entries require run_id and run_attempt"
+                )
+            run_id = _positive_decimal(entry["run_id"], "resume source run ID")
+            attempt = int(
+                _positive_decimal(entry["run_attempt"], "resume source run attempt")
+            )
+            source = (run_id, attempt)
+            if source in seen:
+                raise ValueError("resume_sources cannot contain duplicate sources")
+            if run_id == os.environ.get("GITHUB_RUN_ID"):
+                raise ValueError("resume source run must differ from the current run")
+            seen.add(source)
+            sources.append(source)
+        return sources
+    if legacy_id or legacy_attempt:
+        if not legacy_id or not legacy_attempt:
+            raise ValueError("legacy source run ID and attempt must both be set")
+        run_id = _positive_decimal(legacy_id, "resume source run ID")
+        if run_id == os.environ.get("GITHUB_RUN_ID"):
+            raise ValueError("resume source run must differ from the current run")
+        return [
+            (
+                run_id,
+                int(_positive_decimal(legacy_attempt, "resume source run attempt")),
+            )
+        ]
+    return []
 
 
 def _unpack_state(archive: Path, destination: Path) -> None:
@@ -281,21 +355,6 @@ def restore() -> None:
     cell_id = os.environ["CELL_ID"]
     slug = os.environ["CELL_ID_SLUG"]
     current_attempt = int(os.environ["GITHUB_RUN_ATTEMPT"])
-    source_run_id = os.environ.get("RESUME_SOURCE_RUN_ID", "") or None
-    source_attempt_raw = os.environ.get("RESUME_SOURCE_RUN_ATTEMPT", "")
-    if source_run_id and not source_attempt_raw:
-        raise ValueError("resume source run attempt is required with a source run ID")
-    source_attempt = int(source_attempt_raw) if source_run_id else None
-    if source_run_id and source_attempt is not None:
-        source_run_metadata_path = os.environ.get("SOURCE_RUN_METADATA_PATH")
-        if not source_run_metadata_path:
-            raise ValueError(
-                "source workflow metadata is required for cross-run restore"
-            )
-        _source_identity(
-            _read_object(Path(source_run_metadata_path)), source_run_id, source_attempt
-        )
-
     current_artifacts = _extract_artifacts(Path(os.environ["METADATA_PATH"]))
     current_candidates = _candidate_artifacts(
         current_artifacts, provider, slug, current_attempt=current_attempt
@@ -319,30 +378,42 @@ def restore() -> None:
         raise ValueError(
             "all prior state artifacts were corrupt; refusing a fresh duplicate call"
         )
-    if not source_run_id:
+    sources = _resume_sources()
+    if not sources:
         print("restore=none")
         return
-    source_artifacts_path = os.environ.get("SOURCE_METADATA_PATH")
-    if not source_artifacts_path:
-        raise ValueError("source workflow artifact metadata is required")
-    source_artifacts = _extract_artifacts(Path(source_artifacts_path))
-    source_candidates = _candidate_artifacts(
-        source_artifacts, provider, slug, source_attempt=source_attempt
-    )
-    valid = _restore_candidates(
-        source_candidates,
-        provider=provider,
-        cell_id=cell_id,
-        source_run_id=source_run_id,
-        source_attempt=source_attempt,
-    )
-    if valid is None:
-        print("restore=none")
+    repository = os.environ["GITHUB_REPOSITORY"]
+    for source_run_id, source_attempt in sources:
+        source_run = _api_json(
+            f"/repos/{repository}/actions/runs/{source_run_id}/attempts/{source_attempt}"
+        )
+        if not isinstance(source_run, dict):
+            raise ValueError("source workflow metadata is not an object")
+        _source_identity(source_run, source_run_id, source_attempt)
+        source_artifacts = _extract_artifact_value(
+            _api_json(
+                f"/repos/{repository}/actions/runs/{source_run_id}/artifacts?per_page=100",
+                paginate=True,
+            )
+        )
+        source_candidates = _candidate_artifacts(
+            source_artifacts, provider, slug, source_attempt=source_attempt
+        )
+        valid = _restore_candidates(
+            source_candidates,
+            provider=provider,
+            cell_id=cell_id,
+            source_run_id=source_run_id,
+            source_attempt=source_attempt,
+        )
+        if valid is None:
+            continue
+        root, attempt = valid
+        run_root = Path(os.environ.get("LFB_RUN_ROOT", "/tmp/lfb-run"))
+        _copy_state(root, run_root, source_run_id, attempt)
+        print(f"restore=run-{source_run_id}-attempt-{attempt}")
         return
-    root, attempt = valid
-    run_root = Path(os.environ.get("LFB_RUN_ROOT", "/tmp/lfb-run"))
-    _copy_state(root, run_root, source_run_id, attempt)
-    print(f"restore=run-{source_run_id}-attempt-{attempt}")
+    print("restore=none")
 
 
 if __name__ == "__main__":
