@@ -782,6 +782,17 @@ jobs:
         with:
           name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: /tmp/lfb-forecast-inputs
+      - name: Configure rootless Docker for document tools
+        shell: bash
+        run: .github/scripts/setup-rootless-docker.sh
+      - name: Build isolated document tool image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -f infra/tool-runtime/Containerfile -t lfb-harvey-tools:local .
+          tool_image_id="$(docker image inspect --format '{{.Id}}' lfb-harvey-tools:local)"
+          [[ "${tool_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" >> "${GITHUB_ENV}"
       - name: Execute exact Google forecast cell
         shell: bash
         env:

@@ -2106,6 +2106,24 @@
         "nonblank_line_count": 1025,
         "top_level_definition_count": 32
       },
+      "tests/test_official_fan_in_workflow.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_checked_out_model_registry_is_the_only_local_fan_in_input",
+        "largest_symbol_lines": 192,
+        "layer": "test",
+        "line_count": 693,
+        "nonblank_line_count": 644,
+        "top_level_definition_count": 15
+      },
       "tests/test_openai_compatible_provider.py": {
         "cycle_id": "",
         "disposition_kind": "watch",

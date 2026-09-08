@@ -229,6 +229,17 @@ def test_provider_jobs_execute_one_exact_cell_and_do_not_score() -> None:
     assert "legalforecast report" not in WORKFLOW
 
 
+def test_google_document_tools_build_before_the_forecast_cell() -> None:
+    job = _job("run-gemini")
+    setup_at = job.index("Configure rootless Docker for document tools")
+    build_at = job.index("Build isolated document tool image")
+    execute_at = job.index("Execute exact Google forecast cell")
+    assert setup_at < build_at < execute_at
+    assert job.count(".github/scripts/setup-rootless-docker.sh") == 1
+    assert job.count("docker build -f infra/tool-runtime/Containerfile") == 1
+    assert "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" in job
+
+
 def test_source_identity_concurrency_and_budget_gates_are_fail_closed() -> None:
     assert "concurrency:" in WORKFLOW
     assert "inputs.manifest_uri" in WORKFLOW

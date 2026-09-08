@@ -150,7 +150,7 @@ jobs:
             exit 1
           }
           for locator in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" \
-            "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${LABELS_RELEASE_URI}"; do
+            "${ARTIFACT_ROOT_URI}" "${LABELS_RELEASE_URI}"; do
             [[ "${locator}" =~ ^(s3://[^/]+/[A-Za-z0-9._/-]+|manifests/[A-Za-z0-9._/-]+)$ ]] || {
               echo "official input locators must be s3:// URIs or manifests/ keys" >&2
               exit 1
@@ -167,6 +167,22 @@ jobs:
               exit 1
             }
           done
+          if [[ "${MODEL_REGISTRY_URI}" =~ ^model_registries/[A-Za-z0-9._-]+\.json$ ]]; then
+            [[ -f "${MODEL_REGISTRY_URI}" && ! -L "${MODEL_REGISTRY_URI}" ]] || {
+              echo "checked-out model registry must be a regular file" >&2
+              exit 1
+            }
+          else
+            [[ "${MODEL_REGISTRY_URI}" =~ ^(s3://[^/]+/[A-Za-z0-9._/-]+|manifests/[A-Za-z0-9._/-]+)$ ]] || {
+              echo "model_registry_uri must be an S3 URI, manifests/ key, or checked-out model registry" >&2
+              exit 1
+            }
+            key_only="${MODEL_REGISTRY_URI#s3://}"
+            [[ "${MODEL_REGISTRY_URI}" != *..* && "${key_only}" != *"//"* ]] || {
+              echo "model registry locator contains an unsafe path" >&2
+              exit 1
+            }
+          fi
           [[ "${ARTIFACT_ROOT_URI}" == */ ]] || {
             echo "artifact_root_uri must be a prefix ending in /" >&2
             exit 1
@@ -176,7 +192,7 @@ jobs:
             exit 1
           }
           for locator in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" \
-            "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${LABELS_RELEASE_URI}"; do
+            "${ARTIFACT_ROOT_URI}" "${LABELS_RELEASE_URI}"; do
             case "${locator}" in
               manifests/*) ;;
               s3://*)
@@ -192,6 +208,18 @@ jobs:
                 ;;
             esac
           done
+          if [[ ! "${MODEL_REGISTRY_URI}" =~ ^model_registries/[A-Za-z0-9._-]+\.json$ ]]; then
+            case "${MODEL_REGISTRY_URI}" in
+              manifests/*) ;;
+              s3://*)
+                bucket_and_key="${MODEL_REGISTRY_URI#s3://}"
+                [[ "${bucket_and_key}" == "${LFB_RESULTS_BUCKET}/"* ]] || {
+                  echo "s3 locator must use the configured LFB_RESULTS_BUCKET" >&2
+                  exit 1
+                }
+                ;;
+            esac
+          fi
 
       - name: Validate exact forecast workflow attempt
         shell: bash
@@ -392,7 +420,15 @@ jobs:
           reference=/tmp/lfb-fan-in-reference
           mkdir -p "${reference}"
           fetch_locked() {
-            local locator="$1" destination="$2"
+            local locator="$1" destination="$2" checked_out_registry="${3:-false}"
+            if [[ "${checked_out_registry}" == true && "${locator}" =~ ^model_registries/[A-Za-z0-9._-]+\.json$ ]]; then
+              [[ -f "${locator}" && ! -L "${locator}" ]] || {
+                echo "checked-out model registry must be a regular file" >&2
+                return 1
+              }
+              cp -- "${locator}" "${destination}"
+              return
+            fi
             case "${locator}" in
               s3://*) aws s3 cp "${locator}" "${destination}" --only-show-errors ;;
               manifests/*) aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${locator}" "${destination}" --only-show-errors ;;
@@ -401,7 +437,7 @@ jobs:
           }
           fetch_locked "${MANIFEST_URI}" "${reference}/run-manifest.json"
           fetch_locked "${FORECAST_RELEASE_URI}" "${reference}/forecast-release.json"
-          fetch_locked "${MODEL_REGISTRY_URI}" "${reference}/model-registry.json"
+          fetch_locked "${MODEL_REGISTRY_URI}" "${reference}/model-registry.json" true
           # This is the only step in the repository that reads the label locator.
           fetch_locked "${LABELS_RELEASE_URI}" "${reference}/labels-release.json"
           cmp -- "${reference}/run-manifest.json" /tmp/lfb-forecast/run-manifest.json
