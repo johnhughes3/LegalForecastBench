@@ -341,10 +341,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "DynamoDbProviderSpendAuthority",
-        "largest_symbol_lines": 2134,
+        "largest_symbol_lines": 2211,
         "layer": "application",
-        "line_count": 2361,
-        "nonblank_line_count": 2249,
+        "line_count": 2438,
+        "nonblank_line_count": 2325,
         "top_level_definition_count": 20
       },
       "legalforecast/evals/response_verification.py": {
@@ -2156,9 +2156,9 @@
         "largest_symbol": "InMemoryDynamoRunner",
         "largest_symbol_lines": 153,
         "layer": "test",
-        "line_count": 1588,
-        "nonblank_line_count": 1390,
-        "top_level_definition_count": 48
+        "line_count": 1677,
+        "nonblank_line_count": 1467,
+        "top_level_definition_count": 51
       },
       "tests/test_public_runner.py": {
         "cycle_id": "",
