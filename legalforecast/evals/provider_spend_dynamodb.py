@@ -409,7 +409,13 @@ class DynamoDbProviderSpendAuthority:
             effective_failures = self._breaker_effective_failure_events(
                 ledger,
                 now=now,
-                acknowledged_failure_epoch=acknowledged_epoch,
+                # A bounded failure window can legitimately have evicted the
+                # exact old event.  Its persisted ambiguous attempt is still
+                # eligible for this owner-authorized one-use recovery, but an
+                # absent event cannot be consumed from aggregate history.
+                acknowledged_failure_epoch=(
+                    acknowledged_epoch if acknowledged_event is not None else None
+                ),
             )
             if len(effective_failures) >= self.policy.failure_threshold:
                 raise CircuitBreakerOpenError(
@@ -455,12 +461,10 @@ class DynamoDbProviderSpendAuthority:
                 JsonObject,
                 cast(list[JsonObject], transaction["TransactItems"])[0]["Update"],
             )
-            acknowledged_events = sorted(
-                [
-                    *self._acknowledged_failure_events(ledger),
-                    acknowledged_event,
-                ]
-            )
+            acknowledged_events = list(self._acknowledged_failure_events(ledger))
+            if acknowledged_event is not None:
+                acknowledged_events.append(acknowledged_event)
+            acknowledged_events.sort()
             acknowledged_events_json = _canonical_json(acknowledged_events)
             ledger_values = cast(
                 dict[str, AttributeValue],
@@ -1594,35 +1598,25 @@ class DynamoDbProviderSpendAuthority:
             raise AuthorityIdentityMismatchError(
                 "additional attempt acknowledgement names a different attempt"
             )
-        failure_epoch = _float(attempt, "completed_at_epoch")
-        if not any(
-            _epoch_token(event) == _epoch_token(failure_epoch)
-            for event in self._active_failure_events(ledger, now=now)
-        ):
-            raise AuthorityIdentityMismatchError(
-                "acknowledged provider failure event is absent from the active window"
-            )
-        self._breaker_effective_failure_events(
-            ledger,
-            now=now,
-            acknowledged_failure_epoch=failure_epoch,
-        )
-        return failure_epoch
+        # The attempt record is the durable identity for this one-use
+        # acknowledgement.  The shared failure list is intentionally bounded
+        # and may have evicted or aged out this exact timestamp; the caller's
+        # current list digest is checked by authorize_additional_attempt and
+        # any remaining active failures are checked there before writing.
+        return _float(attempt, "completed_at_epoch")
 
     def _matching_failure_event(
         self,
         ledger: Mapping[str, AttributeValue],
         failure_epoch: float,
-    ) -> float:
-        """Return the raw event value matching a stored attempt timestamp."""
+    ) -> float | None:
+        """Return a matching event, if bounded history still retains it."""
 
         token = _epoch_token(failure_epoch)
         for event in self._failure_events(ledger):
             if _epoch_token(event) == token:
                 return event
-        raise AuthorityIdentityMismatchError(
-            "acknowledged provider failure event is absent from history"
-        )
+        return None
 
     def _attempt_for_lease(self, lease: AttemptLease) -> AttributeMap:
         if lease.authority_identity_sha256 != self.authority_identity_sha256:
