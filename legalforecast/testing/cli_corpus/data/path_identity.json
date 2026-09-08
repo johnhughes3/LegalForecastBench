@@ -67,6 +67,7 @@
     "tests/test_dependabot_auto_merge_workflow.py",
     "tests/test_docs_index_coverage.py",
     "tests/test_fake_codex_cli.py",
+    "tests/test_gateway_provider_workflow.py",
     "tests/test_harvey_lab_authorized_scoring.py",
     "tests/test_harvey_lab_evaluator.py",
     "tests/test_harvey_lab_output_discovery.py",
@@ -123,6 +124,7 @@
     "tests/test_supplementary_provider_registries.py",
     "tests/test_t0b_receipt_authority.py",
     "tests/test_validate_local_assume_access.py",
+    "tests/test_vercel_gateway_registry.py",
     "tests/test_versioning.py",
     "tests/test_workflow_checkout_security.py"
   ],

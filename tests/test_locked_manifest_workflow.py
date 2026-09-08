@@ -113,7 +113,7 @@ def prepare_inline_script() -> str:
 
 def test_prepare_exports_real_provider_matrices_from_registry_and_release() -> None:
     prepare = _job("prepare-inputs", "run-openai")
-    for provider in ("openai", "anthropic", "gemini"):
+    for provider in ("openai", "anthropic", "gemini", "gateway"):
         assert (
             f"{provider}_matrix: ${{{{ steps.matrix.outputs.{provider}_matrix }}}}"
             in prepare
@@ -151,17 +151,36 @@ def test_provider_jobs_are_secret_isolated_and_outcome_blinded() -> None:
     jobs = {
         "openai": _job("run-openai", "run-anthropic"),
         "anthropic": _job("run-anthropic", "run-gemini"),
-        "gemini": _job("run-gemini"),
+        "gemini": _job("run-gemini", "run-gateway"),
+        "vercel_ai_gateway": _job("run-gateway"),
     }
     secrets = {
         "openai": "secrets.OPENAI_API_KEY",
         "anthropic": "secrets.ANTHROPIC_API_KEY",
         "gemini": "secrets.GEMINI_API_KEY",
+        "vercel_ai_gateway": "secrets.AI_GATEWAY_API_KEY",
     }
     forbidden_secrets = {
-        "openai": ("secrets.ANTHROPIC_API_KEY", "secrets.GEMINI_API_KEY"),
-        "anthropic": ("secrets.OPENAI_API_KEY", "secrets.GEMINI_API_KEY"),
-        "gemini": ("secrets.OPENAI_API_KEY", "secrets.ANTHROPIC_API_KEY"),
+        "openai": (
+            "secrets.ANTHROPIC_API_KEY",
+            "secrets.GEMINI_API_KEY",
+            "secrets.AI_GATEWAY_API_KEY",
+        ),
+        "anthropic": (
+            "secrets.OPENAI_API_KEY",
+            "secrets.GEMINI_API_KEY",
+            "secrets.AI_GATEWAY_API_KEY",
+        ),
+        "gemini": (
+            "secrets.OPENAI_API_KEY",
+            "secrets.ANTHROPIC_API_KEY",
+            "secrets.AI_GATEWAY_API_KEY",
+        ),
+        "vercel_ai_gateway": (
+            "secrets.OPENAI_API_KEY",
+            "secrets.ANTHROPIC_API_KEY",
+            "secrets.GEMINI_API_KEY",
+        ),
     }
     for provider, job in jobs.items():
         assert job.count(secrets[provider]) == 1
@@ -196,7 +215,8 @@ def test_provider_role_session_names_fit_sts_limit_with_long_cell_slug() -> None
     for name, next_name in (
         ("run-openai", "run-anthropic"),
         ("run-anthropic", "run-gemini"),
-        ("run-gemini", None),
+        ("run-gemini", "run-gateway"),
+        ("run-gateway", None),
     ):
         job = _job(name, next_name)
         match = re.search(r"^          role-session-name: (.+)$", job, re.MULTILINE)
@@ -215,7 +235,8 @@ def test_provider_jobs_execute_one_exact_cell_and_do_not_score() -> None:
     for name, next_name in (
         ("run-openai", "run-anthropic"),
         ("run-anthropic", "run-gemini"),
-        ("run-gemini", None),
+        ("run-gemini", "run-gateway"),
+        ("run-gateway", None),
     ):
         job = _job(name, next_name)
         assert '--cell-id "${CELL_ID}"' in job
@@ -230,7 +251,7 @@ def test_provider_jobs_execute_one_exact_cell_and_do_not_score() -> None:
 
 
 def test_google_document_tools_build_before_the_forecast_cell() -> None:
-    job = _job("run-gemini")
+    job = _job("run-gemini", "run-gateway")
     setup_at = job.index("Configure rootless Docker for document tools")
     build_at = job.index("Build isolated document tool image")
     execute_at = job.index("Execute exact Google forecast cell")
@@ -250,7 +271,8 @@ def test_source_identity_concurrency_and_budget_gates_are_fail_closed() -> None:
         "prepare-inputs": "run-openai",
         "run-openai": "run-anthropic",
         "run-anthropic": "run-gemini",
-        "run-gemini": None,
+        "run-gemini": "run-gateway",
+        "run-gateway": None,
     }
     for job_name, next_name in next_jobs.items():
         job = _job(job_name, next_name)
@@ -393,7 +415,10 @@ def test_restore_is_attempt_qualified_and_fail_closed() -> None:
 
 def test_combined_forecast_result_matches_protected_fan_in_contract() -> None:
     combined = _job("persist-forecast-results")
-    assert "needs: [prepare-inputs, run-openai, run-anthropic, run-gemini]" in combined
+    assert (
+        "needs: [prepare-inputs, run-openai, run-anthropic, run-gemini, run-gateway]"
+        in combined
+    )
     assert "if: ${{ always() && needs.prepare-inputs.result == 'success' }}" in combined
     assert (
         "name: official-forecast-results-${{ github.run_id }}-${{ github.run_attempt }}"

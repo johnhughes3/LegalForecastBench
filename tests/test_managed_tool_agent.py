@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import legalforecast.runner.managed_execution as managed_execution
@@ -92,6 +93,68 @@ def _google_entry() -> ModelRegistryEntry:
     return ModelRegistryEntry.from_record(record)
 
 
+def _gateway_entry(model_id: str = "moonshotai/kimi-k3") -> ModelRegistryEntry:
+    record = _entry().to_record()
+    record.update(
+        {
+            "provider": "vercel_ai_gateway",
+            "model_id": model_id,
+            "model_version_or_snapshot": model_id,
+            "release_timestamp": "2026-07-17T00:00:00Z",
+            "release_timestamp_source": "fixture",
+            "provider_training_cutoff_status": "unknown",
+            "provider_training_cutoff": None,
+            "input_token_price": 2.85,
+            "output_token_price": 14.25,
+        }
+    )
+    return ModelRegistryEntry.from_record(record)
+
+
+def _gateway_response_metadata() -> dict[str, str]:
+    return {
+        "original_model_id": "moonshotai/kimi-k3",
+        "resolved_provider": "deepinfra",
+        "resolved_provider_api_model_id": "moonshotai/Kimi-K3",
+        "canonical_slug": "moonshotai/kimi-k3",
+        "final_provider": "deepinfra",
+        "generation_id": "generation-fixture",
+        "cost_usd": "0.001",
+        "market_cost_usd": "0.002",
+        "model_attempt_count": "1",
+        "total_provider_attempt_count": "1",
+    }
+
+
+def test_gateway_response_metadata_is_extracted_from_openai_compatible_envelope() -> (
+    None
+):
+    metadata = _gateway_response_metadata()
+    response = SimpleNamespace(
+        model_extra={
+            "providerMetadata": {
+                "gateway": {
+                    "routing": {
+                        "originalModelId": metadata["original_model_id"],
+                        "resolvedProvider": metadata["resolved_provider"],
+                        "resolvedProviderApiModelId": metadata[
+                            "resolved_provider_api_model_id"
+                        ],
+                        "canonicalSlug": metadata["canonical_slug"],
+                        "finalProvider": metadata["final_provider"],
+                        "modelAttemptCount": 1,
+                        "totalProviderAttemptCount": 1,
+                    },
+                    "generationId": metadata["generation_id"],
+                    "cost": 0.001,
+                    "marketCost": 0.002,
+                }
+            }
+        }
+    )
+    assert managed_execution.gateway_response_metadata(cast(Any, response)) == metadata
+
+
 def test_managed_agent_uses_native_tool_loop_and_returns_one_case_envelope(
     tmp_path: Path,
 ) -> None:
@@ -158,6 +221,132 @@ def test_managed_agent_uses_native_tool_loop_and_returns_one_case_envelope(
     assert [request.operation for request in executor.requests] == ["read"]
     assert '"unit_id":"unit-a"' in result.raw_output
     assert '"unit_id":"unit-b"' in result.raw_output
+
+
+def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
+    tmp_path: Path,
+) -> None:
+    turns = [
+        ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "read",
+                    {"file_path": "/workspace/documents/motion.txt"},
+                    tool_call_id="read-1",
+                )
+            ],
+            usage=RequestUsage(input_tokens=100, output_tokens=10),
+            model_name="moonshotai/kimi-k3",
+            provider_name="vercel_ai_gateway",
+            finish_reason="stop",
+            provider_details={"gateway_metadata": _gateway_response_metadata()},
+        ),
+        ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "final_result",
+                    {
+                        "case_assessment": "Assessment",
+                        "predictions": [
+                            {
+                                "unit_id": "unit-a",
+                                "probability_fully_dismissed": 0.5,
+                            }
+                        ],
+                    },
+                    tool_call_id="final-1",
+                )
+            ],
+            usage=RequestUsage(input_tokens=150, output_tokens=20),
+            model_name="moonshotai/kimi-k3",
+            provider_name="vercel_ai_gateway",
+            finish_reason="stop",
+            provider_details={"gateway_metadata": _gateway_response_metadata()},
+        ),
+    ]
+
+    async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
+        return turns.pop(0)
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result = run_managed_tool_agent(
+        _gateway_entry(),
+        initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
+        required_unit_ids=("unit-a",),
+        executor=_Executor(),
+        workspace=workspace,
+        request_id="cell-1",
+        model=FunctionModel(scripted),
+    )
+
+    assert result.called_tools == ("read",)
+    assert result.request_count == 2
+    assert result.response_usages == ((100, 10), (150, 20))
+    assert result.gateway_response_metadata == (
+        _gateway_response_metadata(),
+        _gateway_response_metadata(),
+    )
+
+
+def test_gateway_provider_uses_gateway_endpoint_and_hard_route_allowlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict[str, Any] = {}
+
+    async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "final_result",
+                    {
+                        "case_assessment": "Assessment",
+                        "predictions": [
+                            {
+                                "unit_id": "unit-a",
+                                "probability_fully_dismissed": 0.5,
+                            }
+                        ],
+                    },
+                    tool_call_id="final-1",
+                )
+            ],
+            usage=RequestUsage(input_tokens=1, output_tokens=1),
+            model_name="moonshotai/kimi-k3",
+            provider_name="vercel_ai_gateway",
+            finish_reason="stop",
+            provider_details={"gateway_metadata": _gateway_response_metadata()},
+        )
+
+    def observed_model(model_id: str, **kwargs: Any) -> FunctionModel:
+        captured.update(model_id=model_id, **kwargs)
+        return FunctionModel(scripted)
+
+    monkeypatch.setattr(
+        managed_execution, "_ObservedTierOpenAIResponsesModel", observed_model
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    run_managed_tool_agent(
+        _gateway_entry(),
+        initial_prompt="Case: case-1",
+        required_unit_ids=("unit-a",),
+        executor=_Executor(),
+        workspace=workspace,
+        request_id="cell-1",
+        api_key="gateway-fixture-key",
+    )
+
+    assert captured["model_id"] == "moonshotai/kimi-k3"
+    provider = captured["provider"]
+    assert provider.base_url.rstrip("/") == managed_execution.VERCEL_AI_GATEWAY_BASE_URL
+    assert captured["profile"]["openai_supports_reasoning"] is True
+    assert managed_execution.gateway_route_provider("meta/muse-spark-1.3") == "meta"
+    assert managed_execution.gateway_request_extra_body("moonshotai/kimi-k3") == {
+        "providerOptions": {"gateway": {"only": ["deepinfra"]}}
+    }
+    with pytest.raises(ValueError, match="not allowlisted"):
+        managed_execution.gateway_route_provider("unknown/model")
 
 
 def test_managed_agent_exposes_exactly_the_six_harvey_tools(tmp_path: Path) -> None:
@@ -520,6 +709,27 @@ def test_google_managed_cell_uses_gemini_key_and_provider_metadata(
     assert response.metadata["thoughts_tokens"] == "10"
     assert "requested_service_tier" not in response.metadata
     assert handler.settlement == (100, 20, 0.00015, raw_output)
+
+
+def test_gateway_managed_cell_requires_only_the_scoped_gateway_key() -> None:
+    with pytest.raises(
+        managed_execution.RunValidationError, match="AI_GATEWAY_API_KEY is required"
+    ):
+        managed_execution.complete_managed_tool_cell(
+            _gateway_entry(),
+            handler=cast(Any, _AttemptHandler()),
+            managed_case=ManagedCaseInput(
+                case_id="case-1",
+                required_unit_ids=("unit-a",),
+                documents={},
+                unit_descriptions=(),
+                document_descriptions=(),
+                cell_id="cell-1",
+            ),
+            request_body_observer=lambda _body: None,
+            environ={"OPENAI_API_KEY": "must-not-be-used"},
+            registry_sha256="sha256:" + "b" * 64,
+        )
 
 
 def test_official_cell_replays_aggregate_response_without_starting_container(
