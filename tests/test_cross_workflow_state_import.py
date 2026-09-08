@@ -92,25 +92,29 @@ def test_source_state_with_failure_is_skipped(tmp_path: Path) -> None:
         )
 
 
-def _write_state_archive(root: Path, *, run_id: str, cell_id: str) -> Path:
+def _write_state_archive(
+    root: Path, *, run_id: str, cell_id: str, status: str = "completed"
+) -> Path:
     (root / "receipts").mkdir(parents=True)
     state = {
         "provider": "openai",
         "cell_id": cell_id,
         "run_id": run_id,
         "run_attempt": 1,
-        "status": "completed",
+        "status": status,
     }
     for name, value in (
         ("state.json", state),
-        ("failure-summary.json", {"status": "completed"}),
-        ("run-summary.json", {"status": "completed"}),
+        ("failure-summary.json", {"status": status}),
+        ("run-summary.json", {"status": status}),
         ("receipts/receipt.json", {"cell_id": cell_id}),
     ):
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(value))
     (root / "ledger.sqlite3").write_bytes(b"ledger")
+    if status != "completed":
+        (root / "runner-failure.log").write_text("provider job failed\n")
     archive = root.with_suffix(".zip")
     with _restore.zipfile.ZipFile(archive, "w") as bundle:
         for path in root.rglob("*"):
@@ -145,36 +149,6 @@ def test_current_run_attempt_wins_over_external_source_fallback(
             ]
         )
     )
-    source_metadata = tmp_path / "source-artifacts.json"
-    source_metadata.write_text(
-        json.dumps(
-            [
-                {
-                    "artifacts": [
-                        {
-                            "id": 23,
-                            "name": "locked-run-state-openai-cell-attempt-1",
-                            "created_at": "2026-09-08T00:00:00Z",
-                        }
-                    ]
-                }
-            ]
-        )
-    )
-    source_run = tmp_path / "source-run.json"
-    source_run.write_text(
-        json.dumps(
-            {
-                "id": 34210437238,
-                "run_attempt": 1,
-                "path": ".github/workflows/run-benchmark.yaml",
-                "event": "workflow_dispatch",
-                "head_branch": "main",
-                "status": "completed",
-                "conclusion": "cancelled",
-            }
-        )
-    )
     run_root = tmp_path / "run"
     (run_root / "receipts").mkdir(parents=True)
     (run_root / "state.json").write_text(json.dumps({"status": "initialized"}))
@@ -196,10 +170,7 @@ def test_current_run_attempt_wins_over_external_source_fallback(
         "GITHUB_REPOSITORY": "owner/repo",
         "RUNNER_TEMP": str(tmp_path / "runner"),
         "METADATA_PATH": str(current_metadata),
-        "SOURCE_METADATA_PATH": str(source_metadata),
-        "SOURCE_RUN_METADATA_PATH": str(source_run),
-        "RESUME_SOURCE_RUN_ID": "34210437238",
-        "RESUME_SOURCE_RUN_ATTEMPT": "1",
+        "RESUME_SOURCES": json.dumps([{"run_id": "34210437238", "run_attempt": 1}]),
         "LFB_RUN_ROOT": str(run_root),
     }.items():
         monkeypatch.setenv(name, value)
@@ -210,3 +181,115 @@ def test_current_run_attempt_wins_over_external_source_fallback(
     restored = json.loads((run_root / "state.json").read_text())
     assert downloaded == [17]
     assert restored["restored_from_run_id"] == "999999999"
+
+
+def test_source_failure_skips_to_next_explicit_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cell_id = "cell"
+    failed_archive = _write_state_archive(
+        tmp_path / "failed", run_id="111", cell_id=cell_id, status="failed"
+    )
+    completed_archive = _write_state_archive(
+        tmp_path / "completed", run_id="222", cell_id=cell_id
+    )
+    current_metadata = tmp_path / "current-artifacts.json"
+    current_metadata.write_text(json.dumps([{"total_count": 0, "artifacts": []}]))
+    source_metadata = {
+        "111": {
+            "id": 111,
+            "run_attempt": 1,
+            "path": ".github/workflows/run-benchmark.yaml",
+            "event": "workflow_dispatch",
+            "head_branch": "main",
+            "status": "completed",
+            "conclusion": "failure",
+        },
+        "222": {
+            "id": 222,
+            "run_attempt": 1,
+            "path": ".github/workflows/run-benchmark.yaml",
+            "event": "workflow_dispatch",
+            "head_branch": "main",
+            "status": "completed",
+            "conclusion": "success",
+        },
+    }
+    source_artifacts = {
+        "111": {
+            "total_count": 1,
+            "artifacts": [
+                {
+                    "id": 31,
+                    "name": "locked-run-state-openai-cell-attempt-1",
+                    "created_at": "2026-09-08T00:00:00Z",
+                }
+            ],
+        },
+        "222": {
+            "total_count": 1,
+            "artifacts": [
+                {
+                    "id": 47,
+                    "name": "locked-run-state-openai-cell-attempt-1",
+                    "created_at": "2026-09-08T00:00:00Z",
+                }
+            ],
+        },
+    }
+    archives = {31: failed_archive, 47: completed_archive}
+    downloaded: list[int] = []
+
+    def fake_api(endpoint: str, *, paginate: bool = False) -> object:
+        del paginate
+        for run_id in source_metadata:
+            if f"/runs/{run_id}/attempts/1" in endpoint:
+                return source_metadata[run_id]
+            if f"/runs/{run_id}/artifacts?" in endpoint:
+                return [source_artifacts[run_id]]
+        raise AssertionError(f"unexpected metadata endpoint: {endpoint}")
+
+    def fake_download(artifact_id: int, archive: Path) -> None:
+        downloaded.append(artifact_id)
+        shutil.copyfile(archives[artifact_id], archive)
+
+    monkeypatch.setattr(_restore, "_api_json", fake_api)
+    monkeypatch.setattr(_restore, "_download_artifact", fake_download)
+    for name, value in {
+        "PROVIDER": "openai",
+        "CELL_ID": cell_id,
+        "CELL_ID_SLUG": cell_id,
+        "GITHUB_RUN_ATTEMPT": "1",
+        "GITHUB_RUN_ID": "333",
+        "GITHUB_REPOSITORY": "owner/repo",
+        "RUNNER_TEMP": str(tmp_path / "runner"),
+        "METADATA_PATH": str(current_metadata),
+        "RESUME_SOURCES": json.dumps(
+            [
+                {"run_id": "111", "run_attempt": 1},
+                {"run_id": "222", "run_attempt": 1},
+            ]
+        ),
+        "LFB_RUN_ROOT": str(tmp_path / "run"),
+    }.items():
+        monkeypatch.setenv(name, value)
+    (tmp_path / "runner").mkdir()
+    (tmp_path / "run").mkdir()
+
+    _restore.restore()
+
+    restored = json.loads((tmp_path / "run" / "state.json").read_text())
+    assert downloaded == [31, 47]
+    assert restored["restored_from_run_id"] == "222"
+    assert restored["restored_from_attempt"] == 1
+
+
+def test_legacy_single_resume_source_pair_remains_supported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RESUME_SOURCES", raising=False)
+    monkeypatch.setenv("RESUME_SOURCE_RUN_ID", "34210437238")
+    monkeypatch.setenv("RESUME_SOURCE_RUN_ATTEMPT", "1")
+    monkeypatch.setenv("GITHUB_RUN_ID", "34216851710")
+
+    assert _restore._resume_sources() == [("34210437238", 1)]

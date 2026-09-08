@@ -362,8 +362,10 @@ def test_restore_is_attempt_qualified_and_fail_closed() -> None:
     assert "gh api --paginate --slurp" in WORKFLOW
     assert "resume_source_run_id" in WORKFLOW
     assert "resume_source_run_attempt" in WORKFLOW
+    assert "resume_sources" in WORKFLOW
     assert ".github/scripts/restore-forecast-state.py" in WORKFLOW
-    assert "SOURCE_RUN_METADATA_PATH" in WORKFLOW
+    assert "RESUME_SOURCES" in WORKFLOW
+    assert "SOURCE_RUN_METADATA_PATH" not in WORKFLOW
     assert (
         "prior state download/API failure; refusing a fresh duplicate call"
         in RESTORE_HELPER.read_text(encoding="utf-8")

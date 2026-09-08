@@ -62,6 +62,11 @@ on:
         required: false
         default: ""
         type: string
+      resume_sources:
+        description: Ordered JSON array of prior benchmark runs whose completed cell states may be imported.
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -127,6 +132,7 @@ jobs:
           RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
           RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
           RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
+          RESUME_SOURCES: ${{ inputs.resume_sources }}
         run: |
           set -euo pipefail
           for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
@@ -141,6 +147,38 @@ jobs:
           if [[ -n "${RESUME_SOURCE_RUN_ID}" || -n "${RESUME_SOURCE_RUN_ATTEMPT}" ]]; then
             [[ "${RESUME_SOURCE_RUN_ID}" =~ ^[1-9][0-9]*$ && "${RESUME_SOURCE_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]] || { echo "resume source run ID and attempt must both be positive integers" >&2; exit 1; }
             [[ "${RESUME_SOURCE_RUN_ID}" != "${GITHUB_RUN_ID}" ]] || { echo "resume source run must differ from the current run" >&2; exit 1; }
+          fi
+          if [[ -n "${RESUME_SOURCES}" ]]; then
+            [[ -z "${RESUME_SOURCE_RUN_ID}" && -z "${RESUME_SOURCE_RUN_ATTEMPT}" ]] || { echo "resume_sources cannot be combined with legacy source inputs" >&2; exit 1; }
+            uv run python - "${RESUME_SOURCES}" "${GITHUB_RUN_ID}" <<'PY'
+          import json
+          import re
+          import sys
+
+          try:
+              sources = json.loads(sys.argv[1])
+          except json.JSONDecodeError as exc:
+              raise SystemExit("resume_sources must be a JSON array") from exc
+          if not isinstance(sources, list) or not 1 <= len(sources) <= 8:
+              raise SystemExit("resume_sources must contain between 1 and 8 sources")
+          seen: set[tuple[str, int]] = set()
+          for entry in sources:
+              if not isinstance(entry, dict) or set(entry) != {"run_id", "run_attempt"}:
+                  raise SystemExit("resume_sources entries require run_id and run_attempt")
+              values: dict[str, str] = {}
+              for key in ("run_id", "run_attempt"):
+                  raw = entry[key]
+                  value = str(raw)
+                  if isinstance(raw, bool) or not re.fullmatch(r"[1-9][0-9]*", value):
+                      raise SystemExit(f"resume source {key} must be a positive integer")
+                  values[key] = value
+              source = (values["run_id"], int(values["run_attempt"]))
+              if source in seen:
+                  raise SystemExit("resume_sources cannot contain duplicate sources")
+              if source[0] == sys.argv[2]:
+                  raise SystemExit("resume source run must differ from the current run")
+              seen.add(source)
+          PY
           fi
       - name: Configure read-only public object access
         if: ${{ startsWith(inputs.manifest_uri, 's3://') || startsWith(inputs.forecast_release_uri, 's3://') || startsWith(inputs.artifact_root_uri, 's3://') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.manifest_uri, 'manifests/') || startsWith(inputs.forecast_release_uri, 'manifests/') || startsWith(inputs.artifact_root_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 'manifests/') }}
@@ -446,15 +484,10 @@ jobs:
           CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
           RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
           RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
+          RESUME_SOURCES: ${{ inputs.resume_sources }}
         run: |
           set -euo pipefail
           gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-current-artifacts.json"
-          if [[ -n "${RESUME_SOURCE_RUN_ID}" ]]; then
-            gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-source-artifacts.json"
-            gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/attempts/${RESUME_SOURCE_RUN_ATTEMPT}" > "${RUNNER_TEMP}/forecast-source-run.json"
-            export SOURCE_METADATA_PATH="${RUNNER_TEMP}/forecast-source-artifacts.json"
-            export SOURCE_RUN_METADATA_PATH="${RUNNER_TEMP}/forecast-source-run.json"
-          fi
           export METADATA_PATH="${RUNNER_TEMP}/forecast-current-artifacts.json"
           uv run python .github/scripts/restore-forecast-state.py
       - name: Download outcome-blinded inputs
@@ -600,15 +633,10 @@ jobs:
           CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
           RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
           RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
+          RESUME_SOURCES: ${{ inputs.resume_sources }}
         run: |
           set -euo pipefail
           gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-current-artifacts.json"
-          if [[ -n "${RESUME_SOURCE_RUN_ID}" ]]; then
-            gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-source-artifacts.json"
-            gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/attempts/${RESUME_SOURCE_RUN_ATTEMPT}" > "${RUNNER_TEMP}/forecast-source-run.json"
-            export SOURCE_METADATA_PATH="${RUNNER_TEMP}/forecast-source-artifacts.json"
-            export SOURCE_RUN_METADATA_PATH="${RUNNER_TEMP}/forecast-source-run.json"
-          fi
           export METADATA_PATH="${RUNNER_TEMP}/forecast-current-artifacts.json"
           uv run python .github/scripts/restore-forecast-state.py
       - name: Download outcome-blinded inputs
@@ -743,15 +771,10 @@ jobs:
           CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
           RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
           RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
+          RESUME_SOURCES: ${{ inputs.resume_sources }}
         run: |
           set -euo pipefail
           gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-current-artifacts.json"
-          if [[ -n "${RESUME_SOURCE_RUN_ID}" ]]; then
-            gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-source-artifacts.json"
-            gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/attempts/${RESUME_SOURCE_RUN_ATTEMPT}" > "${RUNNER_TEMP}/forecast-source-run.json"
-            export SOURCE_METADATA_PATH="${RUNNER_TEMP}/forecast-source-artifacts.json"
-            export SOURCE_RUN_METADATA_PATH="${RUNNER_TEMP}/forecast-source-run.json"
-          fi
           export METADATA_PATH="${RUNNER_TEMP}/forecast-current-artifacts.json"
           uv run python .github/scripts/restore-forecast-state.py
       - name: Download outcome-blinded inputs
