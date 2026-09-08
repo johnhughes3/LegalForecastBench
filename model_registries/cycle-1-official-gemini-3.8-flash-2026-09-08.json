@@ -1,0 +1,27 @@
+[
+  {
+    "context_limit": 1048576,
+    "display_name": "Gemini 3.8 Flash",
+    "input_token_price": 0.75,
+    "known_cutoff_publicity_caveats": [
+      "Google reports a March 2026 knowledge cutoff at https://deepmind.google/models/model-cards/gemini-3-8-flash/ (checked 2026-09-08). The exact day is not disclosed; the structured exact-date field remains unknown. March 31 is the latest possible date within the reported month, not a claimed exact training cutoff.",
+      "The model was released after the Cycle 1 corpus anchor and is an official post-anchor comparison. The repaired 91-case release has decisions after March 2026; this provider-reported cutoff does not establish independently audited absence of contamination. Existing frozen registries remain unchanged.",
+      "Google publishes the stable ID gemini-3.8-flash without a dated snapshot. Record the served model version; this is a stable provider identifier rather than an immutable-weight guarantee.",
+      "Use controlled docket tools, high thinking, and provider-default sampling. The 65,536 output limit is the provider maximum, below the 128,000-token cap used for models that support it. Input limit 1,048,576; source https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash, checked 2026-09-08."
+    ],
+    "max_output_tokens": 65536,
+    "model_id": "gemini-3.8-flash",
+    "model_version_or_snapshot": "gemini-3.8-flash",
+    "network_disabled": true,
+    "output_token_price": 3.75,
+    "pricing_source": "https://ai.google.dev/gemini-api/docs/latest-model, USD 0.75/M input and USD 3.75/M output through 2026-12-31; standard rates double on 2027-01-01. Checked 2026-09-08.",
+    "provider": "google",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-09-02T00:00:00Z",
+    "release_timestamp_source": "https://ai.google.dev/gemini-api/docs/changelog, September 2, 2026 GA release; checked 2026-09-08.",
+    "search_disabled": true,
+    "thinking_level": "high",
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

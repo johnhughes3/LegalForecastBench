@@ -376,3 +376,56 @@ def test_sidecar_refuses_an_authoritative_claim(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="authoritative must be false"):
         load_result_class_sidecar(path, expected_digest=frozen_result_digest(b"x"))
+
+
+@pytest.mark.parametrize(
+    "changed_identity", [None, "forecast_release_digest", "model_registry_sha256"]
+)
+def test_native_report_classifies_only_scored_packets_and_binds_reads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    changed_identity: str | None,
+) -> None:
+    from legalforecast.evals.model_registry import model_registry_sha256
+    from legalforecast.release import ForecastExecution, issue_synthetic_release
+    from legalforecast.reporting.result_class import classify_forecast_run_results
+
+    issued = issue_synthetic_release(tmp_path / "release")
+    registry_path = tmp_path / "registry.json"
+    entry = _entry("model")
+    registry_path.write_text(json.dumps([entry.to_record()]))
+    provenance = {
+        "forecast_release_digest": issued.forecast.release_digest,
+        "model_registry_sha256": model_registry_sha256(registry_path.read_bytes()),
+        "models": [{"model_key": entry.registry_key}],
+    }
+    if changed_identity is not None:
+        provenance[changed_identity] = "0" * 64
+    original = ForecastExecution.packet_bytes
+    reads: list[str] = []
+
+    def scored_packet(self: ForecastExecution, unit_id: str) -> bytes:
+        # The fixture's third unit is unscored; classification must not inspect it.
+        assert unit_id != "unit-003"
+        reads.append(unit_id)
+        return original(self, unit_id)
+
+    monkeypatch.setattr(ForecastExecution, "packet_bytes", scored_packet)
+    if changed_identity is not None:
+        with pytest.raises(ValueError, match="changed before result classification"):
+            classify_forecast_run_results(
+                forecast_path=tmp_path / "release" / "forecast-release.json",
+                artifact_root=tmp_path / "release",
+                registry_path=registry_path,
+                provenance=provenance,
+            )
+    else:
+        result = classify_forecast_run_results(
+            forecast_path=tmp_path / "release" / "forecast-release.json",
+            artifact_root=tmp_path / "release",
+            registry_path=registry_path,
+            provenance=provenance,
+        )
+        assert result is not None
+        assert result["models"] == {entry.registry_key: "pre_anchor"}
+        assert reads == ["unit-001", "unit-002"]

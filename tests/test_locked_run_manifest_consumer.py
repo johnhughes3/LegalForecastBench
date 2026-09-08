@@ -723,9 +723,11 @@ def _write_registry(tmp_path: Path, *, version: str = "fixture") -> Path:
     return path
 
 
+@pytest.mark.parametrize("post_anchor", [False, True])
 def test_provider_free_workflow_contract_e2e_uses_exact_cell_and_artifact_seams(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    post_anchor: bool,
 ) -> None:
     """Exercise the matrix, exact CLI invocation, fan-in tree, score, and report."""
 
@@ -738,6 +740,10 @@ def test_provider_free_workflow_contract_e2e_uses_exact_cell_and_artifact_seams(
     forecast_path = fixture / "release" / "forecast-release.json"
     registry_path = fixture / "model-registry.json"
     artifact_root = fixture / "release"
+    if post_anchor:
+        records = json.loads(registry_path.read_text())
+        records[0]["release_timestamp"] = "2026-09-02T00:00:00Z"
+        registry_path.write_text(json.dumps(records))
 
     run_inputs = load_forecast_run_inputs(
         manifest_path,
@@ -967,4 +973,13 @@ def test_provider_free_workflow_contract_e2e_uses_exact_cell_and_artifact_seams(
         == 0
     )
     capsys.readouterr()
-    assert (report_dir / "leaderboard.json").is_file()
+    payload = json.loads((report_dir / "leaderboard.json").read_text())
+    classification = payload["result_classification"]
+    assert classification["models"] == {
+        entry.registry_key: "post_anchor" if post_anchor else "pre_anchor"
+    }
+    assert classification["all_post_anchor"] is post_anchor
+    for filename in ("leaderboard.md", "leaderboard.html"):
+        assert (
+            "Official post-anchor comparison" in (report_dir / filename).read_text()
+        ) is post_anchor

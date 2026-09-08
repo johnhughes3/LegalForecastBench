@@ -310,30 +310,20 @@ def test_runner_rejects_ineligible_model_before_creating_ledger(
     assert not config.ledger_path.exists()
 
 
-def test_runner_rejects_packet_before_selected_model_release_anchor(
+def test_runner_executes_packet_before_selected_model_release_as_post_anchor(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _config(tmp_path)
-    units = (
-        SimpleNamespace(
-            case_id="case-001",
-            unit_id="unit-001",
-            prompt_sha256="1" * 64,
-        ),
-        SimpleNamespace(
-            case_id="case-002",
-            unit_id="unit-002",
-            prompt_sha256="2" * 64,
-        ),
+    base_execution = runner_service.load_forecast_execution(
+        config.forecast_path,
+        artifact_root=config.artifact_root,
     )
+    units = tuple(base_execution.release.prediction_units[:2])
     release = SimpleNamespace(
-        release_digest="3" * 64,
-        release_id="release-anchor-regression",
-        cases=(
-            SimpleNamespace(case_id="case-001"),
-            SimpleNamespace(case_id="case-002"),
-        ),
+        release_digest=base_execution.release.release_digest,
+        release_id=base_execution.release.release_id,
+        cases=base_execution.release.cases[:2],
         prediction_units=units,
     )
 
@@ -349,20 +339,23 @@ def test_runner_rejects_packet_before_selected_model_release_anchor(
             )
 
         def prompt_bytes(self, unit_id: str) -> bytes:
-            raise AssertionError(f"prompt read for ineligible unit {unit_id}")
+            return f"Forecast {unit_id}.".encode()
 
     monkeypatch.setattr(
         runner_service,
         "load_forecast_execution",
         lambda *_args, **_kwargs: IneligibleExecution(),
     )
-    transport = CountingTransport(error=AssertionError("transport called"))
+    transport = FixtureModelTransport()
 
-    with pytest.raises(RunValidationError, match="precedes model release anchor"):
-        execute_release_run(config, transport=transport)
+    summary = execute_release_run(
+        config,
+        transport=transport,
+        environ=_fixture_environ(),
+    )
 
-    assert transport.calls == 0
-    assert not config.ledger_path.exists()
+    assert summary.executed_cells == 2
+    assert transport.call_count == 2
 
 
 def test_runner_refuses_exact_ledger_identity_drift_without_transport(
