@@ -380,6 +380,22 @@ def test_failed_source_without_saved_transcript_remains_incomplete(
         _restore._validate_source_completed_state(root, "openai", "cell", "222", 1)
 
 
+def test_failed_source_with_partial_transcript_remains_incomplete(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "state"
+    _write_state_archive(
+        root,
+        run_id="222",
+        cell_id="cell",
+        status="failed",
+        transcript=b'{"agent_status":"failed","messages":[]}',
+        include_receipt=False,
+    )
+    with pytest.raises(_restore.IncompleteSourceState):
+        _restore._validate_source_completed_state(root, "openai", "cell", "222", 1)
+
+
 def test_resume_copies_optional_transcript_bytes_without_parsing_them(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -233,7 +233,19 @@ def _has_transcript_recovery(root: Path, cell_id: str) -> bool:
     if not transcripts.is_dir() or transcripts.is_symlink():
         return False
     expected = transcripts / f"{cell_id}.json"
-    return expected.is_file() and not expected.is_symlink()
+    if not expected.is_file() or expected.is_symlink():
+        return False
+    try:
+        raw = expected.read_bytes()
+    except OSError:
+        return False
+    try:
+        value = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        # A damaged artifact that still claims success must fail closed in the
+        # recovery validator instead of being treated as an ordinary retry.
+        return bool(re.search(rb'"agent_status"\s*:\s*"succeeded"', raw))
+    return isinstance(value, dict) and value.get("agent_status") == "succeeded"
 
 
 def _validate_source_transcript_recovery_state(root: Path, cell_id: str) -> None:
