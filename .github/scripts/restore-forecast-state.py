@@ -198,14 +198,24 @@ def _validate_source_completed_state(
         or state.get("run_attempt") != source_attempt
     ):
         raise ValueError("source state run identity does not match requested attempt")
-    if state.get("status") != "completed":
-        if state.get("status") == "failed" and _has_transcript_recovery(root, cell_id):
+    status = state.get("status")
+    if status not in {"completed", "restored"}:
+        if status == "failed" and _has_transcript_recovery(root, cell_id):
             _validate_source_transcript_recovery_state(root, cell_id)
             return
         raise IncompleteSourceState
 
     failure = _read_object(root / "failure-summary.json")
     summary = _read_object(root / "run-summary.json")
+    if (
+        status == "restored"
+        and failure.get("status") == "failed"
+        and summary.get("status") == "failed"
+    ):
+        if _has_transcript_recovery(root, cell_id):
+            _validate_source_transcript_recovery_state(root, cell_id)
+            return
+        raise IncompleteSourceState
     if failure.get("status") != "completed" or summary.get("status") != "completed":
         raise ValueError("source state is marked completed but its summaries are not")
     ledger = root / "ledger.sqlite3"

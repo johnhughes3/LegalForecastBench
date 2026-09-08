@@ -98,6 +98,7 @@ def _write_state_archive(
     run_id: str,
     cell_id: str,
     status: str = "completed",
+    summary_status: str | None = None,
     transcript: bytes | None = None,
     transcript_name: str | None = None,
     include_receipt: bool = True,
@@ -112,8 +113,8 @@ def _write_state_archive(
     }
     files = [
         ("state.json", state),
-        ("failure-summary.json", {"status": status}),
-        ("run-summary.json", {"status": status}),
+        ("failure-summary.json", {"status": summary_status or status}),
+        ("run-summary.json", {"status": summary_status or status}),
     ]
     if include_receipt:
         files.append(("receipts/receipt.json", {"cell_id": cell_id}))
@@ -363,6 +364,38 @@ def test_failed_source_with_saved_transcript_is_selected_for_recovery(
         b'{"agent_status":"succeeded"}\n'
     )
     assert json.loads((run_root / "state.json").read_text())["status"] == "restored"
+
+
+def test_restored_failed_source_with_saved_transcript_is_selected_for_recovery(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "state"
+    _write_state_archive(
+        root,
+        run_id="222",
+        cell_id="cell",
+        status="restored",
+        summary_status="failed",
+        transcript=b'{"agent_status":"succeeded"}\n',
+        include_receipt=False,
+    )
+
+    _restore._validate_source_completed_state(root, "openai", "cell", "222", 1)
+
+
+def test_restored_source_with_completed_summaries_uses_durable_state(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "state"
+    _write_state_archive(
+        root,
+        run_id="222",
+        cell_id="cell",
+        status="restored",
+        summary_status="completed",
+    )
+
+    _restore._validate_source_completed_state(root, "openai", "cell", "222", 1)
 
 
 def test_failed_source_without_saved_transcript_remains_incomplete(
