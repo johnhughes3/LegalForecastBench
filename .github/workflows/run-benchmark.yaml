@@ -140,7 +140,7 @@ jobs:
           for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
             [[ -n "${value}" && "${value}" != *..* ]] || { echo "unsafe or empty dispatch identity" >&2; exit 1; }
           done
-          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
+          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google|vercel_ai_gateway):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
           [[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]] || { echo "ceiling_microusd must be positive" >&2; exit 1; }
           [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ && "${REPEAT_COUNT}" -le 20 ]] || { echo "repeat_count must be between 1 and 20" >&2; exit 1; }
           [[ "${REPEAT_COUNT}" == "1" ]] || { echo "repeat_count must be exactly 1 until repeated-sampling fan-in is supported" >&2; exit 1; }

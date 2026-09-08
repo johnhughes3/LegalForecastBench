@@ -14,14 +14,24 @@ def _job(name: str, next_name: str | None = None) -> str:
 
 
 def test_gateway_lane_is_partitioned_from_direct_provider_jobs() -> None:
+    prepare = _job("prepare-inputs", "run-openai")
+    assert (
+        "^(openai|anthropic|gemini|google|vercel_ai_gateway):[^:[:space:]]+$"
+        in prepare
+    )
     job = _job("run-gateway")
     assert "name: Vercel AI Gateway resumable forecast cells" in job
     assert "startsWith(inputs.model_key, 'vercel_ai_gateway:')" in job
     assert "needs.prepare-inputs.outputs.gateway_count != '0'" in job
     assert "fromJSON(needs.prepare-inputs.outputs.gateway_matrix)" in job
     assert "Download outcome-blinded inputs" in job
+    assert "Recover saved managed transcript for provider-free replay" in job
+    assert "scripts/recover_managed_transcript.py" in job
     assert "Configure rootless Docker for document tools" in job
     assert "Build isolated document tool image" in job
+    assert job.index("Recover saved managed transcript") < job.index(
+        "Configure rootless Docker"
+    )
 
 
 def test_gateway_credential_is_scoped_to_the_execute_step() -> None:
