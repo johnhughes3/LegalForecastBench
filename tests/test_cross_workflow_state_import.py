@@ -4,6 +4,7 @@ import importlib.util
 import json
 import shutil
 from pathlib import Path
+from typing import BinaryIO
 
 import pytest
 
@@ -13,6 +14,28 @@ _spec = importlib.util.spec_from_file_location("restore_forecast_state", SCRIPT_
 assert _spec is not None and _spec.loader is not None
 _restore = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_restore)
+
+
+def test_artifact_download_streams_binary_cli_output_to_archive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = b"PK\x03\x04\x00\xff\x1b[0m"
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+
+    def run(command: list[str], *, stdout: BinaryIO, check: bool) -> None:
+        assert command == [
+            "gh",
+            "api",
+            "--allow-escape-sequences",
+            "/repos/owner/repo/actions/artifacts/17/zip",
+        ]
+        assert check
+        stdout.write(payload)
+
+    monkeypatch.setattr(_restore.subprocess, "run", run)
+    destination = tmp_path / "state.zip"
+    _restore._download_artifact(17, destination)
+    assert destination.read_bytes() == payload
 
 
 def test_extract_artifacts_accepts_github_paginated_object_response(

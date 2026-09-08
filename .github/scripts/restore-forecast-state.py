@@ -140,16 +140,17 @@ def _validate_source_completed_state(
 
 def _download_artifact(artifact_id: int, archive: Path) -> None:
     try:
-        subprocess.run(
-            [
-                "gh",
-                "api",
-                "--output",
-                str(archive),
-                f"/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts/{artifact_id}/zip",
-            ],
-            check=True,
-        )
+        with archive.open("wb") as output:
+            subprocess.run(
+                [
+                    "gh",
+                    "api",
+                    "--allow-escape-sequences",
+                    f"/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts/{artifact_id}/zip",
+                ],
+                stdout=output,
+                check=True,
+            )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise RuntimeError(
             "prior state download/API failure; refusing a fresh duplicate call"
