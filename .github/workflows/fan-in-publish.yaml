@@ -259,6 +259,7 @@ jobs:
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_REPOSITORY_NAME: ${{ github.repository }}
           GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
           FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
           FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
         run: |
@@ -268,6 +269,7 @@ jobs:
           import json
           import os
           import stat
+          import subprocess
           import urllib.error
           import urllib.request
           import zipfile
@@ -311,22 +313,21 @@ jobs:
           artifact = matches[0]
           if artifact.get("expired") is True:
               raise SystemExit("durable forecast artifact has expired")
-          archive_url = artifact.get("archive_download_url")
-          if not isinstance(archive_url, str) or not archive_url.startswith("http"):
-              raise SystemExit("durable forecast artifact URL is invalid")
-          request = urllib.request.Request(
-              archive_url,
-              headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {token}",
-                  "User-Agent": "legalforecastbench-protected-labels-fan-in",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-          )
+          artifact_id = artifact.get("id")
+          if isinstance(artifact_id, bool) or not isinstance(artifact_id, int) or artifact_id <= 0:
+              raise SystemExit("durable forecast artifact ID is invalid")
           try:
-              with urllib.request.urlopen(request, timeout=120) as response:
-                  archive_bytes = response.read()
-          except (OSError, urllib.error.URLError) as exc:
+              archive_bytes = subprocess.run(
+                  [
+                      "gh",
+                      "api",
+                      "--allow-escape-sequences",
+                      f"/repos/{repository}/actions/artifacts/{artifact_id}/zip",
+                  ],
+                  check=True,
+                  capture_output=True,
+              ).stdout
+          except (OSError, subprocess.CalledProcessError) as exc:
               raise SystemExit("could not download durable forecast artifact") from exc
           root = Path("/tmp/lfb-forecast")
           root.mkdir(parents=True, exist_ok=False)
