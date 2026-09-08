@@ -1265,6 +1265,153 @@ def test_runner_recovers_remote_pretransport_reservation_without_duplicate_trans
         ).fetchone() == (3,)
 
 
+def test_runner_replays_remote_settlement_using_exact_attempt_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A state-only local ordinal cannot select a different remote attempt."""
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    remote_runner = InMemoryDynamoRunner()
+    original_remote_init = DynamoDbProviderSpendAuthority.__init__
+    authorities: list[DynamoDbProviderSpendAuthority] = []
+
+    def use_fixture_remote(
+        authority: DynamoDbProviderSpendAuthority,
+        **kwargs: object,
+    ) -> None:
+        original_remote_init(authority, runner=remote_runner, **kwargs)
+        authorities.append(authority)
+
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "__init__",
+        use_fixture_remote,
+    )
+    resource_identity = hashlib.sha256(remote_runner.table_arn.encode()).hexdigest()
+    config = replace(
+        _config(tmp_path, ceiling_microusd=100_000),
+        unit_id="unit-001",
+        provider_authority_table="authority-table",
+        provider_authority_region="us-east-1",
+        provider_authority_resource_identity_sha256=resource_identity,
+    )
+
+    def crash_before_remote_settlement(
+        authority: DynamoDbProviderSpendAuthority,
+        lease: AttemptLease,
+        **kwargs: object,
+    ) -> None:
+        del authority, lease, kwargs
+        raise SimulatedCrash
+
+    first_transport = FixtureModelTransport()
+    with monkeypatch.context() as crash_patch:
+        crash_patch.setattr(
+            DynamoDbProviderSpendAuthority,
+            "record_response",
+            crash_before_remote_settlement,
+        )
+        crash_patch.setattr(
+            runner_service,
+            "_record_cell_failure",
+            lambda *_args, **_kwargs: None,
+        )
+        with pytest.raises(SimulatedCrash):
+            execute_release_run(
+                config,
+                transport=first_transport,
+                environ=_fixture_environ(),
+            )
+
+    assert first_transport.call_count == 1
+    assert len(authorities) == 1
+    first_remote_attempt = next(
+        remote_runner.items[record_key]
+        for record_key in remote_runner.items
+        if record_key.startswith("ATTEMPT#")
+    )
+    key = ProviderSpendKey(
+        cycle_id=first_remote_attempt["cycle_id"]["S"],
+        provider=first_remote_attempt["provider"]["S"],
+        account=config.account,
+        stage=first_remote_attempt["stage"]["S"],
+        model_key=first_remote_attempt["model_key"]["S"],
+        case_id=first_remote_attempt["case_id"]["S"],
+        ablation=first_remote_attempt["ablation"]["S"],
+        repeat_index=int(first_remote_attempt["repeat_index"]["N"]),
+    )
+    first_lease = authorities[0].adopt_attempt(key, attempt_ordinal=1)
+    authorities[0].record_failure(
+        first_lease,
+        failure_type="TimeoutError",
+        ambiguous=True,
+    )
+    second_lease = authorities[0].authorize_additional_attempt(
+        key,
+        reservation_microusd=first_lease.reservation_microusd,
+        acknowledged_attempt_id=first_lease.attempt_id,
+        acknowledged_failure_type="TimeoutError",
+        acknowledged_failure_events_sha256=remote_runner.items["LEDGER"][
+            "failure_events_sha256"
+        ]["S"],
+        owner_reference="replay-attempt-identity-test",
+    )
+
+    with sqlite3.connect(config.ledger_path) as connection:
+        cell = connection.execute(
+            "SELECT cell_id, response_payload FROM public_runner_cells"
+        ).fetchone()
+        assert cell is not None
+        cell_id, response_payload = cast(tuple[str, bytes], cell)
+        response = cast(dict[str, object], json.loads(response_payload))
+        usage = cast(dict[str, object], response["usage"])
+        authorities[0].record_response(
+            second_lease,
+            input_tokens=int(usage["input_tokens"]),
+            output_tokens=int(usage["output_tokens"]),
+            actual_microusd=30,
+            response_sha256=hashlib.sha256(
+                cast(str, response["output_text"]).encode()
+            ).hexdigest(),
+        )
+        connection.execute("DELETE FROM provider_attempts")
+        connection.execute(
+            """
+            INSERT INTO provider_attempts(
+                attempt_id, logical_call_key, attempt_ordinal,
+                reservation_microusd, status
+            ) VALUES (?, ?, 1, 1, 'reserved')
+            """,
+            (second_lease.attempt_id, second_lease.attempt_id),
+        )
+        connection.execute(
+            "UPDATE public_runner_cells SET provider_attempt_id = ? WHERE cell_id = ?",
+            (second_lease.attempt_id, cell_id),
+        )
+        connection.commit()
+
+    retry = CountingTransport(error=AssertionError("remote replay called transport"))
+    summary = execute_release_run(
+        config,
+        transport=retry,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.executed_cells == 0
+    assert summary.resumed_cells == 1
+    assert retry.calls == 0
+    assert remote_runner.items[f"ATTEMPT#{key.logical_call_key}#0002"]["status"] == {
+        "S": "settled"
+    }
+    receipt = json.loads(next(config.receipts_dir.glob("*.json")).read_bytes())
+    assert receipt["cell_id"] == cell_id
+    assert receipt["unit_id"] == "unit-001"
+    assert receipt["parser_output"]["status"] == "valid"
+
+
 @pytest.mark.parametrize("crash_after", ("marker", "provider"))
 def test_runner_halts_on_remote_transport_started_orphan(
     tmp_path: Path,

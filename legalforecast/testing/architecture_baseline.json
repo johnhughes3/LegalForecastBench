@@ -1336,9 +1336,9 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 602,
+        "largest_symbol_lines": 609,
         "layer": "application",
-        "line_count": 1305,
+        "line_count": 1312,
         "nonblank_line_count": 1209,
         "top_level_definition_count": 24
       },
@@ -2156,7 +2156,7 @@
         "largest_symbol": "test_runner_halts_on_remote_transport_started_orphan",
         "largest_symbol_lines": 104,
         "layer": "test",
-        "line_count": 1838,
+        "line_count": 1985,
         "nonblank_line_count": 1592,
         "top_level_definition_count": 49
       },

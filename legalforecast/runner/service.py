@@ -505,10 +505,17 @@ def execute_release_run(
                         replayable_response = _replayable_response(
                             cell.response_payload
                         )
-                        replayable_attempt = authority.adopt_attempt(
-                            key,
-                            attempt_ordinal=cell.provider_attempt_ordinal,
-                        )
+                        if isinstance(authority, DynamoDbProviderSpendAuthority):
+                            # The state-only local projection assigns every remote
+                            # attempt ordinal 1.  The remote cell is authoritative
+                            # for replay, so resolve its current durable attempt
+                            # and retain the exact local attempt-ID binding below.
+                            replayable_attempt = authority.adopt_attempt(key)
+                        else:
+                            replayable_attempt = authority.adopt_attempt(
+                                key,
+                                attempt_ordinal=cell.provider_attempt_ordinal,
+                            )
                         if replayable_attempt.attempt_id != cell.provider_attempt_id:
                             raise RunBlockedError(
                                 "replayable provider attempt differs from cell binding"
