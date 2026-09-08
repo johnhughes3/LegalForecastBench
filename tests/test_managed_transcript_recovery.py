@@ -19,6 +19,7 @@ from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 from legalforecast.runner.ledger import (
     RunBlockedError,
     RunnerLedger,
+    RunValidationError,
 )
 from legalforecast.runner.managed_execution import run_managed_tool_agent
 from legalforecast.runner.managed_transcript_recovery import (
@@ -294,6 +295,7 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         assert payload["input_tokens"] == 250
         assert payload["output_tokens"] == 30
         assert payload["thoughts_tokens"] == 4
+        assert payload["gateway_response_metadata"] == []
 
         # A repeated operator invocation is idempotent and still provider-free.
         repeated = recover_managed_transcript(
@@ -303,6 +305,70 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             cell_id="cell-1",
         )
         assert repeated.payload_sha256 == recovered.payload_sha256
+
+    # Responses persisted before Gateway metadata was introduced omit the
+    # optional field. Recovery must reproduce the existing bytes and digest
+    # while allowing the current empty metadata projection to compare equal.
+    legacy_payload = dict(payload)
+    legacy_payload.pop("gateway_response_metadata")
+    legacy_payload_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(legacy_payload)
+    legacy_payload_sha256 = hashlib.sha256(legacy_payload_bytes).hexdigest()
+    with RunnerLedger(
+        tmp_path / "legacy-ledger.sqlite3", state_only_provider_attempts=True
+    ) as ledger:
+        _reserve_cell(ledger, entry, prompt)
+        ledger.record_response_payload(
+            "cell-1",
+            provider_attempt_id="attempt-1",
+            response_payload=legacy_payload_bytes,
+            response_payload_sha256=legacy_payload_sha256,
+        )
+        recovered = recover_managed_transcript(
+            ledger,
+            entry=entry,
+            transcript_path=transcript_path,
+            cell_id="cell-1",
+        )
+        assert recovered.payload_sha256 == legacy_payload_sha256
+        record = ledger.read_cell_for_recovery("cell-1")
+        assert record.response_payload == legacy_payload_bytes
+        assert record.response_payload_sha256 == legacy_payload_sha256
+
+    changed_content = dict(legacy_payload)
+    changed_content["raw_output"] = str(changed_content["raw_output"]).replace(
+        "0.25", "0.26"
+    )
+    changed_cost = dict(legacy_payload)
+    changed_cost["estimated_cost_usd"] = 999.0
+    nonempty_metadata = dict(legacy_payload)
+    nonempty_metadata["gateway_response_metadata"] = [{"unexpected": "metadata"}]
+    for label, changed_payload in (
+        ("content", changed_content),
+        ("cost", changed_cost),
+        ("metadata", nonempty_metadata),
+    ):
+        changed_payload_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(changed_payload)
+        changed_payload_sha256 = hashlib.sha256(changed_payload_bytes).hexdigest()
+        with RunnerLedger(
+            tmp_path / f"mismatch-{label}.sqlite3", state_only_provider_attempts=True
+        ) as ledger:
+            _reserve_cell(ledger, entry, prompt)
+            ledger.record_response_payload(
+                "cell-1",
+                provider_attempt_id="attempt-1",
+                response_payload=changed_payload_bytes,
+                response_payload_sha256=changed_payload_sha256,
+            )
+            with pytest.raises(
+                RunValidationError,
+                match="existing durable response differs from transcript recovery",
+            ):
+                recover_managed_transcript(
+                    ledger,
+                    entry=entry,
+                    transcript_path=transcript_path,
+                    cell_id="cell-1",
+                )
 
 
 def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
