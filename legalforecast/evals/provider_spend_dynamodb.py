@@ -753,18 +753,24 @@ class DynamoDbProviderSpendAuthority:
             raise SettlementError("provider token counts cannot be negative")
         if actual_microusd < 0:
             raise SettlementError("provider actual cost cannot be negative")
+        response_digest = _sha256(response_sha256, "response_sha256")
         attempt = self._attempt_for_lease(lease)
         stored_reservation = _number(attempt, "reservation_microusd")
         if actual_microusd > stored_reservation:
             self._poison_authority(
                 lease,
                 reason=_OBSERVED_RESPONSE_POISON_REASON,
+                recovery_evidence=(
+                    input_tokens,
+                    output_tokens,
+                    actual_microusd,
+                    response_digest,
+                ),
             )
             raise SettlementError(
                 "provider actual cost exceeds the frozen conservative reservation; "
                 "authority is poisoned"
             )
-        response_digest = _sha256(response_sha256, "response_sha256")
         delta = actual_microusd - stored_reservation
         transaction: JsonObject = {
             "TransactItems": [
@@ -921,6 +927,40 @@ class DynamoDbProviderSpendAuthority:
                 raise AttemptStateError(
                     "saved provider response recovery requires a reserved attempt"
                 )
+            pending_recovery = tuple(
+                attempt.get(field)
+                for field in (
+                    "recovery_reason_sha256",
+                    "recovery_input_tokens",
+                    "recovery_output_tokens",
+                    "recovery_actual_microusd",
+                    "recovery_response_sha256",
+                )
+            )
+            expected_pending_recovery = (
+                _s(poison_reason),
+                _n(input_tokens),
+                _n(output_tokens),
+                _n(actual_microusd),
+                _s(response_digest),
+            )
+            if any(value is not None for value in pending_recovery):
+                if pending_recovery != expected_pending_recovery:
+                    raise AuthorityIdentityMismatchError(
+                        "saved provider response recovery usage differs from the "
+                        "poisoned attempt"
+                    )
+                pending_recovery_condition = (
+                    "recovery_reason_sha256 = :reason AND "
+                    "recovery_input_tokens = :input AND "
+                    "recovery_output_tokens = :output AND "
+                    "recovery_actual_microusd = :actual AND "
+                    "recovery_response_sha256 = :response"
+                )
+            else:
+                pending_recovery_condition = (
+                    "attribute_not_exists(recovery_reason_sha256)"
+                )
             ledger = self._get_required(_LEDGER_RECORD_KEY)
             self._verify_ledger(ledger)
             try:
@@ -950,6 +990,11 @@ class DynamoDbProviderSpendAuthority:
                                 "SET #status = :settled, input_tokens = :input, "
                                 "output_tokens = :output, actual_microusd = :actual, "
                                 "response_sha256 = :response, "
+                                "recovery_reason_sha256 = :reason, "
+                                "recovery_input_tokens = :input, "
+                                "recovery_output_tokens = :output, "
+                                "recovery_actual_microusd = :actual, "
+                                "recovery_response_sha256 = :response, "
                                 "recovery_reference = :recovery, "
                                 "completed_at_epoch = :now"
                             ),
@@ -958,7 +1003,8 @@ class DynamoDbProviderSpendAuthority:
                                 "AND logical_call_key = :logical AND "
                                 "attempt_ordinal = :ordinal AND "
                                 "reservation_microusd = :reservation AND "
-                                "authority_identity_sha256 = :identity"
+                                "authority_identity_sha256 = :identity AND "
+                                f"{pending_recovery_condition}"
                             ),
                             "ExpressionAttributeNames": {"#status": "status"},
                             "ExpressionAttributeValues": {
@@ -973,6 +1019,7 @@ class DynamoDbProviderSpendAuthority:
                                 ":output": _n(output_tokens),
                                 ":actual": _n(actual_microusd),
                                 ":response": _s(response_digest),
+                                ":reason": _s(poison_reason),
                                 ":recovery": _s(normalized_recovery_reference),
                                 ":now": _n(now),
                             },
@@ -1960,31 +2007,80 @@ class DynamoDbProviderSpendAuthority:
                 "provider spend authority is poisoned by an integrity violation"
             )
 
-    def _poison_authority(self, lease: AttemptLease, *, reason: str) -> None:
+    def _poison_authority(
+        self,
+        lease: AttemptLease,
+        *,
+        reason: str,
+        recovery_evidence: tuple[int, int, int, str] | None = None,
+    ) -> None:
         attempt = self._attempt_for_lease(lease)
         stored_reservation = _number(attempt, "reservation_microusd")
+        reason_sha256 = hashlib.sha256(reason.encode()).hexdigest()
+        if recovery_evidence is None:
+            attempt_transition: JsonObject = {
+                "ConditionCheck": {
+                    "TableName": self.table_name,
+                    "Key": self._key(_attempt_record_key(lease)),
+                    "ConditionExpression": (
+                        "attempt_id = :attempt_id AND "
+                        "authority_identity_sha256 = :identity AND "
+                        "logical_call_key = :logical AND "
+                        "attempt_ordinal = :ordinal AND "
+                        "reservation_microusd = :reservation"
+                    ),
+                    "ExpressionAttributeValues": {
+                        ":attempt_id": _s(lease.attempt_id),
+                        ":identity": _s(self.authority_identity_sha256),
+                        ":logical": _s(lease.logical_call_key),
+                        ":ordinal": _n(lease.attempt_ordinal),
+                        ":reservation": _n(stored_reservation),
+                    },
+                }
+            }
+        else:
+            input_tokens, output_tokens, actual_microusd, response_digest = (
+                recovery_evidence
+            )
+            attempt_transition = {
+                "Update": {
+                    "TableName": self.table_name,
+                    "Key": self._key(_attempt_record_key(lease)),
+                    "UpdateExpression": (
+                        "SET recovery_reason_sha256 = :reason, "
+                        "recovery_input_tokens = :input, "
+                        "recovery_output_tokens = :output, "
+                        "recovery_actual_microusd = :actual, "
+                        "recovery_response_sha256 = :response"
+                    ),
+                    "ConditionExpression": (
+                        "#status = :reserved AND "
+                        "attempt_id = :attempt_id AND "
+                        "authority_identity_sha256 = :identity AND "
+                        "logical_call_key = :logical AND "
+                        "attempt_ordinal = :ordinal AND "
+                        "reservation_microusd = :reservation AND "
+                        "attribute_not_exists(recovery_reason_sha256)"
+                    ),
+                    "ExpressionAttributeNames": {"#status": "status"},
+                    "ExpressionAttributeValues": {
+                        ":reserved": _s("reserved"),
+                        ":reason": _s(reason_sha256),
+                        ":input": _n(input_tokens),
+                        ":output": _n(output_tokens),
+                        ":actual": _n(actual_microusd),
+                        ":response": _s(response_digest),
+                        ":attempt_id": _s(lease.attempt_id),
+                        ":identity": _s(self.authority_identity_sha256),
+                        ":logical": _s(lease.logical_call_key),
+                        ":ordinal": _n(lease.attempt_ordinal),
+                        ":reservation": _n(stored_reservation),
+                    },
+                }
+            }
         transaction: JsonObject = {
             "TransactItems": [
-                {
-                    "ConditionCheck": {
-                        "TableName": self.table_name,
-                        "Key": self._key(_attempt_record_key(lease)),
-                        "ConditionExpression": (
-                            "attempt_id = :attempt_id AND "
-                            "authority_identity_sha256 = :identity AND "
-                            "logical_call_key = :logical AND "
-                            "attempt_ordinal = :ordinal AND "
-                            "reservation_microusd = :reservation"
-                        ),
-                        "ExpressionAttributeValues": {
-                            ":attempt_id": _s(lease.attempt_id),
-                            ":identity": _s(self.authority_identity_sha256),
-                            ":logical": _s(lease.logical_call_key),
-                            ":ordinal": _n(lease.attempt_ordinal),
-                            ":reservation": _n(stored_reservation),
-                        },
-                    }
-                },
+                attempt_transition,
                 {
                     "Update": {
                         "TableName": self.table_name,
@@ -1998,7 +2094,7 @@ class DynamoDbProviderSpendAuthority:
                         ),
                         "ExpressionAttributeValues": {
                             ":one": _n(1),
-                            ":reason": _s(hashlib.sha256(reason.encode()).hexdigest()),
+                            ":reason": _s(reason_sha256),
                             ":identity": _s(self.authority_identity_sha256),
                         },
                     }

@@ -1094,6 +1094,15 @@ def test_owner_cap_amendment_recovers_exact_saved_response_idempotently() -> Non
         amendment_reference="gemini-cap-amendment-1",
     )
     amended = _authority(runner, cap_microusd=2_000_000)
+    with pytest.raises(AuthorityIdentityMismatchError, match="usage differs"):
+        amended.recover_poisoned_response(
+            lease,
+            input_tokens=30,
+            output_tokens=12,
+            actual_microusd=500_002,
+            response_sha256="a" * 64,
+            recovery_reference="saved-response-case-1",
+        )
     amended.recover_poisoned_response(
         lease,
         input_tokens=30,
@@ -1238,14 +1247,14 @@ def test_saved_response_recovery_refuses_wrong_poison_reason_and_cap_exhaustion(
     None
 ):
     runner = InMemoryDynamoRunner()
-    authority = _authority(runner, cap_microusd=500_001)
-    lease = authority.authorize_attempt(_key(), reservation_microusd=500_000)
+    authority = _authority(runner, cap_microusd=500_000)
+    lease = authority.authorize_attempt(_key(), reservation_microusd=400_000)
     with pytest.raises(SettlementError):
         authority.record_response(
             lease,
             input_tokens=1,
             output_tokens=1,
-            actual_microusd=500_001,
+            actual_microusd=600_000,
             response_sha256="c" * 64,
         )
     with pytest.raises(AuthorityIdentityMismatchError, match="cap amendment"):
@@ -1253,23 +1262,23 @@ def test_saved_response_recovery_refuses_wrong_poison_reason_and_cap_exhaustion(
             lease,
             input_tokens=1,
             output_tokens=1,
-            actual_microusd=500_001,
+            actual_microusd=600_000,
             response_sha256="c" * 64,
             recovery_reference="saved-response-exhaustion",
         )
     authority.amend_cap(
-        new_cap_microusd=500_002,
+        new_cap_microusd=550_000,
         owner_reference="owner-approved-cap",
         amendment_reference="cap-amendment-exhaustion",
     )
-    amended = _authority(runner, cap_microusd=500_002)
+    amended = _authority(runner, cap_microusd=550_000)
     runner.items["LEDGER"]["poison_reason_sha256"] = _s("d" * 64)
     with pytest.raises(AuthorityIdentityMismatchError, match="poison"):
         amended.recover_poisoned_response(
             lease,
             input_tokens=1,
             output_tokens=1,
-            actual_microusd=500_001,
+            actual_microusd=600_000,
             response_sha256="c" * 64,
             recovery_reference="saved-response-exhaustion",
         )
@@ -1281,7 +1290,7 @@ def test_saved_response_recovery_refuses_wrong_poison_reason_and_cap_exhaustion(
             lease,
             input_tokens=1,
             output_tokens=1,
-            actual_microusd=500_003,
+            actual_microusd=600_000,
             response_sha256="c" * 64,
             recovery_reference="saved-response-exhaustion",
         )
