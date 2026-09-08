@@ -262,7 +262,10 @@ class DynamoDbProviderSpendAuthority:
             self._verify_ledger(ledger)
             self._raise_if_poisoned(ledger)
             now = self._clock()
-            active_failures = self._active_failure_events(ledger, now=now)
+            active_failures = self._breaker_effective_failure_events(
+                ledger,
+                now=now,
+            )
             if len(active_failures) >= self.policy.failure_threshold:
                 raise CircuitBreakerOpenError(
                     f"provider/account circuit breaker is open for "
@@ -320,6 +323,212 @@ class DynamoDbProviderSpendAuthority:
             )
         raise DynamoDbAuthorityError(
             "provider spend authorization could not converge after concurrent writes"
+        )
+
+    def authorize_additional_attempt(
+        self,
+        key: ProviderSpendKey,
+        *,
+        reservation_microusd: int,
+        acknowledged_attempt_id: str,
+        acknowledged_failure_type: str,
+        acknowledged_failure_events_sha256: str,
+        owner_reference: str | None = None,
+    ) -> AttemptLease:
+        """Reserve one owner-approved replacement for an exact old failure.
+
+        The additional reservation is a narrow recovery operation.  It does
+        not erase the old failure from the shared breaker history: the
+        transaction only records that this exact ambiguous attempt was
+        acknowledged and creates the next pretransport attempt.  The cell's
+        conditional ordinal update makes the approval single-use across
+        concurrent operators.
+        """
+
+        self._verify_key_scope(key)
+        reservation = _positive_int(
+            reservation_microusd,
+            "reservation_microusd",
+        )
+        normalized_owner_reference = (
+            None
+            if owner_reference is None
+            else _identity(owner_reference, "owner_reference")
+        )
+        acknowledged_id = _sha256(
+            acknowledged_attempt_id,
+            "acknowledged_attempt_id",
+        )
+        acknowledged_type = _identity(
+            acknowledged_failure_type,
+            "acknowledged_failure_type",
+        )
+        acknowledged_events_sha256 = _sha256(
+            acknowledged_failure_events_sha256,
+            "acknowledged_failure_events_sha256",
+        )
+        for _ in range(_MAX_TRANSACTION_RETRIES):
+            ledger = self._get_required(_LEDGER_RECORD_KEY)
+            self._verify_ledger(ledger)
+            self._raise_if_poisoned(ledger)
+            cell_key = f"CELL#{key.logical_call_key}"
+            cell = self._get_required(cell_key)
+            current_attempts = _number(cell, "attempt_count")
+            if current_attempts != self.policy.max_billable_attempts:
+                raise AttemptLimitExceededError(
+                    "additional attempt requires exactly one exhausted frozen call"
+                )
+            acknowledged_ordinal = self.policy.max_billable_attempts
+            acknowledged_key = (
+                f"ATTEMPT#{key.logical_call_key}#{acknowledged_ordinal:04d}"
+            )
+            if _text(ledger, "failure_events_sha256") != acknowledged_events_sha256:
+                raise AuthorityIdentityMismatchError(
+                    "additional attempt acknowledgement is stale"
+                )
+            now = self._clock()
+            acknowledged_attempt = self._get_required(acknowledged_key)
+            acknowledged_epoch = self._verify_acknowledged_failure(
+                acknowledged_attempt,
+                key=key,
+                attempt_id=acknowledged_id,
+                failure_type=acknowledged_type,
+                attempt_ordinal=acknowledged_ordinal,
+                ledger=ledger,
+                now=now,
+            )
+            old_reservation = _number(acknowledged_attempt, "reservation_microusd")
+            if reservation > old_reservation:
+                raise ProviderCapExceededError(
+                    "additional-attempt reservation exceeds the old reservation"
+                )
+            acknowledged_event = self._matching_failure_event(
+                ledger,
+                acknowledged_epoch,
+            )
+            effective_failures = self._breaker_effective_failure_events(
+                ledger,
+                now=now,
+                acknowledged_failure_epoch=acknowledged_epoch,
+            )
+            if len(effective_failures) >= self.policy.failure_threshold:
+                raise CircuitBreakerOpenError(
+                    f"provider/account circuit breaker remains open for "
+                    f"{self.provider}/{self.account}"
+                )
+            committed = _number(ledger, "committed_microusd")
+            if committed + reservation > self.cap_microusd:
+                raise ProviderCapExceededError(
+                    f"provider reservation would exceed frozen {self.provider}/"
+                    f"{self.account} cap"
+                )
+            ordinal = current_attempts + 1
+            attempt_id = hashlib.sha256(
+                f"{self.authority_key}\0{key.logical_call_key}\0{ordinal}".encode()
+            ).hexdigest()
+            transaction = self._authorization_transaction(
+                key=key,
+                reservation=reservation,
+                expected_attempts=current_attempts,
+                ordinal=ordinal,
+                attempt_id=attempt_id,
+                now=now,
+                expected_failure_events_sha256=_text(
+                    ledger,
+                    "failure_events_sha256",
+                ),
+            )
+            attempt_put = cast(
+                JsonObject,
+                cast(list[JsonObject], transaction["TransactItems"])[2]["Put"],
+            )
+            attempt_item = cast(JsonObject, attempt_put["Item"])
+            attempt_item.update(
+                {
+                    "acknowledged_attempt_id": _s(acknowledged_id),
+                    "acknowledged_failure_epoch": _n(acknowledged_epoch),
+                }
+            )
+            if normalized_owner_reference is not None:
+                attempt_item["owner_reference"] = _s(normalized_owner_reference)
+            ledger_update = cast(
+                JsonObject,
+                cast(list[JsonObject], transaction["TransactItems"])[0]["Update"],
+            )
+            acknowledged_events = sorted(
+                [
+                    *self._acknowledged_failure_events(ledger),
+                    acknowledged_event,
+                ]
+            )
+            acknowledged_events_json = _canonical_json(acknowledged_events)
+            ledger_values = cast(
+                dict[str, AttributeValue],
+                ledger_update["ExpressionAttributeValues"],
+            )
+            ledger_values[":acknowledged_events"] = _s(acknowledged_events_json)
+            ledger_values[":acknowledged_events_sha"] = _s(
+                hashlib.sha256(acknowledged_events_json.encode()).hexdigest()
+            )
+            stored_acknowledged_sha = ledger.get("acknowledged_failure_events_sha256")
+            if stored_acknowledged_sha is None:
+                ledger_values_condition = (
+                    "attribute_not_exists(acknowledged_failure_events_sha256)"
+                )
+            else:
+                ledger_values[":expected_acknowledged_events_sha"] = (
+                    stored_acknowledged_sha
+                )
+                ledger_values_condition = (
+                    "acknowledged_failure_events_sha256 = "
+                    ":expected_acknowledged_events_sha"
+                )
+            ledger_update["ConditionExpression"] = (
+                f"{ledger_update['ConditionExpression']} AND {ledger_values_condition}"
+            )
+            ledger_update["UpdateExpression"] = (
+                "SET acknowledged_failure_events_json = :acknowledged_events, "
+                "acknowledged_failure_events_sha256 = :acknowledged_events_sha "
+                "ADD committed_microusd :reservation, attempt_count :one, "
+                "reserved_attempt_count :one"
+            )
+            cast(list[JsonObject], transaction["TransactItems"]).insert(
+                0,
+                self._acknowledgement_update(
+                    key=key,
+                    attempt_id=acknowledged_id,
+                    failure_type=acknowledged_type,
+                    attempt_ordinal=acknowledged_ordinal,
+                    now=now,
+                ),
+            )
+            try:
+                self._runner(
+                    "transact-write-items",
+                    _with_client_token(transaction),
+                )
+            except DynamoDbConditionalError:
+                continue
+            except DynamoDbIndeterminateError:
+                adopted = self._adopt_exact_if_present(
+                    key,
+                    attempt_ordinal=ordinal,
+                    attempt_id=attempt_id,
+                    reservation_microusd=reservation,
+                )
+                if adopted is None:
+                    raise
+                return adopted
+            return AttemptLease(
+                attempt_id=attempt_id,
+                authority_identity_sha256=self.authority_identity_sha256,
+                logical_call_key=key.logical_call_key,
+                attempt_ordinal=ordinal,
+                reservation_microusd=reservation,
+            )
+        raise DynamoDbAuthorityError(
+            "additional provider spend authorization could not converge after "
+            "concurrent writes"
         )
 
     def adopt_attempt(
@@ -577,11 +786,30 @@ class DynamoDbProviderSpendAuthority:
             self._verify_ledger(ledger)
             self._raise_if_poisoned(ledger)
             now = self._clock()
+            self._breaker_effective_failure_events(ledger, now=now)
             active_events = self._active_failure_events(ledger, now=now)
             event_time = max(now, active_events[-1] if active_events else now)
             next_events = (*active_events, event_time)[-self.policy.failure_threshold :]
             next_events_json = _canonical_json(list(next_events))
             next_events_sha256 = hashlib.sha256(next_events_json.encode()).hexdigest()
+            next_acknowledged_events = self._acknowledged_events_for_history(
+                ledger,
+                next_events,
+                new_event=event_time,
+            )
+            next_acknowledged_events_json = _canonical_json(
+                list(next_acknowledged_events)
+            )
+            next_acknowledged_events_sha256 = hashlib.sha256(
+                next_acknowledged_events_json.encode()
+            ).hexdigest()
+            current_acknowledged_events = self._acknowledged_failure_events(ledger)
+            current_acknowledged_events_json = _canonical_json(
+                list(current_acknowledged_events)
+            )
+            current_acknowledged_events_sha256 = hashlib.sha256(
+                current_acknowledged_events_json.encode()
+            ).hexdigest()
             try:
                 self._runner(
                     "transact-write-items",
@@ -599,6 +827,15 @@ class DynamoDbProviderSpendAuthority:
                             next_failure_events_json=next_events_json,
                             next_failure_events_sha256=next_events_sha256,
                             next_failure_count=len(next_events),
+                            next_acknowledged_events_json=next_acknowledged_events_json,
+                            next_acknowledged_events_sha256=(
+                                next_acknowledged_events_sha256
+                            ),
+                            expected_acknowledged_events_sha256=(
+                                current_acknowledged_events_sha256
+                                if "acknowledged_failure_events_sha256" in ledger
+                                else None
+                            ),
                         )
                     ),
                 )
@@ -774,7 +1011,7 @@ class DynamoDbProviderSpendAuthority:
         self._verify_ledger(ledger)
         poisoned = _number(ledger, "authority_poisoned") == 1
         now = self._clock()
-        active_failures = len(self._active_failure_events(ledger, now=now))
+        active_failures = len(self._breaker_effective_failure_events(ledger, now=now))
         return SpendControlSnapshot(
             authority_identity_sha256=self.authority_identity_sha256,
             cycle_id=self.cycle_id,
@@ -905,6 +1142,10 @@ class DynamoDbProviderSpendAuthority:
             "failure_events_sha256": _s(
                 hashlib.sha256(empty_events.encode()).hexdigest()
             ),
+            "acknowledged_failure_events_json": _s(empty_events),
+            "acknowledged_failure_events_sha256": _s(
+                hashlib.sha256(empty_events.encode()).hexdigest()
+            ),
             "authority_poisoned": _n(0),
         }
 
@@ -1029,6 +1270,46 @@ class DynamoDbProviderSpendAuthority:
             ]
         }
 
+    def _acknowledgement_update(
+        self,
+        *,
+        key: ProviderSpendKey,
+        attempt_id: str,
+        failure_type: str,
+        attempt_ordinal: int,
+        now: float,
+    ) -> JsonObject:
+        """Atomically mark the one exact old ambiguous attempt acknowledged."""
+
+        return {
+            "Update": {
+                "TableName": self.table_name,
+                "Key": self._key(
+                    f"ATTEMPT#{key.logical_call_key}#{attempt_ordinal:04d}"
+                ),
+                "UpdateExpression": ("SET failure_acknowledged_at_epoch = :now"),
+                "ConditionExpression": (
+                    "#status = :ambiguous AND "
+                    "attempt_id = :attempt_id AND "
+                    "failure_type = :failure_type AND "
+                    "authority_identity_sha256 = :identity AND "
+                    "logical_call_key = :logical AND "
+                    "attempt_ordinal = :ordinal AND "
+                    "attribute_not_exists(failure_acknowledged_at_epoch)"
+                ),
+                "ExpressionAttributeNames": {"#status": "status"},
+                "ExpressionAttributeValues": {
+                    ":now": _n(now),
+                    ":ambiguous": _s("ambiguous"),
+                    ":attempt_id": _s(attempt_id),
+                    ":failure_type": _s(failure_type),
+                    ":identity": _s(self.authority_identity_sha256),
+                    ":logical": _s(key.logical_call_key),
+                    ":ordinal": _n(attempt_ordinal),
+                },
+            }
+        }
+
     def _failure_transaction(
         self,
         *,
@@ -1042,6 +1323,9 @@ class DynamoDbProviderSpendAuthority:
         next_failure_events_json: str,
         next_failure_events_sha256: str,
         next_failure_count: int,
+        next_acknowledged_events_json: str,
+        next_acknowledged_events_sha256: str,
+        expected_acknowledged_events_sha256: str | None,
     ) -> JsonObject:
         ledger_values: dict[str, AttributeValue] = {
             ":identity": _s(self.authority_identity_sha256),
@@ -1050,15 +1334,30 @@ class DynamoDbProviderSpendAuthority:
             ":failure_events": _s(next_failure_events_json),
             ":failure_events_sha": _s(next_failure_events_sha256),
             ":failure_count": _n(next_failure_count),
+            ":acknowledged_events": _s(next_acknowledged_events_json),
+            ":acknowledged_events_sha": _s(next_acknowledged_events_sha256),
             ":one": _n(1),
             ":minus_one": _n(-1),
         }
         update_expression = (
             "SET failure_count = :failure_count, "
             "failure_events_json = :failure_events, "
-            "failure_events_sha256 = :failure_events_sha "
+            "failure_events_sha256 = :failure_events_sha, "
+            "acknowledged_failure_events_json = :acknowledged_events, "
+            "acknowledged_failure_events_sha256 = :acknowledged_events_sha "
             "ADD reserved_attempt_count :minus_one"
         )
+        if expected_acknowledged_events_sha256 is None:
+            acknowledged_condition = (
+                "attribute_not_exists(acknowledged_failure_events_sha256)"
+            )
+        else:
+            ledger_values[":expected_acknowledged_events_sha"] = _s(
+                expected_acknowledged_events_sha256
+            )
+            acknowledged_condition = (
+                "acknowledged_failure_events_sha256 = :expected_acknowledged_events_sha"
+            )
         if ambiguous:
             update_expression += ", ambiguous_attempt_count :one"
         else:
@@ -1105,7 +1404,8 @@ class DynamoDbProviderSpendAuthority:
                         "ConditionExpression": (
                             "authority_identity_sha256 = :identity AND "
                             "authority_poisoned = :zero AND "
-                            "failure_events_sha256 = :expected_failure_events_sha"
+                            "failure_events_sha256 = :expected_failure_events_sha AND "
+                            f"{acknowledged_condition}"
                         ),
                         "ExpressionAttributeValues": ledger_values,
                     }
@@ -1118,6 +1418,14 @@ class DynamoDbProviderSpendAuthority:
         ledger: Mapping[str, AttributeValue],
         *,
         now: float,
+    ) -> tuple[float, ...]:
+        events = self._failure_events(ledger)
+        cutoff = now - self.policy.failure_window_seconds
+        return tuple(value for value in events if value >= cutoff)
+
+    def _failure_events(
+        self,
+        ledger: Mapping[str, AttributeValue],
     ) -> tuple[float, ...]:
         raw_events = _text(ledger, "failure_events_json")
         expected_sha256 = _text(ledger, "failure_events_sha256")
@@ -1152,8 +1460,169 @@ class DynamoDbProviderSpendAuthority:
             raise DynamoDbAuthorityError(
                 "DynamoDB failure-event count differs from its durable payload"
             )
+        return events
+
+    def _acknowledged_failure_events(
+        self,
+        ledger: Mapping[str, AttributeValue],
+    ) -> tuple[float, ...]:
+        raw_attribute = ledger.get("acknowledged_failure_events_json")
+        sha_attribute = ledger.get("acknowledged_failure_events_sha256")
+        if raw_attribute is None and sha_attribute is None:
+            return ()
+        if raw_attribute is None or sha_attribute is None:
+            raise DynamoDbAuthorityError(
+                "DynamoDB acknowledged failure-event fields are incomplete"
+            )
+        try:
+            raw_events = raw_attribute["S"]
+            expected_sha256 = sha_attribute["S"]
+        except KeyError as exc:
+            raise DynamoDbAuthorityError(
+                "DynamoDB acknowledged failure-event fields are not strings"
+            ) from exc
+        if hashlib.sha256(raw_events.encode()).hexdigest() != expected_sha256:
+            raise DynamoDbAuthorityError(
+                "DynamoDB acknowledged failure-event payload differs from its digest"
+            )
+        try:
+            loaded: object = json.loads(raw_events)
+        except json.JSONDecodeError as exc:
+            raise DynamoDbAuthorityError(
+                "DynamoDB acknowledged failure-event payload is invalid JSON"
+            ) from exc
+        if not isinstance(loaded, list):
+            raise DynamoDbAuthorityError(
+                "DynamoDB acknowledged failure-event payload is not a list"
+            )
+        values = cast(list[object], loaded)
+        if any(
+            isinstance(value, bool) or not isinstance(value, (int, float))
+            for value in values
+        ):
+            raise DynamoDbAuthorityError(
+                "DynamoDB acknowledged failure-event payload is not numeric"
+            )
+        events = tuple(float(cast(int | float, value)) for value in values)
+        if any(value < 0 for value in events) or tuple(sorted(events)) != events:
+            raise DynamoDbAuthorityError(
+                "DynamoDB acknowledged failure-event timestamps are not monotonic"
+            )
+        return events
+
+    def _acknowledged_events_for_history(
+        self,
+        ledger: Mapping[str, AttributeValue],
+        history: tuple[float, ...],
+        *,
+        new_event: float,
+    ) -> tuple[float, ...]:
+        """Keep old acknowledgements that remain distinct from a new failure."""
+
+        new_token = _epoch_token(new_event)
+        available = list(history)
+        retained: list[float] = []
+        for acknowledged in self._acknowledged_failure_events(ledger):
+            if _epoch_token(acknowledged) == new_token:
+                continue
+            token = _epoch_token(acknowledged)
+            for index, event in enumerate(available):
+                if _epoch_token(event) == token:
+                    retained.append(event)
+                    del available[index]
+                    break
+        return tuple(sorted(retained))
+
+    def _breaker_effective_failure_events(
+        self,
+        ledger: Mapping[str, AttributeValue],
+        *,
+        now: float,
+        acknowledged_failure_epoch: float | None = None,
+    ) -> tuple[float, ...]:
+        """Return the breaker view, optionally consuming one exact old event."""
+
+        all_events = list(self._failure_events(ledger))
+        acknowledged = list(self._acknowledged_failure_events(ledger))
+        if acknowledged_failure_epoch is not None:
+            acknowledged.append(acknowledged_failure_epoch)
+        for acknowledged_event in acknowledged:
+            acknowledged_token = _epoch_token(acknowledged_event)
+            for index, event in enumerate(all_events):
+                if _epoch_token(event) == acknowledged_token:
+                    del all_events[index]
+                    break
+            else:
+                raise AuthorityIdentityMismatchError(
+                    "acknowledged provider failure event is absent from history"
+                )
         cutoff = now - self.policy.failure_window_seconds
-        return tuple(value for value in events if value >= cutoff)
+        return tuple(value for value in all_events if value >= cutoff)
+
+    def _verify_acknowledged_failure(
+        self,
+        attempt: Mapping[str, AttributeValue],
+        *,
+        key: ProviderSpendKey,
+        attempt_id: str,
+        failure_type: str,
+        attempt_ordinal: int,
+        ledger: Mapping[str, AttributeValue],
+        now: float,
+    ) -> float:
+        """Validate the exact old ambiguous attempt named by the operator."""
+
+        if _text(attempt, "status") != "ambiguous":
+            raise AttemptStateError(
+                "additional attempt acknowledgement requires an ambiguous prior attempt"
+            )
+        expected = (
+            attempt_id,
+            failure_type,
+            self.authority_identity_sha256,
+            key.logical_call_key,
+            attempt_ordinal,
+        )
+        actual = (
+            _text(attempt, "attempt_id"),
+            _text(attempt, "failure_type"),
+            _text(attempt, "authority_identity_sha256"),
+            _text(attempt, "logical_call_key"),
+            _number(attempt, "attempt_ordinal"),
+        )
+        if actual != expected:
+            raise AuthorityIdentityMismatchError(
+                "additional attempt acknowledgement names a different attempt"
+            )
+        failure_epoch = _float(attempt, "completed_at_epoch")
+        if not any(
+            _epoch_token(event) == _epoch_token(failure_epoch)
+            for event in self._active_failure_events(ledger, now=now)
+        ):
+            raise AuthorityIdentityMismatchError(
+                "acknowledged provider failure event is absent from the active window"
+            )
+        self._breaker_effective_failure_events(
+            ledger,
+            now=now,
+            acknowledged_failure_epoch=failure_epoch,
+        )
+        return failure_epoch
+
+    def _matching_failure_event(
+        self,
+        ledger: Mapping[str, AttributeValue],
+        failure_epoch: float,
+    ) -> float:
+        """Return the raw event value matching a stored attempt timestamp."""
+
+        token = _epoch_token(failure_epoch)
+        for event in self._failure_events(ledger):
+            if _epoch_token(event) == token:
+                return event
+        raise AuthorityIdentityMismatchError(
+            "acknowledged provider failure event is absent from history"
+        )
 
     def _attempt_for_lease(self, lease: AttemptLease) -> AttributeMap:
         if lease.authority_identity_sha256 != self.authority_identity_sha256:
@@ -1439,3 +1908,18 @@ def _number(item: Mapping[str, AttributeValue], field_name: str) -> int:
         raise DynamoDbAuthorityError(
             f"DynamoDB authority record lacks integer {field_name}"
         ) from exc
+
+
+def _float(item: Mapping[str, AttributeValue], field_name: str) -> float:
+    try:
+        return float(item[field_name]["N"])
+    except (KeyError, ValueError) as exc:
+        raise DynamoDbAuthorityError(
+            f"DynamoDB authority record lacks numeric {field_name}"
+        ) from exc
+
+
+def _epoch_token(value: float) -> str:
+    """Use DynamoDB's six-decimal numeric representation for epoch matching."""
+
+    return _n(value)["N"]

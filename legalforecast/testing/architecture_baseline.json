@@ -375,9 +375,9 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "DynamoDbProviderSpendAuthority",
-        "largest_symbol_lines": 1231,
+        "largest_symbol_lines": 1700,
         "layer": "application",
-        "line_count": 1441,
+        "line_count": 1925,
         "nonblank_line_count": 1358,
         "top_level_definition_count": 18
       },
@@ -2138,7 +2138,7 @@
         "largest_symbol": "InMemoryDynamoRunner",
         "largest_symbol_lines": 153,
         "layer": "test",
-        "line_count": 1002,
+        "line_count": 1221,
         "nonblank_line_count": 859,
         "top_level_definition_count": 35
       },
@@ -2155,7 +2155,7 @@
         "largest_symbol": "test_runner_halts_on_remote_transport_started_orphan",
         "largest_symbol_lines": 104,
         "layer": "test",
-        "line_count": 1742,
+        "line_count": 1845,
         "nonblank_line_count": 1504,
         "top_level_definition_count": 48
       },
