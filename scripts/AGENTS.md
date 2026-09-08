@@ -43,3 +43,12 @@ from a checkout but do not belong in the installed `legalforecast` CLI.
   export LFB_RESULTS_BUCKET=<from-private-vault>
   uv run scripts/validate_local_assume_access.py
   ```
+
+- `recover_managed_transcript.py`: validates one provider-recorded successful
+  managed SDK transcript against the frozen ledger cell and model registry, then
+  restores its response payload for the normal provider-free replay path. It
+  never opens provider transport.
+
+  ```bash
+  uv run scripts/recover_managed_transcript.py --help
+  ```

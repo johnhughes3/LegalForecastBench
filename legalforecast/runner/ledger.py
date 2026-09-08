@@ -20,6 +20,8 @@ from legalforecast.evals.provider_spend_control import (
     RETRYABLE_HTTP_429_FAILURE_TYPE,
 )
 
+_REPLAY_PAYLOAD_PRESERVING_FAILURE_TYPES = frozenset({"SettlementError"})
+
 
 def _encode_required_unit_ids(required_unit_ids: tuple[str, ...]) -> str:
     """Encode the full case-call unit set in canonical order."""
@@ -339,8 +341,13 @@ class RunnerLedger:
                 == RETRYABLE_HTTP_429_FAILURE_TYPE
             )
         replayable_response = (
-            record.status == "reserved"
-            and str(row["provider_attempt_status"]) in {"reserved", "settled"}
+            record.status in {"reserved", "ambiguous"}
+            and str(row["provider_attempt_status"])
+            in {
+                "reserved",
+                "settled",
+                "ambiguous",
+            }
             and record.provider_attempt_ordinal is not None
             and record.request_body_sha256 is not None
             and record.response_payload is not None
@@ -369,6 +376,31 @@ class RunnerLedger:
                 f"cell {cell_id} has {record.status} provider state; "
                 "another call is forbidden"
             )
+        return record
+
+    def read_cell_for_recovery(self, cell_id: str) -> CellRecord:
+        """Read one cell and validate any durable response digest."""
+
+        row = self._connection.execute(
+            """
+            SELECT cells.*, attempts.attempt_ordinal AS provider_attempt_ordinal,
+                attempts.status AS provider_attempt_status
+            FROM public_runner_cells AS cells
+            LEFT JOIN provider_attempts AS attempts
+              ON attempts.attempt_id = cells.provider_attempt_id
+            WHERE cells.cell_id = ?
+            """,
+            (cell_id,),
+        ).fetchone()
+        if row is None:
+            raise RunValidationError(f"ledger has no cell {cell_id}")
+        record = self._cell_record(row)
+        if record.response_payload is not None:
+            if record.response_payload_sha256 is None or not hmac.compare_digest(
+                hashlib.sha256(record.response_payload).hexdigest(),
+                record.response_payload_sha256,
+            ):
+                raise RunValidationError("durable provider response digest differs")
         return record
 
     def record_request_body(
@@ -438,6 +470,96 @@ class RunnerLedger:
             )
             if cursor.rowcount != 1:
                 raise RunBlockedError("provider response has no committed request")
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
+    def restore_ambiguous_response_payload(
+        self,
+        cell_id: str,
+        *,
+        provider_attempt_id: str,
+        response_payload: bytes,
+        response_payload_sha256: str,
+    ) -> None:
+        """Restore a validated response into an ambiguous provider cell."""
+
+        actual_sha256 = hashlib.sha256(response_payload).hexdigest()
+        if not hmac.compare_digest(actual_sha256, response_payload_sha256):
+            raise RunValidationError("restored provider response digest differs")
+        self._connection.execute("BEGIN IMMEDIATE")
+        already_restored = False
+        try:
+            row = self._connection.execute(
+                """
+                SELECT cells.*, attempts.attempt_ordinal AS provider_attempt_ordinal,
+                    attempts.status AS provider_attempt_status
+                FROM public_runner_cells AS cells
+                LEFT JOIN provider_attempts AS attempts
+                  ON attempts.attempt_id = cells.provider_attempt_id
+                WHERE cells.cell_id = ?
+                """,
+                (cell_id,),
+            ).fetchone()
+            if row is None:
+                raise RunValidationError(f"ledger has no cell {cell_id}")
+            record = self._cell_record(row)
+            if record.provider_attempt_id != provider_attempt_id:
+                raise RunBlockedError(
+                    "restored response provider attempt differs from cell binding"
+                )
+            if record.receipt_sha256 is not None or record.receipt_payload is not None:
+                raise RunBlockedError("cannot restore a cell with a durable receipt")
+            if record.response_payload is not None:
+                if (
+                    record.response_payload_sha256 == response_payload_sha256
+                    and hmac.compare_digest(record.response_payload, response_payload)
+                ):
+                    already_restored = True
+                else:
+                    raise RunBlockedError("cell already contains a different response")
+            if already_restored:
+                self._connection.commit()
+                return
+            if record.status != "ambiguous":
+                raise RunBlockedError(
+                    f"cell {cell_id} has {record.status} state; recovery requires "
+                    "an ambiguous cell"
+                )
+            if record.request_body_sha256 is None:
+                raise RunBlockedError("ambiguous cell lacks its request commitment")
+            if record.provider_attempt_status != "ambiguous":
+                raise RunBlockedError(
+                    "ambiguous cell lacks its exact ambiguous provider attempt"
+                )
+            cursor = self._connection.execute(
+                """
+                UPDATE public_runner_cells
+                SET status = 'reserved', response_payload = ?,
+                    response_payload_sha256 = ?, failure_type = NULL
+                WHERE cell_id = ? AND provider_attempt_id = ?
+                  AND status = 'ambiguous' AND response_payload IS NULL
+                """,
+                (
+                    response_payload,
+                    response_payload_sha256,
+                    cell_id,
+                    provider_attempt_id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise RunBlockedError("ambiguous cell changed during recovery")
+            cursor = self._connection.execute(
+                """
+                UPDATE provider_attempts
+                SET status = 'reserved', failure_type = NULL
+                WHERE attempt_id = ? AND status = 'ambiguous'
+                """,
+                (provider_attempt_id,),
+            )
+            if cursor.rowcount != 1:
+                raise RunBlockedError("provider attempt changed during recovery")
         except BaseException:
             self._connection.rollback()
             raise
@@ -615,7 +737,7 @@ class RunnerLedger:
                 UPDATE public_runner_cells
                 SET status = 'completed', request_body_sha256 = ?,
                     receipt_sha256 = ?, receipt_payload = ?, failure_type = NULL
-                WHERE cell_id = ? AND status = 'reserved'
+                WHERE cell_id = ? AND status IN ('reserved', 'ambiguous')
                   AND response_payload IS NOT NULL
                 """,
                 (
@@ -682,16 +804,30 @@ class RunnerLedger:
         failure_type: str,
     ) -> None:
         self._connection.execute("BEGIN IMMEDIATE")
+        preserve_response = int(
+            status == "ambiguous"
+            and failure_type in _REPLAY_PAYLOAD_PRESERVING_FAILURE_TYPES
+        )
         try:
             cursor = self._connection.execute(
                 """
                 UPDATE public_runner_cells
-                SET status = ?, failure_type = ?, response_payload = NULL,
-                    response_payload_sha256 = NULL
+                SET status = ?, failure_type = ?,
+                    response_payload = CASE WHEN ?
+                        THEN response_payload ELSE NULL END,
+                    response_payload_sha256 = CASE WHEN ?
+                        THEN response_payload_sha256 ELSE NULL END
                 WHERE cell_id = ? AND provider_attempt_id = ?
                     AND status = 'reserved'
                 """,
-                (status, failure_type, cell_id, provider_attempt_id),
+                (
+                    status,
+                    failure_type,
+                    preserve_response,
+                    preserve_response,
+                    cell_id,
+                    provider_attempt_id,
+                ),
             )
             if cursor.rowcount != 1:
                 raise RunBlockedError("cell failure state cannot be changed")

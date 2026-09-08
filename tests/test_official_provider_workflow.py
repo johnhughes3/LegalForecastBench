@@ -95,6 +95,8 @@ def test_provider_cells_use_durable_resume_state_and_exact_source_checks() -> No
         assert "git fetch --no-tags --depth=1 origin main" not in block
         assert "git merge-base --is-ancestor HEAD origin/main" in block
         assert "Restore prior completed cell state" in block
+        assert "Recover saved managed transcript for provider-free replay" in block
+        assert "scripts/recover_managed_transcript.py" in block
         assert "Persist" in block
         assert "if: ${{ always() }}" in block
         assert "ledger.sqlite3" in block

@@ -100,6 +100,7 @@ def _write_state_archive(
     status: str = "completed",
     transcript: bytes | None = None,
     transcript_name: str | None = None,
+    include_receipt: bool = True,
 ) -> Path:
     (root / "receipts").mkdir(parents=True)
     state = {
@@ -109,12 +110,14 @@ def _write_state_archive(
         "run_attempt": 1,
         "status": status,
     }
-    for name, value in (
+    files = [
         ("state.json", state),
         ("failure-summary.json", {"status": status}),
         ("run-summary.json", {"status": status}),
-        ("receipts/receipt.json", {"cell_id": cell_id}),
-    ):
+    ]
+    if include_receipt:
+        files.append(("receipts/receipt.json", {"cell_id": cell_id}))
+    for name, value in files:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(value))
@@ -292,6 +295,105 @@ def test_source_failure_skips_to_next_explicit_source(
     assert downloaded == [31, 47]
     assert restored["restored_from_run_id"] == "222"
     assert restored["restored_from_attempt"] == 1
+
+
+def test_failed_source_with_saved_transcript_is_selected_for_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cell_id = "cell"
+    source_archive = _write_state_archive(
+        tmp_path / "source",
+        run_id="222",
+        cell_id=cell_id,
+        status="failed",
+        transcript=b'{"agent_status":"succeeded"}\n',
+        include_receipt=False,
+    )
+    current_metadata = tmp_path / "current-artifacts.json"
+    current_metadata.write_text(json.dumps([{"total_count": 0, "artifacts": []}]))
+
+    def fake_api(endpoint: str, *, paginate: bool = False) -> object:
+        del paginate
+        if endpoint.endswith("/runs/222/attempts/1"):
+            return {
+                "id": 222,
+                "run_attempt": 1,
+                "path": ".github/workflows/run-benchmark.yaml",
+                "event": "workflow_dispatch",
+                "head_branch": "main",
+                "status": "completed",
+                "conclusion": "failure",
+            }
+        if endpoint.endswith("/runs/222/artifacts?per_page=100"):
+            return [
+                {
+                    "id": 47,
+                    "name": "locked-run-state-openai-cell-attempt-1",
+                    "created_at": "2026-09-08T00:00:00Z",
+                }
+            ]
+        raise AssertionError(f"unexpected metadata endpoint: {endpoint}")
+
+    def fake_download(artifact_id: int, archive: Path) -> None:
+        assert artifact_id == 47
+        shutil.copyfile(source_archive, archive)
+
+    monkeypatch.setattr(_restore, "_api_json", fake_api)
+    monkeypatch.setattr(_restore, "_download_artifact", fake_download)
+    run_root = tmp_path / "run"
+    for name, value in {
+        "PROVIDER": "openai",
+        "CELL_ID": cell_id,
+        "CELL_ID_SLUG": cell_id,
+        "GITHUB_RUN_ATTEMPT": "1",
+        "GITHUB_RUN_ID": "333",
+        "GITHUB_REPOSITORY": "owner/repo",
+        "RUNNER_TEMP": str(tmp_path / "runner"),
+        "METADATA_PATH": str(current_metadata),
+        "RESUME_SOURCES": json.dumps([{"run_id": "222", "run_attempt": 1}]),
+        "LFB_RUN_ROOT": str(run_root),
+    }.items():
+        monkeypatch.setenv(name, value)
+    (tmp_path / "runner").mkdir()
+    run_root.mkdir()
+
+    _restore.restore()
+
+    assert (run_root / "transcripts" / f"{cell_id}.json").read_bytes() == (
+        b'{"agent_status":"succeeded"}\n'
+    )
+    assert json.loads((run_root / "state.json").read_text())["status"] == "restored"
+
+
+def test_failed_source_without_saved_transcript_remains_incomplete(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "state"
+    _write_state_archive(
+        root,
+        run_id="222",
+        cell_id="cell",
+        status="failed",
+        include_receipt=False,
+    )
+    with pytest.raises(_restore.IncompleteSourceState):
+        _restore._validate_source_completed_state(root, "openai", "cell", "222", 1)
+
+
+def test_failed_source_with_partial_transcript_remains_incomplete(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "state"
+    _write_state_archive(
+        root,
+        run_id="222",
+        cell_id="cell",
+        status="failed",
+        transcript=b'{"agent_status":"failed","messages":[]}',
+        include_receipt=False,
+    )
+    with pytest.raises(_restore.IncompleteSourceState):
+        _restore._validate_source_completed_state(root, "openai", "cell", "222", 1)
 
 
 def test_resume_copies_optional_transcript_bytes_without_parsing_them(

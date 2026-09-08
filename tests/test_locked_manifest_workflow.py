@@ -366,6 +366,8 @@ def test_restore_is_attempt_qualified_and_fail_closed() -> None:
         "attempt-${{ github.run_attempt }}" in WORKFLOW
     )
     assert "Restore prior completed cell state" in WORKFLOW
+    assert "Recover saved managed transcript for provider-free replay" in WORKFLOW
+    assert "scripts/recover_managed_transcript.py" in WORKFLOW
     assert (
         "all prior state artifacts were corrupt; refusing a fresh duplicate call"
         in RESTORE_HELPER.read_text(encoding="utf-8")
