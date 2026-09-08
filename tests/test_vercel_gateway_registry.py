@@ -10,9 +10,17 @@ from legalforecast.reporting.result_class import (
     classify_registry_entry,
     require_lane_result_classes,
 )
+from legalforecast.runner.gateway import (
+    gateway_model_is_allowlisted,
+    gateway_request_extra_body,
+    gateway_route_provider,
+)
 
 REGISTRY_DIR = Path(__file__).resolve().parents[1] / "model_registries"
 GATEWAY_REGISTRY = REGISTRY_DIR / "cycle-1-official-gateway-held-models-2026-09-08.json"
+GROK_GATEWAY_REGISTRY = (
+    REGISTRY_DIR / "cycle-1-supplementary-grok-4.6-gateway-2026-09-08.json"
+)
 CONTRIBUTOR_REGISTRY = (
     REGISTRY_DIR / "cycle-1-official-muse-spark-1.3-contributor-2026-09-08.json"
 )
@@ -61,6 +69,52 @@ def test_gateway_registry_freezes_current_routes_prices_and_tool_policy() -> Non
         assert "vercel.com/ai-gateway/models/" in entry.pricing_source
         assert "2026-09-08" in entry.pricing_source
         assert entry.known_cutoff_publicity_caveats
+
+
+def test_grok_gateway_registry_is_additive_and_freezes_current_route() -> None:
+    """Grok uses the shared Gateway document-tool path under a new registry."""
+
+    registry = load_model_registry(GROK_GATEWAY_REGISTRY)
+    assert [entry.registry_key for entry in registry.entries] == [
+        "vercel_ai_gateway:spacexai/grok-4.6"
+    ]
+    entry = registry.entries[0]
+    assert (
+        classify_registry_entry(entry, corpus_anchor=date(2026, 6, 30))
+        is ResultClass.POST_ANCHOR
+    )
+    require_lane_result_classes(
+        list(registry.entries), corpus_anchor=date(2026, 6, 30), supplementary=True
+    )
+    assert entry.provider == "vercel_ai_gateway"
+    assert entry.model_id == "spacexai/grok-4.6"
+    assert entry.model_version_or_snapshot == "spacexai/grok-4.6"
+    assert (entry.input_token_price, entry.output_token_price) == (2.0, 6.0)
+    assert entry.context_limit == 500_000
+    assert entry.max_output_tokens == 128_000
+    assert entry.reasoning_effort is not None
+    assert entry.reasoning_effort.value == "high"
+    assert entry.tool_policy.value == "controlled_docket_tool_only"
+    assert entry.network_disabled is True
+    assert entry.search_disabled is True
+    assert entry.long_context_surcharge is not None
+    assert entry.long_context_surcharge.threshold_input_tokens == 200_000
+    assert entry.long_context_surcharge.input_price_multiplier == 2.0
+    assert entry.long_context_surcharge.output_price_multiplier == 2.0
+    assert "vercel.com/ai-gateway/models/grok-4.6" in entry.pricing_source
+    assert "2026-09-08" in entry.pricing_source
+    assert entry.release_timestamp is not None
+    assert entry.release_timestamp.date().isoformat() == "2026-08-12"
+    assert entry.release_timestamp_source is not None
+    assert "2026-09-08" in entry.release_timestamp_source
+    assert entry.provider_training_cutoff_status.value == "unknown"
+    assert entry.provider_training_cutoff is None
+    assert "post-anchor" in " ".join(entry.known_cutoff_publicity_caveats)
+    assert gateway_model_is_allowlisted(entry.model_id)
+    assert gateway_route_provider(entry.model_id) == "xai"
+    assert gateway_request_extra_body(entry.model_id) == {
+        "providerOptions": {"gateway": {"only": ["xai"]}}
+    }
 
 
 def test_owner_approved_contributor_has_a_dedicated_executable_registry() -> None:
