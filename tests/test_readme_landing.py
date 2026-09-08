@@ -57,13 +57,13 @@ def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
 
     assert len(first_screen.split()) <= 250
     assert wrapped_lines <= 42
-    assert PREPUBLICATION_MARKER in first_screen
-    assert UNPUBLISHED_STATUS in first_screen
+    assert PREPUBLICATION_MARKER not in first_screen
+    assert UNPUBLISHED_STATUS not in first_screen
     assert "does not prove zero contamination" in first_screen
-    assert "Official LegalForecast-MTD" in first_screen
+    assert "91-case Cycle 1 benchmark" in first_screen
     assert "Community Harness Comparisons" in first_screen
     assert "non-official" in first_screen
-    assert "within 24 hours" in first_screen
+    assert "[Results and run artifacts](#official-benchmark-results)" in first_screen
 
     for call_to_action in (
         "[Read the methods](docs/METHODS.md)",
@@ -91,7 +91,7 @@ def test_readme_exposes_governed_result_anchors_without_tier_upgrade() -> None:
         assert f"**{label}**" in readme
         assert f"**{label}**" in governance
 
-    assert "No official result is claimed by this README revision" in readme
+    assert "No official result is claimed by this README revision" not in readme
     assert NON_AFFILIATION_TEXT in readme
     assert NON_AFFILIATION_TEXT in governance
 
@@ -147,6 +147,8 @@ def test_published_result_fixture_rejects_a_stale_prepublication_readme(
     )
     surface = surface_data
 
+    # Keep the stale-page fixture independent of the current published status.
+    readme = f"{PREPUBLICATION_MARKER}\n{UNPUBLISHED_STATUS}\n**{stale_surface_claim}**"
     with pytest.raises(AssertionError):
         _assert_published_surface(readme, surface, tier, stale_surface_claim)
 
