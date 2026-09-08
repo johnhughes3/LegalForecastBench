@@ -337,15 +337,15 @@
         "fan_in": 1,
         "fan_out": 1,
         "flags": [
-          "oversized"
+          "monolith"
         ],
         "lane_owner": "evals",
         "largest_symbol": "DynamoDbProviderSpendAuthority",
-        "largest_symbol_lines": 1700,
+        "largest_symbol_lines": 2134,
         "layer": "application",
-        "line_count": 1925,
-        "nonblank_line_count": 1358,
-        "top_level_definition_count": 18
+        "line_count": 2361,
+        "nonblank_line_count": 2179,
+        "top_level_definition_count": 20
       },
       "legalforecast/evals/response_verification.py": {
         "cycle_id": "",
@@ -2139,9 +2139,9 @@
         "largest_symbol": "InMemoryDynamoRunner",
         "largest_symbol_lines": 153,
         "layer": "test",
-        "line_count": 1288,
-        "nonblank_line_count": 859,
-        "top_level_definition_count": 35
+        "line_count": 1588,
+        "nonblank_line_count": 1327,
+        "top_level_definition_count": 45
       },
       "tests/test_public_runner.py": {
         "cycle_id": "",

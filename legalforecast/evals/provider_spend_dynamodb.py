@@ -27,6 +27,8 @@ from legalforecast.evals.provider_spend_control import (
 DYNAMODB_AUTHORITY_SCHEMA_VERSION = "legalforecast.provider_spend_dynamodb.v2"
 _LEDGER_RECORD_KEY = "LEDGER"
 _MAX_TRANSACTION_RETRIES = 8
+_OBSERVED_RESPONSE_POISON_REASON = "observed provider cost exceeds frozen reservation"
+_RECONCILED_COST_POISON_REASON = "reconciled provider cost exceeds frozen reservation"
 
 JsonObject = dict[str, object]
 AttributeValue = dict[str, str]
@@ -649,6 +651,94 @@ class DynamoDbProviderSpendAuthority:
         }
         self._runner("transact-write-items", _with_client_token(transaction))
 
+    def amend_cap(
+        self,
+        *,
+        new_cap_microusd: int,
+        owner_reference: str,
+        amendment_reference: str,
+    ) -> None:
+        """Raise this authority's cap once while preserving its ledger.
+
+        The caller must construct this object with the currently persisted cap.
+        The update is deliberately allowed while the authority is poisoned so
+        an owner can fund an exact saved-response recovery; it never clears the
+        poison bit or changes spend and attempt counters.  Subsequent authority
+        objects may be constructed with the original run ceiling: they adopt
+        this referenced durable amendment and expose the amended effective cap.
+        """
+
+        new_cap = _positive_int(new_cap_microusd, "new_cap_microusd")
+        if new_cap <= self.cap_microusd:
+            raise ValueError("new_cap_microusd must exceed the persisted cap")
+        normalized_owner_reference = _identity(owner_reference, "owner_reference")
+        normalized_amendment_reference = _identity(
+            amendment_reference,
+            "amendment_reference",
+        )
+        ledger = self._get_required(_LEDGER_RECORD_KEY)
+        self._verify_ledger(ledger)
+        transaction: JsonObject = {
+            "TransactItems": [
+                {
+                    "Update": {
+                        "TableName": self.table_name,
+                        "Key": self._key(_LEDGER_RECORD_KEY),
+                        "UpdateExpression": (
+                            "SET cap_microusd = :new_cap, "
+                            "cap_amendment_reference = :amendment, "
+                            "cap_amendment_owner_reference = :owner"
+                        ),
+                        "ConditionExpression": (
+                            "schema_version = :schema AND "
+                            "authority_identity_sha256 = :identity AND "
+                            "cycle_id = :cycle AND provider = :provider AND "
+                            "account_sha256 = :account AND "
+                            "reservation_ledger_sha256 = :ledger AND "
+                            "cap_microusd = :old_cap AND "
+                            "max_billable_attempts = :attempts AND "
+                            "failure_threshold = :threshold AND "
+                            "failure_window_seconds = :window AND "
+                            "attribute_not_exists(cap_amendment_reference) AND "
+                            "attribute_not_exists(cap_amendment_owner_reference)"
+                        ),
+                        "ExpressionAttributeValues": {
+                            ":new_cap": _n(new_cap),
+                            ":amendment": _s(normalized_amendment_reference),
+                            ":owner": _s(normalized_owner_reference),
+                            ":schema": _s(DYNAMODB_AUTHORITY_SCHEMA_VERSION),
+                            ":identity": _s(self.authority_identity_sha256),
+                            ":cycle": _s(self.cycle_id),
+                            ":provider": _s(self.provider),
+                            ":account": _s(self.account_sha256),
+                            ":ledger": _s(self.policy.reservation_ledger_sha256),
+                            ":old_cap": _n(self.cap_microusd),
+                            ":attempts": _n(self.policy.max_billable_attempts),
+                            ":threshold": _n(self.policy.failure_threshold),
+                            ":window": _n(self.policy.failure_window_seconds),
+                        },
+                    }
+                }
+            ]
+        }
+        try:
+            self._runner("transact-write-items", _with_client_token(transaction))
+        except DynamoDbConditionalError:
+            raise AuthorityIdentityMismatchError(
+                "DynamoDB authority cap amendment is stale or already consumed"
+            ) from None
+        except DynamoDbIndeterminateError:
+            observed = self._get_required(_LEDGER_RECORD_KEY)
+            if (
+                _number(observed, "cap_microusd") == new_cap
+                and observed.get("cap_amendment_reference")
+                == _s(normalized_amendment_reference)
+                and observed.get("cap_amendment_owner_reference")
+                == _s(normalized_owner_reference)
+            ):
+                return
+            raise
+
     def record_response(
         self,
         lease: AttemptLease,
@@ -664,104 +754,376 @@ class DynamoDbProviderSpendAuthority:
             raise SettlementError("provider token counts cannot be negative")
         if actual_microusd < 0:
             raise SettlementError("provider actual cost cannot be negative")
-        attempt = self._attempt_for_lease(lease)
-        stored_reservation = _number(attempt, "reservation_microusd")
-        if actual_microusd > stored_reservation:
-            self._poison_authority(
-                lease,
-                reason="observed provider cost exceeds frozen reservation",
-            )
-            raise SettlementError(
-                "provider actual cost exceeds the frozen conservative reservation; "
-                "authority is poisoned"
-            )
         response_digest = _sha256(response_sha256, "response_sha256")
-        delta = actual_microusd - stored_reservation
-        transaction: JsonObject = {
-            "TransactItems": [
-                {
-                    "Update": {
-                        "TableName": self.table_name,
-                        "Key": self._key(_attempt_record_key(lease)),
-                        "UpdateExpression": (
-                            "SET #status = :settled, input_tokens = :input, "
-                            "output_tokens = :output, actual_microusd = :actual, "
-                            "response_sha256 = :response, completed_at_epoch = :now"
-                        ),
-                        "ConditionExpression": (
-                            "#status = :reserved AND attempt_id = :attempt_id AND "
-                            "logical_call_key = :logical AND "
-                            "attempt_ordinal = :ordinal AND "
-                            "reservation_microusd = :reservation AND "
-                            "authority_identity_sha256 = :identity"
-                        ),
-                        "ExpressionAttributeNames": {"#status": "status"},
-                        "ExpressionAttributeValues": {
-                            ":settled": _s("settled"),
-                            ":reserved": _s("reserved"),
-                            ":attempt_id": _s(lease.attempt_id),
-                            ":logical": _s(lease.logical_call_key),
-                            ":ordinal": _n(lease.attempt_ordinal),
-                            ":reservation": _n(stored_reservation),
-                            ":identity": _s(self.authority_identity_sha256),
-                            ":input": _n(input_tokens),
-                            ":output": _n(output_tokens),
-                            ":actual": _n(actual_microusd),
-                            ":response": _s(response_digest),
-                            ":now": _n(self._clock()),
-                        },
-                    }
-                },
-                {
-                    "Update": {
-                        "TableName": self.table_name,
-                        "Key": self._key(_LEDGER_RECORD_KEY),
-                        "UpdateExpression": (
-                            "ADD committed_microusd :delta, "
-                            "reserved_attempt_count :minus_one, "
-                            "settled_attempt_count :one"
-                        ),
-                        "ConditionExpression": (
-                            "authority_identity_sha256 = :identity AND "
-                            "authority_poisoned = :zero AND "
-                            "committed_microusd >= :reservation"
-                        ),
-                        "ExpressionAttributeValues": {
-                            ":delta": _n(delta),
-                            ":minus_one": _n(-1),
-                            ":one": _n(1),
-                            ":identity": _s(self.authority_identity_sha256),
-                            ":zero": _n(0),
-                            ":reservation": _n(stored_reservation),
-                        },
-                    }
-                },
-            ]
-        }
-        try:
-            self._runner("transact-write-items", _with_client_token(transaction))
-        except (DynamoDbConditionalError, DynamoDbIndeterminateError) as exc:
-            attempt = self._get_required(_attempt_record_key(lease))
-            expected = (
-                "settled",
-                input_tokens,
-                output_tokens,
-                actual_microusd,
-                response_digest,
-            )
-            actual = (
-                _text(attempt, "status"),
-                _number(attempt, "input_tokens"),
-                _number(attempt, "output_tokens"),
-                _number(attempt, "actual_microusd"),
-                _text(attempt, "response_sha256"),
-            )
-            if actual != expected:
-                if isinstance(exc, DynamoDbIndeterminateError):
-                    raise
+        expected = (
+            "settled",
+            input_tokens,
+            output_tokens,
+            actual_microusd,
+            response_digest,
+        )
+        for _ in range(_MAX_TRANSACTION_RETRIES):
+            attempt = self._attempt_for_lease(lease)
+            status = _text(attempt, "status")
+            if status == "settled":
+                actual = (
+                    status,
+                    _number(attempt, "input_tokens"),
+                    _number(attempt, "output_tokens"),
+                    _number(attempt, "actual_microusd"),
+                    _text(attempt, "response_sha256"),
+                )
+                if actual == expected:
+                    return
                 raise AttemptStateError(
                     "settled DynamoDB provider response evidence changed"
+                )
+            if status != "reserved":
+                raise AttemptStateError(
+                    f"provider response cannot settle attempt in {status} state"
+                )
+            stored_reservation = _number(attempt, "reservation_microusd")
+            delta = actual_microusd - stored_reservation
+            values: dict[str, AttributeValue] = {
+                ":delta": _n(delta),
+                ":minus_one": _n(-1),
+                ":one": _n(1),
+                ":identity": _s(self.authority_identity_sha256),
+                ":zero": _n(0),
+                ":reservation": _n(stored_reservation),
+            }
+            ledger_condition = (
+                "authority_identity_sha256 = :identity AND "
+                "authority_poisoned = :zero AND "
+                "committed_microusd >= :reservation"
+            )
+            if delta > 0:
+                values[":remaining"] = _n(self.cap_microusd - delta)
+                ledger_condition += " AND committed_microusd <= :remaining"
+            transaction: JsonObject = {
+                "TransactItems": [
+                    {
+                        "Update": {
+                            "TableName": self.table_name,
+                            "Key": self._key(_attempt_record_key(lease)),
+                            "UpdateExpression": (
+                                "SET #status = :settled, input_tokens = :input, "
+                                "output_tokens = :output, actual_microusd = :actual, "
+                                "response_sha256 = :response, completed_at_epoch = :now"
+                            ),
+                            "ConditionExpression": (
+                                "#status = :reserved AND attempt_id = :attempt_id AND "
+                                "logical_call_key = :logical AND "
+                                "attempt_ordinal = :ordinal AND "
+                                "reservation_microusd = :reservation AND "
+                                "authority_identity_sha256 = :identity"
+                            ),
+                            "ExpressionAttributeNames": {"#status": "status"},
+                            "ExpressionAttributeValues": {
+                                ":settled": _s("settled"),
+                                ":reserved": _s("reserved"),
+                                ":attempt_id": _s(lease.attempt_id),
+                                ":logical": _s(lease.logical_call_key),
+                                ":ordinal": _n(lease.attempt_ordinal),
+                                ":reservation": _n(stored_reservation),
+                                ":identity": _s(self.authority_identity_sha256),
+                                ":input": _n(input_tokens),
+                                ":output": _n(output_tokens),
+                                ":actual": _n(actual_microusd),
+                                ":response": _s(response_digest),
+                                ":now": _n(self._clock()),
+                            },
+                        }
+                    },
+                    {
+                        "Update": {
+                            "TableName": self.table_name,
+                            "Key": self._key(_LEDGER_RECORD_KEY),
+                            "UpdateExpression": (
+                                "ADD committed_microusd :delta, "
+                                "reserved_attempt_count :minus_one, "
+                                "settled_attempt_count :one"
+                            ),
+                            "ConditionExpression": ledger_condition,
+                            "ExpressionAttributeValues": values,
+                        }
+                    },
+                ]
+            }
+            try:
+                self._runner("transact-write-items", _with_client_token(transaction))
+            except (DynamoDbConditionalError, DynamoDbIndeterminateError) as exc:
+                attempt = self._get_required(_attempt_record_key(lease))
+                if _text(attempt, "status") == "settled":
+                    actual = (
+                        "settled",
+                        _number(attempt, "input_tokens"),
+                        _number(attempt, "output_tokens"),
+                        _number(attempt, "actual_microusd"),
+                        _text(attempt, "response_sha256"),
+                    )
+                    if actual == expected:
+                        return
+                    raise AttemptStateError(
+                        "settled DynamoDB provider response evidence changed"
+                    ) from None
+                if isinstance(exc, DynamoDbIndeterminateError):
+                    raise
+                if delta <= 0:
+                    raise AttemptStateError(
+                        "settled DynamoDB provider response evidence changed"
+                    ) from None
+                ledger = self._get_required(_LEDGER_RECORD_KEY)
+                self._verify_ledger(ledger)
+                if (
+                    _number(ledger, "authority_poisoned") == 0
+                    and _number(ledger, "committed_microusd") + delta
+                    <= self.cap_microusd
+                ):
+                    continue
+                self._poison_authority(
+                    lease,
+                    reason=_OBSERVED_RESPONSE_POISON_REASON,
+                    recovery_evidence=(
+                        input_tokens,
+                        output_tokens,
+                        actual_microusd,
+                        response_digest,
+                    ),
+                )
+                raise SettlementError(
+                    "provider actual cost exceeds the aggregate provider cap; "
+                    "authority is poisoned"
                 ) from None
+            return
+        raise DynamoDbAuthorityError(
+            "provider response settlement could not converge after concurrent writes"
+        )
+
+    def recover_poisoned_response(
+        self,
+        lease: AttemptLease,
+        *,
+        input_tokens: int,
+        output_tokens: int,
+        actual_microusd: int,
+        response_sha256: str,
+        recovery_reference: str,
+    ) -> None:
+        """Settle one exact saved response after an owner cap amendment.
+
+        ``record_response`` intentionally poisons the authority when a live
+        response exceeds its frozen reservation.  This narrow operation is for
+        a saved response that was already observed and whose exact attempt is
+        still reserved.  It binds the usage evidence and recovery reference in
+        the same transaction as the aggregate-cap check and poison clear.
+        """
+
+        if input_tokens < 0 or output_tokens < 0:
+            raise SettlementError("provider token counts cannot be negative")
+        if actual_microusd < 0:
+            raise SettlementError("provider actual cost cannot be negative")
+        response_digest = _sha256(response_sha256, "response_sha256")
+        normalized_recovery_reference = _identity(
+            recovery_reference,
+            "recovery_reference",
+        )
+        attempt = self._attempt_for_lease(lease)
+        stored_reservation = _number(attempt, "reservation_microusd")
+        if actual_microusd <= stored_reservation:
+            raise SettlementError(
+                "poisoned-response recovery requires cost above the frozen reservation"
+            )
+        delta = actual_microusd - stored_reservation
+        expected_attempt_evidence = (
+            _s("settled"),
+            _n(input_tokens),
+            _n(output_tokens),
+            _n(actual_microusd),
+            _s(response_digest),
+            _s(normalized_recovery_reference),
+        )
+        poison_reason = hashlib.sha256(
+            _OBSERVED_RESPONSE_POISON_REASON.encode()
+        ).hexdigest()
+        for _ in range(_MAX_TRANSACTION_RETRIES):
+            attempt = self._attempt_for_lease(lease)
+            if _text(attempt, "status") == "settled":
+                observed_evidence = tuple(
+                    attempt.get(field)
+                    for field in (
+                        "status",
+                        "input_tokens",
+                        "output_tokens",
+                        "actual_microusd",
+                        "response_sha256",
+                        "recovery_reference",
+                    )
+                )
+                if observed_evidence == expected_attempt_evidence:
+                    return
+                raise AttemptStateError(
+                    "saved provider response recovery evidence changed"
+                )
+            if _text(attempt, "status") != "reserved":
+                raise AttemptStateError(
+                    "saved provider response recovery requires a reserved attempt"
+                )
+            pending_recovery = tuple(
+                attempt.get(field)
+                for field in (
+                    "recovery_reason_sha256",
+                    "recovery_input_tokens",
+                    "recovery_output_tokens",
+                    "recovery_actual_microusd",
+                    "recovery_response_sha256",
+                )
+            )
+            expected_pending_recovery = (
+                _s(poison_reason),
+                _n(input_tokens),
+                _n(output_tokens),
+                _n(actual_microusd),
+                _s(response_digest),
+            )
+            if any(value is not None for value in pending_recovery):
+                if pending_recovery != expected_pending_recovery:
+                    raise AuthorityIdentityMismatchError(
+                        "saved provider response recovery usage differs from the "
+                        "poisoned attempt"
+                    )
+                pending_recovery_condition = (
+                    "recovery_reason_sha256 = :reason AND "
+                    "recovery_input_tokens = :input AND "
+                    "recovery_output_tokens = :output AND "
+                    "recovery_actual_microusd = :actual AND "
+                    "recovery_response_sha256 = :response"
+                )
+            else:
+                pending_recovery_condition = (
+                    "attribute_not_exists(recovery_reason_sha256)"
+                )
+            ledger = self._get_required(_LEDGER_RECORD_KEY)
+            self._verify_ledger(ledger)
+            try:
+                _text(ledger, "cap_amendment_reference")
+                _text(ledger, "cap_amendment_owner_reference")
+            except DynamoDbAuthorityError as exc:
+                raise AuthorityIdentityMismatchError(
+                    "saved provider response recovery requires an owner cap amendment"
+                ) from exc
+            if ledger.get("poison_reason_sha256") != _s(poison_reason):
+                raise AuthorityIdentityMismatchError(
+                    "saved provider response recovery requires the observed-cost poison"
+                )
+            committed = _number(ledger, "committed_microusd")
+            if committed + delta > self.cap_microusd:
+                raise ProviderCapExceededError(
+                    "saved provider response cost would exceed the amended provider cap"
+                )
+            now = self._clock()
+            transaction: JsonObject = {
+                "TransactItems": [
+                    {
+                        "Update": {
+                            "TableName": self.table_name,
+                            "Key": self._key(_attempt_record_key(lease)),
+                            "UpdateExpression": (
+                                "SET #status = :settled, input_tokens = :input, "
+                                "output_tokens = :output, actual_microusd = :actual, "
+                                "response_sha256 = :response, "
+                                "recovery_reason_sha256 = :reason, "
+                                "recovery_input_tokens = :input, "
+                                "recovery_output_tokens = :output, "
+                                "recovery_actual_microusd = :actual, "
+                                "recovery_response_sha256 = :response, "
+                                "recovery_reference = :recovery, "
+                                "completed_at_epoch = :now"
+                            ),
+                            "ConditionExpression": (
+                                "#status = :reserved AND attempt_id = :attempt_id "
+                                "AND logical_call_key = :logical AND "
+                                "attempt_ordinal = :ordinal AND "
+                                "reservation_microusd = :reservation AND "
+                                "authority_identity_sha256 = :identity AND "
+                                f"{pending_recovery_condition}"
+                            ),
+                            "ExpressionAttributeNames": {"#status": "status"},
+                            "ExpressionAttributeValues": {
+                                ":settled": _s("settled"),
+                                ":reserved": _s("reserved"),
+                                ":attempt_id": _s(lease.attempt_id),
+                                ":logical": _s(lease.logical_call_key),
+                                ":ordinal": _n(lease.attempt_ordinal),
+                                ":reservation": _n(stored_reservation),
+                                ":identity": _s(self.authority_identity_sha256),
+                                ":input": _n(input_tokens),
+                                ":output": _n(output_tokens),
+                                ":actual": _n(actual_microusd),
+                                ":response": _s(response_digest),
+                                ":reason": _s(poison_reason),
+                                ":recovery": _s(normalized_recovery_reference),
+                                ":now": _n(now),
+                            },
+                        }
+                    },
+                    {
+                        "Update": {
+                            "TableName": self.table_name,
+                            "Key": self._key(_LEDGER_RECORD_KEY),
+                            "UpdateExpression": (
+                                "SET authority_poisoned = :zero ADD "
+                                "committed_microusd :delta, "
+                                "reserved_attempt_count :minus_one, "
+                                "settled_attempt_count :one"
+                            ),
+                            "ConditionExpression": (
+                                "authority_identity_sha256 = :identity AND "
+                                "poison_reason_sha256 = :reason AND "
+                                "(authority_poisoned = :one OR "
+                                "authority_poisoned = :zero) AND "
+                                "committed_microusd >= :reservation AND "
+                                "committed_microusd <= :remaining"
+                            ),
+                            "ExpressionAttributeValues": {
+                                ":zero": _n(0),
+                                ":one": _n(1),
+                                ":delta": _n(delta),
+                                ":minus_one": _n(-1),
+                                ":identity": _s(self.authority_identity_sha256),
+                                ":reason": _s(poison_reason),
+                                ":reservation": _n(stored_reservation),
+                                ":remaining": _n(self.cap_microusd - delta),
+                            },
+                        }
+                    },
+                ]
+            }
+            try:
+                self._runner("transact-write-items", _with_client_token(transaction))
+            except DynamoDbConditionalError:
+                continue
+            except DynamoDbIndeterminateError:
+                observed = self._get_required(_attempt_record_key(lease))
+                observed_evidence = tuple(
+                    observed.get(field)
+                    for field in (
+                        "status",
+                        "input_tokens",
+                        "output_tokens",
+                        "actual_microusd",
+                        "response_sha256",
+                        "recovery_reference",
+                    )
+                )
+                if observed_evidence == expected_attempt_evidence:
+                    return
+                raise
+            return
+        raise DynamoDbAuthorityError(
+            "saved provider response recovery could not converge after "
+            "concurrent writes"
+        )
 
     def record_failure(
         self,
@@ -877,7 +1239,7 @@ class DynamoDbProviderSpendAuthority:
         if billed_microusd is not None and billed_microusd > stored_reservation:
             self._poison_authority(
                 lease,
-                reason="reconciled provider cost exceeds frozen reservation",
+                reason=_RECONCILED_COST_POISON_REASON,
             )
             raise SettlementError(
                 "reconciled provider cost exceeds the frozen reservation; "
@@ -1051,8 +1413,39 @@ class DynamoDbProviderSpendAuthority:
                 existing = self._get_required(_LEDGER_RECORD_KEY)
             else:
                 existing = self._get_required(_LEDGER_RECORD_KEY)
+        self._adopt_persisted_cap_amendment(existing)
         self._raise_stored_failure_threshold_if_needed(existing)
         self._verify_ledger(self._get_required(_LEDGER_RECORD_KEY))
+
+    def _adopt_persisted_cap_amendment(
+        self,
+        item: Mapping[str, AttributeValue],
+    ) -> None:
+        """Use a durable owner amendment while preserving the run identity.
+
+        The run identity intentionally contains the original approved ceiling.
+        A later owner amendment is a ledger property, so a retry constructed
+        with that original ceiling must adopt the amended effective cap.  A
+        larger persisted cap without both amendment references is not a valid
+        authority and is rejected instead of silently widening spend.
+        """
+
+        persisted_cap = _number(item, "cap_microusd")
+        if persisted_cap <= self.cap_microusd:
+            return
+        try:
+            owner_reference = _text(item, "cap_amendment_owner_reference")
+            amendment_reference = _text(item, "cap_amendment_reference")
+        except DynamoDbAuthorityError as exc:
+            raise AuthorityIdentityMismatchError(
+                "DynamoDB authority cap exceeds the requested ceiling without an "
+                "owner amendment"
+            ) from exc
+        if not owner_reference or not amendment_reference:
+            raise AuthorityIdentityMismatchError(
+                "DynamoDB authority cap amendment references are empty"
+            )
+        self.cap_microusd = persisted_cap
 
     def _raise_stored_failure_threshold_if_needed(
         self,
@@ -1687,31 +2080,80 @@ class DynamoDbProviderSpendAuthority:
                 "provider spend authority is poisoned by an integrity violation"
             )
 
-    def _poison_authority(self, lease: AttemptLease, *, reason: str) -> None:
+    def _poison_authority(
+        self,
+        lease: AttemptLease,
+        *,
+        reason: str,
+        recovery_evidence: tuple[int, int, int, str] | None = None,
+    ) -> None:
         attempt = self._attempt_for_lease(lease)
         stored_reservation = _number(attempt, "reservation_microusd")
+        reason_sha256 = hashlib.sha256(reason.encode()).hexdigest()
+        if recovery_evidence is None:
+            attempt_transition: JsonObject = {
+                "ConditionCheck": {
+                    "TableName": self.table_name,
+                    "Key": self._key(_attempt_record_key(lease)),
+                    "ConditionExpression": (
+                        "attempt_id = :attempt_id AND "
+                        "authority_identity_sha256 = :identity AND "
+                        "logical_call_key = :logical AND "
+                        "attempt_ordinal = :ordinal AND "
+                        "reservation_microusd = :reservation"
+                    ),
+                    "ExpressionAttributeValues": {
+                        ":attempt_id": _s(lease.attempt_id),
+                        ":identity": _s(self.authority_identity_sha256),
+                        ":logical": _s(lease.logical_call_key),
+                        ":ordinal": _n(lease.attempt_ordinal),
+                        ":reservation": _n(stored_reservation),
+                    },
+                }
+            }
+        else:
+            input_tokens, output_tokens, actual_microusd, response_digest = (
+                recovery_evidence
+            )
+            attempt_transition = {
+                "Update": {
+                    "TableName": self.table_name,
+                    "Key": self._key(_attempt_record_key(lease)),
+                    "UpdateExpression": (
+                        "SET recovery_reason_sha256 = :reason, "
+                        "recovery_input_tokens = :input, "
+                        "recovery_output_tokens = :output, "
+                        "recovery_actual_microusd = :actual, "
+                        "recovery_response_sha256 = :response"
+                    ),
+                    "ConditionExpression": (
+                        "#status = :reserved AND "
+                        "attempt_id = :attempt_id AND "
+                        "authority_identity_sha256 = :identity AND "
+                        "logical_call_key = :logical AND "
+                        "attempt_ordinal = :ordinal AND "
+                        "reservation_microusd = :reservation AND "
+                        "attribute_not_exists(recovery_reason_sha256)"
+                    ),
+                    "ExpressionAttributeNames": {"#status": "status"},
+                    "ExpressionAttributeValues": {
+                        ":reserved": _s("reserved"),
+                        ":reason": _s(reason_sha256),
+                        ":input": _n(input_tokens),
+                        ":output": _n(output_tokens),
+                        ":actual": _n(actual_microusd),
+                        ":response": _s(response_digest),
+                        ":attempt_id": _s(lease.attempt_id),
+                        ":identity": _s(self.authority_identity_sha256),
+                        ":logical": _s(lease.logical_call_key),
+                        ":ordinal": _n(lease.attempt_ordinal),
+                        ":reservation": _n(stored_reservation),
+                    },
+                }
+            }
         transaction: JsonObject = {
             "TransactItems": [
-                {
-                    "ConditionCheck": {
-                        "TableName": self.table_name,
-                        "Key": self._key(_attempt_record_key(lease)),
-                        "ConditionExpression": (
-                            "attempt_id = :attempt_id AND "
-                            "authority_identity_sha256 = :identity AND "
-                            "logical_call_key = :logical AND "
-                            "attempt_ordinal = :ordinal AND "
-                            "reservation_microusd = :reservation"
-                        ),
-                        "ExpressionAttributeValues": {
-                            ":attempt_id": _s(lease.attempt_id),
-                            ":identity": _s(self.authority_identity_sha256),
-                            ":logical": _s(lease.logical_call_key),
-                            ":ordinal": _n(lease.attempt_ordinal),
-                            ":reservation": _n(stored_reservation),
-                        },
-                    }
-                },
+                attempt_transition,
                 {
                     "Update": {
                         "TableName": self.table_name,
@@ -1725,7 +2167,7 @@ class DynamoDbProviderSpendAuthority:
                         ),
                         "ExpressionAttributeValues": {
                             ":one": _n(1),
-                            ":reason": _s(hashlib.sha256(reason.encode()).hexdigest()),
+                            ":reason": _s(reason_sha256),
                             ":identity": _s(self.authority_identity_sha256),
                         },
                     }
