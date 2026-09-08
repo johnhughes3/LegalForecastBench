@@ -1075,6 +1075,222 @@ def test_above_reservation_cost_poisons_remote_authority() -> None:
     assert isinstance(poison_transaction.get("ClientRequestToken"), str)
 
 
+def test_owner_cap_amendment_recovers_exact_saved_response_idempotently() -> None:
+    runner = InMemoryDynamoRunner()
+    original_authority = _authority(runner, cap_microusd=1_000_000)
+    lease = original_authority.authorize_attempt(_key(), reservation_microusd=500_000)
+    with pytest.raises(SettlementError, match="poisoned"):
+        original_authority.record_response(
+            lease,
+            input_tokens=30,
+            output_tokens=12,
+            actual_microusd=500_001,
+            response_sha256="a" * 64,
+        )
+
+    original_authority.amend_cap(
+        new_cap_microusd=2_000_000,
+        owner_reference="owner-approved-gemini-200-usd",
+        amendment_reference="gemini-cap-amendment-1",
+    )
+    amended = _authority(runner, cap_microusd=2_000_000)
+    amended.recover_poisoned_response(
+        lease,
+        input_tokens=30,
+        output_tokens=12,
+        actual_microusd=500_001,
+        response_sha256="a" * 64,
+        recovery_reference="saved-response-case-1",
+    )
+    amended.recover_poisoned_response(
+        lease,
+        input_tokens=30,
+        output_tokens=12,
+        actual_microusd=500_001,
+        response_sha256="a" * 64,
+        recovery_reference="saved-response-case-1",
+    )
+
+    attempt = runner.items[
+        f"ATTEMPT#{lease.logical_call_key}#{lease.attempt_ordinal:04d}"
+    ]
+    ledger = runner.items["LEDGER"]
+    assert attempt["status"] == _s("settled")
+    assert attempt["actual_microusd"] == _n(500_001)
+    assert attempt["recovery_reference"] == _s("saved-response-case-1")
+    assert ledger["cap_microusd"] == _n(2_000_000)
+    assert ledger["cap_amendment_reference"] == _s("gemini-cap-amendment-1")
+    assert ledger["cap_amendment_owner_reference"] == _s(
+        "owner-approved-gemini-200-usd"
+    )
+    assert ledger["committed_microusd"] == _n(500_001)
+    assert ledger["reserved_attempt_count"] == _n(0)
+    assert ledger["settled_attempt_count"] == _n(1)
+    assert ledger["authority_poisoned"] == _n(0)
+
+    with pytest.raises(AttemptStateError, match="evidence changed"):
+        amended.recover_poisoned_response(
+            lease,
+            input_tokens=30,
+            output_tokens=12,
+            actual_microusd=500_002,
+            response_sha256="a" * 64,
+            recovery_reference="saved-response-case-1",
+        )
+    with pytest.raises(AuthorityIdentityMismatchError, match="cap_microusd"):
+        original_authority.amend_cap(
+            new_cap_microusd=3_000_000,
+            owner_reference="owner-approved-gemini-200-usd",
+            amendment_reference="gemini-cap-amendment-2",
+        )
+
+
+def test_saved_response_recovery_preserves_hold_and_aggregate_cap() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(runner, cap_microusd=1_000_000)
+    poisoned = authority.authorize_attempt(
+        _key(case_id="poisoned"), reservation_microusd=500_000
+    )
+    still_reserved = authority.authorize_attempt(
+        _key(case_id="still-reserved"), reservation_microusd=400_000
+    )
+    with pytest.raises(SettlementError):
+        authority.record_response(
+            poisoned,
+            input_tokens=1,
+            output_tokens=1,
+            actual_microusd=600_000,
+            response_sha256="b" * 64,
+        )
+    authority.amend_cap(
+        new_cap_microusd=1_000_000 + 1,
+        owner_reference="owner-approved-cap",
+        amendment_reference="cap-amendment-aggregate",
+    )
+    amended = _authority(runner, cap_microusd=1_000_001)
+    amended.recover_poisoned_response(
+        poisoned,
+        input_tokens=1,
+        output_tokens=1,
+        actual_microusd=600_000,
+        response_sha256="b" * 64,
+        recovery_reference="saved-response-poisoned",
+    )
+
+    assert runner.items["LEDGER"]["committed_microusd"] == _n(1_000_000)
+    assert runner.items["LEDGER"]["reserved_attempt_count"] == _n(1)
+    assert runner.items[
+        f"ATTEMPT#{still_reserved.logical_call_key}#{still_reserved.attempt_ordinal:04d}"
+    ]["status"] == _s("reserved")
+    with pytest.raises(ProviderCapExceededError):
+        amended.authorize_attempt(_key(case_id="over-cap"), reservation_microusd=2)
+
+
+def test_concurrent_saved_response_recoveries_cannot_exceed_amended_cap() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(runner, cap_microusd=800_000)
+    leases = [
+        authority.authorize_attempt(
+            _key(case_id=f"poisoned-{index}"), reservation_microusd=400_000
+        )
+        for index in range(2)
+    ]
+    for index, lease in enumerate(leases):
+        with pytest.raises(SettlementError):
+            authority.record_response(
+                lease,
+                input_tokens=index,
+                output_tokens=1,
+                actual_microusd=500_000,
+                response_sha256=f"{index + 1}" * 64,
+            )
+    authority.amend_cap(
+        new_cap_microusd=950_000,
+        owner_reference="owner-approved-cap",
+        amendment_reference="cap-amendment-concurrent",
+    )
+    authorities = [_authority(runner, cap_microusd=950_000) for _ in range(2)]
+
+    def recover(index: int) -> bool:
+        try:
+            authorities[index].recover_poisoned_response(
+                leases[index],
+                input_tokens=index,
+                output_tokens=1,
+                actual_microusd=500_000,
+                response_sha256=f"{index + 1}" * 64,
+                recovery_reference=f"saved-response-{index}",
+            )
+        except ProviderCapExceededError:
+            return False
+        return True
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        recovered = list(executor.map(recover, range(2)))
+
+    assert sum(recovered) == 1
+    assert runner.items["LEDGER"]["committed_microusd"] == _n(900_000)
+    assert runner.items["LEDGER"]["settled_attempt_count"] == _n(1)
+    assert runner.items["LEDGER"]["reserved_attempt_count"] == _n(1)
+
+
+def test_saved_response_recovery_refuses_wrong_poison_reason_and_cap_exhaustion() -> (
+    None
+):
+    runner = InMemoryDynamoRunner()
+    authority = _authority(runner, cap_microusd=500_001)
+    lease = authority.authorize_attempt(_key(), reservation_microusd=500_000)
+    with pytest.raises(SettlementError):
+        authority.record_response(
+            lease,
+            input_tokens=1,
+            output_tokens=1,
+            actual_microusd=500_001,
+            response_sha256="c" * 64,
+        )
+    with pytest.raises(AuthorityIdentityMismatchError, match="cap amendment"):
+        authority.recover_poisoned_response(
+            lease,
+            input_tokens=1,
+            output_tokens=1,
+            actual_microusd=500_001,
+            response_sha256="c" * 64,
+            recovery_reference="saved-response-exhaustion",
+        )
+    authority.amend_cap(
+        new_cap_microusd=500_002,
+        owner_reference="owner-approved-cap",
+        amendment_reference="cap-amendment-exhaustion",
+    )
+    amended = _authority(runner, cap_microusd=500_002)
+    runner.items["LEDGER"]["poison_reason_sha256"] = _s("d" * 64)
+    with pytest.raises(AuthorityIdentityMismatchError, match="poison"):
+        amended.recover_poisoned_response(
+            lease,
+            input_tokens=1,
+            output_tokens=1,
+            actual_microusd=500_001,
+            response_sha256="c" * 64,
+            recovery_reference="saved-response-exhaustion",
+        )
+    runner.items["LEDGER"]["poison_reason_sha256"] = _s(
+        hashlib.sha256(b"observed provider cost exceeds frozen reservation").hexdigest()
+    )
+    with pytest.raises(ProviderCapExceededError):
+        amended.recover_poisoned_response(
+            lease,
+            input_tokens=1,
+            output_tokens=1,
+            actual_microusd=500_003,
+            response_sha256="c" * 64,
+            recovery_reference="saved-response-exhaustion",
+        )
+    assert runner.items[
+        f"ATTEMPT#{lease.logical_call_key}#{lease.attempt_ordinal:04d}"
+    ]["status"] == _s("reserved")
+    assert runner.items["LEDGER"]["authority_poisoned"] == _n(1)
+
+
 def test_remote_attempt_is_adopted_after_crash_and_settled_idempotently() -> None:
     runner = InMemoryDynamoRunner()
     key = _key()
