@@ -1227,11 +1227,37 @@ class DynamoDbProviderSpendAuthority:
         usage_record_id: str,
         usage_record_sha256: str,
         billed_microusd: int | None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        response_sha256: str | None = None,
     ) -> None:
-        """Reconcile ambiguity or a crash-reserved attempt with one-time evidence."""
+        """Reconcile an attempt with one-time usage and optional response evidence.
+
+        The response fields are optional for compatibility with usage-only
+        reconciliation.  When one is supplied, all three are required and
+        are committed in the same transaction as the settlement.  This lets a
+        later ``record_response`` call prove the saved response is the same
+        evidence rather than losing its token counts or response digest.
+        """
 
         usage_id = _identity(usage_record_id, "usage_record_id")
         usage_sha256 = _sha256(usage_record_sha256, "usage_record_sha256")
+        response_fields = (input_tokens, output_tokens, response_sha256)
+        complete_response = any(value is not None for value in response_fields)
+        if complete_response and any(value is None for value in response_fields):
+            raise ValueError(
+                "input_tokens, output_tokens, and response_sha256 must be "
+                "provided together"
+            )
+        if complete_response:
+            assert input_tokens is not None
+            assert output_tokens is not None
+            assert response_sha256 is not None
+            if input_tokens < 0 or output_tokens < 0:
+                raise SettlementError("provider token counts cannot be negative")
+            response_digest = _sha256(response_sha256, "response_sha256")
+        else:
+            response_digest = None
         if billed_microusd is not None and billed_microusd < 0:
             raise SettlementError("reconciled provider cost cannot be negative")
         attempt = self._attempt_for_lease(lease)
@@ -1259,6 +1285,9 @@ class DynamoDbProviderSpendAuthority:
                 actual_cost=actual_cost,
                 usage_id=usage_id,
                 usage_sha256=usage_sha256,
+                input_tokens=input_tokens if complete_response else None,
+                output_tokens=output_tokens if complete_response else None,
+                response_digest=response_digest,
             )
             return
         if source_status not in {"ambiguous", "reserved"}:
@@ -1269,18 +1298,49 @@ class DynamoDbProviderSpendAuthority:
         reserved_decrement = -1 if source_status == "reserved" else 0
         ambiguous_decrement = -1 if source_status == "ambiguous" else 0
         usage_record_key = _usage_record_key(usage_id)
+        attempt_update_expression = (
+            "SET #status = :target, actual_microusd = :actual, "
+            "usage_record_id = :usage_id, "
+            "usage_record_sha256 = :usage_sha, "
+            "completed_at_epoch = :now"
+        )
+        attempt_values: dict[str, AttributeValue] = {
+            ":target": _s(target),
+            ":actual": _n(actual_cost),
+            ":usage_id": _s(usage_id),
+            ":usage_sha": _s(usage_sha256),
+            ":now": _n(self._clock()),
+            ":source": _s(source_status),
+            ":attempt_id": _s(lease.attempt_id),
+            ":logical": _s(lease.logical_call_key),
+            ":ordinal": _n(lease.attempt_ordinal),
+            ":reservation": _n(stored_reservation),
+            ":identity": _s(self.authority_identity_sha256),
+        }
+        if complete_response:
+            assert input_tokens is not None
+            assert output_tokens is not None
+            assert response_digest is not None
+            attempt_update_expression = (
+                "SET #status = :target, input_tokens = :input, "
+                "output_tokens = :output, actual_microusd = :actual, "
+                "response_sha256 = :response, usage_record_id = :usage_id, "
+                "usage_record_sha256 = :usage_sha, completed_at_epoch = :now"
+            )
+            attempt_values.update(
+                {
+                    ":input": _n(input_tokens),
+                    ":output": _n(output_tokens),
+                    ":response": _s(response_digest),
+                }
+            )
         transaction: JsonObject = {
             "TransactItems": [
                 {
                     "Update": {
                         "TableName": self.table_name,
                         "Key": self._key(_attempt_record_key(lease)),
-                        "UpdateExpression": (
-                            "SET #status = :target, actual_microusd = :actual, "
-                            "usage_record_id = :usage_id, "
-                            "usage_record_sha256 = :usage_sha, "
-                            "completed_at_epoch = :now"
-                        ),
+                        "UpdateExpression": attempt_update_expression,
                         "ConditionExpression": (
                             "#status = :source AND attempt_id = :attempt_id AND "
                             "logical_call_key = :logical AND "
@@ -1289,19 +1349,7 @@ class DynamoDbProviderSpendAuthority:
                             "authority_identity_sha256 = :identity"
                         ),
                         "ExpressionAttributeNames": {"#status": "status"},
-                        "ExpressionAttributeValues": {
-                            ":target": _s(target),
-                            ":actual": _n(actual_cost),
-                            ":usage_id": _s(usage_id),
-                            ":usage_sha": _s(usage_sha256),
-                            ":now": _n(self._clock()),
-                            ":source": _s(source_status),
-                            ":attempt_id": _s(lease.attempt_id),
-                            ":logical": _s(lease.logical_call_key),
-                            ":ordinal": _n(lease.attempt_ordinal),
-                            ":reservation": _n(stored_reservation),
-                            ":identity": _s(self.authority_identity_sha256),
-                        },
+                        "ExpressionAttributeValues": attempt_values,
                     }
                 },
                 {
@@ -1364,6 +1412,9 @@ class DynamoDbProviderSpendAuthority:
                     actual_cost=actual_cost,
                     usage_id=usage_id,
                     usage_sha256=usage_sha256,
+                    input_tokens=input_tokens if complete_response else None,
+                    output_tokens=output_tokens if complete_response else None,
+                    response_digest=response_digest,
                 )
             except ReconciliationMismatchError:
                 if isinstance(exc, DynamoDbIndeterminateError):
@@ -2191,6 +2242,9 @@ class DynamoDbProviderSpendAuthority:
         actual_cost: int,
         usage_id: str,
         usage_sha256: str,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        response_digest: str | None = None,
     ) -> None:
         self._attempt_for_lease(lease)
         if _text(attempt, "status") != target:
@@ -2208,6 +2262,29 @@ class DynamoDbProviderSpendAuthority:
             raise ReconciliationMismatchError(
                 "DynamoDB provider usage reconciliation evidence changed"
             )
+        response_fields = (input_tokens, output_tokens, response_digest)
+        if any(value is not None for value in response_fields):
+            if any(value is None for value in response_fields):
+                raise ReconciliationMismatchError(
+                    "DynamoDB provider response evidence is incomplete"
+                )
+            assert input_tokens is not None
+            assert output_tokens is not None
+            assert response_digest is not None
+            response_expected = (
+                input_tokens,
+                output_tokens,
+                response_digest,
+            )
+            response_actual = (
+                _number(attempt, "input_tokens"),
+                _number(attempt, "output_tokens"),
+                _text(attempt, "response_sha256"),
+            )
+            if response_actual != response_expected:
+                raise ReconciliationMismatchError(
+                    "DynamoDB provider response evidence changed"
+                )
         marker = self._get_required(_usage_record_key(usage_id))
         marker_expected = (
             lease.attempt_id,
