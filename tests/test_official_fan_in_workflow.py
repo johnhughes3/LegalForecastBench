@@ -198,8 +198,8 @@ def test_forecast_artifact_download_uses_exact_gh_artifact_endpoint(
     fake_gh.write_text(
         f"""#!/bin/sh -e
 test "${{GH_TOKEN}}" = test-token
-test "$1 $2 $3" = "api --allow-escape-sequences"
-test "$4" = "/repos/example/benchmark/actions/artifacts/456/zip"
+test "$1 $2" = "api --allow-escape-sequences"
+test "$3" = "/repos/example/benchmark/actions/artifacts/456/zip"
 cat {str(tmp_path / "f.zip")!r}
 """,
         encoding="utf-8",
