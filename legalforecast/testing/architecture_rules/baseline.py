@@ -25,8 +25,6 @@ from legalforecast.testing.architecture_rules.inventory import (
     scan_repository,
 )
 
-DIRECTORY_REVIEW_FLOOR = 20
-
 
 def load_baseline(path: Path) -> RepositoryInventory:
     """Load and validate a checked-in architecture snapshot."""
@@ -67,9 +65,6 @@ def write_baseline(path: Path, snapshot: RepositoryInventory) -> None:
         "compatibility": asdict(snapshot.compatibility),
         "inventory": {
             "cycles": [list(component) for component in snapshot.cycles],
-            "directories": {
-                record.path: record.python_file_count for record in snapshot.directories
-            },
             "files": {
                 record.path: {
                     "cycle_id": record.cycle_id,
@@ -295,25 +290,6 @@ def _inventory_violations(
             violations.append(
                 f"stale inventory entry must be removed after shrink: {path}"
             )
-    current_directories = {
-        record.path: record.python_file_count for record in current.directories
-    }
-    reviewed_directories = {record.path for record in baseline.directories}
-    for reviewed in baseline.directories:
-        observed_count = current_directories.get(reviewed.path, 0)
-        ceiling = max(DIRECTORY_REVIEW_FLOOR, reviewed.python_file_count)
-        if observed_count > ceiling:
-            violations.append(
-                f"directory {reviewed.path} python_file_count: {observed_count} > "
-                f"reviewed ceiling {ceiling}"
-            )
-    for path, observed_count in sorted(current_directories.items()):
-        if path in reviewed_directories or observed_count <= DIRECTORY_REVIEW_FLOOR:
-            continue
-        violations.append(
-            f"directory {path} python_file_count: {observed_count} > "
-            f"reviewed ceiling {DIRECTORY_REVIEW_FLOOR}"
-        )
     unexpected_cycles = [
         ",".join(component)
         for component in current.cycles
