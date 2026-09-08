@@ -732,6 +732,73 @@ def test_operator_recovery_preserves_breaker_for_new_failures() -> None:
     )
 
 
+def test_operator_recovery_can_acknowledge_truncated_failure_after_latest() -> None:
+    runner = InMemoryDynamoRunner()
+    now = [1_000.25]
+    authority = _authority(
+        runner,
+        cap_microusd=1_000_000,
+        max_billable_attempts=1,
+        failure_threshold=1,
+        clock=lambda: now[0],
+    )
+    older_key = _key(case_id="older")
+    latest_key = _key(case_id="latest")
+    older = authority.authorize_attempt(older_key, reservation_microusd=250_000)
+    latest = authority.authorize_attempt(latest_key, reservation_microusd=250_000)
+    authority.record_failure(older, failure_type="UsageLimitExceeded", ambiguous=True)
+
+    now[0] = 1_001.25
+    authority.record_failure(latest, failure_type="UsageLimitExceeded", ambiguous=True)
+    ledger = runner.items["LEDGER"]
+    current_digest = ledger["failure_events_sha256"]["S"]
+    assert json.loads(ledger["failure_events_json"]["S"]) == [1_001.25]
+
+    with pytest.raises(CircuitBreakerOpenError):
+        authority.authorize_additional_attempt(
+            older_key,
+            reservation_microusd=250_000,
+            acknowledged_attempt_id=older.attempt_id,
+            acknowledged_failure_type="UsageLimitExceeded",
+            acknowledged_failure_events_sha256=current_digest,
+        )
+
+    latest_retry = authority.authorize_additional_attempt(
+        latest_key,
+        reservation_microusd=250_000,
+        acknowledged_attempt_id=latest.attempt_id,
+        acknowledged_failure_type="UsageLimitExceeded",
+        acknowledged_failure_events_sha256=current_digest,
+    )
+    older_retry = authority.authorize_additional_attempt(
+        older_key,
+        reservation_microusd=250_000,
+        acknowledged_attempt_id=older.attempt_id,
+        acknowledged_failure_type="UsageLimitExceeded",
+        acknowledged_failure_events_sha256=current_digest,
+    )
+
+    assert latest_retry.attempt_ordinal == older_retry.attempt_ordinal == 2
+    assert runner.items["LEDGER"]["committed_microusd"] == _n(1_000_000)
+    assert runner.items["LEDGER"]["failure_events_json"] == _s("[1001.25]")
+    assert runner.items["LEDGER"]["acknowledged_failure_events_json"] == _s("[1001.25]")
+    assert runner.items[f"ATTEMPT#{older_key.logical_call_key}#0002"][
+        "acknowledged_failure_epoch"
+    ] == _n(1_000.25)
+    assert runner.items[f"ATTEMPT#{latest_key.logical_call_key}#0002"][
+        "acknowledged_failure_epoch"
+    ] == _n(1_001.25)
+
+    with pytest.raises(AttemptLimitExceededError):
+        authority.authorize_additional_attempt(
+            older_key,
+            reservation_microusd=250_000,
+            acknowledged_attempt_id=older.attempt_id,
+            acknowledged_failure_type="UsageLimitExceeded",
+            acknowledged_failure_events_sha256=current_digest,
+        )
+
+
 def test_expired_acknowledgement_does_not_block_later_failure() -> None:
     runner = InMemoryDynamoRunner()
     now = [1_000.25]
