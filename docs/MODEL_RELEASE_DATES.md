@@ -2,6 +2,22 @@
 
 This file tracks the model-release anchors used or queued for LegalForecastBench benchmark cycles. The first table follows the current checked-in pilot registry and benchmark workflow defaults. The Cycle 1 table records the late-June model generation used to collect the first official corpus, and the final table records additional release dates that are not yet runnable registry entries.
 
+## September 2026 comparisons
+
+The repaired 91-case release contains decisions dated June 30 through August 7, 2026. New model comparisons reuse those cases and labels. Release date and provider-reported training cutoff are separate facts: later release dates put a model in the post-anchor arm, while an earlier reported cutoff provides evidence relevant to contamination. Neither a provider cutoff nor a stable API ID is an independent guarantee about training data or unchanged weights.
+
+[Gemini 3.8 Flash](../model_registries/cycle-1-official-gemini-3.8-flash-2026-09-08.json) uses the stable `google:gemini-3.8-flash` ID, high thinking, document tools, and a 65,536-token output limit. Google reports a [March 2026 knowledge cutoff](https://deepmind.google/models/model-cards/gemini-3-8-flash/) and [September 2, 2026 release](https://ai.google.dev/gemini-api/docs/changelog). The cutoff is month-granular; the registry does not invent an exact day. The registry records the introductory pricing expiration and stable-ID limitation.
+
+The [additional comparison registry](../model_registries/cycle-1-official-held-models-2026-09-08.json) records the following configurations. Registration does not establish live runtime readiness or authorize execution.
+
+| Model | Provider-reported cutoff | Comparison qualification |
+| --- | --- | --- |
+| GPT-6 Astra | April 30, 2026 | Predates all 91 decisions; [OpenAI model documentation](https://developers.openai.com/api/docs/models/gpt-6-astra). |
+| Claude Opus 5 | May 2026 | Predates all 91 decisions; exact day undisclosed; [Anthropic model documentation](https://platform.claude.com/docs/en/models/overview). |
+| Claude Fable 5.1 | June 2026 | Does not establish a cutoff before the earliest June 30 decision; [Anthropic model documentation](https://platform.claude.com/docs/en/models/fable-5-1/overview). |
+| Kimi K3 | Unknown | Reuses the existing DeepInfra configuration and its probe requirements; no verified cutoff claim. |
+| Muse Spark 1.3 | Unknown | Registered with standard-tier pricing supplied from Meta’s pricing page; native runtime support remains pending. [Meta announcement](https://research.meta.ai/blog/introducing-muse-spark-1-3). |
+
 ## Current Pilot Registry
 
 | Provider | Model | Registry key | Release timestamp | Source |
@@ -11,7 +27,7 @@ This file tracks the model-release anchors used or queued for LegalForecastBench
 
 Both anchored pilot dates were independently re-verified on 2026-07-03 against primary and press sources (full evidence record: `docs/reviews/model-release-date-verification-2026-07-03.md` in git history) and confirmed unchanged. The verification also confirmed that the earlier `2026-04-24` date once attached to GPT-5.4 mini belongs to GPT-5.5, a different model; the checked-in registry already carries the correct `2026-03-17` anchor. GPT-5.4 mini offers a dated pinned snapshot (`gpt-5.4-mini-2026-03-17`); for Claude Sonnet 4.6 the dateless ID `claude-sonnet-4-6` is itself the pinned snapshot per Anthropic's 4.6-generation convention.
 
-The GitHub Actions benchmark workflow currently defaults to the same two registry keys in `.github/workflows/run-benchmark.yaml`. Gemini 3 Flash Preview is excluded from the anchored pilot registry until a source-backed pinned snapshot convention is available; its release date is now confirmed as December 17, 2025 via primary sources, but Google still documents only the mutable `gemini-3-flash-preview` preview ID with no immutable snapshot alias, so it remains ineligible for re-inclusion on snapshot grounds (not date grounds).
+The current GitHub Actions benchmark workflow takes an explicit model key and registry; the pilot entries above are historical collection inputs. Gemini 3 Flash Preview is excluded from the anchored pilot registry until a source-backed pinned snapshot convention is available; its release date is now confirmed as December 17, 2025 via primary sources, but Google still documents only the mutable `gemini-3-flash-preview` preview ID with no immutable snapshot alias, so it remains ineligible for re-inclusion on snapshot grounds (not date grounds).
 
 ## Cycle 1 Late-June Registry
 
@@ -32,7 +48,7 @@ Primary sources: OpenAI's [GPT-5.6 preview announcement](https://openai.com/inde
 
 ### Filename Window Versus Computed Release Anchor
 
-The registry **filename window** (for example `pilot-2026-04-24_to_2026-05-18.json`) names the case *collection window* — the date range of the disposition/labeling cohort for that cycle — and is not the model release anchor. The eligibility **anchor** used to gate contamination is computed at runtime from each registry entry's `release_timestamp`, independent of the filename. `release_timestamp` means the first documented external deployment of the evaluated model, including a restricted external preview: deployment establishes that the model artifact existed by that date, which is the fact relevant to whether a later court decision could have appeared in its training data. Temporary suspension or delayed general availability does not move the anchor. Provider-stated knowledge cutoffs are informative and generally earlier, but their definitions and independent auditability vary; first documented external deployment is therefore the deliberately conservative rule. Cases are eligible on or after the UTC calendar date of that anchor. Because court-decision metadata is date-granular and the model artifact necessarily existed by first deployment, the benchmark does not add an arbitrary calendar-day buffer. The filename should be read as the collection window, never as the release anchor.
+The registry **filename window** (for example `pilot-2026-04-24_to_2026-05-18.json`) names the case *collection window* — the date range of the disposition/labeling cohort for that cycle — and is not the model release anchor. The collection **anchor** is computed from the collection registry's `release_timestamp`, independent of the filename. A later model can run against that fixed corpus as an official post-anchor comparison; its release date classifies the comparison rather than preventing execution. `release_timestamp` means the first documented external deployment of the evaluated model, including a restricted external preview: deployment establishes that the model artifact existed by that date, which is the fact relevant to whether a later court decision could have appeared in its training data. Temporary suspension or delayed general availability does not move the anchor. Provider-stated knowledge cutoffs are informative and generally earlier, but their definitions and independent auditability vary; first documented external deployment is therefore the deliberately conservative rule. Cases are eligible on or after the UTC calendar date of that anchor. Because court-decision metadata is date-granular and the model artifact necessarily existed by first deployment, the benchmark does not add an arbitrary calendar-day buffer. The filename should be read as the collection window, never as the release anchor.
 
 ## Additional Tracked Release Dates
 

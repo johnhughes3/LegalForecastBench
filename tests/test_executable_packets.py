@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import traceback
-from datetime import date
 from types import SimpleNamespace
 from typing import cast
 
@@ -51,7 +50,6 @@ def test_executable_packet_rejects_unit_binding_mismatch() -> None:
                     decision_date="2026-08-23",
                 )
             ),
-            release_anchor=date(2026, 8, 23),
         )
 
 
@@ -66,10 +64,23 @@ def test_executable_packet_error_hides_rejected_input() -> None:
                     decision_date=sentinel,
                 )
             ),
-            release_anchor=date(2026, 8, 23),
         )
 
     rendered = "".join(traceback.format_exception(caught.value))
     assert sentinel not in rendered
     assert caught.value.__cause__ is None
     assert caught.value.__suppress_context__
+
+
+def test_executable_packet_accepts_pre_release_decisions_for_post_anchor_runs() -> None:
+    """Execution preserves cases that reporting will classify as post-anchor."""
+
+    validate_executable_packets(
+        _execution(
+            executable_packet_bytes(
+                case_id="case-001",
+                unit_id="unit-001",
+                decision_date="2026-06-30",
+            )
+        )
+    )

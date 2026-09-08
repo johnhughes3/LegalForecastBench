@@ -31,7 +31,6 @@ from legalforecast.evals.live_model_solver import (
 )
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
-    earliest_eligible_decision_date,
     load_model_registry_bytes,
     model_registry_entry_sha256,
     model_registry_sha256,
@@ -246,13 +245,10 @@ def execute_release_run(
             f"model key is absent from registry: {config.model_key}"
         ) from exc
     try:
-        official_entries = require_official_registry_entries((entry,))
+        require_official_registry_entries((entry,))
     except ValueError as exc:
         raise RunValidationError(f"official model eligibility failed: {exc}") from exc
-    validate_executable_packets(
-        execution,
-        release_anchor=earliest_eligible_decision_date(official_entries),
-    )
+    validate_executable_packets(execution)
     entry_sha256 = model_registry_entry_sha256(entry)
 
     identity = _run_identity_record(
@@ -859,14 +855,16 @@ def _complete_cell(
 
 def validate_executable_packets(
     execution: ForecastExecution,
-    *,
-    release_anchor: date,
 ) -> None:
-    """Require the runner packet profile to clear the model release anchor.
+    """Require every packet to match the runner's executable profile.
 
     ``forecast-release.v1`` deliberately authenticates packet bytes without
     defining their internal schema.  This new runner therefore validates its
     narrower executable profile here; generic v1 validation remains unchanged.
+
+    Release-anchor classification belongs to reporting.  Post-anchor models are
+    official benchmark rows, so execution must retain packets whose decision date
+    predates a newly released model instead of rejecting the whole run.
     """
 
     decision_dates: dict[str, date] = {}
@@ -897,12 +895,6 @@ def validate_executable_packets(
                 f"authenticated runner packets disagree on decision_date for case "
                 f"{unit.case_id}"
             )
-        if decision_date < release_anchor:
-            raise RunValidationError(
-                f"case {unit.case_id} decision_date {decision_date.isoformat()} "
-                f"precedes model release anchor {release_anchor.isoformat()}"
-            )
-
     release_case_ids = {case.case_id for case in execution.release.cases}
     missing_case_dates = sorted(release_case_ids - decision_dates.keys())
     if missing_case_dates:

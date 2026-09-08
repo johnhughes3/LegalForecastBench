@@ -1,4 +1,4 @@
-"""Managed OpenAI agent runtime for the official document-tool condition."""
+"""Managed provider agent runtime for the official document-tool condition."""
 
 from __future__ import annotations
 
@@ -22,10 +22,12 @@ from pydantic_ai import (
     RunContext,
 )
 from pydantic_ai.models import Model, ModelRequestParameters
+from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
 from pydantic_ai.models.openai import (
     OpenAIResponsesModel,
     OpenAIResponsesModelSettings,
 )
+from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.usage import RunUsage, UsageLimits
 
@@ -225,6 +227,7 @@ class ManagedToolAgentResult:
     service_tier: str
     called_tools: tuple[str, ...]
     response_usages: tuple[tuple[int, int], ...]
+    thoughts_tokens: int = 0
 
 
 def run_managed_tool_agent(
@@ -240,22 +243,44 @@ def run_managed_tool_agent(
 ) -> ManagedToolAgentResult:
     """Run one case with Pydantic AI's native tool loop and bounded usage."""
 
-    if entry.provider != "openai":
-        raise ManagedToolAgentError("managed document tools currently require OpenAI")
+    provider = entry.provider.strip().lower()
+    if provider not in {"openai", "google", "gemini"}:
+        raise ManagedToolAgentError(
+            "managed document tools currently require OpenAI or Google"
+        )
     if not required_unit_ids:
         raise ManagedToolAgentError("managed agent requires prediction unit ids")
-    resolved_model = model or _ObservedTierOpenAIResponsesModel(
-        cast(Any, entry.model_id),
-        provider=OpenAIProvider(api_key=api_key),
-    )
-    settings = OpenAIResponsesModelSettings(
-        max_tokens=entry.max_output_tokens,
-        parallel_tool_calls=False,
-        openai_service_tier="flex",
-        openai_store=False,
-    )
-    if entry.reasoning_effort is not None:
-        settings["openai_reasoning_effort"] = cast(Any, entry.reasoning_effort.value)
+    if model is not None:
+        resolved_model = model
+    elif provider == "openai":
+        resolved_model = _ObservedTierOpenAIResponsesModel(
+            cast(Any, entry.model_id),
+            provider=OpenAIProvider(api_key=api_key),
+        )
+    else:
+        resolved_model = GoogleModel(
+            entry.model_id,
+            provider=GoogleProvider(api_key=api_key),
+        )
+    if provider == "openai":
+        settings: Mapping[str, Any] = OpenAIResponsesModelSettings(
+            max_tokens=entry.max_output_tokens,
+            parallel_tool_calls=False,
+            openai_service_tier="flex",
+            openai_store=False,
+        )
+        if entry.reasoning_effort is not None:
+            cast(dict[str, Any], settings)["openai_reasoning_effort"] = cast(
+                Any, entry.reasoning_effort.value
+            )
+    else:
+        google_settings = GoogleModelSettings(max_tokens=entry.max_output_tokens)
+        if entry.thinking_level is not None:
+            cast(dict[str, Any], google_settings)["google_thinking_config"] = {
+                "thinking_level": entry.thinking_level.value.upper(),
+                "include_thoughts": True,
+            }
+        settings = google_settings
     unit_ids = json.dumps(list(required_unit_ids), separators=(",", ":"))
     agent = Agent(
         resolved_model,
@@ -329,14 +354,30 @@ def run_managed_tool_agent(
         if isinstance((tier := (item.provider_details or {}).get("service_tier")), str)
         and tier
     }
-    if len(service_tiers) != 1 or any(
-        not isinstance((item.provider_details or {}).get("service_tier"), str)
-        for item in responses
-    ):
-        raise ManagedToolAgentError(
-            "provider responses changed or omitted service tier"
-        )
-    service_tier = service_tiers.pop()
+    if len(service_tiers) > 1:
+        raise ManagedToolAgentError("provider responses changed service tier")
+    if provider == "openai":
+        if len(service_tiers) != 1 or any(
+            not isinstance((item.provider_details or {}).get("service_tier"), str)
+            for item in responses
+        ):
+            raise ManagedToolAgentError(
+                "provider responses changed or omitted service tier"
+            )
+        service_tier = service_tiers.pop()
+    else:
+        # Gemini API responses do not promise a service-tier header. Preserve a
+        # truthful explicit value when the provider supplies one and otherwise
+        # record that it was not reported.
+        service_tier = next(iter(service_tiers), "unreported")
+    response_usages: list[tuple[int, int]] = []
+    thoughts_tokens = 0
+    for item in responses:
+        input_tokens = item.usage.input_tokens
+        output_tokens = item.usage.output_tokens
+        item_thoughts = _response_thoughts_tokens(item)
+        response_usages.append((input_tokens, output_tokens))
+        thoughts_tokens += item_thoughts
     return ManagedToolAgentResult(
         raw_output=result.output.model_dump_json(),
         request_count=usage.requests,
@@ -346,16 +387,19 @@ def run_managed_tool_agent(
         finish_reason=finish_reason,
         service_tier=service_tier,
         called_tools=tuple(deps.called_tools),
-        response_usages=tuple(
-            (item.usage.input_tokens, item.usage.output_tokens) for item in responses
-        ),
+        response_usages=tuple(response_usages),
+        thoughts_tokens=thoughts_tokens,
     )
 
 
 def uses_managed_document_tools(entry: ModelRegistryEntry) -> bool:
-    """Select the owner-authorized official Luna tool condition."""
+    """Select provider entries authorized for the closed document-tool session."""
 
-    return entry.provider == "openai" and entry.model_id == "gpt-5.6-luna"
+    provider = entry.provider.strip().lower()
+    return (provider == "openai" and entry.model_id == "gpt-5.6-luna") or (
+        provider in {"google", "gemini"}
+        and entry.tool_policy.value == "controlled_docket_tool_only"
+    )
 
 
 def build_managed_case_input(
@@ -458,9 +502,11 @@ def complete_managed_tool_cell(
         }
     )
     values = environ if environ is not None else os.environ
-    api_key = values.get("OPENAI_API_KEY")
+    provider = entry.provider.strip().lower()
+    api_key_name = "OPENAI_API_KEY" if provider == "openai" else "GEMINI_API_KEY"
+    api_key = values.get(api_key_name)
     if api_key is None or not api_key.strip():
-        raise RunValidationError("OPENAI_API_KEY is required")
+        raise RunValidationError(f"{api_key_name} is required")
 
     def call(executor: ToolExecutor, workspace: Path) -> Mapping[str, object]:
         request_body_observer(commitment)
@@ -476,13 +522,13 @@ def complete_managed_tool_cell(
             )
         except ModelHTTPError as exc:
             raise LiveModelProviderError(
-                "managed OpenAI agent request failed",
+                f"managed {provider} agent request failed",
                 status_code=exc.status_code,
                 retryable=False,
             ) from exc
         except ModelAPIError as exc:
             raise LiveModelProviderError(
-                "managed OpenAI agent request failed",
+                f"managed {provider} agent request failed",
                 retryable=False,
             ) from exc
         if not result.called_tools:
@@ -490,7 +536,8 @@ def complete_managed_tool_cell(
                 "managed official agent returned without reading case documents"
             )
         estimated_cost_usd = _managed_estimated_cost(
-            entry, response_usages=result.response_usages
+            entry,
+            response_usages=result.response_usages,
         )
         return {
             "raw_output": result.raw_output,
@@ -501,6 +548,7 @@ def complete_managed_tool_cell(
             "finish_reason": result.finish_reason,
             "service_tier": result.service_tier,
             "called_tools": list(result.called_tools),
+            "thoughts_tokens": result.thoughts_tokens,
             "estimated_cost_usd": estimated_cost_usd,
         }
 
@@ -531,17 +579,18 @@ def complete_managed_tool_cell(
         served_model = _managed_required_str(payload, "served_model")
         finish_reason = _managed_required_str(payload, "finish_reason")
         service_tier = _managed_required_str(payload, "service_tier")
+        thoughts_tokens = _managed_optional_int(payload, "thoughts_tokens")
         estimated_cost = _managed_required_float(payload, "estimated_cost_usd")
         if served_model != entry.model_version_or_snapshot:
             raise RunValidationError(
                 "managed provider served model differs from frozen registry"
             )
-        if service_tier != "flex":
+        if provider == "openai" and service_tier != "flex":
             raise RunValidationError(
                 "managed OpenAI response did not use requested Flex service tier"
             )
         verification = verify_provider_response(
-            {"finish_reason": finish_reason}, provider="openai"
+            {"finish_reason": finish_reason}, provider=provider
         )
         metadata = {
             "provider": entry.provider,
@@ -554,10 +603,18 @@ def complete_managed_tool_cell(
             "model_registry_sha256": registry_sha256,
             "tool_policy": "closed_harvey_tools",
             "service_tier": service_tier,
-            "requested_service_tier": "flex",
-            "observed_service_tier": service_tier,
+            "thoughts_tokens": str(thoughts_tokens),
             **verification.to_metadata(),
         }
+        if provider == "openai":
+            metadata.update(
+                {
+                    "requested_service_tier": "flex",
+                    "observed_service_tier": service_tier,
+                }
+            )
+        if entry.thinking_level is not None:
+            metadata["thinking_level"] = entry.thinking_level.value
         require_publishable_response_metadata(metadata)
     except BaseException as exc:
         handler.record_post_response_failure(
@@ -629,6 +686,17 @@ def _managed_estimated_cost(
     return total / 1_000_000
 
 
+def _response_thoughts_tokens(response: ModelResponse) -> int:
+    """Return Gemini reasoning tokens retained in PydanticAI usage details."""
+
+    value = cast(object, response.usage.details.get("thoughts_tokens", 0))
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ManagedToolAgentError(
+            "provider response has invalid thoughts token usage"
+        )
+    return value
+
+
 def _managed_required_float(payload: Mapping[str, object], field_name: str) -> float:
     value = payload.get(field_name)
     if (
@@ -639,6 +707,15 @@ def _managed_required_float(payload: Mapping[str, object], field_name: str) -> f
     ):
         raise RunValidationError(f"managed response field is invalid: {field_name}")
     return float(value)
+
+
+def _managed_optional_int(payload: Mapping[str, object], field_name: str) -> int:
+    """Read an optional non-negative integer for replay compatibility."""
+
+    value = payload.get(field_name, 0)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise RunValidationError(f"managed response field is invalid: {field_name}")
+    return value
 
 
 __all__ = [

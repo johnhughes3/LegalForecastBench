@@ -31,6 +31,7 @@ from legalforecast.reporting.leaderboard import (
     infer_leaderboard_score_comparisons,
     summarize_accounting_leaderboard,
 )
+from legalforecast.reporting.result_class import classify_forecast_run_results
 from legalforecast.reporting.score_summary_codec import score_summary_from_record
 from legalforecast.runner.ledger import RunnerLedger
 
@@ -171,7 +172,20 @@ def run(args: argparse.Namespace) -> int:
         replicates=cast(int, args.bootstrap_replicates),
         seed=cast(int, args.bootstrap_seed),
     )
+    frozen_registry = cast(Path | None, getattr(args, "frozen_model_registry", None))
+    classification = (
+        classify_forecast_run_results(
+            forecast_path=cast(Path, args.forecast_release),
+            artifact_root=cast(Path, args.artifact_root),
+            registry_path=frozen_registry,
+            provenance=provenance,
+        )
+        if provenance is not None and frozen_registry is not None
+        else None
+    )
     title = cast(str, args.title)
+    if classification is not None and classification["all_post_anchor"]:
+        title += " — Official post-anchor comparison"
     report = build_benchmark_leaderboard_report(
         summaries,
         accounting_rows=accounting_rows,
@@ -192,6 +206,8 @@ def run(args: argparse.Namespace) -> int:
     if provenance is not None:
         report_payload = _cli_support.read_json_object(json_path)
         report_payload["provenance"] = dict(provenance)
+        if classification is not None:
+            report_payload["result_classification"] = classification
         _cli_support.write_json(json_path, report_payload)
     written = [json_path, csv_path, markdown_path, html_path]
     if (

@@ -1742,6 +1742,23 @@
         "nonblank_line_count": 920,
         "top_level_definition_count": 17
       },
+      "tests/test_managed_tool_agent.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_google_managed_agent_uses_native_tools_and_bills_thoughts",
+        "largest_symbol_lines": 86,
+        "layer": "test",
+        "line_count": 683,
+        "nonblank_line_count": 605,
+        "top_level_definition_count": 16
+      },
       "tests/test_multiharness_auth_binding.py": {
         "cycle_id": "",
         "disposition_kind": "watch",

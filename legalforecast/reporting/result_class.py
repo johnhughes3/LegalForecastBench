@@ -534,3 +534,51 @@ def supplementary_caveat_if_needed(
     if any(result_class is ResultClass.POST_ANCHOR for result_class in result_classes):
         return SUPPLEMENTARY_CAVEAT
     return None
+
+
+def classify_forecast_run_results(
+    *,
+    forecast_path: Path,
+    artifact_root: Path,
+    registry_path: Path,
+    provenance: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Classify scored native packets while retaining generic release support."""
+
+    from pydantic import ValidationError
+
+    from legalforecast.evals.model_registry import load_model_registry
+    from legalforecast.release import ExecutableUnitPacket, load_forecast_execution
+
+    execution = load_forecast_execution(forecast_path, artifact_root=artifact_root)
+    if execution.release.release_digest != provenance["forecast_release_digest"]:
+        raise ValueError("forecast release changed before result classification")
+    try:
+        dates = [
+            ExecutableUnitPacket.model_validate_json(
+                execution.packet_bytes(unit.unit_id)
+            ).decision_date
+            for unit in execution.release.prediction_units
+            if unit.should_score
+        ]
+    except ValidationError:
+        # Older generic releases need not carry the native runner packet profile.
+        return None
+    if not dates:
+        return None
+    anchor = date.fromisoformat(min(dates))
+    registry = load_model_registry(registry_path)
+    if registry.source_sha256 != provenance["model_registry_sha256"]:
+        raise ValueError("model registry changed before result classification")
+    classes: dict[str, str] = {}
+    for binding in provenance["models"]:
+        key = binding["model_key"]
+        provider, model_id = key.split(":", 1)
+        entry = registry.get(provider, model_id)
+        classes[key] = classify_registry_entry(entry, corpus_anchor=anchor).value
+    return {
+        "corpus_anchor": anchor.isoformat(),
+        "models": classes,
+        "all_post_anchor": bool(classes)
+        and all(value == "post_anchor" for value in classes.values()),
+    }
