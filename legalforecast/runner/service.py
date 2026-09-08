@@ -272,6 +272,7 @@ def execute_release_run(
         ).digest
     )
     config.receipts_dir.mkdir(parents=True, exist_ok=True)
+    transcripts_dir = config.receipts_dir.parent / "transcripts"
 
     units = tuple(execution.release.prediction_units)
     case_calls = _case_calls(units)
@@ -677,6 +678,7 @@ def execute_release_run(
                                 else None
                             ),
                             response_observer=persist_provider_response,
+                            transcript_path=transcripts_dir / f"{cell_id}.json",
                         )
                         request_sha256 = capture.request_body_sha256
                         if request_sha256 is None:
@@ -806,6 +808,7 @@ def _complete_cell(
     pretransport_attempt_observer: Callable[[AttemptLease], None],
     transport_start_observer: Callable[[AttemptLease], None] | None,
     response_observer: Callable[[AttemptLease, Mapping[str, object]], None],
+    transcript_path: Path | None = None,
 ) -> SolverResponse:
     handler = ProviderSpendAttemptHandler(
         authority=authority,
@@ -832,6 +835,7 @@ def _complete_cell(
             request_body_observer=request_body_observer,
             environ=environ,
             registry_sha256=registry_sha256,
+            transcript_path=transcript_path,
         )
     return complete_live_prompt(
         entry,

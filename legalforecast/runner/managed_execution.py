@@ -16,11 +16,15 @@ from pydantic import BaseModel, Field
 from pydantic_ai import (
     Agent,
     AgentRetries,
+    AgentRunResult,
     ModelAPIError,
     ModelHTTPError,
+    ModelMessagesTypeAdapter,
     ModelResponse,
     RunContext,
+    capture_run_messages,
 )
+from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model, ModelRequestParameters
 from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
 from pydantic_ai.models.openai import (
@@ -44,6 +48,7 @@ from legalforecast.evals.response_verification import (
     require_publishable_response_metadata,
     verify_provider_response,
 )
+from legalforecast.immutable_io import write_file_replace_safe
 from legalforecast.multiharness.adapters import ToolExecutor
 from legalforecast.multiharness.tool_protocol import ToolRequest
 from legalforecast.release import ForecastExecution, ForecastPredictionUnit
@@ -240,6 +245,7 @@ def run_managed_tool_agent(
     request_id: str,
     api_key: str | None = None,
     model: Model | None = None,
+    transcript_path: Path | None = None,
 ) -> ManagedToolAgentResult:
     """Run one case with Pydantic AI's native tool loop and bounded usage."""
 
@@ -315,15 +321,53 @@ def run_managed_tool_agent(
         request_id=request_id,
     )
     usage = RunUsage()
-    result = agent.run_sync(
-        initial_prompt,
-        deps=deps,
-        usage=usage,
-        usage_limits=UsageLimits(
-            request_limit=MAX_AGENT_REQUESTS,
-            tool_calls_limit=MAX_AGENT_TOOL_CALLS,
-        ),
+    with capture_run_messages() as messages:
+        try:
+            result = agent.run_sync(
+                initial_prompt,
+                deps=deps,
+                usage=usage,
+                usage_limits=UsageLimits(
+                    request_limit=MAX_AGENT_REQUESTS,
+                    tool_calls_limit=MAX_AGENT_TOOL_CALLS,
+                ),
+            )
+            managed_result = _managed_result_from_run(
+                result,
+                provider=provider,
+                required_unit_ids=required_unit_ids,
+                usage=usage,
+                deps=deps,
+            )
+        except BaseException:
+            _write_managed_transcript(
+                transcript_path,
+                model=entry.registry_key,
+                cell=request_id,
+                status="failed",
+                messages=messages,
+            )
+            raise
+    _write_managed_transcript(
+        transcript_path,
+        model=entry.registry_key,
+        cell=request_id,
+        status="succeeded",
+        messages=messages,
     )
+    return managed_result
+
+
+def _managed_result_from_run(
+    result: AgentRunResult[ForecastEnvelope],
+    *,
+    provider: str,
+    required_unit_ids: Sequence[str],
+    usage: RunUsage,
+    deps: ManagedToolAgentDeps,
+) -> ManagedToolAgentResult:
+    """Validate and project one completed PydanticAI run."""
+
     output_ids = tuple(item.unit_id for item in result.output.predictions)
     if len(output_ids) != len(set(output_ids)) or set(output_ids) != set(
         required_unit_ids
@@ -389,6 +433,41 @@ def run_managed_tool_agent(
         called_tools=tuple(deps.called_tools),
         response_usages=tuple(response_usages),
         thoughts_tokens=thoughts_tokens,
+    )
+
+
+def _write_managed_transcript(
+    transcript_path: Path | None,
+    *,
+    model: str,
+    cell: str,
+    status: str,
+    messages: Sequence[ModelMessage],
+) -> None:
+    """Persist SDK-native message history without serializing exception state."""
+
+    if transcript_path is None or not messages:
+        return
+    encoded_messages = ModelMessagesTypeAdapter.dump_json(list(messages))
+    envelope = {
+        "model": model,
+        "cell": cell,
+        "agent_status": status,
+        "messages": json.loads(encoded_messages),
+    }
+    transcript_path.parent.mkdir(parents=True, exist_ok=True)
+    write_file_replace_safe(
+        transcript_path,
+        (
+            json.dumps(
+                envelope,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n"
+        ).encode("utf-8"),
+        mode=0o600,
     )
 
 
@@ -486,6 +565,7 @@ def complete_managed_tool_cell(
     request_body_observer: Callable[[bytes], None],
     environ: Mapping[str, str] | None,
     registry_sha256: str,
+    transcript_path: Path | None = None,
 ) -> SolverResponse:
     """Authorize, run, and settle one entire managed agent session as one case."""
 
@@ -511,15 +591,27 @@ def complete_managed_tool_cell(
     def call(executor: ToolExecutor, workspace: Path) -> Mapping[str, object]:
         request_body_observer(commitment)
         try:
-            result = run_managed_tool_agent(
-                entry,
-                initial_prompt=initial_prompt,
-                required_unit_ids=managed_case.required_unit_ids,
-                executor=executor,
-                workspace=workspace,
-                request_id=managed_case.cell_id,
-                api_key=api_key.strip(),
-            )
+            if transcript_path is None:
+                result = run_managed_tool_agent(
+                    entry,
+                    initial_prompt=initial_prompt,
+                    required_unit_ids=managed_case.required_unit_ids,
+                    executor=executor,
+                    workspace=workspace,
+                    request_id=managed_case.cell_id,
+                    api_key=api_key.strip(),
+                )
+            else:
+                result = run_managed_tool_agent(
+                    entry,
+                    initial_prompt=initial_prompt,
+                    required_unit_ids=managed_case.required_unit_ids,
+                    executor=executor,
+                    workspace=workspace,
+                    request_id=managed_case.cell_id,
+                    api_key=api_key.strip(),
+                    transcript_path=transcript_path,
+                )
         except ModelHTTPError as exc:
             raise LiveModelProviderError(
                 f"managed {provider} agent request failed",

@@ -154,10 +154,17 @@ def _resume_sources() -> list[tuple[str, int]]:
 
 def _unpack_state(archive: Path, destination: Path) -> None:
     allowed = _ALLOWED_FILES
+    seen_paths: set[str] = set()
     with zipfile.ZipFile(archive) as bundle:
         for info in bundle.infolist():
             parts = Path(info.filename).parts
-            if info.filename.endswith("/") and parts == ("receipts",):
+            if info.filename in seen_paths:
+                raise ValueError("duplicate state archive path")
+            seen_paths.add(info.filename)
+            if info.filename.endswith("/") and parts in {
+                ("receipts",),
+                ("transcripts",),
+            }:
                 continue
             if (
                 not info.filename
@@ -167,7 +174,10 @@ def _unpack_state(archive: Path, destination: Path) -> None:
                 or (len(parts) == 1 and parts[0] not in allowed)
                 or (
                     len(parts) == 2
-                    and (parts[0] != "receipts" or not parts[1].endswith(".json"))
+                    and (
+                        parts[0] not in {"receipts", "transcripts"}
+                        or not parts[1].endswith(".json")
+                    )
                 )
             ):
                 raise ValueError("unexpected state archive path")
@@ -210,6 +220,7 @@ def _validate_source_completed_state(
         raise ValueError("completed source state has no durable receipts")
     for receipt_path in receipt_paths:
         _read_object(receipt_path)
+    _validate_transcript_files(root, cell_id)
 
 
 def _download_artifact(artifact_id: int, archive: Path) -> None:
@@ -235,10 +246,13 @@ def _copy_state(
     source: Path, destination: Path, source_run_id: str, source_attempt: int
 ) -> None:
     for path in source.iterdir():
+        if path.name == "transcripts":
+            continue
         if path.is_dir():
             shutil.copytree(path, destination / path.name, dirs_exist_ok=True)
         else:
             shutil.copyfile(path, destination / path.name)
+    _copy_transcripts(source, destination)
     state_path = destination / "state.json"
     state = _read_object(state_path)
     state.update(
@@ -251,6 +265,52 @@ def _copy_state(
         }
     )
     state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _validate_transcript_files(root: Path, cell_id: str) -> None:
+    """Validate optional transcript paths without interpreting transcript bytes."""
+
+    transcripts = root / "transcripts"
+    if not transcripts.exists():
+        return
+    if transcripts.is_symlink() or not transcripts.is_dir():
+        raise ValueError("durable transcript directory is unsafe")
+    expected_name = f"{cell_id}.json"
+    for path in transcripts.iterdir():
+        if path.is_symlink() or not path.is_file() or path.name != expected_name:
+            raise ValueError("durable transcript filename does not preserve cell ID")
+
+
+def _copy_transcripts(source: Path, destination: Path) -> None:
+    """Copy optional transcript bytes while refusing conflicting destinations."""
+
+    source_transcripts = source / "transcripts"
+    if not source_transcripts.exists():
+        return
+    if source_transcripts.is_symlink() or not source_transcripts.is_dir():
+        raise ValueError("durable transcript directory is unsafe")
+    destination_transcripts = destination / "transcripts"
+    if destination_transcripts.exists() and (
+        destination_transcripts.is_symlink() or not destination_transcripts.is_dir()
+    ):
+        raise ValueError("destination transcript directory is unsafe")
+    destination_transcripts.mkdir(parents=True, exist_ok=True)
+    for source_path in source_transcripts.iterdir():
+        if source_path.is_symlink() or not source_path.is_file():
+            raise ValueError("durable transcript is unsafe")
+        destination_path = destination_transcripts / source_path.name
+        source_bytes = source_path.read_bytes()
+        if destination_path.exists() or destination_path.is_symlink():
+            if (
+                destination_path.is_symlink()
+                or not destination_path.is_file()
+                or destination_path.read_bytes() != source_bytes
+            ):
+                raise ValueError(
+                    f"conflicting transcript destination: {destination_path.name}"
+                )
+            continue
+        destination_path.write_bytes(source_bytes)
 
 
 def _candidate_artifacts(
@@ -315,6 +375,7 @@ def _restore_candidates(
                 raise ValueError("state identity does not match artifact")
             if state.get("run_attempt") != attempt:
                 raise ValueError("state attempt does not match artifact")
+            _validate_transcript_files(root, cell_id)
             if source_mode:
                 if source_run_id is None or source_attempt is None:
                     raise ValueError("source workflow attempt is required")

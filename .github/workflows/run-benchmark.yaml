@@ -467,7 +467,7 @@ jobs:
           CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/lfb-run/receipts
+          mkdir -p /tmp/lfb-run/receipts /tmp/lfb-run/transcripts
           uv run python - <<'PY'
           import json, os
           from pathlib import Path
@@ -560,6 +560,7 @@ jobs:
             /tmp/lfb-run/run-summary.json
             /tmp/lfb-run/runner-failure.log
             /tmp/lfb-run/receipts
+            /tmp/lfb-run/transcripts
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
 
@@ -616,7 +617,7 @@ jobs:
           CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/lfb-run/receipts
+          mkdir -p /tmp/lfb-run/receipts /tmp/lfb-run/transcripts
           uv run python - <<'PY'
           import json, os
           from pathlib import Path
@@ -698,6 +699,7 @@ jobs:
             /tmp/lfb-run/run-summary.json
             /tmp/lfb-run/runner-failure.log
             /tmp/lfb-run/receipts
+            /tmp/lfb-run/transcripts
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
 
@@ -754,7 +756,7 @@ jobs:
           CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/lfb-run/receipts
+          mkdir -p /tmp/lfb-run/receipts /tmp/lfb-run/transcripts
           uv run python - <<'PY'
           import json, os
           from pathlib import Path
@@ -847,6 +849,7 @@ jobs:
             /tmp/lfb-run/run-summary.json
             /tmp/lfb-run/runner-failure.log
             /tmp/lfb-run/receipts
+            /tmp/lfb-run/transcripts
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
 
@@ -916,6 +919,7 @@ jobs:
               raise SystemExit("combined forecast result destination already exists")
           output.mkdir()
           (output / "receipts").mkdir()
+          (output / "transcripts").mkdir()
           source_artifacts = inputs / "artifacts"
           if not source_artifacts.is_dir() or source_artifacts.is_symlink():
               raise SystemExit("complete forecast artifact tree is missing")
@@ -970,6 +974,21 @@ jobs:
               receipts_dir = state_dir / "receipts"
               if receipts_dir.exists() and (not receipts_dir.is_dir() or receipts_dir.is_symlink()):
                   raise SystemExit(f"durable receipt directory is unsafe: {state_dir.name}")
+              transcripts_dir = state_dir / "transcripts"
+              if transcripts_dir.exists() and (not transcripts_dir.is_dir() or transcripts_dir.is_symlink()):
+                  raise SystemExit(f"durable transcript directory is unsafe: {state_dir.name}")
+              if transcripts_dir.exists():
+                  cell_id = state.get("cell_id")
+                  if not isinstance(cell_id, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", cell_id):
+                      raise SystemExit(f"durable state has an invalid cell ID: {state_dir.name}")
+                  expected_name = f"{cell_id}.json"
+                  for transcript_path in sorted(transcripts_dir.iterdir()):
+                      if transcript_path.is_symlink() or not transcript_path.is_file() or transcript_path.name != expected_name:
+                          raise SystemExit(f"durable transcript filename does not preserve cell ID: {state_dir.name}")
+                      destination = output / "transcripts" / transcript_path.name
+                      if destination.exists():
+                          raise SystemExit(f"duplicate durable transcript destination: {destination.name}")
+                      shutil.copyfile(transcript_path, destination)
               if not receipts_dir.exists():
                   continue
               for receipt_path in sorted(receipts_dir.glob("*.json")):
@@ -1110,5 +1129,6 @@ jobs:
             /tmp/lfb-forecast-results/run-summary.json
             /tmp/lfb-forecast-results/ledger/ledger.sqlite3
             /tmp/lfb-forecast-results/receipts
+            /tmp/lfb-forecast-results/transcripts
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
