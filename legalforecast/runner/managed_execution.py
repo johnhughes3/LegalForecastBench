@@ -54,7 +54,9 @@ from legalforecast.multiharness.tool_protocol import ToolRequest
 from legalforecast.release import ForecastExecution, ForecastPredictionUnit
 from legalforecast.runner.ledger import RunValidationError
 
-MAX_AGENT_REQUESTS = 24
+# Long briefing records can require more than 24 sequential document reads.
+# Keep a bounded SDK run while allowing room to finish the forecast afterward.
+MAX_AGENT_REQUESTS = 64
 MAX_AGENT_TOOL_CALLS = 96
 
 
