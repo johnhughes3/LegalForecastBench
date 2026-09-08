@@ -178,7 +178,7 @@ def test_inventory_requires_manual_disposition_for_oversized_and_cycles(
     )
 
 
-def test_baseline_rejects_new_watch_file_and_new_cycle(tmp_path: Path) -> None:
+def test_baseline_rejects_new_watch_file(tmp_path: Path) -> None:
     (tmp_path / "legalforecast").mkdir()
     (tmp_path / "legalforecast" / "cli.py").write_text(_cli_source(), encoding="utf-8")
     _write_module(
@@ -218,7 +218,7 @@ def test_baseline_allows_watch_tier_growth_below_one_thousand(tmp_path: Path) ->
     assert check_baseline(tmp_path, baseline_path) == ()
 
 
-def test_baseline_rejects_unreviewed_directory_growth_past_twenty(
+def test_baseline_allows_directory_growth_past_twenty(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "legalforecast").mkdir()
@@ -230,18 +230,15 @@ def test_baseline_rejects_unreviewed_directory_growth_past_twenty(
     _init_git_repository(tmp_path)
     baseline_path = tmp_path / "architecture.json"
     write_baseline(baseline_path, scan_repository(tmp_path))
+    baseline_payload = json.loads(baseline_path.read_text(encoding="utf-8"))
+    assert "directories" not in baseline_payload["inventory"]
     (package / "mod_20.py").write_text("VALUE = 20\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
 
-    violations = check_baseline(tmp_path, baseline_path)
-
-    assert any(
-        "directory legalforecast/config python_file_count:" in violation
-        for violation in violations
-    )
+    assert check_baseline(tmp_path, baseline_path) == ()
 
 
-def test_baseline_rejects_new_directory_past_twenty(tmp_path: Path) -> None:
+def test_baseline_allows_new_directory_past_twenty(tmp_path: Path) -> None:
     (tmp_path / "legalforecast").mkdir()
     (tmp_path / "legalforecast" / "cli.py").write_text(_cli_source(), encoding="utf-8")
     _init_git_repository(tmp_path)
@@ -253,10 +250,43 @@ def test_baseline_rejects_new_directory_past_twenty(tmp_path: Path) -> None:
         (package / f"mod_{index}.py").write_text(f"VALUE = {index}\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
 
+    assert check_baseline(tmp_path, baseline_path) == ()
+
+
+def test_baseline_rejects_new_import_cycle(tmp_path: Path) -> None:
+    (tmp_path / "legalforecast").mkdir()
+    (tmp_path / "legalforecast" / "cli.py").write_text(_cli_source(), encoding="utf-8")
+    _write_module(
+        tmp_path / "legalforecast" / "labeling" / "stage.py",
+        "def run():\n    return None\n",
+        lines=520,
+    )
+    _init_git_repository(tmp_path)
+    baseline_path = tmp_path / "architecture.json"
+    write_baseline(baseline_path, scan_repository(tmp_path))
+    _write_module(
+        tmp_path / "legalforecast" / "labeling" / "llm_pipeline.py",
+        "from legalforecast.labeling import unitizer_terminal\n",
+        lines=8,
+    )
+    _write_module(
+        tmp_path / "legalforecast" / "labeling" / "unitizer_terminal.py",
+        "from legalforecast.labeling import llm_pipeline\n",
+        lines=8,
+    )
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+
     violations = check_baseline(tmp_path, baseline_path)
 
     assert any(
-        "directory legalforecast/brand_new python_file_count:" in violation
+        violation.startswith("new import cycles: ")
+        and all(
+            path in violation
+            for path in (
+                "legalforecast/labeling/llm_pipeline.py",
+                "legalforecast/labeling/unitizer_terminal.py",
+            )
+        )
         for violation in violations
     )
 

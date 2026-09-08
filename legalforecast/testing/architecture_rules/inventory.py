@@ -1,4 +1,4 @@
-"""Repository-wide file inventory, package lanes, and directory ceilings."""
+"""Repository-wide file inventory, package lanes, and directory counts."""
 
 from __future__ import annotations
 
