@@ -41,7 +41,7 @@ def test_forecast_jobs_use_real_dynamic_logical_cell_matrices() -> None:
             + f"{provider}_matrix) }}"
             in job
         )
-        assert "Restore newest prior valid attempt" in job
+        assert "Restore prior completed cell state" in job
         assert "Persist" in job
         assert "if: ${{ always() }}" in job
         assert "ledger.sqlite3" in job

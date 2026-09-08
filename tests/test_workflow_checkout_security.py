@@ -120,7 +120,7 @@ def test_workflow_dispatch_input_parser_sees_the_real_declarations() -> None:
     # Spot-check both ends of the block and the locked input fields in the middle,
     # so a parser that stops early or swallows nested keys fails here.
     assert run_benchmark[0] == "release_sha"
-    assert run_benchmark[-1] == "artifact_retention_days"
+    assert run_benchmark[-1] == "resume_source_run_attempt"
     assert "manifest_uri" in run_benchmark
     assert "forecast_release_uri" in run_benchmark
     assert "model_registry_uri" in run_benchmark

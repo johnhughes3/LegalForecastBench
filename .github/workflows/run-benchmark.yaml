@@ -52,6 +52,16 @@ on:
         required: false
         default: "14"
         type: string
+      resume_source_run_id:
+        description: Canceled benchmark workflow run ID whose completed cell states may be imported.
+        required: false
+        default: ""
+        type: string
+      resume_source_run_attempt:
+        description: Exact attempt number in the canceled source run to import.
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -115,6 +125,8 @@ jobs:
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           MAX_PARALLEL: ${{ inputs.max_parallel }}
           RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
+          RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
+          RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
         run: |
           set -euo pipefail
           for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
@@ -126,6 +138,10 @@ jobs:
           [[ "${REPEAT_COUNT}" == "1" ]] || { echo "repeat_count must be exactly 1 until repeated-sampling fan-in is supported" >&2; exit 1; }
           [[ "${MAX_PARALLEL}" =~ ^[1-9][0-9]*$ && "${MAX_PARALLEL}" -le 32 ]] || { echo "max_parallel must be between 1 and 32" >&2; exit 1; }
           [[ "${RETENTION_DAYS}" =~ ^[1-9][0-9]*$ && "${RETENTION_DAYS}" -le 90 ]] || { echo "artifact_retention_days must be between 1 and 90" >&2; exit 1; }
+          if [[ -n "${RESUME_SOURCE_RUN_ID}" || -n "${RESUME_SOURCE_RUN_ATTEMPT}" ]]; then
+            [[ "${RESUME_SOURCE_RUN_ID}" =~ ^[1-9][0-9]*$ && "${RESUME_SOURCE_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]] || { echo "resume source run ID and attempt must both be positive integers" >&2; exit 1; }
+            [[ "${RESUME_SOURCE_RUN_ID}" != "${GITHUB_RUN_ID}" ]] || { echo "resume source run must differ from the current run" >&2; exit 1; }
+          fi
       - name: Configure read-only public object access
         if: ${{ startsWith(inputs.manifest_uri, 's3://') || startsWith(inputs.forecast_release_uri, 's3://') || startsWith(inputs.artifact_root_uri, 's3://') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.manifest_uri, 'manifests/') || startsWith(inputs.forecast_release_uri, 'manifests/') || startsWith(inputs.artifact_root_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 'manifests/') }}
         uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
@@ -421,53 +437,26 @@ jobs:
           Path("/tmp/lfb-run/state.json").write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
           Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps({**record, "failure_type": None}, sort_keys=True) + "\n", encoding="utf-8")
           PY
-      - name: Restore newest prior valid attempt
+      - name: Restore prior completed cell state
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           PROVIDER: ${{ matrix.provider }}
           CELL_ID: ${{ matrix.cell_id }}
           CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+          RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
+          RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
         run: |
           set -euo pipefail
-          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-artifacts.json"
-          export METADATA_PATH="${RUNNER_TEMP}/forecast-artifacts.json"
-          uv run python - <<'PY'
-          import json, os, re, shutil, subprocess, sys, zipfile
-          from pathlib import Path
-          provider, cell_id = os.environ["PROVIDER"], os.environ["CELL_ID"]
-          current = int(os.environ["GITHUB_RUN_ATTEMPT"]); slug = os.environ["CELL_ID_SLUG"]
-          pages = json.loads(Path(os.environ["METADATA_PATH"]).read_text()); artifacts = [item for page in pages for item in page]
-          pattern = re.compile(r"^" + re.escape(f"locked-run-state-{provider}-{slug}-attempt-") + r"([1-9][0-9]*)$")
-          candidates = [(int(match.group(1)), item["created_at"], item["id"]) for item in artifacts if isinstance(item, dict) and item.get("expired") is not True and isinstance(item.get("name"), str) and (match := pattern.fullmatch(item["name"])) and int(match.group(1)) < current and isinstance(item.get("id"), int) and isinstance(item.get("created_at"), str)]
-          if not candidates:
-              print("restore=none"); raise SystemExit(0)
-          candidates.sort(reverse=True); run_root = Path("/tmp/lfb-run"); allowed = {"state.json", "failure-summary.json", "ledger.sqlite3", "run-summary.json"}; valid = None
-          for attempt, _created, artifact_id in candidates:
-              archive = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}.zip"; root = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}"; shutil.rmtree(root, ignore_errors=True); root.mkdir()
-              try:
-                  subprocess.run(["gh", "api", "--output", str(archive), f"/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts/{artifact_id}/zip"], check=True)
-              except (OSError, subprocess.CalledProcessError) as exc:
-                  raise SystemExit("prior state download/API failure; refusing a fresh duplicate call") from exc
-              try:
-                  with zipfile.ZipFile(archive) as bundle:
-                      for info in bundle.infolist():
-                          parts = Path(info.filename).parts
-                          if not info.filename or info.filename.startswith("/") or ".." in parts or len(parts) > 2 or (len(parts) == 1 and parts[0] not in allowed) or (len(parts) == 2 and (parts[0] != "receipts" or not parts[1].endswith(".json"))): raise ValueError("unexpected state archive path")
-                          if not info.filename.endswith("/"): (root / info.filename).parent.mkdir(parents=True, exist_ok=True); (root / info.filename).write_bytes(bundle.read(info.filename))
-                  state = json.loads((root / "state.json").read_text()); json.loads((root / "failure-summary.json").read_text())
-                  if state.get("provider") != provider or state.get("cell_id") != cell_id or state.get("run_attempt") != attempt: raise ValueError("state identity does not match artifact")
-              except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
-                  print(f"ignoring corrupt prior state attempt {attempt}: {exc}", file=sys.stderr); continue
-              valid = (root, attempt); break
-          if valid is None: raise SystemExit("all prior state artifacts were corrupt; refusing a fresh duplicate call")
-          root, attempt = valid
-          for path in root.iterdir():
-              if path.is_dir(): shutil.copytree(path, run_root / path.name, dirs_exist_ok=True)
-              else: shutil.copyfile(path, run_root / path.name)
-          state_path = run_root / "state.json"; state = json.loads(state_path.read_text()); state.update({"restored_from_attempt": attempt, "run_attempt": current, "status": "restored"}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
-          print(f"restore=attempt-{attempt}")
-          PY
+          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-current-artifacts.json"
+          if [[ -n "${RESUME_SOURCE_RUN_ID}" ]]; then
+            gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-source-artifacts.json"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/attempts/${RESUME_SOURCE_RUN_ATTEMPT}" > "${RUNNER_TEMP}/forecast-source-run.json"
+            export SOURCE_METADATA_PATH="${RUNNER_TEMP}/forecast-source-artifacts.json"
+            export SOURCE_RUN_METADATA_PATH="${RUNNER_TEMP}/forecast-source-run.json"
+          fi
+          export METADATA_PATH="${RUNNER_TEMP}/forecast-current-artifacts.json"
+          uv run python .github/scripts/restore-forecast-state.py
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -602,48 +591,26 @@ jobs:
           Path("/tmp/lfb-run/state.json").write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
           Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps({**record, "failure_type": None}, sort_keys=True) + "\n", encoding="utf-8")
           PY
-      - name: Restore newest prior valid attempt
+      - name: Restore prior completed cell state
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           PROVIDER: ${{ matrix.provider }}
           CELL_ID: ${{ matrix.cell_id }}
           CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+          RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
+          RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
         run: |
           set -euo pipefail
-          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-artifacts.json"
-          export METADATA_PATH="${RUNNER_TEMP}/forecast-artifacts.json"
-          uv run python - <<'PY'
-          import json, os, re, shutil, subprocess, sys, zipfile
-          from pathlib import Path
-          provider, cell_id = os.environ["PROVIDER"], os.environ["CELL_ID"]; current = int(os.environ["GITHUB_RUN_ATTEMPT"]); slug = os.environ["CELL_ID_SLUG"]
-          pages = json.loads(Path(os.environ["METADATA_PATH"]).read_text()); artifacts = [item for page in pages for item in page]
-          pattern = re.compile(r"^" + re.escape(f"locked-run-state-{provider}-{slug}-attempt-") + r"([1-9][0-9]*)$")
-          candidates = [(int(match.group(1)), item["created_at"], item["id"]) for item in artifacts if isinstance(item, dict) and item.get("expired") is not True and isinstance(item.get("name"), str) and (match := pattern.fullmatch(item["name"])) and int(match.group(1)) < current and isinstance(item.get("id"), int) and isinstance(item.get("created_at"), str)]
-          if not candidates: print("restore=none"); raise SystemExit(0)
-          candidates.sort(reverse=True); run_root = Path("/tmp/lfb-run"); allowed = {"state.json", "failure-summary.json", "ledger.sqlite3", "run-summary.json"}; valid = None
-          for attempt, _created, artifact_id in candidates:
-              archive = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}.zip"; root = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}"; shutil.rmtree(root, ignore_errors=True); root.mkdir()
-              try:
-                  subprocess.run(["gh", "api", "--output", str(archive), f"/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts/{artifact_id}/zip"], check=True)
-              except (OSError, subprocess.CalledProcessError) as exc:
-                  raise SystemExit("prior state download/API failure; refusing a fresh duplicate call") from exc
-              try:
-                  with zipfile.ZipFile(archive) as bundle:
-                      for info in bundle.infolist():
-                          parts = Path(info.filename).parts
-                          if not info.filename or info.filename.startswith("/") or ".." in parts or len(parts) > 2 or (len(parts) == 1 and parts[0] not in allowed) or (len(parts) == 2 and (parts[0] != "receipts" or not parts[1].endswith(".json"))): raise ValueError("unexpected state archive path")
-                          if not info.filename.endswith("/"): (root / info.filename).parent.mkdir(parents=True, exist_ok=True); (root / info.filename).write_bytes(bundle.read(info.filename))
-                  state = json.loads((root / "state.json").read_text()); json.loads((root / "failure-summary.json").read_text())
-                  if state.get("provider") != provider or state.get("cell_id") != cell_id or state.get("run_attempt") != attempt: raise ValueError("state identity does not match artifact")
-              except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc: print(f"ignoring corrupt prior state attempt {attempt}: {exc}", file=sys.stderr); continue
-              valid = (root, attempt); break
-          if valid is None: raise SystemExit("all prior state artifacts were corrupt; refusing a fresh duplicate call")
-          root, attempt = valid
-          for path in root.iterdir(): shutil.copytree(path, run_root / path.name, dirs_exist_ok=True) if path.is_dir() else shutil.copyfile(path, run_root / path.name)
-          state_path = run_root / "state.json"; state = json.loads(state_path.read_text()); state.update({"restored_from_attempt": attempt, "run_attempt": current, "status": "restored"}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
-          print(f"restore=attempt-{attempt}")
-          PY
+          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-current-artifacts.json"
+          if [[ -n "${RESUME_SOURCE_RUN_ID}" ]]; then
+            gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-source-artifacts.json"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/attempts/${RESUME_SOURCE_RUN_ATTEMPT}" > "${RUNNER_TEMP}/forecast-source-run.json"
+            export SOURCE_METADATA_PATH="${RUNNER_TEMP}/forecast-source-artifacts.json"
+            export SOURCE_RUN_METADATA_PATH="${RUNNER_TEMP}/forecast-source-run.json"
+          fi
+          export METADATA_PATH="${RUNNER_TEMP}/forecast-current-artifacts.json"
+          uv run python .github/scripts/restore-forecast-state.py
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -767,47 +734,26 @@ jobs:
           Path("/tmp/lfb-run/state.json").write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
           Path("/tmp/lfb-run/failure-summary.json").write_text(json.dumps({**record, "failure_type": None}, sort_keys=True) + "\n", encoding="utf-8")
           PY
-      - name: Restore newest prior valid attempt
+      - name: Restore prior completed cell state
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           PROVIDER: ${{ matrix.provider }}
           CELL_ID: ${{ matrix.cell_id }}
           CELL_ID_SLUG: ${{ matrix.cell_id_slug }}
+          RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
+          RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
         run: |
           set -euo pipefail
-          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-artifacts.json"
-          export METADATA_PATH="${RUNNER_TEMP}/forecast-artifacts.json"
-          uv run python - <<'PY'
-          import json, os, re, shutil, subprocess, sys, zipfile
-          from pathlib import Path
-          provider, cell_id = os.environ["PROVIDER"], os.environ["CELL_ID"]; current = int(os.environ["GITHUB_RUN_ATTEMPT"]); slug = os.environ["CELL_ID_SLUG"]
-          pages = json.loads(Path(os.environ["METADATA_PATH"]).read_text()); artifacts = [item for page in pages for item in page]
-          pattern = re.compile(r"^" + re.escape(f"locked-run-state-{provider}-{slug}-attempt-") + r"([1-9][0-9]*)$"); candidates = [(int(match.group(1)), item["created_at"], item["id"]) for item in artifacts if isinstance(item, dict) and item.get("expired") is not True and isinstance(item.get("name"), str) and (match := pattern.fullmatch(item["name"])) and int(match.group(1)) < current and isinstance(item.get("id"), int) and isinstance(item.get("created_at"), str)]
-          if not candidates: print("restore=none"); raise SystemExit(0)
-          candidates.sort(reverse=True); run_root = Path("/tmp/lfb-run"); allowed = {"state.json", "failure-summary.json", "ledger.sqlite3", "run-summary.json"}; valid = None
-          for attempt, _created, artifact_id in candidates:
-              archive = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}.zip"; root = Path(os.environ["RUNNER_TEMP"]) / f"forecast-state-{artifact_id}"; shutil.rmtree(root, ignore_errors=True); root.mkdir()
-              try:
-                  subprocess.run(["gh", "api", "--output", str(archive), f"/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts/{artifact_id}/zip"], check=True)
-              except (OSError, subprocess.CalledProcessError) as exc:
-                  raise SystemExit("prior state download/API failure; refusing a fresh duplicate call") from exc
-              try:
-                  with zipfile.ZipFile(archive) as bundle:
-                      for info in bundle.infolist():
-                          parts = Path(info.filename).parts
-                          if not info.filename or info.filename.startswith("/") or ".." in parts or len(parts) > 2 or (len(parts) == 1 and parts[0] not in allowed) or (len(parts) == 2 and (parts[0] != "receipts" or not parts[1].endswith(".json"))): raise ValueError("unexpected state archive path")
-                          if not info.filename.endswith("/"): (root / info.filename).parent.mkdir(parents=True, exist_ok=True); (root / info.filename).write_bytes(bundle.read(info.filename))
-                  state = json.loads((root / "state.json").read_text()); json.loads((root / "failure-summary.json").read_text())
-                  if state.get("provider") != provider or state.get("cell_id") != cell_id or state.get("run_attempt") != attempt: raise ValueError("state identity does not match artifact")
-              except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc: print(f"ignoring corrupt prior state attempt {attempt}: {exc}", file=sys.stderr); continue
-              valid = (root, attempt); break
-          if valid is None: raise SystemExit("all prior state artifacts were corrupt; refusing a fresh duplicate call")
-          root, attempt = valid
-          for path in root.iterdir(): shutil.copytree(path, run_root / path.name, dirs_exist_ok=True) if path.is_dir() else shutil.copyfile(path, run_root / path.name)
-          state_path = run_root / "state.json"; state = json.loads(state_path.read_text()); state.update({"restored_from_attempt": attempt, "run_attempt": current, "status": "restored"}); state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
-          print(f"restore=attempt-{attempt}")
-          PY
+          gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-current-artifacts.json"
+          if [[ -n "${RESUME_SOURCE_RUN_ID}" ]]; then
+            gh api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/artifacts?per_page=100" > "${RUNNER_TEMP}/forecast-source-artifacts.json"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${RESUME_SOURCE_RUN_ID}/attempts/${RESUME_SOURCE_RUN_ATTEMPT}" > "${RUNNER_TEMP}/forecast-source-run.json"
+            export SOURCE_METADATA_PATH="${RUNNER_TEMP}/forecast-source-artifacts.json"
+            export SOURCE_RUN_METADATA_PATH="${RUNNER_TEMP}/forecast-source-run.json"
+          fi
+          export METADATA_PATH="${RUNNER_TEMP}/forecast-current-artifacts.json"
+          uv run python .github/scripts/restore-forecast-state.py
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
