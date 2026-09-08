@@ -1,0 +1,36 @@
+[
+  {
+    "context_limit": 500000,
+    "display_name": "Grok 4.6 via Vercel AI Gateway",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "xAI does not publish a single consistent training-data cutoff for Grok 4.6, so the structured cutoff remains unknown. The Vercel model page currently reports February 1, 2026, while xAI's dated documentation has reported January 2026; the release date is not used as a cutoff proxy.",
+      "Grok 4.6 was released 2026-08-12, after the Cycle 1 corpus anchor of 2026-06-30. This entry is supplementary post-anchor and must not be substituted into a historical registry; individual repaired-release cases may postdate the model release.",
+      "The Gateway route is hard allowlisted to xAI with providerOptions.gateway.only: ['xai'], matching Vercel's current model-page example. The existing direct xAI supplementary registry remains immutable and is not changed by this file.",
+      "Vercel's current model page documents the canonical id spacexai/grok-4.6, OpenAI Responses support, native tool calling, 500K context, and USD 2/M input and USD 6/M output base prices. Checked 2026-09-08.",
+      "Grok 4.6 supports low, medium, high, and xhigh reasoning, with reasoning always enabled. The registry uses high to match the frozen supplementary execution parity target; no provider default is relied upon.",
+      "Vercel documents a 500,000-token output ceiling, while this benchmark keeps its shared managed-runtime cap at 128,000 output tokens so the document-tool transcript and spend reservation policy remain aligned.",
+      "The current Vercel page shows a higher price tier when a prompt reaches 200,000 input tokens; the registry records the 2x surcharge boundary used by the existing xAI supplementary cost projection.",
+      "Live provider tool use, Gateway response metadata, deployment credentials, and a protected dispatch remain unverified in this held lane. No provider call is authorized by this registry change."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2.0,
+      "output_price_multiplier": 2.0,
+      "threshold_input_tokens": 200000
+    },
+    "max_output_tokens": 128000,
+    "model_id": "spacexai/grok-4.6",
+    "model_version_or_snapshot": "spacexai/grok-4.6",
+    "network_disabled": true,
+    "output_token_price": 6.0,
+    "pricing_source": "https://vercel.com/ai-gateway/models/grok-4.6 (SpaceXAI/xAI provider row; USD 2/M input and USD 6/M output base prices), checked 2026-09-08",
+    "provider": "vercel_ai_gateway",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-08-12T00:00:00Z",
+    "release_timestamp_source": "https://vercel.com/ai-gateway/models/grok-4.6 (release date), checked 2026-09-08",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]
