@@ -14,6 +14,7 @@ from typing import cast
 
 import pytest
 from legalforecast.evals.provider_spend_control import (
+    AttemptLease,
     AttemptLimitExceededError,
     AttemptStateError,
     AuthorityIdentityMismatchError,
@@ -633,6 +634,224 @@ def test_ambiguous_failure_keeps_reservation_and_updates_shared_breaker() -> Non
     assert ledger["reserved_attempt_count"] == _n(0)
     assert ledger["ambiguous_attempt_count"] == _n(1)
     assert ledger["failure_count"] == _n(1)
+
+
+def test_operator_recovery_reserves_next_pretransport_and_acknowledges_failure() -> (
+    None
+):
+    runner = InMemoryDynamoRunner()
+    authority = _authority(
+        runner,
+        max_billable_attempts=1,
+        failure_threshold=1,
+        clock=lambda: 1_788_860_340.2034612,
+    )
+    key = _key()
+    original = authority.authorize_attempt(key, reservation_microusd=250_000)
+    authority.record_failure(original, failure_type="TimeoutError", ambiguous=True)
+    ledger_before = deepcopy(runner.items["LEDGER"])
+    recovered = authority.authorize_additional_attempt(
+        key,
+        reservation_microusd=250_000,
+        acknowledged_attempt_id=original.attempt_id,
+        acknowledged_failure_type="TimeoutError",
+        acknowledged_failure_events_sha256=ledger_before["failure_events_sha256"]["S"],
+        owner_reference="root-recovery-test",
+    )
+
+    assert recovered.attempt_ordinal == 2
+    assert authority.adopt_pretransport_attempt(key) == recovered
+    assert runner.items["LEDGER"]["failure_count"] == _n(1)
+    assert (
+        runner.items["LEDGER"]["failure_events_json"]
+        == ledger_before["failure_events_json"]
+    )
+    assert (
+        runner.items["LEDGER"]["failure_events_sha256"]
+        == ledger_before["failure_events_sha256"]
+    )
+    assert runner.items["LEDGER"]["committed_microusd"] == _n(500_000)
+    assert runner.items[f"ATTEMPT#{key.logical_call_key}#0001"][
+        "failure_acknowledged_at_epoch"
+    ] == {"N": "1788860340.203461"}
+    assert runner.items[f"ATTEMPT#{key.logical_call_key}#0002"]["status"] == _s(
+        "reserved"
+    )
+    assert runner.items[f"ATTEMPT#{key.logical_call_key}#0002"][
+        "owner_reference"
+    ] == _s("root-recovery-test")
+    other = authority.authorize_attempt(
+        _key(case_id="other"),
+        reservation_microusd=1,
+    )
+    assert other.attempt_ordinal == 1
+
+    with pytest.raises(AttemptLimitExceededError):
+        authority.authorize_additional_attempt(
+            key,
+            reservation_microusd=1,
+            acknowledged_attempt_id=original.attempt_id,
+            acknowledged_failure_type="TimeoutError",
+            acknowledged_failure_events_sha256=ledger_before["failure_events_sha256"][
+                "S"
+            ],
+        )
+
+
+def test_operator_recovery_preserves_breaker_for_new_failures() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(
+        runner,
+        max_billable_attempts=1,
+        failure_threshold=1,
+        clock=lambda: 1_000.25,
+    )
+    key = _key()
+    original = authority.authorize_attempt(key, reservation_microusd=250_000)
+    authority.record_failure(original, failure_type="TimeoutError", ambiguous=True)
+    ledger = runner.items["LEDGER"]
+    recovered = authority.authorize_additional_attempt(
+        key,
+        reservation_microusd=250_000,
+        acknowledged_attempt_id=original.attempt_id,
+        acknowledged_failure_type="TimeoutError",
+        acknowledged_failure_events_sha256=ledger["failure_events_sha256"]["S"],
+    )
+
+    authority.record_failure(recovered, failure_type="NewTimeout", ambiguous=True)
+
+    with pytest.raises(CircuitBreakerOpenError):
+        authority.authorize_attempt(
+            _key(case_id="other"),
+            reservation_microusd=1,
+        )
+    assert runner.items["LEDGER"]["failure_count"] == _n(1)
+    assert runner.items["LEDGER"]["acknowledged_failure_events_json"] == _s("[]")
+    assert runner.items[f"ATTEMPT#{key.logical_call_key}#0002"]["failure_type"] == _s(
+        "NewTimeout"
+    )
+
+
+def test_expired_acknowledgement_does_not_block_later_failure() -> None:
+    runner = InMemoryDynamoRunner()
+    now = [1_000.25]
+    authority = _authority(
+        runner,
+        max_billable_attempts=1,
+        failure_threshold=1,
+        clock=lambda: now[0],
+    )
+    key = _key()
+    original = authority.authorize_attempt(key, reservation_microusd=250_000)
+    authority.record_failure(original, failure_type="TimeoutError", ambiguous=True)
+    digest = runner.items["LEDGER"]["failure_events_sha256"]["S"]
+    recovered = authority.authorize_additional_attempt(
+        key,
+        reservation_microusd=250_000,
+        acknowledged_attempt_id=original.attempt_id,
+        acknowledged_failure_type="TimeoutError",
+        acknowledged_failure_events_sha256=digest,
+    )
+
+    now[0] = 1_400.25
+    later = authority.authorize_attempt(
+        _key(case_id="later"),
+        reservation_microusd=1,
+    )
+    authority.record_failure(later, failure_type="LaterTimeout", ambiguous=True)
+
+    with pytest.raises(CircuitBreakerOpenError):
+        authority.authorize_attempt(
+            _key(case_id="blocked-after-later-failure"),
+            reservation_microusd=1,
+        )
+    assert recovered.attempt_ordinal == 2
+    assert runner.items["LEDGER"]["acknowledged_failure_events_json"] == _s("[]")
+
+
+def test_operator_recovery_rejects_stale_commit_and_cap_before_writing() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(
+        runner,
+        cap_microusd=300_000,
+        max_billable_attempts=1,
+        failure_threshold=1,
+        clock=lambda: 1_000.25,
+    )
+    key = _key()
+    original = authority.authorize_attempt(key, reservation_microusd=250_000)
+    authority.record_failure(original, failure_type="TimeoutError", ambiguous=True)
+    ledger = runner.items["LEDGER"]
+    original_failure_events = ledger["failure_events_json"]
+    original_failure_digest = ledger["failure_events_sha256"]["S"]
+    stale_digest = original_failure_digest
+    _set_failure_events(runner, [1_000.5])
+
+    with pytest.raises(AuthorityIdentityMismatchError, match="stale"):
+        authority.authorize_additional_attempt(
+            key,
+            reservation_microusd=1,
+            acknowledged_attempt_id=original.attempt_id,
+            acknowledged_failure_type="TimeoutError",
+            acknowledged_failure_events_sha256=stale_digest,
+        )
+    assert runner.items["LEDGER"]["attempt_count"] == _n(1)
+
+    _set_failure_events(runner, json.loads(original_failure_events["S"]))
+    with pytest.raises(ProviderCapExceededError):
+        authority.authorize_additional_attempt(
+            key,
+            reservation_microusd=100_001,
+            acknowledged_attempt_id=original.attempt_id,
+            acknowledged_failure_type="TimeoutError",
+            acknowledged_failure_events_sha256=original_failure_digest,
+        )
+    assert runner.items["LEDGER"]["attempt_count"] == _n(1)
+
+
+def test_concurrent_operator_recovery_consumes_one_cell_extension() -> None:
+    runner = InMemoryDynamoRunner()
+    authorities = [
+        _authority(
+            runner,
+            max_billable_attempts=1,
+            failure_threshold=1,
+            clock=lambda: 1_000.25,
+        )
+        for _ in range(2)
+    ]
+    key = _key()
+    original = authorities[0].authorize_attempt(key, reservation_microusd=250_000)
+    authorities[0].record_failure(original, failure_type="TimeoutError", ambiguous=True)
+    digest = runner.items["LEDGER"]["failure_events_sha256"]["S"]
+    start = threading.Barrier(2)
+
+    def reserve(
+        authority: DynamoDbProviderSpendAuthority,
+    ) -> AttemptLease | AttemptLimitExceededError:
+        start.wait()
+        try:
+            return authority.authorize_additional_attempt(
+                key,
+                reservation_microusd=250_000,
+                acknowledged_attempt_id=original.attempt_id,
+                acknowledged_failure_type="TimeoutError",
+                acknowledged_failure_events_sha256=digest,
+            )
+        except AttemptLimitExceededError as exc:
+            return exc
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(
+            executor.map(
+                reserve,
+                authorities,
+            )
+        )
+
+    assert sum(isinstance(result, AttemptLease) for result in results) == 1
+    assert sum(isinstance(result, AttemptLimitExceededError) for result in results) == 1
+    assert runner.items["LEDGER"]["attempt_count"] == _n(2)
 
 
 def test_definite_failure_releases_reservation_but_still_counts_for_breaker() -> None:

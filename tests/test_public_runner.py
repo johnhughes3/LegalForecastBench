@@ -24,6 +24,8 @@ from legalforecast.evals.provider_spend_control import (
     AttemptLease,
     AttemptLimitExceededError,
     AttemptStateError,
+    CircuitBreakerOpenError,
+    ProviderSpendKey,
 )
 from legalforecast.evals.provider_spend_dynamodb import DynamoDbProviderSpendAuthority
 from legalforecast.immutable_io import ImmutableIOError
@@ -1375,6 +1377,107 @@ def test_runner_halts_on_remote_transport_started_orphan(
     assert remote_runner.items[remote_attempt_keys[0]]["transport_phase"] == {
         "S": "transport_started"
     }
+
+
+def test_runner_adopts_operator_reserved_attempt_with_fresh_local_ledger(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A remote recovery reservation is usable when the local ledger is new."""
+
+    remote_runner = InMemoryDynamoRunner()
+    original_remote_init = DynamoDbProviderSpendAuthority.__init__
+    authorities: list[DynamoDbProviderSpendAuthority] = []
+
+    def use_fixture_remote(
+        authority: DynamoDbProviderSpendAuthority,
+        **kwargs: object,
+    ) -> None:
+        original_remote_init(authority, runner=remote_runner, **kwargs)
+        authorities.append(authority)
+
+    monkeypatch.setattr(
+        DynamoDbProviderSpendAuthority,
+        "__init__",
+        use_fixture_remote,
+    )
+    resource_identity = hashlib.sha256(remote_runner.table_arn.encode()).hexdigest()
+    config = replace(
+        _config(tmp_path),
+        unit_id="unit-002",
+        provider_authority_table="authority-table",
+        provider_authority_region="us-east-1",
+        provider_authority_resource_identity_sha256=resource_identity,
+    )
+    failed = CountingTransport(
+        error=LiveModelProviderError(
+            "provider returned HTTP 503: temporarily unavailable",
+            status_code=503,
+            retryable=True,
+        )
+    )
+    with pytest.raises(CircuitBreakerOpenError):
+        execute_release_run(config, transport=failed, environ=_fixture_environ())
+    assert failed.calls == 1
+    assert len(authorities) == 1
+
+    remote_attempt_keys = tuple(
+        record_key
+        for record_key in remote_runner.items
+        if record_key.startswith("ATTEMPT#")
+    )
+    assert len(remote_attempt_keys) == 1
+    remote_attempt = remote_runner.items[remote_attempt_keys[0]]
+    key = ProviderSpendKey(
+        cycle_id=remote_attempt["cycle_id"]["S"],
+        provider=remote_attempt["provider"]["S"],
+        account=config.account,
+        stage=remote_attempt["stage"]["S"],
+        model_key=remote_attempt["model_key"]["S"],
+        case_id=remote_attempt["case_id"]["S"],
+        ablation=remote_attempt["ablation"]["S"],
+        repeat_index=int(remote_attempt["repeat_index"]["N"]),
+    )
+    authorities[0].authorize_additional_attempt(
+        key,
+        reservation_microusd=int(remote_attempt["reservation_microusd"]["N"]),
+        acknowledged_attempt_id=remote_attempt["attempt_id"]["S"],
+        acknowledged_failure_type=remote_attempt["failure_type"]["S"],
+        acknowledged_failure_events_sha256=remote_runner.items["LEDGER"][
+            "failure_events_sha256"
+        ]["S"],
+    )
+
+    fresh_config = replace(
+        config,
+        ledger_path=tmp_path / "fresh-run.sqlite3",
+        receipts_dir=tmp_path / "fresh-receipts",
+    )
+    resumed = FixtureModelTransport()
+    summary = execute_release_run(
+        fresh_config,
+        transport=resumed,
+        environ=_fixture_environ(),
+    )
+
+    assert summary.executed_cells == 1
+    assert resumed.call_count == 1
+    assert (
+        len(
+            tuple(
+                record_key
+                for record_key in remote_runner.items
+                if record_key.startswith("ATTEMPT#")
+            )
+        )
+        == 2
+    )
+    second_attempt = remote_runner.items[f"ATTEMPT#{key.logical_call_key}#0002"]
+    assert second_attempt["status"] == {"S": "settled"}
+    with sqlite3.connect(fresh_config.ledger_path) as connection:
+        assert connection.execute(
+            "SELECT status FROM public_runner_cells"
+        ).fetchone() == ("completed",)
 
 
 def test_runner_preflights_before_reusing_pretransport_reservation(
