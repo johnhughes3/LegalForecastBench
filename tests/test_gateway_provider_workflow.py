@@ -16,8 +16,7 @@ def _job(name: str, next_name: str | None = None) -> str:
 def test_gateway_lane_is_partitioned_from_direct_provider_jobs() -> None:
     prepare = _job("prepare-inputs", "run-openai")
     assert (
-        "^(openai|anthropic|gemini|google|vercel_ai_gateway):[^:[:space:]]+$"
-        in prepare
+        "^(openai|anthropic|gemini|google|vercel_ai_gateway):[^:[:space:]]+$" in prepare
     )
     job = _job("run-gateway")
     assert "name: Vercel AI Gateway resumable forecast cells" in job

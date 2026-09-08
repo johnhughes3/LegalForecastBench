@@ -985,6 +985,22 @@ jobs:
         with:
           name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: /tmp/lfb-forecast-inputs
+      - name: Recover saved managed transcript for provider-free replay
+        shell: bash
+        env:
+          CELL_ID: ${{ matrix.cell_id }}
+        run: |
+          set -euo pipefail
+          transcript="/tmp/lfb-run/transcripts/${CELL_ID}.json"
+          if [[ -f "${transcript}" ]]; then
+            uv run scripts/recover_managed_transcript.py \
+              --ledger /tmp/lfb-run/ledger.sqlite3 \
+              --registry /tmp/lfb-forecast-inputs/model-registry.json \
+              --transcript "${transcript}" \
+              --cell-id "${CELL_ID}"
+          else
+            echo "transcript recovery=none"
+          fi
       - name: Configure rootless Docker for document tools
         shell: bash
         run: .github/scripts/setup-rootless-docker.sh
