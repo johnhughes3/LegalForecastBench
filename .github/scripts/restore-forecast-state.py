@@ -199,6 +199,9 @@ def _validate_source_completed_state(
     ):
         raise ValueError("source state run identity does not match requested attempt")
     if state.get("status") != "completed":
+        if state.get("status") == "failed" and _has_transcript_recovery(root, cell_id):
+            _validate_source_transcript_recovery_state(root, cell_id)
+            return
         raise IncompleteSourceState
 
     failure = _read_object(root / "failure-summary.json")
@@ -221,6 +224,42 @@ def _validate_source_completed_state(
     for receipt_path in receipt_paths:
         _read_object(receipt_path)
     _validate_transcript_files(root, cell_id)
+
+
+def _has_transcript_recovery(root: Path, cell_id: str) -> bool:
+    """Return whether a failed source contains the exact optional transcript."""
+
+    transcripts = root / "transcripts"
+    if not transcripts.is_dir() or transcripts.is_symlink():
+        return False
+    expected = transcripts / f"{cell_id}.json"
+    return expected.is_file() and not expected.is_symlink()
+
+
+def _validate_source_transcript_recovery_state(root: Path, cell_id: str) -> None:
+    """Validate durable shape before the current run interprets a transcript.
+
+    Transcript contents are validated only after the current run downloads its
+    frozen registry and opens the copied ledger.  An invalid transcript then
+    fails the provider job closed instead of allowing a duplicate call.
+    """
+
+    failure = _read_object(root / "failure-summary.json")
+    summary = _read_object(root / "run-summary.json")
+    if failure.get("status") != "failed" or summary.get("status") != "failed":
+        raise ValueError("transcript recovery source is not consistently failed")
+    ledger = root / "ledger.sqlite3"
+    if ledger.is_symlink() or not ledger.is_file() or ledger.stat().st_size == 0:
+        raise ValueError("transcript recovery source has no durable ledger")
+    receipts = root / "receipts"
+    if receipts.exists() and (receipts.is_symlink() or not receipts.is_dir()):
+        raise ValueError("transcript recovery source has an unsafe receipt directory")
+    if receipts.exists() and any(receipts.iterdir()):
+        raise ValueError("transcript recovery source unexpectedly has a receipt")
+    _validate_transcript_files(root, cell_id)
+    transcript = root / "transcripts" / f"{cell_id}.json"
+    if transcript.is_symlink() or not transcript.is_file():
+        raise ValueError("transcript recovery source has no exact transcript")
 
 
 def _download_artifact(artifact_id: int, archive: Path) -> None:

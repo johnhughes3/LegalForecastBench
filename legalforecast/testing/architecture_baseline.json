@@ -266,7 +266,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 15,
+        "fan_in": 16,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -344,14 +344,14 @@
         "largest_symbol_lines": 2134,
         "layer": "application",
         "line_count": 2361,
-        "nonblank_line_count": 2179,
+        "nonblank_line_count": 2249,
         "top_level_definition_count": 20
       },
       "legalforecast/evals/response_verification.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 3,
+        "fan_in": 4,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -1278,8 +1278,8 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "reporting",
-        "fan_in": 3,
-        "fan_out": 3,
+        "fan_in": 4,
+        "fan_out": 4,
         "flags": [
           "watch"
         ],
@@ -1287,43 +1287,43 @@
         "largest_symbol": "ResultClassSidecar",
         "largest_symbol_lines": 72,
         "layer": "domain",
-        "line_count": 536,
-        "nonblank_line_count": 441,
-        "top_level_definition_count": 23
+        "line_count": 584,
+        "nonblank_line_count": 484,
+        "top_level_definition_count": 24
       },
       "legalforecast/runner/ledger.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv",
-        "fan_in": 5,
+        "fan_in": 6,
         "fan_out": 2,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "root",
         "largest_symbol": "RunnerLedger",
-        "largest_symbol_lines": 745,
+        "largest_symbol_lines": 879,
         "layer": "application",
-        "line_count": 869,
-        "nonblank_line_count": 807,
+        "line_count": 1005,
+        "nonblank_line_count": 938,
         "top_level_definition_count": 9
       },
       "legalforecast/runner/managed_execution.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "root",
-        "fan_in": 1,
-        "fan_out": 10,
+        "fan_in": 2,
+        "fan_out": 11,
         "flags": [
           "watch"
         ],
         "lane_owner": "root",
         "largest_symbol": "complete_managed_tool_cell",
-        "largest_symbol_lines": 146,
+        "largest_symbol_lines": 172,
         "layer": "application",
-        "line_count": 652,
-        "nonblank_line_count": 573,
-        "top_level_definition_count": 23
+        "line_count": 826,
+        "nonblank_line_count": 735,
+        "top_level_definition_count": 27
       },
       "legalforecast/runner/service.py": {
         "cycle_id": "",
@@ -1336,10 +1336,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 603,
+        "largest_symbol_lines": 602,
         "layer": "application",
-        "line_count": 1309,
-        "nonblank_line_count": 1213,
+        "line_count": 1305,
+        "nonblank_line_count": 1209,
         "top_level_definition_count": 24
       },
       "legalforecast/studies/service.py": {
@@ -1702,10 +1702,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_provider_free_workflow_contract_e2e_uses_exact_cell_and_artifact_seams",
-        "largest_symbol_lines": 245,
+        "largest_symbol_lines": 259,
         "layer": "test",
-        "line_count": 970,
-        "nonblank_line_count": 920,
+        "line_count": 985,
+        "nonblank_line_count": 935,
         "top_level_definition_count": 17
       },
       "tests/test_managed_tool_agent.py": {
@@ -2140,8 +2140,8 @@
         "largest_symbol_lines": 153,
         "layer": "test",
         "line_count": 1588,
-        "nonblank_line_count": 1327,
-        "top_level_definition_count": 45
+        "nonblank_line_count": 1390,
+        "top_level_definition_count": 48
       },
       "tests/test_public_runner.py": {
         "cycle_id": "",
@@ -2156,9 +2156,9 @@
         "largest_symbol": "test_runner_halts_on_remote_transport_started_orphan",
         "largest_symbol_lines": 104,
         "layer": "test",
-        "line_count": 1845,
-        "nonblank_line_count": 1504,
-        "top_level_definition_count": 48
+        "line_count": 1838,
+        "nonblank_line_count": 1592,
+        "top_level_definition_count": 49
       },
       "tests/test_publication_guardrails.py": {
         "cycle_id": "",
