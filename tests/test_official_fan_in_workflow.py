@@ -484,6 +484,200 @@ def test_the_locator_guard_admits_real_s3_uris_and_still_refuses_unsafe_keys() -
         assert not accepts(unsafe), unsafe
 
 
+def test_checked_out_model_registry_is_the_only_local_fan_in_input(
+    tmp_path: Path,
+) -> None:
+    checkout = tmp_path / "checkout"
+    subprocess.run(["git", "init", "--quiet", "-b", "main", str(checkout)], check=True)
+    subprocess.run(
+        ["git", "-C", str(checkout), "config", "user.name", "workflow-test"],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "config",
+            "user.email",
+            "workflow-test@example.invalid",
+        ],
+        check=True,
+    )
+    registry = checkout / "model_registries/gemini.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_bytes(b'{"model":"google:gemini-3.8-flash"}\n')
+    subprocess.run(["git", "-C", str(checkout), "add", "model_registries"], check=True)
+    subprocess.run(
+        ["git", "-C", str(checkout), "commit", "--quiet", "-m", "registry"],
+        check=True,
+    )
+    release_sha = subprocess.check_output(
+        ["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True
+    ).strip()
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "update-ref",
+            "refs/remotes/origin/main",
+            release_sha,
+        ],
+        check=True,
+    )
+
+    validation_start = WORKFLOW.index(
+        "      - name: Validate protected request and release identity"
+    )
+    validation_end = WORKFLOW.index(
+        "      - name: Validate exact forecast workflow attempt", validation_start
+    )
+    validation = textwrap.dedent(
+        WORKFLOW[validation_start:validation_end].split("        run: |\n", 1)[1]
+    )
+    environment = {
+        **os.environ,
+        "GITHUB_REF": "refs/heads/main",
+        "RELEASE_SHA": release_sha,
+        "CYCLE_ID": "cycle-1",
+        "FORECAST_RUN_ID": "123",
+        "FORECAST_RUN_ATTEMPT": "1",
+        "MODEL_KEY": "google:gemini-3.8-flash",
+        "RETENTION_DAYS": "14",
+        "MANIFEST_URI": "manifests/cycle-1/run-manifest.json",
+        "FORECAST_RELEASE_URI": "manifests/cycle-1/forecast-release.json",
+        "ARTIFACT_ROOT_URI": "s3://lfb-results/cycle-1/artifacts/",
+        "MODEL_REGISTRY_URI": "model_registries/gemini.json",
+        "LABELS_RELEASE_URI": "s3://lfb-results/cycle-1/labels-release.json",
+        "LFB_RESULTS_BUCKET": "lfb-results",
+    }
+    accepted = subprocess.run(
+        ["bash", "-c", validation],
+        cwd=checkout,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert accepted.returncode == 0, accepted.stderr
+
+    environment["MANIFEST_URI"] = "model_registries/gemini.json"
+    rejected = subprocess.run(
+        ["bash", "-c", validation],
+        cwd=checkout,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert rejected.returncode != 0
+    environment["MANIFEST_URI"] = "manifests/cycle-1/run-manifest.json"
+    environment["MODEL_REGISTRY_URI"] = "s3://other-results/model-registry.json"
+    rejected_registry_bucket = subprocess.run(
+        ["bash", "-c", validation],
+        cwd=checkout,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert rejected_registry_bucket.returncode != 0
+    environment["MODEL_REGISTRY_URI"] = "model_registries/gemini.json"
+
+    reference = tmp_path / "reference"
+    forecast = tmp_path / "forecast"
+    forecast.mkdir()
+    sources = {
+        "run-manifest.json": b"manifest\n",
+        "forecast-release.json": b"release\n",
+        "labels-release.json": b"labels\n",
+    }
+    for name, payload in sources.items():
+        (forecast / name).write_bytes(payload)
+    (forecast / "model-registry.json").write_bytes(registry.read_bytes())
+    fake_aws = tmp_path / "aws"
+    fake_aws.write_text(
+        """#!/usr/bin/env python3
+import os
+import shutil
+import sys
+from pathlib import Path
+
+root = Path(os.environ["FORECAST_ROOT"])
+urls = {
+    "manifest": "s3://lfb-results/manifests/cycle-1/run-manifest.json",
+    "release": "s3://lfb-results/manifests/cycle-1/forecast-release.json",
+    "registry": "s3://lfb-results/manifests/cycle-1/model-registry.json",
+    "labels": "s3://lfb-results/cycle-1/labels-release.json",
+}
+sources = {
+    urls["manifest"]: root / "run-manifest.json",
+    urls["release"]: root / "forecast-release.json",
+    urls["registry"]: root / "model-registry.json",
+    urls["labels"]: root / "labels-release.json",
+}
+if sys.argv[1:3] != ["s3", "cp"] or sys.argv[3] not in sources:
+    raise SystemExit(f"unexpected aws call: {sys.argv!r}")
+shutil.copyfile(sources[sys.argv[3]], sys.argv[4])
+""",
+        encoding="utf-8",
+    )
+    fake_aws.chmod(0o755)
+    environment["MANIFEST_URI"] = "manifests/cycle-1/run-manifest.json"
+    environment["PATH"] = f"{tmp_path}:{os.environ['PATH']}"
+    environment["MODEL_REGISTRY_URI"] = "model_registries/gemini.json"
+    environment["FORECAST_ROOT"] = str(forecast)
+    fetch_start = WORKFLOW.index(
+        "      - name: Fetch and bind locked releases, including labels only here"
+    )
+    fetch_end = WORKFLOW.index(
+        (
+            "      - name: Validate run identity, model registry, "
+            "and complete durable state"
+        ),
+        fetch_start,
+    )
+    fetch = textwrap.dedent(
+        WORKFLOW[fetch_start:fetch_end].split("        run: |\n", 1)[1]
+    )
+    fetch = fetch.replace("/tmp/lfb-fan-in-reference", str(reference))
+    fetch = fetch.replace("/tmp/lfb-forecast", str(forecast))
+    fetched = subprocess.run(
+        ["bash", "-c", fetch],
+        cwd=checkout,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert fetched.returncode == 0, fetched.stderr
+    assert (reference / "model-registry.json").read_bytes() == registry.read_bytes()
+
+    environment["MODEL_REGISTRY_URI"] = (
+        "s3://lfb-results/manifests/cycle-1/model-registry.json"
+    )
+    accepted_s3_registry = subprocess.run(
+        ["bash", "-c", validation],
+        cwd=checkout,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert accepted_s3_registry.returncode == 0, accepted_s3_registry.stderr
+    fetched_s3_registry = subprocess.run(
+        ["bash", "-c", fetch],
+        cwd=checkout,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert fetched_s3_registry.returncode == 0, fetched_s3_registry.stderr
+    assert (reference / "model-registry.json").read_bytes() == registry.read_bytes()
+
+
 def test_origin_main_is_resolvable_without_a_separate_unauthenticated_fetch() -> None:
     """origin/main must be present for the merge-base check above, but not via
     a separate `git fetch`: the checkout step sets persist-credentials: false,
