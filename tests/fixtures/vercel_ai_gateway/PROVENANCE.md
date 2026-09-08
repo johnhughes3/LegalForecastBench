@@ -1,0 +1,1 @@
+This metadata-only fixture was recorded on 2026-09-08 from an owner-authorized Vercel AI Gateway Muse Spark 1.3 Contributor probe. It preserves routing, charged-cost, and usage metadata needed by parser tests; provider response text, reasoning text, document bytes, headers, and credentials are intentionally omitted.

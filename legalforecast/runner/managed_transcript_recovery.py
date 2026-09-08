@@ -106,9 +106,9 @@ def recover_managed_transcript(
         provider_attempt_id=cell.provider_attempt_id,
         payload_sha256=payload_sha256,
         response_sha256=hashlib.sha256(result.raw_output.encode("utf-8")).hexdigest(),
-        estimated_cost_usd=managed_execution._managed_estimated_cost(
+        estimated_cost_usd=managed_execution._managed_result_cost(
             entry,
-            response_usages=result.response_usages,
+            result=result,
         ),
         result=result,
     )
@@ -169,16 +169,23 @@ def managed_result_from_transcript(
             "managed transcript served model differs from registry"
         )
     provider = entry.provider.strip().lower()
-    if provider not in {"openai", "google", "gemini"}:
+    if provider not in {"openai", "google", "gemini", "vercel_ai_gateway"}:
         raise RunValidationError(
-            "managed transcript recovery requires OpenAI or Google provider"
+            "managed transcript recovery requires OpenAI, Google, or "
+            "Vercel AI Gateway provider"
         )
     provider_names = {
         response.provider_name.strip().lower()
         for response in responses
         if isinstance(response.provider_name, str) and response.provider_name.strip()
     }
-    if provider_names and provider_names != {provider}:
+    allowed_provider_names = {provider}
+    if provider == "vercel_ai_gateway":
+        # The Gateway transport uses PydanticAI's OpenAI-compatible adapter, so
+        # native SDK responses identify the adapter as ``openai`` while their
+        # Gateway routing metadata retains the actual provider route.
+        allowed_provider_names.add("openai")
+    if provider_names and not provider_names.issubset(allowed_provider_names):
         raise RunValidationError("managed transcript provider differs from registry")
     finish_reason = responses[-1].finish_reason
     if not isinstance(finish_reason, str) or not finish_reason:
@@ -188,6 +195,28 @@ def managed_result_from_transcript(
     )
     require_publishable_response_metadata(verification.to_metadata())
     service_tier = _service_tier(responses, provider=provider)
+
+    gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
+    if provider == "vercel_ai_gateway":
+        expected_provider = managed_execution.gateway_route_provider(entry.model_id)
+        metadata_rows: list[Mapping[str, str]] = []
+        for response in responses:
+            row = (response.provider_details or {}).get("gateway_metadata")
+            if not isinstance(row, Mapping):
+                raise RunValidationError(
+                    "managed transcript omitted Gateway routing and usage metadata"
+                )
+            try:
+                metadata_rows.append(
+                    managed_execution.validate_gateway_metadata(
+                        cast(Mapping[str, object], row),
+                        expected_model_id=entry.model_id,
+                        expected_provider=expected_provider,
+                    )
+                )
+            except ValueError as exc:
+                raise RunValidationError(str(exc)) from exc
+        gateway_response_metadata = tuple(metadata_rows)
 
     response_usages: list[tuple[int, int]] = []
     thoughts_tokens = 0
@@ -206,13 +235,7 @@ def managed_result_from_transcript(
         thoughts_tokens += item_thoughts
     input_tokens = sum(item[0] for item in response_usages)
     output_tokens = sum(item[1] for item in response_usages)
-    estimated_cost = managed_execution._managed_estimated_cost(
-        entry,
-        response_usages=response_usages,
-    )
-    if not math.isfinite(estimated_cost) or estimated_cost < 0:
-        raise RunValidationError("managed transcript has invalid estimated cost")
-    return managed_execution.ManagedToolAgentResult(
+    result = managed_execution.ManagedToolAgentResult(
         raw_output=output.model_dump_json(),
         request_count=len(responses),
         input_tokens=input_tokens,
@@ -225,7 +248,18 @@ def managed_result_from_transcript(
         ),
         response_usages=tuple(response_usages),
         thoughts_tokens=thoughts_tokens,
+        gateway_response_metadata=gateway_response_metadata,
     )
+    try:
+        estimated_cost = managed_execution._managed_result_cost(
+            entry,
+            result=result,
+        )
+    except managed_execution.ManagedToolAgentError as exc:
+        raise RunValidationError(str(exc)) from exc
+    if not math.isfinite(estimated_cost) or estimated_cost < 0:
+        raise RunValidationError("managed transcript has invalid estimated cost")
+    return result
 
 
 def managed_replay_payload(
@@ -247,9 +281,12 @@ def managed_replay_payload(
         "service_tier": result.service_tier,
         "called_tools": list(result.called_tools),
         "thoughts_tokens": result.thoughts_tokens,
-        "estimated_cost_usd": managed_execution._managed_estimated_cost(
+        "gateway_response_metadata": [
+            dict(row) for row in result.gateway_response_metadata
+        ],
+        "estimated_cost_usd": managed_execution._managed_result_cost(
             entry,
-            response_usages=result.response_usages,
+            result=result,
         ),
     }
 

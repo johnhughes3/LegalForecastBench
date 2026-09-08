@@ -50,7 +50,7 @@ def test_concurrency_group_remains_bounded_for_long_release_locators() -> None:
     section = WORKFLOW.split("\nconcurrency:\n", 1)[1].split("\njobs:", 1)[0]
     group = re.search(r"^  group: (.+)$", section, re.MULTILINE)
     assert group is not None
-    assert "${{" not in group.group(1)
+    assert group.group(1) == "official-benchmark-${{ inputs.model_key }}"
     assert 0 < len(group.group(1)) < 400
     assert "cancel-in-progress: false" in section
 

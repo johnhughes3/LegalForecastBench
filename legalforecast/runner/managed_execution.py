@@ -59,6 +59,7 @@ from legalforecast.runner.gateway import (
     gateway_request_extra_body,
     gateway_response_metadata,
     gateway_route_provider,
+    gateway_total_cost_usd,
     validate_gateway_metadata,
 )
 from legalforecast.runner.ledger import RunValidationError
@@ -701,10 +702,7 @@ def complete_managed_tool_cell(
             raise ManagedToolAgentError(
                 "managed official agent returned without reading case documents"
             )
-        estimated_cost_usd = _managed_estimated_cost(
-            entry,
-            response_usages=result.response_usages,
-        )
+        estimated_cost_usd = _managed_result_cost(entry, result=result)
         return {
             "raw_output": result.raw_output,
             "request_count": result.request_count,
@@ -780,6 +778,15 @@ def complete_managed_tool_cell(
                     "managed Gateway response omitted response metadata"
                 )
             gateway_metadata = tuple(rows)
+            try:
+                charged_gateway_cost = gateway_total_cost_usd(gateway_metadata)
+            except ValueError as exc:
+                raise RunValidationError(str(exc)) from exc
+            if estimated_cost != charged_gateway_cost:
+                raise RunValidationError(
+                    "managed Gateway response cost differs from charged metadata"
+                )
+            estimated_cost = charged_gateway_cost
         if served_model != entry.model_version_or_snapshot:
             raise RunValidationError(
                 "managed provider served model differs from frozen registry"
@@ -888,6 +895,25 @@ def _managed_estimated_cost(
             output_price *= surcharge.output_price_multiplier
         total += (input_tokens * input_price) + (output_tokens * output_price)
     return total / 1_000_000
+
+
+def _managed_result_cost(
+    entry: ModelRegistryEntry,
+    *,
+    result: ManagedToolAgentResult,
+) -> float:
+    """Use Gateway's charged amount when available, otherwise registry pricing."""
+
+    if entry.provider.strip().lower() == "vercel_ai_gateway":
+        if not result.gateway_response_metadata:
+            raise ManagedToolAgentError(
+                "managed Gateway response omitted response metadata"
+            )
+        try:
+            return gateway_total_cost_usd(result.gateway_response_metadata)
+        except ValueError as exc:
+            raise ManagedToolAgentError(str(exc)) from exc
+    return _managed_estimated_cost(entry, response_usages=result.response_usages)
 
 
 def _response_thoughts_tokens(response: ModelResponse) -> int:
