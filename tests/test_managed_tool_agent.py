@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -153,6 +154,32 @@ def test_gateway_response_metadata_is_extracted_from_openai_compatible_envelope(
         }
     )
     assert managed_execution.gateway_response_metadata(cast(Any, response)) == metadata
+
+
+def test_gateway_metadata_accepts_omitted_api_model_id_and_prefers_gateway_cost() -> (
+    None
+):
+    fixture = json.loads(
+        (
+            Path("tests/fixtures/vercel_ai_gateway")
+            / "muse-spark-1.3-contributor-metadata.json"
+        ).read_text(encoding="utf-8")
+    )
+    response = SimpleNamespace(
+        model_extra={"provider_metadata": fixture["provider_metadata"]}
+    )
+    metadata = managed_execution.gateway_response_metadata(cast(Any, response))
+    assert metadata == {
+        "original_model_id": "meta/muse-spark-1.3-contributor",
+        "resolved_provider": "meta",
+        "canonical_slug": "meta/muse-spark-1.3-contributor",
+        "final_provider": "meta",
+        "generation_id": "redacted-generation-id",
+        "cost_usd": "0.0001657",
+        "market_cost_usd": "6.57e-05",
+        "model_attempt_count": "1",
+        "total_provider_attempt_count": "1",
+    }
 
 
 def test_managed_agent_uses_native_tool_loop_and_returns_one_case_envelope(
@@ -342,6 +369,10 @@ def test_gateway_provider_uses_gateway_endpoint_and_hard_route_allowlist(
     assert provider.base_url.rstrip("/") == managed_execution.VERCEL_AI_GATEWAY_BASE_URL
     assert captured["profile"]["openai_supports_reasoning"] is True
     assert managed_execution.gateway_route_provider("meta/muse-spark-1.3") == "meta"
+    assert (
+        managed_execution.gateway_route_provider("meta/muse-spark-1.3-contributor")
+        == "meta"
+    )
     assert managed_execution.gateway_request_extra_body("moonshotai/kimi-k3") == {
         "providerOptions": {"gateway": {"only": ["deepinfra"]}}
     }

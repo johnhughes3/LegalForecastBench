@@ -1,0 +1,24 @@
+{
+  "model": "meta/muse-spark-1.3-contributor",
+  "provider_metadata": {
+    "gateway": {
+      "gatewayCost": 0.0001657,
+      "cost": 0.0000657,
+      "marketCost": 0.0000657,
+      "generationId": "redacted-generation-id",
+      "routing": {
+        "canonicalSlug": "meta/muse-spark-1.3-contributor",
+        "finalProvider": "meta",
+        "modelAttemptCount": 1,
+        "originalModelId": "meta/muse-spark-1.3-contributor",
+        "resolvedProvider": "meta",
+        "totalProviderAttemptCount": 1
+      }
+    }
+  },
+  "usage": {
+    "inputTokens": 13,
+    "outputTokens": 322,
+    "reasoningTokens": 296
+  }
+}

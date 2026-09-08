@@ -15,6 +15,7 @@ VERCEL_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
 _GATEWAY_ROUTE_PROVIDERS = {
     "moonshotai/kimi-k3": "deepinfra",
     "meta/muse-spark-1.3": "meta",
+    "meta/muse-spark-1.3-contributor": "meta",
 }
 
 
@@ -97,6 +98,11 @@ def gateway_response_metadata(response: Response) -> dict[str, str] | None:
     ):
         value = _gateway_metadata_string(routing, source_names)
         if value is None:
+            if output_name == "resolved_provider_api_model_id":
+                # Gateway currently omits this field for some successful routes.
+                # Preserve the omission so recovery can validate the fields the
+                # service actually returned without inventing an API model id.
+                continue
             return None
         values[output_name] = value
     for output_name, source_names in (
@@ -112,7 +118,10 @@ def gateway_response_metadata(response: Response) -> dict[str, str] | None:
         values[output_name] = value
     for output_name, source_names in (
         ("generation_id", ("generationId", "generation_id")),
-        ("cost_usd", ("cost", "cost_usd")),
+        # ``gatewayCost`` includes Gateway's provider allowlist surcharge.  The
+        # inference ``cost`` field does not, so prefer the charged amount when
+        # the service supplies it and retain the older field as a fallback.
+        ("cost_usd", ("gatewayCost", "gateway_cost_usd", "cost", "cost_usd")),
         ("market_cost_usd", ("marketCost", "market_cost_usd")),
     ):
         value = _gateway_metadata_string(gateway, source_names)
@@ -149,7 +158,6 @@ def validate_gateway_metadata(
     required_fields = (
         "original_model_id",
         "resolved_provider",
-        "resolved_provider_api_model_id",
         "canonical_slug",
         "final_provider",
         "generation_id",
@@ -166,6 +174,14 @@ def validate_gateway_metadata(
                 f"Vercel AI Gateway metadata field is invalid: {field_name}"
             )
         normalized[field_name] = value
+    api_model_id = metadata.get("resolved_provider_api_model_id")
+    if api_model_id is not None:
+        if not isinstance(api_model_id, str) or not api_model_id:
+            raise ValueError(
+                "Vercel AI Gateway metadata field is invalid: "
+                "resolved_provider_api_model_id"
+            )
+        normalized["resolved_provider_api_model_id"] = api_model_id
     for field_name in ("cost_usd", "market_cost_usd"):
         try:
             cost = float(normalized[field_name])
@@ -197,6 +213,26 @@ def validate_gateway_metadata(
     return normalized
 
 
+def gateway_total_cost_usd(
+    metadata_rows: Sequence[Mapping[str, object]],
+) -> float:
+    """Return the charged Gateway total from validated response metadata."""
+
+    costs: list[float] = []
+    for row in metadata_rows:
+        value = row.get("cost_usd")
+        if not isinstance(value, str):
+            raise ValueError("Vercel AI Gateway metadata cost is missing")
+        try:
+            cost = float(value)
+        except ValueError as exc:
+            raise ValueError("Vercel AI Gateway metadata cost is invalid") from exc
+        if not math.isfinite(cost) or cost < 0:
+            raise ValueError("Vercel AI Gateway metadata cost is invalid")
+        costs.append(cost)
+    return math.fsum(costs)
+
+
 __all__ = [
     "VERCEL_AI_GATEWAY_BASE_URL",
     "gateway_model_is_allowlisted",
@@ -204,5 +240,6 @@ __all__ = [
     "gateway_request_extra_body",
     "gateway_response_metadata",
     "gateway_route_provider",
+    "gateway_total_cost_usd",
     "validate_gateway_metadata",
 ]

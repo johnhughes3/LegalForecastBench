@@ -177,6 +177,7 @@ def test_reader_documentation_lives_under_docs() -> None:
         ".agents/context-capsule.md",
         "scripts/AGENTS.md",
         "tests/fixtures/multiharness-artifact-characterization/reports/community-comparison.md",
+        "tests/fixtures/vercel_ai_gateway/PROVENANCE.md",
     }
     misplaced = [
         path

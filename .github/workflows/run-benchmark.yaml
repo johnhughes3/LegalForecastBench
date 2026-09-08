@@ -72,8 +72,10 @@ permissions:
   contents: read
 
 concurrency:
-  # Serialize official runs without embedding unbounded artifact locators.
-  group: official-benchmark
+  # Serialize each model's official runs. The dispatch identity is bounded by
+  # the prepare-inputs validation before any provider job can execute, while
+  # independent model authorities can keep their own run and repair queue.
+  group: official-benchmark-${{ inputs.model_key }}
   cancel-in-progress: false
 
 jobs:
