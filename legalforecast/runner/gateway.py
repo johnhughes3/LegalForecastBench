@@ -17,6 +17,9 @@ _GATEWAY_ROUTE_PROVIDERS = {
     "meta/muse-spark-1.3": "meta",
     "meta/muse-spark-1.3-contributor": "meta",
 }
+_MUSE_GATEWAY_MODEL_IDS = frozenset(
+    {"meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor"}
+)
 
 
 def gateway_route_provider(model_id: str) -> str:
@@ -47,19 +50,22 @@ def gateway_request_extra_body(model_id: str) -> dict[str, object]:
 def gateway_model_profile(provider: OpenAIProvider, model_id: str) -> ModelProfile:
     """Teach the OpenAI compatible adapter that a Gateway model reasons."""
 
+    profile: dict[str, object] = {
+        "supports_thinking": True,
+        "thinking_always_enabled": True,
+        "openai_supports_reasoning": True,
+        "openai_reasoning_enabled_by_default": True,
+        "openai_supports_reasoning_effort_none": False,
+        "openai_supports_minimal_reasoning_effort": False,
+    }
+    if model_id.casefold() in _MUSE_GATEWAY_MODEL_IDS:
+        # Muse's Gateway route accepts only the automatic tool-choice mode. Keep
+        # this override scoped to the two verified Muse model ids; other routes
+        # retain the OpenAI adapter default until their provider behavior is known.
+        profile["openai_supports_tool_choice_required"] = False
     return merge_profile(
         provider.model_profile(model_id),
-        cast(
-            ModelProfile,
-            {
-                "supports_thinking": True,
-                "thinking_always_enabled": True,
-                "openai_supports_reasoning": True,
-                "openai_reasoning_enabled_by_default": True,
-                "openai_supports_reasoning_effort_none": False,
-                "openai_supports_minimal_reasoning_effort": False,
-            },
-        ),
+        cast(ModelProfile, profile),
     )
 
 
