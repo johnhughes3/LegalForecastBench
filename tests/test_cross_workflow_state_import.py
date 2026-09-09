@@ -547,3 +547,33 @@ def test_legacy_single_resume_source_pair_remains_supported(
     monkeypatch.setenv("GITHUB_RUN_ID", "34216851710")
 
     assert _restore._resume_sources() == [("34210437238", 1)]
+
+
+def test_succeeded_native_output_is_selected_for_strict_recovery(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "native"
+    _write_state_archive(
+        root,
+        run_id="222",
+        cell_id="cell",
+        status="failed",
+        transcript=json.dumps(
+            {
+                "agent_status": "succeeded",
+                "messages": [
+                    {
+                        "kind": "response",
+                        "parts": [
+                            {
+                                "part_kind": "text",
+                                "content": "native JSON validated by recovery",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ).encode(),
+        include_receipt=False,
+    )
+    _restore._validate_source_completed_state(root, "openai", "cell", "222", 1)

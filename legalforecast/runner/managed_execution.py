@@ -66,6 +66,12 @@ from legalforecast.runner.gateway import (
     validate_gateway_metadata,
 )
 from legalforecast.runner.ledger import RunValidationError
+from legalforecast.runner.managed_anthropic import (
+    anthropic_model as _anthropic_model,
+)
+from legalforecast.runner.managed_anthropic import (
+    anthropic_model_settings as _anthropic_model_settings,
+)
 
 # Long briefing records can require dozens of sequential document reads.
 # Keep a bounded SDK run while allowing room to finish the forecast afterward.
@@ -252,47 +258,6 @@ class ManagedToolAgentResult:
     response_usages: tuple[tuple[int, int], ...]
     thoughts_tokens: int = 0
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
-
-
-def _anthropic_model(entry: ModelRegistryEntry, *, api_key: str | None) -> Model:
-    """Build the optional native Anthropic model adapter on demand.
-
-    Anthropic is an optional Pydantic AI provider because the public benchmark
-    package also supports provider-free and non-Anthropic environments. Keeping
-    this import on the selected provider branch lets those environments retain
-    their existing dependency surface while the Anthropic workflow installs its
-    dedicated extra.
-    """
-
-    from pydantic_ai.models.anthropic import AnthropicModel
-    from pydantic_ai.providers.anthropic import AnthropicProvider
-
-    return AnthropicModel(
-        entry.model_id,
-        provider=AnthropicProvider(api_key=api_key),
-    )
-
-
-def _anthropic_model_settings(
-    entry: ModelRegistryEntry,
-) -> ModelSettings:
-    """Configure Fable's adaptive thinking with provider-selected tool use.
-
-    Claude Fable 5.1 rejects forced tool choice. Pydantic AI's Anthropic
-    profile detects that capability and combines adaptive thinking with native
-    JSON-schema output and ``tool_choice='auto'``.
-    """
-
-    from pydantic_ai.models.anthropic import AnthropicModelSettings
-
-    return cast(
-        ModelSettings,
-        AnthropicModelSettings(
-            max_tokens=entry.max_output_tokens,
-            anthropic_thinking={"type": "adaptive"},
-            parallel_tool_calls=False,
-        ),
-    )
 
 
 def run_managed_tool_agent(

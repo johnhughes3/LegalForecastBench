@@ -266,7 +266,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 16,
+        "fan_in": 17,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -1116,8 +1116,8 @@
         "largest_symbol": "AnthropicMessagesJudgeAdapter",
         "largest_symbol_lines": 63,
         "layer": "application",
-        "line_count": 538,
-        "nonblank_line_count": 471,
+        "line_count": 539,
+        "nonblank_line_count": 472,
         "top_level_definition_count": 17
       },
       "legalforecast/multiharness/tier0_runner.py": {
@@ -1310,19 +1310,19 @@
       },
       "legalforecast/runner/managed_execution.py": {
         "cycle_id": "",
-        "disposition_kind": "watch",
-        "disposition_owner": "root",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv",
         "fan_in": 2,
-        "fan_out": 12,
+        "fan_out": 13,
         "flags": [
-          "watch"
+          "oversized"
         ],
         "lane_owner": "root",
         "largest_symbol": "complete_managed_tool_cell",
-        "largest_symbol_lines": 227,
+        "largest_symbol_lines": 235,
         "layer": "application",
-        "line_count": 973,
-        "nonblank_line_count": 879,
+        "line_count": 1004,
+        "nonblank_line_count": 910,
         "top_level_definition_count": 28
       },
       "legalforecast/runner/managed_transcript_recovery.py": {
@@ -1336,11 +1336,11 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "managed_result_from_transcript",
-        "largest_symbol_lines": 157,
+        "largest_symbol_lines": 170,
         "layer": "application",
-        "line_count": 511,
-        "nonblank_line_count": 477,
-        "top_level_definition_count": 9
+        "line_count": 566,
+        "nonblank_line_count": 529,
+        "top_level_definition_count": 10
       },
       "legalforecast/runner/service.py": {
         "cycle_id": "",
@@ -1615,9 +1615,9 @@
         "largest_symbol": "test_source_failure_skips_to_next_explicit_source",
         "largest_symbol_lines": 99,
         "layer": "test",
-        "line_count": 506,
-        "nonblank_line_count": 444,
-        "top_level_definition_count": 15
+        "line_count": 579,
+        "nonblank_line_count": 509,
+        "top_level_definition_count": 18
       },
       "tests/test_harvey_lab_evaluator.py": {
         "cycle_id": "",
@@ -1753,12 +1753,12 @@
           "oversized"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "test_flex_sdk_retries_unavailable_with_long_timeout",
-        "largest_symbol_lines": 102,
+        "largest_symbol": "test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools",
+        "largest_symbol_lines": 162,
         "layer": "test",
-        "line_count": 1119,
-        "nonblank_line_count": 1004,
-        "top_level_definition_count": 27
+        "line_count": 1462,
+        "nonblank_line_count": 1325,
+        "top_level_definition_count": 31
       },
       "tests/test_managed_transcript_recovery.py": {
         "cycle_id": "",
@@ -1773,9 +1773,9 @@
         "largest_symbol": "test_successful_transcript_restores_typed_replay_payload_without_transport",
         "largest_symbol_lines": 172,
         "layer": "test",
-        "line_count": 633,
-        "nonblank_line_count": 589,
-        "top_level_definition_count": 16
+        "line_count": 763,
+        "nonblank_line_count": 709,
+        "top_level_definition_count": 19
       },
       "tests/test_multiharness_auth_binding.py": {
         "cycle_id": "",

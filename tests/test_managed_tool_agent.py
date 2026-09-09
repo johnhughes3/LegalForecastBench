@@ -665,8 +665,9 @@ def test_fable_managed_agent_uses_adaptive_anthropic_settings(
     assert result.response_usages == ((100, 40), (150, 60))
 
 
+@pytest.mark.parametrize("max_tokens", [16000, 128000])
 def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, max_tokens: int
 ) -> None:
     """Exercise the real Anthropic adapter through a provider-free HTTP transport."""
 
@@ -711,11 +712,71 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
 
     async def handler(request: Any) -> Any:
         requests.append(json.loads((await request.aread()).decode("utf-8")))
-        return httpx2.Response(
-            200,
-            json=responses[len(requests) - 1],
-            request=request,
-        )
+        response = responses[len(requests) - 1]
+        if requests[-1].get("stream"):
+            events = [
+                {
+                    "type": "message_start",
+                    "message": {
+                        **response,
+                        "content": [],
+                        "stop_reason": None,
+                        "usage": {
+                            "input_tokens": response["usage"]["input_tokens"],
+                            "output_tokens": 0,
+                        },
+                    },
+                }
+            ]
+            for index, block in enumerate(response["content"]):
+                start = (
+                    {**block, "input": {}}
+                    if block["type"] == "tool_use"
+                    else {"type": "text", "text": ""}
+                )
+                delta = (
+                    {
+                        "type": "input_json_delta",
+                        "partial_json": json.dumps(block["input"]),
+                    }
+                    if block["type"] == "tool_use"
+                    else {"type": "text_delta", "text": block["text"]}
+                )
+                events.extend(
+                    [
+                        {
+                            "type": "content_block_start",
+                            "index": index,
+                            "content_block": start,
+                        },
+                        {"type": "content_block_delta", "index": index, "delta": delta},
+                        {"type": "content_block_stop", "index": index},
+                    ]
+                )
+            events.extend(
+                [
+                    {
+                        "type": "message_delta",
+                        "delta": {
+                            "stop_reason": response["stop_reason"],
+                            "stop_sequence": None,
+                        },
+                        "usage": {"output_tokens": response["usage"]["output_tokens"]},
+                    },
+                    {"type": "message_stop"},
+                ]
+            )
+            stream = "".join(
+                f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
+                for event in events
+            )
+            return httpx2.Response(
+                200,
+                text=stream,
+                headers={"content-type": "text/event-stream"},
+                request=request,
+            )
+        return httpx2.Response(200, json=response, request=request)
 
     http_client = httpx2.AsyncClient(
         transport=httpx2.MockTransport(handler),
@@ -736,7 +797,7 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     result = run_managed_tool_agent(
-        _anthropic_entry(),
+        replace(_anthropic_entry(), max_output_tokens=max_tokens),
         initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
         required_unit_ids=("unit-a",),
         executor=_Executor(),
@@ -750,6 +811,8 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
     assert result.response_usages == ((100, 40), (150, 60))
     assert len(requests) == 2
     for request in requests:
+        assert request["max_tokens"] == max_tokens
+        assert bool(request.get("stream")) is (max_tokens == 128000)
         assert request["thinking"] == {"type": "adaptive"}
         assert request["tool_choice"] == {
             "type": "auto",

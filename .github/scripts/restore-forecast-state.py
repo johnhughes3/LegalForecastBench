@@ -280,6 +280,10 @@ def _has_terminal_result_candidate(value: object) -> bool:
     messages = value.get("messages")
     if not isinstance(messages, list) or not messages:
         return False
+    # Native structured output (for example Anthropic) has no final_result
+    # tool call. Successful SDK histories still pass the strict recovery parser.
+    if value.get("agent_status") == "succeeded":
+        return True
     return any(
         isinstance(message, dict)
         and message.get("kind") == "response"
