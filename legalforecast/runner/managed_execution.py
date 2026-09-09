@@ -21,6 +21,7 @@ from pydantic_ai import (
     ModelHTTPError,
     ModelMessagesTypeAdapter,
     ModelResponse,
+    ModelSettings,
     RunContext,
     capture_run_messages,
 )
@@ -65,6 +66,12 @@ from legalforecast.runner.gateway import (
     validate_gateway_metadata,
 )
 from legalforecast.runner.ledger import RunValidationError
+from legalforecast.runner.managed_anthropic import (
+    anthropic_model as _anthropic_model,
+)
+from legalforecast.runner.managed_anthropic import (
+    anthropic_model_settings as _anthropic_model_settings,
+)
 
 # Long briefing records can require dozens of sequential document reads.
 # Keep a bounded SDK run while allowing room to finish the forecast afterward.
@@ -268,13 +275,20 @@ def run_managed_tool_agent(
     """Run one case with Pydantic AI's native tool loop and bounded usage."""
 
     provider = entry.provider.strip().lower()
-    if provider not in {"openai", "google", "gemini", "vercel_ai_gateway"}:
+    if provider not in {
+        "openai",
+        "anthropic",
+        "google",
+        "gemini",
+        "vercel_ai_gateway",
+    }:
         raise ManagedToolAgentError(
-            "managed document tools currently require OpenAI, Google, or "
-            "Vercel AI Gateway"
+            "managed document tools currently require OpenAI, Anthropic, "
+            "Google, or Vercel AI Gateway"
         )
     if not required_unit_ids:
         raise ManagedToolAgentError("managed agent requires prediction unit ids")
+    resolved_model: Model
     if model is not None:
         resolved_model = model
     elif provider == "openai":
@@ -293,13 +307,15 @@ def run_managed_tool_agent(
             provider=gateway_provider,
             profile=gateway_profile,
         )
+    elif provider == "anthropic":
+        resolved_model = _anthropic_model(entry, api_key=api_key)
     else:
         resolved_model = GoogleModel(
             entry.model_id,
             provider=GoogleProvider(api_key=api_key),
         )
     if provider == "openai":
-        settings: Mapping[str, Any] = OpenAIResponsesModelSettings(
+        settings: ModelSettings = OpenAIResponsesModelSettings(
             max_tokens=entry.max_output_tokens,
             parallel_tool_calls=False,
             timeout=OPENAI_FLEX_TIMEOUT_SECONDS,
@@ -321,6 +337,8 @@ def run_managed_tool_agent(
             cast(dict[str, Any], settings)["openai_reasoning_effort"] = cast(
                 Any, entry.reasoning_effort.value
             )
+    elif provider == "anthropic":
+        settings = _anthropic_model_settings(entry)
     else:
         google_settings = GoogleModelSettings(max_tokens=entry.max_output_tokens)
         if entry.thinking_level is not None:
@@ -545,6 +563,11 @@ def uses_managed_document_tools(entry: ModelRegistryEntry) -> bool:
     return (
         (provider == "openai" and entry.model_id in {"gpt-5.6-luna", "gpt-6-astra"})
         or (
+            provider == "anthropic"
+            and entry.model_id == "claude-fable-5-1"
+            and entry.tool_policy.value == "controlled_docket_tool_only"
+        )
+        or (
             provider in {"google", "gemini"}
             and entry.tool_policy.value == "controlled_docket_tool_only"
         )
@@ -660,6 +683,7 @@ def complete_managed_tool_cell(
     provider = entry.provider.strip().lower()
     api_key_name = {
         "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
         "vercel_ai_gateway": "AI_GATEWAY_API_KEY",
     }.get(provider, "GEMINI_API_KEY")
     api_key = values.get(api_key_name)
@@ -835,6 +859,13 @@ def complete_managed_tool_cell(
                 list(gateway_metadata), sort_keys=True, separators=(",", ":")
             )
             metadata["gateway_route_provider"] = gateway_route_provider(entry.model_id)
+        if provider == "anthropic":
+            metadata.update(
+                {
+                    "requested_thinking_type": "adaptive",
+                    "provider_reasoning_effort": "provider_default_high",
+                }
+            )
         if entry.thinking_level is not None:
             metadata["thinking_level"] = entry.thinking_level.value
         require_publishable_response_metadata(metadata)

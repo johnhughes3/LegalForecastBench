@@ -15,6 +15,7 @@ from typing import cast
 from pydantic_ai import ModelMessagesTypeAdapter, ModelResponse
 from pydantic_ai.messages import (
     ModelMessage,
+    TextPart,
     ToolCallPart,
     ToolReturnPart,
     UserPromptPart,
@@ -165,10 +166,18 @@ def managed_result_from_transcript(
         raise RunValidationError("managed transcript messages are invalid") from exc
 
     _verify_managed_prompt(messages, entry=entry, cell=cell)
-    calls, _returns, final_call = _verify_tool_history(messages)
-    output = _verify_final_envelope(
-        final_call, required_unit_ids=cell.required_unit_ids
+    provider = entry.provider.strip().lower()
+    calls, _returns, final_call = _verify_tool_history(
+        messages, require_final_result=provider != "anthropic"
     )
+    if final_call is None:
+        output = _verify_native_final_envelope(
+            messages, required_unit_ids=cell.required_unit_ids
+        )
+    else:
+        output = _verify_final_envelope(
+            final_call, required_unit_ids=cell.required_unit_ids
+        )
     responses = tuple(
         message for message in messages if isinstance(message, ModelResponse)
     )
@@ -181,11 +190,16 @@ def managed_result_from_transcript(
     }
     if len(served_models) != 1:
         raise RunValidationError("managed transcript changed or omitted served model")
-    provider = entry.provider.strip().lower()
-    if provider not in {"openai", "google", "gemini", "vercel_ai_gateway"}:
+    if provider not in {
+        "openai",
+        "anthropic",
+        "google",
+        "gemini",
+        "vercel_ai_gateway",
+    }:
         raise RunValidationError(
-            "managed transcript recovery requires OpenAI, Google, or "
-            "Vercel AI Gateway provider"
+            "managed transcript recovery requires OpenAI, Anthropic, Google, "
+            "or Vercel AI Gateway provider"
         )
     provider_names = {
         response.provider_name.strip().lower()
@@ -425,7 +439,9 @@ def _verify_managed_prompt(
 
 def _verify_tool_history(
     messages: Sequence[ModelMessage],
-) -> tuple[tuple[ToolCallPart, ...], dict[str, ToolReturnPart], ToolCallPart]:
+    *,
+    require_final_result: bool = True,
+) -> tuple[tuple[ToolCallPart, ...], dict[str, ToolReturnPart], ToolCallPart | None]:
     calls: list[ToolCallPart] = []
     returns: dict[str, ToolReturnPart] = {}
     call_ids: set[str] = set()
@@ -454,11 +470,13 @@ def _verify_tool_history(
                         "managed transcript has duplicate tool return"
                     )
                 returns[part.tool_call_id] = part
-    if len(final_calls) != 1:
+    if require_final_result and len(final_calls) != 1:
         raise RunValidationError("managed transcript must contain one final result")
+    if not require_final_result and len(final_calls) > 1:
+        raise RunValidationError("managed transcript has multiple final results")
     if set(returns) != call_ids:
         raise RunValidationError("managed transcript tool calls lack matching returns")
-    if returns[final_calls[0].tool_call_id].outcome != "success":
+    if final_calls and returns[final_calls[0].tool_call_id].outcome != "success":
         raise RunValidationError("managed transcript final result was not accepted")
     successful_read = any(
         call.tool_name in {"bash", "read", "grep"}
@@ -472,18 +490,55 @@ def _verify_tool_history(
         for index, message in enumerate(messages)
         if isinstance(message, ModelResponse)
     ]
-    final_index = next(
-        index
-        for index, message in enumerate(messages)
-        if any(
-            isinstance(part, ToolCallPart)
-            and part.tool_call_id == final_calls[0].tool_call_id
-            for part in getattr(message, "parts", ())
+    if final_calls:
+        final_index = next(
+            index
+            for index, message in enumerate(messages)
+            if any(
+                isinstance(part, ToolCallPart)
+                and part.tool_call_id == final_calls[0].tool_call_id
+                for part in getattr(message, "parts", ())
+            )
         )
-    )
-    if not response_indexes or final_index != response_indexes[-1]:
-        raise RunValidationError("final result is not the last provider response")
-    return tuple(calls), returns, final_calls[0]
+        if not response_indexes or final_index != response_indexes[-1]:
+            raise RunValidationError("final result is not the last provider response")
+    return tuple(calls), returns, final_calls[0] if final_calls else None
+
+
+def _verify_native_final_envelope(
+    messages: Sequence[ModelMessage],
+    *,
+    required_unit_ids: tuple[str, ...],
+) -> managed_execution.ForecastEnvelope:
+    """Validate Anthropic native JSON output represented by a ``TextPart``."""
+
+    responses = [
+        (index, message)
+        for index, message in enumerate(messages)
+        if isinstance(message, ModelResponse)
+    ]
+    if not responses:
+        raise RunValidationError("managed transcript has no provider responses")
+    final_index, final_response = responses[-1]
+    if final_index != len(messages) - 1:
+        raise RunValidationError("native output is not the last provider response")
+    text_parts = [part for part in final_response.parts if isinstance(part, TextPart)]
+    if len(text_parts) != 1:
+        raise RunValidationError("managed transcript must contain one native output")
+    try:
+        envelope = managed_execution.ForecastEnvelope.model_validate_json(
+            text_parts[0].content
+        )
+    except ValueError as exc:
+        raise RunValidationError(
+            "managed native output is not a forecast envelope"
+        ) from exc
+    output_ids = tuple(item.unit_id for item in envelope.predictions)
+    if len(output_ids) != len(set(output_ids)) or set(output_ids) != set(
+        required_unit_ids
+    ):
+        raise RunValidationError("managed native output has the wrong prediction units")
+    return envelope
 
 
 def _verify_final_envelope(

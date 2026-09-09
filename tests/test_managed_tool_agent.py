@@ -94,6 +94,22 @@ def _google_entry() -> ModelRegistryEntry:
     return ModelRegistryEntry.from_record(record)
 
 
+def _anthropic_entry() -> ModelRegistryEntry:
+    record = _entry().to_record()
+    record.update(
+        {
+            "provider": "anthropic",
+            "model_id": "claude-fable-5-1",
+            "model_version_or_snapshot": "claude-fable-5-1",
+            "reasoning_effort": None,
+            "thinking_level": None,
+            "input_token_price": 10.0,
+            "output_token_price": 50.0,
+        }
+    )
+    return ModelRegistryEntry.from_record(record)
+
+
 def _gateway_entry(model_id: str = "moonshotai/kimi-k3") -> ModelRegistryEntry:
     record = _entry().to_record()
     record.update(
@@ -556,6 +572,264 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
     assert seen == ["bash", "edit", "glob", "grep", "read", "write"] * 2
 
 
+def test_fable_managed_agent_uses_adaptive_anthropic_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    turns = [
+        ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "read",
+                    {"file_path": "/workspace/documents/motion.txt"},
+                    tool_call_id="read-1",
+                )
+            ],
+            usage=RequestUsage(input_tokens=100, output_tokens=40),
+            model_name="claude-fable-5-1",
+            provider_name="anthropic",
+            finish_reason="stop",
+        ),
+        ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "final_result",
+                    {
+                        "case_assessment": "Assessment",
+                        "predictions": [
+                            {
+                                "unit_id": "unit-a",
+                                "probability_fully_dismissed": 0.5,
+                            }
+                        ],
+                    },
+                    tool_call_id="final-1",
+                )
+            ],
+            usage=RequestUsage(input_tokens=150, output_tokens=60),
+            model_name="claude-fable-5-1",
+            provider_name="anthropic",
+            finish_reason="stop",
+        ),
+    ]
+    captured: dict[str, Any] = {}
+
+    async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
+        return turns.pop(0)
+
+    def anthropic_model(
+        entry: ModelRegistryEntry, *, api_key: str | None
+    ) -> FunctionModel:
+        captured["model_id"] = entry.model_id
+        captured["api_key"] = api_key
+        return FunctionModel(scripted)
+
+    def anthropic_settings(entry: ModelRegistryEntry) -> dict[str, Any]:
+        settings = {
+            "max_tokens": entry.max_output_tokens,
+            "anthropic_thinking": {"type": "adaptive"},
+            "parallel_tool_calls": False,
+        }
+        captured["settings"] = settings
+        return settings
+
+    monkeypatch.setattr(managed_execution, "_anthropic_model", anthropic_model)
+    monkeypatch.setattr(
+        managed_execution, "_anthropic_model_settings", anthropic_settings
+    )
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result = run_managed_tool_agent(
+        _anthropic_entry(),
+        initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
+        required_unit_ids=("unit-a",),
+        executor=_Executor(),
+        workspace=workspace,
+        request_id="cell-1",
+        api_key="fixture-key",
+    )
+
+    assert managed_execution.uses_managed_document_tools(_anthropic_entry())
+    assert captured == {
+        "model_id": "claude-fable-5-1",
+        "api_key": "fixture-key",
+        "settings": {
+            "max_tokens": 16000,
+            "anthropic_thinking": {"type": "adaptive"},
+            "parallel_tool_calls": False,
+        },
+    }
+    assert result.served_model == "function:scripted:"
+    assert result.service_tier == "unreported"
+    assert result.called_tools == ("read",)
+    assert result.response_usages == ((100, 40), (150, 60))
+
+
+@pytest.mark.parametrize("max_tokens", [16000, 128000])
+def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, max_tokens: int
+) -> None:
+    """Exercise the real Anthropic adapter through a provider-free HTTP transport."""
+
+    httpx2 = pytest.importorskip("httpx2")
+    anthropic_model = pytest.importorskip("pydantic_ai.models.anthropic")
+    anthropic_provider = pytest.importorskip("pydantic_ai.providers.anthropic")
+
+    raw_output = (
+        '{"case_assessment":"Assessment","predictions":['
+        '{"unit_id":"unit-a","probability_fully_dismissed":0.5}]}'
+    )
+    responses = [
+        {
+            "id": "msg_1",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-fable-5-1",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "read",
+                    "input": {"file_path": "/workspace/documents/motion.txt"},
+                }
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": None,
+            "usage": {"input_tokens": 100, "output_tokens": 40},
+        },
+        {
+            "id": "msg_2",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-fable-5-1",
+            "content": [{"type": "text", "text": raw_output}],
+            "stop_reason": "end_turn",
+            "stop_sequence": None,
+            "usage": {"input_tokens": 150, "output_tokens": 60},
+        },
+    ]
+    requests: list[dict[str, Any]] = []
+
+    async def handler(request: Any) -> Any:
+        requests.append(json.loads((await request.aread()).decode("utf-8")))
+        response = responses[len(requests) - 1]
+        if requests[-1].get("stream"):
+            events = [
+                {
+                    "type": "message_start",
+                    "message": {
+                        **response,
+                        "content": [],
+                        "stop_reason": None,
+                        "usage": {
+                            "input_tokens": response["usage"]["input_tokens"],
+                            "output_tokens": 0,
+                        },
+                    },
+                }
+            ]
+            for index, block in enumerate(response["content"]):
+                start = (
+                    {**block, "input": {}}
+                    if block["type"] == "tool_use"
+                    else {"type": "text", "text": ""}
+                )
+                delta = (
+                    {
+                        "type": "input_json_delta",
+                        "partial_json": json.dumps(block["input"]),
+                    }
+                    if block["type"] == "tool_use"
+                    else {"type": "text_delta", "text": block["text"]}
+                )
+                events.extend(
+                    [
+                        {
+                            "type": "content_block_start",
+                            "index": index,
+                            "content_block": start,
+                        },
+                        {"type": "content_block_delta", "index": index, "delta": delta},
+                        {"type": "content_block_stop", "index": index},
+                    ]
+                )
+            events.extend(
+                [
+                    {
+                        "type": "message_delta",
+                        "delta": {
+                            "stop_reason": response["stop_reason"],
+                            "stop_sequence": None,
+                        },
+                        "usage": {"output_tokens": response["usage"]["output_tokens"]},
+                    },
+                    {"type": "message_stop"},
+                ]
+            )
+            stream = "".join(
+                f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
+                for event in events
+            )
+            return httpx2.Response(
+                200,
+                text=stream,
+                headers={"content-type": "text/event-stream"},
+                request=request,
+            )
+        return httpx2.Response(200, json=response, request=request)
+
+    http_client = httpx2.AsyncClient(
+        transport=httpx2.MockTransport(handler),
+        base_url="https://api.anthropic.com",
+    )
+    model = anthropic_model.AnthropicModel(
+        "claude-fable-5-1",
+        provider=anthropic_provider.AnthropicProvider(
+            api_key="fixture-key", http_client=http_client
+        ),
+    )
+    monkeypatch.setattr(
+        managed_execution,
+        "_anthropic_model",
+        lambda _entry, *, api_key: model,
+    )
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result = run_managed_tool_agent(
+        replace(_anthropic_entry(), max_output_tokens=max_tokens),
+        initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
+        required_unit_ids=("unit-a",),
+        executor=_Executor(),
+        workspace=workspace,
+        request_id="cell-1",
+        api_key="fixture-key",
+    )
+
+    assert result.raw_output == raw_output
+    assert result.called_tools == ("read",)
+    assert result.response_usages == ((100, 40), (150, 60))
+    assert len(requests) == 2
+    for request in requests:
+        assert request["max_tokens"] == max_tokens
+        assert bool(request.get("stream")) is (max_tokens == 128000)
+        assert request["thinking"] == {"type": "adaptive"}
+        assert request["tool_choice"] == {
+            "type": "auto",
+            "disable_parallel_tool_use": True,
+        }
+        assert request["output_config"]["format"]["type"] == "json_schema"
+        assert "final_result" not in {tool["name"] for tool in request["tools"]}
+        assert {tool["name"] for tool in request["tools"]} == {
+            "bash",
+            "read",
+            "write",
+            "edit",
+            "glob",
+            "grep",
+        }
+
+
 def test_google_sdk_usage_counts_thoughts_once_in_output_tokens() -> None:
     """Pydantic AI's Google usage extractor includes thought tokens in output."""
 
@@ -622,6 +896,75 @@ class _ReplayHandler(_AttemptHandler):
         self.run_count += 1
         del call
         return self.payload
+
+
+def test_fable_managed_cell_uses_anthropic_key_and_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw_output = (
+        '{"case_assessment":"Assessment","predictions":['
+        '{"unit_id":"unit-a","probability_fully_dismissed":0.5}]}'
+    )
+    handler = _ReplayHandler(
+        {
+            "raw_output": raw_output,
+            "request_count": 2,
+            "input_tokens": 80,
+            "output_tokens": 10,
+            "served_model": "claude-fable-5-1",
+            "finish_reason": "stop",
+            "service_tier": "unreported",
+            "called_tools": ["read"],
+            "estimated_cost_usd": 0.0013,
+        }
+    )
+    monkeypatch.setattr(
+        "legalforecast.runner.tool_runtime.open_official_tool_session",
+        lambda **_kwargs: pytest.fail("replay must not start a tool container"),
+    )
+
+    response = managed_execution.complete_managed_tool_cell(
+        _anthropic_entry(),
+        handler=cast(Any, handler),
+        managed_case=ManagedCaseInput(
+            case_id="case-1",
+            required_unit_ids=("unit-a",),
+            documents={"documents/0000.txt": b"motion"},
+            unit_descriptions=(
+                {
+                    "unit_id": "unit-a",
+                    "claim_name": "Section 10(b)",
+                    "defendant_group": "issuer",
+                    "count": "Count I",
+                },
+            ),
+            document_descriptions=(
+                {
+                    "path": "/workspace/documents/0000.txt",
+                    "document_id": "motion",
+                    "role": "motion_to_dismiss",
+                },
+            ),
+            cell_id="cell-1",
+        ),
+        request_body_observer=lambda _body: pytest.fail(
+            "replay must not observe a provider request"
+        ),
+        environ={"ANTHROPIC_API_KEY": "fixture-key"},
+        registry_sha256="sha256:" + "b" * 64,
+    )
+
+    assert response.input_tokens == 80
+    assert response.output_tokens == 10
+    assert response.estimated_cost == pytest.approx(0.0013)
+    assert response.metadata is not None
+    assert response.metadata["provider"] == "anthropic"
+    assert response.metadata["served_model_version"] == "claude-fable-5-1"
+    assert response.metadata["service_tier"] == "unreported"
+    assert response.metadata["requested_thinking_type"] == "adaptive"
+    assert response.metadata["provider_reasoning_effort"] == "provider_default_high"
+    assert response.metadata["response_finish_reason"] == "stop"
+    assert handler.settlement == (80, 10, 0.0013, raw_output)
 
 
 def test_official_cell_settles_the_entire_agent_session_once(
