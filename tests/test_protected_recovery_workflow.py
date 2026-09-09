@@ -54,6 +54,9 @@ def test_recovery_persists_plan_and_result_before_dispatch() -> None:
     assert '"resume_sources"' in RECOVERY
     assert '"release_sha": os.environ["GITHUB_SHA"]' in RECOVERY
     assert "an exact child recovery run is already active" in RECOVERY
+    assert "client.list_active_recovery_runs(repo)" in RECOVERY
+    assert 'client.dispatch(repo, "run-benchmark.yaml", "main", inputs)' in RECOVERY
+    assert 'for status in ("queued", "in_progress")' not in RECOVERY
 
 
 def test_native_failed_job_rerun_reuses_successful_prepare_artifact_id() -> None:
@@ -67,9 +70,12 @@ def test_native_failed_job_rerun_reuses_successful_prepare_artifact_id() -> None
     )
     assert RUN.count(artifact_id_input) == 5
     assert (
-        "name: locked-forecast-inputs-${{ github.run_id }}-attempt-"
-        "${{ github.run_attempt }}"
-    ) not in RUN
+        RUN.count(
+            "name: locked-forecast-inputs-${{ github.run_id }}-attempt-"
+            "${{ github.run_attempt }}"
+        )
+        == 1
+    )
 
 
 def test_recovered_child_title_binds_to_newest_resume_source() -> None:

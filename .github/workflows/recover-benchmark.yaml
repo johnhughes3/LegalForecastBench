@@ -188,19 +188,21 @@ jobs:
         run: |
           set -euo pipefail
           uv run python - <<'PY'
-          import json, os, subprocess
+          import json, os
+
+          from legalforecast.runner.recovery import GhRecoveryClient
 
           plan = json.load(open("/tmp/lfb-source-recovery-plan.json", encoding="utf-8"))
           source = plan["source"]
           title = f"Run benchmark recovery {source['run_id']} attempt {source['run_attempt']}"
-          for status in ("queued", "in_progress"):
-              result = subprocess.run(
-                  ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs?event=workflow_dispatch&branch=main&status={status}&per_page=100"],
-                  check=True, capture_output=True, text=True,
-              )
-              runs = json.loads(result.stdout).get("workflow_runs", [])
-              if any(run.get("path") == ".github/workflows/run-benchmark.yaml" and run.get("display_title") == title for run in runs):
-                  raise SystemExit("an exact child recovery run is already active")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          client = GhRecoveryClient()
+          if any(
+              run.get("path") == ".github/workflows/run-benchmark.yaml"
+              and run.get("display_title") == title
+              for run in client.list_active_recovery_runs(repo)
+          ):
+              raise SystemExit("an exact child recovery run is already active")
           frozen = plan["frozen_identity"]
           recovery = plan["recovery"]
           inputs = {
@@ -217,9 +219,6 @@ jobs:
               "artifact_retention_days": str(frozen["artifact_retention_days"]),
               "resume_sources": json.dumps(recovery["resume_sources"], separators=(",", ":")),
           }
-          command = ["gh", "workflow", "run", "run-benchmark.yaml", "--repo", os.environ["GITHUB_REPOSITORY"], "--ref", "main"]
-          for name in sorted(inputs):
-              command.extend(("--field", f"{name}={inputs[name]}"))
-          subprocess.run(command, check=True)
+          client.dispatch(repo, "run-benchmark.yaml", "main", inputs)
           print(title)
           PY
