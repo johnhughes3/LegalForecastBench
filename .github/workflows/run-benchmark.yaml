@@ -45,7 +45,7 @@ on:
       max_parallel:
         description: Maximum number of resumable forecast cells allowed in this run.
         required: false
-        default: "4"
+        default: "8"
         type: string
       artifact_retention_days:
         description: Retention for public workflow artifacts.

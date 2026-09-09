@@ -329,7 +329,9 @@ def execute_release_run(
     policy = FrozenAttemptPolicy(
         reservation_ledger_sha256=identity_sha256,
         max_billable_attempts=1,
-        failure_threshold=1,
+        # One case can exhaust its SDK limits without indicating a provider
+        # outage. Stop new work after sustained failures, retaining every event.
+        failure_threshold=8,
         failure_window_seconds=86_400,
     )
     delegate = transport or default_live_model_transport

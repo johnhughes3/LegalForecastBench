@@ -1353,10 +1353,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 609,
+        "largest_symbol_lines": 611,
         "layer": "application",
-        "line_count": 1312,
-        "nonblank_line_count": 1216,
+        "line_count": 1314,
+        "nonblank_line_count": 1218,
         "top_level_definition_count": 24
       },
       "legalforecast/studies/service.py": {
@@ -1756,8 +1756,8 @@
         "largest_symbol": "test_google_managed_agent_uses_native_tools_and_bills_thoughts",
         "largest_symbol_lines": 86,
         "layer": "test",
-        "line_count": 1010,
-        "nonblank_line_count": 903,
+        "line_count": 1014,
+        "nonblank_line_count": 907,
         "top_level_definition_count": 26
       },
       "tests/test_managed_transcript_recovery.py": {
@@ -2191,9 +2191,9 @@
         "largest_symbol": "InMemoryDynamoRunner",
         "largest_symbol_lines": 153,
         "layer": "test",
-        "line_count": 1677,
-        "nonblank_line_count": 1467,
-        "top_level_definition_count": 51
+        "line_count": 1702,
+        "nonblank_line_count": 1489,
+        "top_level_definition_count": 52
       },
       "tests/test_public_runner.py": {
         "cycle_id": "",
@@ -2208,8 +2208,8 @@
         "largest_symbol": "test_runner_replays_remote_settlement_using_exact_attempt_id",
         "largest_symbol_lines": 145,
         "layer": "test",
-        "line_count": 1985,
-        "nonblank_line_count": 1727,
+        "line_count": 1989,
+        "nonblank_line_count": 1731,
         "top_level_definition_count": 50
       },
       "tests/test_publication_guardrails.py": {

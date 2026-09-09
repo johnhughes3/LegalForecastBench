@@ -1638,6 +1638,31 @@ def test_remote_authority_does_not_raise_threshold_on_schema_drift() -> None:
     assert runner.items["LEDGER"]["failure_threshold"] == {"N": "1"}
 
 
+def test_threshold_increase_preserves_old_failure_and_stops_at_eighth() -> None:
+    runner = InMemoryDynamoRunner()
+    old = _authority(runner, failure_threshold=1, clock=lambda: 1_000.0)
+    lease = old.authorize_attempt(_key(), reservation_microusd=10_000)
+    old.record_failure(lease, failure_type="UsageLimitExceeded", ambiguous=True)
+    assert old.snapshot().breaker_open
+    history = runner.items["LEDGER"]["failure_events_json"]
+
+    authority = _authority(runner, failure_threshold=8, clock=lambda: 1_000.0)
+    assert runner.items["LEDGER"]["failure_events_json"] == history
+    assert authority.snapshot().failure_count_in_window == 1
+    assert not authority.snapshot().breaker_open
+    for index in range(2, 9):
+        lease = authority.authorize_attempt(
+            _key(case_id=f"case-{index}"), reservation_microusd=10_000
+        )
+        authority.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+        snapshot = authority.snapshot()
+        assert snapshot.failure_count_in_window == index
+        assert snapshot.committed_microusd == index * 10_000
+        assert snapshot.breaker_open is (index == 8)
+    with pytest.raises(CircuitBreakerOpenError):
+        authority.authorize_attempt(_key(case_id="case-9"), reservation_microusd=10_000)
+
+
 def _key(
     *,
     stage: str = "official-eval",

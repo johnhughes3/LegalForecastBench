@@ -24,7 +24,6 @@ from legalforecast.evals.provider_spend_control import (
     AttemptLease,
     AttemptLimitExceededError,
     AttemptStateError,
-    CircuitBreakerOpenError,
     ProviderSpendKey,
 )
 from legalforecast.evals.provider_spend_dynamodb import DynamoDbProviderSpendAuthority
@@ -1556,10 +1555,15 @@ def test_runner_adopts_operator_reserved_attempt_with_fresh_local_ledger(
             retryable=True,
         )
     )
-    with pytest.raises(CircuitBreakerOpenError):
+    with pytest.raises(AttemptLimitExceededError):
         execute_release_run(config, transport=failed, environ=_fixture_environ())
     assert failed.calls == 1
     assert len(authorities) == 1
+    # The failed cell cannot retry without authorization, but unrelated cells
+    # must remain eligible after one provider failure.
+    snapshot = authorities[0].snapshot()
+    assert snapshot.failure_count_in_window == 1
+    assert not snapshot.breaker_open
 
     remote_attempt_keys = tuple(
         record_key
