@@ -314,9 +314,25 @@ def test_managed_agent_uses_native_tool_loop_and_returns_one_case_envelope(
     assert '"unit_id":"unit-b"' in result.raw_output
 
 
+@pytest.mark.parametrize("service_tier", ["flex", "default"])
+@pytest.mark.parametrize(
+    "model_id,route",
+    [("moonshotai/kimi-k3", "deepinfra"), ("openai/gpt-5.6-sol", "openai")],
+)
 def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
     tmp_path: Path,
+    model_id: str,
+    route: str,
+    service_tier: str,
 ) -> None:
+    metadata = _gateway_response_metadata()
+    metadata.update(
+        original_model_id=model_id,
+        canonical_slug=model_id,
+        resolved_provider=route,
+        final_provider=route,
+        resolved_provider_api_model_id=model_id.split("/", 1)[1],
+    )
     turns = [
         ModelResponse(
             parts=[
@@ -327,10 +343,13 @@ def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
                 )
             ],
             usage=RequestUsage(input_tokens=100, output_tokens=10),
-            model_name="moonshotai/kimi-k3",
+            model_name=model_id,
             provider_name="vercel_ai_gateway",
             finish_reason="stop",
-            provider_details={"gateway_metadata": _gateway_response_metadata()},
+            provider_details={
+                "gateway_metadata": metadata,
+                "service_tier": service_tier,
+            },
         ),
         ModelResponse(
             parts=[
@@ -349,20 +368,38 @@ def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
                 )
             ],
             usage=RequestUsage(input_tokens=150, output_tokens=20),
-            model_name="moonshotai/kimi-k3",
+            model_name=model_id,
             provider_name="vercel_ai_gateway",
             finish_reason="stop",
-            provider_details={"gateway_metadata": _gateway_response_metadata()},
+            provider_details={
+                "gateway_metadata": metadata,
+                "service_tier": service_tier,
+            },
         ),
     ]
 
     async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
+        if model_id == "openai/gpt-5.6-sol":
+            assert _info.model_settings["openai_service_tier"] == "flex"
+            assert _info.model_settings["timeout"] == 900.0
         return turns.pop(0)
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    if model_id == "openai/gpt-5.6-sol" and service_tier != "flex":
+        with pytest.raises(managed_execution.ManagedToolAgentError, match="Flex"):
+            run_managed_tool_agent(
+                _gateway_entry(model_id),
+                initial_prompt="Case: case-1",
+                required_unit_ids=("unit-a",),
+                executor=_Executor(),
+                workspace=workspace,
+                request_id="cell-1",
+                model=FunctionModel(scripted),
+            )
+        return
     result = run_managed_tool_agent(
-        _gateway_entry(),
+        _gateway_entry(model_id),
         initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
         required_unit_ids=("unit-a",),
         executor=_Executor(),
@@ -375,8 +412,8 @@ def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
     assert result.request_count == 2
     assert result.response_usages == ((100, 10), (150, 20))
     assert result.gateway_response_metadata == (
-        _gateway_response_metadata(),
-        _gateway_response_metadata(),
+        metadata,
+        metadata,
     )
 
 

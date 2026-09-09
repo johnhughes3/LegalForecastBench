@@ -1,0 +1,32 @@
+[
+  {
+    "context_limit": 1050000,
+    "display_name": "GPT-5.6 Sol (Vercel Gateway Flex)",
+    "input_token_price": 1.0,
+    "known_cutoff_publicity_caveats": [
+      "OpenAI reports a February 16, 2026 knowledge cutoff.",
+      "OpenAI's model page lists gpt-5.6-sol in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID and does not use the gpt-5.6 alias.",
+      "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates.",
+      "Gateway route is restricted to OpenAI with no provider fallback. This registry requires Flex service tier; request and observed response tier are checked. High reasoning and controlled document tools match the comparison configuration."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2.0,
+      "output_price_multiplier": 1.5,
+      "threshold_input_tokens": 272000
+    },
+    "max_output_tokens": 128000,
+    "model_id": "openai/gpt-5.6-sol",
+    "model_version_or_snapshot": "openai/gpt-5.6-sol",
+    "network_disabled": true,
+    "output_token_price": 5.0,
+    "pricing_source": "https://ai-gateway.vercel.sh/v1/models, checked 2026-09-09: openai/gpt-5.6-sol service_tiers.flex USD 1/M input, 5/M output, 0.10/M cache reads; above 272000 input tokens USD 2/M input and 7.50/M output. Gateway billed cost metadata is authoritative. https://vercel.com/changelog/gpt-5-6-sol-is-50-off-on-ai-gateway-for-the-next-month documents the OpenAI-provider promotion through September 18 (not BYOK); older example rates differ from the current catalog. Recheck pricing before later runs.",
+    "provider": "vercel_ai_gateway",
+    "provider_training_cutoff": "2026-02-16",
+    "provider_training_cutoff_status": "known",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-06-26T00:00:00Z",
+    "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]
