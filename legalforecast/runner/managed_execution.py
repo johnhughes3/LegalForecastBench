@@ -56,6 +56,7 @@ from legalforecast.runner.gateway import (
     VERCEL_AI_GATEWAY_BASE_URL,
     gateway_model_is_allowlisted,
     gateway_model_profile,
+    gateway_normalize_model_identity,
     gateway_request_extra_body,
     gateway_response_metadata,
     gateway_route_provider,
@@ -787,7 +788,15 @@ def complete_managed_tool_cell(
                     "managed Gateway response cost differs from charged metadata"
                 )
             estimated_cost = charged_gateway_cost
-        if served_model != entry.model_version_or_snapshot:
+        if provider == "vercel_ai_gateway":
+            try:
+                served_model = gateway_normalize_model_identity(
+                    entry.model_version_or_snapshot,
+                    served_model,
+                )
+            except ValueError as exc:
+                raise RunValidationError(str(exc)) from exc
+        elif served_model != entry.model_version_or_snapshot:
             raise RunValidationError(
                 "managed provider served model differs from frozen registry"
             )

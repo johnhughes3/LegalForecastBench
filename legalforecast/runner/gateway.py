@@ -21,6 +21,12 @@ _GATEWAY_ROUTE_PROVIDERS = {
 _MUSE_GATEWAY_MODEL_IDS = frozenset(
     {"meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor"}
 )
+_GATEWAY_MODEL_ALIASES = {
+    # Gateway keeps the requested id in ``originalModelId`` but returns the
+    # provider's canonical slug for Grok 4.6.  This is the one verified
+    # served-identity alias; every other model remains exact-match only.
+    "spacexai/grok-4.6": frozenset({"xai/grok-4.6"}),
+}
 
 
 def gateway_route_provider(model_id: str) -> str:
@@ -38,6 +44,23 @@ def gateway_model_is_allowlisted(model_id: str) -> bool:
     """Return whether a model id has a frozen Gateway route."""
 
     return model_id.casefold() in _GATEWAY_ROUTE_PROVIDERS
+
+
+def gateway_normalize_model_identity(
+    expected_model_id: str, observed_model_id: str
+) -> str:
+    """Return the frozen id for one exact Gateway served-model identity.
+
+    Gateway's request identity remains strict.  A small explicit alias table
+    accounts for providers that report their canonical slug in Responses
+    metadata while Gateway retains the requested model id separately.
+    """
+
+    expected = expected_model_id.casefold()
+    observed = observed_model_id.casefold()
+    if observed == expected or observed in _GATEWAY_MODEL_ALIASES.get(expected, ()):
+        return expected_model_id
+    raise ValueError("Vercel AI Gateway response changed the served model")
 
 
 def gateway_request_extra_body(model_id: str) -> dict[str, object]:
@@ -209,8 +232,15 @@ def validate_gateway_metadata(
     expected_model = expected_model_id.casefold()
     if normalized["original_model_id"].casefold() != expected_model:
         raise ValueError("Vercel AI Gateway response changed the requested model")
-    if normalized["canonical_slug"].casefold() != expected_model:
-        raise ValueError("Vercel AI Gateway response changed the canonical model")
+    try:
+        gateway_normalize_model_identity(
+            expected_model_id,
+            normalized["canonical_slug"],
+        )
+    except ValueError as exc:
+        raise ValueError(
+            "Vercel AI Gateway response changed the canonical model"
+        ) from exc
     if normalized["resolved_provider"].casefold() != expected_provider.casefold():
         raise ValueError(
             "Vercel AI Gateway response used an unexpected resolved provider route"
@@ -244,6 +274,7 @@ __all__ = [
     "VERCEL_AI_GATEWAY_BASE_URL",
     "gateway_model_is_allowlisted",
     "gateway_model_profile",
+    "gateway_normalize_model_identity",
     "gateway_request_extra_body",
     "gateway_response_metadata",
     "gateway_route_provider",
