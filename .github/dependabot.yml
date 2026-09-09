@@ -14,7 +14,11 @@ updates:
           - minor
           - patch
 
-  - package-ecosystem: pip
+  # uv.lock is the resolver input. GitHub opens uv-ecosystem PRs for it
+  # (#1037, #1053, #1126) even when only pip is configured, and pip ignore
+  # rules do not bind those PRs. Configure uv directly; do not also configure
+  # pip, or version updates duplicate across two Python ecosystems.
+  - package-ecosystem: uv
     directory: /
     schedule:
       interval: weekly
@@ -38,7 +42,7 @@ updates:
       # tests/test_pdf_extractor_pin.py.
       - dependency-name: pypdf
     groups:
-      pip-minor-patch:
+      uv-minor-patch:
         update-types:
           - minor
           - patch

@@ -112,9 +112,10 @@ def _run_snippet(
 
 def test_dependabot_groups_restrict_minor_and_patch() -> None:
     assert "package-ecosystem: github-actions" in DEPENDABOT
-    assert "package-ecosystem: pip" in DEPENDABOT
+    assert "package-ecosystem: uv" in DEPENDABOT
+    assert "package-ecosystem: pip" not in DEPENDABOT
     assert "github-actions-minor-patch:" in DEPENDABOT
-    assert "pip-minor-patch:" in DEPENDABOT
+    assert "uv-minor-patch:" in DEPENDABOT
     assert DEPENDABOT.count("update-types:") == 2
     assert DEPENDABOT.count("- minor") == 2
     assert DEPENDABOT.count("- patch") == 2
@@ -125,6 +126,13 @@ def test_dependabot_groups_restrict_minor_and_patch() -> None:
 def test_dependabot_ignores_provider_contract_dependencies() -> None:
     for dependency_name in PROVIDER_CONTRACT_DEPENDENCIES:
         assert DEPENDABOT.count(f"- dependency-name: {dependency_name}") == 1
+
+
+def test_dependabot_python_ecosystems_ignore_the_pinned_extractor() -> None:
+    """Pip-only ignores do not bind uv PRs (#1037, #1053, #1126)."""
+    chunks = DEPENDABOT.split("  - package-ecosystem: ")[1:]
+    python = [c for c in chunks if c.split("\n", 1)[0].strip() in {"pip", "uv"}]
+    assert python and all("- dependency-name: pypdf" in chunk for chunk in python)
 
 
 def test_dependabot_auto_merge_workflow_uses_default_branch_workflow_run() -> None:
