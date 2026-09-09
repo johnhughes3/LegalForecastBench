@@ -335,6 +335,7 @@ class DynamoDbProviderSpendAuthority:
         acknowledged_attempt_id: str,
         acknowledged_failure_type: str,
         acknowledged_failure_events_sha256: str,
+        acknowledged_attempt_ordinal: int | None = None,
         owner_reference: str | None = None,
     ) -> AttemptLease:
         """Reserve one owner-approved replacement for an exact old failure.
@@ -344,7 +345,10 @@ class DynamoDbProviderSpendAuthority:
         transaction only records that this exact ambiguous attempt was
         acknowledged and creates the next pretransport attempt.  The cell's
         conditional ordinal update makes the approval single-use across
-        concurrent operators.
+        concurrent operators.  ``acknowledged_attempt_ordinal`` defaults to
+        the frozen billable limit for compatibility; recurring recovery must
+        name the current ambiguous predecessor explicitly (for example,
+        ordinal 2 to create ordinal 3).
         """
 
         self._verify_key_scope(key)
@@ -369,6 +373,14 @@ class DynamoDbProviderSpendAuthority:
             acknowledged_failure_events_sha256,
             "acknowledged_failure_events_sha256",
         )
+        acknowledged_ordinal = (
+            self.policy.max_billable_attempts
+            if acknowledged_attempt_ordinal is None
+            else _positive_int(
+                acknowledged_attempt_ordinal,
+                "acknowledged_attempt_ordinal",
+            )
+        )
         for _ in range(_MAX_TRANSACTION_RETRIES):
             ledger = self._get_required(_LEDGER_RECORD_KEY)
             self._verify_ledger(ledger)
@@ -376,11 +388,10 @@ class DynamoDbProviderSpendAuthority:
             cell_key = f"CELL#{key.logical_call_key}"
             cell = self._get_required(cell_key)
             current_attempts = _number(cell, "attempt_count")
-            if current_attempts != self.policy.max_billable_attempts:
+            if current_attempts != acknowledged_ordinal:
                 raise AttemptLimitExceededError(
-                    "additional attempt requires exactly one exhausted frozen call"
+                    "additional attempt requires the expected current attempt ordinal"
                 )
-            acknowledged_ordinal = self.policy.max_billable_attempts
             acknowledged_key = (
                 f"ATTEMPT#{key.logical_call_key}#{acknowledged_ordinal:04d}"
             )
