@@ -1021,6 +1021,95 @@ def test_usage_marker_is_single_use_and_same_attempt_retry_is_idempotent() -> No
     assert sum(record_key.startswith("USAGE#") for record_key in runner.items) == 1
 
 
+def test_complete_ambiguous_reconciliation_can_be_replayed_as_response() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(runner)
+    lease = authority.authorize_attempt(_key(), reservation_microusd=400_000)
+    authority.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+
+    authority.reconcile_ambiguous(
+        lease,
+        usage_record_id="provider-usage-record-complete",
+        usage_record_sha256="7" * 64,
+        billed_microusd=125_000,
+        input_tokens=100,
+        output_tokens=20,
+        response_sha256="a" * 64,
+    )
+
+    authority.record_response(
+        lease,
+        input_tokens=100,
+        output_tokens=20,
+        actual_microusd=125_000,
+        response_sha256="a" * 64,
+    )
+    authority.reconcile_ambiguous(
+        lease,
+        usage_record_id="provider-usage-record-complete",
+        usage_record_sha256="7" * 64,
+        billed_microusd=125_000,
+        input_tokens=100,
+        output_tokens=20,
+        response_sha256="a" * 64,
+    )
+
+    attempt = runner.items[
+        f"ATTEMPT#{lease.logical_call_key}#{lease.attempt_ordinal:04d}"
+    ]
+    assert attempt["input_tokens"] == _n(100)
+    assert attempt["output_tokens"] == _n(20)
+    assert attempt["response_sha256"] == _s("a" * 64)
+    assert authority.snapshot().committed_microusd == 125_000
+
+
+def test_complete_ambiguous_reconciliation_rejects_changed_response_evidence() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(runner)
+    lease = authority.authorize_attempt(_key(), reservation_microusd=400_000)
+    authority.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+    authority.reconcile_ambiguous(
+        lease,
+        usage_record_id="provider-usage-record-conflict",
+        usage_record_sha256="8" * 64,
+        billed_microusd=125_000,
+        input_tokens=100,
+        output_tokens=20,
+        response_sha256="a" * 64,
+    )
+
+    with pytest.raises(ReconciliationMismatchError, match="response evidence"):
+        authority.reconcile_ambiguous(
+            lease,
+            usage_record_id="provider-usage-record-conflict",
+            usage_record_sha256="8" * 64,
+            billed_microusd=125_000,
+            input_tokens=101,
+            output_tokens=20,
+            response_sha256="a" * 64,
+        )
+
+
+def test_complete_ambiguous_reconciliation_requires_all_response_fields() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(runner)
+    lease = authority.authorize_attempt(_key(), reservation_microusd=400_000)
+
+    with pytest.raises(ValueError, match="provided together"):
+        authority.reconcile_ambiguous(
+            lease,
+            usage_record_id="provider-usage-record-incomplete",
+            usage_record_sha256="9" * 64,
+            billed_microusd=125_000,
+            input_tokens=100,
+            output_tokens=20,
+        )
+
+    assert runner.items[
+        f"ATTEMPT#{lease.logical_call_key}#{lease.attempt_ordinal:04d}"
+    ]["status"] == _s("reserved")
+
+
 def test_remote_authority_rejects_mutated_and_foreign_leases() -> None:
     runner = InMemoryDynamoRunner()
     authority = _authority(runner)
