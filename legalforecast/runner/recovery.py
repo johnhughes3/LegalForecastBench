@@ -154,7 +154,7 @@ class GhRecoveryClient:
 
     def list_active_recovery_runs(self, repo: str) -> Sequence[Mapping[str, object]]:
         runs: list[Mapping[str, object]] = []
-        for status in ("queued", "in_progress"):
+        for status in ("queued", "in_progress", "waiting", "pending", "requested"):
             value = _object(
                 self._json_api(
                     f"repos/{repo}/actions/runs?event=workflow_dispatch&"

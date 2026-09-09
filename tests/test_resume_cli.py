@@ -396,6 +396,25 @@ def test_gh_client_paginates_artifact_list(
     assert "--slurp" in calls[0]
 
 
+def test_active_scan_includes_runs_waiting_for_environment_approval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(
+        command: list[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        runs = (
+            [{"id": 17, "status": "waiting"}] if "status=waiting&" in command[2] else []
+        )
+        return subprocess.CompletedProcess(
+            command, 0, stdout=json.dumps({"workflow_runs": runs}), stderr=""
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert list(GhRecoveryClient().list_active_recovery_runs("owner/repo")) == [
+        {"id": 17, "status": "waiting"}
+    ]
+
+
 def test_resume_command_help_exposes_the_operator_interface() -> None:
     result = subprocess.run(
         ["legalforecast", "run", "resume", "--help"],
