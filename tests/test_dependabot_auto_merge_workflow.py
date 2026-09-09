@@ -23,6 +23,8 @@ CI_RUNNER_CLAMP = (
 )
 DEPENDABOT = (ROOT / ".github/dependabot.yml").read_text(encoding="utf-8")
 PROVIDER_CONTRACT_DEPENDENCIES = ("anthropic", "claude-agent-sdk", "openai")
+PYTHON_PACKAGE_ECOSYSTEMS = frozenset({"pip", "uv"})
+PINNED_EXTRACTOR_DEPENDENCY = "pypdf"
 
 requires_jq = pytest.mark.skipif(shutil.which("jq") is None, reason="jq required")
 
@@ -110,11 +112,37 @@ def _run_snippet(
     )
 
 
+def _dependabot_update_blocks() -> list[tuple[str, str]]:
+    blocks: list[tuple[str, str]] = []
+    current_name: str | None = None
+    current_lines: list[str] = []
+    for line in DEPENDABOT.splitlines():
+        if line.startswith("  - package-ecosystem:"):
+            if current_name is not None:
+                blocks.append((current_name, "\n".join(current_lines)))
+            current_name = line.split(":", 1)[1].strip()
+            current_lines = [line]
+        elif current_name is not None:
+            current_lines.append(line)
+    if current_name is not None:
+        blocks.append((current_name, "\n".join(current_lines)))
+    return blocks
+
+
+def _python_dependabot_blocks() -> list[tuple[str, str]]:
+    return [
+        (name, body)
+        for name, body in _dependabot_update_blocks()
+        if name in PYTHON_PACKAGE_ECOSYSTEMS
+    ]
+
+
 def test_dependabot_groups_restrict_minor_and_patch() -> None:
-    assert "package-ecosystem: github-actions" in DEPENDABOT
-    assert "package-ecosystem: pip" in DEPENDABOT
+    ecosystems = {name for name, _ in _dependabot_update_blocks()}
+    assert ecosystems == {"github-actions", "uv"}
     assert "github-actions-minor-patch:" in DEPENDABOT
-    assert "pip-minor-patch:" in DEPENDABOT
+    assert "uv-minor-patch:" in DEPENDABOT
+    assert "pip-minor-patch:" not in DEPENDABOT
     assert DEPENDABOT.count("update-types:") == 2
     assert DEPENDABOT.count("- minor") == 2
     assert DEPENDABOT.count("- patch") == 2
@@ -123,8 +151,25 @@ def test_dependabot_groups_restrict_minor_and_patch() -> None:
 
 
 def test_dependabot_ignores_provider_contract_dependencies() -> None:
-    for dependency_name in PROVIDER_CONTRACT_DEPENDENCIES:
-        assert DEPENDABOT.count(f"- dependency-name: {dependency_name}") == 1
+    python_blocks = _python_dependabot_blocks()
+    assert python_blocks, "expected a Python package ecosystem"
+    for name, body in python_blocks:
+        for dependency_name in PROVIDER_CONTRACT_DEPENDENCIES:
+            assert f"- dependency-name: {dependency_name}" in body, (
+                f"{name} must ignore {dependency_name}"
+            )
+
+
+def test_dependabot_python_ecosystems_ignore_the_pinned_extractor() -> None:
+    """Pip-only ignores do not bind uv PRs (#1037, #1053, #1126)."""
+
+    python_blocks = _python_dependabot_blocks()
+    assert python_blocks, "expected a Python package ecosystem"
+    for name, body in python_blocks:
+        assert f"- dependency-name: {PINNED_EXTRACTOR_DEPENDENCY}" in body, (
+            f"{name} must ignore {PINNED_EXTRACTOR_DEPENDENCY} while the "
+            "Cycle 1 extractor pin holds"
+        )
 
 
 def test_dependabot_auto_merge_workflow_uses_default_branch_workflow_run() -> None:
