@@ -761,6 +761,104 @@
     },
     {
       "aliases": [],
+      "group_dest": "run_command",
+      "handler": {
+        "module": "legalforecast.cli_commands.run",
+        "name": "run_resume",
+        "qualname": "run_resume"
+      },
+      "logical_handler_id": "run.resume",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "github_run",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--github-run"
+          ],
+          "required": true,
+          "type": "int"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": "main",
+          "dest": "ref",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--ref"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": 8,
+          "dest": "max_parallel",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--max-parallel"
+          ],
+          "required": false,
+          "type": "int"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "repo",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--repo"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store_true",
+          "choices": null,
+          "default": false,
+          "dest": "execute",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "--execute"
+          ],
+          "required": false,
+          "type": null
+        }
+      ],
+      "path": [
+        "run",
+        "resume"
+      ],
+      "registration_index": 10
+    },
+    {
+      "aliases": [],
       "group_dest": "command",
       "handler": {
         "module": "legalforecast.cli_commands.score",
@@ -975,7 +1073,7 @@
       "path": [
         "score"
       ],
-      "registration_index": 10
+      "registration_index": 11
     },
     {
       "aliases": [],
@@ -1245,7 +1343,7 @@
       "path": [
         "report"
       ],
-      "registration_index": 11
+      "registration_index": 12
     },
     {
       "aliases": [],
@@ -1273,7 +1371,7 @@
       "path": [
         "study"
       ],
-      "registration_index": 12
+      "registration_index": 13
     },
     {
       "aliases": [],
@@ -1371,7 +1469,7 @@
         "study",
         "report"
       ],
-      "registration_index": 13
+      "registration_index": 14
     },
     {
       "aliases": [],
@@ -1399,7 +1497,7 @@
       "path": [
         "publish"
       ],
-      "registration_index": 14
+      "registration_index": 15
     },
     {
       "aliases": [],
@@ -1471,7 +1569,7 @@
         "publish",
         "site"
       ],
-      "registration_index": 15
+      "registration_index": 16
     },
     {
       "aliases": [],
@@ -1499,7 +1597,7 @@
       "path": [
         "multiharness"
       ],
-      "registration_index": 16
+      "registration_index": 17
     },
     {
       "aliases": [],
@@ -1528,7 +1626,7 @@
         "multiharness",
         "tasks"
       ],
-      "registration_index": 17
+      "registration_index": 18
     },
     {
       "aliases": [],
@@ -1721,7 +1819,7 @@
         "tasks",
         "index"
       ],
-      "registration_index": 18
+      "registration_index": 19
     },
     {
       "aliases": [],
@@ -1846,7 +1944,7 @@
         "tasks",
         "project"
       ],
-      "registration_index": 19
+      "registration_index": 20
     },
     {
       "aliases": [],
@@ -2101,7 +2199,7 @@
         "tasks",
         "select"
       ],
-      "registration_index": 20
+      "registration_index": 21
     },
     {
       "aliases": [],
@@ -2130,7 +2228,7 @@
         "multiharness",
         "adapters"
       ],
-      "registration_index": 21
+      "registration_index": 22
     },
     {
       "aliases": [],
@@ -2190,7 +2288,7 @@
         "adapters",
         "list"
       ],
-      "registration_index": 22
+      "registration_index": 23
     },
     {
       "aliases": [],
@@ -2315,7 +2413,7 @@
         "adapters",
         "inspect"
       ],
-      "registration_index": 23
+      "registration_index": 24
     },
     {
       "aliases": [],
@@ -2413,7 +2511,7 @@
         "multiharness",
         "conformance"
       ],
-      "registration_index": 24
+      "registration_index": 25
     },
     {
       "aliases": [],
@@ -2897,7 +2995,7 @@
         "multiharness",
         "run"
       ],
-      "registration_index": 25
+      "registration_index": 26
     },
     {
       "aliases": [],
@@ -2926,7 +3024,7 @@
         "multiharness",
         "tier0"
       ],
-      "registration_index": 26
+      "registration_index": 27
     },
     {
       "aliases": [],
@@ -2999,7 +3097,7 @@
         "tier0",
         "run"
       ],
-      "registration_index": 27
+      "registration_index": 28
     },
     {
       "aliases": [],
@@ -3072,7 +3170,7 @@
         "tier0",
         "validate"
       ],
-      "registration_index": 28
+      "registration_index": 29
     },
     {
       "aliases": [],
@@ -3158,7 +3256,7 @@
         "tier0",
         "install-evaluator-wrapper"
       ],
-      "registration_index": 29
+      "registration_index": 30
     },
     {
       "aliases": [],
@@ -3244,7 +3342,7 @@
         "tier0",
         "mint"
       ],
-      "registration_index": 30
+      "registration_index": 31
     },
     {
       "aliases": [],
@@ -3303,7 +3401,7 @@
         "multiharness",
         "report"
       ],
-      "registration_index": 31
+      "registration_index": 32
     },
     {
       "aliases": [],
@@ -3332,7 +3430,7 @@
         "multiharness",
         "community"
       ],
-      "registration_index": 32
+      "registration_index": 33
     },
     {
       "aliases": [],
@@ -3561,7 +3659,7 @@
         "community",
         "package"
       ],
-      "registration_index": 33
+      "registration_index": 34
     },
     {
       "aliases": [],
@@ -3634,7 +3732,7 @@
         "community",
         "validate-submission"
       ],
-      "registration_index": 34
+      "registration_index": 35
     },
     {
       "aliases": [],
@@ -3707,7 +3805,7 @@
         "community",
         "aggregate"
       ],
-      "registration_index": 35
+      "registration_index": 36
     }
   ],
   "prog": "legalforecast",

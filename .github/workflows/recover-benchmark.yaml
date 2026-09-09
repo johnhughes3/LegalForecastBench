@@ -1,0 +1,226 @@
+name: Recover Benchmark
+run-name: Recover benchmark ${{ inputs.source_run_id }} attempt ${{ inputs.source_run_attempt }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Terminal Run Benchmark workflow run to recover.
+        required: true
+        type: number
+      source_run_attempt:
+        description: Exact latest source attempt to recover.
+        required: true
+        type: string
+      ref:
+        description: Protected recovery source; recovery is main only.
+        required: true
+        default: main
+        type: string
+      max_parallel:
+        description: Maximum parallel provider cells in the child run.
+        required: true
+        default: "8"
+        type: string
+      execute:
+        description: Apply safe authority transitions and dispatch the child run.
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: official-benchmark-recovery-${{ inputs.source_run_id }}-${{ inputs.source_run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    name: Plan and apply bounded benchmark recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: legalforecastbench-official-eval
+    permissions:
+      actions: write
+      contents: read
+      id-token: write
+    env:
+      LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Require exact protected main
+        shell: bash
+        env:
+          RECOVERY_REF: ${{ inputs.ref }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          MAX_PARALLEL: ${{ inputs.max_parallel }}
+        run: |
+          set -euo pipefail
+          [[ "${RECOVERY_REF}" == "main" ]] || { echo "recovery ref must be main" >&2; exit 1; }
+          [[ "${GITHUB_REF_NAME}" == "main" ]] || { echo "workflow must execute from main" >&2; exit 1; }
+          [[ "${SOURCE_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "source run ID must be positive" >&2; exit 1; }
+          [[ "${SOURCE_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]] || { echo "source attempt must be positive" >&2; exit 1; }
+          [[ "${MAX_PARALLEL}" =~ ^[1-9][0-9]*$ && "${MAX_PARALLEL}" -le 32 ]] || { echo "max_parallel must be between 1 and 32" >&2; exit 1; }
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git merge-base --is-ancestor HEAD origin/main
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Configure existing provider authority access
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          aws-region: ${{ env.LFB_AWS_REGION }}
+          role-session-name: lfb-recover-${{ github.run_id }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+
+      - name: Reconstruct frozen source plan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          MAX_PARALLEL: ${{ inputs.max_parallel }}
+        run: |
+          set -euo pipefail
+          uv run legalforecast run resume \
+            --github-run "${SOURCE_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --ref main \
+            --max-parallel "${MAX_PARALLEL}" \
+            > /tmp/lfb-source-recovery-plan.json
+          uv run python - <<'PY'
+          import json, os
+          plan = json.load(open("/tmp/lfb-source-recovery-plan.json", encoding="utf-8"))
+          source = plan.get("source", {})
+          if source.get("run_id") != int(os.environ["SOURCE_RUN_ID"]):
+              raise SystemExit("source recovery plan changed run ID")
+          if source.get("run_attempt") != int(os.environ["SOURCE_RUN_ATTEMPT"]):
+              raise SystemExit("requested source attempt is not the latest attempt")
+          if plan.get("disposition") != "ready":
+              raise SystemExit("source recovery plan is blocked")
+          PY
+
+      - name: Build read-only provider authority plan
+        id: authority-plan
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for value in "${LFB_AWS_REGION}" "${LFB_PROVIDER_AUTHORITY_TABLE}" "${LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}"; do
+            [[ -n "${value}" ]] || { echo "shared provider authority configuration is required" >&2; exit 1; }
+          done
+          uv run python .github/scripts/protected-benchmark-recovery.py \
+            --metadata /tmp/lfb-source-recovery-plan.json \
+            --workspace /tmp/lfb-recovery-workspace \
+            --output /tmp/lfb-protected-recovery-plan.json \
+            --table-name "${LFB_PROVIDER_AUTHORITY_TABLE}" \
+            --region "${LFB_AWS_REGION}" \
+            --resource-identity-sha256 "${LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}"
+
+      - name: Persist protected recovery plan before writes
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: protected-recovery-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/lfb-protected-recovery-plan.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Refuse blocked authority plan
+        if: ${{ steps.authority-plan.outcome != 'success' }}
+        shell: bash
+        run: |
+          echo "protected provider authority plan refused recovery" >&2
+          exit 1
+
+      - name: Apply idempotent provider authority recovery
+        id: authority-apply
+        if: ${{ inputs.execute }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python .github/scripts/protected-benchmark-recovery.py \
+            --metadata /tmp/lfb-source-recovery-plan.json \
+            --workspace /tmp/lfb-recovery-workspace \
+            --output /tmp/lfb-protected-recovery-result.json \
+            --table-name "${LFB_PROVIDER_AUTHORITY_TABLE}" \
+            --region "${LFB_AWS_REGION}" \
+            --resource-identity-sha256 "${LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" \
+            --execute
+
+      - name: Persist authority result before child dispatch
+        if: ${{ inputs.execute && always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: protected-recovery-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/lfb-protected-recovery-result.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Refuse failed authority recovery
+        if: ${{ inputs.execute && steps.authority-apply.outcome != 'success' }}
+        shell: bash
+        run: |
+          echo "provider authority recovery did not complete" >&2
+          exit 1
+
+      - name: Dispatch canonical resumed benchmark
+        if: ${{ inputs.execute }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAX_PARALLEL: ${{ inputs.max_parallel }}
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          import json, os
+
+          from legalforecast.runner.recovery import GhRecoveryClient
+
+          plan = json.load(open("/tmp/lfb-source-recovery-plan.json", encoding="utf-8"))
+          source = plan["source"]
+          title = f"Run benchmark recovery {source['run_id']} attempt {source['run_attempt']}"
+          repo = os.environ["GITHUB_REPOSITORY"]
+          client = GhRecoveryClient()
+          if any(
+              run.get("path") == ".github/workflows/run-benchmark.yaml"
+              and run.get("display_title") == title
+              for run in client.list_active_recovery_runs(repo)
+          ):
+              raise SystemExit("an exact child recovery run is already active")
+          frozen = plan["frozen_identity"]
+          recovery = plan["recovery"]
+          inputs = {
+              "release_sha": os.environ["GITHUB_SHA"],
+              "manifest_uri": frozen["manifest_uri"],
+              "forecast_release_uri": frozen["forecast_release_uri"],
+              "artifact_root_uri": frozen["artifact_root_uri"],
+              "model_registry_uri": frozen["model_registry_uri"],
+              "model_key": frozen["model_key"],
+              "ceiling_microusd": str(frozen["ceiling_microusd"]),
+              "account": frozen["account"],
+              "repeat_count": str(frozen["repeat_count"]),
+              "max_parallel": os.environ["MAX_PARALLEL"],
+              "artifact_retention_days": str(frozen["artifact_retention_days"]),
+              "resume_sources": json.dumps(recovery["resume_sources"], separators=(",", ":")),
+          }
+          client.dispatch(repo, "run-benchmark.yaml", "main", inputs)
+          print(title)
+          PY

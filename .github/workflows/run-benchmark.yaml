@@ -1,4 +1,5 @@
 name: Run Benchmark
+run-name: ${{ inputs.resume_sources && format('Run benchmark recovery {0} attempt {1}', fromJSON(inputs.resume_sources)[0].run_id, fromJSON(inputs.resume_sources)[0].run_attempt) || format('Run benchmark {0}', inputs.model_key) }}
 
 on:
   workflow_dispatch:
@@ -88,6 +89,7 @@ jobs:
       contents: read
       id-token: write
     outputs:
+      locked_inputs_artifact_id: ${{ steps.upload-inputs.outputs.artifact-id }}
       openai_matrix: ${{ steps.matrix.outputs.openai_matrix }}
       openai_count: ${{ steps.matrix.outputs.openai_count }}
       anthropic_matrix: ${{ steps.matrix.outputs.anthropic_matrix }}
@@ -411,7 +413,66 @@ jobs:
                   print(f"{provider}_count={len(rows)}", file=output)
               print(f"max_parallel={os.environ['MAX_PARALLEL']}", file=output)
           PY
+      - name: Record frozen resume dispatch inputs
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha || github.sha }}
+          MANIFEST_URI: ${{ inputs.manifest_uri }}
+          FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
+          MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          ACCOUNT: ${{ inputs.account }}
+          REPEAT_COUNT: ${{ inputs.repeat_count }}
+          MAX_PARALLEL: ${{ inputs.max_parallel }}
+          RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
+          RESUME_SOURCES: ${{ inputs.resume_sources }}
+          RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
+          RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          raw_sources = os.environ["RESUME_SOURCES"]
+          if raw_sources:
+              sources = json.loads(raw_sources)
+              if not isinstance(sources, list):
+                  raise SystemExit("resume_sources must be an array")
+          elif os.environ["RESUME_SOURCE_RUN_ID"]:
+              sources = [{
+                  "run_id": os.environ["RESUME_SOURCE_RUN_ID"],
+                  "run_attempt": int(os.environ["RESUME_SOURCE_RUN_ATTEMPT"]),
+              }]
+          else:
+              sources = []
+          record = {
+              "schema_version": "legalforecast.resume-dispatch.v1",
+              "source_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "source_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "release_sha": os.environ["RELEASE_SHA"],
+              "manifest_uri": os.environ["MANIFEST_URI"],
+              "forecast_release_uri": os.environ["FORECAST_RELEASE_URI"],
+              "artifact_root_uri": os.environ["ARTIFACT_ROOT_URI"],
+              "model_registry_uri": os.environ["MODEL_REGISTRY_URI"],
+              "model_key": os.environ["MODEL_KEY"],
+              "ceiling_microusd": int(os.environ["CEILING_MICROUSD"]),
+              "account": os.environ["ACCOUNT"],
+              "repeat_count": int(os.environ["REPEAT_COUNT"]),
+              "max_parallel": int(os.environ["MAX_PARALLEL"]),
+              "artifact_retention_days": int(os.environ["RETENTION_DAYS"]),
+              "resume_sources": sources,
+          }
+          Path("/tmp/lfb-locked-inputs/resume-dispatch.json").write_text(
+              json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
       - name: Upload outcome-blinded forecast inputs
+        id: upload-inputs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
           name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
@@ -498,7 +559,7 @@ jobs:
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.prepare-inputs.outputs.locked_inputs_artifact_id }}
           path: /tmp/lfb-forecast-inputs
       - name: Recover saved managed transcript for provider-free replay
         shell: bash
@@ -666,7 +727,7 @@ jobs:
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.prepare-inputs.outputs.locked_inputs_artifact_id }}
           path: /tmp/lfb-forecast-inputs
       - name: Recover saved managed transcript for provider-free replay
         shell: bash
@@ -832,7 +893,7 @@ jobs:
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.prepare-inputs.outputs.locked_inputs_artifact_id }}
           path: /tmp/lfb-forecast-inputs
       - name: Recover saved managed transcript for provider-free replay
         shell: bash
@@ -998,7 +1059,7 @@ jobs:
       - name: Download outcome-blinded inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.prepare-inputs.outputs.locked_inputs_artifact_id }}
           path: /tmp/lfb-forecast-inputs
       - name: Recover saved managed transcript for provider-free replay
         shell: bash
@@ -1116,7 +1177,7 @@ jobs:
       - name: Download validated forecast inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: locked-forecast-inputs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.prepare-inputs.outputs.locked_inputs_artifact_id }}
           path: /tmp/lfb-forecast-inputs
       - name: Download per-cell durable state
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -1134,6 +1195,8 @@ jobs:
           MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
           MODEL_KEY: ${{ inputs.model_key }}
           REPEAT_COUNT: ${{ inputs.repeat_count }}
+          ACCOUNT: ${{ inputs.account }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
         run: |
           set -euo pipefail
           uv run python - <<'PY'
@@ -1286,6 +1349,8 @@ jobs:
               "artifact_root_uri": os.environ["ARTIFACT_ROOT_URI"],
               "model_registry_uri": os.environ["MODEL_REGISTRY_URI"],
               "model_key": identity["model_key"],
+              "ceiling_microusd": int(os.environ["CEILING_MICROUSD"]),
+              "account": os.environ["ACCOUNT"],
               "run_identity_sha256": run_identity_sha256,
               "forecast_release_digest": forecast_release_digest,
               "model_registry_sha256": model_registry_sha256,
@@ -1296,7 +1361,15 @@ jobs:
               encoding="utf-8",
           )
 
-          all_completed = all(state.get("status") == "completed" for state in states)
+          completed_states = [
+              state for state in states if state.get("status") == "completed"
+          ]
+          resumed_states = [
+              state
+              for state in completed_states
+              if "restored_from_run_id" in state
+          ]
+          all_completed = len(completed_states) == len(states)
           run_status = "completed" if all_completed and len(receipts) > 0 else "failed"
           run_summary = {
               "schema_version": "legalforecast.forecast-run-summary.v1",
@@ -1304,9 +1377,9 @@ jobs:
               "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
               "workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
               "status": run_status,
-              "completed_cells": len(receipts) if all_completed else 0,
-              "executed_cells": len(receipts) if all_completed else 0,
-              "resumed_cells": 0,
+              "completed_cells": len(completed_states),
+              "executed_cells": len(completed_states) - len(resumed_states),
+              "resumed_cells": len(resumed_states),
               "state_artifact_count": len(states),
           }
           (output / "run-summary.json").write_text(

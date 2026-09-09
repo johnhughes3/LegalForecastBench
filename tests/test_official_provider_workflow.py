@@ -398,6 +398,8 @@ def test_fan_in_assembles_optional_transcripts_with_preserved_cell_ids(
             "MODEL_REGISTRY_URI": "model_registries/openai.json",
             "MODEL_KEY": "openai:gpt-5.6-luna",
             "REPEAT_COUNT": "1",
+            "CEILING_MICROUSD": "100000000",
+            "ACCOUNT": "default",
             "GITHUB_RUN_ID": "123",
             "GITHUB_RUN_ATTEMPT": "1",
         },

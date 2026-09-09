@@ -58,7 +58,10 @@ install_rootless_dependencies() {
       || fail "curl is required to configure the Docker package repository"
     command -v gpg >/dev/null \
       || fail "gpg is required to configure the Docker package repository"
-    curl -fsSL "${docker_repository_key}" -o "${apt_root}/docker.asc"
+    # A reset while fetching this public key must not waste a benchmark job.
+    curl -fsSL --retry 3 --retry-all-errors --retry-max-time 90 \
+      --connect-timeout 10 --max-time 30 \
+      "${docker_repository_key}" -o "${apt_root}/docker.asc"
     gpg --batch --yes --dearmor --output "${apt_root}/docker.gpg" \
       "${apt_root}/docker.asc"
     sudo install -d -m 0755 /etc/apt/keyrings

@@ -5,6 +5,7 @@ import json
 import re
 import subprocess
 import threading
+import time
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -30,6 +31,14 @@ from legalforecast.evals.provider_spend_dynamodb import (
     AwsCliDynamoCommandRunner,
     DynamoDbConditionalError,
     DynamoDbProviderSpendAuthority,
+)
+from legalforecast.runner.protected_recovery import (
+    ProtectedRecoveryError,
+    RecoveryCell,
+    RecoveryRun,
+    TerminalResponseEvidence,
+    apply_protected_recovery,
+    build_protected_recovery_plan,
 )
 
 AttributeValue = dict[str, str]
@@ -705,6 +714,312 @@ def test_operator_recovery_reserves_next_pretransport_and_acknowledges_failure()
                 "S"
             ],
         )
+
+
+def test_operator_recovery_can_advance_explicit_ambiguous_predecessor_ordinal() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(
+        runner,
+        cap_microusd=1_000_000,
+        max_billable_attempts=1,
+        failure_threshold=8,
+        clock=lambda: 1_000.25,
+    )
+    key = _key()
+    first = authority.authorize_attempt(key, reservation_microusd=250_000)
+    authority.record_failure(first, failure_type="TimeoutError", ambiguous=True)
+    first_digest = runner.items["LEDGER"]["failure_events_sha256"]["S"]
+    second = authority.authorize_additional_attempt(
+        key,
+        reservation_microusd=250_000,
+        acknowledged_attempt_id=first.attempt_id,
+        acknowledged_failure_type="TimeoutError",
+        acknowledged_failure_events_sha256=first_digest,
+    )
+    authority.record_failure(second, failure_type="TimeoutError", ambiguous=True)
+    second_digest = runner.items["LEDGER"]["failure_events_sha256"]["S"]
+
+    third = authority.authorize_additional_attempt(
+        key,
+        reservation_microusd=250_000,
+        acknowledged_attempt_id=second.attempt_id,
+        acknowledged_failure_type="TimeoutError",
+        acknowledged_failure_events_sha256=second_digest,
+        acknowledged_attempt_ordinal=2,
+        owner_reference="bounded-recovery-test",
+    )
+
+    assert third.attempt_ordinal == 3
+    assert runner.items["LEDGER"]["attempt_count"] == _n(3)
+    assert runner.items["LEDGER"]["committed_microusd"] == _n(750_000)
+    assert runner.items["LEDGER"]["ambiguous_attempt_count"] == _n(2)
+    assert runner.items[f"ATTEMPT#{key.logical_call_key}#0001"]["status"] == _s(
+        "ambiguous"
+    )
+    assert runner.items[f"ATTEMPT#{key.logical_call_key}#0002"]["status"] == _s(
+        "ambiguous"
+    )
+    assert runner.items[f"ATTEMPT#{key.logical_call_key}#0002"][
+        "failure_acknowledged_at_epoch"
+    ] == {"N": "1000.25"}
+    assert runner.items[f"ATTEMPT#{key.logical_call_key}#0003"]["status"] == _s(
+        "reserved"
+    )
+    assert runner.items[f"ATTEMPT#{key.logical_call_key}#0003"][
+        "owner_reference"
+    ] == _s("bounded-recovery-test")
+
+    with pytest.raises(AttemptLimitExceededError, match="expected current"):
+        authority.authorize_additional_attempt(
+            key,
+            reservation_microusd=1,
+            acknowledged_attempt_id=second.attempt_id,
+            acknowledged_failure_type="TimeoutError",
+            acknowledged_failure_events_sha256=second_digest,
+            acknowledged_attempt_ordinal=2,
+        )
+
+
+def test_operator_recovery_rejects_stale_predecessor_ordinal() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(
+        runner,
+        max_billable_attempts=1,
+        failure_threshold=1,
+        clock=lambda: 1_000.25,
+    )
+    key = _key()
+    original = authority.authorize_attempt(key, reservation_microusd=250_000)
+    authority.record_failure(original, failure_type="TimeoutError", ambiguous=True)
+
+    with pytest.raises(AttemptLimitExceededError, match="expected current"):
+        authority.authorize_additional_attempt(
+            key,
+            reservation_microusd=1,
+            acknowledged_attempt_id=original.attempt_id,
+            acknowledged_failure_type="TimeoutError",
+            acknowledged_failure_events_sha256=runner.items["LEDGER"][
+                "failure_events_sha256"
+            ]["S"],
+            acknowledged_attempt_ordinal=2,
+        )
+
+    assert runner.items["LEDGER"]["attempt_count"] == _n(1)
+
+
+def test_protected_recovery_plan_is_read_only_and_blocks_insufficient_cap() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _recovery_run(cap_microusd=100)
+    authority = _recovery_authority(runner, recovery)
+    key = recovery.spend_key(_recovery_cell("failed"))
+    lease = authority.authorize_attempt(key, reservation_microusd=60)
+    authority.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+    before = deepcopy(runner.items)
+    runner.calls.clear()
+
+    plan = build_protected_recovery_plan(
+        recovery,
+        (_recovery_cell("failed", attempt_id=lease.attempt_id), _recovery_cell("new")),
+        reservation_microusd=60,
+        runner=runner,
+    )
+
+    assert not plan.dispatch_safe
+    assert plan.projected_committed_microusd == 120
+    assert "only 40 remain" in plan.blocked_reasons[-1]
+    assert [item.disposition for item in plan.operations] == [
+        "reserve_replacement",
+        "authorize_on_dispatch",
+    ]
+    assert runner.items == before
+    assert {operation for operation, _payload in runner.calls} == {
+        "describe-table",
+        "get-item",
+    }
+
+
+def test_protected_recovery_apply_prepares_each_incomplete_cell_once() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _recovery_run(cap_microusd=500)
+    authority = _recovery_authority(runner, recovery)
+    failed_cell = _recovery_cell("failed")
+    lease = authority.authorize_attempt(
+        recovery.spend_key(failed_cell), reservation_microusd=100
+    )
+    authority.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+    cells = (
+        _recovery_cell("failed", attempt_id=lease.attempt_id),
+        _recovery_cell("fresh"),
+        _recovery_cell("done", completed=True),
+    )
+
+    post_apply = apply_protected_recovery(
+        recovery, cells, reservation_microusd=100, runner=runner
+    )
+    mutations_after_first = sum(
+        operation in {"put-item", "transact-write-items"}
+        for operation, _payload in runner.calls
+    )
+    second = apply_protected_recovery(
+        recovery, cells, reservation_microusd=100, runner=runner
+    )
+
+    assert post_apply.dispatch_safe
+    assert [item.disposition for item in post_apply.operations] == [
+        "completed",
+        "adopt_pretransport",
+        "authorize_on_dispatch",
+    ]
+    assert second == post_apply
+    assert (
+        sum(
+            operation in {"put-item", "transact-write-items"}
+            for operation, _payload in runner.calls
+        )
+        == mutations_after_first
+    )
+    assert runner.items[f"CELL#{recovery.spend_key(failed_cell).logical_call_key}"][
+        "attempt_count"
+    ] == _n(2)
+
+
+def test_recovery_does_not_settle_successor_with_predecessor_response() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _recovery_run(cap_microusd=500)
+    authority = _recovery_authority(runner, recovery)
+    cell = _recovery_cell("failed")
+    lease = authority.authorize_attempt(
+        recovery.spend_key(cell), reservation_microusd=100
+    )
+    authority.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+    apply_protected_recovery(
+        recovery,
+        (_recovery_cell("failed", attempt_id=lease.attempt_id),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+    before = deepcopy(runner.items)
+    old_response = TerminalResponseEvidence(
+        transcript_sha256="a" * 64,
+        input_tokens=10,
+        output_tokens=2,
+        billed_microusd=20,
+        response_sha256="b" * 64,
+    )
+    plan = build_protected_recovery_plan(
+        recovery,
+        (_recovery_cell("failed", attempt_id=lease.attempt_id, terminal=old_response),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+    assert not plan.dispatch_safe
+    assert "local and latest remote attempts differ" in plan.blocked_reasons[0]
+    assert runner.items == before
+
+
+def test_protected_recovery_reconciles_terminal_evidence_before_reserving() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _recovery_run(cap_microusd=100)
+    authority = _recovery_authority(runner, recovery)
+    terminal = TerminalResponseEvidence(
+        transcript_sha256="a" * 64,
+        input_tokens=10,
+        output_tokens=2,
+        billed_microusd=20,
+        response_sha256="b" * 64,
+    )
+    recovered_cell = _recovery_cell("terminal", terminal=terminal)
+    lease = authority.authorize_attempt(
+        recovery.spend_key(recovered_cell), reservation_microusd=80
+    )
+    authority.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+    cells = (
+        _recovery_cell("terminal", attempt_id=lease.attempt_id, terminal=terminal),
+        _recovery_cell("fresh"),
+    )
+
+    result = apply_protected_recovery(
+        recovery, cells, reservation_microusd=70, runner=runner
+    )
+
+    assert result.dispatch_safe
+    assert result.committed_microusd == 20
+    assert [item.disposition for item in result.operations] == [
+        "authorize_on_dispatch",
+        "replay_terminal",
+    ]
+    attempt = runner.items[
+        f"ATTEMPT#{recovery.spend_key(recovered_cell).logical_call_key}#0001"
+    ]
+    assert attempt["status"] == _s("settled")
+    assert attempt["actual_microusd"] == _n(20)
+
+
+def test_protected_recovery_blocks_transport_started_without_response() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _recovery_run(cap_microusd=500)
+    authority = _recovery_authority(runner, recovery)
+    cell = _recovery_cell("uncertain")
+    lease = authority.authorize_attempt(
+        recovery.spend_key(cell), reservation_microusd=100
+    )
+    authority.mark_transport_started(lease)
+
+    plan = build_protected_recovery_plan(
+        recovery,
+        (_recovery_cell("uncertain", attempt_id=lease.attempt_id),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+
+    assert not plan.dispatch_safe
+    assert plan.operations[0].disposition == "blocked"
+    with pytest.raises(ProtectedRecoveryError, match="without replayable"):
+        apply_protected_recovery(
+            recovery,
+            (_recovery_cell("uncertain", attempt_id=lease.attempt_id),),
+            reservation_microusd=100,
+            runner=runner,
+        )
+
+
+def test_protected_recovery_acknowledges_retained_failure_before_evicted_failure() -> (
+    None
+):
+    runner = InMemoryDynamoRunner()
+    recovery = _recovery_run(cap_microusd=1_000)
+    now = time.time()
+    ticks = iter(now + index for index in range(100))
+    authority = _authority(
+        runner,
+        cap_microusd=1_000,
+        max_billable_attempts=1,
+        failure_threshold=8,
+        clock=lambda: next(ticks),
+        authority_identity_sha256=recovery.authority_identity_sha256,
+        resource_identity_sha256=recovery.resource_identity_sha256,
+    )
+    cells = tuple(_recovery_cell(f"cell-{index}") for index in range(9))
+    leases = [
+        authority.authorize_attempt(recovery.spend_key(cell), reservation_microusd=10)
+        for cell in cells
+    ]
+    for lease in leases:
+        authority.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+    failed = tuple(
+        _recovery_cell(cell.cell_id, attempt_id=lease.attempt_id)
+        for cell, lease in zip(cells, leases, strict=True)
+    )
+
+    result = apply_protected_recovery(
+        recovery, failed, reservation_microusd=10, runner=runner
+    )
+
+    assert result.dispatch_safe
+    assert all(item.disposition == "adopt_pretransport" for item in result.operations)
+    assert runner.items[f"CELL#{recovery.spend_key(cells[0]).logical_call_key}"][
+        "attempt_count"
+    ] == _n(2)
 
 
 def test_operator_recovery_preserves_breaker_for_new_failures() -> None:
@@ -1677,6 +1992,55 @@ def _key(
         case_id=case_id,
         ablation="full_packet",
         repeat_index=1,
+    )
+
+
+def _recovery_run(*, cap_microusd: int) -> RecoveryRun:
+    return RecoveryRun(
+        source_run_id=123,
+        source_run_attempt=1,
+        cycle_id="cycle-1",
+        model_key="openai:gpt-test",
+        provider="openai",
+        account="primary-account-alias",
+        run_identity_sha256="f" * 64,
+        ceiling_microusd=cap_microusd,
+        table_name="authority-table",
+        region="us-east-1",
+        resource_identity_sha256=hashlib.sha256(_TABLE_ARN.encode()).hexdigest(),
+        owner_reference="recover-run-123-attempt-1",
+    )
+
+
+def _recovery_authority(
+    runner: InMemoryDynamoRunner,
+    recovery: RecoveryRun,
+) -> DynamoDbProviderSpendAuthority:
+    return _authority(
+        runner,
+        cap_microusd=recovery.ceiling_microusd,
+        max_billable_attempts=1,
+        failure_threshold=8,
+        authority_identity_sha256=recovery.authority_identity_sha256,
+        resource_identity_sha256=recovery.resource_identity_sha256,
+    )
+
+
+def _recovery_cell(
+    cell_id: str,
+    *,
+    attempt_id: str | None = None,
+    terminal: TerminalResponseEvidence | None = None,
+    completed: bool = False,
+) -> RecoveryCell:
+    return RecoveryCell(
+        cell_id=cell_id,
+        stage="official-eval",
+        ablation="full_packet",
+        repeat_index=1,
+        completed=completed,
+        local_attempt_id=attempt_id,
+        terminal_response=terminal,
     )
 
 
