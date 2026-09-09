@@ -38,6 +38,7 @@ from pydantic_ai.usage import RunUsage, UsageLimits
 
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.evals.live_model_solver import (
+    OPENAI_FLEX_TIMEOUT_SECONDS,
     LiveModelProviderError,
     SolverResponse,
 )
@@ -352,6 +353,7 @@ def run_managed_tool_agent(
         settings: ModelSettings = OpenAIResponsesModelSettings(
             max_tokens=entry.max_output_tokens,
             parallel_tool_calls=False,
+            timeout=OPENAI_FLEX_TIMEOUT_SECONDS,
             openai_service_tier="flex",
             openai_store=False,
         )
