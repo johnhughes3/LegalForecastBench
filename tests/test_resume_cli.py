@@ -427,3 +427,35 @@ def test_resume_command_help_exposes_the_operator_interface() -> None:
     assert "--ref" in result.stdout
     assert "--max-parallel" in result.stdout
     assert "--execute" in result.stdout
+
+
+def test_recovery_counts_bundled_cells_and_missing_worker() -> None:
+    client = FakeRecoveryClient()
+    original_list = client.list_artifacts
+    first, second = "a" * 64, "b" * 64
+    client.payloads[12] = _zip(
+        {f"{first}.zip": client.payloads[12], f"{second}.zip": client.payloads[13]}
+    )
+
+    def artifacts(repo: str, run_id: int) -> Sequence[Mapping[str, object]]:
+        return [
+            *original_list(repo, run_id)[:2],
+            client._artifact(12, f"restored-forecast-state-{run_id}-attempt-1"),
+        ]
+
+    client.list_artifacts = artifacts  # type: ignore[method-assign]
+    with ZipFile(io.BytesIO(client.payloads[10])) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    summary = json.loads(members["run-summary.json"])
+    summary.update(expected_cell_count=3, state_artifact_count=2)
+    members["run-summary.json"] = json.dumps(summary).encode()
+    client.payloads[10] = _zip(members)
+    plan = build_recovery_plan(
+        client,
+        repo="johnhughes3/LegalForecastBench",
+        run_id=RUN_ID,
+        ref="main",
+        max_parallel=8,
+    )
+    assert plan.incomplete_cells == 1
+    assert plan.blocked_reasons == ()

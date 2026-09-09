@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -13,6 +14,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from legalforecast.runner.ledger import RunnerLedger
+from legalforecast.runner.service import _restore_or_validate_completed_receipt
 from legalforecast.runner.transcript_candidate import (
     has_terminal_transcript_candidate,
 )
@@ -25,6 +28,7 @@ _ALLOWED_FILES = {
     "state.json",
 }
 _STATE_ARTIFACT_PREFIX = "locked-run-state-"
+_BUNDLE_ARTIFACT_PREFIX = "restored-forecast-state-"
 _WORKFLOW_PATH = ".github/workflows/run-benchmark.yaml"
 
 
@@ -85,6 +89,7 @@ def _extract_artifact_value(value: Any) -> list[dict[str, Any]]:
     return artifacts
 
 
+@functools.cache
 def _api_json(endpoint: str, *, paginate: bool = False) -> Any:
     command = ["gh", "api"]
     if paginate:
@@ -288,6 +293,7 @@ def _validate_source_transcript_recovery_state(root: Path, cell_id: str) -> None
         raise ValueError("transcript recovery source has no exact transcript")
 
 
+@functools.cache
 def _download_artifact(artifact_id: int, archive: Path) -> None:
     try:
         with archive.open("wb") as output:
@@ -476,6 +482,142 @@ def _restore_candidates(
     return valid
 
 
+def _restore_bundle(
+    artifacts: list[dict[str, Any]],
+    provider: str,
+    cell_id: str,
+    run_id: str,
+    attempt: int,
+) -> Path | None:
+    name = f"{_BUNDLE_ARTIFACT_PREFIX}{run_id}-attempt-{attempt}"
+    matches = [
+        item
+        for item in artifacts
+        if item.get("name") == name and not item.get("expired")
+    ]
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise ValueError("duplicate restored state bundle")
+    archive = (
+        Path(os.environ["RUNNER_TEMP"]) / f"forecast-bundle-{matches[0]['id']}.zip"
+    )
+    _download_artifact(matches[0]["id"], archive)
+    with zipfile.ZipFile(archive) as bundle:
+        member = f"{cell_id}.zip"
+        if member not in bundle.namelist():
+            return None
+        if bundle.namelist().count(member) != 1:
+            raise ValueError("duplicate bundled state")
+        cell_archive = archive.with_name(f"bundle-cell-{cell_id}.zip")
+        cell_archive.write_bytes(bundle.read(member))
+    root = Path(os.environ["RUNNER_TEMP"]) / f"bundled-{cell_id}"
+    shutil.rmtree(root, ignore_errors=True)
+    root.mkdir()
+    _unpack_state(cell_archive, root)
+    _validate_source_completed_state(root, provider, cell_id, run_id, attempt)
+    return root
+
+
+def validate_completed(root: Path, cell: dict[str, Any], identity: str) -> bool:
+    state = _read_object(root / "state.json")
+    if _read_object(root / "run-summary.json").get("status") != "completed":
+        return False
+    required = tuple(cell["required_unit_ids"])
+    subject = cell["unit_id"] or f"case-call:{cell['case_id']}:{','.join(required)}"
+    with RunnerLedger(root / "ledger.sqlite3") as ledger:
+        if ledger.read_run_binding().identity_sha256 != identity:
+            raise ValueError("restored ledger has a different run identity")
+        record = ledger.inspect_cell(
+            cell_id=cell["cell_id"],
+            run_identity_sha256=identity,
+            case_id=cell["case_id"],
+            unit_id=subject,
+            required_unit_ids=required,
+            repeat_index=cell["repeat_index"],
+        )
+        if record is None or record.status != "completed":
+            raise ValueError("completed state has no completed ledger cell")
+        receipt_path = root / "receipts" / f"{cell['cell_id']}.json"
+        _restore_or_validate_completed_receipt(
+            receipt_path,
+            expected_sha256=record.receipt_sha256,
+            expected_payload=record.receipt_payload,
+            cell_id=cell["cell_id"],
+            run_identity_sha256=identity,
+            expected_required_unit_ids=required,
+        )
+        if set((root / "receipts").glob("*.json")) != {receipt_path}:
+            raise ValueError("completed state has extra receipts")
+    state["status"] = "completed"
+    (root / "state.json").write_text(json.dumps(state, sort_keys=True) + "\n")
+    return True
+
+
+def prepare(
+    matrices: dict[str, list[dict[str, Any]]], identity: str, inputs: Path, bundle: Path
+) -> None:
+    """Restore once, retain the full census, and schedule only unfinished cells."""
+    cells = [cell for rows in matrices.values() for cell in rows]
+    (inputs / "expected-cells.json").write_text(
+        json.dumps(cells, sort_keys=True) + "\n"
+    )
+    repository = os.environ["GITHUB_REPOSITORY"]
+    metadata = Path(os.environ["RUNNER_TEMP"]) / "prepare-current-artifacts.json"
+    metadata.write_text(
+        json.dumps(
+            _api_json(
+                f"/repos/{repository}/actions/runs/{os.environ['GITHUB_RUN_ID']}/artifacts?per_page=100",
+                paginate=True,
+            )
+        )
+    )
+    os.environ["METADATA_PATH"] = str(metadata)
+    bundle.mkdir(parents=True, exist_ok=True)
+    for provider, rows in matrices.items():
+        pending = []
+        for cell in rows:
+            root = Path(os.environ["RUNNER_TEMP"]) / f"prepare-cell-{cell['cell_id']}"
+            root.mkdir(parents=True, exist_ok=True)
+            os.environ.update(
+                PROVIDER=cell["provider"],
+                CELL_ID=cell["cell_id"],
+                CELL_ID_SLUG=cell["cell_id_slug"],
+                LFB_RUN_ROOT=str(root),
+            )
+            restore()
+            if not (root / "state.json").exists() or not validate_completed(
+                root, cell, identity
+            ):
+                pending.append(cell)
+                continue
+            with zipfile.ZipFile(
+                bundle / f"{cell['cell_id']}.zip", "w", zipfile.ZIP_DEFLATED
+            ) as archive:
+                for path in sorted(root.rglob("*")):
+                    if path.is_file():
+                        archive.write(path, path.relative_to(root).as_posix())
+        matrices[provider] = pending
+    print(
+        f"Restored {len(cells) - sum(map(len, matrices.values()))} "
+        f"of {len(cells)} cells before scheduling"
+    )
+
+
+def expand_bundle(bundle: Path, destination: Path) -> None:
+    """Materialize carried states alongside newly uploaded worker states."""
+    if not bundle.exists():
+        return
+    for archive in sorted(bundle.glob("*.zip")):
+        if not re.fullmatch(r"[0-9a-f]{64}", archive.stem):
+            raise ValueError("invalid bundled cell ID")
+        root = destination / f"restored-{archive.stem}"
+        root.mkdir(parents=True)
+        _unpack_state(archive, root)
+        if _read_object(root / "state.json").get("cell_id") != archive.stem:
+            raise ValueError("bundled cell identity mismatch")
+
+
 def restore() -> None:
     provider = os.environ["PROVIDER"]
     cell_id = os.environ["CELL_ID"]
@@ -504,6 +646,18 @@ def restore() -> None:
         raise ValueError(
             "all prior state artifacts were corrupt; refusing a fresh duplicate call"
         )
+    for attempt in range(current_attempt - 1, 0, -1):
+        root = _restore_bundle(
+            current_artifacts, provider, cell_id, os.environ["GITHUB_RUN_ID"], attempt
+        )
+        if root is not None:
+            _copy_state(
+                root,
+                Path(os.environ.get("LFB_RUN_ROOT", "/tmp/lfb-run")),
+                os.environ["GITHUB_RUN_ID"],
+                attempt,
+            )
+            return
     sources = _resume_sources()
     if not sources:
         print("restore=none")
@@ -533,7 +687,12 @@ def restore() -> None:
             source_attempt=source_attempt,
         )
         if valid is None:
-            continue
+            root = _restore_bundle(
+                source_artifacts, provider, cell_id, source_run_id, source_attempt
+            )
+            if root is None:
+                continue
+            valid = (root, source_attempt)
         root, attempt = valid
         run_root = Path(os.environ.get("LFB_RUN_ROOT", "/tmp/lfb-run"))
         _copy_state(root, run_root, source_run_id, attempt)

@@ -372,6 +372,14 @@ def test_fan_in_assembles_optional_transcripts_with_preserved_cell_ids(
         status="failed",
     )
 
+    expected = []
+    for state_path in state_root.glob("*/state.json"):
+        value = json.loads(state_path.read_text())
+        value["run_attempt"] = 1
+        state_path.write_text(json.dumps(value))
+        if {"cell_id": value["cell_id"]} not in expected:
+            expected.append({"cell_id": value["cell_id"]})
+    (inputs / "expected-cells.json").write_text(json.dumps(expected))
     section = WORKFLOW[
         WORKFLOW.index(
             "      - name: Assemble exact protected fan-in source artifact"
@@ -460,6 +468,14 @@ def test_fan_in_refuses_conflicting_transcript_destinations(
         (state / "transcripts").mkdir()
         (state / "transcripts" / "same-cell.json").write_bytes(transcript)
 
+    expected = []
+    for state_path in state_root.glob("*/state.json"):
+        value = json.loads(state_path.read_text())
+        value["run_attempt"] = 1
+        state_path.write_text(json.dumps(value))
+        if {"cell_id": value["cell_id"]} not in expected:
+            expected.append({"cell_id": value["cell_id"]})
+    (inputs / "expected-cells.json").write_text(json.dumps(expected))
     section = WORKFLOW[
         WORKFLOW.index(
             "      - name: Assemble exact protected fan-in source artifact"
@@ -494,4 +510,4 @@ def test_fan_in_refuses_conflicting_transcript_destinations(
         check=False,
     )
     assert failed.returncode != 0
-    assert "duplicate durable transcript destination" in failed.stderr
+    assert "duplicate durable state for one cell attempt" in failed.stderr

@@ -88,6 +88,8 @@ bd close <id>         # Complete work
 
 Use `uv run legalforecast run resume --github-run RUN_ID --ref main --max-parallel 8` to inspect a failed benchmark run. Add `--execute` to request protected recovery and dispatch. The command reconstructs the original inputs and budget identity from saved artifacts, preserves completed predictions, and uses current main for repaired execution code. Local planning needs only brokered GitHub access; AWS settlement and retry reservations run in the protected workflow. A ready local plan does not establish available provider credit or sufficient remaining AWS spend authority. Inspect the protected recovery result before claiming a resumed run has started; never release uncertain charges or increase the approved ceiling to force a retry.
 
+Recovery preparation restores and validates completed cells before building the worker matrix, so only unfinished cases launch workers. The combined result includes carried and new receipts and available transcripts; the full original case census still determines completeness. Restored cell ledgers are retained for further recovery.
+
 ## Testing
 
 The supported full-suite command, locally and in CI, runs four pytest-xdist workers grouped by module:
