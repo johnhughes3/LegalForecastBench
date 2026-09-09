@@ -236,12 +236,7 @@ def managed_result_from_transcript(
         {"finish_reason": finish_reason}, provider=provider
     )
     require_publishable_response_metadata(verification.to_metadata())
-    service_tier = _service_tier(
-        responses,
-        provider="openai"
-        if managed_execution.requests_flex_service_tier(provider, entry.model_id)
-        else provider,
-    )
+    service_tier = _service_tier(responses, provider=provider)
 
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
     if provider == "vercel_ai_gateway":
@@ -364,7 +359,7 @@ def _service_tier(responses: Sequence[ModelResponse], *, provider: str) -> str:
         )
         and tier
     }
-    if len(tiers) > 1:
+    if len(tiers) > 1 and provider != "vercel_ai_gateway":
         raise RunValidationError("managed transcript changed service tier")
     if provider == "openai":
         if len(tiers) != 1 or any(
@@ -373,7 +368,7 @@ def _service_tier(responses: Sequence[ModelResponse], *, provider: str) -> str:
         ):
             raise RunValidationError("managed transcript lacks service tier")
         return next(iter(tiers))
-    return next(iter(tiers), "unreported")
+    return "mixed" if len(tiers) > 1 else next(iter(tiers), "unreported")
 
 
 def _verify_managed_prompt(
