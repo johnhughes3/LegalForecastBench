@@ -870,9 +870,17 @@ class DynamoDbProviderSpendAuthority:
                 if isinstance(exc, DynamoDbIndeterminateError):
                     raise
                 if delta <= 0:
-                    raise AttemptStateError(
-                        "settled DynamoDB provider response evidence changed"
-                    ) from None
+                    # A canceled transaction can reflect contention on the hot
+                    # ledger item while the attempt remains reserved.
+                    ledger = self._get_required(_LEDGER_RECORD_KEY)
+                    self._verify_ledger(ledger)
+                    self._raise_if_poisoned(ledger)
+                    if _number(ledger, "committed_microusd") < stored_reservation:
+                        raise AttemptStateError(
+                            "provider response settlement reservation accounting "
+                            "changed"
+                        ) from None
+                    continue
                 ledger = self._get_required(_LEDGER_RECORD_KEY)
                 self._verify_ledger(ledger)
                 if (
