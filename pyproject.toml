@@ -44,8 +44,11 @@ legalforecast = "legalforecast.cli:main"
 claude-agent-sdk-adapter = [
     "claude-agent-sdk==0.2.143",
 ]
+managed-anthropic = [
+    "anthropic==1.3.0",
+]
 tier0-judge-adapter = [
-    "anthropic==1.0.0",
+    "anthropic==1.3.0",
 ]
 
 [dependency-groups]

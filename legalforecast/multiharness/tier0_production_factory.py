@@ -72,8 +72,9 @@ JUDGE_PROVIDER = "anthropic"
 # differs from what the spec requested, so this is an assertion, not a default.
 JUDGE_REQUESTED_MODEL = "claude-sonnet-4-6"
 # The paid path fails closed rather than silently running against an SDK whose
-# request shape was never characterized for this freeze.
-REQUIRED_ANTHROPIC_SDK_VERSION = "1.0.0"
+# request shape was never characterized for this freeze. Version 1.3.0 is the
+# shared pin required by the native Pydantic AI Anthropic adapter.
+REQUIRED_ANTHROPIC_SDK_VERSION = "1.3.0"
 
 # Tokens reserved for provider-side message framing, which the prompt bytes do
 # not account for. Small and fixed: the bound below only has to be safe, and

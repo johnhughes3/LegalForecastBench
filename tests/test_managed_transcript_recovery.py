@@ -71,6 +71,21 @@ def _entry() -> ModelRegistryEntry:
     )
 
 
+def _anthropic_entry() -> ModelRegistryEntry:
+    record = _entry().to_record()
+    record.update(
+        {
+            "provider": "anthropic",
+            "model_id": "claude-fable-5-1",
+            "model_version_or_snapshot": "claude-fable-5-1",
+            "thinking_level": None,
+            "input_token_price": 10.0,
+            "output_token_price": 50.0,
+        }
+    )
+    return ModelRegistryEntry.from_record(record)
+
+
 def _response(parts: list[Any], *, inputs: int, outputs: int) -> ModelResponse:
     return ModelResponse(
         parts=parts,
@@ -83,6 +98,18 @@ def _response(parts: list[Any], *, inputs: int, outputs: int) -> ModelResponse:
         provider_name="google",
         finish_reason="stop",
         provider_details={"finish_reason": "STOP", "service_tier": "standard"},
+    )
+
+
+def _anthropic_response(
+    parts: list[Any], *, inputs: int, outputs: int
+) -> ModelResponse:
+    return ModelResponse(
+        parts=parts,
+        usage=RequestUsage(input_tokens=inputs, output_tokens=outputs),
+        model_name="claude-fable-5-1",
+        provider_name="anthropic",
+        finish_reason="stop",
     )
 
 
@@ -561,6 +588,109 @@ def test_failed_transcript_without_messages_is_rejected_before_restore(
                 cell_id="cell-1",
             )
         assert ledger.read_cell_for_recovery("cell-1").response_payload is None
+
+
+def test_anthropic_native_text_output_transcript_recovers_without_final_tool(
+    tmp_path: Path,
+) -> None:
+    entry = _anthropic_entry()
+    prompt = _prompt()
+    raw_output = (
+        '{"case_assessment":"The claim likely survives.","predictions":['
+        '{"unit_id":"unit-a","probability_fully_dismissed":0.25}]}'
+    )
+    turns = [
+        _anthropic_response(
+            [
+                ToolCallPart(
+                    "read",
+                    {"file_path": "/workspace/documents/0000.txt"},
+                    tool_call_id="read-1",
+                )
+            ],
+            inputs=100,
+            outputs=40,
+        ),
+        _anthropic_response(
+            [
+                ToolCallPart(
+                    "final_result",
+                    {
+                        "case_assessment": "The claim likely survives.",
+                        "predictions": [
+                            {
+                                "unit_id": "unit-a",
+                                "probability_fully_dismissed": 0.25,
+                            }
+                        ],
+                    },
+                    tool_call_id="final-1",
+                )
+            ],
+            inputs=150,
+            outputs=60,
+        ),
+    ]
+
+    async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
+        return turns.pop(0)
+
+    transcript_path = tmp_path / "anthropic-transcript.json"
+    live_result = run_managed_tool_agent(
+        entry,
+        initial_prompt=prompt,
+        required_unit_ids=("unit-a",),
+        executor=_Executor(),
+        workspace=tmp_path / "workspace",
+        request_id="cell-1",
+        model=FunctionModel(scripted),
+        transcript_path=transcript_path,
+    )
+    transcript = json.loads(transcript_path.read_text())
+    response_messages = [
+        message
+        for message in transcript["messages"]
+        if message.get("kind") == "response"
+    ]
+    assert len(response_messages) == 2
+    for message in response_messages:
+        message["model_name"] = entry.model_version_or_snapshot
+        message["provider_name"] = entry.provider
+        message["finish_reason"] = "stop"
+        message["provider_details"] = {}
+    response_messages[-1]["parts"] = [{"content": raw_output, "part_kind": "text"}]
+    # Native output ends the conversation directly; it has no final-result
+    # tool return request after the provider's text response.
+    for message in transcript["messages"]:
+        if message.get("kind") == "request":
+            message["parts"] = [
+                part
+                for part in message["parts"]
+                if part.get("tool_call_id") != "final-1"
+            ]
+    transcript["messages"] = [
+        message for message in transcript["messages"] if message.get("parts")
+    ]
+    transcript_path.write_text(json.dumps(transcript, sort_keys=True))
+
+    with RunnerLedger(
+        tmp_path / "ledger.sqlite3", state_only_provider_attempts=True
+    ) as ledger:
+        _reserve_cell(ledger, entry, prompt)
+        ledger.mark_ambiguous(
+            "cell-1", provider_attempt_id="attempt-1", failure_type="SettlementError"
+        )
+        recovered = recover_managed_transcript(
+            ledger,
+            entry=entry,
+            transcript_path=transcript_path,
+            cell_id="cell-1",
+        )
+
+    assert recovered.result.called_tools == ("read",)
+    assert recovered.result.input_tokens == live_result.input_tokens == 250
+    assert recovered.result.output_tokens == live_result.output_tokens == 100
+    assert json.loads(recovered.result.raw_output) == json.loads(raw_output)
 
 
 def test_ambiguous_settlement_failure_retains_response_for_normal_replay(

@@ -624,6 +624,8 @@ jobs:
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
+      - name: Install native Anthropic managed runtime
+        run: uv sync --locked --extra managed-anthropic
       - name: Configure shared provider spend authority access
         uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
@@ -682,6 +684,17 @@ jobs:
           else
             echo "transcript recovery=none"
           fi
+      - name: Configure rootless Docker for document tools
+        shell: bash
+        run: .github/scripts/setup-rootless-docker.sh
+      - name: Build isolated document tool image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -f infra/tool-runtime/Containerfile -t lfb-harvey-tools:local .
+          tool_image_id="$(docker image inspect --format '{{.Id}}' lfb-harvey-tools:local)"
+          [[ "${tool_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" >> "${GITHUB_ENV}"
       - name: Execute exact Anthropic forecast cell
         shell: bash
         env:
