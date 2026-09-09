@@ -181,7 +181,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "contracts",
-        "fan_in": 10,
+        "fan_in": 12,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -190,8 +190,8 @@
         "largest_symbol": "SchemaIdentifier",
         "largest_symbol_lines": 13,
         "layer": "domain",
-        "line_count": 626,
-        "nonblank_line_count": 610,
+        "line_count": 636,
+        "nonblank_line_count": 618,
         "top_level_definition_count": 2
       },
       "legalforecast/evals/baselines.py": {
@@ -1347,7 +1347,7 @@
         "disposition_kind": "watch",
         "disposition_owner": "root",
         "fan_in": 0,
-        "fan_out": 3,
+        "fan_out": 4,
         "flags": [
           "watch"
         ],
@@ -1355,8 +1355,8 @@
         "largest_symbol": "build_protected_recovery_plan",
         "largest_symbol_lines": 229,
         "layer": "application",
-        "line_count": 690,
-        "nonblank_line_count": 626,
+        "line_count": 691,
+        "nonblank_line_count": 627,
         "top_level_definition_count": 21
       },
       "legalforecast/runner/recovery.py": {
@@ -1364,7 +1364,7 @@
         "disposition_kind": "watch",
         "disposition_owner": "root",
         "fan_in": 2,
-        "fan_out": 1,
+        "fan_out": 2,
         "flags": [
           "watch"
         ],
@@ -1372,8 +1372,8 @@
         "largest_symbol": "build_recovery_plan",
         "largest_symbol_lines": 180,
         "layer": "application",
-        "line_count": 832,
-        "nonblank_line_count": 735,
+        "line_count": 837,
+        "nonblank_line_count": 740,
         "top_level_definition_count": 30
       },
       "legalforecast/runner/service.py": {

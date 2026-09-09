@@ -15,6 +15,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from typing import Literal, cast
 
+from legalforecast.contracts.schemas import PROTECTED_RECOVERY_PLAN_V1
 from legalforecast.evals.provider_spend_control import (
     AttemptLease,
     FrozenAttemptPolicy,
@@ -165,7 +166,7 @@ class ProtectedRecoveryPlan:
         record = asdict(self)
         record.update(
             {
-                "schema_version": "legalforecast.protected-recovery-plan.v1",
+                "schema_version": str(PROTECTED_RECOVERY_PLAN_V1),
                 "dispatch_safe": self.dispatch_safe,
             }
         )

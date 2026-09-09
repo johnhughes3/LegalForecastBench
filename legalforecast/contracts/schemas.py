@@ -38,6 +38,16 @@ class SchemaIdentifier:
         return self.value
 
 
+BENCHMARK_RECOVERY_PLAN_V1 = SchemaIdentifier(
+    "legalforecast.benchmark-recovery-plan.v1"
+)
+PROTECTED_RECOVERY_PLAN_V1 = SchemaIdentifier(
+    "legalforecast.protected-recovery-plan.v1"
+)
+FORECAST_RUN_V1 = SchemaIdentifier("legalforecast.forecast-run.v1")
+FORECAST_RUN_SUMMARY_V1 = SchemaIdentifier("legalforecast.forecast-run-summary.v1")
+
+
 ACQUISITION_RUN_CARD_V1 = SchemaIdentifier("legalforecast.acquisition_run_card.v1")
 ATTACHMENT_PAGE_AUTHORIZATION_V1 = SchemaIdentifier(
     "legalforecast.attachment_page_authorization.v1"

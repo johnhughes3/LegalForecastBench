@@ -22,14 +22,19 @@ from tempfile import TemporaryDirectory
 from typing import Protocol, cast
 from zipfile import BadZipFile, ZipFile
 
+from legalforecast.contracts.schemas import (
+    BENCHMARK_RECOVERY_PLAN_V1,
+    FORECAST_RUN_SUMMARY_V1,
+    FORECAST_RUN_V1,
+)
 from legalforecast.runner.ledger import RunBinding, RunnerLedger, RunValidationError
 
 SOURCE_WORKFLOW = ".github/workflows/run-benchmark.yaml"
 RECOVERY_WORKFLOW = ".github/workflows/recover-benchmark.yaml"
 RECOVERY_RUN_TITLE = "Recover benchmark {run_id} attempt {run_attempt}"
 RECOVERY_CHILD_RUN_TITLE = "Run benchmark recovery {run_id} attempt {run_attempt}"
-FORECAST_RUN_SCHEMA = "legalforecast.forecast-run.v1"
-FORECAST_SUMMARY_SCHEMA = "legalforecast.forecast-run-summary.v1"
+FORECAST_RUN_SCHEMA = str(FORECAST_RUN_V1)
+FORECAST_SUMMARY_SCHEMA = str(FORECAST_RUN_SUMMARY_V1)
 MAX_PARALLEL = 32
 
 
@@ -299,7 +304,7 @@ class RecoveryPlan:
         else:
             disposition = "ready"
         return {
-            "schema_version": "legalforecast.benchmark-recovery-plan.v1",
+            "schema_version": str(BENCHMARK_RECOVERY_PLAN_V1),
             "command": "run resume",
             "disposition": disposition,
             "execute_requested": execute_requested,
