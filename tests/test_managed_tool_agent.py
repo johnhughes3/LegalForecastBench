@@ -182,9 +182,13 @@ def test_gateway_metadata_accepts_omitted_api_model_id_and_prefers_gateway_cost(
     }
 
 
+@pytest.mark.parametrize("model_id", ["gpt-5.6-luna", "gpt-6-astra"])
 def test_managed_agent_uses_native_tool_loop_and_returns_one_case_envelope(
     tmp_path: Path,
+    model_id: str,
 ) -> None:
+    entry = replace(_entry(), model_id=model_id, model_version_or_snapshot=model_id)
+    assert managed_execution.uses_managed_document_tools(entry)
     turns = [
         _response(
             [
@@ -229,7 +233,7 @@ def test_managed_agent_uses_native_tool_loop_and_returns_one_case_envelope(
     workspace.mkdir()
     executor = _Executor()
     result = run_managed_tool_agent(
-        _entry(),
+        entry,
         initial_prompt=("Case: case-1\nDocuments:\n- /workspace/documents/motion.txt"),
         required_unit_ids=("unit-a", "unit-b"),
         executor=executor,

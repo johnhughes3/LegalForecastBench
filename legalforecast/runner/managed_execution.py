@@ -540,7 +540,7 @@ def uses_managed_document_tools(entry: ModelRegistryEntry) -> bool:
 
     provider = entry.provider.strip().lower()
     return (
-        (provider == "openai" and entry.model_id == "gpt-5.6-luna")
+        (provider == "openai" and entry.model_id in {"gpt-5.6-luna", "gpt-6-astra"})
         or (
             provider in {"google", "gemini"}
             and entry.tool_policy.value == "controlled_docket_tool_only"
