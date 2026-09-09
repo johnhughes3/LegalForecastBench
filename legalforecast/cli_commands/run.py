@@ -11,6 +11,12 @@ from typing import cast
 
 from legalforecast.runner import RunConfig, execute_release_run, issue_runner_fixture
 from legalforecast.runner.fixture import FIXTURE_MODEL_KEY, FixtureModelTransport
+from legalforecast.runner.recovery import (
+    RECOVERY_WORKFLOW,
+    GhRecoveryClient,
+    build_recovery_plan,
+    resolve_repository,
+)
 
 
 def register(
@@ -181,6 +187,44 @@ def register(
     )
     execute.set_defaults(handler=run_execute)
 
+    resume = commands.add_parser(
+        "resume",
+        help=(
+            "Recover completed cells from a prior official run and retry only "
+            "incomplete cells."
+        ),
+    )
+    resume.add_argument(
+        "--github-run",
+        type=int,
+        required=True,
+        help="Completed official benchmark workflow run ID to recover.",
+    )
+    resume.add_argument(
+        "--ref",
+        default="main",
+        help="Protected recovery workflow code ref (default: main).",
+    )
+    resume.add_argument(
+        "--max-parallel",
+        type=int,
+        default=8,
+        help="Maximum provider cells for the recovery workflow (default: 8).",
+    )
+    resume.add_argument(
+        "--repo",
+        help="GitHub repository in OWNER/NAME form (defaults to the current origin).",
+    )
+    resume.add_argument(
+        "--execute",
+        action="store_true",
+        help=(
+            "Dispatch the protected recovery workflow after the read-only plan "
+            "is ready. Without this flag, print the plan only."
+        ),
+    )
+    resume.set_defaults(handler=run_resume)
+
 
 def run_issue_fixture(args: argparse.Namespace) -> int:
     output_dir = cast(Path, args.output_dir)
@@ -242,4 +286,28 @@ def run_execute(args: argparse.Namespace) -> int:
         environ={"OPENAI_API_KEY": "provider-free-fixture-key"} if dry_run else None,
     )
     print(json.dumps(summary.to_record(), sort_keys=True))
+    return 0
+
+
+def run_resume(args: argparse.Namespace) -> int:
+    """Plan, and optionally dispatch, recovery of one official workflow run."""
+
+    repo = cast(str | None, args.repo) or resolve_repository()
+    client = GhRecoveryClient()
+    plan = build_recovery_plan(
+        client,
+        repo=repo,
+        run_id=cast(int, args.github_run),
+        ref=cast(str, args.ref),
+        max_parallel=cast(int, args.max_parallel),
+    )
+    execute = cast(bool, args.execute)
+    if execute and plan.executable:
+        client.dispatch(
+            repo,
+            RECOVERY_WORKFLOW,
+            cast(str, args.ref),
+            plan.dispatch_inputs,
+        )
+    print(json.dumps(plan.to_record(execute_requested=execute), sort_keys=True))
     return 0

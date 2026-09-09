@@ -8,6 +8,14 @@ from .ledger import (
     RunValidationError,
     UnscoredCaseError,
 )
+from .recovery import (
+    ArtifactCensus,
+    GhRecoveryClient,
+    RecoveryError,
+    RecoveryPlan,
+    build_recovery_plan,
+    resolve_repository,
+)
 from .service import (
     RunConfig,
     RunSummary,
@@ -19,6 +27,10 @@ from .service import (
 )
 
 __all__ = [
+    "ArtifactCensus",
+    "GhRecoveryClient",
+    "RecoveryError",
+    "RecoveryPlan",
     "RunBinding",
     "RunBlockedError",
     "RunConfig",
@@ -26,10 +38,12 @@ __all__ = [
     "RunSummary",
     "RunValidationError",
     "UnscoredCaseError",
+    "build_recovery_plan",
     "derive_case_call_id",
     "derive_cell_id",
     "derive_run_identity_sha256",
     "execute_release_run",
     "issue_runner_fixture",
+    "resolve_repository",
     "validate_executable_packets",
 ]
