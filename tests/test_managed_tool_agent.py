@@ -314,7 +314,7 @@ def test_managed_agent_uses_native_tool_loop_and_returns_one_case_envelope(
     assert '"unit_id":"unit-b"' in result.raw_output
 
 
-@pytest.mark.parametrize("service_tier", ["flex", "default"])
+@pytest.mark.parametrize("service_tier", ["flex", "default", "mixed", "unreported"])
 @pytest.mark.parametrize(
     "model_id,route",
     [("moonshotai/kimi-k3", "deepinfra"), ("openai/gpt-5.6-sol", "openai")],
@@ -348,7 +348,11 @@ def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
             finish_reason="stop",
             provider_details={
                 "gateway_metadata": metadata,
-                "service_tier": service_tier,
+                "service_tier": None
+                if service_tier == "unreported"
+                else "flex"
+                if service_tier == "mixed"
+                else service_tier,
             },
         ),
         ModelResponse(
@@ -373,7 +377,11 @@ def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
             finish_reason="stop",
             provider_details={
                 "gateway_metadata": metadata,
-                "service_tier": service_tier,
+                "service_tier": None
+                if service_tier == "unreported"
+                else "default"
+                if service_tier == "mixed"
+                else service_tier,
             },
         ),
     ]
@@ -386,18 +394,6 @@ def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    if model_id == "openai/gpt-5.6-sol" and service_tier != "flex":
-        with pytest.raises(managed_execution.ManagedToolAgentError, match="Flex"):
-            run_managed_tool_agent(
-                _gateway_entry(model_id),
-                initial_prompt="Case: case-1",
-                required_unit_ids=("unit-a",),
-                executor=_Executor(),
-                workspace=workspace,
-                request_id="cell-1",
-                model=FunctionModel(scripted),
-            )
-        return
     result = run_managed_tool_agent(
         _gateway_entry(model_id),
         initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
@@ -408,6 +404,7 @@ def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
         model=FunctionModel(scripted),
     )
 
+    assert result.service_tier == service_tier
     assert result.called_tools == ("read",)
     assert result.request_count == 2
     assert result.response_usages == ((100, 10), (150, 20))

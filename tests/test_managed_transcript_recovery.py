@@ -439,6 +439,21 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             id="muse",
         ),
         pytest.param(
+            _gateway_entry("openai/gpt-5.6-sol"),
+            "openai/gpt-5.6-sol",
+            {
+                **_gateway_metadata(),
+                "original_model_id": "openai/gpt-5.6-sol",
+                "canonical_slug": "openai/gpt-5.6-sol",
+                "resolved_provider": "openai",
+                "final_provider": "openai",
+                "resolved_provider_api_model_id": "gpt-5.6-sol",
+            },
+            "succeeded",
+            0.0003314,
+            id="sol-standard-served-after-flex-request",
+        ),
+        pytest.param(
             _grok_gateway_entry(),
             "xai/grok-4.6",
             _grok_gateway_metadata(),
