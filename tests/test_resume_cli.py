@@ -344,6 +344,33 @@ def test_resume_execute_dispatches_only_the_protected_workflow(
     ]
 
 
+def test_resume_execute_reports_blocked_without_dispatch(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from legalforecast.cli_commands import run as run_commands
+
+    client = FakeRecoveryClient()
+    client.active_runs = (
+        {
+            "path": RECOVERY_WORKFLOW,
+            "display_title": RECOVERY_RUN_TITLE.format(run_id=RUN_ID, run_attempt=1),
+        },
+    )
+    monkeypatch.setattr(run_commands, "GhRecoveryClient", lambda: client)
+    status = run_commands.run_resume(
+        argparse.Namespace(
+            repo="owner/bench",
+            github_run=RUN_ID,
+            ref="main",
+            max_parallel=8,
+            execute=True,
+        )
+    )
+    assert status == 2
+    assert json.loads(capsys.readouterr().out)["disposition"] == "blocked"
+    assert client.dispatched == []
+
+
 def test_gh_client_paginates_artifact_list(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -310,4 +310,4 @@ def run_resume(args: argparse.Namespace) -> int:
             plan.dispatch_inputs,
         )
     print(json.dumps(plan.to_record(execute_requested=execute), sort_keys=True))
-    return 0
+    return 2 if execute and not plan.executable else 0
