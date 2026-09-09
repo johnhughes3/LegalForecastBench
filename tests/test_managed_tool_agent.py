@@ -1012,3 +1012,108 @@ def test_managed_cost_applies_long_context_surcharge_per_provider_request() -> N
 
     assert below_threshold_turns == pytest.approx(0.00024)
     assert one_surcharged_turn == pytest.approx(0.000401)
+
+
+@pytest.mark.parametrize("unavailable_responses", [2, 3])
+def test_flex_sdk_retries_unavailable_with_long_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unavailable_responses: int
+) -> None:
+    import httpx2
+    from openai import AsyncOpenAI
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    requests: list[httpx2.Request] = []
+
+    def respond(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        body = json.loads(request.content)
+        assert body["service_tier"] == "flex"
+        assert request.extensions["timeout"]["read"] == 900.0
+        if len(requests) <= unavailable_responses:
+            return httpx2.Response(
+                429,
+                headers={"retry-after-ms": "1"},
+                json={
+                    "error": {
+                        "message": "Resource unavailable",
+                        "type": "resource_unavailable",
+                        "code": "resource_unavailable",
+                    }
+                },
+            )
+        return httpx2.Response(
+            200,
+            json={
+                "id": "resp_fixture",
+                "object": "response",
+                "created_at": 1,
+                "status": "completed",
+                "model": "gpt-6-astra",
+                "service_tier": "flex",
+                "output": [
+                    {
+                        "type": "function_call",
+                        "id": "fc_fixture",
+                        "call_id": "call_fixture",
+                        "name": "final_result",
+                        "arguments": json.dumps(
+                            {
+                                "case_assessment": "Fixture",
+                                "predictions": [
+                                    {
+                                        "unit_id": "unit-a",
+                                        "probability_fully_dismissed": 0.5,
+                                    }
+                                ],
+                            }
+                        ),
+                    }
+                ],
+                "usage": {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
+                "parallel_tool_calls": False,
+                "tools": [],
+                "tool_choice": "auto",
+            },
+        )
+
+    client = AsyncOpenAI(
+        api_key="fixture",
+        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(respond)),
+    )
+    assert client.max_retries == 2
+    monkeypatch.setattr(
+        managed_execution,
+        "OpenAIProvider",
+        lambda **_kwargs: OpenAIProvider(openai_client=client),
+    )
+    entry = replace(
+        _entry(), model_id="gpt-6-astra", model_version_or_snapshot="gpt-6-astra"
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    def invoke() -> ManagedToolAgentResult:
+        return run_managed_tool_agent(
+            entry,
+            initial_prompt="Forecast fixture",
+            required_unit_ids=("unit-a",),
+            executor=_Executor(),
+            workspace=workspace,
+            request_id="cell-flex",
+            api_key="fixture",
+        )
+
+    try:
+        if unavailable_responses == 2:
+            result = invoke()
+            assert result.service_tier == "flex"
+            assert result.request_count == 1
+        else:
+            with pytest.raises(ModelHTTPError) as error:
+                invoke()
+            assert error.value.status_code == 429
+        assert len(requests) == 3
+    finally:
+        import asyncio
+
+        asyncio.run(client.close())

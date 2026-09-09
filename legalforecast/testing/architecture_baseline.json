@@ -1321,8 +1321,8 @@
         "largest_symbol": "complete_managed_tool_cell",
         "largest_symbol_lines": 227,
         "layer": "application",
-        "line_count": 971,
-        "nonblank_line_count": 877,
+        "line_count": 973,
+        "nonblank_line_count": 879,
         "top_level_definition_count": 28
       },
       "legalforecast/runner/managed_transcript_recovery.py": {
@@ -1753,12 +1753,12 @@
           "oversized"
         ],
         "lane_owner": "tests",
-        "largest_symbol": "test_google_managed_agent_uses_native_tools_and_bills_thoughts",
-        "largest_symbol_lines": 86,
+        "largest_symbol": "test_flex_sdk_retries_unavailable_with_long_timeout",
+        "largest_symbol_lines": 102,
         "layer": "test",
-        "line_count": 1010,
-        "nonblank_line_count": 903,
-        "top_level_definition_count": 26
+        "line_count": 1119,
+        "nonblank_line_count": 1004,
+        "top_level_definition_count": 27
       },
       "tests/test_managed_transcript_recovery.py": {
         "cycle_id": "",
