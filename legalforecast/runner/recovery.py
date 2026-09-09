@@ -461,7 +461,30 @@ def build_recovery_plan(
     identity_states = state_by_attempt[identity_attempt]
     if any(artifact.expired for artifact in identity_states):
         blocked.append("one or more identity-attempt cell artifacts are expired")
-    if len(identity_states) != census.declared_state_count:
+    state_count = 0
+    for artifact in identity_states:
+        if (
+            artifact.name.startswith("restored-forecast-state-")
+            and not artifact.expired
+        ):
+            with _open_zip(
+                client.download_artifact(repo, artifact.artifact_id), "restored states"
+            ) as bundle:
+                names = tuple(bundle.namelist())
+                _validate_member_names(names)
+                if not names or any(
+                    not re.fullmatch(r"[0-9a-f]{64}\.zip", name) for name in names
+                ):
+                    raise RecoveryError(
+                        "restored bundle contains invalid cell archives"
+                    )
+                state_count += len(names)
+        else:
+            state_count += 1
+    missing_allowed = "expected_cell_count" in summary
+    if state_count > census.declared_state_count or (
+        not missing_allowed and state_count != census.declared_state_count
+    ):
         blocked.append(
             "identity-attempt cell artifact count differs from the source census"
         )
@@ -627,7 +650,9 @@ def _state_artifacts_by_attempt(
     artifacts: Sequence[ArtifactLocator],
 ) -> dict[int, tuple[ArtifactLocator, ...]]:
     grouped: dict[int, list[ArtifactLocator]] = {}
-    pattern = re.compile(r"^locked-run-state-.+-attempt-(?P<attempt>[1-9][0-9]*)$")
+    pattern = re.compile(
+        r"^(?:locked-run-state|restored-forecast-state)-.+-attempt-(?P<attempt>[1-9][0-9]*)$"
+    )
     for artifact in artifacts:
         match = pattern.fullmatch(artifact.name)
         if match is not None:
@@ -668,7 +693,8 @@ def _read_final_artifact(
         if summary.get("workflow_run_attempt") not in {None, run_attempt}:
             raise RecoveryError("run-summary.json attempt differs from source run")
         state_count = _nonnegative_int(
-            summary.get("state_artifact_count"), "state_artifact_count"
+            summary.get("expected_cell_count", summary.get("state_artifact_count")),
+            "expected cell count",
         )
         return (
             ArtifactCensus(
@@ -727,6 +753,13 @@ def _read_cell_ledger(payload: bytes) -> tuple[RunBinding, str, int]:
     with _open_zip(payload, "cell-state artifact") as archive:
         names = tuple(archive.namelist())
         _validate_member_names(names)
+        if names and all(re.fullmatch(r"[0-9a-f]{64}\.zip", name) for name in names):
+            # Prepare bundles retain the original per-cell ledger archives.
+            # Recurse only one level: inner members must be ordinary cell state.
+            with _open_zip(archive.read(names[0]), "bundled cell state") as cell:
+                if "ledger.sqlite3" not in cell.namelist():
+                    raise RecoveryError("bundled state lacks a cell ledger")
+            return _read_cell_ledger(archive.read(names[0]))
         ledger_names = [
             name for name in names if PurePosixPath(name).name == "ledger.sqlite3"
         ]

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
+from zipfile import ZipFile
 
 import pytest
 from legalforecast.contracts import (
@@ -29,6 +31,65 @@ ENTRY_DIGEST = "b" * 64
 RELEASE_DIGEST = "c" * 64
 ACCOUNT = "official"
 CEILING = 10_000_000
+
+
+def test_materialize_expands_bundle_and_exposes_missing_cell_to_loader(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def archive(members: dict[str, bytes]) -> bytes:
+        output = io.BytesIO()
+        with ZipFile(output, "w") as zipped:
+            for name, payload in members.items():
+                zipped.writestr(name, payload)
+        return output.getvalue()
+
+    identity = _identity()
+    carried_id, missing_id = "a" * 64, "b" * 64
+    source = _state(
+        tmp_path / "source", cell_id=carried_id, attempt=1, identity=identity
+    )
+    original = {path.name: path.read_bytes() for path in source.iterdir()}
+    payloads = {
+        1: archive(
+            {
+                "expected-cells.json": json.dumps(
+                    [
+                        {"cell_id": carried_id, "repeat_index": 1},
+                        {"cell_id": missing_id, "repeat_index": 1},
+                    ]
+                ).encode()
+            }
+        ),
+        2: archive({f"{carried_id}.zip": archive(original)}),
+    }
+
+    class Client:
+        def download_artifact(self, repo: str, artifact_id: int) -> bytes:
+            assert repo == "owner/bench"
+            return payloads[artifact_id]
+
+    monkeypatch.setattr(_recovery, "GhRecoveryClient", Client)
+    workspace = tmp_path / "materialized"
+    _recovery._materialize(
+        {
+            "repo": "owner/bench",
+            "source": {
+                "locked_inputs_artifact": {"id": 1},
+                "state_artifacts": [
+                    {"id": 2, "name": "restored-forecast-state-123-attempt-1"}
+                ],
+            },
+        },
+        workspace,
+    )
+    states = workspace / "states"
+    carried = states / f"locked-run-state-restored-{carried_id}-attempt-1"
+    assert {path.name: path.read_bytes() for path in carried.iterdir()} == original
+    cells = {cell.cell_id: cell for cell in _load(states, identity_sha=identity[1])}
+    assert set(cells) == {carried_id, missing_id}
+    assert not cells[missing_id].completed
+    assert cells[missing_id].local_attempt_id is None
+    assert cells[missing_id].evidence_error is None
 
 
 def _identity(*, marker: str = "") -> tuple[dict[str, object], str]:

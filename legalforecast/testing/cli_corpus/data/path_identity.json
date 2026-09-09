@@ -115,6 +115,7 @@
     "tests/test_package_import_order.py",
     "tests/test_package_skeleton.py",
     "tests/test_pdf_extractor_pin.py",
+    "tests/test_prepare_forecast_recovery.py",
     "tests/test_protected_recovery_workflow.py",
     "tests/test_provider_baselines.py",
     "tests/test_provider_spend_control.py",

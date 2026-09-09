@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sqlite3
 import tempfile
@@ -121,6 +122,32 @@ def _materialize(metadata: Mapping[str, Any], workspace: Path) -> None:
             ),
             destination,
         )
+
+        if name.startswith("restored-forecast-state-"):
+            for member in destination.iterdir():
+                if not re.fullmatch(r"[0-9a-f]{64}\.zip", member.name):
+                    raise SystemExit("invalid restored cell archive")
+                cell_root = states / (
+                    f"locked-run-state-restored-{member.stem}-attempt-"
+                    f"{name.rsplit('-attempt-', 1)[-1]}"
+                )
+                _extract_zip(member.read_bytes(), cell_root)
+            shutil.rmtree(destination)
+    expected = workspace / "inputs" / "expected-cells.json"
+    if expected.is_file():
+        present = {
+            _read_object(path / "state.json").get("cell_id")
+            for path in states.iterdir()
+        }
+        for cell in json.loads(expected.read_text()):
+            if cell["cell_id"] not in present:
+                destination = (
+                    states / f"locked-run-state-missing-{cell['cell_id']}-attempt-1"
+                )
+                destination.mkdir()
+                (destination / "state.json").write_text(
+                    json.dumps({**cell, "status": "failed"})
+                )
 
 
 def _extract_zip(payload: bytes, destination: Path) -> None:

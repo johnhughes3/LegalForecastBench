@@ -86,9 +86,12 @@ jobs:
     timeout-minutes: 20
     environment: legalforecastbench-official-eval-prepare-inputs
     permissions:
+      actions: read
       contents: read
       id-token: write
     outputs:
+      restored_artifact_id: ${{ steps.upload-restored.outputs.artifact-id }}
+      pending_count: ${{ steps.matrix.outputs.pending_count }}
       locked_inputs_artifact_id: ${{ steps.upload-inputs.outputs.artifact-id }}
       openai_matrix: ${{ steps.matrix.outputs.openai_matrix }}
       openai_count: ${{ steps.matrix.outputs.openai_count }}
@@ -333,6 +336,10 @@ jobs:
         id: matrix
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
+          RESUME_SOURCES: ${{ inputs.resume_sources }}
+          RESUME_SOURCE_RUN_ID: ${{ inputs.resume_source_run_id }}
+          RESUME_SOURCE_RUN_ATTEMPT: ${{ inputs.resume_source_run_attempt }}
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           MAX_PARALLEL: ${{ inputs.max_parallel }}
           MODEL_KEY: ${{ inputs.model_key }}
@@ -403,6 +410,9 @@ jobs:
                           unit_id = None
                           cell_id = derive_case_call_id(identity_sha256=run_identity_sha256, case_id=case.case_id, required_unit_ids=required_unit_ids, repeat_index=repeat_index)
                       matrices[matrix_provider].append({"provider": provider, "model_key": entry.registry_key, "model_id": entry.model_id, "cell_id": cell_id, "cell_id_slug": slug(cell_id), "unit_id": unit_id, "required_unit_ids": list(required_unit_ids), "case_id": case.case_id, "repeat_index": repeat_index, "ablation": ablation})
+          import runpy
+          recovery = runpy.run_path(".github/scripts/restore-forecast-state.py")
+          recovery["prepare"](matrices, run_identity_sha256, Path("/tmp/lfb-locked-inputs"), Path("/tmp/lfb-restored-bundle"))
           output = open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")
           with output:
               for provider, rows in matrices.items():
@@ -411,8 +421,17 @@ jobs:
                       raise SystemExit(f"artifact cell slug collision for provider {provider}")
                   print(f"{provider}_matrix={json.dumps({'include': rows}, separators=(',', ':'), sort_keys=True)}", file=output)
                   print(f"{provider}_count={len(rows)}", file=output)
+              print(f"pending_count={sum(map(len, matrices.values()))}", file=output)
               print(f"max_parallel={os.environ['MAX_PARALLEL']}", file=output)
           PY
+      - name: Preserve restored completed cells
+        id: upload-restored
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: restored-forecast-state-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: /tmp/lfb-restored-bundle/*.zip
+          if-no-files-found: ignore
+          retention-days: ${{ inputs.artifact_retention_days }}
       - name: Record frozen resume dispatch inputs
         shell: bash
         env:
@@ -1179,10 +1198,17 @@ jobs:
         with:
           artifact-ids: ${{ needs.prepare-inputs.outputs.locked_inputs_artifact_id }}
           path: /tmp/lfb-forecast-inputs
-      - name: Download per-cell durable state
+      - name: Download restored completed cells
+        if: ${{ needs.prepare-inputs.outputs.restored_artifact_id != '' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: locked-run-state-*-attempt-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.prepare-inputs.outputs.restored_artifact_id }}
+          path: /tmp/lfb-restored-bundle
+      - name: Download per-cell durable state
+        if: ${{ needs.prepare-inputs.outputs.pending_count != '0' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: locked-run-state-*-attempt-*
           path: /tmp/lfb-state-artifacts
           merge-multiple: false
       - name: Assemble exact protected fan-in source artifact
@@ -1241,10 +1267,32 @@ jobs:
                   raise SystemExit(f"durable state file is not an object: {path}")
               return value
 
+          import runpy
+          recovery = runpy.run_path(".github/scripts/restore-forecast-state.py")
+          recovery["expand_bundle"](Path("/tmp/lfb-restored-bundle"), state_root)
+          expected_cells = json.loads((inputs / "expected-cells.json").read_text())
+          expected_ids = {cell["cell_id"] for cell in expected_cells}
+          if len(expected_ids) != len(expected_cells):
+              raise SystemExit("duplicate expected cell identity")
           state_dirs = sorted(
               path for path in state_root.iterdir()
               if path.is_dir() and not path.is_symlink()
           ) if state_root.is_dir() and not state_root.is_symlink() else []
+          # A GitHub rerun of failed jobs keeps successful siblings in older attempts.
+          selected_states = {}
+          for directory in state_dirs:
+              state = read_object(directory / "state.json")
+              cell_id, attempt = state.get("cell_id"), state.get("run_attempt")
+              if not isinstance(cell_id, str) or not isinstance(attempt, int):
+                  raise SystemExit("durable state lacks cell/attempt identity")
+              if attempt > int(os.environ["GITHUB_RUN_ATTEMPT"]):
+                  raise SystemExit("durable state belongs to a future attempt")
+              prior = selected_states.get(cell_id)
+              if prior is not None and prior[0] == attempt:
+                  raise SystemExit("duplicate durable state for one cell attempt")
+              if prior is None or attempt > prior[0]:
+                  selected_states[cell_id] = (attempt, directory)
+          state_dirs = [item[1] for item in selected_states.values()]
           if not state_dirs:
               raise SystemExit("no per-cell durable state artifacts were supplied")
 
@@ -1368,8 +1416,14 @@ jobs:
               state
               for state in completed_states
               if "restored_from_run_id" in state
+              or state.get("run_attempt", 0) < int(os.environ["GITHUB_RUN_ATTEMPT"])
           ]
-          all_completed = len(completed_states) == len(states)
+          actual_ids = [state.get("cell_id") for state in states]
+          if len(set(actual_ids)) != len(actual_ids) or not set(actual_ids) <= expected_ids:
+              raise SystemExit("duplicate or unexpected state identity")
+          receipt_ids = {receipt["cell_id"] for receipt in receipts}
+          all_completed = (len(completed_states) == len(expected_ids)
+                           and set(actual_ids) == expected_ids and receipt_ids == expected_ids)
           run_status = "completed" if all_completed and len(receipts) > 0 else "failed"
           run_summary = {
               "schema_version": "legalforecast.forecast-run-summary.v1",
@@ -1381,6 +1435,7 @@ jobs:
               "executed_cells": len(completed_states) - len(resumed_states),
               "resumed_cells": len(resumed_states),
               "state_artifact_count": len(states),
+              "expected_cell_count": len(expected_ids),
           }
           (output / "run-summary.json").write_text(
               json.dumps(run_summary, sort_keys=True, separators=(",", ":")) + "\n",
