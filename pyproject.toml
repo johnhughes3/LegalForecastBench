@@ -53,6 +53,7 @@ tier0-judge-adapter = [
 
 [dependency-groups]
 dev = [
+  "anthropic==1.3.0",
   "interrogate>=1.7.0",
   "openai==3.8.0",
   "pyright>=1.1.411",
