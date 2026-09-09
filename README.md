@@ -30,34 +30,19 @@ The benchmark predicts, for each challenged claim against each challenged defend
 
 ### Contamination control
 
-For a given universe of models being compared, eligible cases are those with written MTD decisions entered on or after the UTC calendar date of the latest first documented external deployment. Restricted API or Codex previews count as external deployment; later general availability, temporary suspension, or re-release does not reset the anchor. Provider-stated knowledge cutoffs are informative and usually months earlier, but they are not the eligibility anchor because their definitions and auditability vary. First external deployment is the deliberately conservative, independently observable rule, and no additional calendar-day buffer is applied. Pre-decision materials (complaint, motion, briefing, docket history) may predate the deployment; those are legitimate forecasting inputs and are made available to all models. Outcome leakage — pre-run access to a tentative ruling, oral-argument transcript, or related-case order resolving the same issue — is a hard exclusion. Models run without network access or web search.
+Official comparison eligibility is based on the model's documented training-data cutoff preceding every scored decision, not on its public release date. This reflects the owner's decision made before these benchmark runs; the documentation was aligned on September 9, 2026. Frequent model releases make waiting for a new post-release corpus impractical. We expect limited contamination under this rule, but that is a research assumption, not a measured guarantee: provider-stated knowledge cutoffs are imperfect proxies for training exposure, including later updates. Unknown or overlapping cutoffs are disclosed separately rather than treated as verified eligible comparisons.
 
-The release-date anchor is a retrospective contamination control, not a guarantee that providers will never update an alias after release. Official runs therefore require non-null release timestamps, dated snapshot metadata in the frozen registry, and run artifacts that record the provider-served model version when the provider exposes it.
-
-The anchor says which arm a result belongs to; it does not decide whether a model gets reported. A model released on or before the anchor is scored **pre-anchor**, and that contamination-resistant score is the gold standard. A model released after it is scored **post-anchor** on the same frozen record, and that result is published too — first class alongside the pre-anchor rows, marked so the two are never confused. Where a model has a score in each arm, the delta between them measures how much contamination actually moves that model, which is a result this benchmark reports rather than a caveat it hides behind.
+Outcome-leaking material is excluded from forecast inputs, and models run without network access or web search. We retain cutoff sources, release dates, requested model identities, and served versions where available. See [methods](docs/METHODS.md) and [cutoff reporting](docs/contamination-tier-reporting.md).
 
 ### Versioned artifact
 
-Each benchmark run is a versioned artifact tied to a specific set of model deployments. When a new generation of frontier models ships, the benchmark ingests fresh cases — all decided on or after the new deployment anchor — and compares predictions on that cohort. That fresh-cohort cycle is the contamination-resistant path and the standard this benchmark holds itself to.
+Each run is tied to a frozen cohort and model configuration. We will add fresh cohorts over time and may compare models' relative performance on old cases and cases decided after their release. Raw scores across different cohorts are not directly comparable; changes in relative performance may flag possible contamination but can also reflect case mix or serving changes.
 
-Accumulating enough eligible decisions takes time, so a newly released model does not wait for it: it is scored on the existing frozen record as a post-anchor result and published, then scored again on the resistant cohort when one exists. What the benchmark cannot do is cleanly demonstrate absolute capability gains across generations, because the case mix differs each version. What it does well is compare the relative capabilities of frontier models within a generation, which is the question most useful to practitioners deciding which model to rely on.
-
-Current pilot model anchors are tracked in [docs/MODEL_RELEASE_DATES.md](docs/MODEL_RELEASE_DATES.md).
+Model dates and cutoff evidence are tracked in [docs/MODEL_RELEASE_DATES.md](docs/MODEL_RELEASE_DATES.md).
 
 ## Official Benchmark Results
 
-The completed runs below use the same repaired release, `cycle-1-91-2026-09-08-luna-r5`: **91 cases, 409 prediction units, and 387 scored units**. Lower Brier score and log loss are better. Accuracy uses a 50% probability threshold. Both runs produced valid predictions without defaults or refusals.
-
-| Model | Arm | Micro-Brier | Case-macro Brier | Log loss | Accuracy | Completed-case cost |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| GPT-5.6 Luna | Pre-anchor | **0.1432** | **0.1508** | **0.4562** | **80.9%** | $16.57 |
-| Meta Muse Spark 1.3 Contributor | Post-anchor | 0.1812 | 0.1784 | 0.5357 | 72.1% | **$0.53** |
-
-The pre-anchor arm is the **Official LegalForecast-MTD Cycle 1 result**; the post-anchor arm is the **Official LegalForecast-MTD Cycle 1 result (post-anchor)**. These are single-run point estimates on a shared record, not evidence that the models have equal contamination exposure. Costs are summed from completed-case receipts and exclude infrastructure, smoke tests, and unresolved holds from failed attempts.
-
-Luna's [completed scoring workflow](https://github.com/johnhughes3/LegalForecastBench/actions/runs/34224826104) provides the scored report. Meta's [completed forecast workflow](https://github.com/johnhughes3/LegalForecastBench/actions/runs/34272944667) provides all 91 case receipts and transcripts; its values above were calculated with the repository's identity-aware scorer against the same labels. Meta's protected scoring/publication step remains pending.
-
-Future Muse runs use the **standard tier**, through `vercel_ai_gateway:meta/muse-spark-1.3`, with the [standard-tier registry](model_registries/cycle-1-official-muse-spark-1.3-standard-2026-09-08.json). The completed contributor-tier row retains its original identity and measured cost. Repricing that run's recorded cached and uncached token usage at standard rates gives approximately **$8.78**; this is an estimate, not a standard-tier run result.
+We have recently received initial benchmark results and are compiling and validating the complete report. We will publish it soon, including micro-Brier and equal-case Brier scores, uncertainty, accuracy, and actual and standard-rate inference costs. Preliminary model rows are withheld here while that report is assembled.
 
 ## Preliminary Community Result
 
@@ -210,4 +195,4 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 ## Citation
 
-Citation metadata is in [CITATION.cff](CITATION.cff). Before citing a result, follow the dated status and canonical evidence links at the top of this README; the table distinguishes completed runs from any pending publication steps.
+Citation metadata is in [CITATION.cff](CITATION.cff). Initial results are being compiled; please cite the complete report and its evidence once published.
