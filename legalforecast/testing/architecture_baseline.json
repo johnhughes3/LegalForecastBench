@@ -1756,8 +1756,8 @@
         "largest_symbol": "test_google_managed_agent_uses_native_tools_and_bills_thoughts",
         "largest_symbol_lines": 86,
         "layer": "test",
-        "line_count": 1010,
-        "nonblank_line_count": 903,
+        "line_count": 1014,
+        "nonblank_line_count": 907,
         "top_level_definition_count": 26
       },
       "tests/test_managed_transcript_recovery.py": {
