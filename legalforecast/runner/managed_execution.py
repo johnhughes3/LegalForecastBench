@@ -333,6 +333,9 @@ def run_managed_tool_agent(
             openai_store=False,
             extra_body=gateway_request_extra_body(entry.model_id),
         )
+        if requests_flex_service_tier(provider, entry.model_id):
+            settings["timeout"] = OPENAI_FLEX_TIMEOUT_SECONDS
+            cast(dict[str, Any], settings)["openai_service_tier"] = "flex"
         if entry.reasoning_effort is not None:
             cast(dict[str, Any], settings)["openai_reasoning_effort"] = cast(
                 Any, entry.reasoning_effort.value
@@ -462,7 +465,7 @@ def _managed_result_from_run(
     }
     if len(service_tiers) > 1:
         raise ManagedToolAgentError("provider responses changed service tier")
-    if provider == "openai":
+    if requests_flex_service_tier(provider, expected_model_id):
         if len(service_tiers) != 1 or any(
             not isinstance((item.provider_details or {}).get("service_tier"), str)
             for item in responses
@@ -471,6 +474,10 @@ def _managed_result_from_run(
                 "provider responses changed or omitted service tier"
             )
         service_tier = service_tiers.pop()
+        if service_tier != "flex":
+            raise ManagedToolAgentError(
+                "provider did not use requested Flex service tier"
+            )
     else:
         # Gemini API responses do not promise a service-tier header. Preserve a
         # truthful explicit value when the provider supplies one and otherwise
@@ -553,6 +560,13 @@ def _write_managed_transcript(
             + "\n"
         ).encode("utf-8"),
         mode=0o600,
+    )
+
+
+def requests_flex_service_tier(provider: str, model_id: str) -> bool:
+    """Identify the routes whose registry prices require Flex execution."""
+    return provider == "openai" or (
+        provider == "vercel_ai_gateway" and model_id == "openai/gpt-5.6-sol"
     )
 
 
@@ -826,7 +840,10 @@ def complete_managed_tool_cell(
             raise RunValidationError(
                 "managed provider served model differs from frozen registry"
             )
-        if provider == "openai" and service_tier != "flex":
+        if (
+            requests_flex_service_tier(provider, entry.model_id)
+            and service_tier != "flex"
+        ):
             raise RunValidationError(
                 "managed OpenAI response did not use requested Flex service tier"
             )
@@ -847,7 +864,7 @@ def complete_managed_tool_cell(
             "thoughts_tokens": str(thoughts_tokens),
             **verification.to_metadata(),
         }
-        if provider == "openai":
+        if requests_flex_service_tier(provider, entry.model_id):
             metadata.update(
                 {
                     "requested_service_tier": "flex",

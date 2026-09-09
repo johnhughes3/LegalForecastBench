@@ -236,7 +236,12 @@ def managed_result_from_transcript(
         {"finish_reason": finish_reason}, provider=provider
     )
     require_publishable_response_metadata(verification.to_metadata())
-    service_tier = _service_tier(responses, provider=provider)
+    service_tier = _service_tier(
+        responses,
+        provider="openai"
+        if managed_execution.requests_flex_service_tier(provider, entry.model_id)
+        else provider,
+    )
 
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
     if provider == "vercel_ai_gateway":

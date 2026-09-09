@@ -13,6 +13,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 VERCEL_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
 _GATEWAY_ROUTE_PROVIDERS = {
+    "openai/gpt-5.6-sol": "openai",
     "moonshotai/kimi-k3": "deepinfra",
     "meta/muse-spark-1.3": "meta",
     "meta/muse-spark-1.3-contributor": "meta",

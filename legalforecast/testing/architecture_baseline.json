@@ -1321,7 +1321,7 @@
         "largest_symbol": "complete_managed_tool_cell",
         "largest_symbol_lines": 235,
         "layer": "application",
-        "line_count": 1004,
+        "line_count": 1021,
         "nonblank_line_count": 910,
         "top_level_definition_count": 28
       },
@@ -1790,7 +1790,7 @@
         "largest_symbol": "test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools",
         "largest_symbol_lines": 162,
         "layer": "test",
-        "line_count": 1462,
+        "line_count": 1499,
         "nonblank_line_count": 1325,
         "top_level_definition_count": 31
       },

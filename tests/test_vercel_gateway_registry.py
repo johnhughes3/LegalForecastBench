@@ -175,3 +175,20 @@ def test_muse_contributor_and_sonnet_are_deferred_and_not_executable() -> None:
     assert "meta/muse-spark-1.3-contributor" not in {
         entry.model_id for entry in registry.entries
     }
+
+
+def test_sol_gateway_registry_selects_managed_tools_and_openai_route() -> None:
+    from legalforecast.runner.managed_execution import uses_managed_document_tools
+
+    registry = load_model_registry(
+        REGISTRY_DIR / "cycle-1-official-gpt-5.6-sol-gateway-2026-09-09.json"
+    )
+    (entry,) = registry.entries
+    assert entry.registry_key == "vercel_ai_gateway:openai/gpt-5.6-sol"
+    assert uses_managed_document_tools(entry)
+    assert gateway_request_extra_body(entry.model_id) == {
+        "providerOptions": {"gateway": {"only": ["openai"]}}
+    }
+    assert entry.reasoning_effort is not None
+    assert entry.reasoning_effort.value == "high"
+    assert (entry.input_token_price, entry.output_token_price) == (1.0, 5.0)
