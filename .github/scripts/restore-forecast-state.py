@@ -13,6 +13,10 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from legalforecast.runner.transcript_candidate import (
+    has_terminal_transcript_candidate,
+)
+
 _ALLOWED_FILES = {
     "failure-summary.json",
     "ledger.sqlite3",
@@ -255,47 +259,7 @@ def _has_transcript_recovery(root: Path, cell_id: str) -> bool:
         raw = expected.read_bytes()
     except OSError:
         return False
-    try:
-        value = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        # A damaged artifact that still resembles a terminal transcript must
-        # fail closed in the recovery validator instead of being treated as an
-        # ordinary retry that could duplicate a provider call.
-        return bool(
-            re.search(rb'"agent_status"\s*:\s*"(?:succeeded|failed)"', raw)
-            and re.search(rb'"messages"\s*:\s*\[\s*\{', raw)
-            and re.search(rb'"tool_name"\s*:\s*"final_result"', raw)
-        )
-    return _has_terminal_result_candidate(value)
-
-
-def _has_terminal_result_candidate(value: object) -> bool:
-    """Recognize a nonempty SDK history containing a final-result tool call."""
-
-    if not isinstance(value, dict) or value.get("agent_status") not in {
-        "succeeded",
-        "failed",
-    }:
-        return False
-    messages = value.get("messages")
-    if not isinstance(messages, list) or not messages:
-        return False
-    # Native structured output (for example Anthropic) has no final_result
-    # tool call. Successful SDK histories still pass the strict recovery parser.
-    if value.get("agent_status") == "succeeded":
-        return True
-    return any(
-        isinstance(message, dict)
-        and message.get("kind") == "response"
-        and isinstance(parts := message.get("parts"), list)
-        and any(
-            isinstance(part, dict)
-            and part.get("part_kind") == "tool-call"
-            and part.get("tool_name") == "final_result"
-            for part in parts
-        )
-        for message in messages
-    )
+    return has_terminal_transcript_candidate(raw)
 
 
 def _validate_source_transcript_recovery_state(root: Path, cell_id: str) -> None:

@@ -239,6 +239,7 @@ def build_protected_recovery_plan(
         held = _number(attempt, "reservation_microusd")
         successor_of_local = (
             status == "reserved"
+            and cell.terminal_response is None
             and "transport_started_at_epoch" not in attempt
             and cell.local_attempt_id is not None
             and _optional_text(attempt, "acknowledged_attempt_id")

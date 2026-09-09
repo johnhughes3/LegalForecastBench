@@ -883,6 +883,40 @@ def test_protected_recovery_apply_prepares_each_incomplete_cell_once() -> None:
     ] == _n(2)
 
 
+def test_recovery_does_not_settle_successor_with_predecessor_response() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _recovery_run(cap_microusd=500)
+    authority = _recovery_authority(runner, recovery)
+    cell = _recovery_cell("failed")
+    lease = authority.authorize_attempt(
+        recovery.spend_key(cell), reservation_microusd=100
+    )
+    authority.record_failure(lease, failure_type="TimeoutError", ambiguous=True)
+    apply_protected_recovery(
+        recovery,
+        (_recovery_cell("failed", attempt_id=lease.attempt_id),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+    before = deepcopy(runner.items)
+    old_response = TerminalResponseEvidence(
+        transcript_sha256="a" * 64,
+        input_tokens=10,
+        output_tokens=2,
+        billed_microusd=20,
+        response_sha256="b" * 64,
+    )
+    plan = build_protected_recovery_plan(
+        recovery,
+        (_recovery_cell("failed", attempt_id=lease.attempt_id, terminal=old_response),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+    assert not plan.dispatch_safe
+    assert "local and latest remote attempts differ" in plan.blocked_reasons[0]
+    assert runner.items == before
+
+
 def test_protected_recovery_reconciles_terminal_evidence_before_reserving() -> None:
     runner = InMemoryDynamoRunner()
     recovery = _recovery_run(cap_microusd=100)

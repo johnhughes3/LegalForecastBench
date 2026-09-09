@@ -10,6 +10,7 @@ import shutil
 import sqlite3
 import tempfile
 from collections.abc import Mapping
+from contextlib import closing
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 from zipfile import BadZipFile, ZipFile
@@ -23,6 +24,7 @@ from legalforecast.evals.provider_spend_attempt_handler import (
     conservative_reservation_microusd,
 )
 from legalforecast.evals.provider_spend_dynamodb import AwsCliDynamoCommandRunner
+from legalforecast.release.consumer import load_forecast_run_inputs
 from legalforecast.runner.ledger import RunnerLedger, RunValidationError
 from legalforecast.runner.managed_transcript_recovery import (
     managed_result_from_transcript,
@@ -36,6 +38,7 @@ from legalforecast.runner.protected_recovery import (
     terminal_response_evidence,
 )
 from legalforecast.runner.recovery import GhRecoveryClient
+from legalforecast.runner.transcript_candidate import has_terminal_transcript_candidate
 
 
 def main() -> int:
@@ -193,7 +196,12 @@ def _load_evidence(
     identity_sha256 = _text(frozen.get("run_identity_sha256"), "run identity")
     account = _text(frozen.get("account"), "provider account")
     ceiling = _positive_int(frozen.get("ceiling_microusd"), "provider ceiling")
-    cycle_id = _cycle_id(_text(frozen.get("manifest_uri"), "manifest URI"))
+    frozen_inputs = load_forecast_run_inputs(
+        inputs / "run-manifest.json",
+        inputs / "forecast-release.json",
+        artifact_root=inputs / "artifacts",
+    )
+    cycle_id = frozen_inputs.execution.release.release_id
     run = RecoveryRun(
         source_run_id=run_id,
         source_run_attempt=run_attempt,
@@ -222,6 +230,7 @@ def _load_evidence(
         model_key=model_key,
         account=account,
         ceiling=ceiling,
+        release_digest=frozen_inputs.execution.release.release_digest,
     )
     if len(cells) != expected_count:
         raise SystemExit(
@@ -252,22 +261,88 @@ def _load_cells(
     model_key: str,
     account: str,
     ceiling: int,
+    release_digest: str,
 ) -> tuple[RecoveryCell, ...]:
+    # Setup failures legitimately have no runner ledger. Recover their settings
+    # from a validated sibling instead of inventing a harness or creating a DB.
+    directories = sorted(
+        state_root.iterdir(),
+        key=lambda path: int(path.name.rsplit("-attempt-", 1)[-1]),
+        reverse=True,
+    )
+    stage: str | None = None
+    ablation: str | None = None
+    for directory in directories:
+        ledger_path = directory / "ledger.sqlite3"
+        if not ledger_path.is_file() or ledger_path.is_symlink():
+            continue
+        try:
+            with RunnerLedger(ledger_path, state_only_provider_attempts=True) as ledger:
+                binding = ledger.read_run_binding()
+        except (ValueError, sqlite3.Error):
+            continue
+        if (
+            binding.identity_sha256 != run_identity_sha256
+            or binding.model_key != model_key
+            or binding.model_registry_sha256 != registry_digest
+            or binding.model_registry_entry_sha256 != registry_entry_digest
+            or binding.ceiling_microusd != ceiling
+            or binding.release_digest != release_digest
+        ):
+            raise SystemExit("source ledger differs from frozen run")
+        identity = _object(json.loads(binding.identity_json), "run identity")
+        if identity.get("account") != account:
+            raise SystemExit("source ledger account differs from frozen run")
+        stage = binding.harness
+        ablation = _text(identity.get("ablation"), "run ablation")
+        break
+    if stage is None or ablation is None:
+        raise SystemExit("no source ledger establishes the frozen harness")
     candidates: dict[str, list[RecoveryCell]] = {}
-    for directory in sorted(state_root.iterdir(), reverse=True):
+    for directory in directories:
         if not directory.is_dir() or directory.is_symlink():
             raise SystemExit("materialized state artifact is unsafe")
         state = _read_object(directory / "state.json")
         cell_id = _text(state.get("cell_id"), "state cell ID")
         status = state.get("status")
-        if status == "completed":
-            candidates.setdefault(cell_id, []).append(
-                RecoveryCell(cell_id, "native", "none", 1, completed=True)
-            )
-            continue
         failure_path = directory / "failure-summary.json"
         failure = _read_object(failure_path) if failure_path.is_file() else state
         ledger_path = directory / "ledger.sqlite3"
+        transcript = directory / "transcripts" / f"{cell_id}.json"
+        # A missing ledger, or the workflow's minimal failure-only ledger,
+        # means no local provider attempt was created. Remote state is checked
+        # by the protected planner before it permits any new call.
+        has_run_binding = False
+        if ledger_path.is_file() and not ledger_path.is_symlink():
+            with closing(
+                sqlite3.connect(f"file:{ledger_path}?mode=ro", uri=True)
+            ) as connection:
+                has_run_binding = (
+                    connection.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' "
+                        "AND name='public_runner_run'"
+                    ).fetchone()
+                    is not None
+                )
+                if has_run_binding:
+                    has_run_binding = (
+                        connection.execute(
+                            "SELECT 1 FROM public_runner_run LIMIT 1"
+                        ).fetchone()
+                        is not None
+                    )
+        if not has_run_binding and not transcript.exists() and status != "completed":
+            candidates.setdefault(cell_id, []).append(
+                RecoveryCell(
+                    cell_id,
+                    stage,
+                    ablation,
+                    _positive_int(
+                        failure.get("repeat_index", 1), "failure repeat index"
+                    ),
+                )
+            )
+            continue
         try:
             with RunnerLedger(ledger_path, state_only_provider_attempts=True) as ledger:
                 binding = ledger.read_run_binding()
@@ -277,30 +352,56 @@ def _load_cells(
                     or binding.model_registry_sha256 != registry_digest
                     or binding.model_registry_entry_sha256 != registry_entry_digest
                     or binding.ceiling_microusd != ceiling
+                    or binding.release_digest != release_digest
                 ):
                     raise RunValidationError("cell ledger differs from frozen identity")
                 identity = _object(json.loads(binding.identity_json), "run identity")
                 if identity.get("account") != account:
                     raise RunValidationError("cell ledger account differs")
-                cell = ledger.read_cell_for_recovery(cell_id)
+                try:
+                    cell = ledger.read_cell_for_recovery(cell_id)
+                except RunValidationError:
+                    if not transcript.exists() and status != "completed":
+                        candidates.setdefault(cell_id, []).append(
+                            RecoveryCell(
+                                cell_id,
+                                stage,
+                                ablation,
+                                _positive_int(
+                                    failure.get("repeat_index", 1),
+                                    "failure repeat index",
+                                ),
+                            )
+                        )
+                        continue
+                    raise
                 terminal = None
-                transcript = directory / "transcripts" / f"{cell_id}.json"
                 if transcript.is_file() and not transcript.is_symlink():
-                    result = managed_result_from_transcript(
-                        transcript, entry=entry, cell=cell
-                    )
+                    try:
+                        result = managed_result_from_transcript(
+                            transcript, entry=entry, cell=cell
+                        )
+                    except ValueError as exc:
+                        if has_terminal_transcript_candidate(transcript.read_bytes()):
+                            raise RunValidationError(
+                                f"terminal transcript requires repair: {exc}"
+                            ) from exc
+                        result = None  # Interrupted histories can safely be retried.
                     # Use the same shared cost projection as live settlement.
                     from legalforecast.runner.managed_execution import (
                         _managed_result_cost,
                     )
 
-                    terminal = terminal_response_evidence(
-                        transcript_bytes=transcript.read_bytes(),
-                        input_tokens=result.input_tokens,
-                        output_tokens=result.output_tokens,
-                        estimated_cost_usd=_managed_result_cost(entry, result=result),
-                        raw_output=result.raw_output,
-                    )
+                    if result is not None:
+                        terminal = terminal_response_evidence(
+                            transcript_bytes=transcript.read_bytes(),
+                            input_tokens=result.input_tokens,
+                            output_tokens=result.output_tokens,
+                            estimated_cost_usd=_managed_result_cost(
+                                entry, result=result
+                            ),
+                            raw_output=result.raw_output,
+                        )
                 candidates.setdefault(cell_id, []).append(
                     RecoveryCell(
                         cell_id=cell_id,
@@ -309,16 +410,17 @@ def _load_cells(
                         repeat_index=cell.repeat_index,
                         local_attempt_id=cell.provider_attempt_id,
                         terminal_response=terminal,
+                        completed=status == "completed" and cell.status == "completed",
                     )
                 )
         except (OSError, ValueError, sqlite3.Error, RunValidationError) as exc:
             candidates.setdefault(cell_id, []).append(
                 RecoveryCell(
                     cell_id=cell_id,
-                    stage="native",
-                    ablation=_text(failure.get("ablation"), "failure ablation"),
+                    stage=stage,
+                    ablation=ablation,
                     repeat_index=_positive_int(
-                        failure.get("repeat_index"), "failure repeat index"
+                        failure.get("repeat_index", 1), "failure repeat index"
                     ),
                     evidence_error=str(exc),
                 )
@@ -335,13 +437,6 @@ def _load_cells(
         )
         selected.append(usable)
     return tuple(sorted(selected, key=lambda cell: cell.cell_id))
-
-
-def _cycle_id(uri: str) -> str:
-    parts = uri.rstrip("/").split("/")
-    if len(parts) < 3 or not parts[-3]:
-        raise SystemExit("manifest URI does not contain a release ID")
-    return parts[-3]
 
 
 def _read_object(path: Path) -> dict[str, Any]:

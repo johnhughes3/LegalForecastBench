@@ -334,17 +334,17 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.5",
-        "fan_in": 1,
+        "fan_in": 2,
         "fan_out": 1,
         "flags": [
           "monolith"
         ],
         "lane_owner": "evals",
         "largest_symbol": "DynamoDbProviderSpendAuthority",
-        "largest_symbol_lines": 2211,
+        "largest_symbol_lines": 2230,
         "layer": "application",
-        "line_count": 2438,
-        "nonblank_line_count": 2325,
+        "line_count": 2457,
+        "nonblank_line_count": 2344,
         "top_level_definition_count": 20
       },
       "legalforecast/evals/response_verification.py": {
@@ -1342,6 +1342,40 @@
         "nonblank_line_count": 529,
         "top_level_definition_count": 10
       },
+      "legalforecast/runner/protected_recovery.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "root",
+        "fan_in": 0,
+        "fan_out": 3,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "build_protected_recovery_plan",
+        "largest_symbol_lines": 229,
+        "layer": "application",
+        "line_count": 690,
+        "nonblank_line_count": 626,
+        "top_level_definition_count": 21
+      },
+      "legalforecast/runner/recovery.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "root",
+        "fan_in": 2,
+        "fan_out": 1,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "build_recovery_plan",
+        "largest_symbol_lines": 180,
+        "layer": "application",
+        "line_count": 832,
+        "nonblank_line_count": 735,
+        "top_level_definition_count": 30
+      },
       "legalforecast/runner/service.py": {
         "cycle_id": "",
         "disposition_kind": "planned-seam",
@@ -2185,15 +2219,15 @@
         "fan_in": 0,
         "fan_out": 0,
         "flags": [
-          "oversized"
+          "monolith"
         ],
         "lane_owner": "tests",
         "largest_symbol": "InMemoryDynamoRunner",
         "largest_symbol_lines": 153,
         "layer": "test",
-        "line_count": 1702,
-        "nonblank_line_count": 1489,
-        "top_level_definition_count": 52
+        "line_count": 2066,
+        "nonblank_line_count": 1816,
+        "top_level_definition_count": 63
       },
       "tests/test_public_runner.py": {
         "cycle_id": "",
