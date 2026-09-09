@@ -6,6 +6,8 @@ positional arguments:
                    fixture.
     execute        Execute or resume exact cells from an outcome-blinded
                    forecast release.
+    resume         Recover completed cells from a prior official run and retry
+                   only incomplete cells.
 
 options:
   -h, --help       show this help message and exit

@@ -24,6 +24,9 @@
     ],
     "tests/test_harvey_lab_evaluator.py": [
       "hashlib"
+    ],
+    "tests/test_resume_cli.py": [
+      "hashlib"
     ]
   },
   "entry_point_names": [
@@ -112,12 +115,14 @@
     "tests/test_package_import_order.py",
     "tests/test_package_skeleton.py",
     "tests/test_pdf_extractor_pin.py",
+    "tests/test_protected_recovery_workflow.py",
     "tests/test_provider_baselines.py",
     "tests/test_provider_spend_control.py",
     "tests/test_public_boundary_fences.py",
     "tests/test_public_release_coherence.py",
     "tests/test_publish_package_workflow.py",
     "tests/test_readme_landing.py",
+    "tests/test_recovery_artifact_loader.py",
     "tests/test_release_check.py",
     "tests/test_scripts_docs.py",
     "tests/test_stable_score_timestamps.py",
