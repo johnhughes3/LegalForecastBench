@@ -237,7 +237,13 @@ def _validate_source_completed_state(
 
 
 def _has_transcript_recovery(root: Path, cell_id: str) -> bool:
-    """Return whether a failed source contains the exact optional transcript."""
+    """Return whether a failed source has a terminal-result transcript candidate.
+
+    This is only the archive-selection check.  The current run's recovery
+    validator still parses the complete SDK history and verifies the prompt,
+    tool pairing, forecast envelope, provider identity, and usage before it
+    installs a replay payload.
+    """
 
     transcripts = root / "transcripts"
     if not transcripts.is_dir() or transcripts.is_symlink():
@@ -252,10 +258,40 @@ def _has_transcript_recovery(root: Path, cell_id: str) -> bool:
     try:
         value = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError):
-        # A damaged artifact that still claims success must fail closed in the
-        # recovery validator instead of being treated as an ordinary retry.
-        return bool(re.search(rb'"agent_status"\s*:\s*"succeeded"', raw))
-    return isinstance(value, dict) and value.get("agent_status") == "succeeded"
+        # A damaged artifact that still resembles a terminal transcript must
+        # fail closed in the recovery validator instead of being treated as an
+        # ordinary retry that could duplicate a provider call.
+        return bool(
+            re.search(rb'"agent_status"\s*:\s*"(?:succeeded|failed)"', raw)
+            and re.search(rb'"messages"\s*:\s*\[\s*\{', raw)
+            and re.search(rb'"tool_name"\s*:\s*"final_result"', raw)
+        )
+    return _has_terminal_result_candidate(value)
+
+
+def _has_terminal_result_candidate(value: object) -> bool:
+    """Recognize a nonempty SDK history containing a final-result tool call."""
+
+    if not isinstance(value, dict) or value.get("agent_status") not in {
+        "succeeded",
+        "failed",
+    }:
+        return False
+    messages = value.get("messages")
+    if not isinstance(messages, list) or not messages:
+        return False
+    return any(
+        isinstance(message, dict)
+        and message.get("kind") == "response"
+        and isinstance(parts := message.get("parts"), list)
+        and any(
+            isinstance(part, dict)
+            and part.get("part_kind") == "tool-call"
+            and part.get("tool_name") == "final_result"
+            for part in parts
+        )
+        for message in messages
+    )
 
 
 def _validate_source_transcript_recovery_state(root: Path, cell_id: str) -> None:

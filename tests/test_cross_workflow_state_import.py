@@ -137,6 +137,23 @@ def _write_state_archive(
     return archive
 
 
+def _terminal_transcript(agent_status: str = "failed") -> bytes:
+    """Build a shape-only transcript with a terminal result tool call."""
+
+    return json.dumps(
+        {
+            "agent_status": agent_status,
+            "messages": [
+                {
+                    "kind": "response",
+                    "parts": [{"part_kind": "tool-call", "tool_name": "final_result"}],
+                }
+            ],
+        },
+        sort_keys=True,
+    ).encode()
+
+
 def test_current_run_attempt_wins_over_external_source_fallback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -298,16 +315,18 @@ def test_source_failure_skips_to_next_explicit_source(
     assert restored["restored_from_attempt"] == 1
 
 
+@pytest.mark.parametrize("agent_status", ["succeeded", "failed"])
 def test_failed_source_with_saved_transcript_is_selected_for_recovery(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, agent_status: str
 ) -> None:
     cell_id = "cell"
+    transcript = _terminal_transcript(agent_status)
     source_archive = _write_state_archive(
         tmp_path / "source",
         run_id="222",
         cell_id=cell_id,
         status="failed",
-        transcript=b'{"agent_status":"succeeded"}\n',
+        transcript=transcript,
         include_receipt=False,
     )
     current_metadata = tmp_path / "current-artifacts.json"
@@ -360,9 +379,7 @@ def test_failed_source_with_saved_transcript_is_selected_for_recovery(
 
     _restore.restore()
 
-    assert (run_root / "transcripts" / f"{cell_id}.json").read_bytes() == (
-        b'{"agent_status":"succeeded"}\n'
-    )
+    assert (run_root / "transcripts" / f"{cell_id}.json").read_bytes() == transcript
     assert json.loads((run_root / "state.json").read_text())["status"] == "restored"
 
 
@@ -376,7 +393,7 @@ def test_restored_failed_source_with_saved_transcript_is_selected_for_recovery(
         cell_id="cell",
         status="restored",
         summary_status="failed",
-        transcript=b'{"agent_status":"succeeded"}\n',
+        transcript=_terminal_transcript("succeeded"),
         include_receipt=False,
     )
 
@@ -422,11 +439,37 @@ def test_failed_source_with_partial_transcript_remains_incomplete(
         run_id="222",
         cell_id="cell",
         status="failed",
-        transcript=b'{"agent_status":"failed","messages":[]}',
+        transcript=json.dumps(
+            {
+                "agent_status": "failed",
+                "messages": [
+                    {
+                        "kind": "response",
+                        "parts": [{"part_kind": "tool-call", "tool_name": "read"}],
+                    }
+                ],
+            }
+        ).encode(),
         include_receipt=False,
     )
     with pytest.raises(_restore.IncompleteSourceState):
         _restore._validate_source_completed_state(root, "openai", "cell", "222", 1)
+
+
+def test_failed_source_with_terminal_result_is_selected_for_recovery(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "state"
+    _write_state_archive(
+        root,
+        run_id="222",
+        cell_id="cell",
+        status="failed",
+        transcript=_terminal_transcript(),
+        include_receipt=False,
+    )
+
+    _restore._validate_source_completed_state(root, "openai", "cell", "222", 1)
 
 
 def test_resume_copies_optional_transcript_bytes_without_parsing_them(
