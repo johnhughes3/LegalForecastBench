@@ -2176,6 +2176,24 @@
         "nonblank_line_count": 644,
         "top_level_definition_count": 15
       },
+      "tests/test_official_provider_workflow.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_rootless_setup_replaces_rootful_backend_and_scrubs_daemon_environment",
+        "largest_symbol_lines": 159,
+        "layer": "test",
+        "line_count": 513,
+        "nonblank_line_count": 480,
+        "top_level_definition_count": 10
+      },
       "tests/test_openai_compatible_provider.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
