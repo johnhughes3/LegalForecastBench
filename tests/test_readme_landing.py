@@ -9,10 +9,7 @@ from typing import TypedDict
 
 import pytest
 from legalforecast.reporting.result_class import (
-    POST_ANCHOR_PUBLIC_LABEL,
     PRE_ANCHOR_PUBLIC_LABEL,
-    ResultClass,
-    result_class_tier_label,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -83,13 +80,14 @@ def test_readme_exposes_governed_result_anchors_without_tier_upgrade() -> None:
     assert "## Preliminary Community Result" in readme
     assert "## Reproducible Community Comparisons" in readme
 
-    assert result_class_tier_label(ResultClass.PRE_ANCHOR) == PRE_ANCHOR_PUBLIC_LABEL
-    assert result_class_tier_label(ResultClass.POST_ANCHOR) == POST_ANCHOR_PUBLIC_LABEL
     assert f"**{PRELIMINARY_LABEL}**" in readme
     assert f"**{REPRODUCIBLE_LABEL}**" in readme
-    for label in (PRE_ANCHOR_PUBLIC_LABEL, POST_ANCHOR_PUBLIC_LABEL):
-        assert f"**{label}**" in readme
-        assert f"**{label}**" in governance
+    result_section = readme.split("## Official Benchmark Results", 1)[1].split(
+        "## ", 1
+    )[0]
+    assert "initial benchmark results" in result_section
+    assert "compiling and validating" in result_section
+    assert not any(line.startswith("|") for line in result_section.splitlines())
 
     assert "No official result is claimed by this README revision" not in readme
     assert NON_AFFILIATION_TEXT in readme

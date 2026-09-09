@@ -4,7 +4,7 @@ This file tracks the model-release anchors used or queued for LegalForecastBench
 
 ## September 2026 comparisons
 
-The repaired 91-case release contains decisions dated June 30 through August 7, 2026. New model comparisons reuse those cases and labels. Release date and provider-reported training cutoff are separate facts: later release dates put a model in the post-anchor arm, while an earlier reported cutoff provides evidence relevant to contamination. Neither a provider cutoff nor a stable API ID is an independent guarantee about training data or unchanged weights.
+The repaired 91-case release contains decisions dated June 30 through August 7, 2026. New model comparisons reuse those cases and labels. Official comparison eligibility follows the documented training cutoff, under the owner's pre-run decision, rather than public release date; see [methods](METHODS.md). Release dates and historical post-anchor assignments remain provenance metadata. Neither a provider cutoff nor a stable API ID is an independent guarantee about training data or unchanged weights.
 
 [Gemini 3.8 Flash](../model_registries/cycle-1-official-gemini-3.8-flash-2026-09-08.json) uses the stable `google:gemini-3.8-flash` ID, high thinking, document tools, and a 65,536-token output limit. Google reports a [March 2026 knowledge cutoff](https://deepmind.google/models/model-cards/gemini-3-8-flash/) and [September 2, 2026 release](https://ai.google.dev/gemini-api/docs/changelog). The cutoff is month-granular; the registry does not invent an exact day. The registry records the introductory pricing expiration and stable-ID limitation.
 
@@ -31,7 +31,7 @@ The current GitHub Actions benchmark workflow takes an explicit model key and re
 
 ## Cycle 1 Late-June Registry
 
-The frozen collection registry is [`model_registries/cycle-1-2026-06-30.json`](model_registries/cycle-1-2026-06-30.json). Its latest first documented external deployment is Claude Sonnet 5 on June 30, 2026, so every Cycle 1 disposition must be entered on or after `2026-06-30` UTC. The June 26 restricted GPT-5.6 API and Codex preview is the first external deployment of the same named Sol, Terra, and Luna family that became generally available on July 9; general availability does not move the contamination anchor.
+The frozen collection registry is [`model_registries/cycle-1-2026-06-30.json`](model_registries/cycle-1-2026-06-30.json). Its latest first documented external deployment is Claude Sonnet 5 on June 30, 2026, which supplied the original collection boundary of `2026-06-30` UTC; the current training-cutoff reporting rule does not change the frozen cohort. The June 26 restricted GPT-5.6 API and Codex preview is the first external deployment of the same named Sol, Terra, and Luna family that became generally available on July 9; general availability does not move the contamination anchor.
 
 | Provider | Model | Registry key | Frozen model ID | Release timestamp | Standard input/output price per MTok at registry freeze |
 | --- | --- | --- | --- | --- | --- |
