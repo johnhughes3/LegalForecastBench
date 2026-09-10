@@ -1,6 +1,7 @@
 [
   {
     "context_limit": 1000000,
+    "cache_read_token_price": 0.25,
     "display_name": "Claude Fable 5.1",
     "input_token_price": 10.0,
     "known_cutoff_publicity_caveats": [
@@ -24,6 +25,7 @@
   },
   {
     "context_limit": 1050000,
+    "cache_read_token_price": 1.0,
     "display_name": "GPT-6 Astra",
     "input_token_price": 10.0,
     "known_cutoff_publicity_caveats": [

@@ -1,13 +1,14 @@
 [
   {
     "context_limit": 1050000,
+    "cache_read_token_price": 0.5,
     "display_name": "GPT-6 Astra Flex",
     "input_token_price": 5.0,
     "known_cutoff_publicity_caveats": [
       "OpenAI reports an April 30, 2026 knowledge cutoff at https://developers.openai.com/api/docs/models/gpt-6-astra, checked 2026-09-08.",
       "This is an official post-anchor comparison against the fixed Cycle 1 corpus. The provider-reported cutoff predates its decisions but is not an independent guarantee against contamination.",
       "Use controlled docket tools and explicit high reasoning with provider-default sampling. The model ID is recorded exactly; runtime compatibility and served identity must be verified before an authorized dispatch.",
-      "This immutable registry is specifically for OpenAI Flex execution. The managed runtime requests service_tier=flex and rejects any response that reports a different tier. The scalar schema records uncached input and output prices; cached-input provenance is retained in pricing_source because the schema has no separate cache rate field."
+      "This immutable registry is specifically for OpenAI Flex execution. The managed runtime requests service_tier=flex and rejects any response that reports a different tier. Cached-input pricing is retained as a separate rate so cache-aware usage can be reconstructed without inferring counts."
     ],
     "long_context_surcharge": {
       "input_price_multiplier": 2.0,

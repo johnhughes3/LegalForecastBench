@@ -106,6 +106,14 @@ def recover_managed_transcript(
                     == hashlib.sha256(legacy_payload_bytes).hexdigest()
                     and cell.response_payload == legacy_payload_bytes
                 )
+            if not matches_legacy_payload:
+                prior_payload = _prior_managed_replay_payload(result, entry=entry)
+                prior_payload_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(prior_payload)
+                matches_legacy_payload = (
+                    cell.response_payload_sha256
+                    == hashlib.sha256(prior_payload_bytes).hexdigest()
+                    and cell.response_payload == prior_payload_bytes
+                )
         if not matches_current_payload and not matches_legacy_payload:
             raise RunValidationError(
                 "existing durable response differs from transcript recovery"
@@ -124,10 +132,10 @@ def recover_managed_transcript(
         provider_attempt_id=cell.provider_attempt_id,
         payload_sha256=persisted_payload_sha256,
         response_sha256=hashlib.sha256(result.raw_output.encode("utf-8")).hexdigest(),
-        estimated_cost_usd=managed_execution._managed_result_cost(
+        estimated_cost_usd=managed_execution._managed_result_cost_evidence(
             entry,
             result=result,
-        ),
+        ).amount_usd,
         result=result,
     )
 
@@ -261,6 +269,7 @@ def managed_result_from_transcript(
         gateway_response_metadata = tuple(metadata_rows)
 
     response_usages: list[tuple[int, int]] = []
+    response_usage_details: list[managed_execution.ManagedResponseUsage] = []
     thoughts_tokens = 0
     for response in responses:
         input_tokens = response.usage.input_tokens
@@ -268,13 +277,25 @@ def managed_result_from_transcript(
         if input_tokens < 0 or output_tokens < 0:
             raise RunValidationError("managed transcript has invalid token usage")
         try:
+            normalized_usage = managed_execution._managed_response_usage(response)
             item_thoughts = managed_execution._response_thoughts_tokens(response)
-        except managed_execution.ManagedToolAgentError as exc:
-            raise RunValidationError(
-                "managed transcript has invalid thought usage"
-            ) from exc
+        except (ValueError, managed_execution.ManagedToolAgentError) as exc:
+            raise RunValidationError("managed transcript has invalid usage") from exc
         response_usages.append((input_tokens, output_tokens))
+        response_usage_details.append(normalized_usage)
         thoughts_tokens += item_thoughts
+    # PydanticAI serializes zero-valued cache fields even when the provider did
+    # not report them. Preserve the old payload shape in that case. A positive
+    # cache or reasoning dimension is retained as evidence because it cannot be
+    # reconstructed safely from aggregate totals.
+    normalized_details = tuple(response_usage_details)
+    if not any(
+        (usage.cache_read_tokens or 0) > 0
+        or (usage.cache_write_tokens or 0) > 0
+        or (usage.reasoning_tokens or 0) > 0
+        for usage in normalized_details
+    ):
+        normalized_details = ()
     input_tokens = sum(item[0] for item in response_usages)
     output_tokens = sum(item[1] for item in response_usages)
     result = managed_execution.ManagedToolAgentResult(
@@ -291,12 +312,13 @@ def managed_result_from_transcript(
         response_usages=tuple(response_usages),
         thoughts_tokens=thoughts_tokens,
         gateway_response_metadata=gateway_response_metadata,
+        response_usage_details=normalized_details,
     )
     try:
-        estimated_cost = managed_execution._managed_result_cost(
+        estimated_cost = managed_execution._managed_result_cost_evidence(
             entry,
             result=result,
-        )
+        ).amount_usd
     except managed_execution.ManagedToolAgentError as exc:
         raise RunValidationError(str(exc)) from exc
     if not math.isfinite(estimated_cost) or estimated_cost < 0:
@@ -313,6 +335,10 @@ def managed_replay_payload(
 
     # Recompute from the per-response usage captured in the transcript so the
     # persisted payload remains derived data rather than a caller-supplied claim.
+    cost_evidence = managed_execution._managed_result_cost_evidence(
+        entry,
+        result=result,
+    )
     payload: dict[str, object] = {
         "raw_output": result.raw_output,
         "request_count": result.request_count,
@@ -326,11 +352,19 @@ def managed_replay_payload(
         "gateway_response_metadata": [
             dict(row) for row in result.gateway_response_metadata
         ],
-        "estimated_cost_usd": managed_execution._managed_result_cost(
-            entry,
-            result=result,
-        ),
+        "estimated_cost_usd": cost_evidence.amount_usd,
     }
+    if result.response_usage_details:
+        payload.update(
+            {
+                "response_usage_details": [
+                    usage.to_record() for usage in result.response_usage_details
+                ],
+                "cost_basis": cost_evidence.basis,
+                "cost_method": cost_evidence.method,
+                "rate_provenance": cost_evidence.rate_provenance,
+            }
+        )
     return payload
 
 
@@ -347,6 +381,37 @@ def _legacy_managed_replay_payload(
         return None
     payload = managed_replay_payload(result, entry=entry)
     payload.pop("gateway_response_metadata", None)
+    return payload
+
+
+def _prior_managed_replay_payload(
+    result: managed_execution.ManagedToolAgentResult,
+    *,
+    entry: ModelRegistryEntry,
+) -> dict[str, object]:
+    """Encode the payload shape from before normalized usage evidence.
+
+    This compatibility projection is used only to compare existing durable
+    bytes. Recovery never replaces those bytes with inferred cache fields.
+    """
+
+    payload = managed_replay_payload(result, entry=entry)
+    # The pre-evidence runner priced every input token at the ordinary input
+    # rate. Recreate that exact legacy amount only for byte comparison; the
+    # durable response remains untouched and is never relabeled as cache-aware.
+    payload["estimated_cost_usd"] = managed_execution._managed_estimated_cost(
+        entry,
+        response_usages=result.response_usages,
+    )
+    for field_name in (
+        "response_usage_details",
+        "cost_basis",
+        "cost_method",
+        "rate_provenance",
+    ):
+        payload.pop(field_name, None)
+    if entry.provider.strip().lower() != "vercel_ai_gateway":
+        payload.pop("gateway_response_metadata", None)
     return payload
 
 

@@ -231,6 +231,12 @@ class ModelRegistryEntry:
     provider_training_cutoff: date | None = None
     known_cutoff_publicity_caveats: tuple[str, ...] = ()
     long_context_surcharge: LongContextSurcharge | None = None
+    # Cache prices are optional because older frozen registries only recorded
+    # the scalar input/output rates. An omitted rate is materially different
+    # from a zero rate: callers must keep cached usage visible and label the
+    # resulting amount as an estimate when no authoritative cache price exists.
+    cache_read_token_price: float | None = None
+    cache_write_token_price: float | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.provider, "provider")
@@ -273,6 +279,12 @@ class ModelRegistryEntry:
         _require_positive_int(self.context_limit, "context_limit")
         _require_non_negative(self.input_token_price, "input_token_price")
         _require_non_negative(self.output_token_price, "output_token_price")
+        if self.cache_read_token_price is not None:
+            _require_non_negative(self.cache_read_token_price, "cache_read_token_price")
+        if self.cache_write_token_price is not None:
+            _require_non_negative(
+                self.cache_write_token_price, "cache_write_token_price"
+            )
 
     @property
     def registry_key(self) -> str:
@@ -324,6 +336,10 @@ class ModelRegistryEntry:
             record["temperature"] = self.temperature
         if self.top_p is not None:
             record["top_p"] = self.top_p
+        if self.cache_read_token_price is not None:
+            record["cache_read_token_price"] = self.cache_read_token_price
+        if self.cache_write_token_price is not None:
+            record["cache_write_token_price"] = self.cache_write_token_price
         if self.reasoning_effort is not None:
             record["reasoning_effort"] = self.reasoning_effort.value
         if self.thinking_level is not None:
@@ -355,6 +371,8 @@ class ModelRegistryEntry:
             pricing_source=_required_str(record, "pricing_source"),
             input_token_price=_required_number(record, "input_token_price"),
             output_token_price=_required_number(record, "output_token_price"),
+            cache_read_token_price=_optional_number(record, "cache_read_token_price"),
+            cache_write_token_price=_optional_number(record, "cache_write_token_price"),
             known_cutoff_publicity_caveats=_optional_string_tuple(
                 record, "known_cutoff_publicity_caveats"
             ),

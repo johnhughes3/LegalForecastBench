@@ -384,6 +384,7 @@ def test_astra_flex_registry_freezes_flex_rates_and_identity() -> None:
     assert entry.registry_key == "openai:gpt-6-astra"
     assert entry.display_name == "GPT-6 Astra Flex"
     assert (entry.input_token_price, entry.output_token_price) == (5.0, 25.0)
+    assert entry.cache_read_token_price == 0.5
     assert entry.reasoning_effort is not None
     assert entry.reasoning_effort.value == "high"
     assert entry.long_context_surcharge is not None
@@ -422,3 +423,33 @@ def test_astra_flex_live_request_and_managed_estimate_use_flex_rates() -> None:
         )
         == 0.03
     )
+
+
+def test_registry_round_trips_optional_cache_rates() -> None:
+    entry = ModelRegistryEntry.from_record(
+        {
+            "provider": "openai",
+            "model_id": "gpt-6-astra",
+            "display_name": "GPT-6 Astra",
+            "model_version_or_snapshot": "gpt-6-astra",
+            "provider_training_cutoff_status": "unknown",
+            "max_output_tokens": 128000,
+            "network_disabled": True,
+            "search_disabled": True,
+            "tool_policy": "controlled_docket_tool_only",
+            "context_limit": 1050000,
+            "pricing_source": "frozen provider pricing table",
+            "input_token_price": 5.0,
+            "output_token_price": 25.0,
+            "cache_read_token_price": 0.5,
+            "cache_write_token_price": 0.5,
+            "known_cutoff_publicity_caveats": [],
+        }
+    )
+
+    record = entry.to_record()
+    assert record["cache_read_token_price"] == 0.5
+    assert record["cache_write_token_price"] == 0.5
+    restored = ModelRegistryEntry.from_record(record)
+    assert restored.cache_read_token_price == 0.5
+    assert restored.cache_write_token_price == 0.5
