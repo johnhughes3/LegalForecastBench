@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -36,6 +35,7 @@ from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.usage import RunUsage, UsageLimits
 
+import legalforecast.runner.managed_cost as _managed_cost
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.evals.live_model_solver import (
     OPENAI_FLEX_TIMEOUT_SECONDS,
@@ -72,15 +72,53 @@ from legalforecast.runner.managed_anthropic import (
 from legalforecast.runner.managed_anthropic import (
     anthropic_model_settings as _anthropic_model_settings,
 )
+from legalforecast.runner.managed_cost import (
+    ManagedCostEvidence,
+    ManagedResponseUsage,
+    ManagedToolAgentError,
+)
+from legalforecast.runner.managed_cost import (
+    managed_payload_cost_evidence as _managed_payload_cost_evidence,
+)
+from legalforecast.runner.managed_cost import (
+    managed_result_cost_evidence as _managed_result_cost_evidence,
+)
+from legalforecast.runner.managed_prompt import (
+    managed_initial_prompt as _managed_initial_prompt,
+)
+from legalforecast.runner.managed_usage import (
+    managed_optional_int as _managed_optional_int,
+)
+from legalforecast.runner.managed_usage import (
+    managed_optional_response_usage_details as _managed_optional_response_usage_details,
+)
+from legalforecast.runner.managed_usage import (
+    managed_optional_str as _managed_optional_str,
+)
+from legalforecast.runner.managed_usage import (
+    managed_required_float as _managed_required_float,
+)
+from legalforecast.runner.managed_usage import (
+    managed_required_int as _managed_required_int,
+)
+from legalforecast.runner.managed_usage import (
+    managed_required_str as _managed_required_str,
+)
+from legalforecast.runner.managed_usage import (
+    managed_response_usage as _managed_response_usage,
+)
+from legalforecast.runner.managed_usage import (
+    response_thoughts_tokens as _response_thoughts_tokens,
+)
+
+# Preserve private module attributes used by older recovery integrations.
+_managed_estimated_cost = _managed_cost.managed_estimated_cost
+_managed_result_cost = _managed_cost.managed_result_cost
 
 # Long briefing records can require dozens of sequential document reads.
 # Keep a bounded SDK run while allowing room to finish the forecast afterward.
 MAX_AGENT_REQUESTS = 128
 MAX_AGENT_TOOL_CALLS = 96
-
-
-class ManagedToolAgentError(RuntimeError):
-    """The managed official agent did not produce a publishable result."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -258,6 +296,7 @@ class ManagedToolAgentResult:
     response_usages: tuple[tuple[int, int], ...]
     thoughts_tokens: int = 0
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
+    response_usage_details: tuple[ManagedResponseUsage, ...] = ()
 
 
 def run_managed_tool_agent(
@@ -509,12 +548,18 @@ def _managed_result_from_run(
                 raise ManagedToolAgentError(str(exc)) from exc
         gateway_response_metadata = tuple(metadata_rows)
     response_usages: list[tuple[int, int]] = []
+    response_usage_details: list[ManagedResponseUsage] = []
     thoughts_tokens = 0
     for item in responses:
         input_tokens = item.usage.input_tokens
         output_tokens = item.usage.output_tokens
+        try:
+            normalized_usage = _managed_response_usage(item)
+        except ValueError as exc:
+            raise ManagedToolAgentError(str(exc)) from exc
         item_thoughts = _response_thoughts_tokens(item)
         response_usages.append((input_tokens, output_tokens))
+        response_usage_details.append(normalized_usage)
         thoughts_tokens += item_thoughts
     return ManagedToolAgentResult(
         raw_output=result.output.model_dump_json(),
@@ -528,6 +573,7 @@ def _managed_result_from_run(
         response_usages=tuple(response_usages),
         thoughts_tokens=thoughts_tokens,
         gateway_response_metadata=gateway_response_metadata,
+        response_usage_details=tuple(response_usage_details),
     )
 
 
@@ -746,7 +792,7 @@ def complete_managed_tool_cell(
             raise ManagedToolAgentError(
                 "managed official agent returned without reading case documents"
             )
-        estimated_cost_usd = _managed_result_cost(entry, result=result)
+        cost_evidence = _managed_result_cost_evidence(entry, result=result)
         return {
             "raw_output": result.raw_output,
             "request_count": result.request_count,
@@ -760,7 +806,13 @@ def complete_managed_tool_cell(
             "gateway_response_metadata": [
                 dict(row) for row in result.gateway_response_metadata
             ],
-            "estimated_cost_usd": estimated_cost_usd,
+            "response_usage_details": [
+                usage.to_record() for usage in result.response_usage_details
+            ],
+            "cost_basis": cost_evidence.basis,
+            "cost_method": cost_evidence.method,
+            "rate_provenance": cost_evidence.rate_provenance,
+            "estimated_cost_usd": cost_evidence.amount_usd,
         }
 
     if handler.replayable_response is not None:
@@ -792,6 +844,10 @@ def complete_managed_tool_cell(
         service_tier = _managed_required_str(payload, "service_tier")
         thoughts_tokens = _managed_optional_int(payload, "thoughts_tokens")
         estimated_cost = _managed_required_float(payload, "estimated_cost_usd")
+        usage_details = _managed_optional_response_usage_details(payload)
+        cost_basis = _managed_optional_str(payload, "cost_basis")
+        cost_method = _managed_optional_str(payload, "cost_method")
+        rate_provenance = _managed_optional_str(payload, "rate_provenance")
         gateway_metadata: tuple[Mapping[str, str], ...] = ()
         if provider == "vercel_ai_gateway":
             raw_gateway_metadata = payload.get("gateway_response_metadata")
@@ -876,6 +932,43 @@ def complete_managed_tool_cell(
                 list(gateway_metadata), sort_keys=True, separators=(",", ":")
             )
             metadata["gateway_route_provider"] = gateway_route_provider(entry.model_id)
+        cost_evidence = _managed_payload_cost_evidence(
+            entry,
+            estimated_cost=estimated_cost,
+            usage_details=usage_details,
+            gateway_metadata=gateway_metadata,
+            cost_basis=cost_basis,
+            cost_method=cost_method,
+            rate_provenance=rate_provenance,
+            raw_output=raw_output,
+            request_count=request_count,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            served_model=served_model,
+            finish_reason=finish_reason,
+            service_tier=service_tier,
+            thoughts_tokens=thoughts_tokens,
+        )
+        estimated_cost = cost_evidence.amount_usd
+        metadata.update(
+            {
+                "cost_basis": cost_evidence.basis,
+                "cost_method": cost_evidence.method,
+                "rate_provenance": cost_evidence.rate_provenance,
+                "reasoning_tokens": str(
+                    sum((usage.reasoning_tokens or 0) for usage in usage_details)
+                )
+                if usage_details
+                else str(thoughts_tokens),
+                "response_usage_details": json.dumps(
+                    [usage.to_record() for usage in usage_details],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                if usage_details
+                else "not_reported",
+            }
+        )
         if provider == "anthropic":
             metadata.update(
                 {
@@ -909,107 +1002,11 @@ def complete_managed_tool_cell(
     )
 
 
-def _managed_initial_prompt(managed_case: ManagedCaseInput) -> str:
-    return json.dumps(
-        {
-            "case_id": managed_case.case_id,
-            "task": "forecast_motion_to_dismiss",
-            "prediction_units": list(managed_case.unit_descriptions),
-            "documents": list(managed_case.document_descriptions),
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-
-
-def _managed_required_str(payload: Mapping[str, object], field_name: str) -> str:
-    value = payload.get(field_name)
-    if not isinstance(value, str) or not value:
-        raise RunValidationError(f"managed response field is invalid: {field_name}")
-    return value
-
-
-def _managed_required_int(
-    payload: Mapping[str, object], field_name: str, *, positive: bool = False
-) -> int:
-    value = payload.get(field_name)
-    minimum = 1 if positive else 0
-    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
-        raise RunValidationError(f"managed response field is invalid: {field_name}")
-    return value
-
-
-def _managed_estimated_cost(
-    entry: ModelRegistryEntry,
-    *,
-    response_usages: Sequence[tuple[int, int]],
-) -> float:
-    total = 0.0
-    for input_tokens, output_tokens in response_usages:
-        input_price = entry.input_token_price
-        output_price = entry.output_token_price
-        surcharge = entry.long_context_surcharge
-        if surcharge is not None and input_tokens > surcharge.threshold_input_tokens:
-            input_price *= surcharge.input_price_multiplier
-            output_price *= surcharge.output_price_multiplier
-        total += (input_tokens * input_price) + (output_tokens * output_price)
-    return total / 1_000_000
-
-
-def _managed_result_cost(
-    entry: ModelRegistryEntry,
-    *,
-    result: ManagedToolAgentResult,
-) -> float:
-    """Use Gateway's charged amount when available, otherwise registry pricing."""
-
-    if entry.provider.strip().lower() == "vercel_ai_gateway":
-        if not result.gateway_response_metadata:
-            raise ManagedToolAgentError(
-                "managed Gateway response omitted response metadata"
-            )
-        try:
-            return gateway_total_cost_usd(result.gateway_response_metadata)
-        except ValueError as exc:
-            raise ManagedToolAgentError(str(exc)) from exc
-    return _managed_estimated_cost(entry, response_usages=result.response_usages)
-
-
-def _response_thoughts_tokens(response: ModelResponse) -> int:
-    """Return Gemini reasoning tokens retained in PydanticAI usage details."""
-
-    value = cast(object, response.usage.details.get("thoughts_tokens", 0))
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise ManagedToolAgentError(
-            "provider response has invalid thoughts token usage"
-        )
-    return value
-
-
-def _managed_required_float(payload: Mapping[str, object], field_name: str) -> float:
-    value = payload.get(field_name)
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or value < 0
-    ):
-        raise RunValidationError(f"managed response field is invalid: {field_name}")
-    return float(value)
-
-
-def _managed_optional_int(payload: Mapping[str, object], field_name: str) -> int:
-    """Read an optional non-negative integer for replay compatibility."""
-
-    value = payload.get(field_name, 0)
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise RunValidationError(f"managed response field is invalid: {field_name}")
-    return value
-
-
 __all__ = [
     "ForecastEnvelope",
     "ManagedCaseInput",
+    "ManagedCostEvidence",
+    "ManagedResponseUsage",
     "ManagedToolAgentDeps",
     "ManagedToolAgentError",
     "ManagedToolAgentResult",
