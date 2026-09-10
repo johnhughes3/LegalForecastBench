@@ -88,6 +88,20 @@ class ContaminationTierRow:
                 "provider_training_cutoff must be omitted when cutoff status is "
                 "not known"
             )
+        if (
+            self.provider_training_cutoff_status is not TrainingCutoffStatus.KNOWN
+            and self.contamination_tier is not ContaminationTier.PRELIMINARY
+        ):
+            raise ValueError(
+                "a model without a known training cutoff must remain preliminary"
+            )
+        if (
+            self.provider_training_cutoff_status is TrainingCutoffStatus.KNOWN
+            and self.classification_reason is ContaminationTierReason.CUTOFF_NOT_KNOWN
+        ):
+            raise ValueError(
+                "a known training cutoff cannot use the cutoff-not-known reason"
+            )
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -158,6 +172,19 @@ class ContaminationTierSidecar:
         seen: set[str] = set()
         duplicates: set[str] = set()
         for row in self.rows:
+            expected = classify_contamination_tier(
+                provider_training_cutoff_status=row.provider_training_cutoff_status,
+                provider_training_cutoff=row.provider_training_cutoff,
+                contamination_boundary=self.contamination_boundary,
+            )
+            if (
+                row.contamination_tier is not expected.tier
+                or row.classification_reason is not expected.reason
+            ):
+                raise ValueError(
+                    "contamination-tier sidecar row does not match its cutoff "
+                    f"evidence: {row.model_id}"
+                )
             if row.model_id in seen:
                 duplicates.add(row.model_id)
             seen.add(row.model_id)

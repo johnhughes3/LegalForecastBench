@@ -2,12 +2,12 @@
 
 A cycle's *corpus anchor* is the **earliest decision date the cycle scores**.
 
-A pre-anchor row claims the model already existed when the court decided the
-case, so every scored decision must *postdate* the evaluated model's release.
-Turned around, a model may join the pre-anchor set only if it was released on
-or before the earliest decision in the corpus -- that date is the anchor.  A
-model released after it publishes as post-anchor: still an official, viable
-result, but it cannot claim contamination resistance on this corpus.
+A pre-anchor row records that the evaluated model's release predates the corpus
+anchor. Turned around, a model may join that historical release arm only if it
+was released on or before the earliest decision in the corpus. A model released
+after the anchor publishes as post-anchor: still an official, viable result, with
+release timing retained as provenance. This legacy release-arm classification no
+longer determines cutoff-based comparison eligibility.
 
 The classification is mechanical and has no override: it compares the model's
 ``release_timestamp`` against that corpus-derived anchor.  Deriving the anchor
@@ -16,9 +16,8 @@ check non-vacuous -- a registry containing only post-anchor models would
 otherwise supply its own anchor and trivially certify itself as pre-anchor.
 
 For Cycle 1 the corpus decision window closed 2026-06-30 and the frozen
-registry's latest release is 2026-06-26, so the two candidate definitions
-happen to bracket a narrow range; the implementation uses the corpus-derived
-date throughout, and only that date can be trusted when the registry varies.
+registry's latest release is 2026-06-26. Those dates remain useful provenance,
+while cutoff evidence determines whether a row enters the eligible comparison.
 
 This module is a classification overlay in the same spirit as
 ``contamination_tiers``, and the two dimensions are independent.  A model can be

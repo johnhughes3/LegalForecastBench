@@ -174,6 +174,34 @@ def test_sidecar_is_keyed_by_frozen_result_digest_and_is_not_a_schema_family(
         ContaminationTierSidecar.from_record(sidecar_payload)
 
 
+def test_tier_row_refuses_resistant_tier_without_known_cutoff() -> None:
+    with pytest.raises(ValueError, match="must remain preliminary"):
+        ContaminationTierRow(
+            model_id="unknown-cutoff-model",
+            contamination_tier=ContaminationTier.RESISTANT,
+            classification_reason=ContaminationTierReason.CUTOFF_NOT_KNOWN,
+            provider_training_cutoff_status=TrainingCutoffStatus.UNKNOWN,
+        )
+
+
+def test_sidecar_refuses_tier_that_disagrees_with_cutoff_boundary() -> None:
+    row = ContaminationTierRow(
+        model_id="late-cutoff-model",
+        contamination_tier=ContaminationTier.RESISTANT,
+        classification_reason=ContaminationTierReason.KNOWN_CUTOFF_PREDATES_BOUNDARY,
+        provider_training_cutoff_status=TrainingCutoffStatus.KNOWN,
+        provider_training_cutoff=date(2026, 8, 1),
+    )
+
+    with pytest.raises(ValueError, match="does not match its cutoff evidence"):
+        ContaminationTierSidecar(
+            result_digest=_DIGEST_A,
+            cohort_id="cycle-1",
+            contamination_boundary=BOUNDARY,
+            rows=(row,),
+        )
+
+
 def test_reported_label_marks_only_preliminary_rows() -> None:
     tiers = {
         PRELIMINARY_MODEL: ContaminationTier.PRELIMINARY,
