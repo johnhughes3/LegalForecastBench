@@ -34,6 +34,11 @@ ASTRA_FLEX_REGISTRY = (
 HELD_REGISTRY = (
     ROOT / "model_registries" / ("cycle-1-official-held-models-2026-09-08.json")
 )
+CURRENT_SONNET_REGISTRY = (
+    ROOT
+    / "model_registries"
+    / "cycle-1-2026-06-30-claude-sonnet-5-successor-2026-09-10.json"
+)
 
 
 def _registry_record() -> dict[str, object]:
@@ -422,3 +427,28 @@ def test_astra_flex_live_request_and_managed_estimate_use_flex_rates() -> None:
         )
         == 0.03
     )
+
+
+def test_current_sonnet_successor_freezes_provider_limits_and_managed_thinking() -> (
+    None
+):
+    registry = load_model_registry(CURRENT_SONNET_REGISTRY)
+
+    assert len(registry.entries) == 1
+    entry = registry.entries[0]
+    assert entry.registry_key == "anthropic:claude-sonnet-5"
+    assert entry.model_version_or_snapshot == "claude-sonnet-5"
+    assert entry.context_limit == 1_000_000
+    assert entry.max_output_tokens == 128_000
+    assert (entry.input_token_price, entry.output_token_price) == (2.0, 10.0)
+    assert entry.reasoning_effort is None
+    assert entry.temperature is None
+    assert entry.top_p is None
+    assert entry.release_timestamp is not None
+    assert entry.release_timestamp.date() == date(2026, 6, 30)
+    assert require_official_registry_entries(registry.entries) == registry.entries
+
+    settings = managed_execution._anthropic_model_settings(entry)
+    assert settings["max_tokens"] == 128_000
+    assert settings["anthropic_thinking"] == {"type": "adaptive"}
+    assert settings["parallel_tool_calls"] is False
