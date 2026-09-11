@@ -8,6 +8,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.publication.comparison_eligibility import (
+    arm_rank_key,
+    best_model_entry,
+    comparison_badge,
+    comparison_eligibility,
+    ordered_model_entries,
+    supplementary_note,
+)
 from legalforecast.publication.official_report_validation import (
     OfficialBundle,
     load_official_bundle,
@@ -23,7 +31,6 @@ from legalforecast.reporting.result_class import (
     ResultClassError,
     result_class_marker,
     result_class_tier_label,
-    supplementary_caveat_if_needed,
 )
 
 ArtifactLink = tuple[str, str]
@@ -49,6 +56,7 @@ class _TableRow:
     row: Mapping[str, Any]
     score_row: Mapping[str, Any]
     result_class: ResultClass
+    comparison_eligible: bool | None
 
 
 def build_official_report_page(
@@ -85,6 +93,7 @@ def build_official_report_page(
             supplementary_bundle,
             official_cycle_id=_first_str(report, ("cycle_id",)),
             result_classes=result_classes,
+            contamination_tiers=contamination_tiers,
         )
     )
     run_card = validated_bundle.run_card
@@ -98,12 +107,30 @@ def build_official_report_page(
         cycle_power=cycle_power,
     )
     title = _display_title(report)
-    # Headline / overall best stays the best pre-anchor row. Post-anchor rows
-    # rank among themselves; their delta-vs-best is versus the best model in
-    # that arm, never across arms.
-    best_model = _best_model_row(model_rows)
-    model_entries = _official_table_rows(model_rows, score_rows_by_model)
-    baseline_entries = _official_table_rows(baseline_rows, score_rows_by_model)
+    model_entries = _official_table_rows(
+        model_rows,
+        score_rows_by_model,
+        contamination_tiers,
+    )
+    baseline_entries = _official_table_rows(
+        baseline_rows,
+        score_rows_by_model,
+        contamination_tiers,
+    )
+    all_model_entries = (*model_entries, *supplementary_entries)
+    ordered_entries = ordered_model_entries(
+        all_model_entries,
+        contamination_tiers=contamination_tiers,
+    )
+    best_entry = best_model_entry(
+        model_entries,
+        supplementary_entries,
+        contamination_tiers=contamination_tiers,
+    )
+    best_model = None if best_entry is None else best_entry.row
+    has_eligible_model = any(
+        entry.comparison_eligible is True for entry in all_model_entries
+    )
     body = [
         "<a class='skip-link' href='#main-content'>Skip to results</a>",
         "<main id='main-content'>",
@@ -128,16 +155,26 @@ def build_official_report_page(
             prevalence=prevalence,
             run_card=run_card,
             contamination_tiers=contamination_tiers,
+            best_result_class=(None if best_entry is None else best_entry.result_class),
+            no_eligible_model=(
+                contamination_tiers is not None and not has_eligible_model
+            ),
         ),
         "</section>",
         "<section id='results' aria-labelledby='results-title'>",
         "<h2 id='results-title'>Evaluated models</h2>",
         _official_table(
-            (*model_entries, *supplementary_entries),
+            ordered_entries,
             caption="Evaluated model results",
             contamination_tiers=contamination_tiers,
+            cross_bundle_comparison=(
+                contamination_tiers is not None and bool(supplementary_entries)
+            ),
         ),
-        _supplementary_note(supplementary_entries),
+        supplementary_note(
+            supplementary_entries,
+            contamination_tiers=contamination_tiers,
+        ),
         _uncertainty(report, contamination_tiers=contamination_tiers),
         "</section>",
         "<section id='calibration' aria-labelledby='calibration-title'>",
@@ -162,10 +199,13 @@ def build_official_report_page(
         "<section id='interpretation' aria-labelledby='interpretation-title'>",
         "<h2 id='interpretation-title'>How to interpret this result</h2>",
         (
-            "<p><strong>Contamination.</strong> Eligibility is anchored to model "
-            "release dates and decision timing. That design reduces temporal "
-            "contamination risk; it does not prove immunity from memorization, "
-            "pretraining overlap, or other contamination.</p>"
+            "<p><strong>Contamination.</strong> Eligibility requires a documented "
+            "training-data cutoff that strictly predates every scored decision. "
+            "That evidence reduces temporal contamination risk; it does not prove "
+            "immunity from memorization, pretraining overlap, or other contamination. "
+            "Release dates and historical release-arm classifications remain visible "
+            "as provenance. Unknown or overlapping cutoff evidence stays qualified "
+            "and does not enter the eligible comparison.</p>"
         ),
         _preliminary_contamination_note(contamination_tiers),
         (
@@ -225,23 +265,6 @@ def _preliminary_contamination_note(
     return f"<p class='notice'>{html.escape(caveat, quote=False)}</p>"
 
 
-def _supplementary_note(entries: Sequence[_TableRow]) -> str:
-    """Render the dagger footnote, and only when a supplementary row exists.
-
-    It sits directly under the results table rather than in the interpretation
-    section so that the marker and its explanation stay adjacent.
-    """
-
-    caveat = supplementary_caveat_if_needed(entry.result_class for entry in entries)
-    if caveat is None:
-        return ""
-    marker = result_class_marker(ResultClass.POST_ANCHOR)
-    return (
-        "<p class='notice post-anchor-notice'>"
-        f"{html.escape(marker, quote=False)} {html.escape(caveat, quote=False)}</p>"
-    )
-
-
 def _require_official_result_classes(
     rows: Sequence[Mapping[str, Any]],
     result_classes: Mapping[str, ResultClass] | None,
@@ -275,6 +298,7 @@ def _require_official_result_classes(
 def _official_table_rows(
     rows: Sequence[Mapping[str, Any]],
     score_rows_by_model: Mapping[str, Mapping[str, Any]],
+    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
 ) -> tuple[_TableRow, ...]:
     return tuple(
         _TableRow(
@@ -283,6 +307,7 @@ def _official_table_rows(
                 _first_str(row, ("model_id", "model_key", "solver_id"))
             ],
             result_class=ResultClass.PRE_ANCHOR,
+            comparison_eligible=comparison_eligibility(row, contamination_tiers),
         )
         for row in rows
     )
@@ -293,14 +318,16 @@ def _supplementary_table_rows(
     *,
     official_cycle_id: str,
     result_classes: Mapping[str, ResultClass] | None,
+    contamination_tiers: Mapping[str, ContaminationTier] | None,
 ) -> tuple[_TableRow, ...]:
     """Build the post-anchor model rows from a separately aggregated bundle.
 
     Membership in this bundle is what makes a row post-anchor; the sidecar can
     only contradict it, never relabel it pre-anchor, so a missing sidecar cannot
-    silently publish a post-anchor model as pre-anchor. Rows are ordered by
-    micro-Brier then ``model_id`` so they rank within the post-anchor arm and
-    never interleave into the pre-anchor ranking.
+    silently publish a post-anchor model as pre-anchor. Without cutoff evidence,
+    rows retain the historical post-anchor ordering. When cutoff tiers are
+    available, the caller combines both bundles into eligible and qualified
+    comparison groups.
     """
 
     cycle_id = _first_str(bundle.report, ("cycle_id",))
@@ -330,7 +357,7 @@ def _supplementary_table_rows(
         _mapping_rows(bundle.report.get("rows", ()))
     )
     entries: list[_TableRow] = []
-    for row in sorted(model_rows, key=_arm_rank_key):
+    for row in sorted(model_rows, key=arm_rank_key):
         model_id = _required_text(
             row,
             "model_id",
@@ -350,6 +377,7 @@ def _supplementary_table_rows(
                 row=row,
                 score_row=score_row,
                 result_class=ResultClass.POST_ANCHOR,
+                comparison_eligible=comparison_eligibility(row, contamination_tiers),
             )
         )
     return tuple(entries)
@@ -368,44 +396,38 @@ def _partition_official_rows(
     return tuple(models), tuple(baselines)
 
 
-def _arm_rank_key(row: Mapping[str, Any]) -> tuple[float, str]:
-    score = _optional_number(row, "micro_brier")
-    return (
-        score if score is not None else float("inf"),
-        _first_str(row, ("model_id", "model_key", "solver_id")),
-    )
-
-
-def _best_model_row(
-    rows: Sequence[Mapping[str, Any]],
-) -> Mapping[str, Any] | None:
-    scored = [row for row in rows if _optional_number(row, "micro_brier") is not None]
-    if not scored:
-        return rows[0] if rows else None
-    return min(scored, key=_arm_rank_key)
-
-
 def _headline_cards(
     best_model: Mapping[str, Any] | None,
     *,
     prevalence: float | None,
     run_card: Mapping[str, Any],
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    best_result_class: ResultClass | None = None,
+    no_eligible_model: bool = False,
 ) -> str:
     if best_model is None:
+        if no_eligible_model:
+            return (
+                "<p>No model has a documented training-data cutoff that strictly "
+                "predates every scored decision. Qualified rows remain visible "
+                "below, but no eligible comparison headline is shown.</p>"
+            )
         return (
             "<p>No official score rows were found in the supplied artifacts. "
             "This shell does not infer or invent results.</p>"
         )
     case_count = _first_value(run_card, ("case_count",))
+    best_model_label = _display_model_label(
+        _first_str(best_model, ("model_id", "model_key", "solver_id")),
+        contamination_tiers,
+    ) + (
+        result_class_marker(best_result_class) if best_result_class is not None else ""
+    )
     cards = (
         (
             "Lowest model micro-Brier",
             _fmt_number(_optional_number(best_model, "micro_brier")),
-            _display_model_label(
-                _first_str(best_model, ("model_id", "model_key", "solver_id")),
-                contamination_tiers,
-            ),
+            best_model_label,
         ),
         (
             "Expected calibration error",
@@ -442,6 +464,7 @@ def _official_table(
     *,
     caption: str,
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    cross_bundle_comparison: bool = False,
 ) -> str:
     # The <tr> below and the <thead> at the bottom of this function are separate
     # string literals with no shared column list. Any column change must edit
@@ -458,9 +481,14 @@ def _official_table(
         label = _display_model_label(model, contamination_tiers) + marker
         tier_label = result_class_tier_label(entry.result_class)
         badge_class = "tier-badge post-anchor" if post_anchor else "tier-badge"
-        # Delta-vs-best is versus the best model in the same arm. The post-anchor
-        # bundle is aggregated separately, so its interval is already within-arm.
-        delta = _delta_interval(row)
+        eligibility_badge = comparison_badge(entry.comparison_eligible)
+        # Separate frozen bundles do not contain a cross-bundle bootstrap. Do not
+        # present each bundle's local delta as if it were a combined comparison.
+        delta = (
+            "Unavailable across separately aggregated result bundles"
+            if cross_bundle_comparison
+            else _delta_interval(row)
+        )
         score = _optional_number(row, "micro_brier")
         invalid_rate = _optional_number(row, "invalid_output_rate")
         refusal_rate = _optional_number(row, "refusal_rate")
@@ -470,7 +498,7 @@ def _official_table(
             "<tr>"
             f"<th scope='row'>{html.escape(label, quote=False)}</th>"
             f"<td><span class='{badge_class}'>"
-            f"{html.escape(tier_label, quote=False)}</span></td>"
+            f"{html.escape(tier_label, quote=False)}</span>{eligibility_badge}</td>"
             f"<td>{html.escape(_provider_snapshot(score_row))}</td>"
             f"<td>{_required_int(score_row, 'case_count', label='score summary')}</td>"
             f"<td>{_required_int(score_row, 'unit_count', label='score summary')}</td>"

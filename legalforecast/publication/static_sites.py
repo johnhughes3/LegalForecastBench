@@ -189,6 +189,23 @@ caption {
   border-color: var(--baseline);
   color: var(--baseline);
 }
+.comparison-badge {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 650;
+  margin: 4px 4px 0 0;
+  padding: 2px 8px;
+}
+.comparison-badge.eligible {
+  background: var(--accent-soft);
+  color: #075f57;
+}
+.comparison-badge.qualified {
+  background: var(--baseline-soft);
+  color: var(--baseline);
+}
 .muted {
   color: var(--muted);
 }

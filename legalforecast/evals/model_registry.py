@@ -7,7 +7,7 @@ import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, cast
@@ -463,14 +463,51 @@ def latest_release_timestamp(entries: Sequence[ModelRegistryEntry]) -> datetime:
 
 
 def earliest_eligible_decision_date(entries: Sequence[ModelRegistryEntry]) -> date:
-    """Return the first allowed decision date from the deployment anchor.
+    """Return the first date strictly after every model's known cutoff.
 
-    First external deployment establishes that the evaluated model artifact existed
-    by that date. Because decision metadata is date-granular, an additional
-    calendar-day buffer does not provide meaningful contamination protection.
+    Official comparison eligibility is based on the documented training-data
+    cutoff, not on when a model was released. A date-granular decision on the
+    cutoff day is not strictly after it, so the returned boundary is the next
+    calendar day. Entries without an exact, known cutoff cannot establish this
+    boundary and fail closed; callers should keep those rows qualified.
     """
 
-    return latest_release_timestamp(entries).astimezone(UTC).date()
+    return latest_known_training_cutoff(entries) + timedelta(days=1)
+
+
+def latest_known_training_cutoff(
+    entries: Sequence[ModelRegistryEntry],
+) -> date:
+    """Return the latest exact training cutoff across an evaluated model set.
+
+    Provider knowledge-cutoff disclosures with unknown or month-only precision
+    are not enough to establish strict eligibility for date-granular decisions.
+    The caller must qualify the comparison rather than substituting a release
+    date or an inferred day.
+    """
+
+    if not entries:
+        raise ValueError("at least one model registry entry is required")
+    unqualified = sorted(
+        entry.registry_key
+        for entry in entries
+        if (
+            entry.provider_training_cutoff_status is not TrainingCutoffStatus.KNOWN
+            or entry.provider_training_cutoff is None
+        )
+    )
+    if unqualified:
+        raise ValueError(
+            "strict training-cutoff eligibility requires a known date-granular "
+            "provider_training_cutoff for every model registry entry: "
+            f"{unqualified}"
+        )
+    cutoffs = tuple(
+        entry.provider_training_cutoff
+        for entry in entries
+        if entry.provider_training_cutoff is not None
+    )
+    return max(cutoffs)
 
 
 def require_official_registry_entries(
