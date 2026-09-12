@@ -287,3 +287,52 @@ def test_invalid_terminal_transcript_blocks_replacement(
     (cell,) = _load(tmp_path, identity_sha=identity[1])
     assert cell.evidence_error is not None
     assert "terminal transcript requires repair" in cell.evidence_error
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_completed_cell_requires_valid_predictions(tmp_path: Path, valid: bool) -> None:
+    from legalforecast.evals.output_parser import (
+        parse_model_output,
+        public_parser_record,
+    )
+
+    identity = _identity()
+    directory = _state(
+        tmp_path,
+        cell_id="candidate",
+        attempt=1,
+        status="completed",
+        identity=identity,
+        local_attempt_id="paid-attempt",
+    )
+    raw = (
+        json.dumps(
+            {
+                "case_assessment": "Fixture",
+                "predictions": [
+                    {"unit_id": "unit", "probability_fully_dismissed": 0.5}
+                ],
+            }
+        )
+        if valid
+        else "A prose response without predictions."
+    )
+    receipt = json.dumps(
+        {
+            "parser_output": public_parser_record(
+                parse_model_output(raw, required_unit_ids=("unit",))
+            )
+        }
+    ).encode()
+    with sqlite3.connect(directory / "ledger.sqlite3") as connection:
+        connection.execute(
+            "UPDATE public_runner_cells SET status='completed', receipt_payload=?",
+            (receipt,),
+        )
+    cell = _load(tmp_path, identity_sha=identity[1])[0]
+    assert cell.completed is valid
+    if valid:
+        assert cell.evidence_error is None
+    else:
+        assert cell.evidence_error is not None
+        assert "invalid or defaulted" in cell.evidence_error

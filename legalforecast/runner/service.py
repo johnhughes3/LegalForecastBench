@@ -11,7 +11,7 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from pydantic import ValidationError
 
@@ -36,7 +36,11 @@ from legalforecast.evals.model_registry import (
     model_registry_sha256,
     require_official_registry_entries,
 )
-from legalforecast.evals.output_parser import parse_model_output, public_parser_record
+from legalforecast.evals.output_parser import (
+    parse_model_output,
+    parsed_output_from_public_record,
+    public_parser_record,
+)
 from legalforecast.evals.provider_spend_attempt_handler import (
     ProviderSpendAttemptHandler,
     conservative_reservation_microusd,
@@ -248,6 +252,13 @@ def execute_release_run(
         require_official_registry_entries((entry,))
     except ValueError as exc:
         raise RunValidationError(f"official model eligibility failed: {exc}") from exc
+    provider_free_injection = (
+        transport is not None and transport is not default_live_model_transport
+    )
+    managed_execution.require_managed_document_tools(
+        entry,
+        allow_provider_free_injection=provider_free_injection,
+    )
     validate_executable_packets(execution)
     entry_sha256 = model_registry_entry_sha256(entry)
 
@@ -413,6 +424,7 @@ def execute_release_run(
                         case_call.units,
                         case_call.model_visible_document_indexes,
                         cell_id,
+                        allow_provider_free_injection=provider_free_injection,
                     )
                     if config.cell_id is not None and cell_id != config.cell_id:
                         raise RunValidationError(
@@ -501,6 +513,7 @@ def execute_release_run(
                     replayable_attempt: AttemptLease | None = None
                     if (
                         cell is not None
+                        and cell.status == "reserved"
                         and cell.response_payload is not None
                         and cell.provider_attempt_ordinal is not None
                     ):
@@ -703,6 +716,11 @@ def execute_release_run(
                             response.raw_output,
                             required_unit_ids=case_call.required_unit_ids,
                         )
+                        if not parsed.is_valid or parsed.defaulted_unit_ids:
+                            raise RunValidationError(
+                                "provider response parser output is invalid or "
+                                "contains defaulted predictions"
+                            )
                         receipt = {
                             "schema_version": str(PUBLIC_RUN_RECEIPT_V1),
                             "cell_id": cell_id,
@@ -845,6 +863,11 @@ def _complete_cell(
             environ=environ,
             registry_sha256=registry_sha256,
             transcript_path=transcript_path,
+        )
+    if transport is default_live_model_transport:
+        raise RunValidationError(
+            "legacy prompt execution requires an explicitly injected "
+            "provider-free transport"
         )
     return complete_live_prompt(
         entry,
@@ -1004,6 +1027,22 @@ def _restore_or_validate_completed_receipt(
         )
         if record.get("unit_id") != expected_subject:
             raise RunValidationError("completed run receipt unit subject changed")
+    parser_record = record.get("parser_output")
+    if not isinstance(parser_record, Mapping):
+        raise RunValidationError("completed run receipt parser output is missing")
+    try:
+        parsed = parsed_output_from_public_record(
+            cast(Mapping[str, Any], parser_record)
+        )
+    except (TypeError, ValueError) as exc:
+        raise RunValidationError(
+            "completed run receipt parser output is invalid"
+        ) from exc
+    if not parsed.is_valid or parsed.defaulted_unit_ids:
+        raise RunValidationError(
+            "completed run receipt parser output is invalid or contains "
+            "defaulted predictions"
+        )
 
 
 def _cell_id(

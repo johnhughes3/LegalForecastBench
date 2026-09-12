@@ -21,6 +21,7 @@ from legalforecast.evals.model_registry import (
     model_registry_entry_sha256,
     model_registry_sha256,
 )
+from legalforecast.evals.output_parser import parsed_output_from_public_record
 from legalforecast.evals.provider_spend_attempt_handler import (
     conservative_reservation_microusd,
 )
@@ -402,6 +403,23 @@ def _load_cells(
                         )
                         continue
                     raise
+                if status == "completed" and cell.status == "completed":
+                    if cell.receipt_payload is None:
+                        raise RunValidationError(
+                            "completed cell lacks prediction receipt"
+                        )
+                    receipt = json.loads(cell.receipt_payload)
+                    if not isinstance(receipt, dict) or not isinstance(
+                        receipt.get("parser_output"), dict
+                    ):
+                        raise RunValidationError(
+                            "completed cell lacks prediction validation"
+                        )
+                    parsed = parsed_output_from_public_record(receipt["parser_output"])
+                    if not parsed.is_valid or parsed.defaulted_unit_ids:
+                        raise RunValidationError(
+                            "completed cell contains invalid or defaulted predictions"
+                        )
                 terminal = None
                 if transcript.is_file() and not transcript.is_symlink():
                     try:

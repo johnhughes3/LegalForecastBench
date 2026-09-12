@@ -274,18 +274,8 @@ def run_managed_tool_agent(
 ) -> ManagedToolAgentResult:
     """Run one case with Pydantic AI's native tool loop and bounded usage."""
 
+    require_managed_document_tools(entry)
     provider = entry.provider.strip().lower()
-    if provider not in {
-        "openai",
-        "anthropic",
-        "google",
-        "gemini",
-        "vercel_ai_gateway",
-    }:
-        raise ManagedToolAgentError(
-            "managed document tools currently require OpenAI, Anthropic, "
-            "Google, or Vercel AI Gateway"
-        )
     if not required_unit_ids:
         raise ManagedToolAgentError("managed agent requires prediction unit ids")
     resolved_model: Model
@@ -573,27 +563,58 @@ def requests_flex_service_tier(provider: str, model_id: str) -> bool:
     )
 
 
+_MANAGED_DOCUMENT_TOOL_PROVIDERS = frozenset(
+    {"openai", "anthropic", "google", "gemini", "vercel_ai_gateway"}
+)
+
+
 def uses_managed_document_tools(entry: ModelRegistryEntry) -> bool:
-    """Select provider entries authorized for the closed document-tool session."""
+    """Return whether an entry has a supported managed document-tool route.
+
+    Routing is a provider capability decision. Individual model names must not
+    silently opt out of the closed document-tool session: adding a new model to
+    a provider's registry therefore automatically uses the same managed agent
+    loop, settings, and output schema.
+    """
 
     provider = entry.provider.strip().lower()
     return (
-        (provider == "openai" and entry.model_id in {"gpt-5.6-luna", "gpt-6-astra"})
-        or (
-            provider == "anthropic"
-            and entry.model_id == "claude-fable-5-1"
-            and entry.tool_policy.value == "controlled_docket_tool_only"
-        )
-        or (
-            provider in {"google", "gemini"}
-            and entry.tool_policy.value == "controlled_docket_tool_only"
-        )
-        or (
-            provider == "vercel_ai_gateway"
-            and gateway_model_is_allowlisted(entry.model_id)
-            and entry.tool_policy.value == "controlled_docket_tool_only"
+        entry.tool_policy.value == "controlled_docket_tool_only"
+        and provider in _MANAGED_DOCUMENT_TOOL_PROVIDERS
+        and (
+            provider != "vercel_ai_gateway"
+            or gateway_model_is_allowlisted(entry.model_id)
         )
     )
+
+
+def require_managed_document_tools(
+    entry: ModelRegistryEntry,
+    *,
+    allow_provider_free_injection: bool = False,
+) -> None:
+    """Reject production routes that cannot use the managed tool session.
+
+    The provider-free runner fixture intentionally injects a transport and
+    retains its authenticated prompt path. Every ordinary execution must use a
+    controlled managed route; an unsupported controlled provider is rejected
+    before spend authorization rather than falling back to the legacy prompt
+    solver.
+    """
+
+    if entry.tool_policy.value == "no_tools":
+        if allow_provider_free_injection:
+            return
+        raise RunValidationError(
+            "provider-free prompt execution requires an explicitly injected "
+            "transport; managed document tools are required for benchmark runs"
+        )
+    if not uses_managed_document_tools(entry):
+        provider = entry.provider.strip().lower()
+        raise RunValidationError(
+            "managed document tools are unsupported for provider/model route "
+            f"{provider}:{entry.model_id}"
+        )
 
 
 def build_managed_case_input(
@@ -656,9 +677,15 @@ def case_prompt(
     units: tuple[ForecastPredictionUnit, ...],
     model_visible_document_indexes: tuple[int, ...],
     cell_id: str,
+    *,
+    allow_provider_free_injection: bool = False,
 ) -> str | ManagedCaseInput:
-    """Return a minimized tool task or the authenticated legacy prompt."""
+    """Return the managed task, or an explicitly injected fixture prompt."""
 
+    require_managed_document_tools(
+        entry,
+        allow_provider_free_injection=allow_provider_free_injection,
+    )
     if uses_managed_document_tools(entry):
         return build_managed_case_input(
             execution, units, model_visible_document_indexes, cell_id
@@ -684,6 +711,10 @@ def complete_managed_tool_cell(
 ) -> SolverResponse:
     """Authorize, run, and settle one entire managed agent session as one case."""
 
+    # Keep the direct managed entry point fail closed as well as the public
+    # runner. This must happen before API-key lookup, container setup, or spend
+    # authorization so an unsupported route cannot buy a provider attempt.
+    require_managed_document_tools(entry)
     from legalforecast.runner.tool_runtime import open_official_tool_session
 
     initial_prompt = _managed_initial_prompt(managed_case)
@@ -1016,6 +1047,7 @@ __all__ = [
     "build_managed_case_input",
     "case_prompt",
     "complete_managed_tool_cell",
+    "require_managed_document_tools",
     "run_managed_tool_agent",
     "uses_managed_document_tools",
 ]

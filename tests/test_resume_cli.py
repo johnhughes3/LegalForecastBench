@@ -15,6 +15,7 @@ from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     PUBLIC_RUN_IDENTITY_V1,
 )
+from legalforecast.evals.output_parser import parse_model_output, public_parser_record
 from legalforecast.runner.ledger import RunnerLedger
 from legalforecast.runner.recovery import (
     RECOVERY_RUN_TITLE,
@@ -38,6 +39,23 @@ def _zip(members: Mapping[str, bytes | str]) -> bytes:
         for name, value in members.items():
             archive.writestr(name, value)
     return output.getvalue()
+
+
+def _receipt(raw_output: str | None = None) -> str:
+    parsed = parse_model_output(
+        raw_output
+        if raw_output is not None
+        else json.dumps(
+            {
+                "case_assessment": "Fixture forecast",
+                "predictions": [
+                    {"unit_id": "unit-a", "probability_fully_dismissed": 0.5}
+                ],
+            }
+        ),
+        required_unit_ids=("unit-a",),
+    )
+    return json.dumps({"parser_output": public_parser_record(parsed)})
 
 
 def _ledger_bytes() -> tuple[bytes, str]:
@@ -104,8 +122,8 @@ class FakeRecoveryClient:
                     "forecast-run.json": json.dumps(export),
                     "run-summary.json": json.dumps(summary),
                     "model-registry.json": REGISTRY_BYTES,
-                    "receipts/cell-a.json": "{}",
-                    "receipts/cell-b.json": "{}",
+                    "receipts/cell-a.json": _receipt(),
+                    "receipts/cell-b.json": _receipt(),
                     "transcripts/cell-a.json": "{}",
                     "artifacts/documents/private.txt": "not inspected",
                 }
@@ -459,3 +477,24 @@ def test_recovery_counts_bundled_cells_and_missing_worker() -> None:
     )
     assert plan.incomplete_cells == 1
     assert plan.blocked_reasons == ()
+
+
+@pytest.mark.parametrize(
+    "raw_output",
+    [
+        "Here is my analysis, without a structured forecast.",
+        "I cannot provide a prediction.",
+        '{"case_assessment":"Incomplete", "predictions":[]}',
+    ],
+)
+def test_recovery_refuses_invalid_predictions_marked_completed(raw_output: str) -> None:
+    client = FakeRecoveryClient()
+    with ZipFile(io.BytesIO(client.payloads[10])) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    members["receipts/cell-a.json"] = _receipt(raw_output).encode()
+    client.payloads[10] = _zip(members)
+    with pytest.raises(RecoveryError, match="invalid or defaulted predictions"):
+        build_recovery_plan(
+            client, repo="owner/bench", run_id=RUN_ID, ref="main", max_parallel=8
+        )
+    assert client.dispatched == []

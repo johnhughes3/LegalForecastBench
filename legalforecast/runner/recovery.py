@@ -27,6 +27,7 @@ from legalforecast.contracts.schemas import (
     FORECAST_RUN_SUMMARY_V1,
     FORECAST_RUN_V1,
 )
+from legalforecast.evals.output_parser import parsed_output_from_public_record
 from legalforecast.runner.ledger import RunBinding, RunnerLedger, RunValidationError
 
 SOURCE_WORKFLOW = ".github/workflows/run-benchmark.yaml"
@@ -696,15 +697,37 @@ def _read_final_artifact(
             summary.get("expected_cell_count", summary.get("state_artifact_count")),
             "expected cell count",
         )
+        receipt_names = tuple(
+            name
+            for name in names
+            if name.startswith("receipts/") and name.endswith(".json")
+        )
+        for name in receipt_names:
+            receipt = _read_json_member(archive, name)
+            parser_record = receipt.get("parser_output")
+            if not isinstance(parser_record, Mapping):
+                raise RecoveryError(f"saved receipt {name} lacks prediction validation")
+            try:
+                parsed = parsed_output_from_public_record(
+                    cast(Mapping[str, object], parser_record)
+                )
+            except ValueError as exc:
+                raise RecoveryError(
+                    f"saved receipt {name} has malformed prediction evidence"
+                ) from exc
+            if not parsed.is_valid or parsed.defaulted_unit_ids:
+                raise RecoveryError(
+                    f"saved receipt {name} contains invalid or defaulted predictions; "
+                    "repair the execution configuration and start a new run, "
+                    "preserving prior spend"
+                )
         return (
             ArtifactCensus(
                 member_count=len(names),
                 document_member_count=sum(
                     name.startswith("artifacts/documents/") for name in names
                 ),
-                receipt_member_count=sum(
-                    name.startswith("receipts/") for name in names
-                ),
+                receipt_member_count=len(receipt_names),
                 transcript_member_count=sum(
                     name.startswith("transcripts/") for name in names
                 ),

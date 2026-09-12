@@ -94,13 +94,13 @@ def _google_entry() -> ModelRegistryEntry:
     return ModelRegistryEntry.from_record(record)
 
 
-def _anthropic_entry() -> ModelRegistryEntry:
+def _anthropic_entry(model_id: str = "claude-fable-5-1") -> ModelRegistryEntry:
     record = _entry().to_record()
     record.update(
         {
             "provider": "anthropic",
-            "model_id": "claude-fable-5-1",
-            "model_version_or_snapshot": "claude-fable-5-1",
+            "model_id": model_id,
+            "model_version_or_snapshot": model_id,
             "reasoning_effort": None,
             "thinking_level": None,
             "input_token_price": 10.0,
@@ -606,8 +606,12 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
     assert seen == ["bash", "edit", "glob", "grep", "read", "write"] * 2
 
 
-def test_fable_managed_agent_uses_adaptive_anthropic_settings(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "model_id",
+    ("claude-fable-5-1", "claude-opus-5", "claude-sonnet-5"),
+)
+def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, model_id: str
 ) -> None:
     turns = [
         ModelResponse(
@@ -619,7 +623,7 @@ def test_fable_managed_agent_uses_adaptive_anthropic_settings(
                 )
             ],
             usage=RequestUsage(input_tokens=100, output_tokens=40),
-            model_name="claude-fable-5-1",
+            model_name=model_id,
             provider_name="anthropic",
             finish_reason="stop",
         ),
@@ -640,7 +644,7 @@ def test_fable_managed_agent_uses_adaptive_anthropic_settings(
                 )
             ],
             usage=RequestUsage(input_tokens=150, output_tokens=60),
-            model_name="claude-fable-5-1",
+            model_name=model_id,
             provider_name="anthropic",
             finish_reason="stop",
         ),
@@ -674,7 +678,7 @@ def test_fable_managed_agent_uses_adaptive_anthropic_settings(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     result = run_managed_tool_agent(
-        _anthropic_entry(),
+        _anthropic_entry(model_id),
         initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
         required_unit_ids=("unit-a",),
         executor=_Executor(),
@@ -683,9 +687,9 @@ def test_fable_managed_agent_uses_adaptive_anthropic_settings(
         api_key="fixture-key",
     )
 
-    assert managed_execution.uses_managed_document_tools(_anthropic_entry())
+    assert managed_execution.uses_managed_document_tools(_anthropic_entry(model_id))
     assert captured == {
-        "model_id": "claude-fable-5-1",
+        "model_id": model_id,
         "api_key": "fixture-key",
         "settings": {
             "max_tokens": 16000,
