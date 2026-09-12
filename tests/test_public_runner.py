@@ -569,7 +569,7 @@ def test_runner_does_not_retry_ambiguous_503(tmp_path: Path) -> None:
     assert retry.calls == 0
 
 
-def test_runner_redacts_untrusted_extra_unit_ids_from_public_receipts(
+def test_runner_rejects_invalid_extra_unit_output_without_public_receipt(
     tmp_path: Path,
 ) -> None:
     sentinel = "MODEL_PROSE_SENTINEL_DO_NOT_PUBLISH"
@@ -592,26 +592,63 @@ def test_runner_redacts_untrusted_extra_unit_ids_from_public_receipts(
         return response
 
     config = _config(tmp_path)
-    summary = execute_release_run(
-        config,
-        transport=CountingTransport(extra_unit_response),
-        environ=_fixture_environ(),
-    )
-
-    assert summary.completed_cells == 3
-    receipt_payloads = [
-        path.read_bytes() for path in sorted(config.receipts_dir.glob("*.json"))
-    ]
-    assert len(receipt_payloads) == 3
-    assert all(sentinel.encode() not in payload for payload in receipt_payloads)
-    for payload in receipt_payloads:
-        receipt = json.loads(payload)
-        extra_issue = next(
-            issue
-            for issue in receipt["parser_output"]["issues"]
-            if issue["code"] == "extra_unit"
+    with pytest.raises(
+        RunValidationError,
+        match="parser output is invalid",
+    ):
+        execute_release_run(
+            config,
+            transport=CountingTransport(extra_unit_response),
+            environ=_fixture_environ(),
         )
-        assert extra_issue["unit_id"] is None
+
+    assert tuple(config.receipts_dir.glob("*.json")) == ()
+    with sqlite3.connect(config.ledger_path) as connection:
+        rows = connection.execute(
+            "SELECT status, response_payload FROM public_runner_cells"
+        ).fetchall()
+        assert rows
+        assert all(row[0] == "ambiguous" for row in rows)
+        response_payloads = [cast(bytes, row[1]) for row in rows if row[1] is not None]
+        assert response_payloads
+        assert any(sentinel.encode() in payload for payload in response_payloads)
+
+
+def test_runner_rejects_defaulted_probability_without_public_receipt(
+    tmp_path: Path,
+) -> None:
+    def missing_probability_response(request: Request) -> JsonRecord:
+        body = _request_body(request)
+        output = cast(
+            dict[str, object],
+            json.loads(_output_for_prompt(cast(str, body["input"]))),
+        )
+        predictions = cast(list[dict[str, object]], output["predictions"])
+        predictions[0].pop("probability_fully_dismissed")
+        response = dict(_valid_response(request))
+        response["output_text"] = json.dumps(output, sort_keys=True)
+        return response
+
+    config = replace(_config(tmp_path), unit_id="unit-001")
+    with pytest.raises(
+        RunValidationError,
+        match="defaulted predictions",
+    ):
+        execute_release_run(
+            config,
+            transport=CountingTransport(missing_probability_response),
+            environ=_fixture_environ(),
+        )
+
+    assert tuple(config.receipts_dir.glob("*.json")) == ()
+    with sqlite3.connect(config.ledger_path) as connection:
+        row = connection.execute(
+            "SELECT status, response_payload FROM public_runner_cells"
+        ).fetchone()
+        assert row is not None
+        assert row[0] == "ambiguous"
+        assert row[1] is not None
+        assert b"probability_fully_dismissed" not in cast(bytes, row[1])
 
 
 @pytest.mark.parametrize(
@@ -643,8 +680,15 @@ def test_runner_rejects_unpublishable_provider_response_without_retry(
 
     assert first.calls == 1
     assert tuple(config.receipts_dir.glob("*.json")) == ()
+    with sqlite3.connect(config.ledger_path) as connection:
+        row = connection.execute(
+            "SELECT status, response_payload FROM public_runner_cells"
+        ).fetchone()
+        assert row is not None
+        assert row[0] == "ambiguous"
+        assert row[1] is not None
     retry = CountingTransport(error=AssertionError("unpublishable response retried"))
-    with pytest.raises(RunBlockedError, match="ambiguous"):
+    with pytest.raises(RunBlockedError, match="blocked transport"):
         execute_release_run(config, transport=retry, environ=_fixture_environ())
     assert retry.calls == 0
 
@@ -777,7 +821,7 @@ def test_runner_spend_keys_use_injective_cell_identity(
     assert resume.calls == 0
 
 
-def test_runner_never_publishes_raw_bedrock_arn_as_served_model(
+def test_runner_rejects_legacy_bedrock_route_before_provider_spend(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -795,55 +839,33 @@ def test_runner_never_publishes_raw_bedrock_arn_as_served_model(
         runner_service.ARTIFACT_CANONICAL_JSON_V1.encode(records)
     )
     config = replace(config, model_key="anthropic:claude-opus-4-8")
-    raw_arn = (
-        "arn:aws:bedrock:us-east-1:123456789012:inference-profile/"
-        "us.anthropic.claude-opus-4-8"
-    )
+    provider_calls = 0
 
-    monkeypatch.setattr(
-        live_model_solver,
-        "_bedrock_aws_cli_executable",
-        lambda _environ: "/usr/bin/aws",
-    )
-
-    def fake_bedrock(
-        _model_id: str,
-        payload: JsonRecord,
-        *,
-        environ: Mapping[str, str] | None,
-        timeout_seconds: float,
-    ) -> JsonRecord:
-        del environ, timeout_seconds
-        messages = cast(list[dict[str, object]], payload["messages"])
-        content = cast(list[dict[str, object]], messages[0]["content"])
-        prompt = cast(str, content[0]["text"])
-        return {
-            "model": raw_arn,
-            "content": [{"type": "text", "text": _output_for_prompt(prompt)}],
-            "usage": {"input_tokens": 20, "output_tokens": 10},
-        }
+    def unexpected_bedrock_call(*_args: object, **_kwargs: object) -> JsonRecord:
+        nonlocal provider_calls
+        provider_calls += 1
+        raise AssertionError("legacy provider route must not be called")
 
     monkeypatch.setattr(
         live_model_solver,
         "_invoke_bedrock_runtime_json",
-        fake_bedrock,
+        unexpected_bedrock_call,
     )
 
-    summary = execute_release_run(
-        config,
-        environ={
-            "LFB_ANTHROPIC_RUNTIME": "bedrock",
-            "LFB_ANTHROPIC_BEDROCK_MODEL_ID": raw_arn,
-        },
-    )
+    with pytest.raises(
+        RunValidationError,
+        match="provider-free prompt execution requires",
+    ):
+        execute_release_run(
+            config,
+            environ={
+                "LFB_ANTHROPIC_RUNTIME": "bedrock",
+                "LFB_ANTHROPIC_BEDROCK_MODEL_ID": "legacy-bedrock-route",
+            },
+        )
 
-    assert summary.completed_cells == 3
-    for path in config.receipts_dir.glob("*.json"):
-        payload = path.read_bytes()
-        receipt = json.loads(payload)
-        assert receipt["served_model_version"] == "claude-opus-4-8"
-        assert b"123456789012" not in payload
-        assert raw_arn.encode() not in payload
+    assert provider_calls == 0
+    assert not config.ledger_path.exists()
 
 
 def test_runner_resumes_completed_cells_without_duplicate_transport(

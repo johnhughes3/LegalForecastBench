@@ -20,7 +20,9 @@ from legalforecast.evals.provider_spend_control import (
     RETRYABLE_HTTP_429_FAILURE_TYPE,
 )
 
-_REPLAY_PAYLOAD_PRESERVING_FAILURE_TYPES = frozenset({"SettlementError"})
+_REPLAY_PAYLOAD_PRESERVING_FAILURE_TYPES = frozenset(
+    {"RunValidationError", "SettlementError"}
+)
 
 
 def _encode_required_unit_ids(required_unit_ids: tuple[str, ...]) -> str:
