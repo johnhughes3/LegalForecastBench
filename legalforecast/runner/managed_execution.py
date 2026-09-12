@@ -76,7 +76,7 @@ from legalforecast.runner.managed_anthropic import (
 # Long briefing records can require dozens of sequential document reads.
 # Keep a bounded SDK run while allowing room to finish the forecast afterward.
 MAX_AGENT_REQUESTS = 128
-MAX_AGENT_TOOL_CALLS = 96
+MAX_AGENT_TOOL_CALLS = 256
 
 
 class ManagedToolAgentError(RuntimeError):
