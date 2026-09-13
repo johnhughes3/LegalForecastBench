@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import legalforecast.runner.managed_execution as managed_execution
+import legalforecast.runner.managed_transcript_recovery as transcript_recovery
 import pytest
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
@@ -720,6 +721,32 @@ def test_anthropic_native_text_output_transcript_recovers_without_final_tool(
         assert evidence["cache_pricing_ttl"] == "5m"
         assert evidence["cost_method"] == "anthropic_cache_aware_usage_reconstruction"
         assert payload["estimated_cost_usd"] == pytest.approx(0.0065025)
+
+
+def test_anthropic_zero_cache_legacy_payload_candidate_omits_new_evidence() -> None:
+    entry = _anthropic_entry()
+    result = managed_execution.ManagedToolAgentResult(
+        raw_output="{}",
+        request_count=2,
+        input_tokens=250,
+        output_tokens=100,
+        served_model=entry.model_version_or_snapshot,
+        finish_reason="stop",
+        service_tier="unreported",
+        called_tools=("read",),
+        response_usages=((100, 40), (150, 60)),
+        response_cache_usages=((0, 0), (0, 0)),
+    )
+
+    current_payload = transcript_recovery.managed_replay_payload(result, entry=entry)
+    legacy_payload = transcript_recovery._legacy_managed_replay_payload(
+        result, entry=entry
+    )
+
+    assert "anthropic_cache_evidence" in current_payload
+    assert legacy_payload is not None
+    assert "anthropic_cache_evidence" not in legacy_payload
+    assert legacy_payload["estimated_cost_usd"] == pytest.approx(0.0075)
 
 
 def test_ambiguous_settlement_failure_retains_response_for_normal_replay(
