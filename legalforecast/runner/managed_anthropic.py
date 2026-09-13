@@ -30,11 +30,10 @@ def anthropic_model(entry: ModelRegistryEntry, *, api_key: str | None) -> Model:
 def anthropic_model_settings(
     entry: ModelRegistryEntry,
 ) -> ModelSettings:
-    """Configure Fable's adaptive thinking with provider-selected tool use.
+    """Configure adaptive thinking and five-minute conversation-prefix caching.
 
-    Claude Fable 5.1 rejects forced tool choice. Pydantic AI's Anthropic
-    profile detects that capability and combines adaptive thinking with native
-    JSON-schema output and ``tool_choice='auto'``.
+    The runner explicitly selects native JSON output so provider profile defaults
+    cannot force workspace tool calls when the model is ready to finish.
     """
 
     from pydantic_ai.models.anthropic import AnthropicModelSettings
@@ -44,6 +43,7 @@ def anthropic_model_settings(
         AnthropicModelSettings(
             max_tokens=entry.max_output_tokens,
             anthropic_thinking={"type": "adaptive"},
+            anthropic_cache=True,
             parallel_tool_calls=False,
         ),
     )

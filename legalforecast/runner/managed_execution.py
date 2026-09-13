@@ -22,6 +22,7 @@ from pydantic_ai import (
     ModelMessagesTypeAdapter,
     ModelResponse,
     ModelSettings,
+    NativeOutput,
     RunContext,
     capture_run_messages,
 )
@@ -54,6 +55,7 @@ from legalforecast.immutable_io import write_file_replace_safe
 from legalforecast.multiharness.adapters import ToolExecutor
 from legalforecast.multiharness.tool_protocol import ToolRequest
 from legalforecast.release import ForecastExecution, ForecastPredictionUnit
+from legalforecast.runner.anthropic_cache import anthropic_cache_cost
 from legalforecast.runner.gateway import (
     VERCEL_AI_GATEWAY_BASE_URL,
     gateway_model_is_allowlisted,
@@ -258,6 +260,7 @@ class ManagedToolAgentResult:
     response_usages: tuple[tuple[int, int], ...]
     thoughts_tokens: int = 0
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
+    response_cache_usages: tuple[tuple[int, int], ...] = ()
 
 
 def run_managed_tool_agent(
@@ -343,7 +346,11 @@ def run_managed_tool_agent(
     unit_ids = json.dumps(list(required_unit_ids), separators=(",", ":"))
     agent = Agent(
         resolved_model,
-        output_type=ForecastEnvelope,
+        output_type=(
+            NativeOutput(ForecastEnvelope)
+            if provider == "anthropic"
+            else ForecastEnvelope
+        ),
         deps_type=ManagedToolAgentDeps,
         instructions=(
             "Forecast the actual first written court disposition of the identified "
@@ -518,6 +525,14 @@ def _managed_result_from_run(
         response_usages=tuple(response_usages),
         thoughts_tokens=thoughts_tokens,
         gateway_response_metadata=gateway_response_metadata,
+        response_cache_usages=(
+            tuple(
+                (item.usage.cache_read_tokens, item.usage.cache_write_tokens)
+                for item in responses
+            )
+            if provider == "anthropic"
+            else ()
+        ),
     )
 
 
@@ -778,7 +793,23 @@ def complete_managed_tool_cell(
                 "managed official agent returned without reading case documents"
             )
         estimated_cost_usd = _managed_result_cost(entry, result=result)
+        cache_evidence: dict[str, object] = {}
+        if provider == "anthropic" and result.response_cache_usages:
+            _, cache_evidence = anthropic_cache_cost(
+                entry, result.response_usages, result.response_cache_usages
+            )
+            cache_evidence.update(
+                {
+                    "cache_read_tokens": sum(
+                        row[0] for row in result.response_cache_usages
+                    ),
+                    "cache_write_tokens": sum(
+                        row[1] for row in result.response_cache_usages
+                    ),
+                }
+            )
         return {
+            **({"anthropic_cache_evidence": cache_evidence} if cache_evidence else {}),
             "raw_output": result.raw_output,
             "request_count": result.request_count,
             "input_tokens": result.input_tokens,
@@ -914,6 +945,12 @@ def complete_managed_tool_cell(
                     "provider_reasoning_effort": "provider_default_high",
                 }
             )
+        if provider == "anthropic" and "anthropic_cache_evidence" in payload:
+            metadata["anthropic_cache_evidence"] = json.dumps(
+                payload["anthropic_cache_evidence"],
+                sort_keys=True,
+                separators=(",", ":"),
+            )
         if entry.thinking_level is not None:
             metadata["thinking_level"] = entry.thinking_level.value
         require_publishable_response_metadata(metadata)
@@ -1003,6 +1040,10 @@ def _managed_result_cost(
             return gateway_total_cost_usd(result.gateway_response_metadata)
         except ValueError as exc:
             raise ManagedToolAgentError(str(exc)) from exc
+    if entry.provider.strip().lower() == "anthropic" and result.response_cache_usages:
+        return anthropic_cache_cost(
+            entry, result.response_usages, result.response_cache_usages
+        )[0]
     return _managed_estimated_cost(entry, response_usages=result.response_usages)
 
 

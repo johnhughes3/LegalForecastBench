@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import legalforecast.runner.managed_execution as managed_execution
+import legalforecast.runner.managed_transcript_recovery as transcript_recovery
 import pytest
 from legalforecast.contracts import (
     ARTIFACT_CANONICAL_JSON_V1,
@@ -26,7 +27,7 @@ from legalforecast.runner.managed_transcript_recovery import (
     recover_managed_transcript,
 )
 from pydantic_ai import ModelResponse
-from pydantic_ai.messages import ToolCallPart
+from pydantic_ai.messages import TextPart, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.usage import RequestUsage
 
@@ -102,11 +103,21 @@ def _response(parts: list[Any], *, inputs: int, outputs: int) -> ModelResponse:
 
 
 def _anthropic_response(
-    parts: list[Any], *, inputs: int, outputs: int
+    parts: list[Any],
+    *,
+    inputs: int,
+    outputs: int,
+    cache_read: int = 0,
+    cache_write: int = 0,
 ) -> ModelResponse:
     return ModelResponse(
         parts=parts,
-        usage=RequestUsage(input_tokens=inputs, output_tokens=outputs),
+        usage=RequestUsage(
+            input_tokens=inputs,
+            output_tokens=outputs,
+            cache_read_tokens=cache_read,
+            cache_write_tokens=cache_write,
+        ),
         model_name="claude-fable-5-1",
         provider_name="anthropic",
         finish_reason="stop",
@@ -625,25 +636,15 @@ def test_anthropic_native_text_output_transcript_recovers_without_final_tool(
             ],
             inputs=100,
             outputs=40,
+            cache_read=30,
+            cache_write=10,
         ),
         _anthropic_response(
-            [
-                ToolCallPart(
-                    "final_result",
-                    {
-                        "case_assessment": "The claim likely survives.",
-                        "predictions": [
-                            {
-                                "unit_id": "unit-a",
-                                "probability_fully_dismissed": 0.25,
-                            }
-                        ],
-                    },
-                    tool_call_id="final-1",
-                )
-            ],
+            [TextPart(raw_output)],
             inputs=150,
             outputs=60,
+            cache_read=80,
+            cache_write=20,
         ),
     ]
 
@@ -673,16 +674,8 @@ def test_anthropic_native_text_output_transcript_recovers_without_final_tool(
         message["provider_name"] = entry.provider
         message["finish_reason"] = "stop"
         message["provider_details"] = {}
-    response_messages[-1]["parts"] = [{"content": raw_output, "part_kind": "text"}]
     # Native output ends the conversation directly; it has no final-result
     # tool return request after the provider's text response.
-    for message in transcript["messages"]:
-        if message.get("kind") == "request":
-            message["parts"] = [
-                part
-                for part in message["parts"]
-                if part.get("tool_call_id") != "final-1"
-            ]
     transcript["messages"] = [
         message for message in transcript["messages"] if message.get("parts")
     ]
@@ -705,7 +698,55 @@ def test_anthropic_native_text_output_transcript_recovers_without_final_tool(
     assert recovered.result.called_tools == ("read",)
     assert recovered.result.input_tokens == live_result.input_tokens == 250
     assert recovered.result.output_tokens == live_result.output_tokens == 100
+    assert (
+        recovered.result.response_cache_usages
+        == live_result.response_cache_usages
+        == (
+            (30, 10),
+            (80, 20),
+        )
+    )
+    assert recovered.estimated_cost_usd == pytest.approx(0.0065025)
     assert json.loads(recovered.result.raw_output) == json.loads(raw_output)
+
+    with RunnerLedger(
+        tmp_path / "ledger.sqlite3", state_only_provider_attempts=True
+    ) as ledger:
+        record = ledger.read_cell_for_recovery("cell-1")
+        assert record.response_payload is not None
+        payload = json.loads(record.response_payload)
+        evidence = payload["anthropic_cache_evidence"]
+        assert evidence["cache_read_tokens"] == 110
+        assert evidence["cache_write_tokens"] == 30
+        assert evidence["cache_pricing_ttl"] == "5m"
+        assert evidence["cost_method"] == "anthropic_cache_aware_usage_reconstruction"
+        assert payload["estimated_cost_usd"] == pytest.approx(0.0065025)
+
+
+def test_anthropic_zero_cache_legacy_payload_candidate_omits_new_evidence() -> None:
+    entry = _anthropic_entry()
+    result = managed_execution.ManagedToolAgentResult(
+        raw_output="{}",
+        request_count=2,
+        input_tokens=250,
+        output_tokens=100,
+        served_model=entry.model_version_or_snapshot,
+        finish_reason="stop",
+        service_tier="unreported",
+        called_tools=("read",),
+        response_usages=((100, 40), (150, 60)),
+        response_cache_usages=((0, 0), (0, 0)),
+    )
+
+    current_payload = transcript_recovery.managed_replay_payload(result, entry=entry)
+    legacy_payload = transcript_recovery._legacy_managed_replay_payload(
+        result, entry=entry
+    )
+
+    assert "anthropic_cache_evidence" in current_payload
+    assert legacy_payload is not None
+    assert "anthropic_cache_evidence" not in legacy_payload
+    assert legacy_payload["estimated_cost_usd"] == pytest.approx(0.0075)
 
 
 def test_ambiguous_settlement_failure_retains_response_for_normal_replay(

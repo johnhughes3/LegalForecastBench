@@ -173,3 +173,5 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+Native Anthropic document-tool runs use native JSON output and five-minute automatic prompt caching. Before expanding a repaired run, verify a small live case finishes and inspect transcript cache creation/read token counts; configuration tests alone do not prove provider cache hits. Receipts preserve cache usage and pricing evidence for new executions.
