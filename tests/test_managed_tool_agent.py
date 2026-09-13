@@ -17,7 +17,7 @@ from legalforecast.runner.managed_execution import (
     run_managed_tool_agent,
 )
 from pydantic_ai import ModelHTTPError
-from pydantic_ai.messages import ModelResponse, ToolCallPart
+from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.usage import RequestUsage
 
@@ -629,18 +629,18 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
         ),
         ModelResponse(
             parts=[
-                ToolCallPart(
-                    "final_result",
-                    {
-                        "case_assessment": "Assessment",
-                        "predictions": [
-                            {
-                                "unit_id": "unit-a",
-                                "probability_fully_dismissed": 0.5,
-                            }
-                        ],
-                    },
-                    tool_call_id="final-1",
+                TextPart(
+                    json.dumps(
+                        {
+                            "case_assessment": "Assessment",
+                            "predictions": [
+                                {
+                                    "unit_id": "unit-a",
+                                    "probability_fully_dismissed": 0.5,
+                                }
+                            ],
+                        }
+                    )
                 )
             ],
             usage=RequestUsage(input_tokens=150, output_tokens=60),
@@ -665,6 +665,7 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
         settings = {
             "max_tokens": entry.max_output_tokens,
             "anthropic_thinking": {"type": "adaptive"},
+            "anthropic_cache": True,
             "parallel_tool_calls": False,
         }
         captured["settings"] = settings
@@ -694,6 +695,7 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
         "settings": {
             "max_tokens": 16000,
             "anthropic_thinking": {"type": "adaptive"},
+            "anthropic_cache": True,
             "parallel_tool_calls": False,
         },
     }
@@ -703,9 +705,12 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
     assert result.response_usages == ((100, 40), (150, 60))
 
 
+@pytest.mark.parametrize(
+    "model_id", ["claude-fable-5-1", "claude-opus-5", "claude-sonnet-5"]
+)
 @pytest.mark.parametrize("max_tokens", [16000, 128000])
 def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, max_tokens: int
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, max_tokens: int, model_id: str
 ) -> None:
     """Exercise the real Anthropic adapter through a provider-free HTTP transport."""
 
@@ -722,7 +727,7 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
             "id": "msg_1",
             "type": "message",
             "role": "assistant",
-            "model": "claude-fable-5-1",
+            "model": model_id,
             "content": [
                 {
                     "type": "tool_use",
@@ -733,17 +738,27 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
             ],
             "stop_reason": "tool_use",
             "stop_sequence": None,
-            "usage": {"input_tokens": 100, "output_tokens": 40},
+            "usage": {
+                "input_tokens": 100,
+                "output_tokens": 40,
+                "cache_creation_input_tokens": 300,
+                "cache_read_input_tokens": 0,
+            },
         },
         {
             "id": "msg_2",
             "type": "message",
             "role": "assistant",
-            "model": "claude-fable-5-1",
+            "model": model_id,
             "content": [{"type": "text", "text": raw_output}],
             "stop_reason": "end_turn",
             "stop_sequence": None,
-            "usage": {"input_tokens": 150, "output_tokens": 60},
+            "usage": {
+                "input_tokens": 150,
+                "output_tokens": 60,
+                "cache_creation_input_tokens": 50,
+                "cache_read_input_tokens": 300,
+            },
         },
     ]
     requests: list[dict[str, Any]] = []
@@ -760,7 +775,7 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
                         "content": [],
                         "stop_reason": None,
                         "usage": {
-                            "input_tokens": response["usage"]["input_tokens"],
+                            **response["usage"],
                             "output_tokens": 0,
                         },
                     },
@@ -821,7 +836,7 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
         base_url="https://api.anthropic.com",
     )
     model = anthropic_model.AnthropicModel(
-        "claude-fable-5-1",
+        model_id,
         provider=anthropic_provider.AnthropicProvider(
             api_key="fixture-key", http_client=http_client
         ),
@@ -835,7 +850,7 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     result = run_managed_tool_agent(
-        replace(_anthropic_entry(), max_output_tokens=max_tokens),
+        replace(_anthropic_entry(model_id), max_output_tokens=max_tokens),
         initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
         required_unit_ids=("unit-a",),
         executor=_Executor(),
@@ -846,12 +861,14 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
 
     assert result.raw_output == raw_output
     assert result.called_tools == ("read",)
-    assert result.response_usages == ((100, 40), (150, 60))
+    assert result.response_usages == ((400, 40), (500, 60))
+    assert result.response_cache_usages == ((0, 300), (300, 50))
     assert len(requests) == 2
     for request in requests:
         assert request["max_tokens"] == max_tokens
         assert bool(request.get("stream")) is (max_tokens == 128000)
         assert request["thinking"] == {"type": "adaptive"}
+        assert request["cache_control"] == {"type": "ephemeral", "ttl": "5m"}
         assert request["tool_choice"] == {
             "type": "auto",
             "disable_parallel_tool_use": True,
@@ -936,8 +953,10 @@ class _ReplayHandler(_AttemptHandler):
         return self.payload
 
 
+@pytest.mark.parametrize("with_cache_evidence", [False, True])
 def test_fable_managed_cell_uses_anthropic_key_and_metadata(
     monkeypatch: pytest.MonkeyPatch,
+    with_cache_evidence: bool,
 ) -> None:
     raw_output = (
         '{"case_assessment":"Assessment","predictions":['
@@ -956,6 +975,13 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
             "estimated_cost_usd": 0.0013,
         }
     )
+    cache_evidence = {
+        "cache_read_tokens": 30,
+        "cache_write_tokens": 10,
+        "cache_pricing_ttl": "5m",
+    }
+    if with_cache_evidence:
+        handler.payload["anthropic_cache_evidence"] = cache_evidence
     monkeypatch.setattr(
         "legalforecast.runner.tool_runtime.open_official_tool_session",
         lambda **_kwargs: pytest.fail("replay must not start a tool container"),
@@ -1003,6 +1029,12 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
     assert response.metadata["provider_reasoning_effort"] == "provider_default_high"
     assert response.metadata["response_finish_reason"] == "stop"
     assert handler.settlement == (80, 10, 0.0013, raw_output)
+    if with_cache_evidence:
+        assert (
+            json.loads(response.metadata["anthropic_cache_evidence"]) == cache_evidence
+        )
+    else:
+        assert "anthropic_cache_evidence" not in response.metadata
 
 
 def test_official_cell_settles_the_entire_agent_session_once(

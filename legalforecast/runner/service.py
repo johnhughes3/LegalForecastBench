@@ -753,6 +753,10 @@ def execute_release_run(
                             },
                             "parser_output": public_parser_record(parsed),
                         }
+                        if "anthropic_cache_evidence" in metadata:
+                            receipt["anthropic_cache_evidence"] = json.loads(
+                                metadata["anthropic_cache_evidence"]
+                            )
                         receipt_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(receipt)
                         receipt_sha256 = str(
                             RAW_BYTES_RAW_SHA256_V1.commit(
