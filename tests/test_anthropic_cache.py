@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import legalforecast.runner.managed_execution as managed_execution
 import pytest
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.runner.anthropic_cache import anthropic_cache_cost
@@ -73,6 +74,49 @@ def test_anthropic_cache_cost_keeps_zero_cache_responses_valid() -> None:
     assert amount == pytest.approx(0.01)
     assert metadata["cache_read_token_price_usd_per_million"] == 0.5
     assert metadata["cache_write_token_price_usd_per_million"] == 6.25
+
+
+def test_managed_result_cost_uses_cache_usage_for_native_anthropic() -> None:
+    result = managed_execution.ManagedToolAgentResult(
+        raw_output="{}",
+        request_count=2,
+        input_tokens=3000,
+        output_tokens=500,
+        served_model="claude-opus-5",
+        finish_reason="stop",
+        service_tier="unreported",
+        called_tools=("read",),
+        response_usages=((1000, 200), (2000, 300)),
+        response_cache_usages=((400, 100), (1500, 0)),
+    )
+
+    # The inclusive input totals are partitioned per response:
+    # (500 * 5) + (400 * .5) + (100 * 6.25) + (200 * 25)
+    # + (500 * 5) + (1500 * .5) + (300 * 25), in USD per million tokens.
+    assert managed_execution._managed_result_cost(
+        _entry("claude-opus-5", input_price=5.0, output_price=25.0),
+        result=result,
+    ) == pytest.approx(0.019075)
+
+
+def test_managed_result_cost_preserves_legacy_empty_cache_vector_fallback() -> None:
+    result = managed_execution.ManagedToolAgentResult(
+        raw_output="{}",
+        request_count=1,
+        input_tokens=1000,
+        output_tokens=200,
+        served_model="claude-opus-5",
+        finish_reason="stop",
+        service_tier="unreported",
+        called_tools=("read",),
+        response_usages=((1000, 200),),
+        response_cache_usages=(),
+    )
+
+    assert managed_execution._managed_result_cost(
+        _entry("claude-opus-5", input_price=5.0, output_price=25.0),
+        result=result,
+    ) == pytest.approx(0.01)
 
 
 @pytest.mark.parametrize(
