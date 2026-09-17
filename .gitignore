@@ -73,3 +73,6 @@ local-data/
 
 # Beads viewer local config/cache
 .bv/
+
+# Pinned Jev evaluation SDK installation.
+node_modules/

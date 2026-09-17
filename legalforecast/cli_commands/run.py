@@ -80,6 +80,11 @@ def register(
         help="Exact provider:model_id registry key for the single run engine.",
     )
     execute.add_argument(
+        "--jev-summaries",
+        type=Path,
+        help="Persisted Luna document summaries frozen by the Jev model registry.",
+    )
+    execute.add_argument(
         "--ledger",
         type=Path,
         required=True,
@@ -258,6 +263,7 @@ def run_execute(args: argparse.Namespace) -> int:
         artifact_root=cast(Path, args.artifact_root),
         model_registry_path=cast(Path, args.model_registry),
         model_key=model_key,
+        jev_summaries_path=cast(Path | None, args.jev_summaries),
         ledger_path=cast(Path, args.ledger),
         receipts_dir=cast(Path, args.receipts_dir),
         ceiling_microusd=cast(int, args.ceiling_microusd),

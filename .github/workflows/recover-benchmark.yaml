@@ -213,6 +213,7 @@ jobs:
               "forecast_release_uri": frozen["forecast_release_uri"],
               "artifact_root_uri": frozen["artifact_root_uri"],
               "model_registry_uri": frozen["model_registry_uri"],
+              "jev_summaries_uri": frozen.get("jev_summaries_uri", ""),
               "model_key": frozen["model_key"],
               "ceiling_microusd": str(frozen["ceiling_microusd"]),
               "account": frozen["account"],

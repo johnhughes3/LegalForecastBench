@@ -231,6 +231,8 @@ class ModelRegistryEntry:
     provider_training_cutoff: date | None = None
     known_cutoff_publicity_caveats: tuple[str, ...] = ()
     long_context_surcharge: LongContextSurcharge | None = None
+    jev_input_mode: str | None = None
+    jev_summaries_sha256: str | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.provider, "provider")
@@ -273,6 +275,24 @@ class ModelRegistryEntry:
         _require_positive_int(self.context_limit, "context_limit")
         _require_non_negative(self.input_token_price, "input_token_price")
         _require_non_negative(self.output_token_price, "output_token_price")
+        if self.jev_input_mode is not None:
+            if (
+                self.provider != "vercel_ai_gateway"
+                or self.model_id != "typesafe-ai/jev"
+                or self.tool_policy is not ToolPolicy.NO_TOOLS
+                or self.jev_input_mode not in {"full_text", "luna_summaries"}
+            ):
+                raise ValueError("Jev input mode requires the no-tools Jev route")
+            if self.jev_input_mode == "luna_summaries":
+                digest = self.jev_summaries_sha256 or ""
+                if len(digest) != 64 or any(
+                    c not in "0123456789abcdef" for c in digest
+                ):
+                    raise ValueError("Luna summaries require a frozen cache SHA-256")
+            elif self.jev_summaries_sha256 is not None:
+                raise ValueError("full-text Jev must not carry a summary cache")
+        elif self.jev_summaries_sha256 is not None:
+            raise ValueError("summary cache requires a Jev input mode")
 
     @property
     def registry_key(self) -> str:
@@ -330,6 +350,10 @@ class ModelRegistryEntry:
             record["thinking_level"] = self.thinking_level.value
         if self.long_context_surcharge is not None:
             record["long_context_surcharge"] = self.long_context_surcharge.to_record()
+        if self.jev_input_mode is not None:
+            record["jev_input_mode"] = self.jev_input_mode
+        if self.jev_summaries_sha256 is not None:
+            record["jev_summaries_sha256"] = self.jev_summaries_sha256
         return record
 
     @classmethod
@@ -363,6 +387,8 @@ class ModelRegistryEntry:
             thinking_level=_optional_google_thinking_level(record),
             temperature=_optional_number(record, "temperature"),
             top_p=_optional_number(record, "top_p"),
+            jev_input_mode=_optional_str(record, "jev_input_mode"),
+            jev_summaries_sha256=_optional_str(record, "jev_summaries_sha256"),
         )
 
 

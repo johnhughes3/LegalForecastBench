@@ -1,0 +1,9 @@
+{
+	"name": "legalforecast-jev-evaluation",
+	"private": true,
+	"type": "module",
+	"packageManager": "pnpm@11.27.0",
+	"dependencies": {
+		"ai": "7.0.105"
+	}
+}
