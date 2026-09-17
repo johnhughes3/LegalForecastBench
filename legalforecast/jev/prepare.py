@@ -162,11 +162,6 @@ def prepare_summaries(
                             ).digest
                         ),
                     )
-                    if len(prior.text.encode("utf-8")) > budget:
-                        raise ValueError(
-                            "Luna summary exceeds its byte budget: "
-                            f"{document.document_id}"
-                        )
                     texts[document.document_id] = prior.text
                     reused += 1
                     continue
@@ -293,10 +288,6 @@ def prepare_summaries(
                     actual_cost_usd=summary.estimated_cost_usd,
                     raw_output=summary.text,
                 )
-                if len(summary.text.encode("utf-8")) > budget:
-                    raise ValueError(
-                        f"Luna summary exceeds its byte budget: {document.document_id}"
-                    )
                 texts[document.document_id] = summary.text
                 created += 1
             require_request_fits(case_request(units, documents, summaries=texts))

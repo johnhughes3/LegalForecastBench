@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import sqlite3
 from dataclasses import replace
@@ -289,6 +290,57 @@ def test_summary_uses_whole_document_no_sdk_retries_and_long_context_cost(
     assert all(model.provider.client.max_retries == 0 for model in factory.models)
 
 
+def test_large_summary_is_accepted_when_the_whole_case_fits(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    execution = _execution(tmp_path)
+    factory = _FakeAgentFactory(
+        output="x" * 12_000,
+        usage=RequestUsage(input_tokens=10, output_tokens=10),
+    )
+    original_run = _FakeAgent.run_sync
+
+    def run_once_large(
+        self: _FakeAgent, prompt: str, *, usage_limits: object
+    ) -> _FakeResult:
+        result = original_run(self, prompt, usage_limits=usage_limits)
+        self.owner.output = "Short faithful summary."
+        return result
+
+    monkeypatch.setattr(_FakeAgent, "run_sync", run_once_large)
+    monkeypatch.setattr(prepare, "Agent", factory)
+    monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
+    cache = tmp_path / "summaries.json"
+    ledger = tmp_path / "ledger.sqlite3"
+    first = prepare.prepare_summaries(
+        execution,
+        entry=_entry(),
+        cache_path=cache,
+        ledger_path=ledger,
+        ceiling_microusd=100_000_000,
+    )
+    assert json.loads(factory.prompts[0])["maximum_summary_utf8_bytes"] < 12_000
+    assert first["created"] == len(_documents(execution))
+    assert any(
+        record["text"] == "x" * 12_000
+        for records in json.loads(cache.read_text())["records"].values()
+        for record in records.values()
+    )
+    factory.prompts.clear()
+    second = prepare.prepare_summaries(
+        execution,
+        entry=_entry(),
+        cache_path=cache,
+        ledger_path=ledger,
+        ceiling_microusd=100_000_000,
+    )
+    assert second["reused"] == first["created"]
+    assert second["created"] == 0
+    assert second["spent_microusd"] == first["spent_microusd"]
+    assert factory.prompts == []
+
+
 def test_oversized_paid_summary_is_persisted_and_not_repurchased(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -296,7 +348,7 @@ def test_oversized_paid_summary_is_persisted_and_not_repurchased(
     execution = _execution(tmp_path)
     entry = _entry()
     factory = _FakeAgentFactory(
-        output="x" * 4_000,
+        output="x" * prepare.JEV_REQUEST_BYTE_BUDGET,
         usage=RequestUsage(input_tokens=10, output_tokens=10),
     )
     monkeypatch.setattr(prepare, "Agent", factory)
@@ -304,7 +356,7 @@ def test_oversized_paid_summary_is_persisted_and_not_repurchased(
     cache_path = tmp_path / "summaries.json"
     ledger_path = tmp_path / "ledger.sqlite3"
 
-    with pytest.raises(ValueError, match="exceeds its byte budget"):
+    with pytest.raises(ValueError, match="above conservative"):
         prepare.prepare_summaries(
             execution,
             entry=entry,
@@ -312,14 +364,24 @@ def test_oversized_paid_summary_is_persisted_and_not_repurchased(
             ledger_path=ledger_path,
             ceiling_microusd=100_000_000,
         )
-    assert len(factory.prompts) == 1
+    first_case_count = len(
+        case_documents(
+            execution,
+            tuple(
+                u
+                for u in execution.release.prediction_units
+                if u.case_id == execution.release.cases[0].case_id
+            ),
+        )
+    )
+    assert len(factory.prompts) == first_case_count
 
     def fail_if_called(*args: object, **kwargs: object) -> None:
         del args, kwargs
         raise AssertionError("an oversized paid summary must be reused for refusal")
 
     monkeypatch.setattr(prepare, "Agent", fail_if_called)
-    with pytest.raises(ValueError, match="exceeds its byte budget"):
+    with pytest.raises(ValueError, match="above conservative"):
         prepare.prepare_summaries(
             execution,
             entry=entry,
@@ -328,7 +390,11 @@ def test_oversized_paid_summary_is_persisted_and_not_repurchased(
             ceiling_microusd=100_000_000,
         )
 
-    assert _attempt_counts(ledger_path) == (1, 0, ["settled"])
+    assert _attempt_counts(ledger_path) == (
+        first_case_count,
+        0,
+        ["settled"] * first_case_count,
+    )
 
 
 def test_cached_summary_recovers_a_crash_before_settlement(
