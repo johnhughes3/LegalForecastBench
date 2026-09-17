@@ -214,6 +214,8 @@ def test_sdk_preserves_only_confirmed_nonbillable_rate_limits(
             stderr=json.dumps(
                 {
                     "error_name": "AI_APICallError",
+                    "error_message": "gateway response unavailable",
+                    "generation_id": "gen_fixture_123",
                     "status_code": status,
                     "retryable": retryable,
                 }
@@ -224,3 +226,45 @@ def test_sdk_preserves_only_confirmed_nonbillable_rate_limits(
         jev_execution._sdk_call(b"{}", {"AI_GATEWAY_API_KEY": "fixture"})
     assert failure.value.status_code == status
     assert failure.value.retryable is expected
+
+
+def test_sdk_error_propagates_bounded_diagnostic_without_secret_or_control_chars(
+    monkeypatch,
+):
+    secret = "fixture-gateway-key"
+    monkeypatch.setattr(jev_execution.shutil, "which", lambda _: "/fixture/node")
+    monkeypatch.setattr(
+        jev_execution.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0],
+            1,
+            stdout=b"",
+            stderr=json.dumps(
+                {
+                    "error_name": "GatewayInternalServerError",
+                    "error_message": (
+                        f"backend failed\nAuthorization: Bearer {secret}; "
+                        f"apiKey={secret}\x00"
+                    ),
+                    "status_code": 500,
+                    "generation_id": "gen_fixture_456",
+                    "retryable": True,
+                }
+            ).encode(),
+        ),
+    )
+    with pytest.raises(LiveModelProviderError) as failure:
+        jev_execution._sdk_call(
+            b"{}", {"AI_GATEWAY_API_KEY": secret, "PATH": "/fixture"}
+        )
+    rendered = str(failure.value)
+    assert "backend failed" in rendered
+    assert "status_code=500" in rendered
+    assert "gen_fixture_456" in rendered
+    assert secret not in rendered
+    assert "Authorization: Bearer" not in rendered
+    assert "apiKey=" not in rendered
+    assert "\x00" not in rendered
+    assert failure.value.status_code == 500
+    assert failure.value.retryable is False

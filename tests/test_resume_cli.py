@@ -229,6 +229,100 @@ class FakeRecoveryClient:
         self.dispatched.append((repo, workflow, ref, inputs))
 
 
+def _zero_receipt_client() -> FakeRecoveryClient:
+    """Build a failed fan-in artifact with only frozen identity inputs."""
+
+    client = FakeRecoveryClient(jev_summaries_uri="artifact:987")
+    with ZipFile(io.BytesIO(client.payloads[10])) as archive:
+        final_members = {
+            name: archive.read(name)
+            for name in archive.namelist()
+            if name not in {"forecast-run.json", "run-summary.json"}
+            and not name.startswith("receipts/")
+            and not name.startswith("transcripts/")
+        }
+    final_members["run-manifest.json"] = b"{}"
+    final_members["forecast-release.json"] = json.dumps(
+        {"release_digest": "d" * 64}
+    ).encode()
+    client.payloads[10] = _zip(final_members)
+
+    with ZipFile(io.BytesIO(client.payloads[11])) as archive:
+        input_members = {name: archive.read(name) for name in archive.namelist()}
+    dispatch = json.loads(input_members["resume-dispatch.json"])
+    input_members["resume-dispatch.json"] = json.dumps(dispatch).encode()
+    input_members["expected-cells.json"] = json.dumps(
+        [{"cell_id": f"{index:064x}"} for index in range(91)]
+    ).encode()
+    input_members["run-manifest.json"] = b"{}"
+    input_members["forecast-release.json"] = final_members["forecast-release.json"]
+    client.payloads[11] = _zip(input_members)
+    return client
+
+
+def test_zero_receipt_recovery_reconstructs_identity_and_full_census() -> None:
+    client = _zero_receipt_client()
+
+    plan = build_recovery_plan(
+        client,
+        repo="owner/bench",
+        run_id=RUN_ID,
+        ref="main",
+        max_parallel=1,
+    )
+
+    assert plan.executable
+    assert plan.completed_cells == 0
+    assert plan.incomplete_cells == 91
+    assert plan.census.declared_state_count == 91
+    assert plan.frozen_identity.release_sha == RELEASE_SHA
+    assert plan.frozen_identity.model_key == "openai:gpt-6-astra"
+    assert plan.frozen_identity.ceiling_microusd == 250_000_000
+    assert plan.dispatch_inputs["max_parallel"] == "1"
+
+
+def test_zero_receipt_recovery_refuses_budget_identity_mismatch() -> None:
+    client = _zero_receipt_client()
+    with ZipFile(io.BytesIO(client.payloads[11])) as archive:
+        input_members = {name: archive.read(name) for name in archive.namelist()}
+    dispatch = json.loads(input_members["resume-dispatch.json"])
+    dispatch["ceiling_microusd"] = 250_000_001
+    input_members["resume-dispatch.json"] = json.dumps(dispatch).encode()
+    client.payloads[11] = _zip(input_members)
+
+    with pytest.raises(
+        RecoveryError, match="ceiling_microusd differs from source identity"
+    ):
+        build_recovery_plan(
+            client,
+            repo="owner/bench",
+            run_id=RUN_ID,
+            ref="main",
+            max_parallel=1,
+        )
+
+
+@pytest.mark.parametrize(
+    "name,value,reason",
+    [
+        ("receipts/cell.json", _receipt(), "despite saved receipts"),
+        ("forecast-run.json", "{}", "lacks run-summary.json"),
+    ],
+)
+def test_empty_export_recovery_does_not_ignore_receipts_or_partial_metadata(
+    name: str, value: str, reason: str
+) -> None:
+    client = _zero_receipt_client()
+    with ZipFile(io.BytesIO(client.payloads[10])) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    members[name] = value.encode()
+    client.payloads[10] = _zip(members)
+    with pytest.raises(RecoveryError, match=reason):
+        build_recovery_plan(
+            client, repo="owner/bench", run_id=RUN_ID, ref="main", max_parallel=1
+        )
+
+
 def test_recovery_plan_reconstructs_frozen_identity_from_artifacts() -> None:
     plan = build_recovery_plan(
         FakeRecoveryClient(),

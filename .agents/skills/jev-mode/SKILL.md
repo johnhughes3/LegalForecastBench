@@ -9,4 +9,6 @@ Use `legalforecast jev inspect` on the original locked manifest and blinded fore
 
 Report the condition as Jev with Luna summaries, one shot. Keep summary preparation costs visible separately and include them in total pipeline cost. Jev's native Boolean probabilities map directly to the original fully-dismissed event; never substitute confidence scores or a generated explanation. The implementation uses the pinned Vercel evaluation SDK under `integrations/jev`, with SDK retries disabled.
 
+Jev's workflow matrix stops queued cells after a failure. Diagnose the saved SDK message, HTTP status, and generation ID before retrying; the error class alone is insufficient. Use the normal `run resume --github-run RUN_ID --ref main --max-parallel 1` recovery path for a serial retry with the original summary cache and budget identity. Preserve ambiguous charges. Do not regenerate summaries to retry inference.
+
 See [the method and reproduction guide](../../../docs/jev-mode.md) for commands, interpretation, and context-fit evidence.

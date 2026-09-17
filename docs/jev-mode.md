@@ -50,6 +50,8 @@ Jev returns probabilities directly rather than generating a textual rationale. I
 
 The implementation uses Vercel's supported AI SDK evaluation API, pinned in `integrations/jev`. It makes one SDK evaluation request with automatic SDK retries disabled. It does not use a chat-completion endpoint or an undocumented direct Gateway HTTP protocol. The Gateway route is `typesafe-ai/jev`; no dated provider snapshot is invented when the service does not expose one. See [Vercel's evaluation documentation](https://vercel.com/docs/ai-gateway/modalities/evaluation).
 
+The Jev workflow stops queued cells after a failed evaluation. On recovery, use `--max-parallel 1` to inspect the first repaired result before more requests accumulate. Saved errors retain a bounded, redacted message, HTTP status, and Gateway generation ID when available; an error class alone does not establish the cause. Recovery retains uncertain charges and reuses the frozen summary cache.
+
 From a repository checkout, install the pinned runtime before contributor-owned inference:
 
 ```bash
