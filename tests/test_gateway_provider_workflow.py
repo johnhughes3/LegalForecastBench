@@ -47,6 +47,20 @@ def test_gateway_credential_is_scoped_to_the_execute_step() -> None:
     assert "transcripts" in job
 
 
+def test_only_jev_stops_queued_cells_after_an_evaluation_failure() -> None:
+    gateway = _job("run-gateway", "persist-forecast-results")
+    assert (
+        "fail-fast: ${{ inputs.model_key == 'vercel_ai_gateway:typesafe-ai/jev' }}"
+        in gateway
+    )
+    for name, following in (
+        ("run-openai", "run-anthropic"),
+        ("run-anthropic", "run-gemini"),
+        ("run-gemini", "run-gateway"),
+    ):
+        assert "fail-fast: false" in _job(name, following)
+
+
 def test_gateway_lane_is_included_in_protected_fan_in() -> None:
     combined = _job("persist-forecast-results")
     assert (

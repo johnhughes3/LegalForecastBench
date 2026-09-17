@@ -1093,7 +1093,9 @@ jobs:
       LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
       LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
     strategy:
-      fail-fast: false
+      # Jev has no agentic recovery or alternate transport. Stop a failed
+      # evaluation rollout before every queued case repeats the same error.
+      fail-fast: ${{ inputs.model_key == 'vercel_ai_gateway:typesafe-ai/jev' }}
       max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
       matrix: ${{ fromJSON(needs.prepare-inputs.outputs.gateway_matrix) }}
     steps:

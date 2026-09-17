@@ -120,7 +120,7 @@ def _sdk_call(body: bytes, values: Mapping[str, str]) -> Mapping[str, object]:
         check=False,
     )
     if result.returncode:
-        # Retain error class/status without logging SDK request bodies or keys.
+        # Retain bounded diagnostics without logging SDK request bodies or keys.
         try:
             error: object = json.loads(result.stderr)
         except (ValueError, UnicodeDecodeError):
@@ -129,11 +129,45 @@ def _sdk_call(body: bytes, values: Mapping[str, str]) -> Mapping[str, object]:
         name = details.get("error_name", "SDKError")
         if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_]{1,64}", name):
             name = "SDKError"
+        api_key = values.get("AI_GATEWAY_API_KEY", "")
+        message = details.get("error_message")
+        if isinstance(message, str):
+            if api_key:
+                message = message.replace(api_key, "[REDACTED]")
+            message = re.sub(
+                r"\b(?:authorization|proxy-authorization)\s*[:=]?\s*[\"']?(?:bearer|basic|token)\s+[^\s,;\"']+",
+                "[REDACTED_AUTHORIZATION]",
+                message,
+                flags=re.IGNORECASE,
+            )
+            message = re.sub(
+                r"\b(?:api[-_ ]?key|x-api-key|access[-_ ]?token|token|key)"
+                r"\s*[:=]\s*[\"']?[^\s,;}\"']+",
+                "[REDACTED_KEY]",
+                message,
+                flags=re.IGNORECASE,
+            )
+            message = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", message).strip()[:512]
+        else:
+            message = ""
+        generation_id = details.get("generation_id")
+        if (
+            not isinstance(generation_id, str)
+            or bool(api_key and api_key in generation_id)
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", generation_id)
+        ):
+            generation_id = None
         status = details.get("status_code")
+        status_code = status if type(status) is int else None
+        diagnostic = f": {message}" if message else ""
+        if status_code is not None:
+            diagnostic += f" [status_code={status_code}]"
+        if generation_id is not None:
+            diagnostic += f" [generation_id={generation_id}]"
         raise LiveModelProviderError(
-            f"Jev evaluation SDK failed: {name} (exit {result.returncode})",
-            status_code=status if type(status) is int else None,
-            retryable=status == 429 and details.get("retryable") is True,
+            f"Jev evaluation SDK failed: {name}{diagnostic} (exit {result.returncode})",
+            status_code=status_code,
+            retryable=status_code == 429 and details.get("retryable") is True,
         )
     payload: object = json.loads(result.stdout)
     if not isinstance(payload, dict):

@@ -30,6 +30,15 @@ from legalforecast.contracts.schemas import (
 )
 from legalforecast.evals.output_parser import parsed_output_from_public_record
 from legalforecast.runner.ledger import RunBinding, RunnerLedger, RunValidationError
+from legalforecast.runner.recovery_client import (
+    GhRecoveryClient as GhRecoveryClient,
+)
+from legalforecast.runner.recovery_client import (
+    RecoveryError as RecoveryError,
+)
+from legalforecast.runner.recovery_client import (
+    recovery_object as _object,
+)
 
 SOURCE_WORKFLOW = ".github/workflows/run-benchmark.yaml"
 RECOVERY_WORKFLOW = ".github/workflows/recover-benchmark.yaml"
@@ -40,8 +49,8 @@ FORECAST_SUMMARY_SCHEMA = str(FORECAST_RUN_SUMMARY_V1)
 MAX_PARALLEL = 32
 
 
-class RecoveryError(ValueError):
-    """Raised when a source run cannot be safely recovered."""
+class _MissingFinalMetadata(RecoveryError):
+    """An empty failed fan-in omitted both export metadata files."""
 
 
 class RecoveryClient(Protocol):
@@ -66,130 +75,6 @@ class RecoveryClient(Protocol):
         ref: str,
         inputs: Mapping[str, str],
     ) -> None: ...
-
-
-class GhRecoveryClient:
-    """Use brokered ``gh`` access without opening AWS or provider access."""
-
-    def _json_api(self, endpoint: str) -> object:
-        result = self._run_gh(
-            ("api", endpoint, "--header", "Accept: application/vnd.github+json"),
-            endpoint=endpoint,
-            text=True,
-        )
-        try:
-            return json.loads(cast(str, result.stdout))
-        except json.JSONDecodeError as exc:
-            raise RecoveryError(
-                f"GitHub API returned invalid JSON for {endpoint}"
-            ) from exc
-
-    def _json_pages(self, endpoint: str) -> tuple[Mapping[str, object], ...]:
-        result = self._run_gh(
-            (
-                "api",
-                "--paginate",
-                "--slurp",
-                endpoint,
-                "--header",
-                "Accept: application/vnd.github+json",
-            ),
-            endpoint=endpoint,
-            text=True,
-        )
-        try:
-            value: object = json.loads(cast(str, result.stdout))
-        except json.JSONDecodeError as exc:
-            raise RecoveryError(
-                f"GitHub API returned invalid paginated JSON for {endpoint}"
-            ) from exc
-        if not isinstance(value, list):
-            raise RecoveryError("GitHub paginated response must be an array")
-        pages = cast(list[object], value)
-        return tuple(_object(page, "GitHub API page") for page in pages)
-
-    @staticmethod
-    def _run_gh(
-        arguments: Sequence[str],
-        *,
-        endpoint: str,
-        text: bool,
-    ) -> subprocess.CompletedProcess[str] | subprocess.CompletedProcess[bytes]:
-        try:
-            return subprocess.run(
-                ["gh", *arguments],
-                check=True,
-                capture_output=True,
-                text=text,
-            )
-        except (OSError, subprocess.CalledProcessError) as exc:
-            raise RecoveryError(f"GitHub request failed for {endpoint}") from exc
-
-    def get_run(self, repo: str, run_id: int) -> Mapping[str, object]:
-        return _object(
-            self._json_api(f"repos/{repo}/actions/runs/{run_id}"),
-            "workflow run",
-        )
-
-    def list_artifacts(self, repo: str, run_id: int) -> Sequence[Mapping[str, object]]:
-        endpoint = f"repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100"
-        artifacts: list[Mapping[str, object]] = []
-        for page in self._json_pages(endpoint):
-            raw_artifacts = page.get("artifacts")
-            if not isinstance(raw_artifacts, list):
-                raise RecoveryError("GitHub artifact response has no artifacts list")
-            artifact_values = cast(list[object], raw_artifacts)
-            artifacts.extend(
-                _object(item, "workflow artifact") for item in artifact_values
-            )
-        return tuple(artifacts)
-
-    def download_artifact(self, repo: str, artifact_id: int) -> bytes:
-        endpoint = f"repos/{repo}/actions/artifacts/{artifact_id}/zip"
-        result = self._run_gh(
-            (
-                "api",
-                endpoint,
-                "--header",
-                "Accept: application/vnd.github+json",
-                "--allow-escape-sequences",
-            ),
-            endpoint=endpoint,
-            text=False,
-        )
-        return cast(bytes, result.stdout)
-
-    def list_active_recovery_runs(self, repo: str) -> Sequence[Mapping[str, object]]:
-        runs: list[Mapping[str, object]] = []
-        for status in ("queued", "in_progress", "waiting", "pending", "requested"):
-            value = _object(
-                self._json_api(
-                    f"repos/{repo}/actions/runs?event=workflow_dispatch&"
-                    f"branch=main&status={status}&per_page=100"
-                ),
-                "workflow runs",
-            )
-            raw_runs = value.get("workflow_runs")
-            if not isinstance(raw_runs, list):
-                raise RecoveryError("GitHub workflow runs response has no runs list")
-            run_values = cast(list[object], raw_runs)
-            runs.extend(_object(item, "workflow run") for item in run_values)
-        return tuple(runs)
-
-    def dispatch(
-        self,
-        repo: str,
-        workflow: str,
-        ref: str,
-        inputs: Mapping[str, str],
-    ) -> None:
-        command = ["gh", "workflow", "run", workflow, "--repo", repo, "--ref", ref]
-        for key in sorted(inputs):
-            command.extend(("--field", f"{key}={inputs[key]}"))
-        try:
-            subprocess.run(command, check=True, capture_output=True, text=True)
-        except (OSError, subprocess.CalledProcessError) as exc:
-            raise RecoveryError("protected recovery workflow dispatch failed") from exc
 
 
 @dataclass(frozen=True, slots=True)
@@ -385,14 +270,28 @@ def build_recovery_plan(
     final_artifact = final_by_attempt[identity_attempt]
     locked_inputs = inputs_by_attempt[identity_attempt]
 
-    census, export, summary, final_registry_bytes = _read_final_artifact(
-        client.download_artifact(repo, final_artifact.artifact_id),
-        run_id=run_id,
-        run_attempt=identity_attempt,
+    final_payload = client.download_artifact(repo, final_artifact.artifact_id)
+    input_payload = client.download_artifact(repo, locked_inputs.artifact_id)
+    locked_registry_bytes, jev_summaries_uri = _read_locked_inputs(input_payload)
+    binding, account, identity_repeat_count = _find_cell_binding(
+        client,
+        repo=repo,
+        artifacts=state_by_attempt[identity_attempt],
     )
-    locked_registry_bytes, jev_summaries_uri = _read_locked_inputs(
-        client.download_artifact(repo, locked_inputs.artifact_id)
-    )
+    try:
+        census, export, summary, final_registry_bytes = _read_final_artifact(
+            final_payload, run_id=run_id, run_attempt=identity_attempt
+        )
+    except _MissingFinalMetadata:
+        census, export, summary, final_registry_bytes = _read_empty_final_artifact(
+            final_payload,
+            input_payload,
+            binding=binding,
+            account=account,
+            repeat_count=identity_repeat_count,
+            run_id=run_id,
+            run_attempt=identity_attempt,
+        )
     if locked_registry_bytes != final_registry_bytes:
         raise RecoveryError("final artifact changed the frozen model-registry bytes")
     expected_registry_sha = _digest(
@@ -403,11 +302,6 @@ def build_recovery_plan(
     if hashlib.sha256(locked_registry_bytes).hexdigest() != expected_registry_sha:
         raise RecoveryError("frozen model-registry bytes differ from source identity")
 
-    binding, account, identity_repeat_count = _find_cell_binding(
-        client,
-        repo=repo,
-        artifacts=state_by_attempt[identity_attempt],
-    )
     model_key = _text(export.get("model_key"), "model_key")
     run_identity = _digest(
         export.get("run_identity_sha256"), "run identity SHA-256", lengths=(64,)
@@ -677,6 +571,8 @@ def _read_final_artifact(
     with _open_zip(payload, "official results artifact") as archive:
         names = tuple(archive.namelist())
         _validate_member_names(names)
+        if not {"forecast-run.json", "run-summary.json"}.intersection(names):
+            raise _MissingFinalMetadata("empty fan-in omitted its final metadata")
         export = _read_json_member(archive, "forecast-run.json")
         summary = _read_json_member(archive, "run-summary.json")
         try:
@@ -740,6 +636,101 @@ def _read_final_artifact(
             export,
             summary,
             registry_bytes,
+        )
+
+
+def _read_empty_final_artifact(
+    final_payload: bytes,
+    input_payload: bytes,
+    *,
+    binding: RunBinding,
+    account: str,
+    repeat_count: int,
+    run_id: int,
+    run_attempt: int,
+) -> tuple[ArtifactCensus, Mapping[str, object], Mapping[str, object], bytes]:
+    """Recover identity when zero receipts prevented the final export.
+
+    This is read-only planning, not acceptance of predictions or spending.
+    Protected recovery still validates the complete release and all cell
+    ledgers against the shared provider authority before authorizing retries.
+    """
+
+    with (
+        _open_zip(final_payload, "empty final artifact") as final,
+        _open_zip(input_payload, "locked forecast inputs artifact") as inputs,
+    ):
+        names = tuple(final.namelist())
+        if any(
+            name.startswith("receipts/") and name.endswith(".json") for name in names
+        ):
+            raise RecoveryError("final metadata is missing despite saved receipts")
+        for name in (
+            "run-manifest.json",
+            "forecast-release.json",
+            "model-registry.json",
+        ):
+            if name not in names or final.read(name) != inputs.read(name):
+                raise RecoveryError(f"empty final artifact changed frozen {name}")
+        release = _read_json_member(inputs, "forecast-release.json")
+        if release.get("release_digest") != binding.release_digest:
+            raise RecoveryError("locked release differs from the cell ledger")
+        # _read_locked_inputs has already checked this record's schema/fields.
+        dispatch = _read_json_member(inputs, "resume-dispatch.json")
+        for field, expected in (
+            ("source_run_id", run_id),
+            ("source_run_attempt", run_attempt),
+            ("ceiling_microusd", binding.ceiling_microusd),
+            ("repeat_count", repeat_count),
+        ):
+            if _positive_int(dispatch.get(field), field) != expected:
+                raise RecoveryError(
+                    f"resume-dispatch {field} differs from source identity"
+                )
+        if (
+            dispatch.get("model_key") != binding.model_key
+            or dispatch.get("account") != account
+        ):
+            raise RecoveryError(
+                "resume-dispatch model or account differs from cell ledger"
+            )
+        try:
+            cells: object = json.loads(inputs.read("expected-cells.json"))
+        except (KeyError, ValueError, UnicodeDecodeError) as exc:
+            raise RecoveryError(
+                "zero-receipt source lacks a valid frozen cell census"
+            ) from exc
+        if not isinstance(cells, list) or not cells:
+            raise RecoveryError("frozen cell census must be a nonempty array")
+        ids = [
+            _digest(
+                _object(cell, "expected cell").get("cell_id"), "cell ID", lengths=(64,)
+            )
+            for cell in cast(list[object], cells)
+        ]
+        if len(set(ids)) != len(ids):
+            raise RecoveryError("frozen cell census contains duplicate cells")
+        export = {
+            **dispatch,
+            "model_registry_sha256": binding.model_registry_sha256,
+            "run_identity_sha256": binding.identity_sha256,
+        }
+        summary = {"completed_cells": 0, "expected_cell_count": len(ids)}
+        return (
+            ArtifactCensus(
+                member_count=len(names),
+                document_member_count=sum(
+                    name.startswith("artifacts/documents/") for name in names
+                ),
+                receipt_member_count=0,
+                transcript_member_count=sum(
+                    name.startswith("transcripts/") for name in names
+                ),
+                declared_state_count=len(ids),
+            ),
+            export,
+            summary,
+            inputs.read("model-registry.json"),
         )
 
 
@@ -893,12 +884,6 @@ def _validate_member_names(names: Sequence[str]) -> None:
         path = PurePosixPath(name)
         if path.is_absolute() or ".." in path.parts or "\\" in name:
             raise RecoveryError("workflow artifact contains an unsafe path")
-
-
-def _object(value: object, label: str) -> Mapping[str, object]:
-    if not isinstance(value, Mapping):
-        raise RecoveryError(f"{label} must be a JSON object")
-    return cast(Mapping[str, object], value)
 
 
 def _text(value: object, label: str) -> str:
