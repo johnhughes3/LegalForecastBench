@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import replace
 from pathlib import Path
 from urllib.request import Request
 
+import legalforecast.jev.execution as jev_execution
 import pytest
 from legalforecast.cli import main
+from legalforecast.evals.live_model_solver import LiveModelProviderError
 from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.jev.execution import build_jev_case_input
 from legalforecast.jev.packets import (
@@ -191,3 +194,33 @@ def test_empty_summary_cannot_silently_omit_a_document(tmp_path, empty_text):
     summaries[documents[0].document_id] = empty_text
     with pytest.raises(ValueError, match="empty document summary"):
         case_request(units, documents, summaries=summaries)
+
+
+@pytest.mark.parametrize(
+    "status,retryable,expected",
+    [(429, True, True), (429, False, False), (500, True, False)],
+)
+def test_sdk_preserves_only_confirmed_nonbillable_rate_limits(
+    monkeypatch, status, retryable, expected
+):
+    monkeypatch.setattr(jev_execution.shutil, "which", lambda _: "/fixture/node")
+    monkeypatch.setattr(
+        jev_execution.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0],
+            1,
+            stdout=b"",
+            stderr=json.dumps(
+                {
+                    "error_name": "AI_APICallError",
+                    "status_code": status,
+                    "retryable": retryable,
+                }
+            ).encode(),
+        ),
+    )
+    with pytest.raises(LiveModelProviderError) as failure:
+        jev_execution._sdk_call(b"{}", {"AI_GATEWAY_API_KEY": "fixture"})
+    assert failure.value.status_code == status
+    assert failure.value.retryable is expected

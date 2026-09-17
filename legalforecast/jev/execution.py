@@ -133,7 +133,7 @@ def _sdk_call(body: bytes, values: Mapping[str, str]) -> Mapping[str, object]:
         raise LiveModelProviderError(
             f"Jev evaluation SDK failed: {name} (exit {result.returncode})",
             status_code=status if type(status) is int else None,
-            retryable=False,
+            retryable=status == 429 and details.get("retryable") is True,
         )
     payload: object = json.loads(result.stdout)
     if not isinstance(payload, dict):

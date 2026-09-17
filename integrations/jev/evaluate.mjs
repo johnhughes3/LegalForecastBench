@@ -28,6 +28,7 @@ try {
 	process.stderr.write(
 		JSON.stringify({
 			error_name: error instanceof Error ? error.name : "UnknownError",
+			retryable: error?.isRetryable === true,
 			status_code: Number.isInteger(error?.statusCode)
 				? error.statusCode
 				: null,
