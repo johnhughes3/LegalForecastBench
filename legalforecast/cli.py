@@ -16,6 +16,7 @@ from typing import cast
 
 from legalforecast import __version__
 from legalforecast import cli_support as _support
+from legalforecast.cli_commands import jev as _jev_cmd
 from legalforecast.cli_commands import manifest as _manifest_cmd
 from legalforecast.cli_commands import release as _release_cmd
 from legalforecast.cli_commands import report as _report_cmd
@@ -47,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     _manifest_cmd.register(subparsers)
     _release_cmd.register(subparsers)
     _run_cmd.register(subparsers)
+    _jev_cmd.register(subparsers)
     _score_cmd.register(subparsers)
     _report_cmd.register(subparsers)
     _study_cmd.register(subparsers)

@@ -86,7 +86,7 @@ Use `uv run legalforecast run resume --github-run RUN_ID --ref main --max-parall
 
 Recovery preparation restores and validates completed cells before building the worker matrix, so only unfinished cases launch workers. The combined result includes carried and new receipts and available transcripts; the full original case census still determines completeness. Restored cell ledgers are retained for further recovery.
 
-The native benchmark runner always uses the managed document-tool agent; it has no direct-prompt fallback. Unsupported provider/tool configurations fail before spend. Invalid or defaulted predictions fail the case and cannot be restored as completed results. When the execution setup itself was wrong, preserve the historical charges and use a corrected registry snapshot for a new experiment instead of resuming the old outputs.
+The native benchmark runner uses the managed document-tool agent by default; it has no implicit direct-prompt fallback. The explicit Jev condition uses the supported evaluation SDK for one-shot native probabilities over full text or frozen Luna summaries, with the original release units and a separate condition label. Unsupported provider/tool configurations fail before spend. Invalid or defaulted predictions fail the case and cannot be restored as completed results. When the execution setup itself was wrong, preserve the historical charges and use a corrected registry snapshot for a new experiment instead of resuming the old outputs.
 
 ## Testing
 

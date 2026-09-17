@@ -207,7 +207,10 @@ def _load_evidence(
     ):
         raise SystemExit("materialized model registry differs from frozen identity")
     registry_uri = _text(frozen.get("model_registry_uri"), "model registry URI")
-    if "://" not in registry_uri:
+    if registry_uri.startswith("artifact:"):
+        if not re.fullmatch(r"artifact:[1-9][0-9]*", registry_uri):
+            raise SystemExit("artifact model registry URI is invalid")
+    elif "://" not in registry_uri:
         relative = Path(registry_uri)
         if relative.is_absolute() or ".." in relative.parts:
             raise SystemExit("relative model registry URI is unsafe")

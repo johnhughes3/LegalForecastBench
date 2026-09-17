@@ -23,6 +23,7 @@ from legalforecast.runner.recovery import (
     SOURCE_WORKFLOW,
     GhRecoveryClient,
     RecoveryError,
+    _read_locked_inputs,
     build_recovery_plan,
 )
 
@@ -89,7 +90,9 @@ def _ledger_bytes() -> tuple[bytes, str]:
 
 
 class FakeRecoveryClient:
-    def __init__(self, *, latest_attempt: int = 1) -> None:
+    def __init__(
+        self, *, latest_attempt: int = 1, jev_summaries_uri: str | None = None
+    ) -> None:
         self.latest_attempt = latest_attempt
         self.dispatched: list[tuple[str, str, str, Mapping[str, str]]] = []
         self.active_runs: tuple[Mapping[str, object], ...] = ()
@@ -134,6 +137,36 @@ class FakeRecoveryClient:
                     "forecast-release.json": "{}",
                     "model-registry.json": REGISTRY_BYTES,
                     "artifacts/documents/private.txt": "not inspected",
+                    **(
+                        {
+                            "resume-dispatch.json": json.dumps(
+                                {
+                                    "schema_version": (
+                                        "legalforecast.resume-dispatch.v1"
+                                    ),
+                                    "source_run_id": RUN_ID,
+                                    "source_run_attempt": 1,
+                                    "release_sha": RELEASE_SHA,
+                                    "manifest_uri": "s3://bucket/run-manifest.json",
+                                    "forecast_release_uri": "s3://bucket/forecast-release.json",
+                                    "artifact_root_uri": "s3://bucket/artifacts/",
+                                    "model_registry_uri": (
+                                        "model_registries/frozen.json"
+                                    ),
+                                    "jev_summaries_uri": jev_summaries_uri,
+                                    "model_key": "openai:gpt-6-astra",
+                                    "ceiling_microusd": 250_000_000,
+                                    "account": "official-account",
+                                    "repeat_count": 1,
+                                    "max_parallel": 8,
+                                    "artifact_retention_days": 14,
+                                    "resume_sources": [],
+                                }
+                            )
+                        }
+                        if jev_summaries_uri is not None
+                        else {}
+                    ),
                 }
             ),
             12: _zip({"ledger.sqlite3": ledger, "state.json": "{}"}),
@@ -222,6 +255,54 @@ def test_recovery_plan_reconstructs_frozen_identity_from_artifacts() -> None:
         "max_parallel": "8",
         "execute": "true",
     }
+
+
+def test_recovery_plan_carries_the_frozen_jev_summary_locator() -> None:
+    plan = build_recovery_plan(
+        FakeRecoveryClient(jev_summaries_uri="artifact:987"),
+        repo="owner/bench",
+        run_id=RUN_ID,
+        ref="main",
+        max_parallel=8,
+    )
+
+    assert plan.frozen_identity.jev_summaries_uri == "artifact:987"
+    assert plan.to_record()["frozen_identity"]["jev_summaries_uri"] == "artifact:987"
+
+
+def test_locked_inputs_allow_the_jev_summary_resume_metadata() -> None:
+    registry, summaries_uri = _read_locked_inputs(
+        _zip(
+            {
+                "run-manifest.json": "{}",
+                "forecast-release.json": "{}",
+                "model-registry.json": REGISTRY_BYTES,
+                "resume-dispatch.json": json.dumps(
+                    {
+                        "schema_version": "legalforecast.resume-dispatch.v1",
+                        "source_run_id": RUN_ID,
+                        "source_run_attempt": 1,
+                        "release_sha": RELEASE_SHA,
+                        "manifest_uri": "s3://bucket/run-manifest.json",
+                        "forecast_release_uri": "s3://bucket/forecast-release.json",
+                        "artifact_root_uri": "s3://bucket/artifacts/",
+                        "model_registry_uri": "artifact:654",
+                        "jev_summaries_uri": "artifact:987",
+                        "model_key": "vercel_ai_gateway:typesafe-ai/jev",
+                        "ceiling_microusd": 250_000_000,
+                        "account": "official-account",
+                        "repeat_count": 1,
+                        "max_parallel": 8,
+                        "artifact_retention_days": 14,
+                        "resume_sources": [],
+                    }
+                ),
+            }
+        )
+    )
+
+    assert registry == REGISTRY_BYTES
+    assert summaries_uri == "artifact:987"
 
 
 def test_recovery_plan_falls_back_to_prior_identity_and_keeps_latest_state() -> None:

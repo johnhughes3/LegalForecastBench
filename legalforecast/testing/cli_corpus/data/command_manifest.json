@@ -557,6 +557,19 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "jev_summaries",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--jev-summaries"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "ledger",
           "metavar": null,
           "nargs": null,
@@ -860,6 +873,289 @@
     {
       "aliases": [],
       "group_dest": "command",
+      "handler": null,
+      "logical_handler_id": "jev",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        }
+      ],
+      "path": [
+        "jev"
+      ],
+      "registration_index": 11
+    },
+    {
+      "aliases": [],
+      "group_dest": "jev_command",
+      "handler": {
+        "module": "legalforecast.cli_commands.jev",
+        "name": "run_inputs",
+        "qualname": "run_inputs"
+      },
+      "logical_handler_id": "jev.inspect",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--manifest"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "forecast",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--forecast"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "artifact_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--artifact-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        }
+      ],
+      "path": [
+        "jev",
+        "inspect"
+      ],
+      "registration_index": 12
+    },
+    {
+      "aliases": [],
+      "group_dest": "jev_command",
+      "handler": {
+        "module": "legalforecast.cli_commands.jev",
+        "name": "run_inputs",
+        "qualname": "run_inputs"
+      },
+      "logical_handler_id": "jev.prepare",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "manifest",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--manifest"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "forecast",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--forecast"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "artifact_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--artifact-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "luna_registry",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--luna-registry"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "cache",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--cache"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "ledger",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--ledger"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "ceiling_microusd",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--ceiling-microusd"
+          ],
+          "required": true,
+          "type": "int"
+        }
+      ],
+      "path": [
+        "jev",
+        "prepare"
+      ],
+      "registration_index": 13
+    },
+    {
+      "aliases": [],
+      "group_dest": "jev_command",
+      "handler": {
+        "module": "legalforecast.cli_commands.jev",
+        "name": "run_registry",
+        "qualname": "run_registry"
+      },
+      "logical_handler_id": "jev.registry",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "summaries",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--summaries"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "output",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--output"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        }
+      ],
+      "path": [
+        "jev",
+        "registry"
+      ],
+      "registration_index": 14
+    },
+    {
+      "aliases": [],
+      "group_dest": "command",
       "handler": {
         "module": "legalforecast.cli_commands.score",
         "name": "run",
@@ -1073,7 +1369,7 @@
       "path": [
         "score"
       ],
-      "registration_index": 11
+      "registration_index": 15
     },
     {
       "aliases": [],
@@ -1343,7 +1639,7 @@
       "path": [
         "report"
       ],
-      "registration_index": 12
+      "registration_index": 16
     },
     {
       "aliases": [],
@@ -1371,7 +1667,7 @@
       "path": [
         "study"
       ],
-      "registration_index": 13
+      "registration_index": 17
     },
     {
       "aliases": [],
@@ -1469,7 +1765,7 @@
         "study",
         "report"
       ],
-      "registration_index": 14
+      "registration_index": 18
     },
     {
       "aliases": [],
@@ -1497,7 +1793,7 @@
       "path": [
         "publish"
       ],
-      "registration_index": 15
+      "registration_index": 19
     },
     {
       "aliases": [],
@@ -1569,7 +1865,7 @@
         "publish",
         "site"
       ],
-      "registration_index": 16
+      "registration_index": 20
     },
     {
       "aliases": [],
@@ -1597,7 +1893,7 @@
       "path": [
         "multiharness"
       ],
-      "registration_index": 17
+      "registration_index": 21
     },
     {
       "aliases": [],
@@ -1626,7 +1922,7 @@
         "multiharness",
         "tasks"
       ],
-      "registration_index": 18
+      "registration_index": 22
     },
     {
       "aliases": [],
@@ -1819,7 +2115,7 @@
         "tasks",
         "index"
       ],
-      "registration_index": 19
+      "registration_index": 23
     },
     {
       "aliases": [],
@@ -1944,7 +2240,7 @@
         "tasks",
         "project"
       ],
-      "registration_index": 20
+      "registration_index": 24
     },
     {
       "aliases": [],
@@ -2199,7 +2495,7 @@
         "tasks",
         "select"
       ],
-      "registration_index": 21
+      "registration_index": 25
     },
     {
       "aliases": [],
@@ -2228,7 +2524,7 @@
         "multiharness",
         "adapters"
       ],
-      "registration_index": 22
+      "registration_index": 26
     },
     {
       "aliases": [],
@@ -2288,7 +2584,7 @@
         "adapters",
         "list"
       ],
-      "registration_index": 23
+      "registration_index": 27
     },
     {
       "aliases": [],
@@ -2413,7 +2709,7 @@
         "adapters",
         "inspect"
       ],
-      "registration_index": 24
+      "registration_index": 28
     },
     {
       "aliases": [],
@@ -2511,7 +2807,7 @@
         "multiharness",
         "conformance"
       ],
-      "registration_index": 25
+      "registration_index": 29
     },
     {
       "aliases": [],
@@ -2995,7 +3291,7 @@
         "multiharness",
         "run"
       ],
-      "registration_index": 26
+      "registration_index": 30
     },
     {
       "aliases": [],
@@ -3024,7 +3320,7 @@
         "multiharness",
         "tier0"
       ],
-      "registration_index": 27
+      "registration_index": 31
     },
     {
       "aliases": [],
@@ -3097,7 +3393,7 @@
         "tier0",
         "run"
       ],
-      "registration_index": 28
+      "registration_index": 32
     },
     {
       "aliases": [],
@@ -3170,7 +3466,7 @@
         "tier0",
         "validate"
       ],
-      "registration_index": 29
+      "registration_index": 33
     },
     {
       "aliases": [],
@@ -3256,7 +3552,7 @@
         "tier0",
         "install-evaluator-wrapper"
       ],
-      "registration_index": 30
+      "registration_index": 34
     },
     {
       "aliases": [],
@@ -3342,7 +3638,7 @@
         "tier0",
         "mint"
       ],
-      "registration_index": 31
+      "registration_index": 35
     },
     {
       "aliases": [],
@@ -3401,7 +3697,7 @@
         "multiharness",
         "report"
       ],
-      "registration_index": 32
+      "registration_index": 36
     },
     {
       "aliases": [],
@@ -3430,7 +3726,7 @@
         "multiharness",
         "community"
       ],
-      "registration_index": 33
+      "registration_index": 37
     },
     {
       "aliases": [],
@@ -3659,7 +3955,7 @@
         "community",
         "package"
       ],
-      "registration_index": 34
+      "registration_index": 38
     },
     {
       "aliases": [],
@@ -3732,7 +4028,7 @@
         "community",
         "validate-submission"
       ],
-      "registration_index": 35
+      "registration_index": 39
     },
     {
       "aliases": [],
@@ -3805,7 +4101,7 @@
         "community",
         "aggregate"
       ],
-      "registration_index": 36
+      "registration_index": 40
     }
   ],
   "prog": "legalforecast",

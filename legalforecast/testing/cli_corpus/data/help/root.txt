@@ -8,6 +8,8 @@ positional arguments:
     release       Issue and validate public forecast and labels releases.
     run           Execute a validated forecast release with durable local
                   spend control.
+    jev           Prepare a distinct one-shot Jev condition using unchanged
+                  release units.
     score         Parse model outputs and score them against locked labels.
     report        Render leaderboard artifacts from score summaries.
     study         Compute reproducible evaluation-study reports from public

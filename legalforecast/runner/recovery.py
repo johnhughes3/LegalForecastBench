@@ -26,6 +26,7 @@ from legalforecast.contracts.schemas import (
     BENCHMARK_RECOVERY_PLAN_V1,
     FORECAST_RUN_SUMMARY_V1,
     FORECAST_RUN_V1,
+    RESUME_DISPATCH_V1,
 )
 from legalforecast.evals.output_parser import parsed_output_from_public_record
 from legalforecast.runner.ledger import RunBinding, RunnerLedger, RunValidationError
@@ -249,6 +250,7 @@ class FrozenRunIdentity:
     account: str
     ceiling_microusd: int
     artifact_retention_days: int
+    jev_summaries_uri: str | None = None
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -264,6 +266,7 @@ class FrozenRunIdentity:
             "account": self.account,
             "ceiling_microusd": self.ceiling_microusd,
             "artifact_retention_days": self.artifact_retention_days,
+            "jev_summaries_uri": self.jev_summaries_uri or "",
         }
 
 
@@ -387,7 +390,7 @@ def build_recovery_plan(
         run_id=run_id,
         run_attempt=identity_attempt,
     )
-    locked_registry_bytes = _read_locked_inputs(
+    locked_registry_bytes, jev_summaries_uri = _read_locked_inputs(
         client.download_artifact(repo, locked_inputs.artifact_id)
     )
     if locked_registry_bytes != final_registry_bytes:
@@ -436,6 +439,7 @@ def build_recovery_plan(
         account=account,
         ceiling_microusd=binding.ceiling_microusd,
         artifact_retention_days=_artifact_retention_days(locked_inputs),
+        jev_summaries_uri=jev_summaries_uri,
     )
     summary_completed = _nonnegative_int(
         summary.get("completed_cells"), "completed_cells"
@@ -739,7 +743,7 @@ def _read_final_artifact(
         )
 
 
-def _read_locked_inputs(payload: bytes) -> bytes:
+def _read_locked_inputs(payload: bytes) -> tuple[bytes, str | None]:
     with _open_zip(payload, "locked forecast inputs artifact") as archive:
         names = tuple(archive.namelist())
         _validate_member_names(names)
@@ -750,7 +754,48 @@ def _read_locked_inputs(payload: bytes) -> bytes:
         ):
             if required not in names:
                 raise RecoveryError(f"locked forecast inputs artifact lacks {required}")
-        return archive.read("model-registry.json")
+        summaries_uri: str | None = None
+        if "resume-dispatch.json" in names:
+            try:
+                resume_dispatch = _object(
+                    json.loads(archive.read("resume-dispatch.json")),
+                    "resume-dispatch.json",
+                )
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise RecoveryError("resume-dispatch.json is not valid JSON") from exc
+            required_fields = {
+                "schema_version",
+                "source_run_id",
+                "source_run_attempt",
+                "release_sha",
+                "manifest_uri",
+                "forecast_release_uri",
+                "artifact_root_uri",
+                "model_registry_uri",
+                "model_key",
+                "ceiling_microusd",
+                "account",
+                "repeat_count",
+                "max_parallel",
+                "artifact_retention_days",
+                "resume_sources",
+            }
+            allowed_fields = required_fields | {"jev_summaries_uri"}
+            if set(resume_dispatch) not in (required_fields, allowed_fields):
+                raise RecoveryError("resume-dispatch.json has unsupported fields")
+            if resume_dispatch.get("schema_version") != str(RESUME_DISPATCH_V1):
+                raise RecoveryError("resume-dispatch.json has an unsupported schema")
+            raw_uri = resume_dispatch.get("jev_summaries_uri", "")
+            if not isinstance(raw_uri, str):
+                raise RecoveryError("resume-dispatch.json Jev summaries URI is invalid")
+            if raw_uri and ".." in raw_uri:
+                raise RecoveryError("resume-dispatch.json Jev summaries URI is unsafe")
+            if raw_uri.startswith("artifact:") and not re.fullmatch(
+                r"artifact:[1-9][0-9]*", raw_uri
+            ):
+                raise RecoveryError("resume-dispatch.json Jev artifact URI is invalid")
+            summaries_uri = raw_uri or None
+        return archive.read("model-registry.json"), summaries_uri
 
 
 def _find_cell_binding(

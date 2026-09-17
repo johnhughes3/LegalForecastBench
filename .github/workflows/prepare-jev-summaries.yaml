@@ -1,0 +1,317 @@
+name: Prepare Jev Summaries
+run-name: ${{ format('Prepare Jev summaries from forecast run {0}', inputs.source_run_id) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Exact Run Benchmark workflow run that uploaded the locked inputs artifact.
+        required: true
+        type: string
+      locked_inputs_artifact_id:
+        description: Exact locked-forecast-inputs artifact ID from the source run.
+        required: true
+        type: string
+      ceiling_microusd:
+        description: Positive Luna summary ceiling in millionths of one US dollar.
+        required: true
+        type: string
+      prior_summary_run_id:
+        description: Jev summary workflow run containing a resumable cache and ledger, if any.
+        required: false
+        default: ""
+        type: string
+      prior_summary_artifact_id:
+        description: Prior Jev summary cache-and-ledger artifact ID, if any.
+        required: false
+        default: ""
+        type: string
+      luna_registry_path:
+        description: Frozen registry path containing openai:gpt-5.6-luna.
+        required: false
+        default: model_registries/cycle-1-2026-06-30-claude-fable-5-successor-2026-08-31.json
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: jev-summary-${{ inputs.locked_inputs_artifact_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare release-bound Jev summaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    environment: legalforecastbench-official-eval
+    env:
+      CEILING: ${{ inputs.ceiling_microusd }}
+      LUNA_REGISTRY: ${{ inputs.luna_registry_path }}
+    steps:
+      - name: Checkout exact origin/main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Require the checkout to equal origin/main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          git merge-base --is-ancestor HEAD origin/main
+
+      - name: Validate bounded dispatch inputs
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          LOCKED_INPUTS_ARTIFACT_ID: ${{ inputs.locked_inputs_artifact_id }}
+          PRIOR_SUMMARY_RUN_ID: ${{ inputs.prior_summary_run_id }}
+          PRIOR_SUMMARY_ARTIFACT_ID: ${{ inputs.prior_summary_artifact_id }}
+          LUNA_REGISTRY: ${{ inputs.luna_registry_path }}
+        run: |
+          set -euo pipefail
+          [[ "${SOURCE_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "source_run_id must be a positive integer" >&2; exit 1; }
+          [[ "${LOCKED_INPUTS_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "locked_inputs_artifact_id must be a positive integer" >&2; exit 1; }
+          [[ "${CEILING}" =~ ^[1-9][0-9]*$ ]] || { echo "ceiling_microusd must be a positive integer" >&2; exit 1; }
+          [[ "${LUNA_REGISTRY}" != /* && "${LUNA_REGISTRY}" != *..* && -n "${LUNA_REGISTRY}" ]] || { echo "luna_registry_path must be a relative repository path" >&2; exit 1; }
+          test -f "${LUNA_REGISTRY}"
+          if [[ -n "${PRIOR_SUMMARY_ARTIFACT_ID}" || -n "${PRIOR_SUMMARY_RUN_ID}" ]]; then
+            [[ "${PRIOR_SUMMARY_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
+            [[ "${PRIOR_SUMMARY_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
+          fi
+          [[ "${SOURCE_RUN_ID}" != "${GITHUB_RUN_ID}" ]] || { echo "source run must differ from this preparation run" >&2; exit 1; }
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Sync the locked Python environment
+        run: uv sync --locked
+
+      - name: Download locked outcome-blinded forecast inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ inputs.locked_inputs_artifact_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+          path: /tmp/lfb-jev-inputs
+
+      - name: Verify the locked input bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f /tmp/lfb-jev-inputs/run-manifest.json
+          test -f /tmp/lfb-jev-inputs/forecast-release.json
+          test -d /tmp/lfb-jev-inputs/artifacts
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          root = Path("/tmp/lfb-jev-inputs")
+          allowed_files = {
+              "run-manifest.json",
+              "forecast-release.json",
+              "model-registry.json",
+              "expected-cells.json",
+              "resume-dispatch.json",
+          }
+          for path in root.rglob("*"):
+              if path.is_symlink():
+                  raise SystemExit(f"symlink in locked input bundle: {path}")
+              if not path.is_file():
+                  continue
+              relative = path.relative_to(root)
+              if relative.parts[0] not in allowed_files | {"artifacts"}:
+                  raise SystemExit(f"unexpected locked input: {relative}")
+          PY
+
+      - name: Discover the latest cache from an earlier rerun attempt
+        id: discover-automatic-resume
+        if: ${{ inputs.prior_summary_artifact_id == '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          CURRENT_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          metadata="${RUNNER_TEMP}/jev-summary-artifacts.json"
+          gh api --paginate --slurp \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${CURRENT_RUN_ID}/artifacts?per_page=100" \
+            > "${metadata}"
+          uv run python - "${metadata}" "${CURRENT_RUN_ID}" "${CURRENT_ATTEMPT}" <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          metadata_path, run_id, current_attempt = sys.argv[1:]
+          pages = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
+          if not isinstance(pages, list):
+              raise SystemExit("GitHub artifact listing is not paginated JSON")
+          records: list[dict[str, object]] = []
+          for page in pages:
+              if not isinstance(page, dict):
+                  raise SystemExit("GitHub artifact listing page is not an object")
+              artifacts = page.get("artifacts")
+              if not isinstance(artifacts, list):
+                  raise SystemExit("GitHub artifact listing has no artifacts array")
+              records.extend(item for item in artifacts if isinstance(item, dict))
+
+          pattern = re.compile(
+              rf"^jev-summary-cache-{re.escape(run_id)}-attempt-([1-9][0-9]*)$"
+          )
+          candidates: list[tuple[int, int]] = []
+          for record in records:
+              name = record.get("name")
+              artifact_id = record.get("id")
+              if record.get("expired") is True or not isinstance(name, str):
+                  continue
+              match = pattern.fullmatch(name)
+              if match is None or isinstance(artifact_id, bool) or not isinstance(artifact_id, int):
+                  continue
+              attempt = int(match.group(1))
+              if attempt >= int(current_attempt) or artifact_id <= 0:
+                  continue
+              candidates.append((attempt, artifact_id))
+
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          if candidates:
+              attempt, artifact_id = max(candidates)
+              output.write_text(
+                  f"found=true\nartifact_id={artifact_id}\nattempt={attempt}\n",
+                  encoding="utf-8",
+              )
+          else:
+              output.write_text("found=false\nartifact_id=\nattempt=\n", encoding="utf-8")
+          PY
+
+      - name: Download prior Jev summary cache and ledger
+        if: ${{ inputs.prior_summary_artifact_id != '' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ inputs.prior_summary_artifact_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.prior_summary_run_id }}
+          path: /tmp/lfb-jev-prior
+
+      - name: Download the latest cache from an earlier rerun attempt
+        if: ${{ inputs.prior_summary_artifact_id == '' && steps.discover-automatic-resume.outputs.found == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.discover-automatic-resume.outputs.artifact_id }}
+        run: |
+          set -euo pipefail
+          [[ "${ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "automatic resume artifact ID is invalid" >&2; exit 1; }
+          archive="${RUNNER_TEMP}/jev-summary-cache.zip"
+          gh api \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            > "${archive}"
+          mkdir -p /tmp/lfb-jev-prior
+          uv run python - "${archive}" /tmp/lfb-jev-prior <<'PY'
+          import os
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          archive, destination = map(Path, sys.argv[1:])
+          allowed = {"jev-summaries.json", "summary-spend.sqlite3"}
+          destination.mkdir(parents=True, exist_ok=True)
+          with zipfile.ZipFile(archive) as bundle:
+              infos = bundle.infolist()
+              names = [info.filename for info in infos]
+              if set(names) != allowed or len(names) != len(allowed):
+                  raise SystemExit("automatic resume artifact has an unexpected file set")
+              for info in infos:
+                  if info.is_dir() or info.filename not in allowed:
+                      raise SystemExit("automatic resume artifact contains an unsafe entry")
+                  mode = (info.external_attr >> 16) & 0o170000
+                  if mode == 0o120000:
+                      raise SystemExit("automatic resume artifact contains a symlink")
+                  temporary = destination / f".{info.filename}.tmp"
+                  temporary.write_bytes(bundle.read(info))
+                  os.replace(temporary, destination / info.filename)
+          if not all((destination / name).is_file() for name in allowed):
+              raise SystemExit("automatic resume artifact is missing resumable state")
+          PY
+
+      - name: Materialize resumable Jev state
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-jev-summary
+          if [[ -d /tmp/lfb-jev-prior ]]; then
+            test -f /tmp/lfb-jev-prior/jev-summaries.json
+            test -f /tmp/lfb-jev-prior/summary-spend.sqlite3
+            cp -f /tmp/lfb-jev-prior/jev-summaries.json /tmp/lfb-jev-summary/jev-summaries.json
+            cp -f /tmp/lfb-jev-prior/summary-spend.sqlite3 /tmp/lfb-jev-summary/summary-spend.sqlite3
+          fi
+
+      - name: Prepare release-bound Luna summaries
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: >-
+          uv run legalforecast jev prepare
+          --manifest /tmp/lfb-jev-inputs/run-manifest.json
+          --forecast /tmp/lfb-jev-inputs/forecast-release.json
+          --artifact-root /tmp/lfb-jev-inputs/artifacts
+          --luna-registry "$LUNA_REGISTRY"
+          --cache /tmp/lfb-jev-summary/jev-summaries.json
+          --ledger /tmp/lfb-jev-summary/summary-spend.sqlite3
+          --ceiling-microusd "$CEILING"
+
+      - name: Freeze the Jev model registry
+        if: ${{ success() }}
+        run: >-
+          uv run legalforecast jev registry
+          --summaries /tmp/lfb-jev-summary/jev-summaries.json
+          --output /tmp/lfb-jev-summary/model-registry.json
+
+      - name: Checkpoint the resumable SQLite ledger
+        id: checkpoint-summary-ledger
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ledger=/tmp/lfb-jev-summary/summary-spend.sqlite3
+          if [[ -f "${ledger}" ]]; then
+            uv run python - "${ledger}" <<'PY'
+          import sqlite3
+          import sys
+
+          path = sys.argv[1]
+          with sqlite3.connect(path, isolation_level=None, timeout=30.0) as connection:
+              result = connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+          if result is None or len(result) < 1 or int(result[0]) != 0:
+              raise SystemExit(f"SQLite WAL checkpoint is busy or invalid: {result!r}")
+          PY
+          fi
+
+      - name: Upload resumable Jev cache and spend ledger
+        if: ${{ always() && steps.checkpoint-summary-ledger.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: jev-summary-cache-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/lfb-jev-summary/jev-summaries.json
+            /tmp/lfb-jev-summary/summary-spend.sqlite3
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload completed Jev model registry
+        if: ${{ success() && steps.checkpoint-summary-ledger.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: jev-model-registry-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: /tmp/lfb-jev-summary/model-registry.json
+          if-no-files-found: error
+          retention-days: 90

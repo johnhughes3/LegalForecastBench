@@ -59,6 +59,7 @@ from legalforecast.evals.response_verification import (
     require_publishable_response_metadata,
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
+from legalforecast.jev import execution as jev_execution
 from legalforecast.release import (
     ExecutableUnitPacket,
     ForecastExecution,
@@ -100,6 +101,7 @@ class RunConfig:
     provider_authority_table: str | None = None
     provider_authority_region: str | None = None
     provider_authority_resource_identity_sha256: str | None = None
+    jev_summaries_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,10 +257,15 @@ def execute_release_run(
     provider_free_injection = (
         transport is not None and transport is not default_live_model_transport
     )
-    managed_execution.require_managed_document_tools(
-        entry,
-        allow_provider_free_injection=provider_free_injection,
-    )
+    if entry.jev_input_mode is not None:
+        jev_execution.validate_jev_inputs(entry, execution, config.jev_summaries_path)
+    else:
+        if config.jev_summaries_path is not None:
+            raise RunValidationError("summary cache is only supported in Jev mode")
+        managed_execution.require_managed_document_tools(
+            entry,
+            allow_provider_free_injection=provider_free_injection,
+        )
     validate_executable_packets(execution)
     entry_sha256 = model_registry_entry_sha256(entry)
 
@@ -418,13 +425,19 @@ def execute_release_run(
                         case_call=case_call,
                         repeat_index=repeat_index,
                     )
-                    prompt = managed_execution.case_prompt(
-                        entry,
-                        execution,
-                        case_call.units,
-                        case_call.model_visible_document_indexes,
-                        cell_id,
-                        allow_provider_free_injection=provider_free_injection,
+                    prompt = (
+                        jev_execution.build_jev_case_input(
+                            entry, execution, case_call.units, config.jev_summaries_path
+                        )
+                        if entry.jev_input_mode is not None
+                        else managed_execution.case_prompt(
+                            entry,
+                            execution,
+                            case_call.units,
+                            case_call.model_visible_document_indexes,
+                            cell_id,
+                            allow_provider_free_injection=provider_free_injection,
+                        )
                     )
                     if config.cell_id is not None and cell_id != config.cell_id:
                         raise RunValidationError(
@@ -753,6 +766,17 @@ def execute_release_run(
                             },
                             "parser_output": public_parser_record(parsed),
                         }
+                        if entry.jev_input_mode is not None:
+                            receipt["execution_condition"] = (
+                                f"jev_{entry.jev_input_mode}"
+                            )
+                            receipt["jev_summaries_sha256"] = entry.jev_summaries_sha256
+                            receipt["served_model_version"] = metadata[
+                                "served_model_version"
+                            ]
+                            receipt["jev_provider_metadata"] = json.loads(
+                                metadata["provider_metadata"]
+                            )
                         if "anthropic_cache_evidence" in metadata:
                             receipt["anthropic_cache_evidence"] = json.loads(
                                 metadata["anthropic_cache_evidence"]
@@ -819,7 +843,7 @@ def execute_release_run(
 
 def _complete_cell(
     entry: ModelRegistryEntry,
-    prompt: str | managed_execution.ManagedCaseInput,
+    prompt: str | managed_execution.ManagedCaseInput | jev_execution.JevCaseInput,
     *,
     key: ProviderSpendKey,
     registry_sha256: str,
@@ -858,6 +882,16 @@ def _complete_cell(
         transport_start_observer=transport_start_observer,
         response_observer=response_observer,
     )
+    if isinstance(prompt, jev_execution.JevCaseInput):
+        return jev_execution.complete_jev_cell(
+            entry,
+            handler=handler,
+            case=prompt,
+            transport=transport,
+            request_body_observer=request_body_observer,
+            environ=environ,
+            registry_sha256=registry_sha256,
+        )
     if isinstance(prompt, managed_execution.ManagedCaseInput):
         return managed_execution.complete_managed_tool_cell(
             entry,
