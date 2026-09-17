@@ -107,7 +107,7 @@ def prepare_summaries(
             documents = case_documents(execution, units)
             overhead = request_byte_count(
                 case_request(
-                    units, documents, summaries={d.document_id: "" for d in documents}
+                    units, documents, summaries={d.document_id: "x" for d in documents}
                 )
             )
             # Leave room for JSON escaping, and validate the actual assembled

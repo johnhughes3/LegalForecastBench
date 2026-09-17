@@ -94,6 +94,8 @@ def case_request(
         raise ValueError("Jev requires nonempty unique prediction units")
     if summaries is not None and set(summaries) != {d.document_id for d in documents}:
         raise ValueError("summaries must cover exactly the selected documents")
+    if summaries is not None and any(not text.strip() for text in summaries.values()):
+        raise ValueError("Jev cannot use an empty document summary")
     return {
         "model": "typesafe-ai/jev",
         "providerOptions": {"gateway": {"only": ["typesafe-ai"]}},

@@ -178,3 +178,16 @@ def test_one_shared_record_carries_all_units_and_their_meaning(tmp_path):
         "different defendants" in request["questions"][second.unit_id]["instructions"]
     )
     assert len(request["state"]["documents"]) == len(documents)
+
+
+@pytest.mark.parametrize("empty_text", ["", " \n\t"])
+def test_empty_summary_cannot_silently_omit_a_document(tmp_path, empty_text):
+    _, execution = setup_run(tmp_path)
+    units = (execution.release.prediction_units[0],)
+    documents = case_documents(execution, units)
+    summaries = {
+        document.document_id: "A substantive summary" for document in documents
+    }
+    summaries[documents[0].document_id] = empty_text
+    with pytest.raises(ValueError, match="empty document summary"):
+        case_request(units, documents, summaries=summaries)
