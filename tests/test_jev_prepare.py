@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import sqlite3
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -178,6 +179,81 @@ def test_cached_documents_are_reused_without_provider_purchase(
         "spent_microusd": first["spent_microusd"],
     }
     assert _attempt_counts(ledger_path) == (expected, 0, ["settled"] * expected)
+
+
+def test_reused_document_label_isolated_by_case_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    execution = _execution(tmp_path)
+    source_documents = {
+        case.case_id: case_documents(
+            execution,
+            tuple(
+                unit
+                for unit in execution.release.prediction_units
+                if unit.case_id == case.case_id
+            ),
+        )[0]
+        for case in execution.release.cases
+    }
+    source_digests = {
+        case_id: digest
+        for case_id, digest in zip(
+            source_documents, ("a" * 64, "b" * 64, "c" * 64), strict=True
+        )
+    }
+
+    def shared_label_documents(
+        _execution: ForecastExecution, units: Any
+    ) -> tuple[Any, ...]:
+        source = source_documents[units[0].case_id]
+        return (
+            replace(
+                source,
+                document_id="shared-document-label",
+                source_sha256=source_digests[units[0].case_id],
+            ),
+        )
+
+    monkeypatch.setattr(prepare, "case_documents", shared_label_documents)
+    factory = _FakeAgentFactory(
+        output="Faithful source summary.",
+        usage=RequestUsage(input_tokens=10, output_tokens=5),
+    )
+    monkeypatch.setattr(prepare, "Agent", factory)
+    monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
+    cache_path = tmp_path / "summaries.json"
+    ledger_path = tmp_path / "ledger.sqlite3"
+    first = prepare.prepare_summaries(
+        execution,
+        entry=_entry(),
+        cache_path=cache_path,
+        ledger_path=ledger_path,
+        ceiling_microusd=100_000_000,
+    )
+    assert first["created"] == len(source_documents)
+    assert len(factory.prompts) == len(source_documents)
+
+    def fail_if_called(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise AssertionError("case-isolated cached summaries must not repurchase")
+
+    monkeypatch.setattr(prepare, "Agent", fail_if_called)
+    second = prepare.prepare_summaries(
+        execution,
+        entry=_entry(),
+        cache_path=cache_path,
+        ledger_path=ledger_path,
+        ceiling_microusd=100_000_000,
+    )
+    assert second["created"] == 0
+    assert second["reused"] == len(source_documents)
+    assert _attempt_counts(ledger_path) == (
+        len(source_documents),
+        0,
+        ["settled"] * len(source_documents),
+    )
 
 
 def test_summary_uses_whole_document_no_sdk_retries_and_long_context_cost(

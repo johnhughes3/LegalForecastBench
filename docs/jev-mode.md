@@ -23,6 +23,8 @@ Luna sees one complete selected document at a time, with its role and identity. 
 
 Summaries are stored in a reusable JSON cache bound to the original release and document identities. Each record includes the source identity, summary model, prompt version, text, token usage, and estimated preparation cost. Keep the cache and its spend ledger together. Matching entries are reused without another provider request. Overlong generated summaries are retained, but cannot be sent to Jev until the preparation issue is resolved; the code does not truncate them or automatically repurchase them.
 
+Resume reuses saved output and continues unstarted documents. A provider failure with an uncertain charge stops preparation for reconciliation; rerunning does not authorize another purchase of that document. Luna input admission and temporary spend reservations use a conservative UTF-8 byte upper bound, not a measured token count. Successful requests settle against returned token usage and release the unused reservation. This may reject an unusually large document that would fit under the provider tokenizer; it does not silently remove text.
+
 For contributor-owned preparation, the CLI is:
 
 ```bash

@@ -119,13 +119,19 @@ def prepare_summaries(
                 )
             texts: dict[str, str] = {}
             for document in documents:
+                summary_identity = ARTIFACT_CANONICAL_JSON_V1.encode(
+                    {
+                        "case_id": case.case_id,
+                        "document_id": document.document_id,
+                    }
+                ).decode("utf-8")
                 key = ProviderSpendKey(
                     execution.release.release_id,
                     "openai",
                     "jev-summaries",
                     "document_summary",
                     entry.registry_key,
-                    document.document_id,
+                    summary_identity,
                     "none",
                     1,
                 )
