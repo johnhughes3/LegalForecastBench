@@ -691,3 +691,27 @@ def test_origin_main_is_resolvable_without_a_separate_unauthenticated_fetch() ->
     assert "fetch-depth: 0" in WORKFLOW
     assert "persist-credentials: false" in WORKFLOW
     assert "git fetch --no-tags origin main" not in WORKFLOW
+
+
+@pytest.mark.parametrize(
+    ("model_key", "accepted"),
+    [
+        ("typesafe:jev-1.13.0", True),
+        ("vercel_ai_gateway:typesafe-ai/jev", True),
+        ("openai:gpt-5.6-luna", True),
+        ("unknown:jev", False),
+        ("typesafe:jev extra", False),
+    ],
+)
+def test_fan_in_accepts_supported_provider_keys(model_key: str, accepted: bool) -> None:
+    start = WORKFLOW.index('          [[ "${MODEL_KEY}" =~')
+    stop = WORKFLOW.index("          }", start) + len("          }")
+    script = textwrap.dedent(WORKFLOW[start:stop])
+    result = subprocess.run(
+        ["bash", "-c", script],
+        env={**os.environ, "MODEL_KEY": model_key},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert (result.returncode == 0) is accepted
