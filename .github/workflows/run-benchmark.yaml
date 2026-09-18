@@ -162,7 +162,7 @@ jobs:
               s3://*|manifests/*|*) ;;
             esac
           fi
-          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google|vercel_ai_gateway):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
+          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google|vercel_ai_gateway|typesafe):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
           [[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]] || { echo "ceiling_microusd must be positive" >&2; exit 1; }
           [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ && "${REPEAT_COUNT}" -le 20 ]] || { echo "repeat_count must be between 1 and 20" >&2; exit 1; }
           [[ "${REPEAT_COUNT}" == "1" ]] || { echo "repeat_count must be exactly 1 until repeated-sampling fan-in is supported" >&2; exit 1; }
@@ -463,7 +463,7 @@ jobs:
               provider = entry.provider.strip().casefold()
               if provider == "google":
                   provider = "gemini"
-              matrix_provider = "gateway" if provider == "vercel_ai_gateway" else provider
+              matrix_provider = "gateway" if provider in {"vercel_ai_gateway", "typesafe"} else provider
               if matrix_provider not in matrices:
                   raise SystemExit(f"model registry provider is not supported by the official forecast workflow: {entry.provider}")
               for case in forecast.cases:
@@ -1077,8 +1077,8 @@ jobs:
           retention-days: ${{ inputs.artifact_retention_days }}
 
   run-gateway:
-    name: Vercel AI Gateway resumable forecast cells
-    if: ${{ startsWith(inputs.model_key, 'vercel_ai_gateway:') && needs.prepare-inputs.outputs.gateway_count != '0' }}
+    name: Vercel AI Gateway and TypeSafe Jev resumable forecast cells
+    if: ${{ (startsWith(inputs.model_key, 'vercel_ai_gateway:') || startsWith(inputs.model_key, 'typesafe:')) && needs.prepare-inputs.outputs.gateway_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -1095,7 +1095,7 @@ jobs:
     strategy:
       # Jev has no agentic recovery or alternate transport. Stop a failed
       # evaluation rollout before every queued case repeats the same error.
-      fail-fast: ${{ inputs.model_key == 'vercel_ai_gateway:typesafe-ai/jev' }}
+      fail-fast: ${{ inputs.model_key == 'vercel_ai_gateway:typesafe-ai/jev' || inputs.model_key == 'typesafe:jev-1.13.0' }}
       max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
       matrix: ${{ fromJSON(needs.prepare-inputs.outputs.gateway_matrix) }}
     steps:
@@ -1175,12 +1175,12 @@ jobs:
           else
             echo "transcript recovery=none"
           fi
-      - name: Install Node.js 24 for Jev
+      - name: Install Node.js 24 for Gateway Jev
         if: ${{ matrix.model_key == 'vercel_ai_gateway:typesafe-ai/jev' }}
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
-      - name: Install pinned Jev runtime dependencies
+      - name: Install pinned Gateway Jev runtime dependencies
         if: ${{ matrix.model_key == 'vercel_ai_gateway:typesafe-ai/jev' }}
         shell: bash
         run: |
@@ -1190,11 +1190,11 @@ jobs:
           test "$(pnpm --version)" = "11.27.0"
           pnpm --dir integrations/jev install --frozen-lockfile
       - name: Configure rootless Docker for document tools
-        if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' }}
+        if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' && matrix.model_key != 'typesafe:jev-1.13.0' }}
         shell: bash
         run: .github/scripts/setup-rootless-docker.sh
       - name: Build isolated document tool image
-        if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' }}
+        if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' && matrix.model_key != 'typesafe:jev-1.13.0' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1202,10 +1202,11 @@ jobs:
           tool_image_id="$(docker image inspect --format '{{.Id}}' lfb-harvey-tools:local)"
           [[ "${tool_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" >> "${GITHUB_ENV}"
-      - name: Execute exact Vercel AI Gateway forecast cell
+      - name: Execute exact Gateway or TypeSafe Jev forecast cell
         shell: bash
         env:
-          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          AI_GATEWAY_API_KEY: ${{ matrix.provider == 'vercel_ai_gateway' && secrets.AI_GATEWAY_API_KEY || '' }}
+          TYPESAFE_API_KEY: ${{ matrix.provider == 'typesafe' && secrets.TYPESAFE_API_KEY || '' }}
           MODEL_KEY: ${{ matrix.model_key }}
           CELL_ID: ${{ matrix.cell_id }}
           UNIT_ID: ${{ matrix.unit_id }}

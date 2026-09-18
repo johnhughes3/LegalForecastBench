@@ -279,12 +279,13 @@ def test_jev_gateway_uses_frozen_summaries_and_skips_document_docker() -> None:
     assert "jev-summaries.json|model-registry.json" in prepare
     assert "gh api --allow-escape-sequences" in prepare
     assert "summary-spend.sqlite3" in prepare
-    assert "Install Node.js 24 for Jev" in gateway
+    assert "Install Node.js 24 for Gateway Jev" in gateway
     assert "node-version: 24" in gateway
     assert "corepack prepare pnpm@11.27.0 --activate" in gateway
     assert "pnpm --dir integrations/jev install --frozen-lockfile" in gateway
     assert (
-        "if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' }}" in gateway
+        "if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' && "
+        "matrix.model_key != 'typesafe:jev-1.13.0' }}" in gateway
     )
     assert (
         "jev_args=(--jev-summaries /tmp/lfb-forecast-inputs/jev-summaries.json)"

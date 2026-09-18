@@ -27,7 +27,9 @@ from legalforecast.release import load_forecast_execution
 from legalforecast.runner import RunConfig, execute_release_run, issue_runner_fixture
 
 
-def setup_run(tmp_path: Path, *, summaries: bool = False):
+def setup_run(
+    tmp_path: Path, *, summaries: bool = False, provider: str = "vercel_ai_gateway"
+):
     fixture = tmp_path / "fixture"
     issue_runner_fixture(fixture)
     execution = load_forecast_execution(
@@ -57,7 +59,14 @@ def setup_run(tmp_path: Path, *, summaries: bool = False):
                     ),
                 )
     registry = tmp_path / "registry.json"
-    args = ["jev", "registry", "--output", str(registry)]
+    args = [
+        "jev",
+        "registry",
+        "--provider",
+        provider,
+        "--output",
+        str(registry),
+    ]
     if summaries:
         args += ["--summaries", str(cache_path)]
     assert main(args) == 0
@@ -65,7 +74,11 @@ def setup_run(tmp_path: Path, *, summaries: bool = False):
         forecast_path=fixture / "release/forecast-release.json",
         artifact_root=fixture / "release",
         model_registry_path=registry,
-        model_key="vercel_ai_gateway:typesafe-ai/jev",
+        model_key=(
+            "typesafe:jev-1.13.0"
+            if provider == "typesafe"
+            else "vercel_ai_gateway:typesafe-ai/jev"
+        ),
         ledger_path=tmp_path / "ledger.sqlite3",
         receipts_dir=tmp_path / "receipts",
         ceiling_microusd=1_000_000,
@@ -76,24 +89,35 @@ def setup_run(tmp_path: Path, *, summaries: bool = False):
 
 
 class NativeProbabilityTransport:
-    def __init__(self, invalid: object = None):
+    def __init__(self, invalid: object = None, *, provider: str = "gateway"):
         self.calls: list[dict] = []
         self.invalid = invalid
+        self.provider = provider
 
     def __call__(self, request: Request, timeout_seconds: float):
         body = json.loads(request.data)
         self.calls.append(body)
-        return {
+        answer_type = "noul" if self.provider == "typesafe" else "boolean"
+        probability_key = "noul" if self.provider == "typesafe" else "probability"
+        usage = (
+            {"input_tokens": 100, "output_tokens": 4}
+            if self.provider == "typesafe"
+            else {"inputTokens": 100, "outputTokens": 4}
+        )
+        payload = {
             "answers": {
                 unit: {
-                    "type": "boolean",
-                    "probability": self.invalid if self.invalid is not None else 0.37,
+                    "type": answer_type,
+                    probability_key: self.invalid if self.invalid is not None else 0.37,
                 }
                 for unit in body["questions"]
             },
-            "usage": {"inputTokens": 100, "outputTokens": 4},
+            "usage": usage,
             "providerMetadata": {},
         }
+        if self.provider == "typesafe":
+            payload["model"] = "jev-1.13.0"
+        return payload
 
 
 @pytest.mark.parametrize("summaries", [False, True])
@@ -147,6 +171,112 @@ def test_summary_cache_tampering_refused_before_any_call(tmp_path):
     with pytest.raises(ValueError, match="frozen registry"):
         execute_release_run(config, transport=transport, environ={})
     assert transport.calls == []
+
+
+def test_first_party_typesafe_route_uses_native_nouls_and_records_model_metadata(
+    tmp_path,
+):
+    config, execution = setup_run(tmp_path, provider="typesafe")
+    transport = NativeProbabilityTransport(provider="typesafe")
+
+    result = execute_release_run(
+        config, transport=transport, environ={"TYPESAFE_API_KEY": "fixture"}
+    )
+
+    assert result.executed_cells == execution.release.case_count
+    assert len(transport.calls) == execution.release.case_count
+    for call in transport.calls:
+        assert call["model"] == "jev-1.13.0"
+        assert "providerOptions" not in call
+        assert all(q["type"] == "noul" for q in call["questions"].values())
+    receipts = [
+        json.loads(path.read_text()) for path in config.receipts_dir.glob("*.json")
+    ]
+    assert {receipt["model_key"] for receipt in receipts} == {"typesafe:jev-1.13.0"}
+    assert {receipt["served_model_version"] for receipt in receipts} == {"jev-1.13.0"}
+    assert all(receipt["jev_provider_metadata"] == {} for receipt in receipts)
+
+
+def test_first_party_typesafe_route_requires_its_own_credential(tmp_path):
+    config, _ = setup_run(tmp_path, provider="typesafe")
+    transport = NativeProbabilityTransport(provider="typesafe")
+    with pytest.raises(ValueError, match="TYPESAFE_API_KEY"):
+        execute_release_run(config, transport=transport, environ={})
+    assert transport.calls == []
+
+
+@pytest.mark.parametrize("probability", [True, -0.1, 1.1, float("nan")])
+def test_first_party_typesafe_route_rejects_malformed_nouls(tmp_path, probability):
+    config, _ = setup_run(tmp_path, provider="typesafe")
+    transport = NativeProbabilityTransport(probability, provider="typesafe")
+    with pytest.raises(ValueError, match=r"probability|non-finite"):
+        execute_release_run(
+            config, transport=transport, environ={"TYPESAFE_API_KEY": "fixture"}
+        )
+    assert len(transport.calls) == 1
+    assert not list(config.receipts_dir.glob("*.json"))
+
+
+def test_typesafe_sdk_call_preserves_native_response_and_records_sdk_metadata(
+    monkeypatch,
+):
+    import httpx2
+    import typesafe_sdk
+
+    raw_payload = {
+        "model": "jev-1.13.0",
+        "answers": {"unit": {"type": "noul", "noul": 0.62}},
+        "usage": {"input_tokens": 12, "output_tokens": 3},
+    }
+
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        assert request.method == "POST"
+        assert str(request.url) == "https://api.typesafe.ai/v1/systemone"
+        sent = json.loads(request.content)
+        assert sent["model"] == "jev-1.13.0"
+        assert sent["state"] == {"case_id": "case"}
+        assert sent["questions"]["unit"]["type"] == "noul"
+        return httpx2.Response(
+            200,
+            json=raw_payload,
+            headers={"x-typesafe-request-id": "request_fixture_123"},
+            request=request,
+        )
+
+    real_client = typesafe_sdk.TypeSafeClient
+    transport = httpx2.MockTransport(handler)
+
+    def client_factory(**kwargs):
+        assert kwargs["api_key"] == "fixture-typesafe-key"
+        assert kwargs["model"] == "jev-1.13.0"
+        assert kwargs["retry"].max_retries == 0
+        return real_client(transport=transport, **kwargs)
+
+    monkeypatch.setattr(typesafe_sdk, "TypeSafeClient", client_factory)
+    metadata: dict[str, object] = {}
+    body = json.dumps(
+        {
+            "model": "jev-1.13.0",
+            "state": {"case_id": "case"},
+            "questions": {"unit": {"type": "noul", "instructions": "Does it?"}},
+        }
+    ).encode()
+
+    payload = jev_execution._typesafe_sdk_call(
+        body,
+        {"TYPESAFE_API_KEY": "fixture-typesafe-key"},
+        provider_metadata=metadata,
+    )
+
+    assert payload == raw_payload
+    assert metadata == {
+        "sdk": f"typesafe-sdk/{typesafe_sdk.__version__}",
+        "request_id": "request_fixture_123",
+    }
+    assert len(requests) == 1
 
 
 def test_whole_request_budget_includes_questions_and_never_truncates(tmp_path):

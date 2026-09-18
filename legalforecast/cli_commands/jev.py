@@ -95,6 +95,15 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
         help="Completed Luna summary cache; omit for full-text mode.",
     )
     registry.add_argument(
+        "--provider",
+        choices=("typesafe", "vercel_ai_gateway"),
+        default="typesafe",
+        help=(
+            "Frozen Jev route. The first-party TypeSafe route is the default; "
+            "use vercel_ai_gateway only to reproduce the historical Gateway route."
+        ),
+    )
+    registry.add_argument(
         "--output", type=Path, required=True, help="Create-only registry JSON output."
     )
     registry.set_defaults(handler=run_registry)
@@ -154,9 +163,11 @@ def run_inputs(args: argparse.Namespace) -> int:
 
 
 def run_registry(args: argparse.Namespace) -> int:
-    """Use the provider's real route; do not invent a dated model snapshot."""
+    """Freeze one supported Jev route without inventing a model snapshot."""
 
     path = cast(Path | None, args.summaries)
+    provider = cast(str, args.provider)
+    direct_typesafe = provider == "typesafe"
     digest = (
         None
         if path is None
@@ -168,12 +179,14 @@ def run_registry(args: argparse.Namespace) -> int:
         )
     )
     record: dict[str, object] = {
-        "provider": "vercel_ai_gateway",
-        "model_id": "typesafe-ai/jev",
+        "provider": provider,
+        "model_id": "jev-1.13.0" if direct_typesafe else "typesafe-ai/jev",
         "display_name": "Jev (Luna summaries; one shot)"
         if path
         else "Jev (full text; one shot)",
-        "model_version_or_snapshot": "typesafe-ai/jev",
+        "model_version_or_snapshot": (
+            "jev-1.13.0" if direct_typesafe else "typesafe-ai/jev"
+        ),
         "release_timestamp": "2026-09-15T00:00:00Z",
         "release_timestamp_source": "https://vercel.com/ai-gateway/models/jev",
         "provider_training_cutoff_status": "not_disclosed",
@@ -182,12 +195,23 @@ def run_registry(args: argparse.Namespace) -> int:
         "network_disabled": True,
         "search_disabled": True,
         "tool_policy": "no_tools",
-        "pricing_source": "https://vercel.com/ai-gateway/models/jev",
+        "pricing_source": (
+            "https://docs.typesafe.ai/models"
+            if direct_typesafe
+            else "https://vercel.com/ai-gateway/models/jev"
+        ),
         "input_token_price": 0.042,
         "output_token_price": 0.0,
         "known_cutoff_publicity_caveats": [
-            "Provider does not expose a dated Jev snapshot or exact tokenizer. "
-            "One-shot condition; summary preparation costs reported separately."
+            (
+                "TypeSafe first-party API route pinned to Jev 1.13.0; output tokens "
+                "are free and summary preparation costs are reported separately."
+                if direct_typesafe
+                else (
+                    "Provider does not expose a dated Jev snapshot or exact tokenizer. "
+                    "One-shot condition; summary preparation costs reported separately."
+                )
+            )
         ],
         "jev_input_mode": "full_text" if path is None else "luna_summaries",
     }

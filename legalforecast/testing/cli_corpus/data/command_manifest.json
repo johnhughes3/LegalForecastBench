@@ -1135,6 +1135,22 @@
         },
         {
           "action": "store",
+          "choices": [
+            "typesafe",
+            "vercel_ai_gateway"
+          ],
+          "default": "typesafe",
+          "dest": "provider",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--provider"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
           "choices": null,
           "default": null,
           "dest": "output",
