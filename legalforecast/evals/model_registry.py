@@ -277,12 +277,18 @@ class ModelRegistryEntry:
         _require_non_negative(self.output_token_price, "output_token_price")
         if self.jev_input_mode is not None:
             if (
-                self.provider != "vercel_ai_gateway"
-                or self.model_id != "typesafe-ai/jev"
+                self.provider not in {"vercel_ai_gateway", "typesafe"}
+                or (
+                    self.provider == "vercel_ai_gateway"
+                    and self.model_id != "typesafe-ai/jev"
+                )
+                or (self.provider == "typesafe" and self.model_id != "jev-1.13.0")
                 or self.tool_policy is not ToolPolicy.NO_TOOLS
                 or self.jev_input_mode not in {"full_text", "luna_summaries"}
             ):
-                raise ValueError("Jev input mode requires the no-tools Jev route")
+                raise ValueError(
+                    "Jev input mode requires the no-tools Gateway or TypeSafe route"
+                )
             if self.jev_input_mode == "luna_summaries":
                 digest = self.jev_summaries_sha256 or ""
                 if len(digest) != 64 or any(

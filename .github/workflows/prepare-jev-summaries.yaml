@@ -26,6 +26,11 @@ on:
         required: false
         default: ""
         type: string
+      registry_only:
+        description: Freeze a new route registry from a complete prior cache without preparing summaries.
+        required: false
+        default: false
+        type: boolean
       luna_registry_path:
         description: Frozen registry path containing openai:gpt-5.6-luna.
         required: false
@@ -72,6 +77,7 @@ jobs:
           LOCKED_INPUTS_ARTIFACT_ID: ${{ inputs.locked_inputs_artifact_id }}
           PRIOR_SUMMARY_RUN_ID: ${{ inputs.prior_summary_run_id }}
           PRIOR_SUMMARY_ARTIFACT_ID: ${{ inputs.prior_summary_artifact_id }}
+          REGISTRY_ONLY: ${{ inputs.registry_only }}
           LUNA_REGISTRY: ${{ inputs.luna_registry_path }}
         run: |
           set -euo pipefail
@@ -83,6 +89,10 @@ jobs:
           if [[ -n "${PRIOR_SUMMARY_ARTIFACT_ID}" || -n "${PRIOR_SUMMARY_RUN_ID}" ]]; then
             [[ "${PRIOR_SUMMARY_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
             [[ "${PRIOR_SUMMARY_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
+          fi
+          if [[ "${REGISTRY_ONLY}" == "true" && -z "${PRIOR_SUMMARY_ARTIFACT_ID}" ]]; then
+            echo "registry_only requires prior_summary_artifact_id and prior_summary_run_id" >&2
+            exit 1
           fi
           [[ "${SOURCE_RUN_ID}" != "${GITHUB_RUN_ID}" ]] || { echo "source run must differ from this preparation run" >&2; exit 1; }
 
@@ -257,6 +267,7 @@ jobs:
           fi
 
       - name: Prepare release-bound Luna summaries
+        if: ${{ !inputs.registry_only }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: >-
@@ -268,6 +279,55 @@ jobs:
           --cache /tmp/lfb-jev-summary/jev-summaries.json
           --ledger /tmp/lfb-jev-summary/summary-spend.sqlite3
           --ceiling-microusd "$CEILING"
+
+      - name: Verify complete prior cache for registry-only freeze
+        if: ${{ inputs.registry_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f /tmp/lfb-jev-summary/jev-summaries.json
+          test -f /tmp/lfb-jev-summary/summary-spend.sqlite3
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          from legalforecast.jev.packets import case_documents
+          from legalforecast.jev.summaries import SummaryCache
+          from legalforecast.release import load_forecast_execution
+
+          root = Path("/tmp/lfb-jev-inputs")
+          execution = load_forecast_execution(
+              root / "forecast-release.json", artifact_root=root / "artifacts"
+          )
+          cache = SummaryCache.from_bytes(
+              (Path("/tmp/lfb-jev-summary") / "jev-summaries.json").read_bytes(),
+              execution.release.release_digest,
+          )
+          missing = []
+          for case in execution.release.cases:
+              units = tuple(
+                  unit
+                  for unit in execution.release.prediction_units
+                  if unit.case_id == case.case_id
+              )
+              for document in case_documents(execution, units):
+                  if cache.get(
+                      case.case_id,
+                      document.document_id,
+                      document.source_sha256,
+                      "gpt-5.6-luna",
+                      64 * 1024 * 1024,
+                  ) is None:
+                      missing.append(f"{case.case_id}/{document.document_id}")
+          if missing:
+              raise SystemExit(
+                  "registry_only requires a complete summary cache; missing "
+                  + ", ".join(missing[:10])
+              )
+          document_count = sum(
+              len(case.documents) for case in execution.release.cases
+          )
+          print(f"verified {document_count} cached documents")
+          PY
 
       - name: Freeze the Jev model registry
         if: ${{ success() }}

@@ -87,6 +87,8 @@ def case_request(
     documents: tuple[CaseDocument, ...],
     *,
     summaries: Mapping[str, str] | None = None,
+    provider: str = "vercel_ai_gateway",
+    model_id: str | None = None,
 ) -> dict[str, object]:
     """Ask independent native Boolean questions over a shared complete record."""
 
@@ -96,9 +98,17 @@ def case_request(
         raise ValueError("summaries must cover exactly the selected documents")
     if summaries is not None and any(not text.strip() for text in summaries.values()):
         raise ValueError("Jev cannot use an empty document summary")
-    return {
-        "model": "typesafe-ai/jev",
-        "providerOptions": {"gateway": {"only": ["typesafe-ai"]}},
+    normalized_provider = provider.strip().casefold()
+    if normalized_provider == "typesafe":
+        model = model_id or "jev-1.13.0"
+        question_type = "noul"
+    elif normalized_provider == "vercel_ai_gateway":
+        model = model_id or "typesafe-ai/jev"
+        question_type = "boolean"
+    else:
+        raise ValueError(f"unsupported Jev provider: {provider!r}")
+    request: dict[str, object] = {
+        "model": model,
         "state": {
             "case_id": units[0].case_id,
             "forecast_event_definition": DISMISSAL_EVENT,
@@ -117,7 +127,7 @@ def case_request(
         },
         "questions": {
             unit.unit_id: {
-                "type": "boolean",
+                "type": question_type,
                 "instructions": "Will this unit be fully dismissed, using the "
                 "forecast_event_definition in state? Prediction unit: "
                 + ARTIFACT_CANONICAL_JSON_V1.encode(
@@ -131,6 +141,9 @@ def case_request(
             for unit in units
         },
     }
+    if normalized_provider == "vercel_ai_gateway":
+        request["providerOptions"] = {"gateway": {"only": ["typesafe-ai"]}}
+    return request
 
 
 def request_byte_count(request: Mapping[str, object]) -> int:

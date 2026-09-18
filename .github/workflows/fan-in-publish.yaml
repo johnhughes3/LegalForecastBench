@@ -141,7 +141,7 @@ jobs:
             echo "forecast_run_attempt must be a positive integer" >&2
             exit 1
           }
-          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google):[^:[:space:]]+$ ]] || {
+          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google|vercel_ai_gateway|typesafe):[^:[:space:]]+$ ]] || {
             echo "model_key must be provider:model_id" >&2
             exit 1
           }

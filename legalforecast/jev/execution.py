@@ -8,10 +8,10 @@ import os
 import re
 import shutil
 import subprocess
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Protocol, cast
 from urllib.request import Request
 
 from legalforecast.contracts import (
@@ -40,6 +40,19 @@ from .packets import (
     require_request_fits,
 )
 from .summaries import SummaryCache
+
+
+class _TypeSafeRawHttpResponse(Protocol):
+    content: bytes
+    headers: Mapping[str, str]
+
+
+class _TypeSafeResponse(Protocol):
+    raw_http_response: _TypeSafeRawHttpResponse
+
+
+class _TypeSafeClient(Protocol):
+    system_one: Callable[..., _TypeSafeResponse]
 
 
 @dataclass(frozen=True)
@@ -84,7 +97,13 @@ def build_jev_case_input(
             summaries[document.document_id] = summary.text
     elif entry.jev_input_mode != "full_text" or summaries_path is not None:
         raise ValueError("invalid Jev input mode or unexpected summary cache")
-    request = case_request(units, documents, summaries=summaries)
+    request = case_request(
+        units,
+        documents,
+        summaries=summaries,
+        provider=entry.provider,
+        model_id=entry.model_id,
+    )
     require_request_fits(request)
     return JevCaseInput(request, tuple(u.unit_id for u in units))
 
@@ -175,6 +194,83 @@ def _sdk_call(body: bytes, values: Mapping[str, str]) -> Mapping[str, object]:
     return cast(dict[str, object], payload)
 
 
+def _typesafe_sdk_call(
+    body: bytes,
+    values: Mapping[str, str],
+    *,
+    provider_metadata: MutableMapping[str, object] | None = None,
+) -> Mapping[str, object]:
+    """Call TypeSafe's first-party SDK once and return its native JSON body."""
+
+    try:
+        from typesafe_sdk import (
+            RetryPolicy,
+            TypeSafeAPIError,
+            TypeSafeClient,
+            TypeSafeRateLimitError,
+            __version__,
+        )
+    except ImportError as exc:
+        raise ValueError(
+            "Install the pinned TypeSafe Python SDK before execution"
+        ) from exc
+
+    request = json.loads(body)
+    if not isinstance(request, dict):
+        raise ValueError("TypeSafe request must be an object")
+    request = cast(dict[str, object], request)
+    model = request.get("model")
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("TypeSafe request model must be a non-empty string")
+    api_key = values.get("TYPESAFE_API_KEY", "")
+    if not api_key.strip():
+        raise ValueError("TYPESAFE_API_KEY is required")
+    try:
+        with TypeSafeClient(
+            api_key=api_key,
+            model=model,
+            retry=RetryPolicy(max_retries=0),
+            timeout=120.0,
+        ) as client:
+            typed_client = cast(_TypeSafeClient, client)
+            system_one = typed_client.system_one
+            response = system_one(
+                state=request["state"],
+                questions=request["questions"],
+                model=model,
+                retry=RetryPolicy(max_retries=0),
+                timeout=120.0,
+            )
+            raw = response.raw_http_response.content
+            payload: object = json.loads(raw)
+            if not isinstance(payload, dict):
+                raise ValueError("TypeSafe response is not an object")
+            if provider_metadata is not None:
+                provider_metadata["sdk"] = f"typesafe-sdk/{__version__}"
+                request_id = response.raw_http_response.headers.get(
+                    "x-typesafe-request-id"
+                )
+                if request_id:
+                    provider_metadata["request_id"] = request_id
+            return cast(dict[str, object], payload)
+    except TypeSafeAPIError as exc:
+        status = getattr(exc, "status", None)
+        status_code = status if type(status) is int else None
+        request_id = getattr(exc, "request_id", None)
+        diagnostic = "TypeSafe SDK request failed"
+        if status_code is not None:
+            diagnostic += f" [status_code={status_code}]"
+        if isinstance(request_id, str) and re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", request_id
+        ):
+            diagnostic += f" [request_id={request_id}]"
+        raise LiveModelProviderError(
+            diagnostic,
+            status_code=status_code,
+            retryable=isinstance(exc, TypeSafeRateLimitError),
+        ) from exc
+
+
 def complete_jev_cell(
     entry: ModelRegistryEntry,
     *,
@@ -188,29 +284,46 @@ def complete_jev_cell(
     """Make one SDK evaluation with no retry or generated-probability layer."""
 
     values = environ if environ is not None else os.environ
-    if (
-        handler.replayable_response is None
-        and not values.get("AI_GATEWAY_API_KEY", "").strip()
-    ):
-        raise ValueError("AI_GATEWAY_API_KEY is required")
+    direct_typesafe = entry.provider.strip().casefold() == "typesafe"
+    api_key_name = "TYPESAFE_API_KEY" if direct_typesafe else "AI_GATEWAY_API_KEY"
+    if handler.replayable_response is None and not values.get(api_key_name, "").strip():
+        raise ValueError(f"{api_key_name} is required")
     if (
         handler.replayable_response is None
         and transport is default_live_model_transport
     ):
-        script = Path(__file__).resolve().parents[2] / "integrations/jev/evaluate.mjs"
-        if (
-            shutil.which("node") is None
-            or not (script.parent / "node_modules/ai").exists()
-        ):
-            raise ValueError("Install the pinned Jev Node SDK before execution")
+        if not direct_typesafe:
+            script = (
+                Path(__file__).resolve().parents[2] / "integrations/jev/evaluate.mjs"
+            )
+            if (
+                shutil.which("node") is None
+                or not (script.parent / "node_modules/ai").exists()
+            ):
+                raise ValueError("Install the pinned Jev Node SDK before execution")
     body = ARTIFACT_CANONICAL_JSON_V1.encode(dict(case.request))
+    direct_provider_metadata: dict[str, object] = {}
 
     def call() -> Mapping[str, object]:
         request_body_observer(body)
         if transport is default_live_model_transport:
+            if direct_typesafe:
+                return _typesafe_sdk_call(
+                    body,
+                    values,
+                    provider_metadata=direct_provider_metadata,
+                )
             return _sdk_call(body, values)
         # Explicitly injected provider-free transports exercise the same payload.
-        return transport(Request("https://ai-gateway.vercel.sh", data=body), 120.0)
+        return transport(
+            Request(
+                "https://api.typesafe.ai/v1/systemone"
+                if direct_typesafe
+                else "https://ai-gateway.vercel.sh",
+                data=body,
+            ),
+            120.0,
+        )
 
     payload = handler.run_attempt(1, call)
     ordinal = handler.durable_attempt_ordinal(1)
@@ -227,9 +340,10 @@ def complete_jev_cell(
             if not isinstance(answer, dict):
                 raise ValueError("Jev answer must be an object")
             answer = cast(dict[str, object], answer)
-            if answer.get("type") != "boolean":
+            expected_type = "noul" if direct_typesafe else "boolean"
+            if answer.get("type") != expected_type:
                 raise ValueError("Jev answer must be a native Boolean probability")
-            probability = answer.get("probability")
+            probability = answer.get("noul" if direct_typesafe else "probability")
             if (
                 isinstance(probability, bool)
                 or not isinstance(probability, (int, float))
@@ -246,9 +360,17 @@ def complete_jev_cell(
         if not isinstance(usage, dict):
             raise ValueError("Jev response is missing usage")
         usage = cast(dict[str, object], usage)
+        usage_keys = (
+            ("input_tokens", "output_tokens")
+            if direct_typesafe
+            else (
+                "inputTokens",
+                "outputTokens",
+            )
+        )
         input_tokens, output_tokens = (
-            usage.get("inputTokens"),
-            usage.get("outputTokens"),
+            usage.get(usage_keys[0]),
+            usage.get(usage_keys[1]),
         )
         if (
             type(input_tokens) is not int
@@ -269,16 +391,29 @@ def complete_jev_cell(
             input_tokens * entry.input_token_price
             + output_tokens * entry.output_token_price
         ) / 1_000_000
-        verification = verify_provider_response(payload, provider="vercel_ai_gateway")
+        served_model_version = payload.get("model") if direct_typesafe else "unreported"
+        if direct_typesafe and served_model_version != entry.model_id:
+            raise ValueError(
+                "TypeSafe response model does not match the frozen registry"
+            )
+        verification = verify_provider_response(payload, provider=entry.provider)
         metadata = {
             "provider": entry.provider,
             "model": entry.model_id,
-            "served_model_version": "unreported",
+            "served_model_version": (
+                cast(str, served_model_version) if direct_typesafe else "unreported"
+            ),
             "model_registry_sha256": registry_sha256,
-            "execution_backend": "vercel_ai_sdk_evaluate",
+            "execution_backend": (
+                "typesafe_python_sdk" if direct_typesafe else "vercel_ai_sdk_evaluate"
+            ),
             "execution_condition": f"jev_{entry.jev_input_mode}",
             "provider_attempt_count": "1",
-            "provider_metadata": json.dumps(payload.get("providerMetadata", {})),
+            "provider_metadata": json.dumps(
+                direct_provider_metadata
+                if direct_typesafe
+                else payload.get("providerMetadata", {})
+            ),
             **verification.to_metadata(),
         }
     except BaseException as exc:

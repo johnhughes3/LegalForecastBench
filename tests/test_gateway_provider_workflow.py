@@ -16,10 +16,11 @@ def _job(name: str, next_name: str | None = None) -> str:
 def test_gateway_lane_is_partitioned_from_direct_provider_jobs() -> None:
     prepare = _job("prepare-inputs", "run-openai")
     assert (
-        "^(openai|anthropic|gemini|google|vercel_ai_gateway):[^:[:space:]]+$" in prepare
+        "^(openai|anthropic|gemini|google|vercel_ai_gateway|typesafe):[^:[:space:]]+$"
+        in prepare
     )
     job = _job("run-gateway")
-    assert "name: Vercel AI Gateway resumable forecast cells" in job
+    assert "name: Vercel AI Gateway and TypeSafe Jev resumable forecast cells" in job
     assert "startsWith(inputs.model_key, 'vercel_ai_gateway:')" in job
     assert "needs.prepare-inputs.outputs.gateway_count != '0'" in job
     assert "fromJSON(needs.prepare-inputs.outputs.gateway_matrix)" in job
@@ -39,19 +40,39 @@ def test_gateway_credential_is_scoped_to_the_execute_step() -> None:
     assert "secrets.OPENAI_API_KEY" not in job
     assert "secrets.ANTHROPIC_API_KEY" not in job
     assert "secrets.GEMINI_API_KEY" not in job
-    execute = job[job.index("Execute exact Vercel AI Gateway forecast cell") :]
-    assert "AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}" in execute
+    execute = job[job.index("Execute exact Gateway or TypeSafe Jev forecast cell") :]
+    assert (
+        "AI_GATEWAY_API_KEY: ${{ matrix.provider == 'vercel_ai_gateway' && "
+        "secrets.AI_GATEWAY_API_KEY || '' }}" in execute
+    )
     assert "if: ${{ always() }}" in job
     assert "ledger.sqlite3" in job
     assert "receipts" in job
     assert "transcripts" in job
 
 
+def test_typesafe_route_uses_first_party_credential_and_skips_gateway_credential() -> (
+    None
+):
+    job = _job("run-gateway")
+    typesafe_credential = (
+        "TYPESAFE_API_KEY: ${{ matrix.provider == 'typesafe' && "
+        "secrets.TYPESAFE_API_KEY || '' }}"
+    )
+    gateway_credential = (
+        "AI_GATEWAY_API_KEY: ${{ matrix.provider == 'vercel_ai_gateway' && "
+        "secrets.AI_GATEWAY_API_KEY || '' }}"
+    )
+    assert typesafe_credential in job
+    assert gateway_credential in job
+    assert "typesafe:jev-1.13.0" in job
+
+
 def test_only_jev_stops_queued_cells_after_an_evaluation_failure() -> None:
     gateway = _job("run-gateway", "persist-forecast-results")
     assert (
-        "fail-fast: ${{ inputs.model_key == 'vercel_ai_gateway:typesafe-ai/jev' }}"
-        in gateway
+        "fail-fast: ${{ inputs.model_key == 'vercel_ai_gateway:typesafe-ai/jev' "
+        "|| inputs.model_key == 'typesafe:jev-1.13.0' }}" in gateway
     )
     for name, following in (
         ("run-openai", "run-anthropic"),
