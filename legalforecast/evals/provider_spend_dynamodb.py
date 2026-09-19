@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 
 from legalforecast.evals.provider_spend_control import (
+    RETRYABLE_HTTP_429_FAILURE_TYPE,
     AttemptLease,
     AttemptLimitExceededError,
     AttemptStateError,
@@ -337,18 +338,23 @@ class DynamoDbProviderSpendAuthority:
         acknowledged_failure_events_sha256: str,
         acknowledged_attempt_ordinal: int | None = None,
         owner_reference: str | None = None,
+        acknowledged_status: str = "ambiguous",
     ) -> AttemptLease:
         """Reserve one owner-approved replacement for an exact old failure.
 
         The additional reservation is a narrow recovery operation.  It does
         not erase the old failure from the shared breaker history: the
-        transaction only records that this exact ambiguous attempt was
+        transaction only records that this exact prior attempt was
         acknowledged and creates the next pretransport attempt.  The cell's
         conditional ordinal update makes the approval single-use across
         concurrent operators.  ``acknowledged_attempt_ordinal`` defaults to
         the frozen billable limit for compatibility; recurring recovery must
-        name the current ambiguous predecessor explicitly (for example,
-        ordinal 2 to create ordinal 3).
+        name the current predecessor explicitly (for example, ordinal 2 to
+        create ordinal 3).  The protected recovery path may also name an
+        exact ``failed_nonbillable`` predecessor, but only for the durable
+        retryable HTTP 429 failure type.  Its breaker event is retained
+        rather than owner-acknowledged, and its released reservation remains
+        released.
         """
 
         self._verify_key_scope(key)
@@ -369,6 +375,15 @@ class DynamoDbProviderSpendAuthority:
             acknowledged_failure_type,
             "acknowledged_failure_type",
         )
+        if acknowledged_status not in {"ambiguous", "failed_nonbillable"}:
+            raise ValueError("acknowledged_status is not recoverable")
+        if (
+            acknowledged_status == "failed_nonbillable"
+            and acknowledged_type != RETRYABLE_HTTP_429_FAILURE_TYPE
+        ):
+            raise AttemptStateError(
+                "only retryable HTTP 429 failures can be replaced as nonbillable"
+            )
         acknowledged_events_sha256 = _sha256(
             acknowledged_failure_events_sha256,
             "acknowledged_failure_events_sha256",
@@ -409,15 +424,20 @@ class DynamoDbProviderSpendAuthority:
                 attempt_ordinal=acknowledged_ordinal,
                 ledger=ledger,
                 now=now,
+                expected_status=acknowledged_status,
             )
             old_reservation = _number(acknowledged_attempt, "reservation_microusd")
             if reservation > old_reservation:
                 raise ProviderCapExceededError(
                     "additional-attempt reservation exceeds the old reservation"
                 )
-            acknowledged_event = self._matching_failure_event(
-                ledger,
-                acknowledged_epoch,
+            acknowledged_event = (
+                self._matching_failure_event(
+                    ledger,
+                    acknowledged_epoch,
+                )
+                if acknowledged_status == "ambiguous"
+                else None
             )
             effective_failures = self._breaker_effective_failure_events(
                 ledger,
@@ -474,18 +494,9 @@ class DynamoDbProviderSpendAuthority:
                 JsonObject,
                 cast(list[JsonObject], transaction["TransactItems"])[0]["Update"],
             )
-            acknowledged_events = list(self._acknowledged_failure_events(ledger))
-            if acknowledged_event is not None:
-                acknowledged_events.append(acknowledged_event)
-            acknowledged_events.sort()
-            acknowledged_events_json = _canonical_json(acknowledged_events)
             ledger_values = cast(
                 dict[str, AttributeValue],
                 ledger_update["ExpressionAttributeValues"],
-            )
-            ledger_values[":acknowledged_events"] = _s(acknowledged_events_json)
-            ledger_values[":acknowledged_events_sha"] = _s(
-                hashlib.sha256(acknowledged_events_json.encode()).hexdigest()
             )
             stored_acknowledged_sha = ledger.get("acknowledged_failure_events_sha256")
             if stored_acknowledged_sha is None:
@@ -503,22 +514,32 @@ class DynamoDbProviderSpendAuthority:
             ledger_update["ConditionExpression"] = (
                 f"{ledger_update['ConditionExpression']} AND {ledger_values_condition}"
             )
-            ledger_update["UpdateExpression"] = (
-                "SET acknowledged_failure_events_json = :acknowledged_events, "
-                "acknowledged_failure_events_sha256 = :acknowledged_events_sha "
-                "ADD committed_microusd :reservation, attempt_count :one, "
-                "reserved_attempt_count :one"
-            )
-            cast(list[JsonObject], transaction["TransactItems"]).insert(
-                0,
-                self._acknowledgement_update(
-                    key=key,
-                    attempt_id=acknowledged_id,
-                    failure_type=acknowledged_type,
-                    attempt_ordinal=acknowledged_ordinal,
-                    now=now,
-                ),
-            )
+            if acknowledged_status == "ambiguous":
+                acknowledged_events = list(self._acknowledged_failure_events(ledger))
+                if acknowledged_event is not None:
+                    acknowledged_events.append(acknowledged_event)
+                acknowledged_events.sort()
+                acknowledged_events_json = _canonical_json(acknowledged_events)
+                ledger_values[":acknowledged_events"] = _s(acknowledged_events_json)
+                ledger_values[":acknowledged_events_sha"] = _s(
+                    hashlib.sha256(acknowledged_events_json.encode()).hexdigest()
+                )
+                ledger_update["UpdateExpression"] = (
+                    "SET acknowledged_failure_events_json = :acknowledged_events, "
+                    "acknowledged_failure_events_sha256 = :acknowledged_events_sha "
+                    "ADD committed_microusd :reservation, attempt_count :one, "
+                    "reserved_attempt_count :one"
+                )
+                cast(list[JsonObject], transaction["TransactItems"]).insert(
+                    0,
+                    self._acknowledgement_update(
+                        key=key,
+                        attempt_id=acknowledged_id,
+                        failure_type=acknowledged_type,
+                        attempt_ordinal=acknowledged_ordinal,
+                        now=now,
+                    ),
+                )
             try:
                 self._runner(
                     "transact-write-items",
@@ -2036,12 +2057,14 @@ class DynamoDbProviderSpendAuthority:
         attempt_ordinal: int,
         ledger: Mapping[str, AttributeValue],
         now: float,
+        expected_status: str = "ambiguous",
     ) -> float:
-        """Validate the exact old ambiguous attempt named by the operator."""
+        """Validate the exact old attempt named by the operator."""
 
-        if _text(attempt, "status") != "ambiguous":
+        if _text(attempt, "status") != expected_status:
             raise AttemptStateError(
-                "additional attempt acknowledgement requires an ambiguous prior attempt"
+                "additional attempt acknowledgement requires the expected "
+                "prior attempt state"
             )
         expected = (
             attempt_id,

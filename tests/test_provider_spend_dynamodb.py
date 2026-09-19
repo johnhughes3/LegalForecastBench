@@ -15,6 +15,7 @@ from typing import cast
 
 import pytest
 from legalforecast.evals.provider_spend_control import (
+    RETRYABLE_HTTP_429_FAILURE_TYPE,
     AttemptLease,
     AttemptLimitExceededError,
     AttemptStateError,
@@ -140,6 +141,7 @@ class InMemoryDynamoRunner:
         items: dict[str, AttributeMap],
         update: Mapping[str, object],
     ) -> None:
+        _assert_expression_values_used(update)
         key = cast(AttributeMap, update["Key"])
         record_key = key["record_key"]["S"]
         item = items.get(record_key)
@@ -173,6 +175,7 @@ class InMemoryDynamoRunner:
         items: dict[str, AttributeMap],
         put: Mapping[str, object],
     ) -> None:
+        _assert_expression_values_used(put)
         item = deepcopy(cast(AttributeMap, put["Item"]))
         record_key = item["record_key"]["S"]
         existing = items.get(record_key)
@@ -193,6 +196,7 @@ class InMemoryDynamoRunner:
         items: dict[str, AttributeMap],
         check: Mapping[str, object],
     ) -> None:
+        _assert_expression_values_used(check)
         key = cast(AttributeMap, check["Key"])
         record_key = key["record_key"]["S"]
         values = cast(
@@ -207,6 +211,25 @@ class InMemoryDynamoRunner:
             names=names,
         ):
             raise DynamoDbConditionalError(f"condition check rejected for {record_key}")
+
+
+def _assert_expression_values_used(action: Mapping[str, object]) -> None:
+    """Model DynamoDB's rejection of unused expression value placeholders."""
+
+    values = cast(Mapping[str, object], action.get("ExpressionAttributeValues", {}))
+    expressions = " ".join(
+        str(action.get(name, ""))
+        for name in (
+            "UpdateExpression",
+            "ConditionExpression",
+            "KeyConditionExpression",
+            "FilterExpression",
+        )
+    )
+    placeholders = set(re.findall(r":[A-Za-z0-9_]+", expressions))
+    unused = set(values) - placeholders
+    if unused:
+        raise AssertionError(f"DynamoDB expression values are unused: {sorted(unused)}")
 
 
 _CONDITION_TOKEN = re.compile(
@@ -881,6 +904,123 @@ def test_protected_recovery_apply_prepares_each_incomplete_cell_once() -> None:
     assert runner.items[f"CELL#{recovery.spend_key(failed_cell).logical_call_key}"][
         "attempt_count"
     ] == _n(2)
+
+
+def test_protected_recovery_retries_nonbillable_429_preserves_ambiguous() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _recovery_run(cap_microusd=500)
+    authority = _recovery_authority(runner, recovery)
+    cell = _recovery_cell("retryable-429")
+    ambiguous = authority.authorize_attempt(
+        recovery.spend_key(cell), reservation_microusd=100
+    )
+    authority.record_failure(ambiguous, failure_type="TimeoutError", ambiguous=True)
+    first_ledger = runner.items["LEDGER"]
+    nonbillable = authority.authorize_additional_attempt(
+        recovery.spend_key(cell),
+        reservation_microusd=100,
+        acknowledged_attempt_id=ambiguous.attempt_id,
+        acknowledged_failure_type="TimeoutError",
+        acknowledged_failure_events_sha256=first_ledger["failure_events_sha256"]["S"],
+    )
+    authority.record_failure(
+        nonbillable,
+        failure_type=RETRYABLE_HTTP_429_FAILURE_TYPE,
+        ambiguous=False,
+    )
+    assert nonbillable.attempt_ordinal == 2
+    before_failure_events = runner.items["LEDGER"]["failure_events_json"]
+
+    plan = build_protected_recovery_plan(
+        recovery,
+        (_recovery_cell("retryable-429", attempt_id=nonbillable.attempt_id),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+
+    assert plan.dispatch_safe
+    assert plan.projected_committed_microusd == 200
+    assert plan.operations[0].disposition == "reserve_nonbillable_replacement"
+    assert plan.operations[0].attempt_ordinal == 2
+    assert plan.operations[0].failure_type == RETRYABLE_HTTP_429_FAILURE_TYPE
+
+    result = apply_protected_recovery(
+        recovery,
+        (_recovery_cell("retryable-429", attempt_id=nonbillable.attempt_id),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+
+    assert result.dispatch_safe
+    assert result.committed_microusd == 200
+    assert result.operations[0].disposition == "adopt_pretransport"
+    assert runner.items["LEDGER"]["failure_events_json"] == before_failure_events
+    assert runner.items[f"ATTEMPT#{recovery.spend_key(cell).logical_call_key}#0002"][
+        "status"
+    ] == _s("failed_nonbillable")
+    assert runner.items[f"ATTEMPT#{recovery.spend_key(cell).logical_call_key}#0003"][
+        "status"
+    ] == _s("reserved")
+
+    recovery_transaction = next(
+        payload
+        for operation, payload in reversed(runner.calls)
+        if operation == "transact-write-items"
+        and len(cast(list[object], payload["TransactItems"])) == 3
+    )
+    ledger_update = cast(
+        Mapping[str, object],
+        cast(list[Mapping[str, object]], recovery_transaction["TransactItems"])[0][
+            "Update"
+        ],
+    )
+    assert ":acknowledged_events" not in cast(
+        Mapping[str, object], ledger_update["ExpressionAttributeValues"]
+    )
+    assert ":acknowledged_events_sha" not in cast(
+        Mapping[str, object], ledger_update["ExpressionAttributeValues"]
+    )
+
+    mutations_after_first = sum(
+        operation in {"put-item", "transact-write-items"}
+        for operation, _payload in runner.calls
+    )
+    second = apply_protected_recovery(
+        recovery,
+        (_recovery_cell("retryable-429", attempt_id=nonbillable.attempt_id),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+    assert second == result
+    assert (
+        sum(
+            operation in {"put-item", "transact-write-items"}
+            for operation, _payload in runner.calls
+        )
+        == mutations_after_first
+    )
+
+
+def test_protected_recovery_keeps_unknown_nonbillable_failure_blocked() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _recovery_run(cap_microusd=500)
+    authority = _recovery_authority(runner, recovery)
+    cell = _recovery_cell("unknown-failure")
+    lease = authority.authorize_attempt(
+        recovery.spend_key(cell), reservation_microusd=100
+    )
+    authority.record_failure(lease, failure_type="HTTP500", ambiguous=False)
+
+    plan = build_protected_recovery_plan(
+        recovery,
+        (_recovery_cell("unknown-failure", attempt_id=lease.attempt_id),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+
+    assert not plan.dispatch_safe
+    assert plan.operations[0].disposition == "blocked"
+    assert "failed_nonbillable" in plan.blocked_reasons[0]
 
 
 def test_recovery_does_not_settle_successor_with_predecessor_response() -> None:

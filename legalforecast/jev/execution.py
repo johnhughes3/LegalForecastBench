@@ -39,6 +39,7 @@ from .packets import (
     case_request,
     require_request_fits,
 )
+from .rate_limits import call_with_rate_limit_retries
 from .summaries import SummaryCache
 
 
@@ -186,7 +187,7 @@ def _sdk_call(body: bytes, values: Mapping[str, str]) -> Mapping[str, object]:
         raise LiveModelProviderError(
             f"Jev evaluation SDK failed: {name}{diagnostic} (exit {result.returncode})",
             status_code=status_code,
-            retryable=status_code == 429 and details.get("retryable") is True,
+            retryable=status_code == 429,
         )
     payload: object = json.loads(result.stdout)
     if not isinstance(payload, dict):
@@ -207,7 +208,6 @@ def _typesafe_sdk_call(
             RetryPolicy,
             TypeSafeAPIError,
             TypeSafeClient,
-            TypeSafeRateLimitError,
             __version__,
         )
     except ImportError as exc:
@@ -267,7 +267,7 @@ def _typesafe_sdk_call(
         raise LiveModelProviderError(
             diagnostic,
             status_code=status_code,
-            retryable=isinstance(exc, TypeSafeRateLimitError),
+            retryable=status_code == 429,
         ) from exc
 
 
@@ -281,7 +281,7 @@ def complete_jev_cell(
     environ: Mapping[str, str] | None,
     registry_sha256: str,
 ) -> SolverResponse:
-    """Make one SDK evaluation with no retry or generated-probability layer."""
+    """Return the first native evaluation, retrying only rejected HTTP 429s."""
 
     values = environ if environ is not None else os.environ
     direct_typesafe = entry.provider.strip().casefold() == "typesafe"
@@ -305,7 +305,6 @@ def complete_jev_cell(
     direct_provider_metadata: dict[str, object] = {}
 
     def call() -> Mapping[str, object]:
-        request_body_observer(body)
         if transport is default_live_model_transport:
             if direct_typesafe:
                 return _typesafe_sdk_call(
@@ -325,9 +324,18 @@ def complete_jev_cell(
             120.0,
         )
 
-    payload = handler.run_attempt(1, call)
+    def reserved_call() -> Mapping[str, object]:
+        # Bind the immutable request once to this reservation. The retry library
+        # can only repeat this same body after an explicit HTTP 429 rejection.
+        request_body_observer(body)
+        return call_with_rate_limit_retries(call)
+
+    payload = handler.run_attempt(1, reserved_call)
     ordinal = handler.durable_attempt_ordinal(1)
     try:
+        request_count = payload.get("_jev_request_count", 1)
+        if type(request_count) is not int or not 1 <= request_count <= 4:
+            raise ValueError("invalid Jev request count")
         answers = payload.get("answers")
         if not isinstance(answers, dict):
             raise ValueError("Jev answers must be an object")
@@ -408,7 +416,8 @@ def complete_jev_cell(
                 "typesafe_python_sdk" if direct_typesafe else "vercel_ai_sdk_evaluate"
             ),
             "execution_condition": f"jev_{entry.jev_input_mode}",
-            "provider_attempt_count": "1",
+            "provider_attempt_count": str(request_count),
+            "rate_limit_rejections": str(request_count - 1),
             "provider_metadata": json.dumps(
                 direct_provider_metadata
                 if direct_typesafe
@@ -426,4 +435,6 @@ def complete_jev_cell(
         actual_cost_usd=cost,
         raw_output=raw_output,
     )
-    return SolverResponse(raw_output, 1, input_tokens, output_tokens, cost, metadata)
+    return SolverResponse(
+        raw_output, request_count, input_tokens, output_tokens, cost, metadata
+    )
