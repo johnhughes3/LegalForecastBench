@@ -332,7 +332,9 @@ def _copy_state(
             "restored_from_run_id": source_run_id,
             "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
             "run_id": os.environ["GITHUB_RUN_ID"],
-            "status": "restored",
+            "status": "initialized"
+            if state.get("status") == "initialized"
+            else "restored",
         }
     )
     state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")

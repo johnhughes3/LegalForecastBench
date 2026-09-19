@@ -237,9 +237,21 @@ def test_validate_completed_rejects_completed_ledger_without_receipt_evidence(
 @pytest.mark.parametrize(
     "status,expected", [("initialized", False), ("completed", None)]
 )
-def test_pre_execution_guard_state_remains_pending(tmp_path, status, expected):
+def test_pre_execution_guard_state_remains_pending(
+    tmp_path, monkeypatch, status, expected
+):
     module = _load_restore_script()
     (tmp_path / "state.json").write_text(json.dumps({"status": status}))
+    monkeypatch.setenv("GITHUB_RUN_ID", "123")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "2")
+    restored = tmp_path / "restored"
+    restored.mkdir()
+    source = tmp_path / "source"
+    source.mkdir()
+    (tmp_path / "state.json").rename(source / "state.json")
+    module._copy_state(source, restored, "123", 1)
+    # Exercise restore copying too: initialized must not become completed/restored.
+    tmp_path = restored
     # A guarded cell never entered execute: no summary, ledger, or receipts.
     if expected is False:
         assert module.validate_completed(tmp_path, {}, "identity") is False
