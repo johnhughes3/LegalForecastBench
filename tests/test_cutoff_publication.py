@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 
+import pytest
 from legalforecast.evals.model_registry import TrainingCutoffStatus
 from legalforecast.publication.static_sites import render_official_results_site
 from legalforecast.reporting.contamination_tiers import (
@@ -42,6 +43,8 @@ def section_html(rendered: str, heading: str) -> str:
 def write_contamination_sidecar_for(
     artifacts_dir: Path,
     tiers: Mapping[str, ContaminationTier],
+    *,
+    contamination_boundary: date = date(2026, 5, 17),
 ) -> None:
     """Bind cutoff eligibility evidence to one bundle's frozen leaderboard."""
 
@@ -53,7 +56,7 @@ def write_contamination_sidecar_for(
         ContaminationTierSidecar(
             result_digest=digest,
             cohort_id="fixture-cycle",
-            contamination_boundary=date(2026, 6, 30),
+            contamination_boundary=contamination_boundary,
             rows=tuple(
                 ContaminationTierRow(
                     model_id=model_id,
@@ -86,7 +89,10 @@ def test_training_cutoff_eligible_post_anchor_row_joins_headline_comparison(
     """A later release remains visibly post-anchor while ranking by cutoff tier."""
 
     official_dir = write_official_report_fixture(tmp_path)
-    supplementary_dir = write_supplementary_report_fixture(tmp_path)
+    supplementary_dir = write_supplementary_report_fixture(
+        tmp_path,
+        include_baseline=True,
+    )
     write_result_class_sidecar_for(
         official_dir,
         {
@@ -135,7 +141,10 @@ def test_unknown_cutoff_post_anchor_row_stays_qualified_and_out_of_headline(
     tmp_path: Path,
 ) -> None:
     official_dir = write_official_report_fixture(tmp_path)
-    supplementary_dir = write_supplementary_report_fixture(tmp_path)
+    supplementary_dir = write_supplementary_report_fixture(
+        tmp_path,
+        include_baseline=True,
+    )
     write_result_class_sidecar_for(
         official_dir,
         {
@@ -176,3 +185,83 @@ def test_unknown_cutoff_post_anchor_row_stays_qualified_and_out_of_headline(
     )
     assert PRELIMINARY_CAVEAT in rendered
     assert SUPPLEMENTARY_CAVEAT in rendered
+
+
+def test_late_contamination_boundary_is_rejected_against_scored_anchor(
+    tmp_path: Path,
+) -> None:
+    official_dir = write_official_report_fixture(tmp_path)
+    write_contamination_sidecar_for(
+        official_dir,
+        {"model-a": ContaminationTier.RESISTANT},
+        contamination_boundary=date(2026, 5, 18),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="boundary is later than the earliest scored decision",
+    ):
+        render_official_results_site(
+            official_artifacts_dir=official_dir,
+            output_dir=tmp_path / "official-site",
+        )
+
+
+def test_cutoff_sidecar_without_complete_scored_dates_stays_qualified(
+    tmp_path: Path,
+) -> None:
+    official_dir = write_official_report_fixture(tmp_path, include_baseline=False)
+    write_contamination_sidecar_for(
+        official_dir,
+        {"model-a": ContaminationTier.RESISTANT},
+    )
+
+    rendered = render_official_results_site(
+        official_artifacts_dir=official_dir,
+        output_dir=tmp_path / "official-site",
+    ).index_path.read_text(encoding="utf-8")
+
+    assert "<th scope='row'>model-a*</th>" in rendered
+    assert "Qualified comparison" in table_row_html(rendered, "model-a*")
+    assert "No model has a documented training-data cutoff" in rendered
+
+
+def test_duplicate_display_model_ids_keep_bundle_cutoff_evidence_separate(
+    tmp_path: Path,
+) -> None:
+    official_dir = write_official_report_fixture(tmp_path)
+    supplementary_dir = write_official_report_fixture(
+        tmp_path,
+        include_baseline=True,
+        model_probabilities={"model-a": (0.9, 0.9, 0.1, 0.1, 0.1)},
+        directory_name="supplementary",
+    )
+    write_result_class_sidecar_for(
+        official_dir,
+        {"model-a": ResultClass.PRE_ANCHOR},
+    )
+    write_result_class_sidecar_for(
+        supplementary_dir,
+        {"model-a": ResultClass.POST_ANCHOR},
+    )
+    write_contamination_sidecar_for(
+        official_dir,
+        {"model-a": ContaminationTier.PRELIMINARY},
+    )
+    write_contamination_sidecar_for(
+        supplementary_dir,
+        {"model-a": ContaminationTier.RESISTANT},
+    )
+
+    rendered = render_official_results_site(
+        official_artifacts_dir=official_dir,
+        output_dir=tmp_path / "official-site",
+        supplementary_artifacts_dir=supplementary_dir,
+    ).index_path.read_text(encoding="utf-8")
+
+    headline = section_html(rendered, "<h2 id='headline-title'>")
+    assert "<p class='metric'>0.0100</p>" in headline
+    assert "model-a†" in headline
+    assert "model-a†" in rendered
+    assert "model-a*" in rendered
+    assert "model-a*" not in headline

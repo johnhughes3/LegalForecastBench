@@ -345,7 +345,7 @@ def test_official_site_auto_loads_sidecar_and_marks_preliminary_models(
     sidecar = build_contamination_tier_sidecar(
         result_digest=frozen_result_digest(leaderboard.read_bytes()),
         cohort_id="fixture-cycle",
-        contamination_boundary=BOUNDARY,
+        contamination_boundary=date(2026, 5, 17),
         rows=(
             _row("model-a", ContaminationTier.RESISTANT, date(2026, 2, 16)),
             _row("model-b", ContaminationTier.PRELIMINARY, date(2026, 8, 1)),

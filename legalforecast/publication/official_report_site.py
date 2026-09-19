@@ -57,6 +57,7 @@ class _TableRow:
     score_row: Mapping[str, Any]
     result_class: ResultClass
     comparison_eligible: bool | None
+    contamination_tiers: Mapping[str, ContaminationTier] | None
 
 
 def build_official_report_page(
@@ -67,6 +68,8 @@ def build_official_report_page(
     contamination_tiers: Mapping[str, ContaminationTier] | None = None,
     result_classes: Mapping[str, ResultClass] | None = None,
     supplementary_bundle: OfficialBundle | None = None,
+    supplementary_contamination_tiers: Mapping[str, ContaminationTier] | None = None,
+    supplementary_result_classes: Mapping[str, ResultClass] | None = None,
 ) -> OfficialReportPage:
     """Build the official report body from canonical public aggregate fields.
 
@@ -86,14 +89,29 @@ def build_official_report_page(
         _required_text(row, "model_id", label="score summary"): row
         for row in score_rows
     }
+    has_contamination_overlay = (
+        contamination_tiers is not None or supplementary_contamination_tiers is not None
+    )
+    official_contamination_tiers: Mapping[str, ContaminationTier] | None = (
+        contamination_tiers
+        if contamination_tiers is not None
+        else ({} if has_contamination_overlay else None)
+    )
+    supplementary_contamination_tiers_for_rows: (
+        Mapping[str, ContaminationTier] | None
+    ) = (
+        supplementary_contamination_tiers
+        if supplementary_contamination_tiers is not None
+        else ({} if has_contamination_overlay else None)
+    )
     supplementary_entries = (
         ()
         if supplementary_bundle is None
         else _supplementary_table_rows(
             supplementary_bundle,
             official_cycle_id=_first_str(report, ("cycle_id",)),
-            result_classes=result_classes,
-            contamination_tiers=contamination_tiers,
+            result_classes=supplementary_result_classes,
+            contamination_tiers=supplementary_contamination_tiers_for_rows,
         )
     )
     run_card = validated_bundle.run_card
@@ -110,24 +128,40 @@ def build_official_report_page(
     model_entries = _official_table_rows(
         model_rows,
         score_rows_by_model,
-        contamination_tiers,
+        official_contamination_tiers,
     )
     baseline_entries = _official_table_rows(
         baseline_rows,
         score_rows_by_model,
-        contamination_tiers,
+        official_contamination_tiers,
     )
     all_model_entries = (*model_entries, *supplementary_entries)
+    ranking_tiers: Mapping[str, ContaminationTier] | None = (
+        {} if has_contamination_overlay else None
+    )
     ordered_entries = ordered_model_entries(
         all_model_entries,
-        contamination_tiers=contamination_tiers,
+        contamination_tiers=ranking_tiers,
     )
     best_entry = best_model_entry(
         model_entries,
         supplementary_entries,
-        contamination_tiers=contamination_tiers,
+        contamination_tiers=ranking_tiers,
     )
     best_model = None if best_entry is None else best_entry.row
+    best_contamination_tiers: Mapping[str, ContaminationTier] | None = (
+        supplementary_contamination_tiers_for_rows
+        if best_entry is not None and best_entry.result_class is ResultClass.POST_ANCHOR
+        else official_contamination_tiers
+    )
+    display_contamination_tiers: Mapping[str, ContaminationTier] | None = (
+        None
+        if not has_contamination_overlay
+        else {
+            **(supplementary_contamination_tiers_for_rows or {}),
+            **(official_contamination_tiers or {}),
+        }
+    )
     has_eligible_model = any(
         entry.comparison_eligible is True for entry in all_model_entries
     )
@@ -154,11 +188,9 @@ def build_official_report_page(
             best_model,
             prevalence=prevalence,
             run_card=run_card,
-            contamination_tiers=contamination_tiers,
+            contamination_tiers=best_contamination_tiers,
             best_result_class=(None if best_entry is None else best_entry.result_class),
-            no_eligible_model=(
-                contamination_tiers is not None and not has_eligible_model
-            ),
+            no_eligible_model=(has_contamination_overlay and not has_eligible_model),
         ),
         "</section>",
         "<section id='results' aria-labelledby='results-title'>",
@@ -166,24 +198,24 @@ def build_official_report_page(
         _official_table(
             ordered_entries,
             caption="Evaluated model results",
-            contamination_tiers=contamination_tiers,
+            contamination_tiers=display_contamination_tiers,
             cross_bundle_comparison=(
-                contamination_tiers is not None and bool(supplementary_entries)
+                has_contamination_overlay and bool(supplementary_entries)
             ),
         ),
         supplementary_note(
             supplementary_entries,
-            contamination_tiers=contamination_tiers,
+            contamination_tiers=ranking_tiers,
         ),
-        _uncertainty(report, contamination_tiers=contamination_tiers),
+        _uncertainty(report, contamination_tiers=official_contamination_tiers),
         "</section>",
         "<section id='calibration' aria-labelledby='calibration-title'>",
         "<h2 id='calibration-title'>Calibration and operational reliability</h2>",
-        _calibration_summary(report, contamination_tiers=contamination_tiers),
+        _calibration_summary(report, contamination_tiers=official_contamination_tiers),
         _supplementary_calibration(
             supplementary_bundle,
             supplementary_entries,
-            contamination_tiers=contamination_tiers,
+            contamination_tiers=supplementary_contamination_tiers_for_rows,
         ),
         _operational_summary(best_model),
         "</section>",
@@ -193,7 +225,7 @@ def build_official_report_page(
             baseline_entries,
             prevalence=prevalence,
             run_card=run_card,
-            contamination_tiers=contamination_tiers,
+            contamination_tiers=official_contamination_tiers,
         ),
         "</section>",
         "<section id='interpretation' aria-labelledby='interpretation-title'>",
@@ -207,7 +239,7 @@ def build_official_report_page(
             "as provenance. Unknown or overlapping cutoff evidence stays qualified "
             "and does not enter the eligible comparison.</p>"
         ),
-        _preliminary_contamination_note(contamination_tiers),
+        _preliminary_contamination_note(display_contamination_tiers),
         (
             "<h3>Limitations</h3><p>This benchmark measures probabilistic forecasts "
             "for a frozen legal task and cohort. Results do not establish general "
@@ -308,6 +340,7 @@ def _official_table_rows(
             ],
             result_class=ResultClass.PRE_ANCHOR,
             comparison_eligible=comparison_eligibility(row, contamination_tiers),
+            contamination_tiers=contamination_tiers,
         )
         for row in rows
     )
@@ -378,6 +411,7 @@ def _supplementary_table_rows(
                 score_row=score_row,
                 result_class=ResultClass.POST_ANCHOR,
                 comparison_eligible=comparison_eligibility(row, contamination_tiers),
+                contamination_tiers=contamination_tiers,
             )
         )
     return tuple(entries)
@@ -478,7 +512,7 @@ def _official_table(
         model = _first_str(row, ("model_id", "model_key", "solver_id"))
         post_anchor = entry.result_class is ResultClass.POST_ANCHOR
         marker = result_class_marker(entry.result_class)
-        label = _display_model_label(model, contamination_tiers) + marker
+        label = _display_model_label(model, entry.contamination_tiers) + marker
         tier_label = result_class_tier_label(entry.result_class)
         badge_class = "tier-badge post-anchor" if post_anchor else "tier-badge"
         eligibility_badge = comparison_badge(entry.comparison_eligible)
