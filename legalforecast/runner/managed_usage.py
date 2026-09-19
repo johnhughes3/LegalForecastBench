@@ -53,7 +53,9 @@ def _optional_usage_detail_int(
     return value
 
 
-def _managed_response_usage(response: ModelResponse) -> ManagedResponseUsage:
+def _managed_response_usage(
+    response: ModelResponse,
+) -> ManagedResponseUsage:
     """Project one SDK response onto the shared normalized usage shape."""
 
     usage = response.usage
@@ -66,13 +68,63 @@ def _managed_response_usage(response: ModelResponse) -> ManagedResponseUsage:
     )
 
 
-def _optional_usage_field(usage: object, field_name: str) -> int | None:
-    value = getattr(usage, field_name, None)
+def _optional_usage_field(
+    usage: object,
+    field_name: str,
+) -> int | None:
+    # UsageBase exposes zero-valued dataclass defaults even when the provider
+    # omitted a dimension. Keep positive instance values as evidence, but only
+    # retain zero when provider/raw details explicitly carry the field.
+    usage_values = vars(usage)
+    if field_name in usage_values and usage_values[field_name] != 0:
+        value = usage_values[field_name]
+    else:
+        value = None
+    if value is None:
+        details: object = getattr(usage, "details", {})
+        detail_names = {
+            "cache_read_tokens": ("cache_read_tokens", "cache_read_input_tokens"),
+            "cache_write_tokens": (
+                "cache_write_tokens",
+                "cache_creation_input_tokens",
+            ),
+        }.get(field_name, (field_name,))
+        if not isinstance(details, Mapping):
+            return None
+        detail_name = next((name for name in detail_names if name in details), None)
+        if detail_name is None:
+            return None
+        value = cast(Mapping[str, object], details)[detail_name]
+    return _validate_usage_field(value, field_name)
+
+
+def _validate_usage_field(value: object, field_name: str) -> int | None:
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError(f"provider response has invalid {field_name} usage")
     return value
+
+
+def _anthropic_cache_usages(
+    responses: Sequence[ModelResponse],
+) -> tuple[tuple[int, int], ...]:
+    """Return cache dimensions only when every live response reported them."""
+
+    rows: list[tuple[int, int]] = []
+    for response in responses:
+        cache_read = _optional_usage_field(
+            response.usage,
+            "cache_read_tokens",
+        )
+        cache_write = _optional_usage_field(
+            response.usage,
+            "cache_write_tokens",
+        )
+        if cache_read is None or cache_write is None:
+            return ()
+        rows.append((cache_read, cache_write))
+    return tuple(rows)
 
 
 def _managed_optional_response_usage_details(
@@ -180,4 +232,5 @@ managed_required_float = _managed_required_float
 managed_required_int = _required_int
 managed_required_str = _managed_required_str
 managed_response_usage = _managed_response_usage
+managed_anthropic_cache_usages = _anthropic_cache_usages
 response_thoughts_tokens = _response_thoughts_tokens

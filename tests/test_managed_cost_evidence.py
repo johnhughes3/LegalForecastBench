@@ -5,6 +5,7 @@ from dataclasses import replace
 import legalforecast.runner.managed_execution as managed_execution
 import pytest
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.runner.anthropic_cache import anthropic_cache_cost
 from legalforecast.runner.managed_execution import (
     ManagedResponseUsage,
     ManagedToolAgentResult,
@@ -133,6 +134,90 @@ def test_managed_response_usage_serialization_does_not_invent_omitted_dimensions
     }
 
 
+def test_request_usage_defaults_do_not_prove_cache_was_reported() -> None:
+    response = ModelResponse(
+        parts=[],
+        usage=RequestUsage(input_tokens=100, output_tokens=20),
+        model_name="gpt-5.6-luna",
+        provider_name="openai",
+        finish_reason="stop",
+    )
+
+    usage = managed_execution._managed_response_usage(response)
+
+    assert usage.cache_read_tokens is None
+    assert usage.cache_write_tokens is None
+    assert usage.to_record() == {"input_tokens": 100, "output_tokens": 20}
+
+
+def test_explicit_zero_cache_dimensions_are_retained() -> None:
+    response = ModelResponse(
+        parts=[],
+        usage=RequestUsage(
+            input_tokens=100,
+            output_tokens=20,
+            cache_read_tokens=0,
+            cache_write_tokens=0,
+            details={"cache_read_tokens": 0, "cache_write_tokens": 0},
+        ),
+        model_name="gpt-5.6-luna",
+        provider_name="openai",
+        finish_reason="stop",
+    )
+
+    usage = managed_execution._managed_response_usage(response)
+
+    assert usage.cache_read_tokens == 0
+    assert usage.cache_write_tokens == 0
+
+
+def test_payload_cost_validation_reuses_anthropic_cache_rates() -> None:
+    record = _entry().to_record()
+    record.update(
+        {
+            "provider": "anthropic",
+            "model_id": "claude-opus-5",
+            "model_version_or_snapshot": "claude-opus-5",
+            "input_token_price": 5.0,
+            "output_token_price": 25.0,
+            "reasoning_effort": None,
+        }
+    )
+    entry = ModelRegistryEntry.from_record(record)
+    usage = ManagedResponseUsage(
+        input_tokens=1000,
+        output_tokens=200,
+        cache_read_tokens=400,
+        cache_write_tokens=100,
+    )
+    expected_cost, metadata = anthropic_cache_cost(
+        entry,
+        response_usages=((1000, 200),),
+        cache_usages=((400, 100),),
+    )
+
+    evidence = managed_execution._managed_payload_cost_evidence(
+        entry,
+        estimated_cost=expected_cost,
+        usage_details=(usage,),
+        gateway_metadata=(),
+        cost_basis=str(metadata["cost_basis"]),
+        cost_method=str(metadata["cost_method"]),
+        rate_provenance=str(metadata["rate_provenance"]),
+        raw_output="{}",
+        request_count=1,
+        input_tokens=1000,
+        output_tokens=200,
+        served_model="claude-opus-5",
+        finish_reason="stop",
+        service_tier="unreported",
+        thoughts_tokens=0,
+    )
+
+    assert evidence.amount_usd == pytest.approx(expected_cost)
+    assert evidence.method == "anthropic_cache_aware_usage_reconstruction"
+
+
 def test_managed_response_usage_preserves_provider_dimensions_once() -> None:
     response = ModelResponse(
         parts=[],
@@ -186,3 +271,33 @@ def test_receipt_projection_labels_charged_gateway_amount() -> None:
         "service_tier": "standard",
         "charged_cost_microusd": 1000,
     }
+
+
+def test_registry_round_trips_optional_cache_rates() -> None:
+    entry = ModelRegistryEntry.from_record(
+        {
+            "provider": "openai",
+            "model_id": "gpt-6-astra",
+            "display_name": "GPT-6 Astra",
+            "model_version_or_snapshot": "gpt-6-astra",
+            "provider_training_cutoff_status": "unknown",
+            "max_output_tokens": 128000,
+            "network_disabled": True,
+            "search_disabled": True,
+            "tool_policy": "controlled_docket_tool_only",
+            "context_limit": 1050000,
+            "pricing_source": "frozen provider pricing table",
+            "input_token_price": 5.0,
+            "output_token_price": 25.0,
+            "cache_read_token_price": 0.5,
+            "cache_write_token_price": 0.5,
+            "known_cutoff_publicity_caveats": [],
+        }
+    )
+
+    record = entry.to_record()
+    assert record["cache_read_token_price"] == 0.5
+    assert record["cache_write_token_price"] == 0.5
+    restored = ModelRegistryEntry.from_record(record)
+    assert restored.cache_read_token_price == 0.5
+    assert restored.cache_write_token_price == 0.5

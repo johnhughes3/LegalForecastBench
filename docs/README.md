@@ -21,6 +21,8 @@ This index covers the current public contracts, operator guides, and reproducibl
 - [Publication governance](publication-governance.md): current track-separation, arm, reporting, and non-affiliation rules.
 - [Hugging Face benchmark publication](hugging-face-publication.md): manually gated access, immutable dataset revisions, native leaderboard registration, and short-lived automated publication.
 
+- [Jev one-shot condition](jev-mode.md): unchanged prediction units with full text or persisted Luna document summaries.
+
 ## Corpus Handoff Boundary
 
 Corpus construction, private source bytes, selection, unitization, and quality control are owned by the companion LegalForecastCorpus repository. This public repository receives only immutable, outcome-blinded release inputs through the documented [public/private release boundary](release-inputs.md).

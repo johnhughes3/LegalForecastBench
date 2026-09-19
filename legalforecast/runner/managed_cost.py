@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Protocol, cast
 
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.runner.anthropic_cache import anthropic_cache_cost
 from legalforecast.runner.gateway import gateway_total_cost_usd
 from legalforecast.runner.ledger import RunValidationError
 
@@ -28,6 +29,9 @@ class _ManagedCostResult(Protocol):
 
     @property
     def gateway_response_metadata(self) -> Sequence[Mapping[str, str]]: ...
+
+    @property
+    def response_cache_usages(self) -> Sequence[tuple[int, int]]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,6 +227,21 @@ def _managed_cost_evidence(
         response_usages=result.response_usages,
         response_usage_details=result.response_usage_details,
     )
+    if provider == "anthropic" and result.response_cache_usages:
+        try:
+            amount_usd, cache_metadata = anthropic_cache_cost(
+                entry,
+                result.response_usages,
+                result.response_cache_usages,
+            )
+        except ValueError as exc:
+            raise ManagedToolAgentError(str(exc)) from exc
+        return ManagedCostEvidence(
+            amount_usd=amount_usd,
+            basis=str(cache_metadata["cost_basis"]),
+            method=str(cache_metadata["cost_method"]),
+            rate_provenance=str(cache_metadata["rate_provenance"]),
+        )
     details = result.response_usage_details
     complete_cache_counts = bool(details) and all(
         usage.cache_read_tokens is not None and usage.cache_write_tokens is not None
@@ -313,6 +332,19 @@ def _managed_payload_cost_evidence(
                 ),
                 response_usage_details=usage_details,
                 gateway_response_metadata=gateway_metadata,
+                response_cache_usages=(
+                    tuple(
+                        (usage.cache_read_tokens, usage.cache_write_tokens)
+                        for usage in usage_details
+                    )
+                    if entry.provider.strip().lower() == "anthropic"
+                    and all(
+                        usage.cache_read_tokens is not None
+                        and usage.cache_write_tokens is not None
+                        for usage in usage_details
+                    )
+                    else ()
+                ),
             ),
         )
         expected = _managed_result_cost_evidence(entry, result=result)

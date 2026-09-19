@@ -11,7 +11,7 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from pydantic import ValidationError
 
@@ -36,7 +36,11 @@ from legalforecast.evals.model_registry import (
     model_registry_sha256,
     require_official_registry_entries,
 )
-from legalforecast.evals.output_parser import parse_model_output, public_parser_record
+from legalforecast.evals.output_parser import (
+    parse_model_output,
+    parsed_output_from_public_record,
+    public_parser_record,
+)
 from legalforecast.evals.provider_spend_attempt_handler import (
     ProviderSpendAttemptHandler,
     conservative_reservation_microusd,
@@ -55,6 +59,7 @@ from legalforecast.evals.response_verification import (
     require_publishable_response_metadata,
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
+from legalforecast.jev import execution as jev_execution
 from legalforecast.release import (
     ExecutableUnitPacket,
     ForecastExecution,
@@ -97,6 +102,7 @@ class RunConfig:
     provider_authority_table: str | None = None
     provider_authority_region: str | None = None
     provider_authority_resource_identity_sha256: str | None = None
+    jev_summaries_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,6 +255,18 @@ def execute_release_run(
         require_official_registry_entries((entry,))
     except ValueError as exc:
         raise RunValidationError(f"official model eligibility failed: {exc}") from exc
+    provider_free_injection = (
+        transport is not None and transport is not default_live_model_transport
+    )
+    if entry.jev_input_mode is not None:
+        jev_execution.validate_jev_inputs(entry, execution, config.jev_summaries_path)
+    else:
+        if config.jev_summaries_path is not None:
+            raise RunValidationError("summary cache is only supported in Jev mode")
+        managed_execution.require_managed_document_tools(
+            entry,
+            allow_provider_free_injection=provider_free_injection,
+        )
     validate_executable_packets(execution)
     entry_sha256 = model_registry_entry_sha256(entry)
 
@@ -407,12 +425,19 @@ def execute_release_run(
                         case_call=case_call,
                         repeat_index=repeat_index,
                     )
-                    prompt = managed_execution.case_prompt(
-                        entry,
-                        execution,
-                        case_call.units,
-                        case_call.model_visible_document_indexes,
-                        cell_id,
+                    prompt = (
+                        jev_execution.build_jev_case_input(
+                            entry, execution, case_call.units, config.jev_summaries_path
+                        )
+                        if entry.jev_input_mode is not None
+                        else managed_execution.case_prompt(
+                            entry,
+                            execution,
+                            case_call.units,
+                            case_call.model_visible_document_indexes,
+                            cell_id,
+                            allow_provider_free_injection=provider_free_injection,
+                        )
                     )
                     if config.cell_id is not None and cell_id != config.cell_id:
                         raise RunValidationError(
@@ -501,6 +526,7 @@ def execute_release_run(
                     replayable_attempt: AttemptLease | None = None
                     if (
                         cell is not None
+                        and cell.status == "reserved"
                         and cell.response_payload is not None
                         and cell.provider_attempt_ordinal is not None
                     ):
@@ -701,6 +727,11 @@ def execute_release_run(
                             response.raw_output,
                             required_unit_ids=case_call.required_unit_ids,
                         )
+                        if not parsed.is_valid or parsed.defaulted_unit_ids:
+                            raise RunValidationError(
+                                "provider response parser output is invalid or "
+                                "contains defaulted predictions"
+                            )
                         receipt: dict[str, object] = {
                             "schema_version": str(PUBLIC_RUN_RECEIPT_V1),
                             "cell_id": cell_id,
@@ -734,6 +765,22 @@ def execute_release_run(
                             "parser_output": public_parser_record(parsed),
                         }
                         _add_cost_evidence(receipt, response.metadata)
+                        if entry.jev_input_mode is not None:
+                            receipt["execution_condition"] = (
+                                f"jev_{entry.jev_input_mode}"
+                            )
+                            receipt["jev_summaries_sha256"] = entry.jev_summaries_sha256
+                            receipt["served_model_version"] = metadata[
+                                "served_model_version"
+                            ]
+                            receipt["jev_provider_metadata"] = json.loads(
+                                metadata["provider_metadata"]
+                            )
+                            receipt["jev_request_count"] = response.request_count
+                        if "anthropic_cache_evidence" in metadata:
+                            receipt["anthropic_cache_evidence"] = json.loads(
+                                metadata["anthropic_cache_evidence"]
+                            )
                         receipt_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(receipt)
                         receipt_sha256 = str(
                             RAW_BYTES_RAW_SHA256_V1.commit(
@@ -796,7 +843,7 @@ def execute_release_run(
 
 def _complete_cell(
     entry: ModelRegistryEntry,
-    prompt: str | managed_execution.ManagedCaseInput,
+    prompt: str | managed_execution.ManagedCaseInput | jev_execution.JevCaseInput,
     *,
     key: ProviderSpendKey,
     registry_sha256: str,
@@ -835,6 +882,16 @@ def _complete_cell(
         transport_start_observer=transport_start_observer,
         response_observer=response_observer,
     )
+    if isinstance(prompt, jev_execution.JevCaseInput):
+        return jev_execution.complete_jev_cell(
+            entry,
+            handler=handler,
+            case=prompt,
+            transport=transport,
+            request_body_observer=request_body_observer,
+            environ=environ,
+            registry_sha256=registry_sha256,
+        )
     if isinstance(prompt, managed_execution.ManagedCaseInput):
         return managed_execution.complete_managed_tool_cell(
             entry,
@@ -844,6 +901,11 @@ def _complete_cell(
             environ=environ,
             registry_sha256=registry_sha256,
             transcript_path=transcript_path,
+        )
+    if transport is default_live_model_transport:
+        raise RunValidationError(
+            "legacy prompt execution requires an explicitly injected "
+            "provider-free transport"
         )
     return complete_live_prompt(
         entry,
@@ -1003,6 +1065,22 @@ def _restore_or_validate_completed_receipt(
         )
         if record.get("unit_id") != expected_subject:
             raise RunValidationError("completed run receipt unit subject changed")
+    parser_record = record.get("parser_output")
+    if not isinstance(parser_record, Mapping):
+        raise RunValidationError("completed run receipt parser output is missing")
+    try:
+        parsed = parsed_output_from_public_record(
+            cast(Mapping[str, Any], parser_record)
+        )
+    except (TypeError, ValueError) as exc:
+        raise RunValidationError(
+            "completed run receipt parser output is invalid"
+        ) from exc
+    if not parsed.is_valid or parsed.defaulted_unit_ids:
+        raise RunValidationError(
+            "completed run receipt parser output is invalid or contains "
+            "defaulted predictions"
+        )
 
 
 def _cell_id(

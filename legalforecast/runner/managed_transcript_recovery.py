@@ -8,7 +8,7 @@ import hashlib
 import json
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import cast
 
@@ -33,6 +33,7 @@ from legalforecast.evals.response_verification import (
     verify_provider_response,
 )
 from legalforecast.immutable_io import read_single_link_file
+from legalforecast.runner.anthropic_cache import anthropic_cache_cost
 from legalforecast.runner.ledger import CellRecord, RunnerLedger, RunValidationError
 
 # The shared managed runtime owns these projections.  Keeping the recovery path
@@ -89,6 +90,7 @@ def recover_managed_transcript(
     payload_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(payload)
     payload_sha256 = hashlib.sha256(payload_bytes).hexdigest()
     persisted_payload_sha256 = payload_sha256
+    accepted_payload_bytes = payload_bytes
     if cell.response_payload is not None:
         if cell.response_payload_sha256 is None:
             raise RunValidationError("existing durable response lacks its digest")
@@ -97,6 +99,7 @@ def recover_managed_transcript(
             and cell.response_payload == payload_bytes
         )
         matches_legacy_payload = False
+        accepted_compatibility_payload: bytes | None = None
         if not matches_current_payload:
             legacy_payload = _legacy_managed_replay_payload(result, entry=entry)
             if legacy_payload is not None:
@@ -106,6 +109,8 @@ def recover_managed_transcript(
                     == hashlib.sha256(legacy_payload_bytes).hexdigest()
                     and cell.response_payload == legacy_payload_bytes
                 )
+                if matches_legacy_payload:
+                    accepted_compatibility_payload = legacy_payload_bytes
             if not matches_legacy_payload:
                 prior_payload = _prior_managed_replay_payload(result, entry=entry)
                 prior_payload_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(prior_payload)
@@ -114,12 +119,16 @@ def recover_managed_transcript(
                     == hashlib.sha256(prior_payload_bytes).hexdigest()
                     and cell.response_payload == prior_payload_bytes
                 )
+                if matches_legacy_payload:
+                    accepted_compatibility_payload = prior_payload_bytes
         if not matches_current_payload and not matches_legacy_payload:
             raise RunValidationError(
                 "existing durable response differs from transcript recovery"
             )
         if matches_legacy_payload:
             persisted_payload_sha256 = cell.response_payload_sha256
+            assert accepted_compatibility_payload is not None
+            accepted_payload_bytes = accepted_compatibility_payload
     else:
         ledger.restore_ambiguous_response_payload(
             cell_id,
@@ -127,15 +136,13 @@ def recover_managed_transcript(
             response_payload=payload_bytes,
             response_payload_sha256=payload_sha256,
         )
+    accepted_cost = _payload_estimated_cost(accepted_payload_bytes)
     return ManagedTranscriptRecovery(
         cell_id=cell_id,
         provider_attempt_id=cell.provider_attempt_id,
         payload_sha256=persisted_payload_sha256,
         response_sha256=hashlib.sha256(result.raw_output.encode("utf-8")).hexdigest(),
-        estimated_cost_usd=managed_execution._managed_result_cost_evidence(
-            entry,
-            result=result,
-        ).amount_usd,
+        estimated_cost_usd=accepted_cost,
         result=result,
     )
 
@@ -284,18 +291,11 @@ def managed_result_from_transcript(
         response_usages.append((input_tokens, output_tokens))
         response_usage_details.append(normalized_usage)
         thoughts_tokens += item_thoughts
-    # PydanticAI serializes zero-valued cache fields even when the provider did
-    # not report them. Preserve the old payload shape in that case. A positive
-    # cache or reasoning dimension is retained as evidence because it cannot be
-    # reconstructed safely from aggregate totals.
-    normalized_details = tuple(response_usage_details)
-    if not any(
-        (usage.cache_read_tokens or 0) > 0
-        or (usage.cache_write_tokens or 0) > 0
-        or (usage.reasoning_tokens or 0) > 0
-        for usage in normalized_details
-    ):
-        normalized_details = ()
+    response_cache_usages = (
+        managed_execution._managed_anthropic_cache_usages(responses)
+        if provider == "anthropic"
+        else ()
+    )
     input_tokens = sum(item[0] for item in response_usages)
     output_tokens = sum(item[1] for item in response_usages)
     result = managed_execution.ManagedToolAgentResult(
@@ -312,14 +312,15 @@ def managed_result_from_transcript(
         response_usages=tuple(response_usages),
         thoughts_tokens=thoughts_tokens,
         gateway_response_metadata=gateway_response_metadata,
-        response_usage_details=normalized_details,
+        response_usage_details=tuple(response_usage_details),
+        response_cache_usages=response_cache_usages,
     )
     try:
         estimated_cost = managed_execution._managed_result_cost_evidence(
             entry,
             result=result,
         ).amount_usd
-    except managed_execution.ManagedToolAgentError as exc:
+    except (managed_execution.ManagedToolAgentError, ValueError) as exc:
         raise RunValidationError(str(exc)) from exc
     if not math.isfinite(estimated_cost) or estimated_cost < 0:
         raise RunValidationError("managed transcript has invalid estimated cost")
@@ -339,7 +340,25 @@ def managed_replay_payload(
         entry,
         result=result,
     )
+    cache_evidence: dict[str, object] = {}
+    if entry.provider.strip().lower() == "anthropic" and result.response_cache_usages:
+        _, cache_evidence = anthropic_cache_cost(
+            entry,
+            result.response_usages,
+            result.response_cache_usages,
+        )
+        cache_evidence.update(
+            {
+                "cache_read_tokens": sum(
+                    row[0] for row in result.response_cache_usages
+                ),
+                "cache_write_tokens": sum(
+                    row[1] for row in result.response_cache_usages
+                ),
+            }
+        )
     payload: dict[str, object] = {
+        **({"anthropic_cache_evidence": cache_evidence} if cache_evidence else {}),
         "raw_output": result.raw_output,
         "request_count": result.request_count,
         "input_tokens": result.input_tokens,
@@ -375,12 +394,41 @@ def _legacy_managed_replay_payload(
 ) -> dict[str, object] | None:
     """Encode the pre-Gateway payload shape for non-Gateway replay matches."""
 
-    if entry.provider.strip().lower() not in {"openai", "google", "gemini"}:
+    provider = entry.provider.strip().lower()
+    if provider == "anthropic":
+        # Pydantic AI deserializes older Anthropic transcripts with omitted
+        # cache fields as explicit zero-valued fields.  Permit their original
+        # durable payload to match by removing only the newly derived evidence
+        # when every cache dimension is zero.  A positive cache count must use
+        # the current cache-aware payload and can never match this candidate.
+        if not result.response_cache_usages or any(
+            cache_read or cache_write
+            for cache_read, cache_write in result.response_cache_usages
+        ):
+            return None
+        payload = managed_replay_payload(result, entry=entry)
+        payload.pop("anthropic_cache_evidence", None)
+        payload["estimated_cost_usd"] = managed_execution._managed_estimated_cost(
+            entry,
+            response_usages=result.response_usages,
+        )
+        for field_name in (
+            "response_usage_details",
+            "cost_basis",
+            "cost_method",
+            "rate_provenance",
+        ):
+            payload.pop(field_name, None)
+        return payload
+    if provider not in {"openai", "google", "gemini"}:
         return None
     if result.gateway_response_metadata:
         return None
-    payload = managed_replay_payload(result, entry=entry)
+    payload = _prior_managed_replay_payload(result, entry=entry)
     payload.pop("gateway_response_metadata", None)
+    payload["estimated_cost_usd"] = managed_execution._managed_estimated_cost(
+        entry, response_usages=result.response_usages
+    )
     return payload
 
 
@@ -389,20 +437,27 @@ def _prior_managed_replay_payload(
     *,
     entry: ModelRegistryEntry,
 ) -> dict[str, object]:
-    """Encode the payload shape from before normalized usage evidence.
+    """Recreate the pre-evidence runner bytes without repricing its response."""
 
-    This compatibility projection is used only to compare existing durable
-    bytes. Recovery never replaces those bytes with inferred cache fields.
-    """
-
+    if (
+        entry.provider.strip().lower() == "anthropic"
+        and not result.response_cache_usages
+    ):
+        # The pre-evidence SDK adapter used zero defaults for omitted cache
+        # counters. Reproduce that historical shape only for exact-byte matching;
+        # new evidence continues to preserve unknown dimensions as unknown.
+        result = replace(
+            result,
+            response_cache_usages=tuple(
+                (usage.cache_read_tokens or 0, usage.cache_write_tokens or 0)
+                for usage in result.response_usage_details
+            ),
+        )
     payload = managed_replay_payload(result, entry=entry)
-    # The pre-evidence runner priced every input token at the ordinary input
-    # rate. Recreate that exact legacy amount only for byte comparison; the
-    # durable response remains untouched and is never relabeled as cache-aware.
-    payload["estimated_cost_usd"] = managed_execution._managed_estimated_cost(
-        entry,
-        response_usages=result.response_usages,
-    )
+    if entry.provider.strip().lower() not in {"anthropic", "vercel_ai_gateway"}:
+        payload["estimated_cost_usd"] = managed_execution._managed_estimated_cost(
+            entry, response_usages=result.response_usages
+        )
     for field_name in (
         "response_usage_details",
         "cost_basis",
@@ -410,9 +465,28 @@ def _prior_managed_replay_payload(
         "rate_provenance",
     ):
         payload.pop(field_name, None)
-    if entry.provider.strip().lower() != "vercel_ai_gateway":
-        payload.pop("gateway_response_metadata", None)
     return payload
+
+
+def _payload_estimated_cost(payload_bytes: bytes) -> float:
+    """Read the cost from the payload whose bytes recovery accepted."""
+
+    try:
+        payload_value: object = json.loads(payload_bytes)
+    except json.JSONDecodeError as exc:
+        raise RunValidationError("accepted managed response is not valid JSON") from exc
+    if not isinstance(payload_value, Mapping):
+        raise RunValidationError("accepted managed response must be an object")
+    payload_value = cast(Mapping[str, object], payload_value)
+    value = payload_value.get("estimated_cost_usd")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise RunValidationError("accepted managed response has invalid cost")
+    return float(value)
 
 
 def _service_tier(responses: Sequence[ModelResponse], *, provider: str) -> str:

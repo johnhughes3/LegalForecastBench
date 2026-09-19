@@ -25,6 +25,11 @@ on:
         description: Frozen public model registry URI or checked-out JSON path.
         required: true
         type: string
+      jev_summaries_uri:
+        description: Optional frozen Jev summary cache URI, artifact:<id>, or checked-out JSON path.
+        required: false
+        default: ""
+        type: string
       model_key:
         description: One provider:model_id key from the frozen model registry.
         required: true
@@ -123,7 +128,7 @@ jobs:
           git merge-base --is-ancestor HEAD origin/main
           test -n "$(git rev-parse origin/main)"
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
       - name: Validate dispatch identity and bounded values
@@ -133,6 +138,7 @@ jobs:
           FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
           ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
           MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
+          JEV_SUMMARIES_URI: ${{ inputs.jev_summaries_uri }}
           MODEL_KEY: ${{ inputs.model_key }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
           ACCOUNT: ${{ inputs.account }}
@@ -147,7 +153,16 @@ jobs:
           for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
             [[ -n "${value}" && "${value}" != *..* ]] || { echo "unsafe or empty dispatch identity" >&2; exit 1; }
           done
-          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google|vercel_ai_gateway):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
+          if [[ -n "${JEV_SUMMARIES_URI}" ]]; then
+            [[ "${JEV_SUMMARIES_URI}" != *..* ]] || { echo "unsafe Jev summaries locator" >&2; exit 1; }
+            case "${JEV_SUMMARIES_URI}" in
+              artifact:*)
+                [[ "${JEV_SUMMARIES_URI#artifact:}" =~ ^[1-9][0-9]*$ ]] || { echo "artifact Jev summaries locator must use a positive artifact ID" >&2; exit 1; }
+                ;;
+              s3://*|manifests/*|*) ;;
+            esac
+          fi
+          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google|vercel_ai_gateway|typesafe):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
           [[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]] || { echo "ceiling_microusd must be positive" >&2; exit 1; }
           [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ && "${REPEAT_COUNT}" -le 20 ]] || { echo "repeat_count must be between 1 and 20" >&2; exit 1; }
           [[ "${REPEAT_COUNT}" == "1" ]] || { echo "repeat_count must be exactly 1 until repeated-sampling fan-in is supported" >&2; exit 1; }
@@ -190,7 +205,7 @@ jobs:
           PY
           fi
       - name: Configure read-only public object access
-        if: ${{ startsWith(inputs.manifest_uri, 's3://') || startsWith(inputs.forecast_release_uri, 's3://') || startsWith(inputs.artifact_root_uri, 's3://') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.manifest_uri, 'manifests/') || startsWith(inputs.forecast_release_uri, 'manifests/') || startsWith(inputs.artifact_root_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 'manifests/') }}
+        if: ${{ startsWith(inputs.manifest_uri, 's3://') || startsWith(inputs.forecast_release_uri, 's3://') || startsWith(inputs.artifact_root_uri, 's3://') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.jev_summaries_uri, 's3://') || startsWith(inputs.manifest_uri, 'manifests/') || startsWith(inputs.forecast_release_uri, 'manifests/') || startsWith(inputs.artifact_root_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 'manifests/') || startsWith(inputs.jev_summaries_uri, 'manifests/') }}
         uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           aws-region: ${{ env.LFB_AWS_REGION }}
@@ -203,6 +218,8 @@ jobs:
           FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
           ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
           MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
+          JEV_SUMMARIES_URI: ${{ inputs.jev_summaries_uri }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           root=/tmp/lfb-locked-inputs
@@ -215,12 +232,60 @@ jobs:
               manifests/*)
                 [[ -n "${LFB_RESULTS_BUCKET:-}" ]] || { echo "LFB_RESULTS_BUCKET is required for manifests/ inputs." >&2; exit 1; }
                 aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${uri}" "${destination}" --only-show-errors ;;
+              artifact:*)
+                artifact_id="${uri#artifact:}"
+                [[ "${artifact_id}" =~ ^[1-9][0-9]*$ ]] || { echo "artifact input must use a positive artifact ID" >&2; exit 1; }
+                member_name="$(basename -- "${destination}")"
+                case "${member_name}" in
+                  jev-summaries.json|model-registry.json) ;;
+                  *) echo "artifact input is unsupported for destination ${member_name}" >&2; exit 1 ;;
+                esac
+                archive="${RUNNER_TEMP}/lfb-jev-summaries-${artifact_id}.zip"
+                gh api --allow-escape-sequences \
+                  "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+                  > "${archive}"
+                uv run python - "${archive}" "${destination}" "${member_name}" <<'JEV_SUMMARIES_PY'
+          import stat
+          import sys
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          archive_path, destination = map(Path, sys.argv[1:3])
+          expected = sys.argv[3]
+          with zipfile.ZipFile(archive_path) as archive:
+              candidates = []
+              allowed = (
+                  {"jev-summaries.json", "summary-spend.sqlite3"}
+                  if expected == "jev-summaries.json"
+                  else {"model-registry.json"}
+              )
+              for member in archive.infolist():
+                  path = PurePosixPath(member.filename)
+                  if path.is_absolute() or ".." in path.parts:
+                      raise SystemExit("Jev summaries artifact contains an unsafe path")
+                  if member.is_dir():
+                      continue
+                  mode = (member.external_attr >> 16) & 0o170000
+                  if mode == stat.S_IFLNK or member.file_size > 16 * 1024 * 1024:
+                      raise SystemExit("Jev summaries artifact contains an unsafe member")
+                  if len(path.parts) != 1 or path.name not in allowed:
+                      raise SystemExit("Jev summaries artifact contains an unexpected file")
+                  if path.name == expected:
+                      candidates.append(member)
+              if len(candidates) != 1:
+                  raise SystemExit(f"artifact must contain exactly one {expected}")
+              destination.write_bytes(archive.read(candidates[0]))
+          JEV_SUMMARIES_PY
+                ;;
               *) cp -- "${uri}" "${destination}" ;;
             esac
           }
           fetch_file "${MANIFEST_URI}" "${root}/run-manifest.json"
           fetch_file "${FORECAST_RELEASE_URI}" "${root}/forecast-release.json"
           fetch_file "${MODEL_REGISTRY_URI}" "${root}/model-registry.json"
+          if [[ -n "${JEV_SUMMARIES_URI}" ]]; then
+            fetch_file "${JEV_SUMMARIES_URI}" "${root}/jev-summaries.json"
+          fi
           export LFB_ARTIFACT_ROOT_URI="${ARTIFACT_ROOT_URI}"
           uv run --with boto3 python - <<'PY'
           import os, shutil
@@ -351,6 +416,7 @@ jobs:
           import json, os, re
           from pathlib import Path
           from legalforecast.evals.model_registry import load_model_registry, model_registry_sha256, require_official_registry_entries
+          from legalforecast.jev.execution import validate_jev_inputs
           from legalforecast.immutable_io import read_single_link_file
           from legalforecast.release import load_forecast_run_inputs
           from legalforecast.runner import derive_case_call_id, derive_cell_id, derive_run_identity_sha256, validate_executable_packets
@@ -376,6 +442,15 @@ jobs:
               raise SystemExit(f"model_key is not the exact key of one eligible registry entry: {requested_model_key}")
           entries = selected
           entry = selected[0]
+          jev_summaries_path = Path("/tmp/lfb-locked-inputs/jev-summaries.json")
+          if entry.jev_input_mode is not None:
+              validate_jev_inputs(
+                  entry,
+                  run_inputs.execution,
+                  jev_summaries_path if jev_summaries_path.is_file() else None,
+              )
+          elif jev_summaries_path.exists():
+              raise SystemExit("summary cache is only supported in Jev mode")
           validate_executable_packets(run_inputs.execution)
           run_identity_sha256 = derive_run_identity_sha256(execution=run_inputs.execution, entry=entry, registry_sha256=registry_sha256, ceiling_microusd=int(os.environ["CEILING_MICROUSD"]), harness="native", ablation="none", repeat_count=repeat_count, account=os.environ["ACCOUNT"], manifest_id=str(run_inputs.manifest.run_id), manifest_sha256=run_inputs.manifest_sha256)
           matrices: dict[str, list[dict[str, object]]] = {"openai": [], "anthropic": [], "gemini": [], "gateway": []}
@@ -388,7 +463,7 @@ jobs:
               provider = entry.provider.strip().casefold()
               if provider == "google":
                   provider = "gemini"
-              matrix_provider = "gateway" if provider == "vercel_ai_gateway" else provider
+              matrix_provider = "gateway" if provider in {"vercel_ai_gateway", "typesafe"} else provider
               if matrix_provider not in matrices:
                   raise SystemExit(f"model registry provider is not supported by the official forecast workflow: {entry.provider}")
               for case in forecast.cases:
@@ -440,6 +515,7 @@ jobs:
           FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
           ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
           MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
+          JEV_SUMMARIES_URI: ${{ inputs.jev_summaries_uri }}
           MODEL_KEY: ${{ inputs.model_key }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
           ACCOUNT: ${{ inputs.account }}
@@ -477,6 +553,7 @@ jobs:
               "forecast_release_uri": os.environ["FORECAST_RELEASE_URI"],
               "artifact_root_uri": os.environ["ARTIFACT_ROOT_URI"],
               "model_registry_uri": os.environ["MODEL_REGISTRY_URI"],
+              "jev_summaries_uri": os.environ["JEV_SUMMARIES_URI"],
               "model_key": os.environ["MODEL_KEY"],
               "ceiling_microusd": int(os.environ["CEILING_MICROUSD"]),
               "account": os.environ["ACCOUNT"],
@@ -535,7 +612,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor HEAD origin/main
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
       - name: Configure shared provider spend authority access
@@ -701,7 +778,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor HEAD origin/main
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
       - name: Install native Anthropic managed runtime
@@ -869,7 +946,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor HEAD origin/main
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
       - name: Configure shared provider spend authority access
@@ -1000,8 +1077,8 @@ jobs:
           retention-days: ${{ inputs.artifact_retention_days }}
 
   run-gateway:
-    name: Vercel AI Gateway resumable forecast cells
-    if: ${{ startsWith(inputs.model_key, 'vercel_ai_gateway:') && needs.prepare-inputs.outputs.gateway_count != '0' }}
+    name: Vercel AI Gateway and TypeSafe Jev resumable forecast cells
+    if: ${{ (startsWith(inputs.model_key, 'vercel_ai_gateway:') || startsWith(inputs.model_key, 'typesafe:')) && needs.prepare-inputs.outputs.gateway_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -1016,7 +1093,9 @@ jobs:
       LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
       LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
     strategy:
-      fail-fast: false
+      # Jev has no agentic recovery or alternate transport. Stop a failed
+      # evaluation rollout before every queued case repeats the same error.
+      fail-fast: ${{ inputs.model_key == 'vercel_ai_gateway:typesafe-ai/jev' || inputs.model_key == 'typesafe:jev-1.13.0' }}
       max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
       matrix: ${{ fromJSON(needs.prepare-inputs.outputs.gateway_matrix) }}
     steps:
@@ -1035,7 +1114,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor HEAD origin/main
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
       - name: Configure shared provider spend authority access
@@ -1096,10 +1175,26 @@ jobs:
           else
             echo "transcript recovery=none"
           fi
+      - name: Install Node.js 24 for Gateway Jev
+        if: ${{ matrix.model_key == 'vercel_ai_gateway:typesafe-ai/jev' }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - name: Install pinned Gateway Jev runtime dependencies
+        if: ${{ matrix.model_key == 'vercel_ai_gateway:typesafe-ai/jev' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@11.27.0 --activate
+          test "$(pnpm --version)" = "11.27.0"
+          pnpm --dir integrations/jev install --frozen-lockfile
       - name: Configure rootless Docker for document tools
+        if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' && matrix.model_key != 'typesafe:jev-1.13.0' }}
         shell: bash
         run: .github/scripts/setup-rootless-docker.sh
       - name: Build isolated document tool image
+        if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' && matrix.model_key != 'typesafe:jev-1.13.0' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1107,10 +1202,11 @@ jobs:
           tool_image_id="$(docker image inspect --format '{{.Id}}' lfb-harvey-tools:local)"
           [[ "${tool_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" >> "${GITHUB_ENV}"
-      - name: Execute exact Vercel AI Gateway forecast cell
+      - name: Execute exact Gateway or TypeSafe Jev forecast cell
         shell: bash
         env:
-          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          AI_GATEWAY_API_KEY: ${{ matrix.provider == 'vercel_ai_gateway' && secrets.AI_GATEWAY_API_KEY || '' }}
+          TYPESAFE_API_KEY: ${{ matrix.provider == 'typesafe' && secrets.TYPESAFE_API_KEY || '' }}
           MODEL_KEY: ${{ matrix.model_key }}
           CELL_ID: ${{ matrix.cell_id }}
           UNIT_ID: ${{ matrix.unit_id }}
@@ -1128,7 +1224,8 @@ jobs:
           done
           set +e
           unit_args=(); if [[ -n "${UNIT_ID}" ]]; then unit_args=(--unit-id "${UNIT_ID}"); fi
-          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" "${unit_args[@]}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
+          jev_args=(); if [[ -f /tmp/lfb-forecast-inputs/jev-summaries.json ]]; then jev_args=(--jev-summaries /tmp/lfb-forecast-inputs/jev-summaries.json); fi
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" "${unit_args[@]}" "${jev_args[@]}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
           status=$?
           set -e
           uv run python - "${status}" <<'PY'
@@ -1190,7 +1287,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
           git merge-base --is-ancestor HEAD origin/main
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
       - name: Download validated forecast inputs
@@ -1256,6 +1353,11 @@ jobs:
               if not source.is_file() or source.is_symlink():
                   raise SystemExit(f"validated forecast input is missing: {name}")
               shutil.copyfile(source, output / name)
+          jev_summaries = inputs / "jev-summaries.json"
+          if jev_summaries.exists() or jev_summaries.is_symlink():
+              if not jev_summaries.is_file() or jev_summaries.is_symlink():
+                  raise SystemExit("Jev summaries input is not a regular file")
+              shutil.copyfile(jev_summaries, output / "jev-summaries.json")
           def read_object(path: Path) -> dict[str, object]:
               if not path.is_file() or path.is_symlink():
                   raise SystemExit(f"durable state file is missing: {path}")
@@ -1485,6 +1587,7 @@ jobs:
             /tmp/lfb-forecast-results/run-manifest.json
             /tmp/lfb-forecast-results/forecast-release.json
             /tmp/lfb-forecast-results/model-registry.json
+            /tmp/lfb-forecast-results/jev-summaries.json
             /tmp/lfb-forecast-results/artifacts
             /tmp/lfb-forecast-results/run-summary.json
             /tmp/lfb-forecast-results/ledger/ledger.sqlite3

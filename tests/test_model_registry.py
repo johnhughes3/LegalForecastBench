@@ -31,8 +31,23 @@ PILOT_REGISTRY = ROOT / "model_registries" / "pilot-2026-04-24_to_2026-05-18.jso
 ASTRA_FLEX_REGISTRY = (
     ROOT / "model_registries" / ("cycle-1-official-gpt-6-astra-flex-2026-09-08.json")
 )
+ASTRA_FLEX_CACHE_REGISTRY = (
+    ROOT
+    / "model_registries"
+    / ("cycle-1-official-gpt-6-astra-flex-cache-aware-2026-09-10.json")
+)
 HELD_REGISTRY = (
     ROOT / "model_registries" / ("cycle-1-official-held-models-2026-09-08.json")
+)
+HELD_CACHE_REGISTRY = (
+    ROOT
+    / "model_registries"
+    / ("cycle-1-official-held-models-cache-aware-2026-09-10.json")
+)
+CURRENT_SONNET_REGISTRY = (
+    ROOT
+    / "model_registries"
+    / "cycle-1-2026-06-30-claude-sonnet-5-successor-2026-09-10.json"
 )
 
 
@@ -377,7 +392,7 @@ def _json_body(request: urllib.request.Request) -> dict[str, Any]:
 
 
 def test_astra_flex_registry_freezes_flex_rates_and_identity() -> None:
-    registry = load_model_registry(ASTRA_FLEX_REGISTRY)
+    registry = load_model_registry(ASTRA_FLEX_CACHE_REGISTRY)
 
     assert len(registry.entries) == 1
     entry = registry.entries[0]
@@ -406,6 +421,21 @@ def test_astra_flex_registry_does_not_rewrite_held_standard_registry() -> None:
     assert standard.model_version_or_snapshot == flex.model_version_or_snapshot
 
 
+def test_cache_aware_registry_is_a_new_snapshot() -> None:
+    original_flex = load_model_registry(ASTRA_FLEX_REGISTRY).entries[0]
+    cache_flex = load_model_registry(ASTRA_FLEX_CACHE_REGISTRY).entries[0]
+    original_held = load_model_registry(HELD_REGISTRY)
+    cache_held = load_model_registry(HELD_CACHE_REGISTRY)
+
+    assert original_flex.cache_read_token_price is None
+    assert cache_flex.cache_read_token_price == 0.5
+    assert all(entry.cache_read_token_price is None for entry in original_held.entries)
+    assert [entry.cache_read_token_price for entry in cache_held.entries[:2]] == [
+        0.25,
+        1.0,
+    ]
+
+
 def test_astra_flex_live_request_and_managed_estimate_use_flex_rates() -> None:
     entry = load_model_registry(ASTRA_FLEX_REGISTRY).entries[0]
 
@@ -425,31 +455,26 @@ def test_astra_flex_live_request_and_managed_estimate_use_flex_rates() -> None:
     )
 
 
-def test_registry_round_trips_optional_cache_rates() -> None:
-    entry = ModelRegistryEntry.from_record(
-        {
-            "provider": "openai",
-            "model_id": "gpt-6-astra",
-            "display_name": "GPT-6 Astra",
-            "model_version_or_snapshot": "gpt-6-astra",
-            "provider_training_cutoff_status": "unknown",
-            "max_output_tokens": 128000,
-            "network_disabled": True,
-            "search_disabled": True,
-            "tool_policy": "controlled_docket_tool_only",
-            "context_limit": 1050000,
-            "pricing_source": "frozen provider pricing table",
-            "input_token_price": 5.0,
-            "output_token_price": 25.0,
-            "cache_read_token_price": 0.5,
-            "cache_write_token_price": 0.5,
-            "known_cutoff_publicity_caveats": [],
-        }
-    )
+def test_current_sonnet_successor_freezes_provider_limits_and_managed_thinking() -> (
+    None
+):
+    registry = load_model_registry(CURRENT_SONNET_REGISTRY)
 
-    record = entry.to_record()
-    assert record["cache_read_token_price"] == 0.5
-    assert record["cache_write_token_price"] == 0.5
-    restored = ModelRegistryEntry.from_record(record)
-    assert restored.cache_read_token_price == 0.5
-    assert restored.cache_write_token_price == 0.5
+    assert len(registry.entries) == 1
+    entry = registry.entries[0]
+    assert entry.registry_key == "anthropic:claude-sonnet-5"
+    assert entry.model_version_or_snapshot == "claude-sonnet-5"
+    assert entry.context_limit == 1_000_000
+    assert entry.max_output_tokens == 128_000
+    assert (entry.input_token_price, entry.output_token_price) == (2.0, 10.0)
+    assert entry.reasoning_effort is None
+    assert entry.temperature is None
+    assert entry.top_p is None
+    assert entry.release_timestamp is not None
+    assert entry.release_timestamp.date() == date(2026, 6, 30)
+    assert require_official_registry_entries(registry.entries) == registry.entries
+
+    settings = managed_execution._anthropic_model_settings(entry)
+    assert settings["max_tokens"] == 128_000
+    assert settings["anthropic_thinking"] == {"type": "adaptive"}
+    assert settings["parallel_tool_calls"] is False
