@@ -31,8 +31,18 @@ PILOT_REGISTRY = ROOT / "model_registries" / "pilot-2026-04-24_to_2026-05-18.jso
 ASTRA_FLEX_REGISTRY = (
     ROOT / "model_registries" / ("cycle-1-official-gpt-6-astra-flex-2026-09-08.json")
 )
+ASTRA_FLEX_CACHE_REGISTRY = (
+    ROOT
+    / "model_registries"
+    / ("cycle-1-official-gpt-6-astra-flex-cache-aware-2026-09-10.json")
+)
 HELD_REGISTRY = (
     ROOT / "model_registries" / ("cycle-1-official-held-models-2026-09-08.json")
+)
+HELD_CACHE_REGISTRY = (
+    ROOT
+    / "model_registries"
+    / ("cycle-1-official-held-models-cache-aware-2026-09-10.json")
 )
 CURRENT_SONNET_REGISTRY = (
     ROOT
@@ -397,13 +407,14 @@ def _json_body(request: urllib.request.Request) -> dict[str, Any]:
 
 
 def test_astra_flex_registry_freezes_flex_rates_and_identity() -> None:
-    registry = load_model_registry(ASTRA_FLEX_REGISTRY)
+    registry = load_model_registry(ASTRA_FLEX_CACHE_REGISTRY)
 
     assert len(registry.entries) == 1
     entry = registry.entries[0]
     assert entry.registry_key == "openai:gpt-6-astra"
     assert entry.display_name == "GPT-6 Astra Flex"
     assert (entry.input_token_price, entry.output_token_price) == (5.0, 25.0)
+    assert entry.cache_read_token_price == 0.5
     assert entry.reasoning_effort is not None
     assert entry.reasoning_effort.value == "high"
     assert entry.long_context_surcharge is not None
@@ -423,6 +434,21 @@ def test_astra_flex_registry_does_not_rewrite_held_standard_registry() -> None:
     assert (flex.input_token_price, flex.output_token_price) == (5.0, 25.0)
     assert standard.model_id == flex.model_id
     assert standard.model_version_or_snapshot == flex.model_version_or_snapshot
+
+
+def test_cache_aware_registry_is_a_new_snapshot() -> None:
+    original_flex = load_model_registry(ASTRA_FLEX_REGISTRY).entries[0]
+    cache_flex = load_model_registry(ASTRA_FLEX_CACHE_REGISTRY).entries[0]
+    original_held = load_model_registry(HELD_REGISTRY)
+    cache_held = load_model_registry(HELD_CACHE_REGISTRY)
+
+    assert original_flex.cache_read_token_price is None
+    assert cache_flex.cache_read_token_price == 0.5
+    assert all(entry.cache_read_token_price is None for entry in original_held.entries)
+    assert [entry.cache_read_token_price for entry in cache_held.entries[:2]] == [
+        0.25,
+        1.0,
+    ]
 
 
 def test_astra_flex_live_request_and_managed_estimate_use_flex_rates() -> None:

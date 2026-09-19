@@ -22,7 +22,10 @@ from legalforecast.runner.ledger import (
     RunnerLedger,
     RunValidationError,
 )
-from legalforecast.runner.managed_execution import run_managed_tool_agent
+from legalforecast.runner.managed_execution import (
+    ManagedResponseUsage,
+    run_managed_tool_agent,
+)
 from legalforecast.runner.managed_transcript_recovery import (
     recover_managed_transcript,
 )
@@ -87,7 +90,13 @@ def _anthropic_entry() -> ModelRegistryEntry:
     return ModelRegistryEntry.from_record(record)
 
 
-def _response(parts: list[Any], *, inputs: int, outputs: int) -> ModelResponse:
+def _response(
+    parts: list[Any],
+    *,
+    inputs: int,
+    outputs: int,
+    service_tier: str = "standard",
+) -> ModelResponse:
     return ModelResponse(
         parts=parts,
         usage=RequestUsage(
@@ -98,7 +107,7 @@ def _response(parts: list[Any], *, inputs: int, outputs: int) -> ModelResponse:
         model_name="gemini-3.8-flash",
         provider_name="google",
         finish_reason="stop",
-        provider_details={"finish_reason": "STOP", "service_tier": "standard"},
+        provider_details={"finish_reason": "STOP", "service_tier": service_tier},
     )
 
 
@@ -264,11 +273,26 @@ def _reserve_cell(ledger: RunnerLedger, entry: ModelRegistryEntry, prompt: str) 
     )
 
 
+@pytest.mark.parametrize("provider", ["google", "openai"])
 def test_successful_transcript_restores_typed_replay_payload_without_transport(
     tmp_path: Path,
+    provider: str,
 ) -> None:
     entry = _entry()
+    if provider == "openai":
+        record = entry.to_record()
+        record.update(
+            {
+                "provider": "openai",
+                "model_id": "gpt-5.6-luna",
+                "model_version_or_snapshot": "gpt-5.6-luna",
+                "reasoning_effort": "high",
+                "thinking_level": None,
+            }
+        )
+        entry = ModelRegistryEntry.from_record(record)
     prompt = _prompt()
+    service_tier = "flex" if provider == "openai" else "standard"
     turns = [
         _response(
             [
@@ -280,6 +304,7 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             ],
             inputs=100,
             outputs=10,
+            service_tier=service_tier,
         ),
         _response(
             [
@@ -299,6 +324,7 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             ],
             inputs=150,
             outputs=20,
+            service_tier=service_tier,
         ),
     ]
 
@@ -327,7 +353,7 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             message["finish_reason"] = "stop"
             message["provider_details"] = {
                 "finish_reason": "STOP",
-                "service_tier": "standard",
+                "service_tier": service_tier,
             }
     transcript_path.write_text(json.dumps(transcript, sort_keys=True))
     with RunnerLedger(
@@ -347,6 +373,18 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         assert recovered.result.request_count == live_result.request_count
         assert recovered.result.input_tokens == live_result.input_tokens
         assert recovered.result.output_tokens == live_result.output_tokens
+        assert recovered.result.response_usage_details == (
+            live_result.response_usage_details
+        )
+        assert all(
+            usage.cache_read_tokens is None and usage.cache_write_tokens is None
+            for usage in recovered.result.response_usage_details
+        )
+        assert all(
+            "cache_read_tokens" not in usage.to_record()
+            and "cache_write_tokens" not in usage.to_record()
+            for usage in recovered.result.response_usage_details
+        )
         assert (
             recovered.response_sha256
             == hashlib.sha256(live_result.raw_output.encode("utf-8")).hexdigest()
@@ -356,6 +394,9 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         assert record.provider_attempt_status == "reserved"
         assert record.response_payload is not None
         payload = json.loads(record.response_payload)
+        assert record.response_payload == ARTIFACT_CANONICAL_JSON_V1.encode(
+            transcript_recovery.managed_replay_payload(recovered.result, entry=entry)
+        )
         assert json.loads(cast_str(live_result.raw_output)) == json.loads(
             payload["raw_output"]
         )
@@ -377,7 +418,17 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
     # optional field. Recovery must reproduce the existing bytes and digest
     # while allowing the current empty metadata projection to compare equal.
     legacy_payload = dict(payload)
+    legacy_payload["estimated_cost_usd"] = managed_execution._managed_estimated_cost(
+        entry, response_usages=live_result.response_usages
+    )
     legacy_payload.pop("gateway_response_metadata")
+    for field_name in (
+        "response_usage_details",
+        "cost_basis",
+        "cost_method",
+        "rate_provenance",
+    ):
+        legacy_payload.pop(field_name)
     legacy_payload_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(legacy_payload)
     legacy_payload_sha256 = hashlib.sha256(legacy_payload_bytes).hexdigest()
     with RunnerLedger(
@@ -747,6 +798,42 @@ def test_anthropic_zero_cache_legacy_payload_candidate_omits_new_evidence() -> N
     assert legacy_payload is not None
     assert "anthropic_cache_evidence" not in legacy_payload
     assert legacy_payload["estimated_cost_usd"] == pytest.approx(0.0075)
+
+
+def test_zero_cache_usage_details_survive_recovery_projection() -> None:
+    entry = _anthropic_entry()
+    result = managed_execution.ManagedToolAgentResult(
+        raw_output="{}",
+        request_count=1,
+        input_tokens=100,
+        output_tokens=20,
+        served_model=entry.model_version_or_snapshot,
+        finish_reason="stop",
+        service_tier="unreported",
+        called_tools=("read",),
+        response_usages=((100, 20),),
+        response_usage_details=(
+            ManagedResponseUsage(
+                input_tokens=100,
+                output_tokens=20,
+                cache_read_tokens=0,
+                cache_write_tokens=0,
+            ),
+        ),
+        response_cache_usages=((0, 0),),
+    )
+
+    payload = transcript_recovery.managed_replay_payload(result, entry=entry)
+
+    assert payload["response_usage_details"] == [
+        {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "input_tokens": 100,
+            "output_tokens": 20,
+        }
+    ]
+    assert payload["estimated_cost_usd"] == pytest.approx(0.002)
 
 
 def test_ambiguous_settlement_failure_retains_response_for_normal_replay(

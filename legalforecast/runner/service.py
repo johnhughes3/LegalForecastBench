@@ -76,6 +76,7 @@ from .ledger import (
     RunValidationError,
     UnscoredCaseError,
 )
+from .managed_receipt import add_managed_cost_evidence as _add_cost_evidence
 
 
 @dataclass(frozen=True, slots=True)
@@ -347,8 +348,7 @@ def execute_release_run(
     policy = FrozenAttemptPolicy(
         reservation_ledger_sha256=identity_sha256,
         max_billable_attempts=1,
-        # One case can exhaust its SDK limits without indicating a provider
-        # outage. Stop new work after sustained failures, retaining every event.
+        # Stop new work after sustained SDK failures; retain every event.
         failure_threshold=8,
         failure_window_seconds=86_400,
     )
@@ -534,10 +534,8 @@ def execute_release_run(
                             cell.response_payload
                         )
                         if isinstance(authority, DynamoDbProviderSpendAuthority):
-                            # The state-only local projection assigns every remote
-                            # attempt ordinal 1.  The remote cell is authoritative
-                            # for replay, so resolve its current durable attempt
-                            # and retain the exact local attempt-ID binding below.
+                            # Resolve the durable remote attempt; the local
+                            # projection always uses ordinal 1 and retains its binding.
                             replayable_attempt = authority.adopt_attempt(key)
                         else:
                             replayable_attempt = authority.adopt_attempt(
@@ -734,7 +732,7 @@ def execute_release_run(
                                 "provider response parser output is invalid or "
                                 "contains defaulted predictions"
                             )
-                        receipt = {
+                        receipt: dict[str, object] = {
                             "schema_version": str(PUBLIC_RUN_RECEIPT_V1),
                             "cell_id": cell_id,
                             "run_identity_sha256": identity_sha256,
@@ -766,6 +764,7 @@ def execute_release_run(
                             },
                             "parser_output": public_parser_record(parsed),
                         }
+                        _add_cost_evidence(receipt, response.metadata)
                         if entry.jev_input_mode is not None:
                             receipt["execution_condition"] = (
                                 f"jev_{entry.jev_input_mode}"
