@@ -348,7 +348,7 @@ def test_oversized_paid_summary_is_persisted_and_not_repurchased(
     execution = _execution(tmp_path)
     entry = _entry()
     factory = _FakeAgentFactory(
-        output="x" * prepare.JEV_REQUEST_BYTE_BUDGET,
+        output=" law" * prepare.JEV_REQUEST_BYTE_BUDGET,
         usage=RequestUsage(input_tokens=10, output_tokens=10),
     )
     monkeypatch.setattr(prepare, "Agent", factory)

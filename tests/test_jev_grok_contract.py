@@ -6,6 +6,9 @@ from pathlib import Path
 import pytest
 from legalforecast.cli import main
 from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.evals.provider_spend_attempt_handler import (
+    conservative_reservation_microusd,
+)
 from legalforecast.jev.execution import build_jev_case_input
 from legalforecast.jev.packets import case_documents
 from legalforecast.jev.summaries import (
@@ -84,6 +87,15 @@ def test_registry_freezes_grok_mode_and_display(tmp_path: Path) -> None:
     entry = load_model_registry(registry_path).entries[0]
 
     assert entry.jev_input_mode == "grok_summaries"
+    assert entry.context_limit == 64_000
+    reservation = conservative_reservation_microusd(
+        context_limit=entry.context_limit,
+        max_output_tokens=entry.max_output_tokens,
+        input_token_price=entry.input_token_price,
+        output_token_price=entry.output_token_price,
+    )
+    # A full 64,000-token request costs 2,688 microusd at the frozen rate.
+    assert reservation >= 2688
     assert entry.display_name == "Jev (Grok 4.6 summaries; one shot)"
     assert entry.jev_summaries_sha256 is not None
 
