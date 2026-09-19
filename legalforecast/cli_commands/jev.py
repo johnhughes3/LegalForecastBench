@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
@@ -23,6 +24,50 @@ from legalforecast.jev.packets import (
 from legalforecast.jev.prepare import prepare_summaries
 from legalforecast.release import load_forecast_run_inputs
 
+_SUMMARY_MODELS: Mapping[str, tuple[str, str, str]] = {
+    "luna": ("openai", "gpt-5.6-luna", "luna_summaries"),
+    "grok": ("vercel_ai_gateway", "spacexai/grok-4.6", "grok_summaries"),
+}
+
+
+def _summary_model_config(summary_model: object) -> tuple[str, str, str]:
+    if not isinstance(summary_model, str) or summary_model not in _SUMMARY_MODELS:
+        raise ValueError(f"unsupported summary model: {summary_model!r}")
+    return _SUMMARY_MODELS[summary_model]
+
+
+def _validate_summary_cache_model(raw: bytes, *, expected_model: str) -> None:
+    """Reject a cache whose persisted records belong to another summarizer."""
+
+    try:
+        payload: object = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Jev summary cache is not valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Jev summary cache must be a JSON object")
+    payload_object = cast(dict[str, object], payload)
+    records = payload_object.get("records")
+    if not isinstance(records, dict):
+        raise ValueError("Jev summary cache records must be a JSON object")
+    observed: set[str] = set()
+    for case_records in cast(dict[object, object], records).values():
+        if not isinstance(case_records, dict):
+            raise ValueError("Jev summary cache case records must be JSON objects")
+        for summary_value in cast(dict[object, object], case_records).values():
+            if not isinstance(summary_value, dict):
+                raise ValueError("Jev summary cache records require a model")
+            summary = cast(dict[object, object], summary_value)
+            model = summary.get("model")
+            if not isinstance(model, str):
+                raise ValueError("Jev summary cache records require a model")
+            observed.add(model)
+    if observed and observed != {expected_model}:
+        found = ", ".join(sorted(observed))
+        raise ValueError(
+            "Jev summary cache model does not match the selected summary model: "
+            f"expected {expected_model!r}, found {found}"
+        )
+
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:  # pyright: ignore[reportPrivateUsage]
     """Register provider-free sizing, persisted summaries, and a frozen registry."""
@@ -38,7 +83,10 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
             help=(
                 "Measure all full-text requests without provider calls."
                 if command == "inspect"
-                else "Generate and persist Luna summaries; cached documents are reused."
+                else (
+                    "Generate and persist document summaries; cached documents are "
+                    "reused."
+                )
             ),
         )
         child.add_argument(
@@ -61,10 +109,22 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
         )
         if command == "prepare":
             child.add_argument(
+                "--summary-registry",
                 "--luna-registry",
+                dest="luna_registry",
                 type=Path,
                 required=True,
-                help="Frozen registry containing openai:gpt-5.6-luna and token prices.",
+                help=(
+                    "Frozen summary registry; --luna-registry is the legacy alias. "
+                    "The selected model must be openai:gpt-5.6-luna or "
+                    "vercel_ai_gateway:spacexai/grok-4.6."
+                ),
+            )
+            child.add_argument(
+                "--summary-model",
+                choices=tuple(_SUMMARY_MODELS),
+                default="luna",
+                help="Summary model to use (default: luna).",
             )
             child.add_argument(
                 "--cache",
@@ -92,7 +152,13 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     registry.add_argument(
         "--summaries",
         type=Path,
-        help="Completed Luna summary cache; omit for full-text mode.",
+        help="Completed summary cache; omit for full-text mode.",
+    )
+    registry.add_argument(
+        "--summary-model",
+        choices=tuple(_SUMMARY_MODELS),
+        default="luna",
+        help="Summary model used by --summaries (default: luna).",
     )
     registry.add_argument(
         "--provider",
@@ -118,8 +184,12 @@ def run_inputs(args: argparse.Namespace) -> int:
         artifact_root=cast(Path, args.artifact_root),
     ).execution
     if args.jev_command == "prepare":
+        summary_model = getattr(args, "summary_model", "luna")
+        summary_provider, summary_model_id, _summary_mode = _summary_model_config(
+            summary_model
+        )
         entry = load_model_registry(cast(Path, args.luna_registry)).get(
-            "openai", "gpt-5.6-luna"
+            summary_provider, summary_model_id
         )
         result = prepare_summaries(
             execution,
@@ -167,13 +237,21 @@ def run_registry(args: argparse.Namespace) -> int:
 
     path = cast(Path | None, args.summaries)
     provider = cast(str, args.provider)
+    summary_model = getattr(args, "summary_model", "luna")
+    _summary_provider, summary_model_id, summary_mode = _summary_model_config(
+        summary_model
+    )
     direct_typesafe = provider == "typesafe"
+    raw_summaries: bytes | None = None
+    if path is not None:
+        raw_summaries = read_single_link_file(path, label="Jev summaries")
+        _validate_summary_cache_model(raw_summaries, expected_model=summary_model_id)
     digest = (
         None
         if path is None
         else str(
             RAW_BYTES_RAW_SHA256_V1.commit(
-                read_single_link_file(path, label="Jev summaries"),
+                cast(bytes, raw_summaries),
                 domain=PUBLIC_RUN_RECEIPT_V1,
             ).digest
         )
@@ -181,9 +259,13 @@ def run_registry(args: argparse.Namespace) -> int:
     record: dict[str, object] = {
         "provider": provider,
         "model_id": "jev-1.13.0" if direct_typesafe else "typesafe-ai/jev",
-        "display_name": "Jev (Luna summaries; one shot)"
-        if path
-        else "Jev (full text; one shot)",
+        "display_name": (
+            "Jev ("
+            + ("Grok 4.6" if summary_model == "grok" else "Luna")
+            + " summaries; one shot)"
+            if path
+            else "Jev (full text; one shot)"
+        ),
         "model_version_or_snapshot": (
             "jev-1.13.0" if direct_typesafe else "typesafe-ai/jev"
         ),
@@ -213,7 +295,7 @@ def run_registry(args: argparse.Namespace) -> int:
                 )
             )
         ],
-        "jev_input_mode": "full_text" if path is None else "luna_summaries",
+        "jev_input_mode": "full_text" if path is None else summary_mode,
     }
     if digest is not None:
         record["jev_summaries_sha256"] = digest

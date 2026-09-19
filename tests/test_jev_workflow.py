@@ -63,7 +63,9 @@ def test_jev_workflow_runs_the_release_bound_prepare_and_registry_commands() -> 
     assert "--manifest /tmp/lfb-jev-inputs/run-manifest.json" in WORKFLOW
     assert "--forecast /tmp/lfb-jev-inputs/forecast-release.json" in WORKFLOW
     assert "--artifact-root /tmp/lfb-jev-inputs/artifacts" in WORKFLOW
-    assert '--luna-registry "$LUNA_REGISTRY"' in WORKFLOW
+    assert '--summary-registry "$SUMMARY_REGISTRY"' in WORKFLOW
+    assert WORKFLOW.count('--summary-model "$SUMMARY_MODEL"') == 2
+    assert '--provider "$JEV_PROVIDER"' in WORKFLOW
     assert "--cache /tmp/lfb-jev-summary/jev-summaries.json" in WORKFLOW
     assert "--ledger /tmp/lfb-jev-summary/summary-spend.sqlite3" in WORKFLOW
     assert '--ceiling-microusd "$CEILING"' in WORKFLOW
@@ -113,15 +115,26 @@ def test_jev_workflow_uploads_resume_state_always_and_registry_only_on_success()
     assert "/tmp/lfb-jev-summary/model-registry.json" in WORKFLOW[registry_upload:]
 
 
-def test_jev_workflow_exposes_only_the_existing_summary_provider_secret() -> None:
-    assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in WORKFLOW
-    assert WORKFLOW.count("OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}") == 1
-    assert WORKFLOW.index(
-        "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}"
-    ) > WORKFLOW.index("- name: Prepare release-bound Luna summaries")
-    assert "AI_GATEWAY_API_KEY" not in WORKFLOW
+def test_jev_workflow_scopes_credentials_to_selected_summarizer() -> None:
+    step = WORKFLOW[
+        WORKFLOW.index(
+            "- name: Prepare release-bound document summaries"
+        ) : WORKFLOW.index("- name: Verify complete prior cache")
+    ]
+    assert (
+        "OPENAI_API_KEY: ${{ inputs.summary_model == 'luna' "
+        "&& secrets.OPENAI_API_KEY || '' }}" in step
+    )
+    assert (
+        "AI_GATEWAY_API_KEY: ${{ inputs.summary_model == 'grok' "
+        "&& secrets.AI_GATEWAY_API_KEY || '' }}" in step
+    )
+    assert WORKFLOW.count("secrets.OPENAI_API_KEY") == 1
+    assert WORKFLOW.count("secrets.AI_GATEWAY_API_KEY") == 1
     assert "ANTHROPIC_API_KEY" not in WORKFLOW
     assert "GEMINI_API_KEY" not in WORKFLOW
+    assert "inputs.summary_registry_path || inputs.luna_registry_path" in WORKFLOW
+    assert '"spacexai/grok-4.6" if os.environ["SUMMARY_MODEL"] == "grok"' in WORKFLOW
 
 
 def test_checkpointed_wal_ledger_survives_main_file_only_upload(tmp_path: Path) -> None:

@@ -1043,10 +1043,27 @@
           "metavar": null,
           "nargs": null,
           "option_strings": [
+            "--summary-registry",
             "--luna-registry"
           ],
           "required": true,
           "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": [
+            "luna",
+            "grok"
+          ],
+          "default": "luna",
+          "dest": "summary_model",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--summary-model"
+          ],
+          "required": false,
+          "type": null
         },
         {
           "action": "store",
@@ -1132,6 +1149,22 @@
           ],
           "required": false,
           "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": [
+            "luna",
+            "grok"
+          ],
+          "default": "luna",
+          "dest": "summary_model",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--summary-model"
+          ],
+          "required": false,
+          "type": null
         },
         {
           "action": "store",

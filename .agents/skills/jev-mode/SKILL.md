@@ -1,6 +1,6 @@
 ---
 name: jev-mode
-description: Inspect context fit, prepare reusable Luna document summaries, and run the distinct one-shot Jev official benchmark condition.
+description: Inspect context fit, prepare reusable Luna or Grok document summaries, and run the distinct one-shot Jev official benchmark condition.
 ---
 
 Use `legalforecast jev inspect` on the original locked manifest and blinded forecast release before choosing a representation. The full JSON request budget is 64,000 bytes, not tokens; TypeSafe does not publish an exact tokenizer. Enforce that limit on the complete case request; per-document summary allowances are planning targets. Do not truncate documents or change the frozen prediction units to make them fit.
@@ -14,3 +14,5 @@ Jev's workflow matrix permits isolated case failures but stops scheduling new Je
 See [the method and reproduction guide](../../../docs/jev-mode.md) for commands, interpretation, and context-fit evidence.
 
 HTTP 429 handling is the same for every Jev rate-limit response, regardless of SDK retryability flags: up to seven retries, for eight total attempts, after waits of 30, 60, 120, 240, 300, 300, and 300 seconds. Both the TypeSafe and Gateway routes use this policy. SDK-internal retries remain disabled; Tenacity bounds the retries under the existing case reservation, with the identical request and first successful response retained. Successful receipts record `jev_request_count`. HTTP 401/403, other server errors, timeouts, and malformed successful responses are not automatically retried. Exhausted 429s retain their nonbillable status for ordinary recovery; successful cases and the summary cache are reused.
+
+For a Grok-summary comparison, use `--summary-model grok` on both `jev prepare` and `jev registry`, and pass the frozen `vercel_ai_gateway:spacexai/grok-4.6` registry through `--summary-registry` (the legacy `--luna-registry` alias still works). Use a fresh cache and spend ledger; retain the completed Luna condition. The protected workflow selects `summary_model=grok`, the Grok `summary_registry_path`, and an explicit `jev_provider` matching the original run. Record this as Jev with Grok 4.6 summaries, one shot. It is a new experiment identity, not a resume of the Luna condition. The selected summarizer sees the same documents and summary prompt; ordinary models still use agentic document tools.

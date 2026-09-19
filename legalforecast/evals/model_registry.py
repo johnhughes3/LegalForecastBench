@@ -296,17 +296,18 @@ class ModelRegistryEntry:
                 )
                 or (self.provider == "typesafe" and self.model_id != "jev-1.13.0")
                 or self.tool_policy is not ToolPolicy.NO_TOOLS
-                or self.jev_input_mode not in {"full_text", "luna_summaries"}
+                or self.jev_input_mode
+                not in {"full_text", "luna_summaries", "grok_summaries"}
             ):
                 raise ValueError(
                     "Jev input mode requires the no-tools Gateway or TypeSafe route"
                 )
-            if self.jev_input_mode == "luna_summaries":
+            if self.jev_input_mode in {"luna_summaries", "grok_summaries"}:
                 digest = self.jev_summaries_sha256 or ""
                 if len(digest) != 64 or any(
                     c not in "0123456789abcdef" for c in digest
                 ):
-                    raise ValueError("Luna summaries require a frozen cache SHA-256")
+                    raise ValueError("Jev summaries require a frozen cache SHA-256")
             elif self.jev_summaries_sha256 is not None:
                 raise ValueError("full-text Jev must not carry a summary cache")
         elif self.jev_summaries_sha256 is not None:
