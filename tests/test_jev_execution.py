@@ -415,21 +415,21 @@ def test_429_backoff_preserves_request_and_successful_resume(
 
     def transport(request, timeout):
         requests.append(request.data)
-        if len(requests) <= 3:
+        if len(requests) <= 7:
             raise LiveModelProviderError("capacity", status_code=429, retryable=False)
         return good(request, timeout)
 
     env = {"AI_GATEWAY_API_KEY": "fixture", "TYPESAFE_API_KEY": "fixture"}
     result = execute_release_run(config, transport=transport, environ=env)
     assert result.executed_cells == execution.release.case_count
-    assert sleeps == [30, 60, 120]
-    assert len(requests) == execution.release.case_count + 3
-    assert len(set(requests[:4])) == 1
+    assert sleeps == [30, 60, 120, 240, 300, 300, 300]
+    assert len(requests) == execution.release.case_count + 7
+    assert len(set(requests[:8])) == 1
     assert len(good.calls) == execution.release.case_count
     receipts = [json.loads(p.read_text()) for p in config.receipts_dir.glob("*.json")]
     assert sorted(r["jev_request_count"] for r in receipts) == [
         *([1] * (execution.release.case_count - 1)),
-        4,
+        8,
     ]
     count = len(requests)
     resumed = execute_release_run(config, transport=transport, environ={})
@@ -438,7 +438,7 @@ def test_429_backoff_preserves_request_and_successful_resume(
 
 
 @pytest.mark.parametrize("retryable", [True, False, None])
-def test_every_429_exhausts_after_four_requests(tmp_path, monkeypatch, retryable):
+def test_every_429_exhausts_after_eight_requests(tmp_path, monkeypatch, retryable):
     from legalforecast.jev import rate_limits
 
     sleeps = []
@@ -456,9 +456,9 @@ def test_every_429_exhausts_after_four_requests(tmp_path, monkeypatch, retryable
         )
     assert failure.value.status_code == 429
     assert failure.value.retryable is True
-    assert len(calls) == 4
+    assert len(calls) == 8
     assert len(set(calls)) == 1
-    assert sleeps == [30, 60, 120]
+    assert sleeps == [30, 60, 120, 240, 300, 300, 300]
     assert not list(config.receipts_dir.glob("*.json"))
     with sqlite3.connect(config.ledger_path) as connection:
         statuses = connection.execute("SELECT status FROM provider_attempts").fetchall()

@@ -68,18 +68,27 @@ def test_typesafe_route_uses_first_party_credential_and_skips_gateway_credential
     assert "typesafe:jev-1.13.0" in job
 
 
-def test_only_jev_stops_queued_cells_after_an_evaluation_failure() -> None:
+def test_jev_checks_three_failure_allowance_without_matrix_fail_fast() -> None:
     gateway = _job("run-gateway", "persist-forecast-results")
-    assert (
-        "fail-fast: ${{ inputs.model_key == 'vercel_ai_gateway:typesafe-ai/jev' "
-        "|| inputs.model_key == 'typesafe:jev-1.13.0' }}" in gateway
-    )
+    assert "fail-fast: false" in gateway
+    guard = gateway[
+        gateway.index("- name: Check Jev failed-case allowance") : gateway.index(
+            "- name: Execute exact Gateway"
+        )
+    ]
+    assert "matrix.model_key == 'vercel_ai_gateway:typesafe-ai/jev'" in guard
+    assert "matrix.model_key == 'typesafe:jev-1.13.0'" in guard
+    assert "--paginate --slurp" in guard
+    assert "/attempts/${GITHUB_RUN_ATTEMPT}/jobs?per_page=100" in guard
+    assert "check-jev-failures.py" in guard
     for name, following in (
         ("run-openai", "run-anthropic"),
         ("run-anthropic", "run-gemini"),
         ("run-gemini", "run-gateway"),
     ):
-        assert "fail-fast: false" in _job(name, following)
+        job = _job(name, following)
+        assert "fail-fast: false" in job
+        assert "Check Jev failed-case allowance" not in job
 
 
 def test_gateway_lane_is_included_in_protected_fan_in() -> None:

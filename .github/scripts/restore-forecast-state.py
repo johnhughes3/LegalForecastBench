@@ -332,7 +332,9 @@ def _copy_state(
             "restored_from_run_id": source_run_id,
             "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
             "run_id": os.environ["GITHUB_RUN_ID"],
-            "status": "restored",
+            "status": "initialized"
+            if state.get("status") == "initialized"
+            else "restored",
         }
     )
     state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
@@ -521,6 +523,9 @@ def _restore_bundle(
 
 def validate_completed(root: Path, cell: dict[str, Any], identity: str) -> bool:
     state = _read_object(root / "state.json")
+    if state.get("status") == "initialized":
+        # A pre-execution guard can stop a cell before a summary or ledger exists.
+        return False
     if _read_object(root / "run-summary.json").get("status") != "completed":
         return False
     required = tuple(cell["required_unit_ids"])
