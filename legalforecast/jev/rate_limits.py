@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from collections.abc import Callable, Mapping
 
 from tenacity import Retrying, retry_if_exception, stop_after_attempt, wait_exponential
 
 from legalforecast.evals.live_model_solver import LiveModelProviderError
-
-logger = logging.getLogger(__name__)
 
 
 def call_with_rate_limit_retries(
@@ -36,11 +33,10 @@ def call_with_rate_limit_retries(
                 # Owner policy: HTTP status is authoritative even when an SDK
                 # labels a quota/capacity rejection nonretryable.
                 exc.retryable = True
-                logger.warning(
-                    "Jev HTTP 429: request %s of 4 rejected",
-                    attempts,
-                    extra={"status_code": 429, "request_count": attempts},
-                )
+                # Successful CLI stdout/stderr is saved as JSON by Actions.
+                # Retain exhaustion detail on the exception without polluting
+                # successful run summaries with retry log lines.
+                exc.add_note(f"Jev HTTP 429: request {attempts} of 4 rejected")
             raise
         return {**payload, "_jev_request_count": attempts}
 
