@@ -226,8 +226,10 @@ def test_cutoff_sidecar_without_complete_scored_dates_stays_qualified(
     assert "No model has a documented training-data cutoff" in rendered
 
 
+@pytest.mark.parametrize("official_eligible", [False, True])
 def test_duplicate_display_model_ids_keep_bundle_cutoff_evidence_separate(
     tmp_path: Path,
+    official_eligible: bool,
 ) -> None:
     official_dir = write_official_report_fixture(tmp_path)
     supplementary_dir = write_official_report_fixture(
@@ -246,11 +248,19 @@ def test_duplicate_display_model_ids_keep_bundle_cutoff_evidence_separate(
     )
     write_contamination_sidecar_for(
         official_dir,
-        {"model-a": ContaminationTier.PRELIMINARY},
+        {
+            "model-a": ContaminationTier.RESISTANT
+            if official_eligible
+            else ContaminationTier.PRELIMINARY
+        },
     )
     write_contamination_sidecar_for(
         supplementary_dir,
-        {"model-a": ContaminationTier.RESISTANT},
+        {
+            "model-a": ContaminationTier.PRELIMINARY
+            if official_eligible
+            else ContaminationTier.RESISTANT
+        },
     )
 
     rendered = render_official_results_site(
@@ -260,8 +270,13 @@ def test_duplicate_display_model_ids_keep_bundle_cutoff_evidence_separate(
     ).index_path.read_text(encoding="utf-8")
 
     headline = section_html(rendered, "<h2 id='headline-title'>")
-    assert "<p class='metric'>0.0100</p>" in headline
-    assert "model-a†" in headline
-    assert "model-a†" in rendered
-    assert "model-a*" in rendered
-    assert "model-a*" not in headline
+    assert PRELIMINARY_CAVEAT in rendered
+    if official_eligible:
+        assert "<p class='metric'>0.0880</p>" in headline
+        assert "model-a*†" in rendered
+        assert "model-a†" not in headline
+    else:
+        assert "<p class='metric'>0.0100</p>" in headline
+        assert "model-a†" in headline
+        assert "model-a*" in rendered
+        assert "model-a*" not in headline

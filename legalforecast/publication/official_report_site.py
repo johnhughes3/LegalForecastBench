@@ -14,6 +14,8 @@ from legalforecast.publication.comparison_eligibility import (
     comparison_badge,
     comparison_eligibility,
     ordered_model_entries,
+    preliminary_contamination_note,
+    scoped_contamination_tiers,
     supplementary_note,
 )
 from legalforecast.publication.official_report_validation import (
@@ -23,7 +25,6 @@ from legalforecast.publication.official_report_validation import (
 )
 from legalforecast.reporting.contamination_tiers import (
     ContaminationTier,
-    preliminary_caveat_if_needed,
     reported_model_label,
 )
 from legalforecast.reporting.result_class import (
@@ -89,21 +90,12 @@ def build_official_report_page(
         _required_text(row, "model_id", label="score summary"): row
         for row in score_rows
     }
-    has_contamination_overlay = (
-        contamination_tiers is not None or supplementary_contamination_tiers is not None
+    official_contamination_tiers, supplementary_contamination_tiers_for_rows = (
+        scoped_contamination_tiers(
+            contamination_tiers, supplementary_contamination_tiers
+        )
     )
-    official_contamination_tiers: Mapping[str, ContaminationTier] | None = (
-        contamination_tiers
-        if contamination_tiers is not None
-        else ({} if has_contamination_overlay else None)
-    )
-    supplementary_contamination_tiers_for_rows: (
-        Mapping[str, ContaminationTier] | None
-    ) = (
-        supplementary_contamination_tiers
-        if supplementary_contamination_tiers is not None
-        else ({} if has_contamination_overlay else None)
-    )
+    has_contamination_overlay = official_contamination_tiers is not None
     supplementary_entries = (
         ()
         if supplementary_bundle is None
@@ -149,18 +141,8 @@ def build_official_report_page(
         contamination_tiers=ranking_tiers,
     )
     best_model = None if best_entry is None else best_entry.row
-    best_contamination_tiers: Mapping[str, ContaminationTier] | None = (
-        supplementary_contamination_tiers_for_rows
-        if best_entry is not None and best_entry.result_class is ResultClass.POST_ANCHOR
-        else official_contamination_tiers
-    )
-    display_contamination_tiers: Mapping[str, ContaminationTier] | None = (
-        None
-        if not has_contamination_overlay
-        else {
-            **(supplementary_contamination_tiers_for_rows or {}),
-            **(official_contamination_tiers or {}),
-        }
+    best_contamination_tiers = (
+        None if best_entry is None else best_entry.contamination_tiers
     )
     has_eligible_model = any(
         entry.comparison_eligible is True for entry in all_model_entries
@@ -198,7 +180,6 @@ def build_official_report_page(
         _official_table(
             ordered_entries,
             caption="Evaluated model results",
-            contamination_tiers=display_contamination_tiers,
             cross_bundle_comparison=(
                 has_contamination_overlay and bool(supplementary_entries)
             ),
@@ -239,7 +220,9 @@ def build_official_report_page(
             "as provenance. Unknown or overlapping cutoff evidence stays qualified "
             "and does not enter the eligible comparison.</p>"
         ),
-        _preliminary_contamination_note(display_contamination_tiers),
+        preliminary_contamination_note(
+            official_contamination_tiers, supplementary_contamination_tiers_for_rows
+        ),
         (
             "<h3>Limitations</h3><p>This benchmark measures probabilistic forecasts "
             "for a frozen legal task and cohort. Results do not establish general "
@@ -286,15 +269,6 @@ def _display_model_label(
     if model_id == "unknown":
         return model_id
     return reported_model_label(model_id, contamination_tiers)
-
-
-def _preliminary_contamination_note(
-    contamination_tiers: Mapping[str, ContaminationTier] | None,
-) -> str:
-    caveat = preliminary_caveat_if_needed(contamination_tiers)
-    if caveat is None:
-        return ""
-    return f"<p class='notice'>{html.escape(caveat, quote=False)}</p>"
 
 
 def _require_official_result_classes(
@@ -497,7 +471,6 @@ def _official_table(
     entries: Sequence[_TableRow],
     *,
     caption: str,
-    contamination_tiers: Mapping[str, ContaminationTier] | None = None,
     cross_bundle_comparison: bool = False,
 ) -> str:
     # The <tr> below and the <thead> at the bottom of this function are separate
@@ -842,7 +815,6 @@ def _baseline_context(
         + _official_table(
             entries,
             caption="Frozen empirical baseline context",
-            contamination_tiers=contamination_tiers,
         )
     )
 

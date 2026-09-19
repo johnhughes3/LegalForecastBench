@@ -6,7 +6,10 @@ import html
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
-from legalforecast.reporting.contamination_tiers import ContaminationTier
+from legalforecast.reporting.contamination_tiers import (
+    ContaminationTier,
+    preliminary_caveat_if_needed,
+)
 from legalforecast.reporting.result_class import (
     ResultClass,
     result_class_marker,
@@ -146,3 +149,28 @@ def best_model_entry[EntryT: _ComparisonEntry](
     if not scored:
         return entries[0] if entries else None
     return min(scored, key=lambda entry: arm_rank_key(entry.row))
+
+
+def scoped_contamination_tiers(
+    official: Mapping[str, ContaminationTier] | None,
+    supplementary: Mapping[str, ContaminationTier] | None,
+) -> tuple[
+    Mapping[str, ContaminationTier] | None, Mapping[str, ContaminationTier] | None
+]:
+    """Keep bundle identities separate and qualify missing evidence in either arm."""
+
+    if official is None and supplementary is None:
+        return None, None
+    return official or {}, supplementary or {}
+
+
+def preliminary_contamination_note(
+    *overlays: Mapping[str, ContaminationTier] | None,
+) -> str:
+    """Explain preliminary markers in either bundle without collapsing labels."""
+
+    for overlay in overlays:
+        caveat = preliminary_caveat_if_needed(overlay)
+        if caveat is not None:
+            return f"<p class='notice'>{html.escape(caveat, quote=False)}</p>"
+    return ""
