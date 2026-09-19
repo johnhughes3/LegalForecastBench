@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, cast
 
 import legalforecast.runner.managed_execution as managed_execution
 import pytest
+from legalforecast.runner.ledger import RunValidationError
 from legalforecast.runner.managed_execution import ManagedCaseInput
 from tests.test_managed_tool_agent import _AttemptHandler, _entry
+
+
+def _managed_case() -> ManagedCaseInput:
+    return ManagedCaseInput(
+        case_id="case-1",
+        required_unit_ids=("unit-a",),
+        documents={"documents/motion.txt": b"motion"},
+        unit_descriptions=(),
+        document_descriptions=(),
+        cell_id="a" * 64,
+    )
 
 
 def test_sandbox_setup_failure_does_not_authorize_spend(
@@ -31,18 +44,37 @@ def test_sandbox_setup_failure_does_not_authorize_spend(
         managed_execution.complete_managed_tool_cell(
             _entry(),
             handler=cast(Any, handler),
-            managed_case=ManagedCaseInput(
-                case_id="case-1",
-                required_unit_ids=("unit-a",),
-                documents={"documents/motion.txt": b"motion"},
-                unit_descriptions=(),
-                document_descriptions=(),
-                cell_id="a" * 64,
-            ),
+            managed_case=_managed_case(),
             request_body_observer=observed.append,
             environ={"OPENAI_API_KEY": "fixture-key"},
             registry_sha256="b" * 64,
         )
+    assert handler.run_count == 0
+    assert handler.settlement is None
+    assert observed == []
+
+
+def test_unsupported_managed_route_is_rejected_before_spend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler = _AttemptHandler()
+    observed: list[bytes] = []
+    unsupported = replace(_entry(), provider="xai")
+
+    monkeypatch.setattr(
+        "legalforecast.runner.tool_runtime.open_official_tool_session",
+        lambda **_kwargs: pytest.fail("unsupported route must not open a tool session"),
+    )
+    with pytest.raises(RunValidationError, match="unsupported for provider/model"):
+        managed_execution.complete_managed_tool_cell(
+            unsupported,
+            handler=cast(Any, handler),
+            managed_case=_managed_case(),
+            request_body_observer=observed.append,
+            environ={"OPENAI_API_KEY": "fixture-key"},
+            registry_sha256="b" * 64,
+        )
+
     assert handler.run_count == 0
     assert handler.settlement is None
     assert observed == []

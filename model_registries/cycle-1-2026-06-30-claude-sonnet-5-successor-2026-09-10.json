@@ -1,0 +1,26 @@
+[
+  {
+    "context_limit": 1000000,
+    "display_name": "Claude Sonnet 5",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "Anthropic reports a January 2026 training-data cutoff for Claude Sonnet 5 but does not disclose an exact day; the structured exact-date field remains unknown. Source: https://platform.claude.com/docs/en/models/sonnet-5/overview, checked 2026-09-10.",
+      "Current Anthropic model documentation reports a 1,000,000-token context limit, 128,000-token maximum output, adaptive thinking, and default effort high. The managed Anthropic adapter sends thinking type adaptive and records provider_default_high; source: https://platform.claude.com/docs/en/models/sonnet-5/overview, checked 2026-09-10.",
+      "This successor registry is a current execution input minted 2026-09-10. It leaves the frozen Cycle 1 registry unchanged; its 128K output and current provider pricing are intentionally separate from that historical snapshot.",
+      "Claude Sonnet 5's dateless model ID is a pinned snapshot, not an evergreen alias. Provider-default sampling remains in force; no temperature or top_p controls are sent."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "claude-sonnet-5",
+    "model_version_or_snapshot": "claude-sonnet-5",
+    "network_disabled": true,
+    "output_token_price": 10.0,
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing and https://platform.claude.com/docs/en/models/sonnet-5/overview, USD 2/M input and USD 10/M output; checked 2026-09-10",
+    "provider": "anthropic",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-06-30T00:00:00Z",
+    "release_timestamp_source": "https://www.anthropic.com/news/claude-sonnet-5, Claude Sonnet 5 launch on 2026-06-30; checked 2026-09-10",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

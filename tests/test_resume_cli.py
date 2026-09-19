@@ -15,6 +15,7 @@ from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     PUBLIC_RUN_IDENTITY_V1,
 )
+from legalforecast.evals.output_parser import parse_model_output, public_parser_record
 from legalforecast.runner.ledger import RunnerLedger
 from legalforecast.runner.recovery import (
     RECOVERY_RUN_TITLE,
@@ -22,6 +23,7 @@ from legalforecast.runner.recovery import (
     SOURCE_WORKFLOW,
     GhRecoveryClient,
     RecoveryError,
+    _read_locked_inputs,
     build_recovery_plan,
 )
 
@@ -38,6 +40,23 @@ def _zip(members: Mapping[str, bytes | str]) -> bytes:
         for name, value in members.items():
             archive.writestr(name, value)
     return output.getvalue()
+
+
+def _receipt(raw_output: str | None = None) -> str:
+    parsed = parse_model_output(
+        raw_output
+        if raw_output is not None
+        else json.dumps(
+            {
+                "case_assessment": "Fixture forecast",
+                "predictions": [
+                    {"unit_id": "unit-a", "probability_fully_dismissed": 0.5}
+                ],
+            }
+        ),
+        required_unit_ids=("unit-a",),
+    )
+    return json.dumps({"parser_output": public_parser_record(parsed)})
 
 
 def _ledger_bytes() -> tuple[bytes, str]:
@@ -71,7 +90,9 @@ def _ledger_bytes() -> tuple[bytes, str]:
 
 
 class FakeRecoveryClient:
-    def __init__(self, *, latest_attempt: int = 1) -> None:
+    def __init__(
+        self, *, latest_attempt: int = 1, jev_summaries_uri: str | None = None
+    ) -> None:
         self.latest_attempt = latest_attempt
         self.dispatched: list[tuple[str, str, str, Mapping[str, str]]] = []
         self.active_runs: tuple[Mapping[str, object], ...] = ()
@@ -104,8 +125,8 @@ class FakeRecoveryClient:
                     "forecast-run.json": json.dumps(export),
                     "run-summary.json": json.dumps(summary),
                     "model-registry.json": REGISTRY_BYTES,
-                    "receipts/cell-a.json": "{}",
-                    "receipts/cell-b.json": "{}",
+                    "receipts/cell-a.json": _receipt(),
+                    "receipts/cell-b.json": _receipt(),
                     "transcripts/cell-a.json": "{}",
                     "artifacts/documents/private.txt": "not inspected",
                 }
@@ -116,6 +137,36 @@ class FakeRecoveryClient:
                     "forecast-release.json": "{}",
                     "model-registry.json": REGISTRY_BYTES,
                     "artifacts/documents/private.txt": "not inspected",
+                    **(
+                        {
+                            "resume-dispatch.json": json.dumps(
+                                {
+                                    "schema_version": (
+                                        "legalforecast.resume-dispatch.v1"
+                                    ),
+                                    "source_run_id": RUN_ID,
+                                    "source_run_attempt": 1,
+                                    "release_sha": RELEASE_SHA,
+                                    "manifest_uri": "s3://bucket/run-manifest.json",
+                                    "forecast_release_uri": "s3://bucket/forecast-release.json",
+                                    "artifact_root_uri": "s3://bucket/artifacts/",
+                                    "model_registry_uri": (
+                                        "model_registries/frozen.json"
+                                    ),
+                                    "jev_summaries_uri": jev_summaries_uri,
+                                    "model_key": "openai:gpt-6-astra",
+                                    "ceiling_microusd": 250_000_000,
+                                    "account": "official-account",
+                                    "repeat_count": 1,
+                                    "max_parallel": 8,
+                                    "artifact_retention_days": 14,
+                                    "resume_sources": [],
+                                }
+                            )
+                        }
+                        if jev_summaries_uri is not None
+                        else {}
+                    ),
                 }
             ),
             12: _zip({"ledger.sqlite3": ledger, "state.json": "{}"}),
@@ -178,6 +229,100 @@ class FakeRecoveryClient:
         self.dispatched.append((repo, workflow, ref, inputs))
 
 
+def _zero_receipt_client() -> FakeRecoveryClient:
+    """Build a failed fan-in artifact with only frozen identity inputs."""
+
+    client = FakeRecoveryClient(jev_summaries_uri="artifact:987")
+    with ZipFile(io.BytesIO(client.payloads[10])) as archive:
+        final_members = {
+            name: archive.read(name)
+            for name in archive.namelist()
+            if name not in {"forecast-run.json", "run-summary.json"}
+            and not name.startswith("receipts/")
+            and not name.startswith("transcripts/")
+        }
+    final_members["run-manifest.json"] = b"{}"
+    final_members["forecast-release.json"] = json.dumps(
+        {"release_digest": "d" * 64}
+    ).encode()
+    client.payloads[10] = _zip(final_members)
+
+    with ZipFile(io.BytesIO(client.payloads[11])) as archive:
+        input_members = {name: archive.read(name) for name in archive.namelist()}
+    dispatch = json.loads(input_members["resume-dispatch.json"])
+    input_members["resume-dispatch.json"] = json.dumps(dispatch).encode()
+    input_members["expected-cells.json"] = json.dumps(
+        [{"cell_id": f"{index:064x}"} for index in range(91)]
+    ).encode()
+    input_members["run-manifest.json"] = b"{}"
+    input_members["forecast-release.json"] = final_members["forecast-release.json"]
+    client.payloads[11] = _zip(input_members)
+    return client
+
+
+def test_zero_receipt_recovery_reconstructs_identity_and_full_census() -> None:
+    client = _zero_receipt_client()
+
+    plan = build_recovery_plan(
+        client,
+        repo="owner/bench",
+        run_id=RUN_ID,
+        ref="main",
+        max_parallel=1,
+    )
+
+    assert plan.executable
+    assert plan.completed_cells == 0
+    assert plan.incomplete_cells == 91
+    assert plan.census.declared_state_count == 91
+    assert plan.frozen_identity.release_sha == RELEASE_SHA
+    assert plan.frozen_identity.model_key == "openai:gpt-6-astra"
+    assert plan.frozen_identity.ceiling_microusd == 250_000_000
+    assert plan.dispatch_inputs["max_parallel"] == "1"
+
+
+def test_zero_receipt_recovery_refuses_budget_identity_mismatch() -> None:
+    client = _zero_receipt_client()
+    with ZipFile(io.BytesIO(client.payloads[11])) as archive:
+        input_members = {name: archive.read(name) for name in archive.namelist()}
+    dispatch = json.loads(input_members["resume-dispatch.json"])
+    dispatch["ceiling_microusd"] = 250_000_001
+    input_members["resume-dispatch.json"] = json.dumps(dispatch).encode()
+    client.payloads[11] = _zip(input_members)
+
+    with pytest.raises(
+        RecoveryError, match="ceiling_microusd differs from source identity"
+    ):
+        build_recovery_plan(
+            client,
+            repo="owner/bench",
+            run_id=RUN_ID,
+            ref="main",
+            max_parallel=1,
+        )
+
+
+@pytest.mark.parametrize(
+    "name,value,reason",
+    [
+        ("receipts/cell.json", _receipt(), "despite saved receipts"),
+        ("forecast-run.json", "{}", "lacks run-summary.json"),
+    ],
+)
+def test_empty_export_recovery_does_not_ignore_receipts_or_partial_metadata(
+    name: str, value: str, reason: str
+) -> None:
+    client = _zero_receipt_client()
+    with ZipFile(io.BytesIO(client.payloads[10])) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    members[name] = value.encode()
+    client.payloads[10] = _zip(members)
+    with pytest.raises(RecoveryError, match=reason):
+        build_recovery_plan(
+            client, repo="owner/bench", run_id=RUN_ID, ref="main", max_parallel=1
+        )
+
+
 def test_recovery_plan_reconstructs_frozen_identity_from_artifacts() -> None:
     plan = build_recovery_plan(
         FakeRecoveryClient(),
@@ -204,6 +349,54 @@ def test_recovery_plan_reconstructs_frozen_identity_from_artifacts() -> None:
         "max_parallel": "8",
         "execute": "true",
     }
+
+
+def test_recovery_plan_carries_the_frozen_jev_summary_locator() -> None:
+    plan = build_recovery_plan(
+        FakeRecoveryClient(jev_summaries_uri="artifact:987"),
+        repo="owner/bench",
+        run_id=RUN_ID,
+        ref="main",
+        max_parallel=8,
+    )
+
+    assert plan.frozen_identity.jev_summaries_uri == "artifact:987"
+    assert plan.to_record()["frozen_identity"]["jev_summaries_uri"] == "artifact:987"
+
+
+def test_locked_inputs_allow_the_jev_summary_resume_metadata() -> None:
+    registry, summaries_uri = _read_locked_inputs(
+        _zip(
+            {
+                "run-manifest.json": "{}",
+                "forecast-release.json": "{}",
+                "model-registry.json": REGISTRY_BYTES,
+                "resume-dispatch.json": json.dumps(
+                    {
+                        "schema_version": "legalforecast.resume-dispatch.v1",
+                        "source_run_id": RUN_ID,
+                        "source_run_attempt": 1,
+                        "release_sha": RELEASE_SHA,
+                        "manifest_uri": "s3://bucket/run-manifest.json",
+                        "forecast_release_uri": "s3://bucket/forecast-release.json",
+                        "artifact_root_uri": "s3://bucket/artifacts/",
+                        "model_registry_uri": "artifact:654",
+                        "jev_summaries_uri": "artifact:987",
+                        "model_key": "vercel_ai_gateway:typesafe-ai/jev",
+                        "ceiling_microusd": 250_000_000,
+                        "account": "official-account",
+                        "repeat_count": 1,
+                        "max_parallel": 8,
+                        "artifact_retention_days": 14,
+                        "resume_sources": [],
+                    }
+                ),
+            }
+        )
+    )
+
+    assert registry == REGISTRY_BYTES
+    assert summaries_uri == "artifact:987"
 
 
 def test_recovery_plan_falls_back_to_prior_identity_and_keeps_latest_state() -> None:
@@ -459,3 +652,24 @@ def test_recovery_counts_bundled_cells_and_missing_worker() -> None:
     )
     assert plan.incomplete_cells == 1
     assert plan.blocked_reasons == ()
+
+
+@pytest.mark.parametrize(
+    "raw_output",
+    [
+        "Here is my analysis, without a structured forecast.",
+        "I cannot provide a prediction.",
+        '{"case_assessment":"Incomplete", "predictions":[]}',
+    ],
+)
+def test_recovery_refuses_invalid_predictions_marked_completed(raw_output: str) -> None:
+    client = FakeRecoveryClient()
+    with ZipFile(io.BytesIO(client.payloads[10])) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    members["receipts/cell-a.json"] = _receipt(raw_output).encode()
+    client.payloads[10] = _zip(members)
+    with pytest.raises(RecoveryError, match="invalid or defaulted predictions"):
+        build_recovery_plan(
+            client, repo="owner/bench", run_id=RUN_ID, ref="main", max_parallel=8
+        )
+    assert client.dispatched == []

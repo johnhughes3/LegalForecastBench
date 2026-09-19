@@ -86,6 +86,8 @@ Use `uv run legalforecast run resume --github-run RUN_ID --ref main --max-parall
 
 Recovery preparation restores and validates completed cells before building the worker matrix, so only unfinished cases launch workers. The combined result includes carried and new receipts and available transcripts; the full original case census still determines completeness. Restored cell ledgers are retained for further recovery.
 
+The native benchmark runner uses the managed document-tool agent by default; it has no implicit direct-prompt fallback. The explicit Jev condition uses the supported evaluation SDK for one-shot native probabilities over full text or frozen Luna summaries, with the original release units and a separate condition label. Unsupported provider/tool configurations fail before spend. Invalid or defaulted predictions fail the case and cannot be restored as completed results. When the execution setup itself was wrong, preserve the historical charges and use a corrected registry snapshot for a new experiment instead of resuming the old outputs.
+
 ## Testing
 
 The supported full-suite command, locally and in CI, runs four pytest-xdist workers grouped by module:
@@ -171,3 +173,5 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+Native Anthropic document-tool runs use native JSON output and five-minute automatic prompt caching. Before expanding a repaired run, verify a small live case finishes and inspect transcript cache creation/read token counts; configuration tests alone do not prove provider cache hits. Receipts preserve cache usage and pricing evidence for new executions.

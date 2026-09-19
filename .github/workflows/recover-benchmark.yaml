@@ -76,7 +76,7 @@ jobs:
           git merge-base --is-ancestor HEAD origin/main
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
 
@@ -213,6 +213,7 @@ jobs:
               "forecast_release_uri": frozen["forecast_release_uri"],
               "artifact_root_uri": frozen["artifact_root_uri"],
               "model_registry_uri": frozen["model_registry_uri"],
+              "jev_summaries_uri": frozen.get("jev_summaries_uri", ""),
               "model_key": frozen["model_key"],
               "ceiling_microusd": str(frozen["ceiling_microusd"]),
               "account": frozen["account"],

@@ -52,6 +52,7 @@ def test_recovery_persists_plan_and_result_before_dispatch() -> None:
     assert "protected-benchmark-recovery.py" in RECOVERY
     assert "--execute" in RECOVERY
     assert '"resume_sources"' in RECOVERY
+    assert '"jev_summaries_uri": frozen.get("jev_summaries_uri", "")' in RECOVERY
     assert '"release_sha": os.environ["GITHUB_SHA"]' in RECOVERY
     assert "an exact child recovery run is already active" in RECOVERY
     assert "client.list_active_recovery_runs(repo)" in RECOVERY

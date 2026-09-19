@@ -4,8 +4,10 @@ import ast
 import json
 import re
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
+from zipfile import ZipFile
 
 from legalforecast.release import ForecastRelease, issue_synthetic_release
 
@@ -69,6 +71,7 @@ def test_one_canonical_workflow_uses_locked_outcome_blinded_inputs() -> None:
         "forecast_release_uri:",
         "artifact_root_uri:",
         "model_registry_uri:",
+        "jev_summaries_uri:",
         "model_key:",
         "ceiling_microusd:",
         "repeat_count:",
@@ -259,6 +262,82 @@ def test_google_document_tools_build_before_the_forecast_cell() -> None:
     assert job.count(".github/scripts/setup-rootless-docker.sh") == 1
     assert job.count("docker build -f infra/tool-runtime/Containerfile") == 1
     assert "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" in job
+
+
+def test_jev_gateway_uses_frozen_summaries_and_skips_document_docker() -> None:
+    prepare = _job("prepare-inputs", "run-openai")
+    gateway = _job("run-gateway")
+    assert "from legalforecast.jev.execution import validate_jev_inputs" in prepare
+    assert "validate_jev_inputs(" in prepare
+    assert (
+        'jev_summaries_path = Path("/tmp/lfb-locked-inputs/jev-summaries.json")'
+        in prepare
+    )
+    assert "artifact:*)" in prepare
+    assert "actions/artifacts/${artifact_id}/zip" in prepare
+    assert 'member_name="$(basename -- "${destination}")"' in prepare
+    assert "jev-summaries.json|model-registry.json" in prepare
+    assert "gh api --allow-escape-sequences" in prepare
+    assert "summary-spend.sqlite3" in prepare
+    assert "Install Node.js 24 for Gateway Jev" in gateway
+    assert "node-version: 24" in gateway
+    assert "corepack prepare pnpm@11.27.0 --activate" in gateway
+    assert "pnpm --dir integrations/jev install --frozen-lockfile" in gateway
+    assert (
+        "if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' && "
+        "matrix.model_key != 'typesafe:jev-1.13.0' }}" in gateway
+    )
+    assert (
+        "jev_args=(--jev-summaries /tmp/lfb-forecast-inputs/jev-summaries.json)"
+        in gateway
+    )
+    combined = _job("persist-forecast-results")
+    assert "/tmp/lfb-forecast-results/jev-summaries.json" in combined
+
+
+def test_jev_artifact_fetch_selects_the_destination_member(tmp_path: Path) -> None:
+    prepare = _job("prepare-inputs", "run-openai")
+    start = prepare.index(
+        'uv run python - "${archive}" "${destination}" "${member_name}"'
+    )
+    body_start = prepare.index("\n", start) + 1
+    body_end = prepare.index("          JEV_SUMMARIES_PY", body_start)
+    extractor = textwrap.dedent(prepare[body_start:body_end])
+
+    summary_archive = tmp_path / "summary.zip"
+    with ZipFile(summary_archive, "w") as archive:
+        archive.writestr("jev-summaries.json", b"summary-cache")
+        archive.writestr("summary-spend.sqlite3", b"ledger")
+    summary_destination = tmp_path / "jev-summaries.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            extractor,
+            str(summary_archive),
+            str(summary_destination),
+            "jev-summaries.json",
+        ],
+        check=True,
+    )
+    assert summary_destination.read_bytes() == b"summary-cache"
+
+    registry_archive = tmp_path / "registry.zip"
+    with ZipFile(registry_archive, "w") as archive:
+        archive.writestr("model-registry.json", b"registry")
+    registry_destination = tmp_path / "model-registry.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            extractor,
+            str(registry_archive),
+            str(registry_destination),
+            "model-registry.json",
+        ],
+        check=True,
+    )
+    assert registry_destination.read_bytes() == b"registry"
 
 
 def test_source_identity_concurrency_and_budget_gates_are_fail_closed() -> None:

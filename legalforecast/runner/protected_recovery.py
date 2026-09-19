@@ -17,6 +17,7 @@ from typing import Literal, cast
 
 from legalforecast.contracts.schemas import PROTECTED_RECOVERY_PLAN_V1
 from legalforecast.evals.provider_spend_control import (
+    RETRYABLE_HTTP_429_FAILURE_TYPE,
     AttemptLease,
     FrozenAttemptPolicy,
     ProviderSpendKey,
@@ -35,6 +36,7 @@ RecoveryDisposition = Literal[
     "reconcile_terminal",
     "adopt_pretransport",
     "reserve_replacement",
+    "reserve_nonbillable_replacement",
     "authorize_on_dispatch",
     "blocked",
 ]
@@ -360,6 +362,25 @@ def build_protected_recovery_plan(
                     failure_epoch=_float_number(attempt, "completed_at_epoch"),
                 )
             )
+        elif (
+            terminal is None
+            and status == "failed_nonbillable"
+            and _optional_text(attempt, "failure_type")
+            == RETRYABLE_HTTP_429_FAILURE_TYPE
+        ):
+            replacement_reservation = min(reservation_microusd, held)
+            projected += replacement_reservation
+            operations.append(
+                RecoveryOperation(
+                    cell.cell_id,
+                    key.logical_call_key,
+                    "reserve_nonbillable_replacement",
+                    attempt_id,
+                    ordinal,
+                    replacement_reservation,
+                    RETRYABLE_HTTP_429_FAILURE_TYPE,
+                )
+            )
         else:
             reason = (
                 f"cell {cell.cell_id}: remote attempt is {status} without "
@@ -469,7 +490,8 @@ def apply_protected_recovery(
     replacement_operations = [
         operation
         for operation in plan.operations
-        if operation.disposition == "reserve_replacement"
+        if operation.disposition
+        in {"reserve_replacement", "reserve_nonbillable_replacement"}
     ]
     ledger = _required_item(run, "LEDGER", runner)
     retained_failure_epochs = _failure_events(ledger)
@@ -489,15 +511,31 @@ def apply_protected_recovery(
         assert operation.attempt_id is not None
         assert operation.attempt_ordinal is not None
         assert operation.failure_type is not None
-        authority.authorize_additional_attempt(
-            key,
-            reservation_microusd=operation.reservation_microusd,
-            acknowledged_attempt_id=operation.attempt_id,
-            acknowledged_failure_type=operation.failure_type,
-            acknowledged_failure_events_sha256=_text(ledger, "failure_events_sha256"),
-            acknowledged_attempt_ordinal=operation.attempt_ordinal,
-            owner_reference=run.owner_reference,
-        )
+        if operation.disposition == "reserve_nonbillable_replacement":
+            authority.authorize_additional_attempt(
+                key,
+                reservation_microusd=operation.reservation_microusd,
+                acknowledged_attempt_id=operation.attempt_id,
+                acknowledged_failure_type=operation.failure_type,
+                acknowledged_failure_events_sha256=_text(
+                    ledger, "failure_events_sha256"
+                ),
+                acknowledged_attempt_ordinal=operation.attempt_ordinal,
+                owner_reference=run.owner_reference,
+                acknowledged_status="failed_nonbillable",
+            )
+        else:
+            authority.authorize_additional_attempt(
+                key,
+                reservation_microusd=operation.reservation_microusd,
+                acknowledged_attempt_id=operation.attempt_id,
+                acknowledged_failure_type=operation.failure_type,
+                acknowledged_failure_events_sha256=_text(
+                    ledger, "failure_events_sha256"
+                ),
+                acknowledged_attempt_ordinal=operation.attempt_ordinal,
+                owner_reference=run.owner_reference,
+            )
     return build_protected_recovery_plan(
         run, cells, reservation_microusd=reservation_microusd, runner=runner
     )
