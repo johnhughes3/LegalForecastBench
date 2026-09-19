@@ -284,7 +284,7 @@ def test_whole_request_budget_includes_questions_and_never_truncates(tmp_path):
     config, execution = setup_run(tmp_path)
     units = (execution.release.prediction_units[0],)
     documents = case_documents(execution, units)
-    oversized = replace(documents[0], text="x" * JEV_REQUEST_BYTE_BUDGET)
+    oversized = replace(documents[0], text=" law" * JEV_REQUEST_BYTE_BUDGET)
     request = case_request(units, (oversized, *documents[1:]))
     with pytest.raises(ValueError, match="above conservative"):
         require_request_fits(request)

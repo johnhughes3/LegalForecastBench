@@ -34,7 +34,6 @@ from legalforecast.immutable_io import read_single_link_file
 from legalforecast.release import ForecastExecution, ForecastPredictionUnit
 
 from .packets import (
-    JEV_REQUEST_BYTE_BUDGET,
     case_documents,
     case_request,
     require_request_fits,
@@ -96,7 +95,7 @@ def build_jev_case_input(
                 document.document_id,
                 document.source_sha256,
                 summary_models[entry.jev_input_mode],
-                JEV_REQUEST_BYTE_BUDGET,
+                len(raw),
             )
             if summary is None:
                 raise ValueError(f"missing or stale summary: {document.document_id}")

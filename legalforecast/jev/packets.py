@@ -11,8 +11,14 @@ from pypdf import PdfReader
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.release import ForecastExecution, ForecastPredictionUnit
 
-# A byte budget is deliberately conservative and is not represented as an
-# exact token count. Reserve substantial room for provider-side formatting.
+from .context import (
+    JEV_STATE_QUESTION_TOKEN_LIMIT,
+    JEV_TOTAL_TOKEN_LIMIT,
+    estimate_request_context,
+)
+
+# Frozen summary planning target, retained to preserve prompts and ledger
+# identities on resume. Jev admission separately checks estimated token limits.
 JEV_REQUEST_BYTE_BUDGET = 64_000
 
 DISMISSAL_EVENT = (
@@ -166,9 +172,14 @@ def request_byte_count(request: Mapping[str, object]) -> int:
 def require_request_fits(request: Mapping[str, object]) -> None:
     """Reject oversized records instead of silently dropping source text."""
 
-    size = request_byte_count(request)
-    if size > JEV_REQUEST_BYTE_BUDGET:
+    estimate = estimate_request_context(request)
+    if not estimate.fits:
         raise ValueError(
-            f"Jev request is {size} bytes, above conservative "
-            f"{JEV_REQUEST_BYTE_BUDGET}-byte budget; prepare smaller document summaries"
+            f"Jev request is above conservative estimated token budgets: "
+            f"total {estimate.total_tokens}/{JEV_TOTAL_TOKEN_LIMIT}; "
+            f"state plus longest question "
+            f"{estimate.state_plus_longest_question_tokens}/"
+            f"{JEV_STATE_QUESTION_TOKEN_LIMIT}. "
+            "Counts include proxy-tokenizer headroom, not exact Jev tokens; "
+            "prepare smaller document summaries"
         )

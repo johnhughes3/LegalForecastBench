@@ -15,6 +15,7 @@ from legalforecast.contracts import (
 )
 from legalforecast.evals.model_registry import ModelRegistry, load_model_registry
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
+from legalforecast.jev.context import estimate_request_context
 from legalforecast.jev.packets import (
     JEV_REQUEST_BYTE_BUDGET,
     case_documents,
@@ -206,14 +207,20 @@ def run_inputs(args: argparse.Namespace) -> int:
             u for u in execution.release.prediction_units if u.case_id == case.case_id
         )
         documents = case_documents(execution, units)
-        size = request_byte_count(case_request(units, documents))
+        request = case_request(units, documents)
+        size = request_byte_count(request)
+        estimate = estimate_request_context(request)
         rows.append(
             {
                 "case_id": case.case_id,
                 "unit_count": len(units),
                 "document_count": len(documents),
                 "request_bytes": size,
-                "fits_conservative_budget": size <= JEV_REQUEST_BYTE_BUDGET,
+                "estimated_total_tokens_with_headroom": estimate.total_tokens,
+                "estimated_state_question_tokens_with_headroom": (
+                    estimate.state_plus_longest_question_tokens
+                ),
+                "fits_conservative_budget": estimate.fits,
             }
         )
     print(
@@ -222,8 +229,9 @@ def run_inputs(args: argparse.Namespace) -> int:
                 "release_digest": execution.release.release_digest,
                 "case_count": len(rows),
                 "unit_count": execution.release.unit_count,
-                "request_byte_budget": JEV_REQUEST_BYTE_BUDGET,
-                "token_count": "unavailable: provider publishes no tokenizer",
+                "summary_planning_target_bytes": JEV_REQUEST_BYTE_BUDGET,
+                "token_count": "estimated: max(cl100k_base, o200k_base) * 1.5 + 1024; "
+                "provider publishes no exact tokenizer",
                 "cases": rows,
             },
             sort_keys=True,
