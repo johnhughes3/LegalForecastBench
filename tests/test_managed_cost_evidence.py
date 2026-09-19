@@ -301,3 +301,42 @@ def test_registry_round_trips_optional_cache_rates() -> None:
     restored = ModelRegistryEntry.from_record(record)
     assert restored.cache_read_token_price == 0.5
     assert restored.cache_write_token_price == 0.5
+
+
+def test_openai_sdk_read_cache_prices_without_inventing_write_evidence() -> None:
+    entry = replace(_entry(), cache_read_token_price=0.5)
+    sdk_usage = RequestUsage.extract(
+        {
+            "model": "gpt-4o",
+            "usage": {
+                "prompt_tokens": 1000,
+                "completion_tokens": 200,
+                "prompt_tokens_details": {"cached_tokens": 400},
+            },
+        },
+        provider="openai",
+        provider_url="https://api.openai.com/v1",
+        provider_fallback="openai",
+        api_flavor="chat",
+    )
+    usage = managed_execution._managed_response_usage(
+        ModelResponse(parts=[], usage=sdk_usage)
+    )
+    assert usage.cache_read_tokens == 400
+    assert usage.cache_write_tokens is None
+    result = ManagedToolAgentResult(
+        raw_output="{}",
+        request_count=1,
+        input_tokens=1000,
+        output_tokens=200,
+        served_model=entry.model_version_or_snapshot,
+        finish_reason="stop",
+        service_tier="flex",
+        called_tools=("read",),
+        response_usages=((1000, 200),),
+        response_usage_details=(usage,),
+    )
+    evidence = managed_execution._managed_result_cost_evidence(entry, result=result)
+    assert evidence.amount_usd == pytest.approx(0.0020)
+    assert evidence.method == "cache_aware_usage_reconstruction"
+    assert "cache_write_tokens" not in usage.to_record()

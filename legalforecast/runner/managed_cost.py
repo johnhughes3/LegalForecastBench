@@ -155,17 +155,28 @@ def _managed_token_cost(
     return ((input_tokens * input_price) + (output_tokens * output_price)) / 1_000_000
 
 
+def _cache_write_tokens_for_pricing(
+    entry: ModelRegistryEntry, usage: ManagedResponseUsage
+) -> int | None:
+    """OpenAI has no separate cache-write charge; preserve omission in evidence."""
+
+    if usage.cache_write_tokens is None and entry.provider.strip().lower() == "openai":
+        return 0
+    return usage.cache_write_tokens
+
+
 def _managed_response_cost(
     entry: ModelRegistryEntry,
     usage: ManagedResponseUsage,
 ) -> float:
     """Return one response's cache-aware or conservative fallback estimate."""
 
+    cache_write_tokens = _cache_write_tokens_for_pricing(entry, usage)
     if (
         usage.cache_read_tokens is None
-        or usage.cache_write_tokens is None
+        or cache_write_tokens is None
         or (usage.cache_read_tokens > 0 and entry.cache_read_token_price is None)
-        or (usage.cache_write_tokens > 0 and entry.cache_write_token_price is None)
+        or (cache_write_tokens > 0 and entry.cache_write_token_price is None)
     ):
         # The provider supplied an incomplete usage/rate pair. Charging all
         # input at the ordinary rate is conservative, but remains explicitly
@@ -176,9 +187,9 @@ def _managed_response_cost(
             output_tokens=usage.output_tokens,
         )
 
-    uncached_tokens = (
-        usage.input_tokens - usage.cache_read_tokens - usage.cache_write_tokens
-    )
+    uncached_tokens = usage.input_tokens - usage.cache_read_tokens - cache_write_tokens
+    if uncached_tokens < 0:
+        raise ManagedToolAgentError("cached input tokens exceed input tokens")
     input_price = entry.input_token_price
     cache_read_price = entry.cache_read_token_price or 0.0
     cache_write_price = entry.cache_write_token_price or 0.0
@@ -193,7 +204,7 @@ def _managed_response_cost(
     return (
         uncached_tokens * input_price
         + usage.cache_read_tokens * cache_read_price
-        + usage.cache_write_tokens * cache_write_price
+        + cache_write_tokens * cache_write_price
         + usage.output_tokens * output_price
     ) / 1_000_000
 
@@ -244,7 +255,8 @@ def _managed_cost_evidence(
         )
     details = result.response_usage_details
     complete_cache_counts = bool(details) and all(
-        usage.cache_read_tokens is not None and usage.cache_write_tokens is not None
+        usage.cache_read_tokens is not None
+        and _cache_write_tokens_for_pricing(entry, usage) is not None
         for usage in details
     )
     has_cached_tokens = any(
@@ -253,7 +265,10 @@ def _managed_cost_evidence(
     )
     cache_rates_known = all(
         (usage.cache_read_tokens == 0 or entry.cache_read_token_price is not None)
-        and (usage.cache_write_tokens == 0 or entry.cache_write_token_price is not None)
+        and (
+            _cache_write_tokens_for_pricing(entry, usage) == 0
+            or entry.cache_write_token_price is not None
+        )
         for usage in details
     )
     if complete_cache_counts and not has_cached_tokens:
@@ -377,7 +392,11 @@ def _managed_payload_cost_evidence(
         expected = ManagedCostEvidence(
             amount_usd=estimated_cost,
             basis="estimated_from_pricing_snapshot",
-            method="legacy_uncached_usage_estimate",
+            method=(
+                "legacy_usage_estimate"
+                if provider == "anthropic"
+                else "legacy_uncached_usage_estimate"
+            ),
             rate_provenance=entry.pricing_source,
         )
     for supplied, expected_value, label in (
