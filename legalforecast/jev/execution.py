@@ -39,7 +39,7 @@ from .packets import (
     case_request,
     require_request_fits,
 )
-from .rate_limits import call_with_rate_limit_retries
+from .rate_limits import JEV_MAX_REQUEST_ATTEMPTS, call_with_rate_limit_retries
 from .summaries import SummaryCache
 
 
@@ -334,7 +334,10 @@ def complete_jev_cell(
     ordinal = handler.durable_attempt_ordinal(1)
     try:
         request_count = payload.get("_jev_request_count", 1)
-        if type(request_count) is not int or not 1 <= request_count <= 4:
+        if (
+            type(request_count) is not int
+            or not 1 <= request_count <= JEV_MAX_REQUEST_ATTEMPTS
+        ):
             raise ValueError("invalid Jev request count")
         answers = payload.get("answers")
         if not isinstance(answers, dict):

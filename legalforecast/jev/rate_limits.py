@@ -9,6 +9,8 @@ from tenacity import Retrying, retry_if_exception, stop_after_attempt, wait_expo
 
 from legalforecast.evals.live_model_solver import LiveModelProviderError
 
+JEV_MAX_REQUEST_ATTEMPTS = 8
+
 
 def call_with_rate_limit_retries(
     call: Callable[[], Mapping[str, object]],
@@ -36,7 +38,10 @@ def call_with_rate_limit_retries(
                 # Successful CLI stdout/stderr is saved as JSON by Actions.
                 # Retain exhaustion detail on the exception without polluting
                 # successful run summaries with retry log lines.
-                exc.add_note(f"Jev HTTP 429: request {attempts} of 8 rejected")
+                exc.add_note(
+                    f"Jev HTTP 429: request {attempts} of "
+                    f"{JEV_MAX_REQUEST_ATTEMPTS} rejected"
+                )
             raise
         return {**payload, "_jev_request_count": attempts}
 
@@ -47,7 +52,7 @@ def call_with_rate_limit_retries(
             )
         ),
         wait=wait_exponential(multiplier=30, max=300),
-        stop=stop_after_attempt(8),
+        stop=stop_after_attempt(JEV_MAX_REQUEST_ATTEMPTS),
         sleep=time.sleep,
         reraise=True,
     )
