@@ -87,6 +87,7 @@ def case_request(
     documents: tuple[CaseDocument, ...],
     *,
     summaries: Mapping[str, str] | None = None,
+    record_representation: str | None = None,
     provider: str = "vercel_ai_gateway",
     model_id: str | None = None,
 ) -> dict[str, object]:
@@ -98,6 +99,18 @@ def case_request(
         raise ValueError("summaries must cover exactly the selected documents")
     if summaries is not None and any(not text.strip() for text in summaries.values()):
         raise ValueError("Jev cannot use an empty document summary")
+    if summaries is None:
+        if record_representation is not None and record_representation != "full_text":
+            raise ValueError(
+                "full-text Jev requests must use the full_text representation"
+            )
+        representation = "full_text"
+    else:
+        representation = record_representation or "luna_summaries"
+        if representation not in {"luna_summaries", "grok_summaries"}:
+            raise ValueError(
+                f"unsupported Jev record representation: {representation!r}"
+            )
     normalized_provider = provider.strip().casefold()
     if normalized_provider == "typesafe":
         model = model_id or "jev-1.13.0"
@@ -112,9 +125,7 @@ def case_request(
         "state": {
             "case_id": units[0].case_id,
             "forecast_event_definition": DISMISSAL_EVENT,
-            "record_representation": "full_text"
-            if summaries is None
-            else "luna_summaries",
+            "record_representation": representation,
             "documents": [
                 {
                     **document.description,

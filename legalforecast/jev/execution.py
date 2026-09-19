@@ -74,9 +74,14 @@ def build_jev_case_input(
 
     documents = case_documents(execution, units)
     summaries: dict[str, str] | None = None
-    if entry.jev_input_mode == "luna_summaries":
+    summary_models = {
+        "luna_summaries": "gpt-5.6-luna",
+        "grok_summaries": "spacexai/grok-4.6",
+    }
+    if entry.jev_input_mode in summary_models:
         if summaries_path is None:
-            raise ValueError("Jev Luna-summary mode requires --jev-summaries")
+            label = "Grok" if entry.jev_input_mode == "grok_summaries" else "Luna"
+            raise ValueError(f"Jev {label}-summary mode requires --jev-summaries")
         raw = read_single_link_file(summaries_path, label="Jev summaries")
         digest = str(
             RAW_BYTES_RAW_SHA256_V1.commit(raw, domain=PUBLIC_RUN_RECEIPT_V1).digest
@@ -90,7 +95,7 @@ def build_jev_case_input(
                 units[0].case_id,
                 document.document_id,
                 document.source_sha256,
-                "gpt-5.6-luna",
+                summary_models[entry.jev_input_mode],
                 JEV_REQUEST_BYTE_BUDGET,
             )
             if summary is None:
@@ -102,6 +107,7 @@ def build_jev_case_input(
         units,
         documents,
         summaries=summaries,
+        record_representation=entry.jev_input_mode,
         provider=entry.provider,
         model_id=entry.model_id,
     )

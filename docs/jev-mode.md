@@ -2,7 +2,7 @@
 
 Jev receives one shared case record and one Boolean question for each original prediction unit. Its native probability of “yes” becomes `probability_fully_dismissed`. The target remains the actual first written disposition of the motion, with the same full-dismissal, partial-dismissal, and leave-to-amend rules used by the document-tool condition. The case selection, document selection, unit identifiers, and scoring labels remain unchanged.
 
-This is a distinct official evaluation condition. Report it as **Jev (Luna summaries; one shot)**, or **Jev (full text; one shot)** when the entire record fits. Do not describe the summary condition as a direct comparison of model reasoning over identical text: it measures a pipeline whose performance also depends on Luna's selection and compression. The summary mode is applied to every case in its run, including small cases, so input treatment does not vary silently with case size. Model release-date and contamination classifications still apply separately.
+This is a distinct official evaluation condition. Report it as **Jev (Luna summaries; one shot)**, **Jev (Grok 4.6 summaries; one shot)**, or **Jev (full text; one shot)** when the entire record fits. Do not describe the summary condition as a direct comparison of model reasoning over identical text: it measures a pipeline whose performance also depends on the summarizer's selection and compression. The summary mode is applied to every case in its run, including small cases, so input treatment does not vary silently with case size. Model release-date and contamination classifications still apply separately.
 
 ## Request size
 
@@ -19,11 +19,11 @@ uv run legalforecast jev inspect \
 
 ## Persisted document summaries
 
-Luna sees one complete selected document at a time, with its role and identity. It receives neither scoring labels nor other models' forecasts. The prompt asks for facts, allegations, procedural posture, arguments, counterarguments, authorities, and material details throughout the document. It forbids adding outside knowledge or predicting the outcome. All selected documents, including docket histories and notices, are represented. There is no outcome-based selection of summaries.
+The selected summarizer (Luna or Grok 4.6) sees one complete selected document at a time, with its role and identity. It receives neither scoring labels nor other models' forecasts. The prompt asks for facts, allegations, procedural posture, arguments, counterarguments, authorities, and material details throughout the document. It forbids adding outside knowledge or predicting the outcome. All selected documents, including docket histories and notices, are represented. There is no outcome-based selection of summaries.
 
-Summaries are stored in a reusable JSON cache bound to the original release and document identities. Each record includes the source identity, summary model, prompt version, text, token usage, and estimated preparation cost. Keep the cache and its spend ledger together. Matching entries are reused without another provider request. Per-document size allowances guide Luna, while the complete case request determines whether the summaries fit. A longer summary can use space left by shorter ones. If the complete request exceeds the budget, the summaries are retained and the run stops; the code does not truncate them or automatically repurchase them.
+Summaries are stored in a reusable JSON cache bound to the original release and document identities. Each record includes the source identity, summary model, prompt version, text, token usage, and estimated preparation cost. Keep the cache and its spend ledger together. Matching entries are reused without another provider request. Per-document size allowances guide the summarizer, while the complete case request determines whether the summaries fit. A longer summary can use space left by shorter ones. If the complete request exceeds the budget, the summaries are retained and the run stops; the code does not truncate them or automatically repurchase them.
 
-Resume reuses saved output and continues unstarted documents. A provider failure with an uncertain charge stops preparation for reconciliation; rerunning does not authorize another purchase of that document. Luna input admission and temporary spend reservations use a conservative UTF-8 byte upper bound, not a measured token count. Successful requests settle against returned token usage and release the unused reservation. This may reject an unusually large document that would fit under the provider tokenizer; it does not silently remove text.
+Resume reuses saved output and continues unstarted documents. A provider failure with an uncertain charge stops preparation for reconciliation; rerunning does not authorize another purchase of that document. Summarizer input admission and temporary spend reservations use a conservative UTF-8 byte upper bound, not a measured token count. Successful requests settle against returned token usage and release the unused reservation. This may reject an unusually large document that would fit under the provider tokenizer; it does not silently remove text.
 
 For contributor-owned preparation, the CLI is:
 
@@ -45,6 +45,14 @@ uv run legalforecast jev registry \
 The registry command defaults to the first-party TypeSafe route (`typesafe:jev-1.13.0`). To reproduce a previously issued Gateway registry, pass `--provider vercel_ai_gateway`; that compatibility choice is part of the frozen registry identity.
 
 The numeric ceiling is an example, not spend authorization. Official preparation runs through the protected `prepare-jev-summaries.yaml` workflow. Retain its summary cache, registry, and spend ledger as research artifacts. Subsequent official inference uses `run-benchmark.yaml` with the same original release and manifest, the generated registry, and `jev_summaries_uri`. The registry binds the exact cache used by the run. Preparation cost is reported separately from Jev inference cost and must be included when discussing end-to-end pipeline cost.
+
+### Comparing summarizers
+
+Select Grok with `jev prepare --summary-model grok --summary-registry model_registries/cycle-1-supplementary-grok-4.6-gateway-2026-09-08.json` and the same release arguments. Use a new cache and ledger for each summarizer. Grok uses the existing Gateway route `vercel_ai_gateway:spacexai/grok-4.6`, restricted to xAI, with high reasoning and no tools or search. The document selection, summary instructions, and case request size budget remain the same. The legacy `--luna-registry` option remains an alias for `--summary-registry`.
+
+Freeze the new condition with `jev registry --summary-model grok --provider vercel_ai_gateway --summaries grok-summaries.json --output jev-grok-registry.json` when comparing against an existing Gateway Jev run. Selecting a new summarizer creates a distinct cache, registry, and inference run identity; never resume the Luna condition with Grok summaries. Retain and report both runs, including all summary preparation costs.
+
+The protected preparation workflow exposes `summary_model`, `summary_registry_path`, and `jev_provider` inputs. Defaults preserve Luna preparation and the TypeSafe inference route. For a controlled summarizer comparison, explicitly retain the prior Jev route. Changing the summarizer does not affect the agentic document-tool condition used by other models.
 
 ## Native evaluation
 

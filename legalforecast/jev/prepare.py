@@ -1,4 +1,4 @@
-"""Reusable Luna summaries of the same blinded documents used by other models."""
+"""Reusable summaries of the same blinded documents used by other models."""
 
 from __future__ import annotations
 
@@ -37,6 +37,11 @@ from legalforecast.evals.provider_spend_control import (
     SqliteProviderSpendAuthority,
 )
 from legalforecast.release import ForecastExecution
+from legalforecast.runner.gateway import (
+    VERCEL_AI_GATEWAY_BASE_URL,
+    gateway_model_profile,
+    gateway_request_extra_body,
+)
 
 from .packets import (
     JEV_REQUEST_BYTE_BUDGET,
@@ -53,6 +58,65 @@ from .summaries import (
 )
 
 _UNBOUNDED_SUMMARY_BYTES = (1 << 63) - 1
+_LUNA_SUMMARY_ENTRY = ("openai", "gpt-5.6-luna")
+_GROK_SUMMARY_ENTRY = ("vercel_ai_gateway", "spacexai/grok-4.6")
+
+
+def _summary_agent(entry: ModelRegistryEntry, *, api_key: str) -> Agent[None, str]:
+    """Build the no-tools summary agent for one frozen summary registry entry."""
+
+    provider = entry.provider
+    if (provider, entry.model_id) == _LUNA_SUMMARY_ENTRY:
+        agent = Agent(
+            OpenAIResponsesModel(
+                entry.model_id,
+                provider=OpenAIProvider(
+                    openai_client=AsyncOpenAI(api_key=api_key, max_retries=0)
+                ),
+            ),
+            output_type=str,
+            instructions=SUMMARY_INSTRUCTIONS,
+            retries=AgentRetries(output=0, tools=0),
+            model_settings=OpenAIResponsesModelSettings(
+                max_tokens=8192,
+                timeout=900,
+                openai_service_tier="flex",
+                openai_reasoning_effort="high",
+            ),
+        )
+        return agent
+
+    if (provider, entry.model_id) == _GROK_SUMMARY_ENTRY:
+        gateway_provider = OpenAIProvider(
+            openai_client=AsyncOpenAI(
+                api_key=api_key,
+                base_url=VERCEL_AI_GATEWAY_BASE_URL,
+                max_retries=0,
+            )
+        )
+        agent = Agent(
+            OpenAIResponsesModel(
+                entry.model_id,
+                provider=gateway_provider,
+                profile=gateway_model_profile(gateway_provider, entry.model_id),
+            ),
+            output_type=str,
+            instructions=SUMMARY_INSTRUCTIONS,
+            retries=AgentRetries(output=0, tools=0),
+            model_settings=OpenAIResponsesModelSettings(
+                max_tokens=8192,
+                timeout=900,
+                openai_store=False,
+                extra_body=gateway_request_extra_body(entry.model_id),
+                openai_reasoning_effort="high",
+            ),
+        )
+        return agent
+
+    raise ValueError(
+        "summary preparation requires the frozen GPT-5.6 Luna or Grok 4.6 "
+        "Gateway registry"
+    )
 
 
 def prepare_summaries(
@@ -65,12 +129,19 @@ def prepare_summaries(
 ) -> dict[str, int]:
     """Summarize each whole document once, persisting progress and spend."""
 
-    if entry.provider != "openai" or entry.model_id != "gpt-5.6-luna":
+    if (entry.provider, entry.model_id) not in {
+        _LUNA_SUMMARY_ENTRY,
+        _GROK_SUMMARY_ENTRY,
+    }:
         raise ValueError(
-            "summary preparation requires the frozen GPT-5.6 Luna registry"
+            "summary preparation requires the frozen GPT-5.6 Luna or Grok 4.6 "
+            "Gateway registry"
         )
     if type(ceiling_microusd) is not int or ceiling_microusd <= 0:
         raise ValueError("ceiling_microusd must be a positive integer")
+    summary_label = (
+        "Luna" if (entry.provider, entry.model_id) == _LUNA_SUMMARY_ENTRY else "Grok"
+    )
     cache = SummaryCache.load(cache_path, execution.release.release_digest)
     identity = str(
         ARTIFACT_RAW_SHA256_V1.commit(
@@ -88,7 +159,7 @@ def prepare_summaries(
         ledger_path,
         authority_identity_sha256=identity,
         cycle_id=execution.release.release_id,
-        provider="openai",
+        provider=entry.provider,
         account="jev-summaries",
         cap_microusd=ceiling_microusd,
         policy=FrozenAttemptPolicy(
@@ -127,7 +198,7 @@ def prepare_summaries(
                 ).decode("utf-8")
                 key = ProviderSpendKey(
                     execution.release.release_id,
-                    "openai",
+                    entry.provider,
                     "jev-summaries",
                     "document_summary",
                     entry.registry_key,
@@ -175,7 +246,7 @@ def prepare_summaries(
                 ).decode("utf-8")
                 if len(prompt.encode("utf-8")) + 8192 > entry.context_limit:
                     raise ValueError(
-                        "document exceeds conservative Luna input budget: "
+                        f"document exceeds conservative {summary_label} input budget: "
                         f"{document.document_id}"
                     )
                 reservation = conservative_reservation_microusd(
@@ -190,28 +261,17 @@ def prepare_summaries(
                     key=key,
                     reservation_microusd=reservation,
                 )
-                api_key = os.environ.get("OPENAI_API_KEY", "")
+                api_key_name = (
+                    "OPENAI_API_KEY"
+                    if (entry.provider, entry.model_id) == _LUNA_SUMMARY_ENTRY
+                    else "AI_GATEWAY_API_KEY"
+                )
+                api_key = os.environ.get(api_key_name, "")
                 if not api_key:
                     raise ValueError(
-                        "OPENAI_API_KEY is required for uncached summaries"
+                        f"{api_key_name} is required for uncached summaries"
                     )
-                agent = Agent(
-                    OpenAIResponsesModel(
-                        entry.model_id,
-                        provider=OpenAIProvider(
-                            openai_client=AsyncOpenAI(api_key=api_key, max_retries=0)
-                        ),
-                    ),
-                    output_type=str,
-                    instructions=SUMMARY_INSTRUCTIONS,
-                    retries=AgentRetries(output=0, tools=0),
-                    model_settings=OpenAIResponsesModelSettings(
-                        max_tokens=8192,
-                        timeout=900,
-                        openai_service_tier="flex",
-                        openai_reasoning_effort="high",
-                    ),
-                )
+                agent = _summary_agent(entry, api_key=api_key)
 
                 def call(
                     agent: Agent[None, str] = agent, prompt: str = prompt
@@ -228,7 +288,7 @@ def prepare_summaries(
                         or input_tokens < 0
                         or output_tokens < 0
                     ):
-                        raise ValueError("Luna token usage is invalid")
+                        raise ValueError(f"{summary_label} token usage is invalid")
                     return {
                         "text": result.output,
                         "input_tokens": input_tokens,
@@ -256,7 +316,7 @@ def prepare_summaries(
                         or output_tokens < 0
                         or cost < 0
                     ):
-                        raise ValueError("Luna response payload is invalid")
+                        raise ValueError(f"{summary_label} response payload is invalid")
                     summary = DocumentSummary(
                         document_id=document.document_id,
                         source_sha256=document.source_sha256,

@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       ceiling_microusd:
-        description: Positive Luna summary ceiling in millionths of one US dollar.
+        description: Positive summary preparation ceiling in millionths of one US dollar.
         required: true
         type: string
       prior_summary_run_id:
@@ -31,6 +31,27 @@ on:
         required: false
         default: false
         type: boolean
+      summary_model:
+        description: Model used to summarize every selected document.
+        required: false
+        default: luna
+        type: choice
+        options:
+          - luna
+          - grok
+      summary_registry_path:
+        description: Frozen summarizer registry; overrides the legacy luna_registry_path.
+        required: false
+        default: ""
+        type: string
+      jev_provider:
+        description: Jev inference route to freeze; retain the original route for comparisons.
+        required: false
+        default: typesafe
+        type: choice
+        options:
+          - typesafe
+          - vercel_ai_gateway
       luna_registry_path:
         description: Frozen registry path containing openai:gpt-5.6-luna.
         required: false
@@ -42,7 +63,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: jev-summary-${{ inputs.locked_inputs_artifact_id }}
+  group: jev-summary-${{ inputs.locked_inputs_artifact_id }}-${{ inputs.summary_model }}
   cancel-in-progress: false
 
 jobs:
@@ -53,7 +74,9 @@ jobs:
     environment: legalforecastbench-official-eval
     env:
       CEILING: ${{ inputs.ceiling_microusd }}
-      LUNA_REGISTRY: ${{ inputs.luna_registry_path }}
+      SUMMARY_MODEL: ${{ inputs.summary_model }}
+      JEV_PROVIDER: ${{ inputs.jev_provider }}
+      SUMMARY_REGISTRY: ${{ inputs.summary_registry_path || inputs.luna_registry_path }}
     steps:
       - name: Checkout exact origin/main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,14 +101,16 @@ jobs:
           PRIOR_SUMMARY_RUN_ID: ${{ inputs.prior_summary_run_id }}
           PRIOR_SUMMARY_ARTIFACT_ID: ${{ inputs.prior_summary_artifact_id }}
           REGISTRY_ONLY: ${{ inputs.registry_only }}
-          LUNA_REGISTRY: ${{ inputs.luna_registry_path }}
+          SUMMARY_REGISTRY: ${{ inputs.summary_registry_path || inputs.luna_registry_path }}
         run: |
           set -euo pipefail
           [[ "${SOURCE_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "source_run_id must be a positive integer" >&2; exit 1; }
           [[ "${LOCKED_INPUTS_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "locked_inputs_artifact_id must be a positive integer" >&2; exit 1; }
           [[ "${CEILING}" =~ ^[1-9][0-9]*$ ]] || { echo "ceiling_microusd must be a positive integer" >&2; exit 1; }
-          [[ "${LUNA_REGISTRY}" != /* && "${LUNA_REGISTRY}" != *..* && -n "${LUNA_REGISTRY}" ]] || { echo "luna_registry_path must be a relative repository path" >&2; exit 1; }
-          test -f "${LUNA_REGISTRY}"
+          [[ "${SUMMARY_REGISTRY}" != /* && "${SUMMARY_REGISTRY}" != *..* && -n "${SUMMARY_REGISTRY}" ]] || { echo "summary registry must be a relative repository path" >&2; exit 1; }
+          test -f "${SUMMARY_REGISTRY}"
+          [[ "${SUMMARY_MODEL}" == "luna" || "${SUMMARY_MODEL}" == "grok" ]] || { echo "unsupported summary model" >&2; exit 1; }
+          [[ "${JEV_PROVIDER}" == "typesafe" || "${JEV_PROVIDER}" == "vercel_ai_gateway" ]] || { echo "unsupported Jev route" >&2; exit 1; }
           if [[ -n "${PRIOR_SUMMARY_ARTIFACT_ID}" || -n "${PRIOR_SUMMARY_RUN_ID}" ]]; then
             [[ "${PRIOR_SUMMARY_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
             [[ "${PRIOR_SUMMARY_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
@@ -266,16 +291,18 @@ jobs:
             cp -f /tmp/lfb-jev-prior/summary-spend.sqlite3 /tmp/lfb-jev-summary/summary-spend.sqlite3
           fi
 
-      - name: Prepare release-bound Luna summaries
+      - name: Prepare release-bound document summaries
         if: ${{ !inputs.registry_only }}
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY: ${{ inputs.summary_model == 'luna' && secrets.OPENAI_API_KEY || '' }}
+          AI_GATEWAY_API_KEY: ${{ inputs.summary_model == 'grok' && secrets.AI_GATEWAY_API_KEY || '' }}
         run: >-
           uv run legalforecast jev prepare
           --manifest /tmp/lfb-jev-inputs/run-manifest.json
           --forecast /tmp/lfb-jev-inputs/forecast-release.json
           --artifact-root /tmp/lfb-jev-inputs/artifacts
-          --luna-registry "$LUNA_REGISTRY"
+          --summary-registry "$SUMMARY_REGISTRY"
+          --summary-model "$SUMMARY_MODEL"
           --cache /tmp/lfb-jev-summary/jev-summaries.json
           --ledger /tmp/lfb-jev-summary/summary-spend.sqlite3
           --ceiling-microusd "$CEILING"
@@ -288,6 +315,7 @@ jobs:
           test -f /tmp/lfb-jev-summary/jev-summaries.json
           test -f /tmp/lfb-jev-summary/summary-spend.sqlite3
           uv run python - <<'PY'
+          import os
           from pathlib import Path
 
           from legalforecast.jev.packets import case_documents
@@ -314,7 +342,7 @@ jobs:
                       case.case_id,
                       document.document_id,
                       document.source_sha256,
-                      "gpt-5.6-luna",
+                      "spacexai/grok-4.6" if os.environ["SUMMARY_MODEL"] == "grok" else "gpt-5.6-luna",
                       64 * 1024 * 1024,
                   ) is None:
                       missing.append(f"{case.case_id}/{document.document_id}")
@@ -333,6 +361,8 @@ jobs:
         if: ${{ success() }}
         run: >-
           uv run legalforecast jev registry
+          --summary-model "$SUMMARY_MODEL"
+          --provider "$JEV_PROVIDER"
           --summaries /tmp/lfb-jev-summary/jev-summaries.json
           --output /tmp/lfb-jev-summary/model-registry.json
 
