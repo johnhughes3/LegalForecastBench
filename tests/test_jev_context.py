@@ -34,3 +34,13 @@ def test_many_questions_can_exceed_total_without_exceeding_individual_limit() ->
     }
     with pytest.raises(ValueError, match="total"):
         require_request_fits(_request("Record.", questions))
+
+
+def test_legacy_registry_total_bound_is_still_respected() -> None:
+    questions = {
+        str(i): {"type": "boolean", "instructions": " law" * 1000} for i in range(24)
+    }
+    request = _request(" law" * 1000, questions)
+    require_request_fits(request)
+    with pytest.raises(ValueError, match="/32000"):
+        require_request_fits(request, total_token_limit=32_000)

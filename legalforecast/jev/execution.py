@@ -110,7 +110,7 @@ def build_jev_case_input(
         provider=entry.provider,
         model_id=entry.model_id,
     )
-    require_request_fits(request)
+    require_request_fits(request, total_token_limit=entry.context_limit)
     return JevCaseInput(request, tuple(u.unit_id for u in units))
 
 

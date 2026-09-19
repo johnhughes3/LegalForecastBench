@@ -220,7 +220,7 @@ def run_inputs(args: argparse.Namespace) -> int:
                 "estimated_state_question_tokens_with_headroom": (
                     estimate.state_plus_longest_question_tokens
                 ),
-                "fits_conservative_budget": estimate.fits,
+                "fits_estimated_token_budget": estimate.fits,
             }
         )
     print(
@@ -281,7 +281,7 @@ def run_registry(args: argparse.Namespace) -> int:
         "release_timestamp_source": "https://vercel.com/ai-gateway/models/jev",
         "provider_training_cutoff_status": "not_disclosed",
         "max_output_tokens": 1,
-        "context_limit": 32000,
+        "context_limit": 64000,
         "network_disabled": True,
         "search_disabled": True,
         "tool_policy": "no_tools",

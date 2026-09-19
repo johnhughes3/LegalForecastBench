@@ -169,14 +169,17 @@ def request_byte_count(request: Mapping[str, object]) -> int:
     return len(ARTIFACT_CANONICAL_JSON_V1.encode(dict(request)))
 
 
-def require_request_fits(request: Mapping[str, object]) -> None:
+def require_request_fits(
+    request: Mapping[str, object], *, total_token_limit: int = JEV_TOTAL_TOKEN_LIMIT
+) -> None:
     """Reject oversized records instead of silently dropping source text."""
 
     estimate = estimate_request_context(request)
-    if not estimate.fits:
+    total_token_limit = min(total_token_limit, JEV_TOTAL_TOKEN_LIMIT)
+    if not estimate.fits or estimate.total_tokens > total_token_limit:
         raise ValueError(
             f"Jev request is above conservative estimated token budgets: "
-            f"total {estimate.total_tokens}/{JEV_TOTAL_TOKEN_LIMIT}; "
+            f"total {estimate.total_tokens}/{total_token_limit}; "
             f"state plus longest question "
             f"{estimate.state_plus_longest_question_tokens}/"
             f"{JEV_STATE_QUESTION_TOKEN_LIMIT}. "
