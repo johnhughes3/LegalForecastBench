@@ -777,6 +777,7 @@ def execute_release_run(
                             receipt["jev_provider_metadata"] = json.loads(
                                 metadata["provider_metadata"]
                             )
+                            receipt["jev_request_count"] = response.request_count
                         if "anthropic_cache_evidence" in metadata:
                             receipt["anthropic_cache_evidence"] = json.loads(
                                 metadata["anthropic_cache_evidence"]

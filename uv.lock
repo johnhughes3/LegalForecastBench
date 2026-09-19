@@ -575,6 +575,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai-slim", extra = ["google", "openai"] },
     { name = "pypdf" },
+    { name = "tenacity" },
     { name = "typesafe-sdk" },
 ]
 
@@ -612,6 +613,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.5,<3" },
     { name = "pydantic-ai-slim", extras = ["google", "openai"], specifier = "==2.40.0" },
     { name = "pypdf", specifier = "==6.14.2" },
+    { name = "tenacity", specifier = ">=9.1,<10" },
     { name = "typesafe-sdk", specifier = "==0.7.0" },
 ]
 provides-extras = ["claude-agent-sdk-adapter", "managed-anthropic", "tier0-judge-adapter"]
