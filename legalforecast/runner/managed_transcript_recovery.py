@@ -401,9 +401,12 @@ def _legacy_managed_replay_payload(
         # durable payload to match by removing only the newly derived evidence
         # when every cache dimension is zero.  A positive cache count must use
         # the current cache-aware payload and can never match this candidate.
-        if not result.response_cache_usages or any(
+        if any(
             cache_read or cache_write
             for cache_read, cache_write in result.response_cache_usages
+        ) or any(
+            (usage.cache_read_tokens or 0) > 0 or (usage.cache_write_tokens or 0) > 0
+            for usage in result.response_usage_details
         ):
             return None
         payload = managed_replay_payload(result, entry=entry)

@@ -81,3 +81,33 @@ def test_pre_evidence_anthropic_zero_defaults_remain_a_compatibility_projection(
     )
     assert result.response_usage_details[0].cache_read_tokens is None
     assert payload["estimated_cost_usd"] == pytest.approx(0.02)
+
+
+def test_pre_cache_anthropic_payload_accepts_unknown_zero_defaults() -> None:
+    entry = _anthropic_entry()
+    result = ManagedToolAgentResult(
+        raw_output="{}",
+        request_count=1,
+        input_tokens=1000,
+        output_tokens=200,
+        served_model=entry.model_version_or_snapshot,
+        finish_reason="stop",
+        service_tier="unreported",
+        called_tools=("read",),
+        response_usages=((1000, 200),),
+        response_usage_details=(ManagedResponseUsage(1000, 200),),
+    )
+    legacy = _legacy_managed_replay_payload(result, entry=entry)
+    assert legacy is not None
+    assert "anthropic_cache_evidence" not in legacy
+    assert "response_usage_details" not in legacy
+    assert legacy["estimated_cost_usd"] == pytest.approx(0.02)
+    assert (
+        _legacy_managed_replay_payload(
+            replace(
+                result, response_usage_details=(ManagedResponseUsage(1000, 200, 20),)
+            ),
+            entry=entry,
+        )
+        is None
+    )
