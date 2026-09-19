@@ -308,7 +308,7 @@ def build_local_cli_environment(
     """Build a solver environment that does not inherit ambient shell state."""
 
     parent = os.environ if parent_env is None else parent_env
-    credentials = dict(projected_credentials or ())
+    credentials: dict[str, str] = dict(projected_credentials or {})
     if profile.profile_id in {FIXTURE_NONE, CONTRIBUTOR_SUBSCRIPTION}:
         if credentials:
             raise AuthProfileError(
