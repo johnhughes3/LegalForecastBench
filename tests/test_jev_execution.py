@@ -438,7 +438,7 @@ def test_429_backoff_preserves_request_and_successful_resume(
 
 
 @pytest.mark.parametrize("retryable", [True, False, None])
-def test_every_429_exhausts_after_four_requests(tmp_path, monkeypatch, retryable):
+def test_every_429_exhausts_after_eight_requests(tmp_path, monkeypatch, retryable):
     from legalforecast.jev import rate_limits
 
     sleeps = []
@@ -456,9 +456,9 @@ def test_every_429_exhausts_after_four_requests(tmp_path, monkeypatch, retryable
         )
     assert failure.value.status_code == 429
     assert failure.value.retryable is True
-    assert len(calls) == 4
+    assert len(calls) == 8
     assert len(set(calls)) == 1
-    assert sleeps == [30, 60, 120]
+    assert sleeps == [30, 60, 120, 240, 300, 300, 300]
     assert not list(config.receipts_dir.glob("*.json"))
     with sqlite3.connect(config.ledger_path) as connection:
         statuses = connection.execute("SELECT status FROM provider_attempts").fetchall()

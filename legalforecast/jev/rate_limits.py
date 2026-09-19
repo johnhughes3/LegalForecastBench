@@ -36,7 +36,7 @@ def call_with_rate_limit_retries(
                 # Successful CLI stdout/stderr is saved as JSON by Actions.
                 # Retain exhaustion detail on the exception without polluting
                 # successful run summaries with retry log lines.
-                exc.add_note(f"Jev HTTP 429: request {attempts} of 4 rejected")
+                exc.add_note(f"Jev HTTP 429: request {attempts} of 8 rejected")
             raise
         return {**payload, "_jev_request_count": attempts}
 
@@ -46,8 +46,8 @@ def call_with_rate_limit_retries(
                 isinstance(exc, LiveModelProviderError) and exc.status_code == 429
             )
         ),
-        wait=wait_exponential(multiplier=30, max=120),
-        stop=stop_after_attempt(4),
+        wait=wait_exponential(multiplier=30, max=300),
+        stop=stop_after_attempt(8),
         sleep=time.sleep,
         reraise=True,
     )

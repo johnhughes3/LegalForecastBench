@@ -1093,9 +1093,8 @@ jobs:
       LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
       LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
     strategy:
-      # Jev has no agentic recovery or alternate transport. Stop a failed
-      # evaluation rollout before every queued case repeats the same error.
-      fail-fast: ${{ inputs.model_key == 'vercel_ai_gateway:typesafe-ai/jev' || inputs.model_key == 'typesafe:jev-1.13.0' }}
+      # Jev checks its failed-case allowance before each provider call.
+      fail-fast: false
       max-parallel: ${{ fromJSON(needs.prepare-inputs.outputs.max_parallel) }}
       matrix: ${{ fromJSON(needs.prepare-inputs.outputs.gateway_matrix) }}
     steps:
@@ -1202,6 +1201,15 @@ jobs:
           tool_image_id="$(docker image inspect --format '{{.Id}}' lfb-harvey-tools:local)"
           [[ "${tool_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "LFB_HARVEY_TOOL_IMAGE=${tool_image_id}" >> "${GITHUB_ENV}"
+      - name: Check Jev failed-case allowance
+        if: ${{ matrix.model_key == 'vercel_ai_gateway:typesafe-ai/jev' || matrix.model_key == 'typesafe:jev-1.13.0' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs?per_page=100" > /tmp/lfb-jev-jobs.json
+          uv run python .github/scripts/check-jev-failures.py /tmp/lfb-jev-jobs.json
       - name: Execute exact Gateway or TypeSafe Jev forecast cell
         shell: bash
         env:
