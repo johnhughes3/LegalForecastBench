@@ -521,6 +521,9 @@ def _restore_bundle(
 
 def validate_completed(root: Path, cell: dict[str, Any], identity: str) -> bool:
     state = _read_object(root / "state.json")
+    if state.get("status") == "initialized":
+        # A pre-execution guard can stop a cell before a summary or ledger exists.
+        return False
     if _read_object(root / "run-summary.json").get("status") != "completed":
         return False
     required = tuple(cell["required_unit_ids"])

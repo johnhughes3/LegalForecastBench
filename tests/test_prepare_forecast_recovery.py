@@ -232,3 +232,18 @@ def test_validate_completed_rejects_completed_ledger_without_receipt_evidence(
 
     with pytest.raises(RunValidationError, match="lacks durable receipt evidence"):
         module.validate_completed(root, cells[0], identity)
+
+
+@pytest.mark.parametrize(
+    "status,expected", [("initialized", False), ("completed", None)]
+)
+def test_pre_execution_guard_state_remains_pending(tmp_path, status, expected):
+    module = _load_restore_script()
+    (tmp_path / "state.json").write_text(json.dumps({"status": status}))
+    # A guarded cell never entered execute: no summary, ledger, or receipts.
+    if expected is False:
+        assert module.validate_completed(tmp_path, {}, "identity") is False
+        assert not (tmp_path / "ledger.sqlite3").exists()
+    else:
+        with pytest.raises(ValueError, match=r"run-summary\.json"):
+            module.validate_completed(tmp_path, {}, "identity")
