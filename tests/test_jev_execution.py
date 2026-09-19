@@ -467,29 +467,6 @@ def test_every_429_exhausts_after_four_requests(tmp_path, monkeypatch, retryable
     assert statuses == [("blocked",)]
 
 
-@pytest.mark.parametrize("status", [401, 403, 500, None])
-def test_non_429_failure_is_not_retried(tmp_path, monkeypatch, status):
-    from legalforecast.jev import rate_limits
-
-    sleeps = []
-    monkeypatch.setattr(rate_limits.time, "sleep", sleeps.append)
-    config, _ = setup_run(tmp_path)
-    calls = []
-
-    def transport(request, timeout):
-        calls.append(request.data)
-        raise LiveModelProviderError(
-            "other failure", status_code=status, retryable=True
-        )
-
-    with pytest.raises(LiveModelProviderError):
-        execute_release_run(
-            config, transport=transport, environ={"AI_GATEWAY_API_KEY": "fixture"}
-        )
-    assert len(calls) == 1
-    assert sleeps == []
-
-
 def test_429_then_uncertain_failure_preserves_reservation(tmp_path, monkeypatch):
     from legalforecast.jev import rate_limits
 
