@@ -339,10 +339,25 @@ def test_latest_release_timestamp_rejects_missing_release_anchor() -> None:
         latest_release_timestamp((missing,))
 
 
-def test_earliest_eligible_decision_date_uses_first_deployment_date() -> None:
-    late_utc_release = _entry(release_timestamp="2026-05-14T23:59:59Z")
+def test_earliest_eligible_decision_date_uses_strict_latest_training_cutoff() -> None:
+    late_utc_release = _entry(
+        release_timestamp="2026-05-14T23:59:59Z",
+        provider_training_cutoff="2026-04-01",
+    )
 
-    assert earliest_eligible_decision_date((late_utc_release,)) == date(2026, 5, 14)
+    assert earliest_eligible_decision_date((late_utc_release,)) == date(2026, 4, 2)
+
+
+def test_earliest_eligible_decision_date_requires_exact_known_cutoffs() -> None:
+    unknown = _entry(
+        provider="unknown-provider",
+        model_id="unknown-model",
+        provider_training_cutoff_status="unknown",
+        provider_training_cutoff=None,
+    )
+
+    with pytest.raises(ValueError, match="known date-granular"):
+        earliest_eligible_decision_date((unknown,))
 
 
 def test_official_registry_rejects_mutable_preview_or_latest_aliases() -> None:

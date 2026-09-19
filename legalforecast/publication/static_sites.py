@@ -7,10 +7,15 @@ import html
 import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
-from legalforecast._json_io import read_json_object, write_json_object
+from legalforecast._json_io import (
+    read_json_object,
+    read_jsonl_objects,
+    write_json_object,
+)
 from legalforecast.multiharness.spec import ArtifactRecord
 from legalforecast.multiharness.validation import require_schema_version
 from legalforecast.publication.official_report_site import build_official_report_page
@@ -24,6 +29,7 @@ from legalforecast.publication.publication_guardrails import (
 )
 from legalforecast.reporting.contamination_tiers import (
     ContaminationTier,
+    ContaminationTierSidecar,
     frozen_result_digest,
     load_contamination_tier_sidecar,
 )
@@ -189,6 +195,23 @@ caption {
   border-color: var(--baseline);
   color: var(--baseline);
 }
+.comparison-badge {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 650;
+  margin: 4px 4px 0 0;
+  padding: 2px 8px;
+}
+.comparison-badge.eligible {
+  background: var(--accent-soft);
+  color: #075f57;
+}
+.comparison-badge.qualified {
+  background: var(--baseline-soft);
+  color: var(--baseline);
+}
 .muted {
   color: var(--muted);
 }
@@ -274,23 +297,19 @@ def render_official_results_site(
     # Each sidecar stays bound to the leaderboard bytes of its own bundle. Adding
     # supplementary rows changes only the rendered page, so the official
     # sidecar's frozen_result_digest binding is unaffected.
-    contamination_tiers = _merged_sidecar_overlay(
+    contamination_tiers, supplementary_contamination_tiers = _sidecar_overlays(
         official_source,
         supplementary_source,
         official_path=contamination_sidecar_path,
         filename="contamination-tier-sidecar.json",
-        load=lambda path, digest: load_contamination_tier_sidecar(
-            path, expected_digest=digest
-        ).tier_by_model_id(),
+        load=_load_contamination_sidecar,
     )
-    result_classes = _merged_sidecar_overlay(
+    result_classes, supplementary_result_classes = _sidecar_overlays(
         official_source,
         supplementary_source,
         official_path=result_class_sidecar_path,
         filename="result-class-sidecar.json",
-        load=lambda path, digest: load_result_class_sidecar(
-            path, expected_digest=digest
-        ).result_class_by_model_id(),
+        load=_load_result_class_sidecar,
     )
     page = build_official_report_page(
         official_artifacts_dir=official_artifacts_dir,
@@ -299,6 +318,8 @@ def render_official_results_site(
         contamination_tiers=contamination_tiers,
         result_classes=result_classes,
         supplementary_bundle=supplementary_bundle,
+        supplementary_contamination_tiers=supplementary_contamination_tiers,
+        supplementary_result_classes=supplementary_result_classes,
     )
     _write_site(
         output_dir,
@@ -382,29 +403,32 @@ def _write_site(
     )
 
 
-def _merged_sidecar_overlay[OverlayValue: (ContaminationTier, ResultClass)](
+def _sidecar_overlays[OverlayValue: (ContaminationTier, ResultClass)](
     official: _SidecarSource,
     supplementary: _SidecarSource | None,
     *,
     official_path: Path | None,
     filename: str,
-    load: Callable[[Path, str], dict[str, OverlayValue]],
-) -> dict[str, OverlayValue] | None:
-    """Load one reporting sidecar per bundle and merge them for rendering.
+    load: Callable[[_SidecarSource, Path, str], dict[str, OverlayValue]],
+) -> tuple[dict[str, OverlayValue] | None, dict[str, OverlayValue] | None]:
+    """Load one reporting sidecar per bundle without collapsing identities.
 
     A sidecar is keyed to the frozen leaderboard bytes of its own bundle, so the
-    supplementary bundle needs its own file. Official entries win any collision:
-    a supplementary sidecar must never be able to restate an official row.
-    Returns ``None`` when neither sidecar exists, which renders unannotated.
+    supplementary bundle needs its own file. ``model_id`` is a display label and
+    may collide across bundles; keep each overlay attached to its source bundle.
+    A missing sidecar returns ``None`` for that bundle.
     """
 
-    def overlay(source: _SidecarSource, path: Path) -> dict[str, OverlayValue]:
+    def overlay(
+        source: _SidecarSource,
+        path: Path,
+    ) -> dict[str, OverlayValue] | None:
         if not path.is_file():
-            return {}
+            return None
         digest = frozen_result_digest(
             (source.artifacts_dir / "report" / "leaderboard.json").read_bytes()
         )
-        rows = load(path, digest)
+        rows = load(source, path, digest)
         # Refuse, rather than ignore, rows outside the sidecar's own bundle.
         # Winning the collision is not enough on its own: when the official
         # bundle ships no sidecar there is nothing to win against, so a
@@ -426,13 +450,143 @@ def _merged_sidecar_overlay[OverlayValue: (ContaminationTier, ResultClass)](
         official_path or (official.artifacts_dir / filename),
     )
     supplementary_overlay = (
-        {}
+        None
         if supplementary is None
-        else overlay(supplementary, supplementary.artifacts_dir / filename)
+        else overlay(
+            supplementary,
+            supplementary.artifacts_dir / filename,
+        )
     )
-    if not official_overlay and not supplementary_overlay:
+    return official_overlay, supplementary_overlay
+
+
+def _load_contamination_sidecar(
+    source: _SidecarSource,
+    path: Path,
+    digest: str,
+) -> dict[str, ContaminationTier]:
+    sidecar = load_contamination_tier_sidecar(path, expected_digest=digest)
+    tiers = sidecar.tier_by_model_id()
+    if _validate_contamination_provenance(source, sidecar):
+        return tiers
+    # A sidecar with no complete, indexed scored-date cohort cannot establish
+    # resistant eligibility. Keep it visible as a conservative preliminary
+    # annotation so every published model stays qualified.
+    model_ids = _bundle_model_ids(source.bundle)
+    return {
+        **{model_id: ContaminationTier.PRELIMINARY for model_id in model_ids},
+        # Preserve out-of-bundle keys long enough for _sidecar_overlays to
+        # reject them; they must never be silently discarded during fallback.
+        **{
+            model_id: tier
+            for model_id, tier in tiers.items()
+            if model_id not in model_ids
+        },
+    }
+
+
+def _load_result_class_sidecar(
+    source: _SidecarSource,
+    path: Path,
+    digest: str,
+) -> dict[str, ResultClass]:
+    sidecar = load_result_class_sidecar(path, expected_digest=digest)
+    return sidecar.result_class_by_model_id()
+
+
+def _authoritative_corpus_anchor(source: _SidecarSource) -> date | None:
+    """Return the earliest scored decision from indexed evidence.
+
+    The public aggregate does not put decision dates in ``unit-scores.jsonl``.
+    The existing baseline evidence is usable only when its case/unit identities
+    cover the complete scored set. A report classification, when retained, is
+    not used as cutoff evidence: it cannot substitute for a complete indexed
+    scored cohort because the aggregate validator does not authenticate that
+    generic report envelope. Missing or incomplete evidence returns ``None``;
+    malformed dates and conflicting duplicate dates remain hard failures.
+    """
+
+    bundle = source.bundle
+    baseline_path = source.artifacts_dir / "baseline-training-examples.jsonl"
+    if "baseline-training-examples.jsonl" not in bundle.artifact_paths:
         return None
-    return {**supplementary_overlay, **official_overlay}
+    if not baseline_path.is_file():
+        return None
+
+    scored_keys = {
+        (case_id, unit_id)
+        for record in bundle.unit_scores
+        if isinstance(case_id := record.get("case_id"), str)
+        and isinstance(unit_id := record.get("unit_id"), str)
+    }
+    if not scored_keys:
+        return None
+    decision_dates: dict[tuple[str, str], date] = {}
+    incomplete = False
+    for raw_record in read_jsonl_objects(
+        baseline_path,
+        error_factory=ValueError,
+        missing_message=lambda path: (
+            f"scored decision-date evidence is missing: {path}"
+        ),
+        non_object_message=lambda path, line: (
+            f"scored decision-date evidence line {line} must be an object: {path}"
+        ),
+    ):
+        record = cast(Mapping[str, Any], raw_record)
+        features = record.get("features")
+        if not isinstance(features, Mapping):
+            continue
+        features = cast(Mapping[str, Any], features)
+        case_id = features.get("case_id")
+        unit_id = features.get("unit_id")
+        raw_date = record.get("decision_date")
+        if not isinstance(case_id, str) or not isinstance(unit_id, str):
+            incomplete = True
+            continue
+        if raw_date is None or (isinstance(raw_date, str) and not raw_date.strip()):
+            incomplete = True
+            continue
+        if not isinstance(raw_date, str):
+            raise ValueError("scored decision-date evidence has an invalid date")
+        key = (case_id, unit_id)
+        try:
+            parsed = date.fromisoformat(raw_date)
+        except ValueError as error:
+            raise ValueError(
+                "scored decision-date evidence has a non-ISO date"
+            ) from error
+        prior = decision_dates.setdefault(key, parsed)
+        if prior != parsed:
+            raise ValueError(
+                "scored decision-date evidence has conflicting case/unit dates"
+            )
+    if set(decision_dates) != scored_keys:
+        return None
+    if incomplete:
+        return None
+    return min(decision_dates.values())
+
+
+def _validate_contamination_provenance(
+    source: _SidecarSource,
+    sidecar: ContaminationTierSidecar,
+) -> bool:
+    cycle_id = _first_str(source.bundle.report, ("cycle_id",))
+    if sidecar.cohort_id != cycle_id:
+        raise ValueError(
+            "contamination-tier sidecar cohort_id differs from frozen bundle "
+            f"cycle_id: {sidecar.cohort_id!r} != {cycle_id!r}"
+        )
+    earliest_decision = _authoritative_corpus_anchor(source)
+    if earliest_decision is None:
+        return False
+    if sidecar.contamination_boundary > earliest_decision:
+        raise ValueError(
+            "contamination-tier sidecar boundary is later than the earliest "
+            "scored decision in frozen result provenance"
+        )
+    return True
 
 
 def _bundle_model_ids(bundle: OfficialBundle) -> set[str]:

@@ -784,7 +784,11 @@ def _write_community_aggregate(tmp_path: Path) -> Path:
 SUPPLEMENTARY_MODEL_ID = "supp-model"
 
 
-def write_supplementary_report_fixture(tmp_path: Path) -> Path:
+def write_supplementary_report_fixture(
+    tmp_path: Path,
+    *,
+    include_baseline: bool = False,
+) -> Path:
     """A one-model post-anchor bundle that outscores every official model.
 
     The lower micro-Brier is deliberate: if supplementary rows could leak into
@@ -794,7 +798,7 @@ def write_supplementary_report_fixture(tmp_path: Path) -> Path:
 
     return write_official_report_fixture(
         tmp_path,
-        include_baseline=False,
+        include_baseline=include_baseline,
         model_probabilities={SUPPLEMENTARY_MODEL_ID: (0.9, 0.9, 0.1, 0.1, 0.1)},
         directory_name="supplementary",
     )
