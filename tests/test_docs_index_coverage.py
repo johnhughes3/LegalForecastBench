@@ -172,7 +172,7 @@ def test_reader_documentation_lives_under_docs() -> None:
         check=True,
     ).stdout.split("\0")
     tooling_files = {
-        "CLAUDE.md",
+        "AGENTS.md",
         ".agents/AGENTS.md",
         ".agents/context-capsule.md",
         "scripts/AGENTS.md",
