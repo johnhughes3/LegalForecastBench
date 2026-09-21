@@ -1,0 +1,29 @@
+[
+  {
+    "context_limit": 500000,
+    "display_name": "Grok 4.7 via Vercel AI Gateway",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "xAI reports a May 2026 knowledge cutoff at https://docs.x.ai/developers/grok-4-7, checked 2026-09-21. Month precision is preserved here; the date-only registry field remains unknown rather than inventing an exact day. This cutoff precedes the documented June 30-August 7 Cycle 1 decision window, but current date-granular eligibility code keeps the row qualified.",
+      "Official post-anchor entry for the ordinary agentic document-tool condition. Release date is provenance, not the training cutoff. This does not change the Grok 4.6 summaries used by the separate Jev experiment.",
+      "Gateway model spacexai/grok-4.7 is routed only to xai. No alternate served-model alias is accepted without live evidence. The stable model ID is not a dated immutable snapshot; live runtime readiness has not yet been demonstrated.",
+      "Gateway lists 500K shared context and output ceiling; this registry retains the benchmark managed-runtime output cap of 128K and high reasoning. https://vercel.com/ai-gateway/models/grok-4.7, checked 2026-09-21.",
+      "Pricing uses standard USD 2/M input and 6/M output from xAI, not the temporary Gateway USD 1.20/M and 3.60/M promotion ending September 27. Verify route-specific long-context tariffs before paid dispatch; no unverified surcharge is copied from Grok 4.6. Report actual provider costs when available.",
+      "Registration does not authorize a paid run or establish cutoff-eligible headline ranking. Source cutoff precision and exact scored-cohort dates must remain visible."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "spacexai/grok-4.7",
+    "model_version_or_snapshot": "spacexai/grok-4.7",
+    "network_disabled": true,
+    "output_token_price": 6.0,
+    "pricing_source": "https://docs.x.ai/developers/grok-4-7 (USD 2/M input and USD 6/M output standard rates), checked 2026-09-21",
+    "provider": "vercel_ai_gateway",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-09-21T00:00:00Z",
+    "release_timestamp_source": "https://x.ai/news/grok-4-7 (September 21, 2026 launch)",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]
