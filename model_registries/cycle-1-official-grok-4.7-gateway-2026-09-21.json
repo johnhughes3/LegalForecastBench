@@ -8,9 +8,14 @@
       "Official post-anchor entry for the ordinary agentic document-tool condition. Release date is provenance, not the training cutoff. This does not change the Grok 4.6 summaries used by the separate Jev experiment.",
       "Gateway model spacexai/grok-4.7 is routed only to xai. No alternate served-model alias is accepted without live evidence. The stable model ID is not a dated immutable snapshot; live runtime readiness has not yet been demonstrated.",
       "Gateway lists 500K shared context and output ceiling; this registry retains the benchmark managed-runtime output cap of 128K and high reasoning. https://vercel.com/ai-gateway/models/grok-4.7, checked 2026-09-21.",
-      "Pricing uses standard USD 2/M input and 6/M output from xAI, not the temporary Gateway USD 1.20/M and 3.60/M promotion ending September 27. Verify route-specific long-context tariffs before paid dispatch; no unverified surcharge is copied from Grok 4.6. Report actual provider costs when available.",
+      "Pricing reserves at standard USD 2/M input and 6/M output, above the temporary Gateway USD 1.20/M and 3.60/M promotion ending September 27. The live Gateway model catalog confirms 2x input and output prices from 200001 input tokens; this long-context surcharge is included. https://ai-gateway.vercel.sh/v1/models, checked 2026-09-21. Report actual provider costs when available.",
       "Registration does not authorize a paid run or establish cutoff-eligible headline ranking. Source cutoff precision and exact scored-cohort dates must remain visible."
     ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2.0,
+      "output_price_multiplier": 2.0,
+      "threshold_input_tokens": 200001
+    },
     "max_output_tokens": 128000,
     "model_id": "spacexai/grok-4.7",
     "model_version_or_snapshot": "spacexai/grok-4.7",
