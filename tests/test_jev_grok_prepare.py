@@ -111,7 +111,20 @@ def test_grok_gateway_summary_uses_xai_route_and_gateway_key(
 ) -> None:
     execution = _execution(tmp_path)
     factory = _FakeAgentFactory()
+    factory.usage = RequestUsage(input_tokens=10, output_tokens=15167)
+    reservations: list[dict[str, Any]] = []
+    reserve = prepare.conservative_reservation_microusd
+
+    def capture_reservation(**kwargs: Any) -> int:
+        reservations.append(kwargs)
+        return reserve(**kwargs)
+
     monkeypatch.setattr(prepare, "Agent", factory)
+    monkeypatch.setattr(
+        prepare,
+        "conservative_reservation_microusd",
+        capture_reservation,
+    )
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("AI_GATEWAY_API_KEY", "fixture-gateway-key")
 
@@ -142,6 +155,14 @@ def test_grok_gateway_summary_uses_xai_route_and_gateway_key(
     assert all(
         _model_settings(kwargs)["openai_reasoning_effort"] == "high"
         for kwargs in factory.kwargs
+    )
+    assert all(
+        _model_settings(kwargs)["max_tokens"] == 8192 for kwargs in factory.kwargs
+    )
+    assert reservations
+    assert {item["max_output_tokens"] for item in reservations} == {128000}
+    assert all(
+        item["context_limit"] - item["max_output_tokens"] > 0 for item in reservations
     )
     assert all(
         kwargs["instructions"] == prepare.SUMMARY_INSTRUCTIONS

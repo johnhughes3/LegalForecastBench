@@ -58,6 +58,7 @@ from .summaries import (
 )
 
 _UNBOUNDED_SUMMARY_BYTES = (1 << 63) - 1
+_SUMMARY_REQUEST_OUTPUT_TOKENS = 8192
 _LUNA_SUMMARY_ENTRY = ("openai", "gpt-5.6-luna")
 _GROK_SUMMARY_ENTRY = ("vercel_ai_gateway", "spacexai/grok-4.6")
 
@@ -244,14 +245,26 @@ def prepare_summaries(
                         "target_words": max(50, budget // 9),
                     }
                 ).decode("utf-8")
-                if len(prompt.encode("utf-8")) + 8192 > entry.context_limit:
+                if (
+                    len(prompt.encode("utf-8")) + _SUMMARY_REQUEST_OUTPUT_TOKENS
+                    > entry.context_limit
+                ):
                     raise ValueError(
                         f"document exceeds conservative {summary_label} input budget: "
                         f"{document.document_id}"
                     )
+                # The failed Grok run reported more output tokens than the
+                # request setting. Reserve against the frozen registry ceiling
+                # so accounting follows provider-reported usage safely.
+                reservation_output_tokens = (
+                    entry.max_output_tokens
+                    if (entry.provider, entry.model_id) == _GROK_SUMMARY_ENTRY
+                    else _SUMMARY_REQUEST_OUTPUT_TOKENS
+                )
                 reservation = conservative_reservation_microusd(
-                    context_limit=len(prompt.encode("utf-8")) + 8192,
-                    max_output_tokens=8192,
+                    context_limit=len(prompt.encode("utf-8"))
+                    + reservation_output_tokens,
+                    max_output_tokens=reservation_output_tokens,
                     input_token_price=entry.input_token_price,
                     output_token_price=entry.output_token_price,
                     long_context_surcharge=entry.long_context_surcharge,
