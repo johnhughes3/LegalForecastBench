@@ -18,6 +18,7 @@ _GATEWAY_ROUTE_PROVIDERS = {
     "meta/muse-spark-1.3": "meta",
     "meta/muse-spark-1.3-contributor": "meta",
     "spacexai/grok-4.6": "xai",
+    "spacexai/grok-4.7": "xai",
 }
 _MUSE_GATEWAY_MODEL_IDS = frozenset(
     {"meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor"}

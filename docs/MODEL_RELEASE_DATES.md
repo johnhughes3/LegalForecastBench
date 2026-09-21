@@ -18,6 +18,8 @@ The [additional comparison registry](../model_registries/cycle-1-official-held-m
 | Kimi K3 | Unknown | Reuses the existing DeepInfra configuration and its probe requirements; no verified cutoff claim. |
 | Muse Spark 1.3 | Unknown | Future runs use the [standard-tier Gateway registry](../model_registries/cycle-1-official-muse-spark-1.3-standard-2026-09-08.json). The contributor-tier run completed; standard-tier execution is not yet measured. [Meta announcement](https://research.meta.ai/blog/introducing-muse-spark-1-3). |
 
+[Grok 4.7](../model_registries/cycle-1-official-grok-4.7-gateway-2026-09-21.json) is an official post-anchor candidate using the ordinary Gateway document-tool condition. [xAI reports a May 2026 knowledge cutoff](https://docs.x.ai/developers/grok-4-7) and a [September 21 release](https://x.ai/news/grok-4-7). May precedes the documented cohort window, but the registry preserves month precision and remains qualified under the current date-only eligibility implementation. Live execution and served identity have not yet been verified. This entry does not change the Grok 4.6-to-Jev summary experiment.
+
 ## Current Pilot Registry
 
 | Provider | Model | Registry key | Release timestamp | Source |
