@@ -14,7 +14,7 @@
     "long_context_surcharge": {
       "input_price_multiplier": 2.0,
       "output_price_multiplier": 2.0,
-      "threshold_input_tokens": 200001
+      "threshold_input_tokens": 200000
     },
     "max_output_tokens": 128000,
     "model_id": "spacexai/grok-4.7",
