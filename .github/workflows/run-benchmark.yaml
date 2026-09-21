@@ -206,7 +206,7 @@ jobs:
           fi
       - name: Configure read-only public object access
         if: ${{ startsWith(inputs.manifest_uri, 's3://') || startsWith(inputs.forecast_release_uri, 's3://') || startsWith(inputs.artifact_root_uri, 's3://') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.jev_summaries_uri, 's3://') || startsWith(inputs.manifest_uri, 'manifests/') || startsWith(inputs.forecast_release_uri, 'manifests/') || startsWith(inputs.artifact_root_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 'manifests/') || startsWith(inputs.jev_summaries_uri, 'manifests/') }}
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ${{ env.LFB_AWS_REGION }}
           role-session-name: lfb-forecast-inputs-${{ github.run_id }}
@@ -616,7 +616,7 @@ jobs:
         with:
           enable-cache: true
       - name: Configure shared provider spend authority access
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ${{ env.LFB_AWS_REGION }}
           role-session-name: lfb-${{ github.run_id }}-${{ strategy.job-index }}
@@ -784,7 +784,7 @@ jobs:
       - name: Install native Anthropic managed runtime
         run: uv sync --locked --extra managed-anthropic
       - name: Configure shared provider spend authority access
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ${{ env.LFB_AWS_REGION }}
           role-session-name: lfb-${{ github.run_id }}-${{ strategy.job-index }}
@@ -950,7 +950,7 @@ jobs:
         with:
           enable-cache: true
       - name: Configure shared provider spend authority access
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ${{ env.LFB_AWS_REGION }}
           role-session-name: lfb-${{ github.run_id }}-${{ strategy.job-index }}
@@ -1117,7 +1117,7 @@ jobs:
         with:
           enable-cache: true
       - name: Configure shared provider spend authority access
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ${{ env.LFB_AWS_REGION }}
           role-session-name: lfb-${{ github.run_id }}-${{ strategy.job-index }}

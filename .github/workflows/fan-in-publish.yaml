@@ -402,7 +402,7 @@ jobs:
           PY
 
       - name: Configure protected fan-in storage access
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-labels-fan-in-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}
