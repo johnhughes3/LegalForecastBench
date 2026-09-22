@@ -143,11 +143,11 @@ def _gateway_response_metadata() -> dict[str, str]:
     }
 
 
-def _grok_gateway_response_metadata() -> dict[str, str]:
+def _grok_gateway_response_metadata(model_version: str = "4.6") -> dict[str, str]:
     return {
-        "original_model_id": "spacexai/grok-4.6",
+        "original_model_id": f"spacexai/grok-{model_version}",
         "resolved_provider": "xai",
-        "canonical_slug": "xai/grok-4.6",
+        "canonical_slug": f"xai/grok-{model_version}",
         "final_provider": "xai",
         "generation_id": "redacted-grok-generation-id",
         "cost_usd": "0.001",
@@ -186,32 +186,37 @@ def test_gateway_response_metadata_is_extracted_from_openai_compatible_envelope(
     assert managed_execution.gateway_response_metadata(cast(Any, response)) == metadata
 
 
-def test_gateway_grok_alias_preserves_request_and_route_identity() -> None:
-    metadata = _grok_gateway_response_metadata()
+@pytest.mark.parametrize("model_version", ["4.6", "4.7"])
+def test_gateway_grok_alias_preserves_request_and_route_identity(
+    model_version: str,
+) -> None:
+    metadata = _grok_gateway_response_metadata(model_version)
+    requested_model = f"spacexai/grok-{model_version}"
+    served_model = f"xai/grok-{model_version}"
     assert (
         managed_execution.gateway_normalize_model_identity(
-            "spacexai/grok-4.6", "xai/grok-4.6"
+            requested_model, served_model
         )
-        == "spacexai/grok-4.6"
+        == requested_model
     )
     assert (
         managed_execution.validate_gateway_metadata(
             metadata,
-            expected_model_id="spacexai/grok-4.6",
+            expected_model_id=requested_model,
             expected_provider="xai",
         )
         == metadata
     )
     with pytest.raises(ValueError, match="requested model"):
         managed_execution.validate_gateway_metadata(
-            {**metadata, "original_model_id": "xai/grok-4.6"},
-            expected_model_id="spacexai/grok-4.6",
+            {**metadata, "original_model_id": served_model},
+            expected_model_id=requested_model,
             expected_provider="xai",
         )
     with pytest.raises(ValueError, match="canonical model"):
         managed_execution.validate_gateway_metadata(
             {**metadata, "canonical_slug": "xai/grok-4.5"},
-            expected_model_id="spacexai/grok-4.6",
+            expected_model_id=requested_model,
             expected_provider="xai",
         )
 
