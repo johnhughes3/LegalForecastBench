@@ -25,9 +25,11 @@ _MUSE_GATEWAY_MODEL_IDS = frozenset(
 )
 _GATEWAY_MODEL_ALIASES = {
     # Gateway keeps the requested id in ``originalModelId`` but returns the
-    # provider's canonical slug for Grok 4.6.  This is the one verified
-    # served-identity alias; every other model remains exact-match only.
+    # provider's canonical slug for Grok 4.6 and 4.7.  These are the only
+    # verified served-identity aliases; every other model remains exact-match
+    # only.
     "spacexai/grok-4.6": frozenset({"xai/grok-4.6"}),
+    "spacexai/grok-4.7": frozenset({"xai/grok-4.7"}),
 }
 
 
