@@ -1183,7 +1183,10 @@
           "action": "store",
           "choices": [
             "jev",
-            "luna"
+            "luna",
+            "sol-6",
+            "luna-6",
+            "opus-5.5"
           ],
           "default": "jev",
           "dest": "predictor",
@@ -1199,6 +1202,7 @@
           "action": "store",
           "choices": [
             "none",
+            "low",
             "high"
           ],
           "default": null,

@@ -336,3 +336,67 @@ def test_luna_sdk_adapter_rejects_unexpected_served_model(
             {"OPENAI_API_KEY": "fixture-key"},
             entry,
         )
+
+
+@pytest.mark.parametrize(
+    ("predictor", "provider", "model_id", "effort"),
+    [
+        ("sol-6", "openai", "gpt-6-sol", "none"),
+        ("sol-6", "openai", "gpt-6-sol", "high"),
+        ("luna-6", "openai", "gpt-6-luna", "none"),
+        ("luna-6", "openai", "gpt-6-luna", "high"),
+        ("opus-5.5", "anthropic", "claude-opus-5-5", "low"),
+        ("opus-5.5", "anthropic", "claude-opus-5-5", "high"),
+    ],
+)
+def test_new_predictor_registry_keeps_summary_identity(
+    tmp_path: Path, predictor: str, provider: str, model_id: str, effort: str
+) -> None:
+    _, cache, _ = _fixture_with_luna_cache(tmp_path)
+    output = tmp_path / "registry.json"
+    assert (
+        main(
+            [
+                "jev",
+                "registry",
+                "--predictor",
+                predictor,
+                "--reasoning-effort",
+                effort,
+                "--summaries",
+                str(cache),
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    entry = load_model_registry(output).get(provider, model_id)
+    assert entry.reasoning_effort is not None
+    assert entry.reasoning_effort.value == effort
+    assert entry.jev_input_mode == "luna_summaries"
+    assert entry.jev_summaries_sha256
+    assert entry.tool_policy.value == "no_tools"
+    assert entry.max_output_tokens == 16000
+    assert model_id == entry.model_version_or_snapshot
+
+
+def test_opus_rejects_reasoning_off_before_registry_creation(tmp_path: Path) -> None:
+    _, cache, _ = _fixture_with_luna_cache(tmp_path)
+    output = tmp_path / "registry.json"
+    result = main(
+        [
+            "jev",
+            "registry",
+            "--predictor",
+            "opus-5.5",
+            "--reasoning-effort",
+            "none",
+            "--summaries",
+            str(cache),
+            "--output",
+            str(output),
+        ]
+    )
+    assert result != 0
+    assert not output.exists()

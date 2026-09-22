@@ -212,3 +212,14 @@ signal.pause()
         if writer.poll() is None:
             writer.kill()
             writer.wait(timeout=5.0)
+
+
+def test_anthropic_forecast_cell_receives_the_bound_summary_cache() -> None:
+    workflow = (ROOT / ".github/workflows/run-benchmark.yaml").read_text()
+    start = workflow.index("  run-anthropic:")
+    end = workflow.index("  run-gemini:", start)
+    assert (
+        "--jev-summaries /tmp/lfb-forecast-inputs/jev-summaries.json"
+        in workflow[start:end]
+    )
+    assert '"${unit_args[@]}" "${jev_args[@]}" --repeat-index' in workflow[start:end]

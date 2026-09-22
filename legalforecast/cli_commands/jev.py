@@ -32,6 +32,12 @@ _SUMMARY_MODELS: Mapping[str, tuple[str, str, str]] = {
     "luna": ("openai", "gpt-5.6-luna", "luna_summaries"),
     "grok": ("vercel_ai_gateway", "spacexai/grok-4.6", "grok_summaries"),
 }
+_PREDICTORS: Mapping[str, tuple[str, str, str]] = {
+    "luna": ("openai", "gpt-5.6-luna", "Luna"),
+    "sol-6": ("openai", "gpt-6-sol", "GPT-6 Sol"),
+    "luna-6": ("openai", "gpt-6-luna", "GPT-6 Luna"),
+    "opus-5.5": ("anthropic", "claude-opus-5-5", "Claude Opus 5.5"),
+}
 
 
 def _summary_model_config(summary_model: object) -> tuple[str, str, str]:
@@ -174,23 +180,23 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     )
     registry.add_argument(
         "--predictor",
-        choices=("jev", "luna"),
+        choices=("jev", *_PREDICTORS),
         default="jev",
         help=(
-            "One-shot predictor to freeze: Jev (default), or the bounded Luna "
+            "One-shot predictor to freeze: Jev (default), or a bounded "
             "summary comparator."
         ),
     )
     registry.add_argument(
         "--reasoning-effort",
-        choices=("none", "high"),
-        help="Luna comparator reasoning condition; required with --predictor luna.",
+        choices=("none", "low", "high"),
+        help="Comparator reasoning: OpenAI none/high; Opus 5.5 low/high (always on).",
     )
     registry.add_argument(
         "--predictor-registry",
         type=Path,
         help=(
-            "Existing registry containing the frozen openai:gpt-5.6-luna base "
+            "Existing registry containing the selected frozen predictor base "
             "entry used for comparator pricing and provenance."
         ),
     )
@@ -287,15 +293,15 @@ def run_registry(args: argparse.Namespace) -> int:
     _summary_provider, summary_model_id, summary_mode = _summary_model_config(
         summary_model
     )
-    if predictor == "luna":
+    if predictor in _PREDICTORS:
         if summary_model != "luna":
-            raise ValueError("the Luna comparator requires --summary-model luna")
+            raise ValueError("the summary comparator requires --summary-model luna")
         if reasoning_effort is None:
-            raise ValueError("--reasoning-effort is required when --predictor is luna")
+            raise ValueError("--reasoning-effort is required for a summary comparator")
         if provider != "typesafe":
             raise ValueError("--provider is only configurable for the Jev predictor")
     elif reasoning_effort is not None:
-        raise ValueError("--reasoning-effort requires --predictor luna")
+        raise ValueError("--reasoning-effort requires a summary comparator predictor")
 
     raw_summaries: bytes | None = None
     if path is not None:
@@ -311,16 +317,24 @@ def run_registry(args: argparse.Namespace) -> int:
             ).digest
         )
     )
-    if predictor == "luna":
+    if predictor in _PREDICTORS:
+        predictor_provider, predictor_model, predictor_label = _PREDICTORS[predictor]
         base_path = cast(Path | None, getattr(args, "predictor_registry", None))
         if base_path is None:
-            base_path = Path("model_registries/cycle-1-2026-06-30.json")
-        base_entry = load_model_registry(base_path).get("openai", "gpt-5.6-luna")
+            base_path = Path(
+                "model_registries/cycle-1-2026-06-30.json"
+                if predictor == "luna"
+                else "model_registries/summary-comparator-models-2026-09-22.json"
+            )
+        base_entry = load_model_registry(base_path).get(
+            predictor_provider, predictor_model
+        )
         record = base_entry.to_record()
         record.update(
             {
                 "display_name": (
-                    f"Luna (Luna summaries; one shot; reasoning {reasoning_effort})"
+                    f"{predictor_label} (Luna summaries; one shot; "
+                    f"reasoning {reasoning_effort})"
                 ),
                 "max_output_tokens": 16000,
                 "context_limit": 64000,
@@ -332,7 +346,7 @@ def run_registry(args: argparse.Namespace) -> int:
             }
         )
         # The comparator is intentionally bounded to the same summary context
-        # budget as Jev. Its standard Luna prices remain those of the frozen
+        # budget as Jev. Its standard prices remain those of the frozen
         # base entry; the base long-context surcharge cannot apply at 64K.
         record.pop("long_context_surcharge", None)
     else:
