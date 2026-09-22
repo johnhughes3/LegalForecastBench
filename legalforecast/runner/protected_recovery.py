@@ -29,12 +29,15 @@ from legalforecast.evals.provider_spend_dynamodb import (
 )
 
 AttributeMap = Mapping[str, Mapping[str, str]]
+CANCELLED_INFLIGHT_FAILURE_TYPE = "cancelled_inflight"
+_CANCELLED_INFLIGHT_MODEL_KEY = "vercel_ai_gateway:spacexai/grok-4.7"
 RecoveryDisposition = Literal[
     "completed",
     "replay_terminal",
     "settle_terminal",
     "reconcile_terminal",
     "adopt_pretransport",
+    "classify_cancelled_ambiguous",
     "reserve_replacement",
     "reserve_nonbillable_replacement",
     "authorize_on_dispatch",
@@ -58,6 +61,18 @@ class TerminalResponseEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class CancelledTransportEvidence:
+    """Exact completed source-job window for a cancelled transport attempt."""
+
+    source_run_id: int
+    source_run_attempt: int
+    job_id: int
+    cell_id: str
+    started_at_epoch: float
+    completed_at_epoch: float
+
+
+@dataclass(frozen=True, slots=True)
 class RecoveryCell:
     """Frozen local evidence for one exact benchmark cell."""
 
@@ -69,6 +84,7 @@ class RecoveryCell:
     local_attempt_id: str | None = None
     terminal_response: TerminalResponseEvidence | None = None
     evidence_error: str | None = None
+    cancelled_transport: CancelledTransportEvidence | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,6 +364,53 @@ def build_protected_recovery_plan(
                     held,
                 )
             )
+        elif status == "reserved" and "transport_started_at_epoch" in attempt:
+            evidence = cell.cancelled_transport
+            reason = (
+                f"cell {cell.cell_id}: remote attempt is reserved without "
+                "replayable terminal evidence"
+                if run.model_key != _CANCELLED_INFLIGHT_MODEL_KEY
+                else _cancelled_transport_error(run, cell, evidence)
+            )
+            transport_epoch = _float_number(attempt, "transport_started_at_epoch")
+            if (
+                reason is None
+                and evidence is not None
+                and evidence.started_at_epoch
+                <= transport_epoch
+                <= evidence.completed_at_epoch
+            ):
+                replacement_reservation = min(reservation_microusd, held)
+                projected += replacement_reservation
+                operations.append(
+                    RecoveryOperation(
+                        cell.cell_id,
+                        key.logical_call_key,
+                        "classify_cancelled_ambiguous",
+                        attempt_id,
+                        ordinal,
+                        held,
+                        CANCELLED_INFLIGHT_FAILURE_TYPE,
+                        failure_epoch=evidence.completed_at_epoch,
+                    )
+                )
+            else:
+                reason = reason or (
+                    f"cell {cell.cell_id}: remote transport timestamp is outside "
+                    "the exact cancelled job window"
+                )
+                blocked.append(reason)
+                operations.append(
+                    RecoveryOperation(
+                        cell.cell_id,
+                        key.logical_call_key,
+                        "blocked",
+                        attempt_id,
+                        ordinal,
+                        held,
+                        reason=reason,
+                    )
+                )
         elif status == "ambiguous":
             projected += min(reservation_microusd, held)
             operations.append(
@@ -487,6 +550,26 @@ def apply_protected_recovery(
                 output_tokens=terminal.output_tokens,
                 response_sha256=terminal.response_sha256,
             )
+    cancelled_operations = [
+        operation
+        for operation in plan.operations
+        if operation.disposition == "classify_cancelled_ambiguous"
+    ]
+    for operation in cancelled_operations:
+        authority.record_failure(
+            _lease(run, operation),
+            failure_type=CANCELLED_INFLIGHT_FAILURE_TYPE,
+            ambiguous=True,
+        )
+    if cancelled_operations:
+        plan = build_protected_recovery_plan(
+            run,
+            cells,
+            reservation_microusd=reservation_microusd,
+            runner=runner,
+        )
+        if not plan.dispatch_safe:
+            raise ProtectedRecoveryError("; ".join(plan.blocked_reasons))
     replacement_operations = [
         operation
         for operation in plan.operations
@@ -539,6 +622,43 @@ def apply_protected_recovery(
     return build_protected_recovery_plan(
         run, cells, reservation_microusd=reservation_microusd, runner=runner
     )
+
+
+def _cancelled_transport_error(
+    run: RecoveryRun,
+    cell: RecoveryCell,
+    evidence: CancelledTransportEvidence | None,
+) -> str | None:
+    if evidence is None:
+        return (
+            f"cell {cell.cell_id}: transport-started reservation lacks exact "
+            "cancelled job evidence"
+        )
+    if (
+        run.model_key != _CANCELLED_INFLIGHT_MODEL_KEY
+        or any(
+            type(value) is not int or value <= 0
+            for value in (
+                evidence.source_run_id,
+                evidence.source_run_attempt,
+                evidence.job_id,
+            )
+        )
+        or evidence.source_run_id != run.source_run_id
+        or evidence.source_run_attempt != run.source_run_attempt
+        or evidence.cell_id != cell.cell_id
+    ):
+        return f"cell {cell.cell_id}: cancelled job evidence identity differs"
+    if (
+        type(evidence.started_at_epoch) not in (int, float)
+        or type(evidence.completed_at_epoch) not in (int, float)
+        or not math.isfinite(evidence.started_at_epoch)
+        or not math.isfinite(evidence.completed_at_epoch)
+        or evidence.started_at_epoch <= 0
+        or evidence.completed_at_epoch < evidence.started_at_epoch
+    ):
+        return f"cell {cell.cell_id}: cancelled job time window is invalid"
+    return None
 
 
 def _lease(run: RecoveryRun, operation: RecoveryOperation) -> AttemptLease:

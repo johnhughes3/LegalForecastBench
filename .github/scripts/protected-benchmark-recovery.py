@@ -27,6 +27,7 @@ from legalforecast.evals.provider_spend_attempt_handler import (
 )
 from legalforecast.evals.provider_spend_dynamodb import AwsCliDynamoCommandRunner
 from legalforecast.release.consumer import load_forecast_run_inputs
+from legalforecast.runner.cancelled_recovery import attach_cancelled_transport_evidence
 from legalforecast.runner.ledger import RunnerLedger, RunValidationError
 from legalforecast.runner.managed_transcript_recovery import (
     managed_result_from_transcript,
@@ -271,6 +272,22 @@ def _load_evidence(
         recovery.get("completed_cells"), "completed cell count", zero=True
     ) != sum(cell.completed for cell in cells):
         raise SystemExit("recovery completed-cell census differs from artifacts")
+    if source.get("conclusion") == "cancelled":
+        client = GhRecoveryClient()
+        repo = _text(metadata.get("repo"), "repository")
+        expected = json.loads((inputs / "expected-cells.json").read_text())
+        if not isinstance(expected, list) or not all(
+            isinstance(item, dict) for item in expected
+        ):
+            raise SystemExit("cancelled recovery requires the frozen expected cells")
+        cells = attach_cancelled_transport_evidence(
+            run,
+            cells,
+            expected_cells=expected,
+            source_run=client.get_run(repo, run_id),
+            source_head_sha=_text(source.get("head_sha"), "source head SHA"),
+            jobs=client.list_attempt_jobs(repo, run_id, run_attempt),
+        )
     reservation = conservative_reservation_microusd(
         context_limit=entry.context_limit,
         max_output_tokens=entry.max_output_tokens,

@@ -88,6 +88,24 @@ class GhRecoveryClient:
             )
         return tuple(artifacts)
 
+    def list_attempt_jobs(
+        self, repo: str, run_id: int, run_attempt: int
+    ) -> tuple[Mapping[str, object], ...]:
+        endpoint = (
+            f"repos/{repo}/actions/runs/{run_id}/attempts/{run_attempt}"
+            "/jobs?per_page=100"
+        )
+        jobs: list[Mapping[str, object]] = []
+        for page in self._json_pages(endpoint):
+            values = page.get("jobs")
+            if not isinstance(values, list):
+                raise RecoveryError("GitHub attempt response has no jobs list")
+            jobs.extend(
+                recovery_object(item, "workflow job")
+                for item in cast(list[object], values)
+            )
+        return tuple(jobs)
+
     def download_artifact(self, repo: str, artifact_id: int) -> bytes:
         endpoint = f"repos/{repo}/actions/artifacts/{artifact_id}/zip"
         result = self._run_gh(
