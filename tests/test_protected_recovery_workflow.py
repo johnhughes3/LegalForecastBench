@@ -49,6 +49,8 @@ def test_recovery_persists_plan_and_result_before_dispatch() -> None:
     dispatch = RECOVERY.index("Dispatch canonical resumed benchmark")
 
     assert plan < apply < result < dispatch
+    # Apply refreshes source-job cancellation proof before mutating spend state.
+    assert "GH_TOKEN: ${{ github.token }}" in RECOVERY[apply:result]
     assert "protected-benchmark-recovery.py" in RECOVERY
     assert "--execute" in RECOVERY
     assert '"resume_sources"' in RECOVERY
