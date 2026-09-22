@@ -80,6 +80,14 @@ bd update <id> --claim  # Claim work atomically
 bd close <id>         # Complete work
 ```
 
+## Default benchmark versus Jev-style experiments
+
+**A request to benchmark a foundation model means the regular full-document agentic benchmark by default.** Use the managed document-tool harness over the locked dataset, with the same original prediction units and an appropriate reasoning level matching the prior comparison. GPT-6 Sol, GPT-6 Luna, and Opus 5.5 use high reasoning to match the prior GPT-5.6 Sol and Opus 5 tests; pin the effort explicitly when a newer model changes its provider default. Do not infer a summary condition merely because Jev was discussed earlier in the conversation.
+
+**Jev-style runs are a separate, explicitly requested experiment.** In a summary comparison, Jev itself or a small-model control such as GPT-6 Luna with reasoning disabled receives a saved summary packet in one request per case with no document tools. A requested reasoning-enabled one-shot variant remains a summary experiment, not an agentic benchmark. Preserve the exact summary cache, original units, and separate condition labels; report summary preparation costs and inference failures separately.
+
+Keep the configurations distinct: regular agentic registries use `controlled_docket_tool_only`, omit `jev_input_mode` and `jev_summaries_sha256`, and dispatch without `jev_summaries_uri`. Summary controls use `no_tools`, an explicit `jev_input_mode`, a frozen summary-cache binding, and the matching summary artifact. Use the clearly named `cycle-1-agentic-*` snapshots for new full-document comparisons and the `*-summaries-one-shot-*` snapshots only for explicit summary experiments. Reasoning effort alone does not select the harness. Verify the chosen registry and run type before dispatch; the same foundation model may legitimately have separate runs in both experiments.
+
 ## Resuming benchmark runs
 
 Use `uv run legalforecast run resume --github-run RUN_ID --ref main --max-parallel 8` to inspect a failed benchmark run. Add `--execute` to request protected recovery and dispatch. The command reconstructs the original inputs and budget identity from saved artifacts, preserves completed predictions, and uses current main for repaired execution code. Local planning needs only brokered GitHub access; AWS settlement and retry reservations run in the protected workflow. A ready local plan does not establish available provider credit or sufficient remaining AWS spend authority. Inspect the protected recovery result before claiming a resumed run has started; never release uncertain charges or increase the approved ceiling to force a retry.
