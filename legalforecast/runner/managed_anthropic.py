@@ -5,7 +5,11 @@ from typing import cast
 from pydantic_ai import ModelSettings
 from pydantic_ai.models import Model
 
-from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.evals.model_registry import (
+    ModelRegistryEntry,
+    OpenAIReasoningEffort,
+    ToolPolicy,
+)
 
 
 def anthropic_model(entry: ModelRegistryEntry, *, api_key: str | None) -> Model:
@@ -38,12 +42,28 @@ def anthropic_model_settings(
 
     from pydantic_ai.models.anthropic import AnthropicModelSettings
 
+    explicit_opus_effort = entry.reasoning_effort is not None
+    if explicit_opus_effort and not (
+        entry.provider.strip().lower() == "anthropic"
+        and entry.model_id == "claude-opus-5-5"
+        and entry.reasoning_effort is OpenAIReasoningEffort.HIGH
+        and entry.jev_input_mode is None
+        and entry.tool_policy is ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY
+    ):
+        raise ValueError(
+            "Explicit Anthropic managed effort is supported only for agentic "
+            "claude-opus-5-5 at high effort"
+        )
+
+    settings = AnthropicModelSettings(
+        max_tokens=entry.max_output_tokens,
+        anthropic_thinking={"type": "adaptive"},
+        anthropic_cache=True,
+        parallel_tool_calls=False,
+    )
+    if explicit_opus_effort:
+        cast(dict[str, object], settings)["anthropic_effort"] = "high"
     return cast(
         ModelSettings,
-        AnthropicModelSettings(
-            max_tokens=entry.max_output_tokens,
-            anthropic_thinking={"type": "adaptive"},
-            anthropic_cache=True,
-            parallel_tool_calls=False,
-        ),
+        settings,
     )

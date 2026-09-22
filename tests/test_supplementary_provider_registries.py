@@ -240,3 +240,37 @@ def _first_record(path: Path) -> dict[str, Any]:
     record = payload[0]
     assert isinstance(record, dict)
     return dict(record)
+
+
+@pytest.mark.parametrize("model_id", ["gpt-6-sol", "gpt-6-luna", "claude-opus-5-5"])
+def test_new_foundation_models_use_agentic_high_not_jev_summaries(
+    model_id: str,
+) -> None:
+    from legalforecast.jev.luna import is_luna_comparator
+
+    entry = load_model_registry(
+        REGISTRY_DIR / f"cycle-1-agentic-{model_id}-high-2026-09-22.json"
+    ).entries[0]
+    assert entry.tool_policy.value == "controlled_docket_tool_only"
+    assert entry.reasoning_effort is not None
+    assert entry.reasoning_effort.value == "high"
+    assert entry.max_output_tokens == OFFICIAL_PARITY_MAX_OUTPUT_TOKENS
+    assert entry.jev_input_mode is None
+    assert entry.jev_summaries_sha256 is None
+    assert not is_luna_comparator(entry)
+    assert entry.search_disabled and entry.network_disabled
+
+
+def test_small_luna_summary_control_remains_distinct_from_agentic_luna() -> None:
+    from legalforecast.jev.luna import is_luna_comparator
+
+    entry = load_model_registry(
+        REGISTRY_DIR / "cycle-1-luna-6-luna-summaries-one-shot-none-2026-09-22.json"
+    ).entries[0]
+    assert entry.model_id == "gpt-6-luna"
+    assert entry.reasoning_effort is not None
+    assert entry.reasoning_effort.value == "none"
+    assert entry.tool_policy.value == "no_tools"
+    assert entry.jev_input_mode == "luna_summaries"
+    assert entry.jev_summaries_sha256 is not None
+    assert is_luna_comparator(entry)

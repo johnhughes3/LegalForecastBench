@@ -94,14 +94,16 @@ def _google_entry() -> ModelRegistryEntry:
     return ModelRegistryEntry.from_record(record)
 
 
-def _anthropic_entry(model_id: str = "claude-fable-5-1") -> ModelRegistryEntry:
+def _anthropic_entry(
+    model_id: str = "claude-fable-5-1", *, reasoning_effort: str | None = None
+) -> ModelRegistryEntry:
     record = _entry().to_record()
     record.update(
         {
             "provider": "anthropic",
             "model_id": model_id,
             "model_version_or_snapshot": model_id,
-            "reasoning_effort": None,
+            "reasoning_effort": reasoning_effort,
             "thinking_level": None,
             "input_token_price": 10.0,
             "output_token_price": 50.0,
@@ -711,11 +713,21 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
 
 
 @pytest.mark.parametrize(
-    "model_id", ["claude-fable-5-1", "claude-opus-5", "claude-sonnet-5"]
+    ("model_id", "reasoning_effort"),
+    [
+        ("claude-fable-5-1", None),
+        ("claude-opus-5", None),
+        ("claude-sonnet-5", None),
+        ("claude-opus-5-5", "high"),
+    ],
 )
 @pytest.mark.parametrize("max_tokens", [16000, 128000])
 def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, max_tokens: int, model_id: str
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    max_tokens: int,
+    model_id: str,
+    reasoning_effort: str | None,
 ) -> None:
     """Exercise the real Anthropic adapter through a provider-free HTTP transport."""
 
@@ -854,8 +866,16 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    entry = replace(
+        _anthropic_entry(model_id, reasoning_effort=reasoning_effort),
+        max_output_tokens=max_tokens,
+    )
+    assert managed_execution.uses_managed_document_tools(entry)
+    from legalforecast.jev.luna import is_luna_comparator
+
+    assert not is_luna_comparator(entry)
     result = run_managed_tool_agent(
-        replace(_anthropic_entry(model_id), max_output_tokens=max_tokens),
+        entry,
         initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
         required_unit_ids=("unit-a",),
         executor=_Executor(),
@@ -879,6 +899,10 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
             "disable_parallel_tool_use": True,
         }
         assert request["output_config"]["format"]["type"] == "json_schema"
+        if reasoning_effort is None:
+            assert "effort" not in request["output_config"]
+        else:
+            assert request["output_config"]["effort"] == reasoning_effort
         assert "final_result" not in {tool["name"] for tool in request["tools"]}
         assert {tool["name"] for tool in request["tools"]} == {
             "bash",
@@ -959,9 +983,20 @@ class _ReplayHandler(_AttemptHandler):
 
 
 @pytest.mark.parametrize("with_cache_evidence", [False, True])
+@pytest.mark.parametrize(
+    ("model_id", "reasoning_effort", "default_effort"),
+    [
+        ("claude-fable-5-1", None, "provider_default_high"),
+        ("claude-opus-5-5", "high", None),
+        ("claude-opus-5-5", None, "provider_default_medium"),
+    ],
+)
 def test_fable_managed_cell_uses_anthropic_key_and_metadata(
     monkeypatch: pytest.MonkeyPatch,
     with_cache_evidence: bool,
+    model_id: str,
+    reasoning_effort: str | None,
+    default_effort: str | None,
 ) -> None:
     raw_output = (
         '{"case_assessment":"Assessment","predictions":['
@@ -973,7 +1008,7 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
             "request_count": 2,
             "input_tokens": 80,
             "output_tokens": 10,
-            "served_model": "claude-fable-5-1",
+            "served_model": model_id,
             "finish_reason": "stop",
             "service_tier": "unreported",
             "called_tools": ["read"],
@@ -993,7 +1028,7 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
     )
 
     response = managed_execution.complete_managed_tool_cell(
-        _anthropic_entry(),
+        _anthropic_entry(model_id, reasoning_effort=reasoning_effort),
         handler=cast(Any, handler),
         managed_case=ManagedCaseInput(
             case_id="case-1",
@@ -1028,10 +1063,14 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
     assert response.estimated_cost == pytest.approx(0.0013)
     assert response.metadata is not None
     assert response.metadata["provider"] == "anthropic"
-    assert response.metadata["served_model_version"] == "claude-fable-5-1"
+    assert response.metadata["served_model_version"] == model_id
     assert response.metadata["service_tier"] == "unreported"
     assert response.metadata["requested_thinking_type"] == "adaptive"
-    assert response.metadata["provider_reasoning_effort"] == "provider_default_high"
+    if default_effort is None:
+        assert response.metadata["requested_reasoning_effort"] == "high"
+        assert "provider_reasoning_effort" not in response.metadata
+    else:
+        assert response.metadata["provider_reasoning_effort"] == default_effort
     assert response.metadata["response_finish_reason"] == "stop"
     assert handler.settlement == (80, 10, 0.0013, raw_output)
     if with_cache_evidence:

@@ -1,0 +1,28 @@
+[
+  {
+    "cache_read_token_price": 0.2,
+    "cache_write_token_price": 5.0,
+    "context_limit": 1000000,
+    "display_name": "Claude Opus 5.5 (agentic; high reasoning)",
+    "input_token_price": 4.0,
+    "known_cutoff_publicity_caveats": [
+      "Provider reports a June 2026 training-data cutoff without an exact day; exact training cutoff is left unknown.",
+      "Regular Cycle 1 agentic document-tool condition over the full locked document set, with high reasoning and provider-default sampling. No Jev summary cache or one-shot comparator mode is used.",
+      "Post-anchor model with an unestablished exact training cutoff; report contamination eligibility separately from benchmark completion.",
+      "Adaptive thinking with explicit high effort matches the prior Opus 5 high reasoning posture; the newer model default is not used."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "claude-opus-5-5",
+    "model_version_or_snapshot": "claude-opus-5-5",
+    "network_disabled": true,
+    "output_token_price": 20.0,
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing: Opus 5.5 standard USD4/M input, USD20/M output, USD0.20/M cache read, USD5/M five-minute cache write; no long-context premium. Checked 2026-09-22.",
+    "provider": "anthropic",
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-09-22T00:00:00Z",
+    "release_timestamp_source": "https://platform.claude.com/docs/en/models/opus-5-5/overview, release date September 22, 2026.",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]
