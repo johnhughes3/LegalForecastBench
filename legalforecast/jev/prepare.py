@@ -56,6 +56,7 @@ from .summaries import (
     DocumentSummary,
     SummaryCache,
 )
+from .summary_recovery import recover_saved_overrun
 
 _UNBOUNDED_SUMMARY_BYTES = (1 << 63) - 1
 _SUMMARY_REQUEST_OUTPUT_TOKENS = 8192
@@ -127,6 +128,7 @@ def prepare_summaries(
     cache_path: Path,
     ledger_path: Path,
     ceiling_microusd: int,
+    reconcile_saved_overrun: bool = False,
 ) -> dict[str, int]:
     """Summarize each whole document once, persisting progress and spend."""
 
@@ -140,6 +142,14 @@ def prepare_summaries(
         )
     if type(ceiling_microusd) is not int or ceiling_microusd <= 0:
         raise ValueError("ceiling_microusd must be a positive integer")
+    if reconcile_saved_overrun:
+        recover_saved_overrun(
+            execution,
+            entry=entry,
+            cache_path=cache_path,
+            ledger_path=ledger_path,
+            ceiling_microusd=ceiling_microusd,
+        )
     summary_label = (
         "Luna" if (entry.provider, entry.model_id) == _LUNA_SUMMARY_ENTRY else "Grok"
     )

@@ -31,6 +31,27 @@ on:
         required: false
         default: false
         type: boolean
+      reconcile_saved_overrun:
+        description: Reconcile a saved Grok output overrun against the unchanged cache and spending ceiling before resuming.
+        required: false
+        default: false
+        type: boolean
+      predictor:
+        description: Predictor for the frozen one-shot summary condition.
+        required: false
+        default: jev
+        type: choice
+        options:
+          - jev
+          - luna
+      predictor_reasoning:
+        description: Reasoning effort for the single-request Luna comparator.
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - high
       summary_model:
         description: Model used to summarize every selected document.
         required: false
@@ -76,6 +97,8 @@ jobs:
       CEILING: ${{ inputs.ceiling_microusd }}
       SUMMARY_MODEL: ${{ inputs.summary_model }}
       JEV_PROVIDER: ${{ inputs.jev_provider }}
+      PREDICTOR: ${{ inputs.predictor }}
+      PREDICTOR_REASONING: ${{ inputs.predictor_reasoning }}
       SUMMARY_REGISTRY: ${{ inputs.summary_registry_path || inputs.luna_registry_path }}
     steps:
       - name: Checkout exact origin/main
@@ -111,6 +134,12 @@ jobs:
           test -f "${SUMMARY_REGISTRY}"
           [[ "${SUMMARY_MODEL}" == "luna" || "${SUMMARY_MODEL}" == "grok" ]] || { echo "unsupported summary model" >&2; exit 1; }
           [[ "${JEV_PROVIDER}" == "typesafe" || "${JEV_PROVIDER}" == "vercel_ai_gateway" ]] || { echo "unsupported Jev route" >&2; exit 1; }
+          [[ "${PREDICTOR}" == "jev" || "${PREDICTOR}" == "luna" ]] || { echo "unsupported predictor" >&2; exit 1; }
+          [[ "${PREDICTOR_REASONING}" == "none" || "${PREDICTOR_REASONING}" == "high" ]] || { echo "unsupported predictor reasoning" >&2; exit 1; }
+          if [[ "${PREDICTOR}" == "luna" && "${SUMMARY_MODEL}" != "luna" ]]; then
+            echo "the Luna comparator requires the Luna summary condition" >&2
+            exit 1
+          fi
           if [[ -n "${PRIOR_SUMMARY_ARTIFACT_ID}" || -n "${PRIOR_SUMMARY_RUN_ID}" ]]; then
             [[ "${PRIOR_SUMMARY_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
             [[ "${PRIOR_SUMMARY_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
@@ -296,16 +325,23 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ inputs.summary_model == 'luna' && secrets.OPENAI_API_KEY || '' }}
           AI_GATEWAY_API_KEY: ${{ inputs.summary_model == 'grok' && secrets.AI_GATEWAY_API_KEY || '' }}
-        run: >-
-          uv run legalforecast jev prepare
-          --manifest /tmp/lfb-jev-inputs/run-manifest.json
-          --forecast /tmp/lfb-jev-inputs/forecast-release.json
-          --artifact-root /tmp/lfb-jev-inputs/artifacts
-          --summary-registry "$SUMMARY_REGISTRY"
-          --summary-model "$SUMMARY_MODEL"
-          --cache /tmp/lfb-jev-summary/jev-summaries.json
-          --ledger /tmp/lfb-jev-summary/summary-spend.sqlite3
-          --ceiling-microusd "$CEILING"
+          RECONCILE_SAVED_OVERRUN: ${{ inputs.reconcile_saved_overrun }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          recovery_args=()
+          if [[ "$RECONCILE_SAVED_OVERRUN" == "true" ]]; then
+            recovery_args=(--reconcile-saved-overrun)
+          fi
+          uv run legalforecast jev prepare \
+            --manifest /tmp/lfb-jev-inputs/run-manifest.json \
+            --forecast /tmp/lfb-jev-inputs/forecast-release.json \
+            --artifact-root /tmp/lfb-jev-inputs/artifacts \
+            --summary-registry "$SUMMARY_REGISTRY" \
+            --summary-model "$SUMMARY_MODEL" \
+            --cache /tmp/lfb-jev-summary/jev-summaries.json \
+            --ledger /tmp/lfb-jev-summary/summary-spend.sqlite3 \
+            --ceiling-microusd "$CEILING" "${recovery_args[@]}"
 
       - name: Verify complete prior cache for registry-only freeze
         if: ${{ inputs.registry_only }}
@@ -359,12 +395,18 @@ jobs:
 
       - name: Freeze the Jev model registry
         if: ${{ success() }}
-        run: >-
-          uv run legalforecast jev registry
-          --summary-model "$SUMMARY_MODEL"
-          --provider "$JEV_PROVIDER"
-          --summaries /tmp/lfb-jev-summary/jev-summaries.json
-          --output /tmp/lfb-jev-summary/model-registry.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          predictor_args=(--provider "$JEV_PROVIDER")
+          if [[ "$PREDICTOR" == "luna" ]]; then
+            predictor_args=(--reasoning-effort "$PREDICTOR_REASONING")
+          fi
+          uv run legalforecast jev registry \
+            --predictor "$PREDICTOR" "${predictor_args[@]}" \
+            --summary-model "$SUMMARY_MODEL" \
+            --summaries /tmp/lfb-jev-summary/jev-summaries.json \
+            --output /tmp/lfb-jev-summary/model-registry.json
 
       - name: Checkpoint the resumable SQLite ledger
         id: checkpoint-summary-ledger

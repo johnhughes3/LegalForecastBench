@@ -764,10 +764,11 @@ def execute_release_run(
                             },
                             "parser_output": public_parser_record(parsed),
                         }
-                        _add_cost_evidence(receipt, response.metadata)
+                        _add_cost_evidence(receipt, metadata)
                         if entry.jev_input_mode is not None:
-                            receipt["execution_condition"] = (
-                                f"jev_{entry.jev_input_mode}"
+                            receipt["execution_condition"] = metadata.get(
+                                "execution_condition",
+                                f"jev_{entry.jev_input_mode}",
                             )
                             receipt["jev_summaries_sha256"] = entry.jev_summaries_sha256
                             receipt["served_model_version"] = metadata[

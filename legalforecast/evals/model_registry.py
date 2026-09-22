@@ -288,13 +288,37 @@ class ModelRegistryEntry:
                 self.cache_write_token_price, "cache_write_token_price"
             )
         if self.jev_input_mode is not None:
+            luna_comparator = (
+                self.provider == "openai" and self.model_id == "gpt-5.6-luna"
+            )
+            if luna_comparator and (
+                self.tool_policy is not ToolPolicy.NO_TOOLS
+                or self.jev_input_mode != "luna_summaries"
+                or self.reasoning_effort
+                not in {
+                    OpenAIReasoningEffort.NONE,
+                    OpenAIReasoningEffort.HIGH,
+                }
+            ):
+                raise ValueError(
+                    "Luna Jev comparison requires no tools, Luna summaries, "
+                    "and reasoning_effort none or high"
+                )
             if (
-                self.provider not in {"vercel_ai_gateway", "typesafe"}
+                (
+                    not luna_comparator
+                    and self.provider not in {"vercel_ai_gateway", "typesafe"}
+                )
                 or (
-                    self.provider == "vercel_ai_gateway"
+                    not luna_comparator
+                    and self.provider == "vercel_ai_gateway"
                     and self.model_id != "typesafe-ai/jev"
                 )
-                or (self.provider == "typesafe" and self.model_id != "jev-1.13.0")
+                or (
+                    not luna_comparator
+                    and self.provider == "typesafe"
+                    and self.model_id != "jev-1.13.0"
+                )
                 or self.tool_policy is not ToolPolicy.NO_TOOLS
                 or self.jev_input_mode
                 not in {"full_text", "luna_summaries", "grok_summaries"}

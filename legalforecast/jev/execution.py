@@ -33,6 +33,7 @@ from legalforecast.evals.response_verification import verify_provider_response
 from legalforecast.immutable_io import read_single_link_file
 from legalforecast.release import ForecastExecution, ForecastPredictionUnit
 
+from .luna import complete_luna_cell, is_luna_comparator
 from .packets import (
     case_documents,
     case_request,
@@ -102,13 +103,19 @@ def build_jev_case_input(
             summaries[document.document_id] = summary.text
     elif entry.jev_input_mode != "full_text" or summaries_path is not None:
         raise ValueError("invalid Jev input mode or unexpected summary cache")
+    # The comparator receives the same Boolean Jev state/questions packet. The
+    # transport model/provider fields are stripped before the PydanticAI call.
+    packet_provider = (
+        "vercel_ai_gateway" if is_luna_comparator(entry) else entry.provider
+    )
+    packet_model = "typesafe-ai/jev" if is_luna_comparator(entry) else entry.model_id
     request = case_request(
         units,
         documents,
         summaries=summaries,
         record_representation=entry.jev_input_mode,
-        provider=entry.provider,
-        model_id=entry.model_id,
+        provider=packet_provider,
+        model_id=packet_model,
     )
     require_request_fits(request, total_token_limit=entry.context_limit)
     return JevCaseInput(request, tuple(u.unit_id for u in units))
@@ -287,6 +294,17 @@ def complete_jev_cell(
     registry_sha256: str,
 ) -> SolverResponse:
     """Return the first native evaluation, retrying only rejected HTTP 429s."""
+
+    if is_luna_comparator(entry):
+        return complete_luna_cell(
+            entry,
+            handler=handler,
+            case=case,
+            transport=transport,
+            request_body_observer=request_body_observer,
+            environ=environ,
+            registry_sha256=registry_sha256,
+        )
 
     values = environ if environ is not None else os.environ
     direct_typesafe = entry.provider.strip().casefold() == "typesafe"
