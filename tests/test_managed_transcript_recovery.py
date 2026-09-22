@@ -168,17 +168,17 @@ def _gateway_metadata() -> dict[str, str]:
     }
 
 
-def _grok_gateway_entry() -> ModelRegistryEntry:
-    record = _gateway_entry("spacexai/grok-4.6").to_record()
+def _grok_gateway_entry(model_version: str = "4.6") -> ModelRegistryEntry:
+    record = _gateway_entry(f"spacexai/grok-{model_version}").to_record()
     record.update({"reasoning_effort": "high", "thinking_level": None})
     return ModelRegistryEntry.from_record(record)
 
 
-def _grok_gateway_metadata() -> dict[str, str]:
+def _grok_gateway_metadata(model_version: str = "4.6") -> dict[str, str]:
     return {
-        "original_model_id": "spacexai/grok-4.6",
+        "original_model_id": f"spacexai/grok-{model_version}",
         "resolved_provider": "xai",
-        "canonical_slug": "xai/grok-4.6",
+        "canonical_slug": f"xai/grok-{model_version}",
         "final_provider": "xai",
         "generation_id": "redacted-grok-generation-id",
         "cost_usd": "0.001",
@@ -522,6 +522,14 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             "failed",
             0.002,
             id="grok-post-response-validation-failure",
+        ),
+        pytest.param(
+            _grok_gateway_entry("4.7"),
+            "xai/grok-4.7",
+            _grok_gateway_metadata("4.7"),
+            "failed",
+            0.002,
+            id="grok47-post-response-validation-failure",
         ),
     ],
 )
