@@ -705,7 +705,8 @@ jobs:
           done
           set +e
           unit_args=(); if [[ -n "${UNIT_ID}" ]]; then unit_args=(--unit-id "${UNIT_ID}"); fi
-          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" "${unit_args[@]}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
+          jev_args=(); if [[ -f /tmp/lfb-forecast-inputs/jev-summaries.json ]]; then jev_args=(--jev-summaries /tmp/lfb-forecast-inputs/jev-summaries.json); fi
+          uv run legalforecast run execute --manifest /tmp/lfb-forecast-inputs/run-manifest.json --forecast /tmp/lfb-forecast-inputs/forecast-release.json --artifact-root /tmp/lfb-forecast-inputs/artifacts --model-registry /tmp/lfb-forecast-inputs/model-registry.json --model-key "${MODEL_KEY}" --cell-id "${CELL_ID}" "${unit_args[@]}" "${jev_args[@]}" --repeat-index "${REPEAT_INDEX}" --ablation "${ABLATION}" --ledger /tmp/lfb-run/ledger.sqlite3 --receipts-dir /tmp/lfb-run/receipts --ceiling-microusd "${CEILING_MICROUSD}" --account "${ACCOUNT}" --provider-authority-table "${PROVIDER_AUTHORITY_TABLE}" --provider-authority-region "${PROVIDER_AUTHORITY_REGION}" --provider-authority-resource-identity-sha256 "${PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" > /tmp/lfb-run/run-summary.json 2>&1
           status=$?
           set -e
           uv run python - "${status}" <<'PY'

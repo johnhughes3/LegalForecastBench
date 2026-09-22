@@ -70,7 +70,18 @@ def test_jev_workflow_runs_the_release_bound_prepare_and_registry_commands() -> 
     assert "--ledger /tmp/lfb-jev-summary/summary-spend.sqlite3" in WORKFLOW
     assert '--ceiling-microusd "$CEILING"' in WORKFLOW
     assert "uv run legalforecast jev registry" in WORKFLOW
+    assert '--predictor "$PREDICTOR"' in WORKFLOW
+    assert '--reasoning-effort "$PREDICTOR_REASONING"' in WORKFLOW
     assert "--output /tmp/lfb-jev-summary/model-registry.json" in WORKFLOW
+
+
+def test_luna_forecast_cell_receives_the_bound_summary_cache() -> None:
+    workflow = (ROOT / ".github/workflows/run-benchmark.yaml").read_text()
+    start = workflow.index("      - name: Execute exact OpenAI forecast cell")
+    end = workflow.index("      - name:", start + 10)
+    step = workflow[start:end]
+    assert "--jev-summaries /tmp/lfb-forecast-inputs/jev-summaries.json" in step
+    assert '"${unit_args[@]}" "${jev_args[@]}" --repeat-index' in step
 
 
 def test_jev_workflow_resumes_both_cache_and_sqlite_ledger() -> None:
