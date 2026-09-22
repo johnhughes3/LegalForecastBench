@@ -2290,9 +2290,9 @@
         "largest_symbol": "InMemoryDynamoRunner",
         "largest_symbol_lines": 156,
         "layer": "test",
-        "line_count": 2206,
-        "nonblank_line_count": 1941,
-        "top_level_definition_count": 63
+        "line_count": 2420,
+        "nonblank_line_count": 2137,
+        "top_level_definition_count": 71
       },
       "tests/test_public_runner.py": {
         "cycle_id": "",

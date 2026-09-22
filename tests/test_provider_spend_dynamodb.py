@@ -34,6 +34,8 @@ from legalforecast.evals.provider_spend_dynamodb import (
     DynamoDbProviderSpendAuthority,
 )
 from legalforecast.runner.protected_recovery import (
+    CANCELLED_INFLIGHT_FAILURE_TYPE,
+    CancelledTransportEvidence,
     ProtectedRecoveryError,
     RecoveryCell,
     RecoveryRun,
@@ -2038,6 +2040,7 @@ def _authority(
     cap_microusd: int = 1_000_000,
     max_billable_attempts: int = 3,
     failure_threshold: int = 3,
+    provider: str = "openai",
     clock: Callable[[], float] | None = None,
     authority_identity_sha256: str | None = None,
     resource_identity_sha256: str | None = None,
@@ -2049,7 +2052,7 @@ def _authority(
         ),
         resource_identity_sha256=resource_identity_sha256,
         cycle_id="cycle-1",
-        provider="openai",
+        provider=provider,
         account="primary-account-alias",
         cap_microusd=cap_microusd,
         policy=FrozenAttemptPolicy(
@@ -2152,15 +2155,27 @@ def _recovery_run(*, cap_microusd: int) -> RecoveryRun:
     )
 
 
+def _grok_recovery_run(*, cap_microusd: int) -> RecoveryRun:
+    return replace(
+        _recovery_run(cap_microusd=cap_microusd),
+        provider="vercel_ai_gateway",
+        model_key="vercel_ai_gateway:spacexai/grok-4.7",
+    )
+
+
 def _recovery_authority(
     runner: InMemoryDynamoRunner,
     recovery: RecoveryRun,
+    *,
+    clock: Callable[[], float] | None = None,
 ) -> DynamoDbProviderSpendAuthority:
     return _authority(
         runner,
         cap_microusd=recovery.ceiling_microusd,
         max_billable_attempts=1,
         failure_threshold=8,
+        provider=recovery.provider,
+        clock=clock,
         authority_identity_sha256=recovery.authority_identity_sha256,
         resource_identity_sha256=recovery.resource_identity_sha256,
     )
@@ -2172,6 +2187,7 @@ def _recovery_cell(
     attempt_id: str | None = None,
     terminal: TerminalResponseEvidence | None = None,
     completed: bool = False,
+    cancelled_transport: CancelledTransportEvidence | None = None,
 ) -> RecoveryCell:
     return RecoveryCell(
         cell_id=cell_id,
@@ -2181,6 +2197,7 @@ def _recovery_cell(
         completed=completed,
         local_attempt_id=attempt_id,
         terminal_response=terminal,
+        cancelled_transport=cancelled_transport,
     )
 
 
@@ -2204,3 +2221,200 @@ def _set_failure_events(
 
 
 _TABLE_ARN = "arn:aws:dynamodb:us-east-1:123456789012:table/authority-table"
+
+
+def test_cancelled_inflight_recovery_retains_hold_and_is_idempotent() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _grok_recovery_run(cap_microusd=500)
+    authority = _recovery_authority(runner, recovery)
+    cell = _recovery_cell("cancelled")
+    original = authority.authorize_attempt(
+        recovery.spend_key(cell), reservation_microusd=100
+    )
+    authority.mark_transport_started(original)
+    attempt_key = f"ATTEMPT#{original.logical_call_key}#0001"
+    marker = float(runner.items[attempt_key]["transport_started_at_epoch"]["N"])
+    evidence = CancelledTransportEvidence(
+        recovery.source_run_id,
+        recovery.source_run_attempt,
+        job_id=987654321,
+        cell_id=cell.cell_id,
+        started_at_epoch=marker - 1,
+        completed_at_epoch=marker + 1,
+    )
+    cells = (_recovery_cell("cancelled", cancelled_transport=evidence),)
+
+    recovered = apply_protected_recovery(
+        recovery, cells, reservation_microusd=100, runner=runner
+    )
+    mutations = sum(
+        operation in {"put-item", "transact-write-items"}
+        for operation, _payload in runner.calls
+    )
+    second = apply_protected_recovery(
+        recovery, cells, reservation_microusd=100, runner=runner
+    )
+
+    assert recovered.dispatch_safe and second == recovered
+    assert recovered.committed_microusd == 200
+    assert recovered.operations[0].disposition == "adopt_pretransport"
+    assert (
+        sum(
+            operation in {"put-item", "transact-write-items"}
+            for operation, _payload in runner.calls
+        )
+        == mutations
+    )
+    assert runner.items["LEDGER"]["committed_microusd"] == _n(200)
+    assert runner.items["LEDGER"]["attempt_count"] == _n(2)
+    assert runner.items[attempt_key]["status"] == _s("ambiguous")
+    assert runner.items[attempt_key]["failure_type"] == _s(
+        CANCELLED_INFLIGHT_FAILURE_TYPE
+    )
+    assert runner.items[attempt_key]["reservation_microusd"] == _n(100)
+    assert runner.items[f"ATTEMPT#{original.logical_call_key}#0002"]["status"] == _s(
+        "reserved"
+    )
+
+
+@pytest.mark.parametrize(
+    "mismatch", ("missing", "run", "attempt", "cell", "early", "late", "window")
+)
+def test_cancelled_inflight_recovery_rejects_bad_evidence(mismatch: str) -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _grok_recovery_run(cap_microusd=500)
+    authority = _recovery_authority(runner, recovery)
+    cell = _recovery_cell("cancelled")
+    lease = authority.authorize_attempt(
+        recovery.spend_key(cell), reservation_microusd=100
+    )
+    authority.mark_transport_started(lease)
+    attempt = runner.items[f"ATTEMPT#{lease.logical_call_key}#0001"]
+    marker = float(attempt["transport_started_at_epoch"]["N"])
+    evidence: CancelledTransportEvidence | None = CancelledTransportEvidence(
+        recovery.source_run_id,
+        recovery.source_run_attempt,
+        job_id=987654321,
+        cell_id=cell.cell_id,
+        started_at_epoch=marker - 1,
+        completed_at_epoch=marker + 1,
+    )
+    if mismatch == "missing":
+        evidence = None
+    elif mismatch == "run" and evidence is not None:
+        evidence = replace(evidence, source_run_id=recovery.source_run_id + 1)
+    elif mismatch == "attempt" and evidence is not None:
+        evidence = replace(evidence, source_run_attempt=recovery.source_run_attempt + 1)
+    elif mismatch == "cell" and evidence is not None:
+        evidence = replace(evidence, cell_id="different-cell")
+    elif mismatch == "early" and evidence is not None:
+        evidence = replace(evidence, completed_at_epoch=marker - 0.1)
+    elif mismatch == "late" and evidence is not None:
+        evidence = replace(evidence, started_at_epoch=marker + 0.1)
+    elif mismatch == "window" and evidence is not None:
+        evidence = replace(
+            evidence,
+            started_at_epoch=marker + 1,
+            completed_at_epoch=marker - 1,
+        )
+    before = deepcopy(runner.items)
+
+    plan = build_protected_recovery_plan(
+        recovery,
+        (_recovery_cell("cancelled", cancelled_transport=evidence),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+
+    assert not plan.dispatch_safe and plan.operations[0].disposition == "blocked"
+    assert plan.blocked_reasons and runner.items == before
+    assert runner.items[f"ATTEMPT#{lease.logical_call_key}#0001"]["status"] == _s(
+        "reserved"
+    )
+    assert runner.items["LEDGER"]["committed_microusd"] == _n(100)
+
+
+def test_cancelled_inflight_recovery_prechecks_replacement_cap() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _grok_recovery_run(cap_microusd=150)
+    authority = _recovery_authority(runner, recovery)
+    cell = _recovery_cell("cancelled")
+    lease = authority.authorize_attempt(
+        recovery.spend_key(cell), reservation_microusd=100
+    )
+    authority.mark_transport_started(lease)
+    marker = float(
+        runner.items[f"ATTEMPT#{lease.logical_call_key}#0001"][
+            "transport_started_at_epoch"
+        ]["N"]
+    )
+    evidence = CancelledTransportEvidence(
+        recovery.source_run_id,
+        recovery.source_run_attempt,
+        job_id=987654321,
+        cell_id=cell.cell_id,
+        started_at_epoch=marker - 1,
+        completed_at_epoch=marker + 1,
+    )
+
+    plan = build_protected_recovery_plan(
+        recovery,
+        (_recovery_cell("cancelled", cancelled_transport=evidence),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+
+    assert not plan.dispatch_safe and plan.projected_committed_microusd == 200
+    assert "only 50 remain" in plan.blocked_reasons[0]
+    assert runner.items[f"ATTEMPT#{lease.logical_call_key}#0001"]["status"] == _s(
+        "reserved"
+    )
+    assert runner.items["LEDGER"]["committed_microusd"] == _n(100)
+
+
+def test_cancelled_inflight_evidence_cannot_replace_newer_live_attempt() -> None:
+    runner = InMemoryDynamoRunner()
+    recovery = _grok_recovery_run(cap_microusd=500)
+    ticks = iter((100.0, 101.0, 102.0, 103.0, 104.0))
+    authority = _recovery_authority(runner, recovery, clock=lambda: next(ticks))
+    cell = _recovery_cell("cancelled")
+    original = authority.authorize_attempt(
+        recovery.spend_key(cell), reservation_microusd=100
+    )
+    authority.mark_transport_started(original)
+    authority.record_failure(original, failure_type="TimeoutError", ambiguous=True)
+    ledger = runner.items["LEDGER"]
+    authority.authorize_additional_attempt(
+        recovery.spend_key(cell),
+        reservation_microusd=100,
+        acknowledged_attempt_id=original.attempt_id,
+        acknowledged_failure_type="TimeoutError",
+        acknowledged_failure_events_sha256=ledger["failure_events_sha256"]["S"],
+        acknowledged_attempt_ordinal=1,
+        owner_reference="test-recovery",
+    )
+    latest = authority.adopt_pretransport_attempt(recovery.spend_key(cell))
+    authority.mark_transport_started(latest)
+    before = deepcopy(runner.items)
+    evidence = CancelledTransportEvidence(
+        recovery.source_run_id,
+        recovery.source_run_attempt,
+        job_id=987654321,
+        cell_id=cell.cell_id,
+        started_at_epoch=100.75,
+        completed_at_epoch=101.25,
+    )
+
+    plan = build_protected_recovery_plan(
+        recovery,
+        (_recovery_cell("cancelled", cancelled_transport=evidence),),
+        reservation_microusd=100,
+        runner=runner,
+    )
+
+    assert not plan.dispatch_safe and plan.operations[0].disposition == "blocked"
+    assert "outside the exact cancelled job window" in plan.blocked_reasons[0]
+    assert runner.items == before
+    assert runner.items[f"ATTEMPT#{latest.logical_call_key}#0002"]["status"] == _s(
+        "reserved"
+    )
