@@ -6,17 +6,19 @@ import json
 import math
 import os
 from collections.abc import Callable, Mapping
-from typing import Protocol, cast
+from typing import Literal, Protocol, cast
 from urllib.request import Request
 
 from openai import AsyncOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_ai import Agent, AgentRetries, NativeOutput
+from pydantic_ai.models import Model
 from pydantic_ai.models.openai import (
     OpenAIResponsesModel,
     OpenAIResponsesModelSettings,
 )
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
@@ -27,7 +29,10 @@ from legalforecast.evals.live_model_solver import (
     _estimated_cost,  # pyright: ignore[reportPrivateUsage]
     default_live_model_transport,
 )
-from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.evals.model_registry import (
+    SUMMARY_COMPARATOR_MODELS,
+    ModelRegistryEntry,
+)
 from legalforecast.evals.provider_spend_attempt_handler import (
     ProviderSpendAttemptHandler,
 )
@@ -58,13 +63,68 @@ class _LunaEnvelope(BaseModel):
 
 
 def is_luna_comparator(entry: ModelRegistryEntry) -> bool:
-    """Return whether an entry is the bounded Luna summary comparator."""
+    """Return whether an entry uses a supported summary comparator model."""
 
     return (
-        entry.provider == "openai"
-        and entry.model_id == "gpt-5.6-luna"
-        and entry.jev_input_mode == "luna_summaries"
+        entry.jev_input_mode == "luna_summaries"
+        and (entry.provider, entry.model_id) in SUMMARY_COMPARATOR_MODELS
     )
+
+
+def _sdk_model_and_settings(
+    entry: ModelRegistryEntry,
+    *,
+    api_key: str,
+) -> tuple[Model, ModelSettings]:
+    """Build the provider-native one-shot model settings for a comparator."""
+
+    effort = entry.reasoning_effort
+    if effort is None:
+        raise ValueError("Summary comparator registry must pin reasoning_effort")
+    if entry.provider == "openai":
+        model = OpenAIResponsesModel(
+            entry.model_id,
+            provider=OpenAIProvider(
+                openai_client=AsyncOpenAI(api_key=api_key, max_retries=0)
+            ),
+        )
+        settings = OpenAIResponsesModelSettings(
+            max_tokens=entry.max_output_tokens,
+            timeout=900,
+            openai_service_tier="flex",
+            openai_reasoning_effort=effort.value,
+        )
+        return model, settings
+    if entry.provider == "anthropic":
+        from anthropic import AsyncAnthropic
+        from pydantic_ai.models.anthropic import (
+            AnthropicModel,
+            AnthropicModelSettings,
+        )
+        from pydantic_ai.providers.anthropic import AnthropicProvider
+
+        if effort.value not in {"low", "high"}:
+            raise ValueError("Claude Opus 5.5 supports low or high comparison effort")
+        client = AsyncAnthropic(api_key=api_key, max_retries=0)
+        model = AnthropicModel(
+            entry.model_id,
+            provider=AnthropicProvider(anthropic_client=client),
+        )
+        settings = AnthropicModelSettings(
+            max_tokens=entry.max_output_tokens,
+            timeout=900,
+            anthropic_thinking={"type": "adaptive"},
+            anthropic_effort=cast(Literal["low", "high"], effort.value),
+        )
+        return model, settings
+    raise ValueError("Summary comparator provider is unsupported")
+
+
+def _execution_condition(entry: ModelRegistryEntry, effort: str) -> str:
+    if entry.provider == "openai" and entry.model_id == "gpt-5.6-luna":
+        return f"luna_summary_comparator_reasoning_{effort}"
+    model_label = entry.model_id.replace("-", "_").replace(".", "_")
+    return f"{entry.provider}_{model_label}_summary_comparator_reasoning_{effort}"
 
 
 def _sdk_call(
@@ -72,8 +132,10 @@ def _sdk_call(
     values: Mapping[str, str],
     entry: ModelRegistryEntry,
 ) -> Mapping[str, object]:
-    """Make exactly one native structured PydanticAI request for Luna."""
+    """Make one native structured PydanticAI summary comparator request."""
 
+    if not is_luna_comparator(entry):
+        raise ValueError("Model registry entry is not a supported summary comparator")
     request = json.loads(body)
     if not isinstance(request, dict):
         raise ValueError("Luna comparator request must be an object")
@@ -84,9 +146,13 @@ def _sdk_call(
         raise ValueError("Luna comparator request must contain state and questions")
     state = cast(dict[str, object], raw_state)
     questions = cast(dict[str, object], raw_questions)
-    api_key = values.get("OPENAI_API_KEY", "")
+    api_key_name = {
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+    }[entry.provider]
+    api_key = values.get(api_key_name, "")
     if not api_key.strip():
-        raise ValueError("OPENAI_API_KEY is required")
+        raise ValueError(f"{api_key_name} is required")
     effort = entry.reasoning_effort
     if effort is None:
         raise ValueError("Luna comparator registry must pin reasoning_effort")
@@ -97,44 +163,38 @@ def _sdk_call(
         "probability_fully_dismissed between 0 and 1. Do not add rationale or "
         "use tools.\n\n" + ARTIFACT_CANONICAL_JSON_V1.encode(packet).decode("utf-8")
     )
+    model, model_settings = _sdk_model_and_settings(
+        entry,
+        api_key=api_key,
+    )
     agent = Agent(
-        OpenAIResponsesModel(
-            entry.model_id,
-            provider=OpenAIProvider(
-                openai_client=AsyncOpenAI(api_key=api_key, max_retries=0)
-            ),
-        ),
+        model,
         output_type=NativeOutput(_LunaEnvelope),
         instructions=(
             "The state and questions are the complete pre-decision record. "
             "Answer every question exactly once in the original unit ids."
         ),
         retries=AgentRetries(output=0, tools=0),
-        model_settings=OpenAIResponsesModelSettings(
-            max_tokens=entry.max_output_tokens,
-            timeout=900,
-            openai_service_tier="flex",
-            openai_reasoning_effort=effort.value,
-        ),
+        model_settings=model_settings,
     )
     try:
         result = agent.run_sync(prompt, usage_limits=UsageLimits(request_limit=1))
     except BaseException as exc:
         raise LiveModelProviderError(
-            "Luna comparator PydanticAI request failed",
+            "Summary comparator PydanticAI request failed",
             retryable=False,
         ) from exc
     usage = result.usage
     if usage.requests != 1:
-        raise ValueError("Luna comparator must make exactly one model request")
+        raise ValueError("Summary comparator must make exactly one model request")
     output = result.output
     response = result.response
     served_model = response.model_name
     if not isinstance(served_model, str) or not served_model.strip():
-        raise ValueError("Luna comparator response omitted the served model")
+        raise ValueError("Summary comparator response omitted the served model")
     if served_model != entry.model_id:
         raise ValueError(
-            "Luna comparator response model differs from the frozen registry: "
+            "Summary comparator response model differs from the frozen registry: "
             f"expected {entry.model_id!r}, got {served_model!r}"
         )
     usage_fields = (
@@ -164,6 +224,10 @@ def _sdk_call(
         "provider_response_id": response.provider_response_id,
         "provider_details": response.provider_details or {},
     }
+    provider_metadata = TypeAdapter(dict[str, object]).dump_python(
+        provider_metadata,
+        mode="json",
+    )
     return {
         "model": served_model,
         "predictions": [
@@ -224,15 +288,23 @@ def complete_luna_cell(
     environ: Mapping[str, str] | None,
     registry_sha256: str,
 ) -> SolverResponse:
-    """Run one no-tools Luna comparator request and settle its spend attempt."""
+    """Run one no-tools summary comparator request and settle its spend attempt."""
 
     values = environ if environ is not None else os.environ
+    if not is_luna_comparator(entry):
+        raise ValueError("Model registry entry is not a supported summary comparator")
+    api_key_name = {
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+    }.get(entry.provider)
+    if api_key_name is None:
+        raise ValueError("Summary comparator provider is unsupported")
     if (
         handler.replayable_response is None
         and transport is default_live_model_transport
-        and not values.get("OPENAI_API_KEY", "").strip()
+        and not values.get(api_key_name, "").strip()
     ):
-        raise ValueError("OPENAI_API_KEY is required")
+        raise ValueError(f"{api_key_name} is required")
     request = dict(case.request)
     request.pop("providerOptions", None)
     request["model"] = entry.model_id
@@ -249,10 +321,12 @@ def complete_luna_cell(
             if isinstance(provider, dict):
                 provider_metadata.update(cast(dict[str, object], provider))
             return payload
-        return transport(
-            Request("https://api.openai.com/v1/responses", data=body),
-            120.0,
+        provider_url = (
+            "https://api.openai.com/v1/responses"
+            if entry.provider == "openai"
+            else "https://api.anthropic.com/v1/messages"
         )
+        return transport(Request(provider_url, data=body), 120.0)
 
     def reserved_call() -> Mapping[str, object]:
         request_body_observer(body)
@@ -282,12 +356,16 @@ def complete_luna_cell(
             raise ValueError("Luna comparator token usage is invalid")
         if payload.get("model") != entry.model_id:
             raise ValueError("Luna response model differs from the frozen registry")
+        case_assessment = (
+            "Luna estimated probabilities from the Jev summary packet; "
+            "no generated rationale."
+            if entry.provider == "openai" and entry.model_id == "gpt-5.6-luna"
+            else "Summary comparator estimated probabilities from the Jev packet; "
+            "no generated rationale."
+        )
         raw_output = ARTIFACT_CANONICAL_JSON_V1.encode(
             {
-                "case_assessment": (
-                    "Luna estimated probabilities from the Jev summary packet; "
-                    "no generated rationale."
-                ),
+                "case_assessment": case_assessment,
                 "predictions": predictions,
             }
         ).decode("utf-8")
@@ -325,15 +403,13 @@ def complete_luna_cell(
             "served_model_version": served_model,
             "model_registry_sha256": registry_sha256,
             "execution_backend": "pydantic_ai",
-            "execution_condition": f"luna_summary_comparator_reasoning_{effort}",
+            "execution_condition": _execution_condition(entry, effort),
             "provider_attempt_count": "1",
             "rate_limit_rejections": "0",
             "requested_reasoning_effort": effort,
             "cost_basis": "estimated_from_pricing_snapshot",
             "cost_method": cost_method,
             "rate_provenance": entry.pricing_source,
-            "service_tier": observed_tier,
-            "requested_service_tier": "flex",
             "response_usage_details": json.dumps([usage], sort_keys=True),
             "provider_metadata": json.dumps(
                 raw_provider_metadata,
@@ -342,6 +418,9 @@ def complete_luna_cell(
             ),
             **verification.to_metadata(),
         }
+        if entry.provider == "openai":
+            metadata["service_tier"] = observed_tier
+            metadata["requested_service_tier"] = "flex"
     except BaseException as exc:
         handler.record_post_response_failure(ordinal, failure_type=type(exc).__name__)
         raise

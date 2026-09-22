@@ -12,6 +12,15 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, cast
 
+SUMMARY_COMPARATOR_MODELS = frozenset(
+    {
+        ("openai", "gpt-5.6-luna"),
+        ("openai", "gpt-6-sol"),
+        ("openai", "gpt-6-luna"),
+        ("anthropic", "claude-opus-5-5"),
+    }
+)
+
 
 class TrainingCutoffStatus(StrEnum):
     """Whether a model's provider training cutoff is known."""
@@ -270,7 +279,13 @@ class ModelRegistryEntry:
             _require_non_negative(self.temperature, "temperature")
         if self.top_p is not None:
             _require_between(self.top_p, "top_p", lower=0, upper=1)
-        if self.reasoning_effort is not None:
+        summary_comparator = (
+            self.jev_input_mode is not None
+            and (self.provider, self.model_id) in SUMMARY_COMPARATOR_MODELS
+        )
+        if self.reasoning_effort is not None and not (
+            summary_comparator and self.provider == "anthropic"
+        ):
             _require_supported_reasoning_effort(self.provider, self.reasoning_effort)
         if self.thinking_level is not None and self.provider.strip().lower() not in {
             "google",
@@ -288,34 +303,32 @@ class ModelRegistryEntry:
                 self.cache_write_token_price, "cache_write_token_price"
             )
         if self.jev_input_mode is not None:
-            luna_comparator = (
-                self.provider == "openai" and self.model_id == "gpt-5.6-luna"
+            comparator_efforts = (
+                {OpenAIReasoningEffort.LOW, OpenAIReasoningEffort.HIGH}
+                if self.provider == "anthropic"
+                else {OpenAIReasoningEffort.NONE, OpenAIReasoningEffort.HIGH}
             )
-            if luna_comparator and (
+            if summary_comparator and (
                 self.tool_policy is not ToolPolicy.NO_TOOLS
                 or self.jev_input_mode != "luna_summaries"
-                or self.reasoning_effort
-                not in {
-                    OpenAIReasoningEffort.NONE,
-                    OpenAIReasoningEffort.HIGH,
-                }
+                or self.reasoning_effort not in comparator_efforts
             ):
                 raise ValueError(
-                    "Luna Jev comparison requires no tools, Luna summaries, "
-                    "and reasoning_effort none or high"
+                    "Summary comparison requires no tools, Luna summaries, "
+                    "and reasoning none/high (OpenAI) or low/high (Opus 5.5)"
                 )
             if (
                 (
-                    not luna_comparator
+                    not summary_comparator
                     and self.provider not in {"vercel_ai_gateway", "typesafe"}
                 )
                 or (
-                    not luna_comparator
+                    not summary_comparator
                     and self.provider == "vercel_ai_gateway"
                     and self.model_id != "typesafe-ai/jev"
                 )
                 or (
-                    not luna_comparator
+                    not summary_comparator
                     and self.provider == "typesafe"
                     and self.model_id != "jev-1.13.0"
                 )

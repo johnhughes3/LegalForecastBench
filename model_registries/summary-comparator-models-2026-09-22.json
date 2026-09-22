@@ -1,0 +1,71 @@
+[
+  {
+    "context_limit": 64000,
+    "display_name": "GPT-6 Sol",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "Provider reports an April 20, 2026 knowledge cutoff, not an explicitly documented training-data cutoff; exact training cutoff is left unknown.",
+      "Summary comparison uses the original frozen GPT-5.6 Luna summaries and Jev questions, one request, no tools, 64000-token admission and 16000 output tokens.",
+      "Standard input/output rates estimate uncached usage. Cache-read discounts and cache-write premiums are not applied; usage and pricing provenance remain visible.",
+      "OpenAI Flex is requested and is documented at half standard rates; the standard-rate estimate is not a claim of actual invoiced cost."
+    ],
+    "max_output_tokens": 16000,
+    "model_id": "gpt-6-sol",
+    "model_version_or_snapshot": "gpt-6-sol",
+    "network_disabled": true,
+    "output_token_price": 10.0,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-6-sol; standard USD 2.0/M input, USD 10.0/M output; checked 2026-09-22.",
+    "provider": "openai",
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-09-22T00:00:00Z",
+    "release_timestamp_source": "https://developers.openai.com/api/docs/changelog, release date September 22, 2026.",
+    "search_disabled": true,
+    "tool_policy": "no_tools"
+  },
+  {
+    "context_limit": 64000,
+    "display_name": "GPT-6 Luna",
+    "input_token_price": 0.1,
+    "known_cutoff_publicity_caveats": [
+      "Provider reports a May 18, 2026 knowledge cutoff, not an explicitly documented training-data cutoff; exact training cutoff is left unknown.",
+      "Summary comparison uses the original frozen GPT-5.6 Luna summaries and Jev questions, one request, no tools, 64000-token admission and 16000 output tokens.",
+      "Standard input/output rates estimate uncached usage. Cache-read discounts and cache-write premiums are not applied; usage and pricing provenance remain visible.",
+      "OpenAI Flex is requested and is documented at half standard rates; the standard-rate estimate is not a claim of actual invoiced cost."
+    ],
+    "max_output_tokens": 16000,
+    "model_id": "gpt-6-luna",
+    "model_version_or_snapshot": "gpt-6-luna",
+    "network_disabled": true,
+    "output_token_price": 0.5,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-6-luna; standard USD 0.1/M input, USD 0.5/M output; checked 2026-09-22.",
+    "provider": "openai",
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-09-22T00:00:00Z",
+    "release_timestamp_source": "https://developers.openai.com/api/docs/changelog, release date September 22, 2026.",
+    "search_disabled": true,
+    "tool_policy": "no_tools"
+  },
+  {
+    "context_limit": 64000,
+    "display_name": "Claude Opus 5.5",
+    "input_token_price": 4.0,
+    "known_cutoff_publicity_caveats": [
+      "Provider reports a June 2026 training-data cutoff without an exact day; exact training cutoff is left unknown.",
+      "Summary comparison uses the original frozen GPT-5.6 Luna summaries and Jev questions, one request, no tools, 64000-token admission and 16000 output tokens.",
+      "Standard input/output rates estimate uncached usage. Cache-read discounts and cache-write premiums are not applied; usage and pricing provenance remain visible.",
+      "Adaptive thinking is always on. Low/high comparisons must not be described as reasoning off/on."
+    ],
+    "max_output_tokens": 16000,
+    "model_id": "claude-opus-5-5",
+    "model_version_or_snapshot": "claude-opus-5-5",
+    "network_disabled": true,
+    "output_token_price": 20.0,
+    "pricing_source": "https://platform.claude.com/docs/en/models/opus-5-5/overview; standard USD 4.0/M input, USD 20.0/M output; checked 2026-09-22.",
+    "provider": "anthropic",
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-09-22T00:00:00Z",
+    "release_timestamp_source": "https://platform.claude.com/docs/en/models/opus-5-5/overview, release date September 22, 2026.",
+    "search_disabled": true,
+    "tool_policy": "no_tools"
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "context_limit": 64000,
+    "display_name": "Claude Opus 5.5 (Luna summaries; one shot; reasoning low)",
+    "input_token_price": 4.0,
+    "jev_input_mode": "luna_summaries",
+    "jev_summaries_sha256": "34af6ac7239f706976ed7cee91a44a9aecb24a0a4b3f8a9c1373e5d794f64bca",
+    "known_cutoff_publicity_caveats": [
+      "Provider reports a June 2026 training-data cutoff without an exact day; exact training cutoff is left unknown.",
+      "Summary comparison uses the original frozen GPT-5.6 Luna summaries and Jev questions, one request, no tools, 64000-token admission and 16000 output tokens.",
+      "Standard input/output rates estimate uncached usage. Cache-read discounts and cache-write premiums are not applied; usage and pricing provenance remain visible.",
+      "Adaptive thinking is always on. Low/high comparisons must not be described as reasoning off/on."
+    ],
+    "max_output_tokens": 16000,
+    "model_id": "claude-opus-5-5",
+    "model_version_or_snapshot": "claude-opus-5-5",
+    "network_disabled": true,
+    "output_token_price": 20.0,
+    "pricing_source": "https://platform.claude.com/docs/en/models/opus-5-5/overview; standard USD 4.0/M input, USD 20.0/M output; checked 2026-09-22.",
+    "provider": "anthropic",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "low",
+    "release_timestamp": "2026-09-22T00:00:00Z",
+    "release_timestamp_source": "https://platform.claude.com/docs/en/models/opus-5-5/overview, release date September 22, 2026.",
+    "search_disabled": true,
+    "tool_policy": "no_tools"
+  }
+]

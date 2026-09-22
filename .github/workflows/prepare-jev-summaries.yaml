@@ -44,13 +44,17 @@ on:
         options:
           - jev
           - luna
+          - sol-6
+          - luna-6
+          - opus-5.5
       predictor_reasoning:
-        description: Reasoning effort for the single-request Luna comparator.
+        description: "Comparator effort: OpenAI none/high; Opus 5.5 low/high (always on)."
         required: false
         default: none
         type: choice
         options:
           - none
+          - low
           - high
       summary_model:
         description: Model used to summarize every selected document.
@@ -134,10 +138,18 @@ jobs:
           test -f "${SUMMARY_REGISTRY}"
           [[ "${SUMMARY_MODEL}" == "luna" || "${SUMMARY_MODEL}" == "grok" ]] || { echo "unsupported summary model" >&2; exit 1; }
           [[ "${JEV_PROVIDER}" == "typesafe" || "${JEV_PROVIDER}" == "vercel_ai_gateway" ]] || { echo "unsupported Jev route" >&2; exit 1; }
-          [[ "${PREDICTOR}" == "jev" || "${PREDICTOR}" == "luna" ]] || { echo "unsupported predictor" >&2; exit 1; }
-          [[ "${PREDICTOR_REASONING}" == "none" || "${PREDICTOR_REASONING}" == "high" ]] || { echo "unsupported predictor reasoning" >&2; exit 1; }
-          if [[ "${PREDICTOR}" == "luna" && "${SUMMARY_MODEL}" != "luna" ]]; then
-            echo "the Luna comparator requires the Luna summary condition" >&2
+          [[ "${PREDICTOR}" =~ ^(jev|luna|sol-6|luna-6|opus-5\.5)$ ]] || { echo "unsupported predictor" >&2; exit 1; }
+          [[ "${PREDICTOR_REASONING}" =~ ^(none|low|high)$ ]] || { echo "unsupported predictor reasoning" >&2; exit 1; }
+          if [[ "${PREDICTOR}" != "jev" && "${SUMMARY_MODEL}" != "luna" ]]; then
+            echo "summary comparators require the Luna summary condition" >&2
+            exit 1
+          fi
+          if [[ "${PREDICTOR}" == "opus-5.5" && "${PREDICTOR_REASONING}" == "none" ]]; then
+            echo "Opus 5.5 reasoning is always on; select low or high" >&2
+            exit 1
+          fi
+          if [[ "${PREDICTOR}" =~ ^(luna|sol-6|luna-6)$ && "${PREDICTOR_REASONING}" == "low" ]]; then
+            echo "OpenAI summary comparisons require none or high" >&2
             exit 1
           fi
           if [[ -n "${PRIOR_SUMMARY_ARTIFACT_ID}" || -n "${PRIOR_SUMMARY_RUN_ID}" ]]; then
@@ -399,7 +411,7 @@ jobs:
         run: |
           set -euo pipefail
           predictor_args=(--provider "$JEV_PROVIDER")
-          if [[ "$PREDICTOR" == "luna" ]]; then
+          if [[ "$PREDICTOR" != "jev" ]]; then
             predictor_args=(--reasoning-effort "$PREDICTOR_REASONING")
           fi
           uv run legalforecast jev registry \
