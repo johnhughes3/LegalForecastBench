@@ -66,7 +66,7 @@ class ToolPolicy(StrEnum):
 
 
 class OpenAIReasoningEffort(StrEnum):
-    """OpenAI Responses reasoning-effort values supported by GPT-5.6."""
+    """Provider reasoning-effort values accepted in model registry entries."""
 
     NONE = "none"
     LOW = "low"
@@ -283,8 +283,17 @@ class ModelRegistryEntry:
             self.jev_input_mode is not None
             and (self.provider, self.model_id) in SUMMARY_COMPARATOR_MODELS
         )
-        if self.reasoning_effort is not None and not (
-            summary_comparator and self.provider == "anthropic"
+        anthropic_agentic_high_effort = (
+            self.provider.strip().lower() == "anthropic"
+            and self.model_id == "claude-opus-5-5"
+            and self.jev_input_mode is None
+            and self.tool_policy is ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY
+            and self.reasoning_effort is OpenAIReasoningEffort.HIGH
+        )
+        if (
+            self.reasoning_effort is not None
+            and not (summary_comparator and self.provider == "anthropic")
+            and not anthropic_agentic_high_effort
         ):
             _require_supported_reasoning_effort(self.provider, self.reasoning_effort)
         if self.thinking_level is not None and self.provider.strip().lower() not in {

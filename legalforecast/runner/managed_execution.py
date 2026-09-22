@@ -1032,12 +1032,15 @@ def complete_managed_tool_cell(
             }
         )
         if provider == "anthropic":
-            metadata.update(
-                {
-                    "requested_thinking_type": "adaptive",
-                    "provider_reasoning_effort": "provider_default_high",
-                }
-            )
+            metadata["requested_thinking_type"] = "adaptive"
+            if entry.reasoning_effort is not None:
+                metadata["requested_reasoning_effort"] = entry.reasoning_effort.value
+            else:
+                metadata["provider_reasoning_effort"] = (
+                    "provider_default_medium"
+                    if entry.model_id == "claude-opus-5-5"
+                    else "provider_default_high"
+                )
         if provider == "anthropic" and "anthropic_cache_evidence" in payload:
             metadata["anthropic_cache_evidence"] = json.dumps(
                 payload["anthropic_cache_evidence"],

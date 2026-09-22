@@ -1,5 +1,5 @@
 name: Run Benchmark
-run-name: ${{ inputs.resume_sources && format('Run benchmark recovery {0} attempt {1}', fromJSON(inputs.resume_sources)[0].run_id, fromJSON(inputs.resume_sources)[0].run_attempt) || format('Run benchmark {0}', inputs.model_key) }}
+run-name: ${{ inputs.resume_sources && format('Run benchmark recovery {0} attempt {1}', fromJSON(inputs.resume_sources)[0].run_id, fromJSON(inputs.resume_sources)[0].run_attempt) || format('Run {0} benchmark {1}', inputs.jev_summaries_uri && 'summary' || contains(inputs.model_key, 'jev') && 'Jev one-shot' || 'agentic', inputs.model_key) }}
 
 on:
   workflow_dispatch:

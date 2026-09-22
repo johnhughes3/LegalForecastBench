@@ -1,0 +1,32 @@
+[
+  {
+    "cache_read_token_price": 0.1,
+    "cache_write_token_price": 1.25,
+    "context_limit": 1050000,
+    "display_name": "GPT-6 Sol (agentic; high reasoning)",
+    "input_token_price": 1.0,
+    "known_cutoff_publicity_caveats": [
+      "Provider reports an April 20, 2026 knowledge cutoff, not an explicitly documented training-data cutoff; exact training cutoff is left unknown.",
+      "Regular Cycle 1 agentic document-tool condition over the full locked document set, with high reasoning and provider-default sampling. No Jev summary cache or one-shot comparator mode is used.",
+      "Post-anchor model with an unestablished exact training cutoff; report contamination eligibility separately from benchmark completion."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2.0,
+      "output_price_multiplier": 1.5,
+      "threshold_input_tokens": 272000
+    },
+    "max_output_tokens": 128000,
+    "model_id": "gpt-6-sol",
+    "model_version_or_snapshot": "gpt-6-sol",
+    "network_disabled": true,
+    "output_token_price": 5.0,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-6-sol: Flex is 50% of Standard; rates include cache read (0.1x) and write (1.25x). Above 272000 input tokens, input/cache rates double and output rates multiply by 1.5. Checked 2026-09-22.",
+    "provider": "openai",
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-09-22T00:00:00Z",
+    "release_timestamp_source": "https://developers.openai.com/api/docs/changelog, release date September 22, 2026.",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]
