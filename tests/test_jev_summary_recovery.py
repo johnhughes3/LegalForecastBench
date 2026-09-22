@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any
 
 import legalforecast.jev.prepare as prepare
 import pytest
@@ -12,26 +11,35 @@ from legalforecast.contracts import (
     ARTIFACT_RAW_SHA256_V1,
     PUBLIC_RUN_IDENTITY_V1,
 )
-from legalforecast.evals.model_registry import model_registry_entry_sha256
+from legalforecast.evals.model_registry import (
+    ModelRegistryEntry,
+    model_registry_entry_sha256,
+)
 from legalforecast.evals.provider_spend_control import (
     FrozenAttemptPolicy,
     ProviderSpendKey,
     SettlementError,
     SqliteProviderSpendAuthority,
 )
-from legalforecast.jev.packets import JEV_REQUEST_BYTE_BUDGET, case_documents
+from legalforecast.jev.packets import (
+    JEV_REQUEST_BYTE_BUDGET,
+    CaseDocument,
+    case_documents,
+)
 from legalforecast.jev.summaries import DocumentSummary, SummaryCache
 from legalforecast.jev.summary_recovery import (
     SummaryRecoveryError,
-    _response,
+    _response,  # pyright: ignore[reportPrivateUsage]
     recover_saved_overrun,
 )
 from legalforecast.release import ForecastExecution, load_forecast_execution
 from legalforecast.runner import issue_runner_fixture
-from tests.test_jev_grok_prepare import _entry
+from tests.test_jev_grok_prepare import _entry  # pyright: ignore[reportPrivateUsage]
 
 
-def _seed(tmp_path: Path) -> tuple[ForecastExecution, Any, Path, Path, int, int]:
+def _seed(
+    tmp_path: Path,
+) -> tuple[ForecastExecution, ModelRegistryEntry, Path, Path, int, str]:
     fixture = tmp_path / "fixture"
     issue_runner_fixture(fixture)
     execution = load_forecast_execution(
@@ -52,7 +60,7 @@ def _seed(tmp_path: Path) -> tuple[ForecastExecution, Any, Path, Path, int, int]
             domain=PUBLIC_RUN_IDENTITY_V1,
         ).digest
     )
-    documents: list[tuple[str, Any]] = []
+    documents: list[tuple[str, CaseDocument]] = []
     for case in execution.release.cases:
         units = tuple(
             unit
