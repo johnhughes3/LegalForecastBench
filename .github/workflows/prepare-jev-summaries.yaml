@@ -136,6 +136,10 @@ jobs:
           [[ "${JEV_PROVIDER}" == "typesafe" || "${JEV_PROVIDER}" == "vercel_ai_gateway" ]] || { echo "unsupported Jev route" >&2; exit 1; }
           [[ "${PREDICTOR}" == "jev" || "${PREDICTOR}" == "luna" ]] || { echo "unsupported predictor" >&2; exit 1; }
           [[ "${PREDICTOR_REASONING}" == "none" || "${PREDICTOR_REASONING}" == "high" ]] || { echo "unsupported predictor reasoning" >&2; exit 1; }
+          if [[ "${PREDICTOR}" == "luna" && "${SUMMARY_MODEL}" != "luna" ]]; then
+            echo "the Luna comparator requires the Luna summary condition" >&2
+            exit 1
+          fi
           if [[ -n "${PRIOR_SUMMARY_ARTIFACT_ID}" || -n "${PRIOR_SUMMARY_RUN_ID}" ]]; then
             [[ "${PRIOR_SUMMARY_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
             [[ "${PRIOR_SUMMARY_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || { echo "prior_summary_artifact_id and prior_summary_run_id are required together" >&2; exit 1; }
