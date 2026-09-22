@@ -16,6 +16,7 @@ from legalforecast.contracts import (
     PUBLIC_RUN_RECEIPT_V1,
     RAW_BYTES_RAW_SHA256_V1,
 )
+from legalforecast.contracts.schemas import JEV_SUMMARY_RECOVERY_V1
 from legalforecast.evals.live_model_solver import (
     _estimated_cost,  # pyright: ignore[reportPrivateUsage]
 )
@@ -37,7 +38,7 @@ KNOWN_OUTPUT_OVERRUN_POISON = "observed provider cost exceeds frozen reservation
 SUMMARY_REQUEST_OUTPUT_TOKENS = 8192
 _GROK = ("vercel_ai_gateway", "spacexai/grok-4.6")
 _ACCOUNT, _STAGE, _ABLATION, _REPEAT = "jev-summaries", "document_summary", "none", 1
-_RECOVERY_SCHEMA = "legalforecast.jev.summary_recovery.v1"
+_RECOVERY_SCHEMA = str(JEV_SUMMARY_RECOVERY_V1)
 
 
 class SummaryRecoveryError(ValueError):

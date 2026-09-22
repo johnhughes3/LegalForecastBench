@@ -47,6 +47,7 @@ PROTECTED_RECOVERY_PLAN_V1 = SchemaIdentifier(
 FORECAST_RUN_V1 = SchemaIdentifier("legalforecast.forecast-run.v1")
 FORECAST_RUN_SUMMARY_V1 = SchemaIdentifier("legalforecast.forecast-run-summary.v1")
 RESUME_DISPATCH_V1 = SchemaIdentifier("legalforecast.resume-dispatch.v1")
+JEV_SUMMARY_RECOVERY_V1 = SchemaIdentifier("legalforecast.jev.summary_recovery.v1")
 
 
 ACQUISITION_RUN_CARD_V1 = SchemaIdentifier("legalforecast.acquisition_run_card.v1")
