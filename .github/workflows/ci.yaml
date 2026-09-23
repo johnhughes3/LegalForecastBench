@@ -61,6 +61,9 @@ jobs:
       - name: Type-check
         run: uv run pyright
 
+      - name: Check benchmark-to-scoring metadata contract
+        run: uv run pytest tests/test_fan_in_metadata.py -q
+
       - name: Check public API docstring coverage
         run: >-
           uv run interrogate

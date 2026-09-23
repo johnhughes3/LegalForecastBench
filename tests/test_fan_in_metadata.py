@@ -102,3 +102,54 @@ def test_complete_fan_in_metadata_validation(
     else:
         with pytest.raises(SystemExit, match=r"forecast-run\.json"):
             exec(compile(script, "fan-in-validator", "exec"), {})
+
+
+def test_workflow_metadata_fields_statically_match_shared_contract() -> None:
+    """Inspect workflow source without executing jobs, providers, or storage."""
+    import ast
+    import re
+
+    from legalforecast.contracts.forecast_run import ForecastRunMetadata
+
+    def assignment(workflow_path: str, variable: str) -> ast.expr:
+        source = Path(workflow_path).read_text()
+        matches: list[ast.expr] = []
+        for script in re.findall(
+            r"python - <<'PY'\n(.*?)^          PY$", source, re.M | re.S
+        ):
+            tree = ast.parse(textwrap.dedent(script))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assign) and any(
+                    isinstance(target, ast.Name) and target.id == variable
+                    for target in node.targets
+                ):
+                    matches.append(node.value)
+        assert len(matches) == 1, (
+            f"expected one explicit {variable} contract assignment"
+        )
+        return matches[0]
+
+    producer = assignment(".github/workflows/run-benchmark.yaml", "forecast_run")
+    assert isinstance(producer, ast.Dict)
+    emitted = {ast.literal_eval(key) for key in producer.keys if key is not None}
+    assert all(key is not None for key in producer.keys), (
+        "metadata expansion needs explicit contract review"
+    )
+    required = set(ForecastRunMetadata.__required_keys__)
+    budget = set(ForecastRunMetadata.__optional_keys__)
+    assert emitted == required | budget, (
+        "benchmark producer differs from ForecastRunMetadata"
+    )
+    consumer = ".github/workflows/fan-in-publish.yaml"
+    assert ast.literal_eval(assignment(consumer, "expected_fields")) == required, (
+        "scoring required fields differ from ForecastRunMetadata"
+    )
+    assert ast.literal_eval(assignment(consumer, "budget_fields")) == budget, (
+        "scoring budget fields differ from ForecastRunMetadata"
+    )
+    schema_value = next(
+        value
+        for key, value in zip(producer.keys, producer.values, strict=True)
+        if isinstance(key, ast.Constant) and key.value == "schema_version"
+    )
+    assert ast.literal_eval(schema_value) == "legalforecast.forecast-run.v1"
