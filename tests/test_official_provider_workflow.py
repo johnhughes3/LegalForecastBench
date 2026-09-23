@@ -4,10 +4,14 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import textwrap
+import zipfile
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/run-benchmark.yaml").read_text(encoding="utf-8")
@@ -303,8 +307,10 @@ fi
             os.kill(int(daemon_pid_path.read_text(encoding="utf-8")), 15)
 
 
+@pytest.mark.parametrize("single_download", [False, True])
 def test_fan_in_assembles_optional_transcripts_with_preserved_cell_ids(
     tmp_path: Path,
+    single_download: bool,
 ) -> None:
     inputs = tmp_path / "inputs"
     (inputs / "artifacts").mkdir(parents=True)
@@ -360,13 +366,13 @@ def test_fan_in_assembles_optional_transcripts_with_preserved_cell_ids(
             (state / "transcripts").mkdir()
             (state / "transcripts" / f"{cell_id}.json").write_bytes(transcript_bytes)
 
-    write_state("cell-a-state", "cell-a", "receipt-a.json", transcript)
+    write_state("cell-a-state", "a" * 64, "receipt-a.json", transcript)
     # An older cell artifact can be complete without a transcript directory.
-    write_state("cell-b-state", "cell-b", "receipt-b.json")
+    write_state("cell-b-state", "b" * 64, "receipt-b.json")
     # A failed cell may have a transcript even when no receipt was produced.
     write_state(
         "cell-failed-state",
-        "cell-failed",
+        "c" * 64,
         None,
         b'{"messages":[{"type":"tool_result"}]}\n',
         status="failed",
@@ -380,6 +386,21 @@ def test_fan_in_assembles_optional_transcripts_with_preserved_cell_ids(
         if {"cell_id": value["cell_id"]} not in expected:
             expected.append({"cell_id": value["cell_id"]})
     (inputs / "expected-cells.json").write_text(json.dumps(expected))
+    bundle = tmp_path / "bundle"
+    if single_download:
+        bundle.mkdir()
+        for name in ("cell-b-state", "cell-failed-state"):
+            source = state_root / name
+            cell = json.loads((source / "state.json").read_text())["cell_id"]
+            with zipfile.ZipFile(bundle / f"{cell}.zip", "w") as archive:
+                for path in source.rglob("*"):
+                    if path.is_file():
+                        archive.write(path, path.relative_to(source))
+            shutil.rmtree(source)
+        source = state_root / "cell-a-state"
+        for path in source.iterdir():
+            path.rename(state_root / path.name)
+        source.rmdir()
     section = WORKFLOW[
         WORKFLOW.index(
             "      - name: Assemble exact protected fan-in source artifact"
@@ -393,6 +414,9 @@ def test_fan_in_assembles_optional_transcripts_with_preserved_cell_ids(
         script.replace('Path("/tmp/lfb-forecast-inputs")', f"Path({str(inputs)!r})")
         .replace('Path("/tmp/lfb-state-artifacts")', f"Path({str(state_root)!r})")
         .replace('Path("/tmp/lfb-forecast-results")', f"Path({str(output)!r})")
+    )
+    script = script.replace("/tmp/lfb-restored-bundle", str(bundle)).replace(
+        "/tmp/lfb-restored-states", str(tmp_path / "restored")
     )
     completed = subprocess.run(
         [sys.executable, "-c", script],
@@ -416,11 +440,11 @@ def test_fan_in_assembles_optional_transcripts_with_preserved_cell_ids(
         check=False,
     )
     assert completed.returncode == 0, completed.stderr
-    assert (output / "transcripts" / "cell-a.json").read_bytes() == transcript
-    assert (output / "transcripts" / "cell-failed.json").read_bytes() == (
+    assert (output / "transcripts" / ("a" * 64 + ".json")).read_bytes() == transcript
+    assert (output / "transcripts" / ("c" * 64 + ".json")).read_bytes() == (
         b'{"messages":[{"type":"tool_result"}]}\n'
     )
-    assert not (output / "transcripts" / "cell-b.json").exists()
+    assert not (output / "transcripts" / ("b" * 64 + ".json")).exists()
 
 
 def test_fan_in_refuses_conflicting_transcript_destinations(
