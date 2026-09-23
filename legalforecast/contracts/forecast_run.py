@@ -11,8 +11,8 @@ class ForecastRunMetadata(TypedDict):
     """Persisted forecast-run.json; budget fields are an all-or-none extension."""
 
     schema_version: Literal[
-        "legalforecast.forecast-run.v1"
-    ]  # contract-ratchet: allow Literal type mirrors FORECAST_RUN_V1
+        "legalforecast.forecast-run.v1"  # contract-ratchet: allow typing Literal
+    ]
     workflow_run_id: int
     workflow_run_attempt: int
     release_sha: str
