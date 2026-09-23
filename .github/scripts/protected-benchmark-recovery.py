@@ -269,10 +269,12 @@ def _load_evidence(
         raise SystemExit(
             f"recovery cell census differs: expected {expected_count}, got {len(cells)}"
         )
-    if _positive_int(
-        recovery.get("completed_cells"), "completed cell count", zero=True
-    ) != sum(cell.completed for cell in cells):
-        raise SystemExit("recovery completed-cell census differs from artifacts")
+    _validate_completed_cell_census(
+        source=source,
+        recovery=recovery,
+        cells=cells,
+        expected_count=expected_count,
+    )
     if source.get("conclusion") == "cancelled":
         client = GhRecoveryClient()
         repo = _text(metadata.get("repo"), "repository")
@@ -297,6 +299,38 @@ def _load_evidence(
         long_context_surcharge=entry.long_context_surcharge,
     )
     return run, cells, reservation
+
+
+def _validate_completed_cell_census(
+    *,
+    source: Mapping[str, Any],
+    recovery: Mapping[str, Any],
+    cells: tuple[RecoveryCell, ...],
+    expected_count: int,
+) -> None:
+    reported = _positive_int(
+        recovery.get("completed_cells"), "completed cell count", zero=True
+    )
+    actual = sum(cell.completed for cell in cells)
+    if reported == actual:
+        return
+
+    # A failed fan-in can leave its summary behind the validated per-cell
+    # archives. Reconcile only an undercount when every frozen cell has a
+    # receipt-validated completion; all identity and receipt checks happened
+    # while _load_cells built this census.
+    incomplete = _positive_int(
+        recovery.get("incomplete_cells"), "incomplete cell count", zero=True
+    )
+    if (
+        source.get("conclusion") == "failure"
+        and actual == expected_count
+        and reported < actual
+        and incomplete == expected_count - reported
+        and all(cell.evidence_error is None for cell in cells)
+    ):
+        return
+    raise SystemExit("recovery completed-cell census differs from artifacts")
 
 
 def _load_cells(
