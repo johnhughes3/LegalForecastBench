@@ -98,6 +98,56 @@ def test_materialize_expands_bundle_and_exposes_missing_cell_to_loader(
     assert cells[missing_id].evidence_error is None
 
 
+def test_failed_fanin_reconciles_incomplete_combined_export() -> None:
+    # Ninety restored cells plus one completed cell from the failed child
+    # establish the full frozen census even though fan-in reports only 90.
+    restored = tuple(
+        RecoveryCell(f"{index:064x}", "native", "none", 1, completed=True)
+        for index in range(90)
+    )
+    cells = (
+        *restored,
+        RecoveryCell(f"{90:064x}", "native", "none", 1, completed=True),
+    )
+
+    _recovery._validate_completed_cell_census(
+        source={"conclusion": "failure"},
+        recovery={"completed_cells": 90, "incomplete_cells": 1},
+        cells=cells,
+        expected_count=91,
+    )
+
+
+@pytest.mark.parametrize(
+    ("conclusion", "incomplete", "evidence_error"),
+    [("success", 1, None), ("failure", 1, "invalid receipt"), ("failure", 0, None)],
+)
+def test_failed_fanin_census_reconciliation_remains_narrow(
+    conclusion: str, incomplete: int, evidence_error: str | None
+) -> None:
+    cells = tuple(
+        RecoveryCell(
+            f"{index:064x}",
+            "native",
+            "none",
+            1,
+            completed=True,
+            evidence_error=evidence_error,
+        )
+        for index in range(91)
+    )
+
+    with pytest.raises(
+        SystemExit, match="recovery completed-cell census differs from artifacts"
+    ):
+        _recovery._validate_completed_cell_census(
+            source={"conclusion": conclusion},
+            recovery={"completed_cells": 90, "incomplete_cells": incomplete},
+            cells=cells,
+            expected_count=91,
+        )
+
+
 def _identity(*, marker: str = "") -> tuple[dict[str, object], str]:
     identity: dict[str, object] = {
         "schema_version": "legalforecast.public-run-identity.v1",
