@@ -274,9 +274,13 @@ def _reserve_cell(ledger: RunnerLedger, entry: ModelRegistryEntry, prompt: str) 
 
 
 @pytest.mark.parametrize("provider", ["google", "openai"])
+@pytest.mark.parametrize(
+    "mutation", ["none", "wrong-units", "wrong-units-and-served-model"]
+)
 def test_successful_transcript_restores_typed_replay_payload_without_transport(
     tmp_path: Path,
     provider: str,
+    mutation: str,
 ) -> None:
     entry = _entry()
     if provider == "openai":
@@ -355,6 +359,18 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
                 "finish_reason": "STOP",
                 "service_tier": service_tier,
             }
+    if mutation != "none":
+        for message in transcript["messages"]:
+            if message.get("kind") == "response":
+                for part in message.get("parts", []):
+                    if part.get("tool_name") == "final_result":
+                        args = part["args"]
+                        if isinstance(args, str):
+                            args = json.loads(args)
+                        args["predictions"][0]["unit_id"] = "wrong-unit"
+                        part["args"] = args
+                if mutation == "wrong-units-and-served-model":
+                    message["model_name"] = "unexpected-served-model"
     transcript_path.write_text(json.dumps(transcript, sort_keys=True))
     with RunnerLedger(
         tmp_path / "ledger.sqlite3", state_only_provider_attempts=True
@@ -363,6 +379,30 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         ledger.mark_ambiguous(
             "cell-1", provider_attempt_id="attempt-1", failure_type="SettlementError"
         )
+        if mutation != "none":
+            cell = ledger.read_cell_for_recovery("cell-1")
+            if mutation == "wrong-units":
+                with pytest.raises(
+                    transcript_recovery.NonReplayablePredictionUnits,
+                    match="wrong prediction units",
+                ):
+                    transcript_recovery.managed_result_from_transcript(
+                        transcript_path, entry=entry, cell=cell
+                    )
+            else:
+                with pytest.raises(
+                    RunValidationError,
+                    match="served model differs from registry",
+                ) as captured:
+                    transcript_recovery.managed_result_from_transcript(
+                        transcript_path, entry=entry, cell=cell
+                    )
+                assert not isinstance(
+                    captured.value,
+                    transcript_recovery.NonReplayablePredictionUnits,
+                )
+            assert ledger.read_cell_for_recovery("cell-1").response_payload is None
+            return
         recovered = recover_managed_transcript(
             ledger,
             entry=entry,

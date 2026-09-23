@@ -56,6 +56,10 @@ class ManagedTranscriptRecovery:
     result: managed_execution.ManagedToolAgentResult
 
 
+class NonReplayablePredictionUnits(RunValidationError):
+    """A validly recorded response whose prediction-unit set cannot be replayed."""
+
+
 def recover_managed_transcript(
     ledger: RunnerLedger,
     *,
@@ -186,11 +190,11 @@ def managed_result_from_transcript(
         messages, require_final_result=provider != "anthropic"
     )
     if final_call is None:
-        output = _verify_native_final_envelope(
+        output, wrong_units = _verify_native_final_envelope(
             messages, required_unit_ids=cell.required_unit_ids
         )
     else:
-        output = _verify_final_envelope(
+        output, wrong_units = _verify_final_envelope(
             final_call, required_unit_ids=cell.required_unit_ids
         )
     responses = tuple(
@@ -324,6 +328,10 @@ def managed_result_from_transcript(
         raise RunValidationError(str(exc)) from exc
     if not math.isfinite(estimated_cost) or estimated_cost < 0:
         raise RunValidationError("managed transcript has invalid estimated cost")
+    if wrong_units:
+        raise NonReplayablePredictionUnits(
+            "managed transcript has the wrong prediction units"
+        )
     return result
 
 
@@ -651,7 +659,7 @@ def _verify_native_final_envelope(
     messages: Sequence[ModelMessage],
     *,
     required_unit_ids: tuple[str, ...],
-) -> managed_execution.ForecastEnvelope:
+) -> tuple[managed_execution.ForecastEnvelope, bool]:
     """Validate Anthropic native JSON output represented by a ``TextPart``."""
 
     responses = [
@@ -676,18 +684,17 @@ def _verify_native_final_envelope(
             "managed native output is not a forecast envelope"
         ) from exc
     output_ids = tuple(item.unit_id for item in envelope.predictions)
-    if len(output_ids) != len(set(output_ids)) or set(output_ids) != set(
+    wrong_units = len(output_ids) != len(set(output_ids)) or set(output_ids) != set(
         required_unit_ids
-    ):
-        raise RunValidationError("managed native output has the wrong prediction units")
-    return envelope
+    )
+    return envelope, wrong_units
 
 
 def _verify_final_envelope(
     final_call: ToolCallPart,
     *,
     required_unit_ids: tuple[str, ...],
-) -> managed_execution.ForecastEnvelope:
+) -> tuple[managed_execution.ForecastEnvelope, bool]:
     try:
         args = final_call.args_as_dict(raise_if_invalid=True)
     except (AssertionError, ValueError) as exc:
@@ -701,8 +708,7 @@ def _verify_final_envelope(
             "managed final result is not a forecast envelope"
         ) from exc
     output_ids = tuple(item.unit_id for item in envelope.predictions)
-    if len(output_ids) != len(set(output_ids)) or set(output_ids) != set(
+    wrong_units = len(output_ids) != len(set(output_ids)) or set(output_ids) != set(
         required_unit_ids
-    ):
-        raise RunValidationError("managed final result has the wrong prediction units")
-    return envelope
+    )
+    return envelope, wrong_units

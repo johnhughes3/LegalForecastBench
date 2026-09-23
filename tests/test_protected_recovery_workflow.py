@@ -1,5 +1,6 @@
 """Workflow fences for protected benchmark recovery and native reruns."""
 
+from itertools import pairwise
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -85,3 +86,12 @@ def test_recovered_child_title_binds_to_newest_resume_source() -> None:
     assert "Run benchmark recovery {0} attempt {1}" in RUN
     assert "fromJSON(inputs.resume_sources)[0].run_id" in RUN
     assert "fromJSON(inputs.resume_sources)[0].run_attempt" in RUN
+
+
+def test_worker_restore_has_frozen_inputs_for_invalid_output_classification() -> None:
+    workers = RUN.split("      - name: Restore prior completed cell state\n")
+    assert len(workers) == 5
+    for before, after in pairwise(workers):
+        assert "      - name: Download outcome-blinded inputs\n" in before
+        restore = after.split("      - name:", 1)[0]
+        assert "LFB_FORECAST_INPUTS_ROOT: /tmp/lfb-forecast-inputs" in restore

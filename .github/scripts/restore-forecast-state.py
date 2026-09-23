@@ -14,7 +14,16 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from legalforecast.evals.model_registry import (
+    load_model_registry_bytes,
+    model_registry_entry_sha256,
+    model_registry_sha256,
+)
 from legalforecast.runner.ledger import RunnerLedger
+from legalforecast.runner.managed_transcript_recovery import (
+    NonReplayablePredictionUnits,
+    managed_result_from_transcript,
+)
 from legalforecast.runner.service import _restore_or_validate_completed_receipt
 from legalforecast.runner.transcript_candidate import (
     has_terminal_transcript_candidate,
@@ -268,11 +277,11 @@ def _has_transcript_recovery(root: Path, cell_id: str) -> bool:
 
 
 def _validate_source_transcript_recovery_state(root: Path, cell_id: str) -> None:
-    """Validate durable shape before the current run interprets a transcript.
+    """Validate a terminal transcript before deciding whether to carry state.
 
-    Transcript contents are validated only after the current run downloads its
-    frozen registry and opens the copied ledger.  An invalid transcript then
-    fails the provider job closed instead of allowing a duplicate call.
+    A response with valid provider evidence but the wrong prediction units is
+    deliberately left behind so the protected replacement reservation can
+    create a fresh local cell. Other invalid transcripts remain fail-closed.
     """
 
     failure = _read_object(root / "failure-summary.json")
@@ -291,6 +300,33 @@ def _validate_source_transcript_recovery_state(root: Path, cell_id: str) -> None
     transcript = root / "transcripts" / f"{cell_id}.json"
     if transcript.is_symlink() or not transcript.is_file():
         raise ValueError("transcript recovery source has no exact transcript")
+    inputs_root_value = os.environ.get("LFB_FORECAST_INPUTS_ROOT")
+    if not inputs_root_value:
+        # Older restore-selection callers have no frozen registry at this
+        # stage. Preserve their strict later replay validation rather than
+        # discarding a terminal candidate without enough evidence to classify
+        # its prediction units. The provider workflow supplies this path.
+        return None
+    registry_path = Path(inputs_root_value) / "model-registry.json"
+    if registry_path.is_symlink() or not registry_path.is_file():
+        raise ValueError("frozen model registry is missing or unsafe")
+    registry_bytes = registry_path.read_bytes()
+    registry = load_model_registry_bytes(registry_bytes)
+    with RunnerLedger(ledger, state_only_provider_attempts=True) as runner_ledger:
+        binding = runner_ledger.read_run_binding()
+        if binding.model_registry_sha256 != model_registry_sha256(registry_bytes):
+            raise ValueError("source ledger differs from frozen model registry")
+        provider, separator, model_id = binding.model_key.partition(":")
+        if not separator:
+            raise ValueError("source ledger has an invalid model key")
+        entry = registry.get(provider, model_id)
+        if binding.model_registry_entry_sha256 != model_registry_entry_sha256(entry):
+            raise ValueError("source ledger differs from frozen registry entry")
+        cell = runner_ledger.read_cell_for_recovery(cell_id)
+        try:
+            managed_result_from_transcript(transcript, entry=entry, cell=cell)
+        except NonReplayablePredictionUnits as exc:
+            raise IncompleteSourceState from exc
 
 
 @functools.cache
@@ -589,6 +625,7 @@ def prepare(
                 CELL_ID=cell["cell_id"],
                 CELL_ID_SLUG=cell["cell_id_slug"],
                 LFB_RUN_ROOT=str(root),
+                LFB_FORECAST_INPUTS_ROOT=str(inputs),
             )
             restore()
             if not (root / "state.json").exists() or not validate_completed(
@@ -692,9 +729,15 @@ def restore() -> None:
             source_attempt=source_attempt,
         )
         if valid is None:
-            root = _restore_bundle(
-                source_artifacts, provider, cell_id, source_run_id, source_attempt
-            )
+            try:
+                root = _restore_bundle(
+                    source_artifacts, provider, cell_id, source_run_id, source_attempt
+                )
+            except IncompleteSourceState:
+                print(
+                    "source bundle is not replayable; allowing a fresh cell execution"
+                )
+                continue
             if root is None:
                 continue
             valid = (root, source_attempt)
