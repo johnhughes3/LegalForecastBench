@@ -55,6 +55,8 @@ uv run legalforecast report \
 
 The public workflow names remain `run-benchmark.yaml` for forecast execution and `fan-in-publish.yaml` for labels fan-in. They run from a trusted revision under protected environments. Their existence and input contracts are checked in the repository; a local fixture or a green workflow plan is not live-cycle evidence.
 
+`ForecastRunMetadata` in `legalforecast/contracts/forecast_run.py` defines the shared `forecast-run.json` fields. CI statically inspects the embedded benchmark producer and scoring consumer against this contract and executes the consumer against current and historical metadata. Run `uv run pytest tests/test_fan_in_metadata.py -q` when changing either workflow. This catches field-set drift before deployment; runtime identity and receipt validation still enforce the actual saved values.
+
 For a credential-free fixture reproduction of the same validation and scoring path, use [reproduce-or-audit.md](reproduce-or-audit.md). The fixture proves command and artifact compatibility; it is not evidence that an official cycle ran.
 
 ## Public reporting boundary
