@@ -56,6 +56,14 @@ on:
           - none
           - low
           - high
+      summary_profile:
+        description: Summary condition; short requires a fresh cache and ledger.
+        required: false
+        default: standard
+        type: choice
+        options:
+          - standard
+          - short
       summary_model:
         description: Model used to summarize every selected document.
         required: false
@@ -99,6 +107,7 @@ jobs:
     environment: legalforecastbench-official-eval
     env:
       CEILING: ${{ inputs.ceiling_microusd }}
+      SUMMARY_PROFILE: ${{ inputs.summary_profile }}
       SUMMARY_MODEL: ${{ inputs.summary_model }}
       JEV_PROVIDER: ${{ inputs.jev_provider }}
       PREDICTOR: ${{ inputs.predictor }}
@@ -353,6 +362,7 @@ jobs:
             --summary-model "$SUMMARY_MODEL" \
             --cache /tmp/lfb-jev-summary/jev-summaries.json \
             --ledger /tmp/lfb-jev-summary/summary-spend.sqlite3 \
+            --summary-profile "${SUMMARY_PROFILE:-standard}" \
             --ceiling-microusd "$CEILING" "${recovery_args[@]}"
 
       - name: Verify complete prior cache for registry-only freeze

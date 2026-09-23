@@ -20,6 +20,7 @@ from legalforecast.jev.packets import (
     require_request_fits,
 )
 from legalforecast.jev.summaries import (
+    SHORT_SUMMARY_PROMPT_VERSION,
     SUMMARY_PROMPT_VERSION,
     DocumentSummary,
     SummaryCache,
@@ -29,7 +30,11 @@ from legalforecast.runner import RunConfig, execute_release_run, issue_runner_fi
 
 
 def setup_run(
-    tmp_path: Path, *, summaries: bool = False, provider: str = "vercel_ai_gateway"
+    tmp_path: Path,
+    *,
+    summaries: bool = False,
+    provider: str = "vercel_ai_gateway",
+    summary_prompt_version: str = SUMMARY_PROMPT_VERSION,
 ):
     fixture = tmp_path / "fixture"
     issue_runner_fixture(fixture)
@@ -38,7 +43,11 @@ def setup_run(
     )
     cache_path = tmp_path / "summaries.json"
     if summaries:
-        cache = SummaryCache(cache_path, execution.release.release_digest)
+        cache = SummaryCache(
+            cache_path,
+            execution.release.release_digest,
+            prompt_version=summary_prompt_version,
+        )
         for case in execution.release.cases:
             units = tuple(
                 u
@@ -53,7 +62,7 @@ def setup_run(
                         source_sha256=doc.source_sha256,
                         text="Faithful source summary.",
                         model="gpt-5.6-luna",
-                        prompt_version=SUMMARY_PROMPT_VERSION,
+                        prompt_version=summary_prompt_version,
                         input_tokens=10,
                         output_tokens=5,
                         estimated_cost_usd=0.001,
@@ -172,6 +181,69 @@ def test_summary_cache_tampering_refused_before_any_call(tmp_path):
     with pytest.raises(ValueError, match="frozen registry"):
         execute_release_run(config, transport=transport, environ={})
     assert transport.calls == []
+
+
+def test_short_summary_cache_is_accepted_for_inference_and_labeled(tmp_path):
+    config, execution = setup_run(
+        tmp_path,
+        summaries=True,
+        summary_prompt_version=SHORT_SUMMARY_PROMPT_VERSION,
+    )
+    entry = load_model_registry(config.model_registry_path).entries[0]
+    assert entry.display_name == "Jev (Luna shorter summaries; one shot)"
+
+    units = tuple(
+        unit
+        for unit in execution.release.prediction_units
+        if unit.case_id == execution.release.cases[0].case_id
+    )
+    case = build_jev_case_input(entry, execution, units, config.jev_summaries_path)
+
+    assert case.unit_ids == tuple(unit.unit_id for unit in units)
+    assert case.request["state"]["record_representation"] == "luna_summaries"
+    assert all(
+        document["text"] == "Faithful source summary."
+        for document in case.request["state"]["documents"]
+    )
+
+
+@pytest.mark.parametrize(
+    "replacement_version",
+    (SUMMARY_PROMPT_VERSION, "jev-document-summary-unknown-v1"),
+    ids=("mixed-prompts", "unknown-prompt"),
+)
+def test_registry_rejects_mixed_or_unknown_summary_prompts(
+    tmp_path: Path,
+    replacement_version: str,
+) -> None:
+    config, _ = setup_run(
+        tmp_path,
+        summaries=True,
+        summary_prompt_version=SHORT_SUMMARY_PROMPT_VERSION,
+    )
+    payload = json.loads(config.jev_summaries_path.read_text())
+    first_case = next(iter(payload["records"].values()))
+    first_summary = next(iter(first_case.values()))
+    first_summary["prompt_version"] = replacement_version
+    config.jev_summaries_path.write_text(json.dumps(payload))
+
+    registry_path = tmp_path / "invalid-registry.json"
+    assert (
+        main(
+            [
+                "jev",
+                "registry",
+                "--provider",
+                "vercel_ai_gateway",
+                "--summaries",
+                str(config.jev_summaries_path),
+                "--output",
+                str(registry_path),
+            ]
+        )
+        == 2
+    )
+    assert not registry_path.exists()
 
 
 def test_first_party_typesafe_route_uses_native_nouls_and_records_model_metadata(

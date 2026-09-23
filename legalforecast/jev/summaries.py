@@ -21,6 +21,8 @@ from legalforecast.immutable_io import (
 )
 
 SUMMARY_PROMPT_VERSION = "jev-document-summary-v1"
+SHORT_SUMMARY_PROMPT_VERSION = "jev-document-summary-short-v1"
+SUPPORTED_SUMMARY_PROMPTS = {SUMMARY_PROMPT_VERSION, SHORT_SUMMARY_PROMPT_VERSION}
 
 SUMMARY_INSTRUCTIONS = """\
 Summarize this one legal document faithfully and extractively for a later
@@ -144,6 +146,7 @@ class SummaryCache:
         forecast_release_sha256: str,
         *,
         prompt_version: str = SUMMARY_PROMPT_VERSION,
+        auto_detect_prompt: bool = False,
     ) -> SummaryCache:
         """Parse already-read cache bytes without reopening the cache path.
 
@@ -163,6 +166,17 @@ class SummaryCache:
         )
         cache._records = {}
         cache._load_payload(payload)
+        if auto_detect_prompt:
+            versions = {
+                r.prompt_version
+                for docs in cache._records.values()
+                for r in docs.values()
+            }
+            if len(versions) != 1 or not versions <= SUPPORTED_SUMMARY_PROMPTS:
+                raise SummaryCacheError(
+                    "summary cache requires one supported prompt version"
+                )
+            cache.prompt_version = versions.pop()
         return cache
 
     @classmethod

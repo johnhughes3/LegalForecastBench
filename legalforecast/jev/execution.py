@@ -88,7 +88,9 @@ def build_jev_case_input(
         )
         if digest != entry.jev_summaries_sha256:
             raise ValueError("Jev summary cache differs from frozen registry")
-        cache = SummaryCache.from_bytes(raw, execution.release.release_digest)
+        cache = SummaryCache.from_bytes(
+            raw, execution.release.release_digest, auto_detect_prompt=True
+        )
         summaries = {}
         for document in documents:
             summary = cache.get(
