@@ -9,7 +9,9 @@ from typing import Any, cast
 import legalforecast.jev.prepare as prepare
 import pytest
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.evals.provider_spend_control import AuthorityIdentityMismatchError
 from legalforecast.jev.packets import case_documents
+from legalforecast.jev.summaries import SHORT_SUMMARY_PROMPT_VERSION
 from legalforecast.release import ForecastExecution, load_forecast_execution
 from legalforecast.runner import issue_runner_fixture
 from pydantic_ai.usage import RequestUsage
@@ -185,3 +187,81 @@ def test_grok_gateway_summary_uses_xai_route_and_gateway_key(
             ).fetchall()
         }
     assert providers == {"vercel_ai_gateway"}
+
+
+def test_short_summary_profile_uses_full_sources_and_new_ledger_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    execution = _execution(tmp_path)
+    entry = _entry()
+    factory = _FakeAgentFactory()
+    monkeypatch.setattr(prepare, "Agent", factory)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("AI_GATEWAY_API_KEY", "fixture-gateway-key")
+
+    standard_cache = tmp_path / "standard-summaries.json"
+    standard_ledger = tmp_path / "standard-ledger.sqlite3"
+    prepare.prepare_summaries(
+        execution,
+        entry=entry,
+        cache_path=standard_cache,
+        ledger_path=standard_ledger,
+        ceiling_microusd=100_000_000,
+    )
+    standard_prompts = [json.loads(prompt) for prompt in factory.prompts]
+
+    factory.prompts.clear()
+    short_cache = tmp_path / "short-summaries.json"
+    short_ledger = tmp_path / "short-ledger.sqlite3"
+    result = prepare.prepare_summaries(
+        execution,
+        entry=entry,
+        cache_path=short_cache,
+        ledger_path=short_ledger,
+        ceiling_microusd=100_000_000,
+        summary_profile="short",
+    )
+    short_prompts = [json.loads(prompt) for prompt in factory.prompts]
+    source_documents = _documents(execution)
+
+    assert result["created"] == len(source_documents)
+    assert result["reused"] == 0
+    assert len(short_prompts) == len(standard_prompts) == len(source_documents)
+    assert [prompt["text"] for prompt in short_prompts] == [
+        document.text for document in source_documents
+    ]
+    assert all(
+        short["maximum_summary_utf8_bytes"] < standard["maximum_summary_utf8_bytes"]
+        for standard, short in zip(standard_prompts, short_prompts, strict=True)
+    )
+    assert all("brevity_instructions" in prompt for prompt in short_prompts)
+
+    records = json.loads(short_cache.read_text())["records"]
+    assert {
+        summary["prompt_version"]
+        for documents in records.values()
+        for summary in documents.values()
+    } == {SHORT_SUMMARY_PROMPT_VERSION}
+
+    with sqlite3.connect(standard_ledger) as standard_db:
+        standard_identity = standard_db.execute(
+            "SELECT authority_identity_sha256 FROM provider_spend_metadata"
+        ).fetchone()[0]
+    with sqlite3.connect(short_ledger) as short_db:
+        short_identity = short_db.execute(
+            "SELECT authority_identity_sha256 FROM provider_spend_metadata"
+        ).fetchone()[0]
+    assert short_identity != standard_identity
+
+    prompts_before_mismatch = len(factory.prompts)
+    with pytest.raises(AuthorityIdentityMismatchError):
+        prepare.prepare_summaries(
+            execution,
+            entry=entry,
+            cache_path=standard_cache,
+            ledger_path=standard_ledger,
+            ceiling_microusd=100_000_000,
+            summary_profile="short",
+        )
+    assert len(factory.prompts) == prompts_before_mismatch

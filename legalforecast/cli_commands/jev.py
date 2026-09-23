@@ -26,6 +26,10 @@ from legalforecast.jev.packets import (
     request_byte_count,
 )
 from legalforecast.jev.prepare import prepare_summaries
+from legalforecast.jev.summaries import (
+    SHORT_SUMMARY_PROMPT_VERSION,
+    SUPPORTED_SUMMARY_PROMPTS,
+)
 from legalforecast.release import load_forecast_run_inputs
 
 _SUMMARY_MODELS: Mapping[str, tuple[str, str, str]] = {
@@ -46,7 +50,7 @@ def _summary_model_config(summary_model: object) -> tuple[str, str, str]:
     return _SUMMARY_MODELS[summary_model]
 
 
-def _validate_summary_cache_model(raw: bytes, *, expected_model: str) -> None:
+def _validate_summary_cache_model(raw: bytes, *, expected_model: str) -> str:
     """Reject a cache whose persisted records belong to another summarizer."""
 
     try:
@@ -60,6 +64,7 @@ def _validate_summary_cache_model(raw: bytes, *, expected_model: str) -> None:
     if not isinstance(records, dict):
         raise ValueError("Jev summary cache records must be a JSON object")
     observed: set[str] = set()
+    versions: set[str] = set()
     for case_records in cast(dict[object, object], records).values():
         if not isinstance(case_records, dict):
             raise ValueError("Jev summary cache case records must be JSON objects")
@@ -71,12 +76,20 @@ def _validate_summary_cache_model(raw: bytes, *, expected_model: str) -> None:
             if not isinstance(model, str):
                 raise ValueError("Jev summary cache records require a model")
             observed.add(model)
+            version = summary.get("prompt_version")
+            if not isinstance(version, str):
+                raise ValueError("summary cache requires a prompt version")
+            versions.add(version)
     if observed and observed != {expected_model}:
         found = ", ".join(sorted(observed))
         raise ValueError(
             "Jev summary cache model does not match the selected summary model: "
             f"expected {expected_model!r}, found {found}"
         )
+
+    if len(versions) != 1 or not versions <= SUPPORTED_SUMMARY_PROMPTS:
+        raise ValueError("summary cache requires one supported prompt version")
+    return versions.pop()
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:  # pyright: ignore[reportPrivateUsage]
@@ -118,6 +131,15 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
             help="Original release artifact directory.",
         )
         if command == "prepare":
+            child.add_argument(
+                "--summary-profile",
+                choices=("standard", "short"),
+                default="standard",
+                help=(
+                    "Short uses a distinct prompt and 24 KB case target; "
+                    "start a fresh cache and ledger."
+                ),
+            )
             child.add_argument(
                 "--summary-registry",
                 "--luna-registry",
@@ -240,6 +262,8 @@ def run_inputs(args: argparse.Namespace) -> int:
         }
         if getattr(args, "reconcile_saved_overrun", False):
             summary_kwargs["reconcile_saved_overrun"] = True
+        if getattr(args, "summary_profile", "standard") != "standard":
+            summary_kwargs["summary_profile"] = args.summary_profile
         result = prepare_summaries(**summary_kwargs)  # type: ignore[arg-type]
         print(json.dumps(result, sort_keys=True))
         return 0
@@ -303,10 +327,16 @@ def run_registry(args: argparse.Namespace) -> int:
     elif reasoning_effort is not None:
         raise ValueError("--reasoning-effort requires a summary comparator predictor")
 
+    short_summaries = False
     raw_summaries: bytes | None = None
     if path is not None:
         raw_summaries = read_single_link_file(path, label="Jev summaries")
-        _validate_summary_cache_model(raw_summaries, expected_model=summary_model_id)
+        short_summaries = (
+            _validate_summary_cache_model(
+                raw_summaries, expected_model=summary_model_id
+            )
+            == SHORT_SUMMARY_PROMPT_VERSION
+        )
     digest = (
         None
         if path is None
@@ -333,8 +363,10 @@ def run_registry(args: argparse.Namespace) -> int:
         record.update(
             {
                 "display_name": (
-                    f"{predictor_label} (Luna summaries; one shot; "
-                    f"reasoning {reasoning_effort})"
+                    f"{predictor_label} (Luna "
+                    + ("shorter summaries" if short_summaries else "summaries")
+                    + "; one shot; "
+                    + f"reasoning {reasoning_effort})"
                 ),
                 "max_output_tokens": 16000,
                 "context_limit": 64000,
@@ -357,7 +389,11 @@ def run_registry(args: argparse.Namespace) -> int:
             "display_name": (
                 "Jev ("
                 + ("Grok 4.6" if summary_model == "grok" else "Luna")
-                + " summaries; one shot)"
+                + (
+                    " shorter summaries; one shot)"
+                    if short_summaries
+                    else " summaries; one shot)"
+                )
                 if path
                 else "Jev (full text; one shot)"
             ),

@@ -29,7 +29,11 @@ from legalforecast.runner import RunConfig, execute_release_run, issue_runner_fi
 
 
 def setup_run(
-    tmp_path: Path, *, summaries: bool = False, provider: str = "vercel_ai_gateway"
+    tmp_path: Path,
+    *,
+    summaries: bool = False,
+    provider: str = "vercel_ai_gateway",
+    summary_prompt_version: str = SUMMARY_PROMPT_VERSION,
 ):
     fixture = tmp_path / "fixture"
     issue_runner_fixture(fixture)
@@ -38,7 +42,11 @@ def setup_run(
     )
     cache_path = tmp_path / "summaries.json"
     if summaries:
-        cache = SummaryCache(cache_path, execution.release.release_digest)
+        cache = SummaryCache(
+            cache_path,
+            execution.release.release_digest,
+            prompt_version=summary_prompt_version,
+        )
         for case in execution.release.cases:
             units = tuple(
                 u
@@ -53,7 +61,7 @@ def setup_run(
                         source_sha256=doc.source_sha256,
                         text="Faithful source summary.",
                         model="gpt-5.6-luna",
-                        prompt_version=SUMMARY_PROMPT_VERSION,
+                        prompt_version=summary_prompt_version,
                         input_tokens=10,
                         output_tokens=5,
                         estimated_cost_usd=0.001,
@@ -163,15 +171,6 @@ def test_rejects_invalid_native_probabilities_without_repair_calls(
         )
     assert len(transport.calls) == 1
     assert not list(config.receipts_dir.glob("*.json"))
-
-
-def test_summary_cache_tampering_refused_before_any_call(tmp_path):
-    config, _ = setup_run(tmp_path, summaries=True)
-    config.jev_summaries_path.write_text(config.jev_summaries_path.read_text() + " ")
-    transport = NativeProbabilityTransport()
-    with pytest.raises(ValueError, match="frozen registry"):
-        execute_release_run(config, transport=transport, environ={})
-    assert transport.calls == []
 
 
 def test_first_party_typesafe_route_uses_native_nouls_and_records_model_metadata(

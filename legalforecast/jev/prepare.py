@@ -51,6 +51,7 @@ from .packets import (
     require_request_fits,
 )
 from .summaries import (
+    SHORT_SUMMARY_PROMPT_VERSION,
     SUMMARY_INSTRUCTIONS,
     SUMMARY_PROMPT_VERSION,
     DocumentSummary,
@@ -129,6 +130,7 @@ def prepare_summaries(
     ledger_path: Path,
     ceiling_microusd: int,
     reconcile_saved_overrun: bool = False,
+    summary_profile: str = "standard",
 ) -> dict[str, int]:
     """Summarize each whole document once, persisting progress and spend."""
 
@@ -142,6 +144,20 @@ def prepare_summaries(
         )
     if type(ceiling_microusd) is not int or ceiling_microusd <= 0:
         raise ValueError("ceiling_microusd must be a positive integer")
+    if summary_profile not in {"standard", "short"}:
+        raise ValueError("unsupported summary profile")
+    prompt_version = (
+        SHORT_SUMMARY_PROMPT_VERSION
+        if summary_profile == "short"
+        else SUMMARY_PROMPT_VERSION
+    )
+    request_byte_budget = (
+        24_000 if summary_profile == "short" else JEV_REQUEST_BYTE_BUDGET
+    )
+    if reconcile_saved_overrun and summary_profile != "standard":
+        raise ValueError(
+            "saved-overrun reconciliation applies only to the original standard profile"
+        )
     if reconcile_saved_overrun:
         recover_saved_overrun(
             execution,
@@ -153,14 +169,16 @@ def prepare_summaries(
     summary_label = (
         "Luna" if (entry.provider, entry.model_id) == _LUNA_SUMMARY_ENTRY else "Grok"
     )
-    cache = SummaryCache.load(cache_path, execution.release.release_digest)
+    cache = SummaryCache.load(
+        cache_path, execution.release.release_digest, prompt_version=prompt_version
+    )
     identity = str(
         ARTIFACT_RAW_SHA256_V1.commit(
             {
                 "release": execution.release.release_digest,
                 "model": model_registry_entry_sha256(entry),
-                "prompt": SUMMARY_PROMPT_VERSION,
-                "request_byte_budget": JEV_REQUEST_BYTE_BUDGET,
+                "prompt": prompt_version,
+                "request_byte_budget": request_byte_budget,
             },
             domain=PUBLIC_RUN_IDENTITY_V1,
         ).digest
@@ -194,7 +212,7 @@ def prepare_summaries(
             )
             # Leave room for JSON escaping, and validate the actual assembled
             # request before it can reach Jev. Never truncate a paid summary.
-            budget = (JEV_REQUEST_BYTE_BUDGET - overhead) * 4 // (5 * len(documents))
+            budget = (request_byte_budget - overhead) * 4 // (5 * len(documents))
             if budget < 500:
                 raise ValueError(
                     f"too many questions/documents for useful summaries: {case.case_id}"
@@ -252,7 +270,25 @@ def prepare_summaries(
                         "document": dict(document.description),
                         "text": document.text,
                         "maximum_summary_utf8_bytes": budget,
-                        "target_words": max(50, budget // 9),
+                        "target_words": max(
+                            50, budget // (12 if summary_profile == "short" else 9)
+                        ),
+                        **(
+                            {
+                                "brevity_instructions": (
+                                    "Write a compact summary within the target words "
+                                    "and maximum bytes. Compress repetition "
+                                    "and quotations; "
+                                    "retain each claim, defendant group, "
+                                    "material ground "
+                                    "and counterargument across the whole document. "
+                                    "Do not include a preamble or repeat "
+                                    "procedural boilerplate."
+                                )
+                            }
+                            if summary_profile == "short"
+                            else {}
+                        ),
                     }
                 ).decode("utf-8")
                 if (
@@ -345,7 +381,7 @@ def prepare_summaries(
                         source_sha256=document.source_sha256,
                         text=text,
                         model=entry.model_id,
-                        prompt_version=SUMMARY_PROMPT_VERSION,
+                        prompt_version=prompt_version,
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
                         estimated_cost_usd=cost,

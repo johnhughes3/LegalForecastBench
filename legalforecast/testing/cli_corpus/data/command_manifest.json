@@ -1,4 +1,6 @@
 {
+  "schema_version": 1,
+  "prog": "legalforecast",
   "bypasses": [],
   "commands": [
     {
@@ -1034,6 +1036,22 @@
           ],
           "required": true,
           "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": [
+            "standard",
+            "short"
+          ],
+          "default": "standard",
+          "dest": "summary_profile",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--summary-profile"
+          ],
+          "required": false,
+          "type": null
         },
         {
           "action": "store",
@@ -4214,7 +4232,5 @@
       ],
       "registration_index": 40
     }
-  ],
-  "prog": "legalforecast",
-  "schema_version": 1
+  ]
 }
