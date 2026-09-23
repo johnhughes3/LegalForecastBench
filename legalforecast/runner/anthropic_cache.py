@@ -24,6 +24,10 @@ _PRICING_SOURCE: Final = (
     "https://platform.claude.com/docs/en/about-claude/pricing, "
     "Anthropic prompt-cache pricing checked 2026-09-12"
 )
+_OPUS_55_PRICING_SOURCE: Final = (
+    "https://platform.claude.com/docs/en/about-claude/pricing, "
+    "Anthropic prompt-cache pricing checked 2026-09-22"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,11 +39,12 @@ class _AnthropicCacheRate:
     cache_write_token_price: float
     output_token_price: float
     ttl: AnthropicCacheTtl = "5m"
+    pricing_source: str | None = None
 
 
 # These are the current first-party Anthropic rates in USD per million tokens.
 # The cache flag used by the native adapter resolves ``True`` to the 5m TTL.
-# Fable 5.1 is the held Anthropic model; Opus 5 and Sonnet 5 are the current
+# Fable 5.1 is the held Anthropic model; Opus 5.5, Opus 5, and Sonnet 5 are
 # document-tool execution models.
 _RATES: Final[dict[str, _AnthropicCacheRate]] = {
     "claude-fable-5-1": _AnthropicCacheRate(
@@ -53,6 +58,13 @@ _RATES: Final[dict[str, _AnthropicCacheRate]] = {
         cache_read_token_price=0.5,
         cache_write_token_price=6.25,
         output_token_price=25.0,
+    ),
+    "claude-opus-5-5": _AnthropicCacheRate(
+        input_token_price=4.0,
+        cache_read_token_price=0.2,
+        cache_write_token_price=5.0,
+        output_token_price=20.0,
+        pricing_source=_OPUS_55_PRICING_SOURCE,
     ),
     "claude-sonnet-5": _AnthropicCacheRate(
         input_token_price=2.0,
@@ -136,8 +148,9 @@ def anthropic_cache_cost(
             + output_tokens * output_price
         )
 
+    pricing_source = rates.pricing_source or _PRICING_SOURCE
     provenance = (
-        f"{_PRICING_SOURCE}; model={entry.model_id}; ttl={rates.ttl}; "
+        f"{pricing_source}; model={entry.model_id}; ttl={rates.ttl}; "
         f"input={rates.input_token_price:g}/M; "
         f"cache_read={rates.cache_read_token_price:g}/M; "
         f"cache_write={rates.cache_write_token_price:g}/M; "
@@ -150,7 +163,7 @@ def anthropic_cache_cost(
         "cache_pricing_provider": "anthropic",
         "cache_pricing_model": entry.model_id,
         "cache_pricing_ttl": rates.ttl,
-        "cache_pricing_source": _PRICING_SOURCE,
+        "cache_pricing_source": pricing_source,
         "input_token_price_usd_per_million": rates.input_token_price,
         "cache_read_token_price_usd_per_million": rates.cache_read_token_price,
         "cache_write_token_price_usd_per_million": rates.cache_write_token_price,

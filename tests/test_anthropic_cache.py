@@ -34,6 +34,7 @@ def _entry(
     (
         ("claude-fable-5-1", 10.0, 50.0, 0.01635, 400, 100),
         ("claude-opus-5", 5.0, 25.0, 0.008325, 400, 100),
+        ("claude-opus-5-5", 4.0, 20.0, 0.00658, 400, 100),
         ("claude-sonnet-5", 2.0, 10.0, 0.00333, 400, 100),
     ),
 )
@@ -56,9 +57,10 @@ def test_anthropic_cache_cost_prices_each_input_bucket_once(
     assert metadata["cost_method"] == "anthropic_cache_aware_usage_reconstruction"
     assert metadata["cache_pricing_model"] == model_id
     assert metadata["cache_pricing_ttl"] == "5m"
+    pricing_checked = "2026-09-22" if model_id == "claude-opus-5-5" else "2026-09-12"
     assert metadata["cache_pricing_source"] == (
         "https://platform.claude.com/docs/en/about-claude/pricing, "
-        "Anthropic prompt-cache pricing checked 2026-09-12"
+        f"Anthropic prompt-cache pricing checked {pricing_checked}"
     )
     assert "cache_read=" in str(metadata["rate_provenance"])
     assert "cache_write=" in str(metadata["rate_provenance"])
