@@ -1385,15 +1385,24 @@ jobs:
 
           import runpy
           recovery = runpy.run_path(".github/scripts/restore-forecast-state.py")
-          recovery["expand_bundle"](Path("/tmp/lfb-restored-bundle"), state_root)
+          # download-artifact extracts a single match directly into the target,
+          # even with merge-multiple=false. Multiple matches get subdirectories.
+          # Keep carried cells separate so their expansion cannot change which
+          # of those two layouts the downloaded worker artifacts use.
+          restored_root = Path("/tmp/lfb-restored-states")
+          recovery["expand_bundle"](Path("/tmp/lfb-restored-bundle"), restored_root)
           expected_cells = json.loads((inputs / "expected-cells.json").read_text())
           expected_ids = {cell["cell_id"] for cell in expected_cells}
           if len(expected_ids) != len(expected_cells):
               raise SystemExit("duplicate expected cell identity")
-          state_dirs = sorted(
-              path for path in state_root.iterdir()
-              if path.is_dir() and not path.is_symlink()
-          ) if state_root.is_dir() and not state_root.is_symlink() else []
+          state_dirs = []
+          if state_root.is_dir() and not state_root.is_symlink():
+              state_dirs = [state_root] if (state_root / "state.json").exists() else sorted(
+                  path for path in state_root.iterdir()
+                  if path.is_dir() and not path.is_symlink()
+              )
+          if restored_root.is_dir() and not restored_root.is_symlink():
+              state_dirs.extend(sorted(restored_root.iterdir()))
           # A GitHub rerun of failed jobs keeps successful siblings in older attempts.
           selected_states = {}
           for directory in state_dirs:
