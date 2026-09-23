@@ -24,6 +24,12 @@ _spec = importlib.util.spec_from_file_location("protected_benchmark_recovery", S
 assert _spec is not None and _spec.loader is not None
 _recovery = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_recovery)
+_restore_spec = importlib.util.spec_from_file_location(
+    "restore_forecast_state", ROOT / ".github/scripts/restore-forecast-state.py"
+)
+assert _restore_spec is not None and _restore_spec.loader is not None
+_restore = importlib.util.module_from_spec(_restore_spec)
+_restore_spec.loader.exec_module(_restore)
 
 MODEL_KEY = "openai:gpt-test"
 REGISTRY_DIGEST = "a" * 64
@@ -287,6 +293,61 @@ def test_invalid_terminal_transcript_blocks_replacement(
     (cell,) = _load(tmp_path, identity_sha=identity[1])
     assert cell.evidence_error is not None
     assert "terminal transcript requires repair" in cell.evidence_error
+
+
+def test_nonreplayable_prediction_units_allow_replacement_without_terminal_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = _identity()
+    _state(
+        tmp_path,
+        cell_id="wrong-units",
+        attempt=1,
+        identity=identity,
+        local_attempt_id="original-attempt",
+        transcript=b'{"terminal": true}',
+    )
+
+    def reject_nonreplayable(*_args: object, **_kwargs: object) -> None:
+        raise _recovery.NonReplayablePredictionUnits("wrong prediction units")
+
+    monkeypatch.setattr(
+        _recovery, "managed_result_from_transcript", reject_nonreplayable
+    )
+    (cell,) = _load(tmp_path, identity_sha=identity[1])
+
+    assert cell.local_attempt_id == "original-attempt"
+    assert cell.terminal_response is None
+    assert cell.evidence_error is None
+
+
+def test_restore_without_frozen_registry_does_not_discard_terminal_candidate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("LFB_FORECAST_INPUTS_ROOT", raising=False)
+    cell_id = "terminal-candidate"
+    (tmp_path / "state.json").write_text(
+        json.dumps(
+            {
+                "provider": "openai",
+                "cell_id": cell_id,
+                "run_id": "123",
+                "run_attempt": 1,
+                "status": "failed",
+            }
+        )
+    )
+    for summary in ("failure-summary.json", "run-summary.json"):
+        (tmp_path / summary).write_text('{"status":"failed"}')
+    (tmp_path / "ledger.sqlite3").write_bytes(b"durable-ledger")
+    transcripts = tmp_path / "transcripts"
+    transcripts.mkdir()
+    (transcripts / f"{cell_id}.json").write_text(
+        '{"agent_status":"failed","messages":[{"kind":"response",'
+        '"parts":[{"part_kind":"tool-call","tool_name":"final_result"}]}]}'
+    )
+
+    _restore._validate_source_completed_state(tmp_path, "openai", cell_id, "123", 1)
 
 
 @pytest.mark.parametrize("valid", [True, False])

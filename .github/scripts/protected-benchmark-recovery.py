@@ -30,6 +30,7 @@ from legalforecast.release.consumer import load_forecast_run_inputs
 from legalforecast.runner.cancelled_recovery import attach_cancelled_transport_evidence
 from legalforecast.runner.ledger import RunnerLedger, RunValidationError
 from legalforecast.runner.managed_transcript_recovery import (
+    NonReplayablePredictionUnits,
     managed_result_from_transcript,
 )
 from legalforecast.runner.protected_recovery import (
@@ -446,6 +447,11 @@ def _load_cells(
                         result = managed_result_from_transcript(
                             transcript, entry=entry, cell=cell
                         )
+                    except NonReplayablePredictionUnits:
+                        # The response and its cost remain ambiguous.  It is
+                        # unsafe to replay this output, so plan a replacement
+                        # call while retaining the original reservation.
+                        result = None
                     except ValueError as exc:
                         if has_terminal_transcript_candidate(transcript.read_bytes()):
                             raise RunValidationError(
