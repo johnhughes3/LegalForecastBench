@@ -473,8 +473,16 @@ jobs:
               "model_key", "run_identity_sha256", "forecast_release_digest", "model_registry_sha256",
               "repeat_count",
           }
-          if set(metadata) != expected_fields or metadata["schema_version"] != "legalforecast.forecast-run.v1":
+          # Recovery-aware producers include budget identity; retain support for
+          # older completed forecasts without accepting arbitrary extra fields.
+          budget_fields = {"account", "ceiling_microusd"}
+          if set(metadata) not in (expected_fields, expected_fields | budget_fields) or metadata["schema_version"] != "legalforecast.forecast-run.v1":
               raise SystemExit("forecast-run.json fields or schema are invalid")
+          if budget_fields <= set(metadata):
+              if not isinstance(metadata["account"], str) or not metadata["account"].strip():
+                  raise SystemExit("forecast-run.json account must be nonempty text")
+              if type(metadata["ceiling_microusd"]) is not int or metadata["ceiling_microusd"] <= 0:
+                  raise SystemExit("forecast-run.json ceiling_microusd must be a positive integer")
           expected = {
               "workflow_run_id": int(os.environ["FORECAST_RUN_ID"]),
               "workflow_run_attempt": int(os.environ["FORECAST_RUN_ATTEMPT"]),
