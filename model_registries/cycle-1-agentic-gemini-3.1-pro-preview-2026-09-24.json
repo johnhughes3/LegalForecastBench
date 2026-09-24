@@ -1,0 +1,33 @@
+[
+  {
+    "cache_read_token_price": 0.2,
+    "context_limit": 1048576,
+    "display_name": "Gemini 3.1 Pro Preview (agentic; high thinking)",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "Google reports a January 2025 knowledge cutoff at https://ai.google.dev/gemini-api/docs/gemini-3; the exact training-data cutoff is not established.",
+      "Preview alias has no dated immutable snapshot. Preserve served model version and report this provenance limitation.",
+      "Full agentic document-tool condition over the original locked documents, with high thinking and provider-default sampling. No Jev summaries or search. Output maximum 65536 tokens.",
+      "Preserve reported cache usage; implicit cached input uses the documented cache read rate. No explicit cache-storage creation is requested by this harness."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2.0,
+      "output_price_multiplier": 1.5,
+      "threshold_input_tokens": 200000
+    },
+    "max_output_tokens": 65536,
+    "model_id": "gemini-3.1-pro-preview",
+    "model_version_or_snapshot": "gemini-3.1-pro-preview",
+    "network_disabled": true,
+    "output_token_price": 12.0,
+    "pricing_source": "https://ai.google.dev/gemini-api/docs/pricing: Standard text input USD 2/M and output USD 12/M up to 200000 input tokens; USD 4/M and 18/M above that threshold. Cached input USD 0.20/M or 0.40/M above 200000 input tokens. Checked 2026-09-24.",
+    "provider": "google",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-02-19T00:00:00Z",
+    "release_timestamp_source": "https://ai.google.dev/gemini-api/docs/changelog, Gemini 3.1 Pro Preview released February 19, 2026.",
+    "search_disabled": true,
+    "thinking_level": "high",
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]
