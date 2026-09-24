@@ -340,10 +340,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "SqliteProviderSpendAuthority",
-        "largest_symbol_lines": 851,
+        "largest_symbol_lines": 861,
         "layer": "application",
-        "line_count": 1109,
-        "nonblank_line_count": 1011,
+        "line_count": 1139,
+        "nonblank_line_count": 1035,
         "top_level_definition_count": 20
       },
       "legalforecast/evals/provider_spend_dynamodb.py": {
@@ -357,10 +357,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "DynamoDbProviderSpendAuthority",
-        "largest_symbol_lines": 2252,
+        "largest_symbol_lines": 2281,
         "layer": "application",
-        "line_count": 2480,
-        "nonblank_line_count": 2367,
+        "line_count": 2510,
+        "nonblank_line_count": 2397,
         "top_level_definition_count": 20
       },
       "legalforecast/evals/response_verification.py": {
@@ -2294,8 +2294,8 @@
         "largest_symbol": "InMemoryDynamoRunner",
         "largest_symbol_lines": 156,
         "layer": "test",
-        "line_count": 2420,
-        "nonblank_line_count": 2137,
+        "line_count": 2472,
+        "nonblank_line_count": 2181,
         "top_level_definition_count": 71
       },
       "tests/test_public_runner.py": {
