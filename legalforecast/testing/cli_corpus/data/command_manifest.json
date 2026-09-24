@@ -1134,6 +1134,19 @@
           ],
           "required": false,
           "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "retry_ambiguous_attempt_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--retry-ambiguous-attempt-id"
+          ],
+          "required": false,
+          "type": null
         }
       ],
       "path": [
