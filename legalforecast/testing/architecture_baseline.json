@@ -282,18 +282,18 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 21,
+        "fan_in": 24,
         "fan_out": 2,
         "flags": [
           "watch"
         ],
         "lane_owner": "evals",
         "largest_symbol": "ModelRegistryEntry",
-        "largest_symbol_lines": 199,
+        "largest_symbol_lines": 261,
         "layer": "application",
-        "line_count": 718,
-        "nonblank_line_count": 602,
-        "top_level_definition_count": 39
+        "line_count": 832,
+        "nonblank_line_count": 710,
+        "top_level_definition_count": 40
       },
       "legalforecast/evals/output_parser.py": {
         "cycle_id": "",

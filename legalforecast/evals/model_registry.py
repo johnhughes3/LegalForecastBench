@@ -21,6 +21,11 @@ SUMMARY_COMPARATOR_MODELS = frozenset(
     }
 )
 
+# Explicitly approved preview comparison: Google offers no dated snapshot.
+# Keep the preview identity in the frozen registry and validate the served
+# version normally. This exception makes no immutable-weight or cutoff claim.
+_APPROVED_PREVIEW_COMPARISONS = frozenset({"google:gemini-3.1-pro-preview"})
+
 
 class TrainingCutoffStatus(StrEnum):
     """Whether a model's provider training cutoff is known."""
@@ -618,6 +623,7 @@ def require_official_registry_entries(
         for entry in entries
         if entry.model_version_or_snapshot == entry.model_id
         and any(marker in entry.model_id.lower() for marker in ("preview", "latest"))
+        and entry.registry_key not in _APPROVED_PREVIEW_COMPARISONS
     )
     if mutable_aliases:
         raise ValueError(
