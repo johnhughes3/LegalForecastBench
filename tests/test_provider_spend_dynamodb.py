@@ -64,6 +64,7 @@ class InMemoryDynamoRunner:
         self.items: dict[str, AttributeMap] = {}
         self.calls: list[tuple[str, Mapping[str, object]]] = []
         self.lock = threading.RLock()
+        self.before_poison_transaction: Callable[[], None] | None = None
         self.table_arn = _TABLE_ARN
         self.key_schema: list[dict[str, str]] = [
             {"AttributeName": "authority_key", "KeyType": "HASH"},
@@ -108,6 +109,20 @@ class InMemoryDynamoRunner:
             self.items[record_key] = item
             return {}
         if operation == "transact-write-items":
+            transaction = cast(list[dict[str, object]], payload["TransactItems"])
+            is_poison = any(
+                "SET authority_poisoned = :one"
+                in str(
+                    cast(Mapping[str, object], action.get("Update", {})).get(
+                        "UpdateExpression", ""
+                    )
+                )
+                for action in transaction
+            )
+            if is_poison and self.before_poison_transaction is not None:
+                before_poison = self.before_poison_transaction
+                self.before_poison_transaction = None
+                before_poison()
             self._apply_transaction(payload)
             return {}
         raise AssertionError(f"unexpected DynamoDB operation: {operation}")
@@ -1664,6 +1679,62 @@ def test_above_reservation_cost_poisons_when_aggregate_cap_is_exceeded() -> None
         if operation == "transact-write-items"
     )
     assert isinstance(poison_transaction.get("ClientRequestToken"), str)
+
+
+@pytest.mark.parametrize("settlement_kind", ["response", "reconciliation"])
+def test_capacity_release_before_poison_retries_settlement(
+    settlement_kind: str,
+) -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(runner, cap_microusd=500_000)
+    target = authority.authorize_attempt(
+        _key(case_id="target"), reservation_microusd=300_000
+    )
+    releasable = authority.authorize_attempt(
+        _key(case_id="releasable"), reservation_microusd=200_000
+    )
+    if settlement_kind == "reconciliation":
+        authority.record_failure(target, failure_type="ReadError", ambiguous=True)
+
+    released = False
+
+    def release_capacity_before_poison() -> None:
+        nonlocal released
+        if not released:
+            released = True
+            authority.record_response(
+                releasable,
+                input_tokens=1,
+                output_tokens=1,
+                actual_microusd=0,
+                response_sha256="4" * 64,
+            )
+
+    runner.before_poison_transaction = release_capacity_before_poison
+
+    if settlement_kind == "response":
+        authority.record_response(
+            target,
+            input_tokens=1,
+            output_tokens=1,
+            actual_microusd=400_000,
+            response_sha256="5" * 64,
+        )
+    else:
+        authority.reconcile_ambiguous(
+            target,
+            usage_record_id="provider-usage-after-release",
+            usage_record_sha256="6" * 64,
+            billed_microusd=400_000,
+        )
+
+    snapshot = authority.snapshot()
+    assert released
+    assert snapshot.committed_microusd == 400_000
+    assert snapshot.reserved_attempt_count == 0
+    assert snapshot.ambiguous_attempt_count == 0
+    assert snapshot.settled_attempt_count == 2
+    assert not snapshot.authority_poisoned
 
 
 def test_ambiguous_reconciliation_above_reservation_settles_within_cap() -> None:
