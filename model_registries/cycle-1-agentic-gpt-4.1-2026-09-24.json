@@ -1,0 +1,27 @@
+[
+  {
+    "cache_read_token_price": 0.5,
+    "cache_write_token_price": 2.0,
+    "context_limit": 1047576,
+    "display_name": "GPT-4.1 (agentic; dated snapshot)",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "OpenAI reports a June 1, 2024 knowledge cutoff, not an explicitly documented training-data cutoff; the exact training cutoff remains unknown.",
+      "Full agentic document-tool condition over the original locked documents. GPT-4.1 has no separate reasoning mode; omit unsupported reasoning parameters while retaining the same tools and multi-turn harness. No Jev summaries.",
+      "Use dated snapshot gpt-4.1-2025-04-14, provider-default sampling, and the supported 32768-token output maximum."
+    ],
+    "max_output_tokens": 32768,
+    "model_id": "gpt-4.1-2025-04-14",
+    "model_version_or_snapshot": "gpt-4.1-2025-04-14",
+    "network_disabled": true,
+    "output_token_price": 8.0,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-4.1: Standard USD 2/M input, 0.50/M cached input, 8/M output; ordinary input pricing for cache creation. Checked 2026-09-24. Flex is not supported.",
+    "provider": "openai",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2025-04-14T00:00:00Z",
+    "release_timestamp_source": "https://openai.com/index/gpt-4-1/",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]
