@@ -872,6 +872,11 @@ def _complete_cell(
 ) -> SolverResponse:
     handler = ProviderSpendAttemptHandler(
         authority=authority,
+        capacity_snapshot=(
+            authority.snapshot
+            if isinstance(authority, DynamoDbProviderSpendAuthority)
+            else None
+        ),
         key=key,
         reservation_microusd=reservation_microusd,
         before_authorize=before_authorize,

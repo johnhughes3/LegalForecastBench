@@ -10,6 +10,9 @@ from dataclasses import dataclass, field
 from typing import Protocol, cast
 
 from legalforecast.evals.model_registry import LongContextSurcharge
+from legalforecast.evals.provider_spend_admission import (
+    authorize_when_capacity_available,
+)
 from legalforecast.evals.provider_spend_control import (
     RETRYABLE_HTTP_429_FAILURE_TYPE,
     AdditionalAttemptPermit,
@@ -17,6 +20,7 @@ from legalforecast.evals.provider_spend_control import (
     AttemptLimitExceededError,
     ProviderSpendAuthority,
     ProviderSpendKey,
+    SpendControlSnapshot,
     SqliteProviderSpendAuthority,
 )
 
@@ -97,6 +101,7 @@ class ProviderSpendAttemptHandler:
     pretransport_attempt_observer: Callable[[AttemptLease], None] | None = None
     transport_start_observer: Callable[[AttemptLease], None] | None = None
     response_observer: ResponseObserver | None = None
+    capacity_snapshot: Callable[[], SpendControlSnapshot] | None = None
     _leases_by_local_ordinal: dict[int, AttemptLease] = field(
         default_factory=dict[int, AttemptLease]
     )
@@ -174,6 +179,15 @@ class ProviderSpendAttemptHandler:
                             "retryable replacement lacks the exact prior attempt"
                         )
                     lease = self._authorize_nonbillable_replacement(prior_attempt)
+                elif (
+                    self.before_authorize is None and self.capacity_snapshot is not None
+                ):
+                    lease = authorize_when_capacity_available(
+                        self.authority,
+                        self.key,
+                        reservation_microusd=self.reservation_microusd,
+                        snapshot=self.capacity_snapshot,
+                    )
                 elif self.before_authorize is None:
                     lease = self.authority.authorize_attempt(
                         self.key,
