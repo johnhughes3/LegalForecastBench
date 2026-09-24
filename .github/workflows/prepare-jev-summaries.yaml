@@ -36,6 +36,11 @@ on:
         required: false
         default: false
         type: boolean
+      retry_ambiguous_attempt_id:
+        description: Exact ambiguous first summary attempt to replace once under the unchanged ledger ceiling.
+        required: false
+        default: ""
+        type: string
       predictor:
         description: Predictor for the frozen one-shot summary condition.
         required: false
@@ -57,7 +62,7 @@ on:
           - low
           - high
       summary_profile:
-        description: Summary condition; short requires a fresh cache and ledger.
+        description: Summary condition; start a new short condition with a fresh cache and ledger, then resume that condition with both.
         required: false
         default: standard
         type: choice
@@ -347,12 +352,20 @@ jobs:
           OPENAI_API_KEY: ${{ inputs.summary_model == 'luna' && secrets.OPENAI_API_KEY || '' }}
           AI_GATEWAY_API_KEY: ${{ inputs.summary_model == 'grok' && secrets.AI_GATEWAY_API_KEY || '' }}
           RECONCILE_SAVED_OVERRUN: ${{ inputs.reconcile_saved_overrun }}
+          RETRY_AMBIGUOUS_ATTEMPT_ID: ${{ inputs.retry_ambiguous_attempt_id }}
         shell: bash
         run: |
           set -euo pipefail
           recovery_args=()
           if [[ "$RECONCILE_SAVED_OVERRUN" == "true" ]]; then
             recovery_args=(--reconcile-saved-overrun)
+          fi
+          if [[ -n "$RETRY_AMBIGUOUS_ATTEMPT_ID" ]]; then
+            [[ "$RETRY_AMBIGUOUS_ATTEMPT_ID" =~ ^[0-9a-f]{64}$ ]] || {
+              echo "retry_ambiguous_attempt_id must be a SHA-256 attempt ID" >&2
+              exit 1
+            }
+            recovery_args+=(--retry-ambiguous-attempt-id "$RETRY_AMBIGUOUS_ATTEMPT_ID")
           fi
           uv run legalforecast jev prepare \
             --manifest /tmp/lfb-jev-inputs/run-manifest.json \

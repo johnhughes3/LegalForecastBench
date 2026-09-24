@@ -184,6 +184,13 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
                     "making a provider call."
                 ),
             )
+            child.add_argument(
+                "--retry-ambiguous-attempt-id",
+                help=(
+                    "Allow one replacement for this exact ambiguous provider attempt "
+                    "under the existing ledger ceiling; retain its charge hold."
+                ),
+            )
         child.set_defaults(handler=run_inputs)
     registry = commands.add_parser(
         "registry",
@@ -262,6 +269,10 @@ def run_inputs(args: argparse.Namespace) -> int:
         }
         if getattr(args, "reconcile_saved_overrun", False):
             summary_kwargs["reconcile_saved_overrun"] = True
+        if getattr(args, "retry_ambiguous_attempt_id", None):
+            summary_kwargs["retry_ambiguous_attempt_id"] = (
+                args.retry_ambiguous_attempt_id
+            )
         if getattr(args, "summary_profile", "standard") != "standard":
             summary_kwargs["summary_profile"] = args.summary_profile
         result = prepare_summaries(**summary_kwargs)  # type: ignore[arg-type]
