@@ -925,7 +925,7 @@ class DynamoDbProviderSpendAuthority:
                     _number(ledger, "committed_microusd")
                 ):
                     continue
-                self._poison_authority(
+                poisoned = self._poison_authority(
                     lease,
                     reason=_OBSERVED_RESPONSE_POISON_REASON,
                     recovery_evidence=(
@@ -934,7 +934,13 @@ class DynamoDbProviderSpendAuthority:
                         actual_microusd,
                         response_digest,
                     ),
+                    expected_status="reserved",
+                    maximum_committed_microusd=(budget.maximum_committed_microusd),
                 )
+                if not poisoned:
+                    # Capacity may have been released after the failed
+                    # settlement was reread.  Retry against the live ledger.
+                    continue
                 raise SettlementError(
                     "provider actual cost exceeds the aggregate provider cap; "
                     "authority is poisoned"
@@ -1479,10 +1485,16 @@ class DynamoDbProviderSpendAuthority:
                 self._raise_if_poisoned(ledger)
                 if budget.fits_cap(_number(ledger, "committed_microusd")):
                     continue
-                self._poison_authority(
+                poisoned = self._poison_authority(
                     lease,
                     reason=_RECONCILED_COST_POISON_REASON,
+                    expected_status=source_status,
+                    maximum_committed_microusd=(budget.maximum_committed_microusd),
                 )
+                if not poisoned:
+                    # Capacity may have been released after the failed
+                    # reconciliation was reread. Retry atomically.
+                    continue
                 raise SettlementError(
                     "reconciled provider cost exceeds the aggregate provider cap; "
                     "authority is poisoned"
@@ -2208,8 +2220,22 @@ class DynamoDbProviderSpendAuthority:
         lease: AttemptLease,
         *,
         reason: str,
+        expected_status: str,
+        maximum_committed_microusd: int,
         recovery_evidence: tuple[int, int, int, str] | None = None,
-    ) -> None:
+    ) -> bool:
+        """Poison only while this attempt is live and still exceeds the cap.
+
+        The earlier settlement transaction and this poison transaction are
+        separate DynamoDB calls.  Conditioning poison on the same cap
+        threshold closes the race where another settlement releases capacity
+        between those calls.
+
+        Return ``False`` when a conditional failure means the caller should
+        retry settlement against current state.  An indeterminate write is
+        resolved only when a consistent read proves poison was committed.
+        """
+
         attempt = self._attempt_for_lease(lease)
         stored_reservation = _number(attempt, "reservation_microusd")
         reason_sha256 = hashlib.sha256(reason.encode()).hexdigest()
@@ -2219,13 +2245,16 @@ class DynamoDbProviderSpendAuthority:
                     "TableName": self.table_name,
                     "Key": self._key(_attempt_record_key(lease)),
                     "ConditionExpression": (
+                        "#status = :status AND "
                         "attempt_id = :attempt_id AND "
                         "authority_identity_sha256 = :identity AND "
                         "logical_call_key = :logical AND "
                         "attempt_ordinal = :ordinal AND "
                         "reservation_microusd = :reservation"
                     ),
+                    "ExpressionAttributeNames": {"#status": "status"},
                     "ExpressionAttributeValues": {
+                        ":status": _s(expected_status),
                         ":attempt_id": _s(lease.attempt_id),
                         ":identity": _s(self.authority_identity_sha256),
                         ":logical": _s(lease.logical_call_key),
@@ -2250,7 +2279,7 @@ class DynamoDbProviderSpendAuthority:
                         "recovery_response_sha256 = :response"
                     ),
                     "ConditionExpression": (
-                        "#status = :reserved AND "
+                        "#status = :status AND "
                         "attempt_id = :attempt_id AND "
                         "authority_identity_sha256 = :identity AND "
                         "logical_call_key = :logical AND "
@@ -2260,7 +2289,7 @@ class DynamoDbProviderSpendAuthority:
                     ),
                     "ExpressionAttributeNames": {"#status": "status"},
                     "ExpressionAttributeValues": {
-                        ":reserved": _s("reserved"),
+                        ":status": _s(expected_status),
                         ":reason": _s(reason_sha256),
                         ":input": _n(input_tokens),
                         ":output": _n(output_tokens),
@@ -2286,12 +2315,16 @@ class DynamoDbProviderSpendAuthority:
                             "poison_reason_sha256 = :reason"
                         ),
                         "ConditionExpression": (
-                            "authority_identity_sha256 = :identity"
+                            "authority_identity_sha256 = :identity AND "
+                            "authority_poisoned = :zero AND "
+                            "committed_microusd > :maximum"
                         ),
                         "ExpressionAttributeValues": {
                             ":one": _n(1),
                             ":reason": _s(reason_sha256),
                             ":identity": _s(self.authority_identity_sha256),
+                            ":zero": _n(0),
+                            ":maximum": _n(maximum_committed_microusd),
                         },
                     }
                 },
@@ -2299,11 +2332,15 @@ class DynamoDbProviderSpendAuthority:
         }
         try:
             self._runner("transact-write-items", _with_client_token(transaction))
-        except (DynamoDbConditionalError, DynamoDbIndeterminateError):
+            return True
+        except (DynamoDbConditionalError, DynamoDbIndeterminateError) as exc:
             ledger = self._get_required(_LEDGER_RECORD_KEY)
             self._verify_ledger(ledger)
-            if _number(ledger, "authority_poisoned") != 1:
+            if _number(ledger, "authority_poisoned") == 1:
+                return True
+            if isinstance(exc, DynamoDbIndeterminateError):
                 raise
+            return False
 
     def _verify_reconciliation_result(
         self,
