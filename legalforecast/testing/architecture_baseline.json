@@ -1420,10 +1420,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "execute_release_run",
-        "largest_symbol_lines": 652,
+        "largest_symbol_lines": 655,
         "layer": "application",
-        "line_count": 1392,
-        "nonblank_line_count": 1296,
+        "line_count": 1396,
+        "nonblank_line_count": 1300,
         "top_level_definition_count": 24
       },
       "legalforecast/studies/service.py": {

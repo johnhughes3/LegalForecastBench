@@ -824,7 +824,11 @@ def execute_release_run(
                                 message = (
                                     "provider reservation would exceed run ceiling"
                                 )
-                            raise RunBlockedError(message) from exc
+                            # Preserve the actionable refusal class without copying
+                            # private authority details from the exception message.
+                            raise RunBlockedError(
+                                f"{message} ({type(exc).__name__})"
+                            ) from exc
                         raise
                     if replayable_response is None:
                         executed_cells += 1
