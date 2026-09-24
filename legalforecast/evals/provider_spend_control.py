@@ -84,6 +84,7 @@ class AdditionalAttemptPermit:
     max_total_attempts: int
     reservation_cap_microusd: int
     provider_logical_call_scope_sha256: str | None = None
+    acknowledged_ambiguous_attempt_id: str | None = None
 
     def __post_init__(self) -> None:
         _sha256(self.logical_call_key, "logical_call_key")
@@ -95,6 +96,11 @@ class AdditionalAttemptPermit:
             _sha256(
                 self.provider_logical_call_scope_sha256,
                 "provider_logical_call_scope_sha256",
+            )
+        if self.acknowledged_ambiguous_attempt_id is not None:
+            _sha256(
+                self.acknowledged_ambiguous_attempt_id,
+                "acknowledged_ambiguous_attempt_id",
             )
 
 
@@ -565,7 +571,45 @@ class SqliteProviderSpendAuthority:
                 raise AttemptLimitExceededError(
                     "logical provider call reached its approved attempt limit"
                 )
-            if self._failure_count(now) >= self.policy.failure_threshold:
+            acknowledged_failure_in_window = 0
+            if permit.acknowledged_ambiguous_attempt_id is not None:
+                if key.account != "jev-summaries" or key.stage != "document_summary":
+                    raise AuthorityIdentityMismatchError(
+                        "ambiguous replacement acknowledgement is summary-only"
+                    )
+                prior = self._connection.execute(
+                    "SELECT attempt_ordinal, status FROM provider_attempts "
+                    "WHERE attempt_id = ? AND logical_call_key = ?",
+                    (
+                        permit.acknowledged_ambiguous_attempt_id,
+                        key.logical_call_key,
+                    ),
+                ).fetchone()
+                if (
+                    prior is None
+                    or int(prior["attempt_ordinal"]) != 1
+                    or str(prior["status"]) != "ambiguous"
+                ):
+                    raise AttemptStateError(
+                        "additional attempt requires the exact ambiguous first attempt"
+                    )
+                event = self._connection.execute(
+                    "SELECT failed_at_epoch FROM provider_failure_events "
+                    "WHERE attempt_id = ?",
+                    (permit.acknowledged_ambiguous_attempt_id,),
+                ).fetchone()
+                if event is None:
+                    raise AttemptStateError(
+                        "ambiguous attempt has no durable failure event"
+                    )
+                acknowledged_failure_in_window = int(
+                    float(event["failed_at_epoch"])
+                    >= now - self.policy.failure_window_seconds
+                )
+            if (
+                self._failure_count(now) - acknowledged_failure_in_window
+                >= self.policy.failure_threshold
+            ):
                 raise CircuitBreakerOpenError(
                     f"provider/account circuit breaker is open for "
                     f"{self.provider}/{self.account}"
@@ -615,6 +659,50 @@ class SqliteProviderSpendAuthority:
             logical_call_key=key.logical_call_key,
             attempt_ordinal=ordinal,
             reservation_microusd=reservation,
+        )
+
+    def ambiguous_replacement_status(self, attempt_id: str) -> tuple[str, bool]:
+        """Identify one exact ambiguous first attempt and any settled replacement.
+
+        A reserved replacement might already have reached transport; it cannot
+        be adopted for another call. The original ambiguous hold remains.
+        """
+
+        normalized_id = _sha256(attempt_id, "attempt_id")
+        row = self._connection.execute(
+            "SELECT logical_call_key, attempt_ordinal, status "
+            "FROM provider_attempts WHERE attempt_id = ?",
+            (normalized_id,),
+        ).fetchone()
+        if (
+            row is None
+            or int(row["attempt_ordinal"]) != 1
+            or str(row["status"]) != "ambiguous"
+            or self._connection.execute(
+                "SELECT 1 FROM provider_failure_events WHERE attempt_id = ?",
+                (normalized_id,),
+            ).fetchone()
+            is None
+        ):
+            raise AttemptStateError(
+                "retry requires the exact ambiguous first provider attempt"
+            )
+        logical_key = str(row["logical_call_key"])
+        successor = self._connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "WHERE logical_call_key = ? AND attempt_ordinal > 1",
+            (logical_key,),
+        ).fetchall()
+        if not successor:
+            return logical_key, False
+        if (
+            len(successor) == 1
+            and int(successor[0]["attempt_ordinal"]) == 2
+            and str(successor[0]["status"]) == "settled"
+        ):
+            return logical_key, True
+        raise AttemptStateError(
+            "ambiguous replacement is already reserved or failed; no further call"
         )
 
     def adopt_attempt(
@@ -1034,10 +1122,28 @@ class SqliteProviderSpendAuthority:
         return int(row["count"])
 
     def _failure_count(self, now: float) -> int:
+        # Only Jev's one-shot summary replacement has an exact-event permit.
+        # A settled ordinal-2 response is durable evidence that its ordinal-1
+        # failure was acknowledged; the original charge hold remains counted.
         row = self._connection.execute(
             """
-            SELECT COUNT(*) AS count FROM provider_failure_events
-            WHERE failed_at_epoch >= ?
+            SELECT COUNT(*) AS count
+            FROM provider_failure_events AS failure
+            JOIN provider_attempts AS original
+                ON original.attempt_id = failure.attempt_id
+            WHERE failure.failed_at_epoch >= ?
+                AND NOT (
+                    original.attempt_ordinal = 1
+                    AND original.status = 'ambiguous'
+                    AND original.account = 'jev-summaries'
+                    AND original.stage = 'document_summary'
+                    AND EXISTS (
+                        SELECT 1 FROM provider_attempts AS replacement
+                        WHERE replacement.logical_call_key = original.logical_call_key
+                            AND replacement.attempt_ordinal = 2
+                            AND replacement.status = 'settled'
+                    )
+                )
             """,
             (now - self.policy.failure_window_seconds,),
         ).fetchone()

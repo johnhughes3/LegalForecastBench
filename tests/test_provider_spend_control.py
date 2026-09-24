@@ -322,6 +322,73 @@ def test_owner_permit_allows_only_one_capped_additional_attempt(
         assert authority.snapshot().attempt_count == 2
 
 
+def test_exact_failure_acknowledgement_does_not_mask_another_failure(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "spend-control.sqlite3"
+    target_key = _key(
+        account="jev-summaries", stage="document_summary", case_id="target"
+    )
+    other_key = _key(account="jev-summaries", stage="document_summary", case_id="other")
+    with _authority(
+        path,
+        account="jev-summaries",
+        max_billable_attempts=1,
+        failure_threshold=1,
+    ) as authority:
+        target = authority.authorize_attempt(target_key, reservation_microusd=100_000)
+        other = authority.authorize_attempt(other_key, reservation_microusd=100_000)
+        authority.record_failure(target, failure_type="timeout", ambiguous=True)
+        authority.record_failure(other, failure_type="disconnect", ambiguous=True)
+        permit = AdditionalAttemptPermit(
+            logical_call_key=target_key.logical_call_key,
+            prompt_sha256=hashlib.sha256(b"prompt").hexdigest(),
+            journal_path_sha256=hashlib.sha256(b"journal").hexdigest(),
+            max_total_attempts=2,
+            reservation_cap_microusd=100_000,
+            acknowledged_ambiguous_attempt_id=target.attempt_id,
+        )
+        with pytest.raises(CircuitBreakerOpenError):
+            authority.authorize_additional_attempt(
+                target_key, reservation_microusd=100_000, permit=permit
+            )
+        assert authority.snapshot().failure_count_in_window == 2
+
+
+def test_reserved_ambiguous_replacement_cannot_be_adopted_for_another_call(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "spend-control.sqlite3"
+    key = _key(account="jev-summaries", stage="document_summary")
+    with _authority(
+        path,
+        account="jev-summaries",
+        max_billable_attempts=1,
+        failure_threshold=1,
+    ) as authority:
+        first = authority.authorize_attempt(key, reservation_microusd=100_000)
+        authority.record_failure(first, failure_type="timeout", ambiguous=True)
+        permit = AdditionalAttemptPermit(
+            logical_call_key=key.logical_call_key,
+            prompt_sha256=hashlib.sha256(b"prompt").hexdigest(),
+            journal_path_sha256=hashlib.sha256(b"journal").hexdigest(),
+            max_total_attempts=2,
+            reservation_cap_microusd=100_000,
+            acknowledged_ambiguous_attempt_id=first.attempt_id,
+        )
+        second = authority.authorize_additional_attempt(
+            key, reservation_microusd=100_000, permit=permit
+        )
+        assert second.attempt_ordinal == 2
+        with pytest.raises(AttemptStateError, match="already reserved or failed"):
+            authority.ambiguous_replacement_status(first.attempt_id)
+        with pytest.raises(AttemptLimitExceededError):
+            authority.authorize_additional_attempt(
+                key, reservation_microusd=100_000, permit=permit
+            )
+        assert authority.snapshot().committed_microusd == 200_000
+
+
 def test_windowed_breaker_refuses_then_reopens_with_injected_clock(
     tmp_path: Path,
 ) -> None:

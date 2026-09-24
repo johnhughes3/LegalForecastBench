@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 import os
 from pathlib import Path
@@ -31,6 +32,7 @@ from legalforecast.evals.provider_spend_attempt_handler import (
     conservative_reservation_microusd,
 )
 from legalforecast.evals.provider_spend_control import (
+    AdditionalAttemptPermit,
     AttemptStateError,
     FrozenAttemptPolicy,
     ProviderSpendKey,
@@ -63,6 +65,28 @@ _UNBOUNDED_SUMMARY_BYTES = (1 << 63) - 1
 _SUMMARY_REQUEST_OUTPUT_TOKENS = 8192
 _LUNA_SUMMARY_ENTRY = ("openai", "gpt-5.6-luna")
 _GROK_SUMMARY_ENTRY = ("vercel_ai_gateway", "spacexai/grok-4.6")
+
+
+def _summary_key(
+    execution: ForecastExecution,
+    entry: ModelRegistryEntry,
+    *,
+    case_id: str,
+    document_id: str,
+) -> ProviderSpendKey:
+    summary_identity = ARTIFACT_CANONICAL_JSON_V1.encode(
+        {"case_id": case_id, "document_id": document_id}
+    ).decode("utf-8")
+    return ProviderSpendKey(
+        execution.release.release_id,
+        entry.provider,
+        "jev-summaries",
+        "document_summary",
+        entry.registry_key,
+        summary_identity,
+        "none",
+        1,
+    )
 
 
 def _summary_agent(entry: ModelRegistryEntry, *, api_key: str) -> Agent[None, str]:
@@ -131,6 +155,7 @@ def prepare_summaries(
     ceiling_microusd: int,
     reconcile_saved_overrun: bool = False,
     summary_profile: str = "standard",
+    retry_ambiguous_attempt_id: str | None = None,
 ) -> dict[str, int]:
     """Summarize each whole document once, persisting progress and spend."""
 
@@ -198,6 +223,43 @@ def prepare_summaries(
             failure_window_seconds=86_400,
         ),
     ) as authority:
+        retry_logical_key: str | None = None
+        if retry_ambiguous_attempt_id is not None:
+            retry_logical_key, replacement_complete = (
+                authority.ambiguous_replacement_status(retry_ambiguous_attempt_id)
+            )
+            found = False
+            for prior_case in execution.release.cases:
+                prior_units = tuple(
+                    unit
+                    for unit in execution.release.prediction_units
+                    if unit.case_id == prior_case.case_id
+                )
+                for prior_document in case_documents(execution, prior_units):
+                    prior_key = _summary_key(
+                        execution,
+                        entry,
+                        case_id=prior_case.case_id,
+                        document_id=prior_document.document_id,
+                    )
+                    if prior_key.logical_call_key != retry_logical_key:
+                        continue
+                    found = True
+                    cached = cache.get(
+                        prior_case.case_id,
+                        prior_document.document_id,
+                        prior_document.source_sha256,
+                        entry.model_id,
+                        _UNBOUNDED_SUMMARY_BYTES,
+                    )
+                    if (cached is not None) != replacement_complete:
+                        raise AttemptStateError(
+                            "ambiguous retry cache does not match replacement state"
+                        )
+            if not found:
+                raise AttemptStateError(
+                    "ambiguous retry attempt does not belong to this summary census"
+                )
         for case in execution.release.cases:
             units = tuple(
                 u
@@ -219,21 +281,11 @@ def prepare_summaries(
                 )
             texts: dict[str, str] = {}
             for document in documents:
-                summary_identity = ARTIFACT_CANONICAL_JSON_V1.encode(
-                    {
-                        "case_id": case.case_id,
-                        "document_id": document.document_id,
-                    }
-                ).decode("utf-8")
-                key = ProviderSpendKey(
-                    execution.release.release_id,
-                    entry.provider,
-                    "jev-summaries",
-                    "document_summary",
-                    entry.registry_key,
-                    summary_identity,
-                    "none",
-                    1,
+                key = _summary_key(
+                    execution,
+                    entry,
+                    case_id=case.case_id,
+                    document_id=document.document_id,
                 )
                 prior = cache.get(
                     case.case_id,
@@ -244,7 +296,7 @@ def prepare_summaries(
                 )
                 if prior is not None:
                     try:
-                        lease = authority.adopt_attempt(key, attempt_ordinal=1)
+                        lease = authority.adopt_attempt(key)
                     except AttemptStateError as exc:
                         raise ValueError(
                             "summary cache has no matching provider ledger attempt: "
@@ -315,10 +367,26 @@ def prepare_summaries(
                     output_token_price=entry.output_token_price,
                     long_context_surcharge=entry.long_context_surcharge,
                 )
+                permit = None
+                if key.logical_call_key == retry_logical_key:
+                    assert retry_ambiguous_attempt_id is not None
+                    permit = AdditionalAttemptPermit(
+                        logical_call_key=key.logical_call_key,
+                        prompt_sha256=hashlib.sha256(
+                            prompt.encode("utf-8")
+                        ).hexdigest(),
+                        journal_path_sha256=hashlib.sha256(
+                            str(ledger_path.resolve()).encode("utf-8")
+                        ).hexdigest(),
+                        max_total_attempts=2,
+                        reservation_cap_microusd=reservation,
+                        acknowledged_ambiguous_attempt_id=retry_ambiguous_attempt_id,
+                    )
                 handler = ProviderSpendAttemptHandler(
                     authority=authority,
                     key=key,
                     reservation_microusd=reservation,
+                    additional_attempt_permit=permit,
                 )
                 api_key_name = (
                     "OPENAI_API_KEY"

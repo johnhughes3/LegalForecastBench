@@ -69,6 +69,15 @@ def test_jev_workflow_runs_the_release_bound_prepare_and_registry_commands() -> 
     assert "--cache /tmp/lfb-jev-summary/jev-summaries.json" in WORKFLOW
     assert "--ledger /tmp/lfb-jev-summary/summary-spend.sqlite3" in WORKFLOW
     assert '--ceiling-microusd "$CEILING"' in WORKFLOW
+    assert "retry_ambiguous_attempt_id:" in WORKFLOW
+    assert (
+        "RETRY_AMBIGUOUS_ATTEMPT_ID: ${{ inputs.retry_ambiguous_attempt_id }}"
+        in WORKFLOW
+    )
+    assert (
+        'recovery_args+=(--retry-ambiguous-attempt-id "$RETRY_AMBIGUOUS_ATTEMPT_ID")'
+        in WORKFLOW
+    )
     assert "uv run legalforecast jev registry" in WORKFLOW
     assert '--predictor "$PREDICTOR"' in WORKFLOW
     assert '--reasoning-effort "$PREDICTOR_REASONING"' in WORKFLOW

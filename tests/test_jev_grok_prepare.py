@@ -9,7 +9,12 @@ from typing import Any, cast
 import legalforecast.jev.prepare as prepare
 import pytest
 from legalforecast.evals.model_registry import ModelRegistryEntry
-from legalforecast.evals.provider_spend_control import AuthorityIdentityMismatchError
+from legalforecast.evals.provider_spend_control import (
+    AttemptLimitExceededError,
+    AttemptStateError,
+    AuthorityIdentityMismatchError,
+    ProviderCapExceededError,
+)
 from legalforecast.jev.packets import case_documents
 from legalforecast.jev.summaries import SHORT_SUMMARY_PROMPT_VERSION
 from legalforecast.release import ForecastExecution, load_forecast_execution
@@ -98,6 +103,211 @@ class _FakeAgentFactory:
     def __call__(self, model: object, **kwargs: object) -> _FakeAgent:
         self.kwargs.append(kwargs)
         return _FakeAgent(self, model)
+
+
+class _FlakySummaryAgent:
+    def __init__(self, *, failures: int = 1) -> None:
+        self.calls = 0
+        self.failures = failures
+
+    def run_sync(self, prompt: str, *, usage_limits: object) -> _FakeResult:
+        del prompt, usage_limits
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise ConnectionError("transport result unknown")
+        return _FakeResult(
+            "Faithful source summary.",
+            RequestUsage(input_tokens=10, output_tokens=10),
+        )
+
+
+def _ambiguous_attempt_id(ledger_path: Path) -> str:
+    with sqlite3.connect(ledger_path) as connection:
+        row = connection.execute(
+            "SELECT attempt_id FROM provider_attempts WHERE status = 'ambiguous'"
+        ).fetchone()
+    assert row is not None
+    return str(row[0])
+
+
+def test_exact_ambiguous_retry_retains_hold_then_reuses_settled_cache(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    execution = _execution(tmp_path)
+    agent = _FlakySummaryAgent()
+    monkeypatch.setattr(prepare, "_summary_agent", lambda *_args, **_kwargs: agent)
+    monkeypatch.setenv("AI_GATEWAY_API_KEY", "fixture-gateway-key")
+    cache_path = tmp_path / "summaries.json"
+    ledger_path = tmp_path / "ledger.sqlite3"
+    ceiling = 20_000_000
+
+    with pytest.raises(ConnectionError):
+        prepare.prepare_summaries(
+            execution,
+            entry=_entry(),
+            cache_path=cache_path,
+            ledger_path=ledger_path,
+            ceiling_microusd=ceiling,
+            summary_profile="short",
+        )
+    attempt_id = _ambiguous_attempt_id(ledger_path)
+    with pytest.raises(AttemptLimitExceededError):
+        prepare.prepare_summaries(
+            execution,
+            entry=_entry(),
+            cache_path=cache_path,
+            ledger_path=ledger_path,
+            ceiling_microusd=ceiling,
+            summary_profile="short",
+        )
+    with pytest.raises(AttemptStateError):
+        prepare.prepare_summaries(
+            execution,
+            entry=_entry(),
+            cache_path=cache_path,
+            ledger_path=ledger_path,
+            ceiling_microusd=ceiling,
+            summary_profile="short",
+            retry_ambiguous_attempt_id="f" * 64,
+        )
+    assert agent.calls == 1
+
+    result = prepare.prepare_summaries(
+        execution,
+        entry=_entry(),
+        cache_path=cache_path,
+        ledger_path=ledger_path,
+        ceiling_microusd=ceiling,
+        summary_profile="short",
+        retry_ambiguous_attempt_id=attempt_id,
+    )
+    assert result["created"] == len(_documents(execution))
+    assert agent.calls == len(_documents(execution)) + 1
+    with sqlite3.connect(ledger_path) as connection:
+        first_two = connection.execute(
+            "SELECT attempt_ordinal, status, reservation_microusd, actual_microusd "
+            "FROM provider_attempts WHERE logical_call_key = "
+            "(SELECT logical_call_key FROM provider_attempts WHERE attempt_id = ?) "
+            "ORDER BY attempt_ordinal",
+            (attempt_id,),
+        ).fetchall()
+        failure_events = connection.execute(
+            "SELECT COUNT(*) FROM provider_failure_events WHERE attempt_id = ?",
+            (attempt_id,),
+        ).fetchone()
+        cap = connection.execute(
+            "SELECT cap_microusd FROM provider_spend_metadata"
+        ).fetchone()
+        cumulative = connection.execute(
+            "SELECT SUM(CASE WHEN status = 'settled' THEN actual_microusd "
+            "ELSE reservation_microusd END) FROM provider_attempts"
+        ).fetchone()
+    assert [(row[0], row[1]) for row in first_two] == [
+        (1, "ambiguous"),
+        (2, "settled"),
+    ]
+    assert first_two[0][2] > 0
+    assert first_two[0][3] is None
+    assert failure_events == (1,)
+    assert cap == (ceiling,)
+    assert cumulative == (result["spent_microusd"],)
+    assert result["spent_microusd"] <= ceiling
+
+    monkeypatch.setattr(
+        prepare,
+        "_summary_agent",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("settled summaries must not call provider")
+        ),
+    )
+    reused = prepare.prepare_summaries(
+        execution,
+        entry=_entry(),
+        cache_path=cache_path,
+        ledger_path=ledger_path,
+        ceiling_microusd=ceiling,
+        summary_profile="short",
+        retry_ambiguous_attempt_id=attempt_id,
+    )
+    assert reused["reused"] == len(_documents(execution))
+    assert reused["spent_microusd"] == result["spent_microusd"]
+
+
+def test_exact_ambiguous_retry_respects_unchanged_ceiling(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    execution = _execution(tmp_path)
+    agent = _FlakySummaryAgent()
+    monkeypatch.setattr(prepare, "_summary_agent", lambda *_args, **_kwargs: agent)
+    monkeypatch.setenv("AI_GATEWAY_API_KEY", "fixture-gateway-key")
+    cache_path = tmp_path / "summaries.json"
+    ledger_path = tmp_path / "ledger.sqlite3"
+    ceiling = 1_000_000
+    with pytest.raises(ConnectionError):
+        prepare.prepare_summaries(
+            execution,
+            entry=_entry(),
+            cache_path=cache_path,
+            ledger_path=ledger_path,
+            ceiling_microusd=ceiling,
+            summary_profile="short",
+        )
+    attempt_id = _ambiguous_attempt_id(ledger_path)
+    with pytest.raises(ProviderCapExceededError):
+        prepare.prepare_summaries(
+            execution,
+            entry=_entry(),
+            cache_path=cache_path,
+            ledger_path=ledger_path,
+            ceiling_microusd=ceiling,
+            summary_profile="short",
+            retry_ambiguous_attempt_id=attempt_id,
+        )
+    assert agent.calls == 1
+    with sqlite3.connect(ledger_path) as connection:
+        assert connection.execute(
+            "SELECT status FROM provider_attempts WHERE attempt_id = ?",
+            (attempt_id,),
+        ).fetchone() == ("ambiguous",)
+
+
+def test_failed_ambiguous_replacement_cannot_buy_a_third_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    execution = _execution(tmp_path)
+    agent = _FlakySummaryAgent(failures=2)
+    monkeypatch.setattr(prepare, "_summary_agent", lambda *_args, **_kwargs: agent)
+    monkeypatch.setenv("AI_GATEWAY_API_KEY", "fixture-gateway-key")
+    cache_path = tmp_path / "summaries.json"
+    ledger_path = tmp_path / "ledger.sqlite3"
+
+    def run(attempt_id: str | None = None) -> dict[str, int]:
+        return prepare.prepare_summaries(
+            execution,
+            entry=_entry(),
+            cache_path=cache_path,
+            ledger_path=ledger_path,
+            ceiling_microusd=20_000_000,
+            summary_profile="short",
+            retry_ambiguous_attempt_id=attempt_id,
+        )
+
+    with pytest.raises(ConnectionError):
+        run()
+    attempt_id = _ambiguous_attempt_id(ledger_path)
+    with pytest.raises(ConnectionError):
+        run(attempt_id)
+    with pytest.raises(AttemptStateError, match="already reserved or failed"):
+        run(attempt_id)
+    assert agent.calls == 2
+    with sqlite3.connect(ledger_path) as connection:
+        assert connection.execute(
+            "SELECT attempt_ordinal, status FROM provider_attempts "
+            "ORDER BY attempt_ordinal"
+        ).fetchall() == [(1, "ambiguous"), (2, "ambiguous")]
 
 
 def _model_settings(kwargs: Mapping[str, object]) -> Mapping[str, object]:
