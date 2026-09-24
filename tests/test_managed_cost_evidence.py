@@ -340,3 +340,37 @@ def test_openai_sdk_read_cache_prices_without_inventing_write_evidence() -> None
     assert evidence.amount_usd == pytest.approx(0.0020)
     assert evidence.method == "cache_aware_usage_reconstruction"
     assert "cache_write_tokens" not in usage.to_record()
+
+
+def test_gpt41_standard_cost_preserves_cached_input_discount() -> None:
+    entry = replace(
+        _entry(),
+        model_id="gpt-4.1-2025-04-14",
+        model_version_or_snapshot="gpt-4.1-2025-04-14",
+        reasoning_effort=None,
+        input_token_price=2.0,
+        output_token_price=8.0,
+        cache_read_token_price=0.5,
+        pricing_source="https://developers.openai.com/api/docs/models/gpt-4.1",
+    )
+    result = ManagedToolAgentResult(
+        raw_output="{}",
+        request_count=1,
+        input_tokens=1000,
+        output_tokens=200,
+        served_model=entry.model_version_or_snapshot,
+        finish_reason="stop",
+        service_tier="default",
+        called_tools=("read",),
+        response_usages=((1000, 200),),
+        response_usage_details=(
+            ManagedResponseUsage(
+                input_tokens=1000, output_tokens=200, cache_read_tokens=400
+            ),
+        ),
+    )
+    evidence = managed_execution._managed_result_cost_evidence(entry, result=result)
+    # 600 uncached at $2/M + 400 cached at $0.50/M + 200 output at $8/M.
+    assert evidence.amount_usd == pytest.approx(0.003)
+    assert evidence.method == "cache_aware_usage_reconstruction"
+    assert evidence.rate_provenance == entry.pricing_source

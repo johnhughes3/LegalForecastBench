@@ -1081,12 +1081,27 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
         assert "anthropic_cache_evidence" not in response.metadata
 
 
+@pytest.mark.parametrize("standard_tier", [False, True])
 def test_official_cell_settles_the_entire_agent_session_once(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, standard_tier: bool
 ) -> None:
     from collections.abc import Generator
     from contextlib import contextmanager
 
+    entry = (
+        replace(
+            _entry(),
+            model_id="gpt-4.1-2025-04-14",
+            model_version_or_snapshot="gpt-4.1-2025-04-14",
+            reasoning_effort=None,
+            input_token_price=2.0,
+            output_token_price=8.0,
+            cache_read_token_price=0.5,
+        )
+        if standard_tier
+        else _entry()
+    )
+    tier = "default" if standard_tier else "flex"
     executor = _Executor()
 
     @contextmanager
@@ -1109,9 +1124,9 @@ def test_official_cell_settles_the_entire_agent_session_once(
             request_count=3,
             input_tokens=100,
             output_tokens=20,
-            served_model="gpt-5.6-luna",
+            served_model=entry.model_version_or_snapshot,
             finish_reason="stop",
-            service_tier="flex",
+            service_tier=tier,
             called_tools=("read",),
             response_usages=((40, 5), (30, 5), (30, 10)),
         )
@@ -1121,7 +1136,7 @@ def test_official_cell_settles_the_entire_agent_session_once(
     handler = _AttemptHandler()
 
     response = managed_execution.complete_managed_tool_cell(
-        _entry(),
+        entry,
         handler=cast(Any, handler),
         managed_case=ManagedCaseInput(
             case_id="case-1",
@@ -1157,7 +1172,14 @@ def test_official_cell_settles_the_entire_agent_session_once(
     assert response.request_count == 3
     assert response.metadata is not None
     assert response.metadata["execution_backend"] == "pydantic_ai"
-    assert handler.settlement == (100, 20, 0.00022, raw_output)
+    assert handler.settlement == (
+        100,
+        20,
+        0.00036 if standard_tier else 0.00022,
+        raw_output,
+    )
+    assert response.metadata["requested_service_tier"] == tier
+    assert response.metadata["observed_service_tier"] == tier
     initial_prompt = cast(str, managed_arguments["initial_prompt"])
     assert "Section 10(b)" in initial_prompt
     assert "/workspace/documents/case-1/motion.txt" in initial_prompt
@@ -1471,9 +1493,16 @@ def test_managed_cost_applies_long_context_surcharge_per_provider_request() -> N
     assert one_surcharged_turn == pytest.approx(0.000401)
 
 
+@pytest.mark.parametrize(
+    "model_id, tier", [("gpt-6-astra", "flex"), ("gpt-4.1-2025-04-14", "default")]
+)
 @pytest.mark.parametrize("unavailable_responses", [2, 3])
 def test_flex_sdk_retries_unavailable_with_long_timeout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unavailable_responses: int
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    unavailable_responses: int,
+    model_id: str,
+    tier: str,
 ) -> None:
     import httpx2
     from openai import AsyncOpenAI
@@ -1484,7 +1513,9 @@ def test_flex_sdk_retries_unavailable_with_long_timeout(
     def respond(request: httpx2.Request) -> httpx2.Response:
         requests.append(request)
         body = json.loads(request.content)
-        assert body["service_tier"] == "flex"
+        assert body["service_tier"] == tier
+        if tier == "default":
+            assert "reasoning" not in body
         assert request.extensions["timeout"]["read"] == 900.0
         if len(requests) <= unavailable_responses:
             return httpx2.Response(
@@ -1505,8 +1536,8 @@ def test_flex_sdk_retries_unavailable_with_long_timeout(
                 "object": "response",
                 "created_at": 1,
                 "status": "completed",
-                "model": "gpt-6-astra",
-                "service_tier": "flex",
+                "model": model_id,
+                "service_tier": tier,
                 "output": [
                     {
                         "type": "function_call",
@@ -1544,7 +1575,10 @@ def test_flex_sdk_retries_unavailable_with_long_timeout(
         lambda **_kwargs: OpenAIProvider(openai_client=client),
     )
     entry = replace(
-        _entry(), model_id="gpt-6-astra", model_version_or_snapshot="gpt-6-astra"
+        _entry(),
+        model_id=model_id,
+        model_version_or_snapshot=model_id,
+        reasoning_effort=None if tier == "default" else _entry().reasoning_effort,
     )
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -1563,7 +1597,7 @@ def test_flex_sdk_retries_unavailable_with_long_timeout(
     try:
         if unavailable_responses == 2:
             result = invoke()
-            assert result.service_tier == "flex"
+            assert result.service_tier == tier
             assert result.request_count == 1
         else:
             with pytest.raises(ModelHTTPError) as error:
