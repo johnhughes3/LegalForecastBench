@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from tenacity import Retrying, retry_if_exception, stop_after_delay, wait_fixed
+from tenacity import Retrying, retry_if_exception, stop_before_delay, wait_fixed
 
 from legalforecast.evals.provider_spend_control import (
     AttemptLease,
@@ -46,7 +46,7 @@ def authorize_when_capacity_available(
     for attempt in Retrying(
         retry=retry_if_exception(can_wait),
         wait=wait_fixed(5),
-        stop=stop_after_delay(max_wait_seconds),
+        stop=stop_before_delay(max_wait_seconds),
         reraise=True,
         before_sleep=lambda _: _LOG.info(
             "Waiting for concurrent provider reservations to settle before transport"
