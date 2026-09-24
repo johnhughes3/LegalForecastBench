@@ -122,6 +122,7 @@
     "tests/test_protected_recovery_workflow.py",
     "tests/test_provider_baselines.py",
     "tests/test_provider_spend_control.py",
+    "tests/test_provider_spend_settlement_contract.py",
     "tests/test_public_boundary_fences.py",
     "tests/test_public_release_coherence.py",
     "tests/test_publish_package_workflow.py",
@@ -206,6 +207,10 @@
     ],
     "tests/test_local_cli_adapter_manifest.py": [
       "legalforecast/cli.py"
+    ],
+    "tests/test_provider_spend_settlement_contract.py": [
+      "legalforecast/evals/provider_spend_control.py",
+      "legalforecast/evals/provider_spend_dynamodb.py"
     ]
   },
   "schema_version": 1
