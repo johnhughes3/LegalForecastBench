@@ -18,7 +18,6 @@ from legalforecast.evals.model_registry import (
 from legalforecast.evals.provider_spend_control import (
     FrozenAttemptPolicy,
     ProviderSpendKey,
-    SettlementError,
     SqliteProviderSpendAuthority,
 )
 from legalforecast.jev.packets import (
@@ -113,16 +112,22 @@ def _seed(
             lease = authority.authorize_attempt(
                 key, reservation_microusd=99_388 if target else 100_000
             )
-            try:
+            if not target:
                 authority.record_response(
                     lease,
                     input_tokens=summary.input_tokens,
                     output_tokens=summary.output_tokens,
-                    actual_microusd=104_880 if target else 80,
+                    actual_microusd=80,
                     response_sha256=_response(summary),
                 )
-            except SettlementError:
-                assert target
+    # Model the historic ledger state directly: current settlement correctly
+    # accepts this within-cap response, but saved poisoned ledgers still need
+    # the old recovery path.
+    with sqlite3.connect(ledger_path) as connection:
+        connection.execute(
+            "UPDATE provider_spend_metadata SET authority_poisoned=1, "
+            "poison_reason='observed provider cost exceeds frozen reservation'"
+        )
     return execution, entry, cache_path, ledger_path, len(documents), identity
 
 

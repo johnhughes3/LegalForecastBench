@@ -1666,6 +1666,58 @@ def test_above_reservation_cost_poisons_when_aggregate_cap_is_exceeded() -> None
     assert isinstance(poison_transaction.get("ClientRequestToken"), str)
 
 
+def test_ambiguous_reconciliation_above_reservation_settles_within_cap() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(runner)
+    lease = authority.authorize_attempt(_key(), reservation_microusd=400_000)
+    authority.authorize_attempt(_key(case_id="held"), reservation_microusd=400_000)
+    authority.record_failure(lease, failure_type="ReadError", ambiguous=True)
+
+    for _ in range(2):
+        authority.reconcile_ambiguous(
+            lease,
+            usage_record_id="provider-usage-over-reservation",
+            usage_record_sha256="a" * 64,
+            billed_microusd=600_000,
+            input_tokens=100,
+            output_tokens=20,
+            response_sha256="b" * 64,
+        )
+
+    snapshot = authority.snapshot()
+    assert snapshot.committed_microusd == 1_000_000
+    assert snapshot.ambiguous_attempt_count == 0
+    assert not snapshot.authority_poisoned
+    settlement_transaction = next(
+        payload
+        for operation, payload in reversed(runner.calls)
+        if operation == "transact-write-items"
+    )
+    assert "committed_microusd <= :remaining" in json.dumps(
+        settlement_transaction, sort_keys=True
+    )
+
+
+def test_ambiguous_reconciliation_above_aggregate_cap_keeps_hold() -> None:
+    runner = InMemoryDynamoRunner()
+    authority = _authority(runner, cap_microusd=400_000)
+    lease = authority.authorize_attempt(_key(), reservation_microusd=400_000)
+    authority.record_failure(lease, failure_type="ReadError", ambiguous=True)
+
+    with pytest.raises(SettlementError, match="aggregate provider cap"):
+        authority.reconcile_ambiguous(
+            lease,
+            usage_record_id="provider-usage-over-cap",
+            usage_record_sha256="a" * 64,
+            billed_microusd=400_001,
+        )
+
+    snapshot = authority.snapshot()
+    assert snapshot.committed_microusd == 400_000
+    assert snapshot.ambiguous_attempt_count == 1
+    assert snapshot.authority_poisoned
+
+
 def test_above_reservation_cost_accounts_for_concurrent_holds() -> None:
     runner = InMemoryDynamoRunner()
     authority = _authority(runner)
