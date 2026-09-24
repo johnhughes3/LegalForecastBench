@@ -323,10 +323,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "ProviderSpendAttemptHandler",
-        "largest_symbol_lines": 285,
+        "largest_symbol_lines": 295,
         "layer": "application",
-        "line_count": 626,
-        "nonblank_line_count": 567,
+        "line_count": 640,
+        "nonblank_line_count": 581,
         "top_level_definition_count": 5
       },
       "legalforecast/evals/provider_spend_control.py": {
@@ -1422,8 +1422,8 @@
         "largest_symbol": "execute_release_run",
         "largest_symbol_lines": 655,
         "layer": "application",
-        "line_count": 1396,
-        "nonblank_line_count": 1300,
+        "line_count": 1401,
+        "nonblank_line_count": 1305,
         "top_level_definition_count": 24
       },
       "legalforecast/studies/service.py": {
