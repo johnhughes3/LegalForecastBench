@@ -180,6 +180,26 @@ class SpendControlSnapshot:
     authority_poisoned: bool
 
 
+@dataclass(frozen=True, slots=True)
+class SettlementBudget:
+    """One response's change to the shared cap, including outstanding holds."""
+
+    reservation_microusd: int
+    actual_microusd: int
+    cap_microusd: int
+
+    @property
+    def delta_microusd(self) -> int:
+        return self.actual_microusd - self.reservation_microusd
+
+    def fits_cap(self, committed_microusd: int) -> bool:
+        return committed_microusd <= self.maximum_committed_microusd
+
+    @property
+    def maximum_committed_microusd(self) -> int:
+        return self.cap_microusd - self.delta_microusd
+
+
 class ProviderSpendAuthority(Protocol):
     """Atomic authority required immediately before every provider HTTP call."""
 
@@ -652,15 +672,6 @@ class SqliteProviderSpendAuthority:
         try:
             row = self._lease_row(lease)
             stored_reservation = int(row["reservation_microusd"])
-            if actual_microusd > stored_reservation:
-                self._poison_authority(
-                    "observed provider cost exceeds frozen reservation"
-                )
-                self._connection.commit()
-                raise SettlementError(
-                    "provider actual cost exceeds the frozen conservative reservation; "
-                    "authority is poisoned"
-                )
             if row["status"] == "settled":
                 expected = (
                     input_tokens,
@@ -681,6 +692,20 @@ class SqliteProviderSpendAuthority:
                     f"provider response cannot settle attempt in {row['status']} state"
                 )
             else:
+                budget = SettlementBudget(
+                    reservation_microusd=stored_reservation,
+                    actual_microusd=actual_microusd,
+                    cap_microusd=self.cap_microusd,
+                )
+                if not budget.fits_cap(self._committed_microusd()):
+                    self._poison_authority(
+                        "observed provider cost exceeds aggregate cap"
+                    )
+                    self._connection.commit()
+                    raise SettlementError(
+                        "provider actual cost exceeds the aggregate provider cap; "
+                        "authority is poisoned"
+                    )
                 self._connection.execute(
                     """
                     UPDATE provider_attempts
@@ -771,15 +796,6 @@ class SqliteProviderSpendAuthority:
         try:
             row = self._lease_row(lease)
             stored_reservation = int(row["reservation_microusd"])
-            if billed_microusd is not None and billed_microusd > stored_reservation:
-                self._poison_authority(
-                    "reconciled provider cost exceeds frozen reservation"
-                )
-                self._connection.commit()
-                raise SettlementError(
-                    "reconciled provider cost exceeds the frozen reservation; "
-                    "authority is poisoned"
-                )
             if row["status"] in {"settled", "reconciled_unbilled"}:
                 expected = (usage_id, usage_sha256, actual_cost, target)
                 actual = (
@@ -798,6 +814,20 @@ class SqliteProviderSpendAuthority:
                     f"got {row['status']}"
                 )
             else:
+                budget = SettlementBudget(
+                    reservation_microusd=stored_reservation,
+                    actual_microusd=actual_cost,
+                    cap_microusd=self.cap_microusd,
+                )
+                if not budget.fits_cap(self._committed_microusd()):
+                    self._poison_authority(
+                        "reconciled provider cost exceeds aggregate cap"
+                    )
+                    self._connection.commit()
+                    raise SettlementError(
+                        "reconciled provider cost exceeds the aggregate provider cap; "
+                        "authority is poisoned"
+                    )
                 evidence = self._connection.execute(
                     "SELECT * FROM provider_usage_evidence WHERE usage_record_id = ?",
                     (usage_id,),

@@ -427,9 +427,9 @@ def test_breaker_scope_is_shared_by_stage_but_isolated_by_account(
 
 @pytest.mark.parametrize(
     ("input_tokens", "output_tokens", "actual_microusd"),
-    ((-1, 1, 10), (1, -1, 10), (1, 1, -1), (1, 1, 500_001)),
+    ((-1, 1, 10), (1, -1, 10), (1, 1, -1)),
 )
-def test_settlement_rejects_invalid_or_above_reservation_usage(
+def test_settlement_rejects_invalid_usage(
     tmp_path: Path,
     input_tokens: int,
     output_tokens: int,
@@ -449,11 +449,41 @@ def test_settlement_rejects_invalid_or_above_reservation_usage(
         assert authority.snapshot().committed_microusd == 500_000
 
 
-def test_actual_cost_above_reservation_poison_refuses_new_authorizations(
+def test_actual_cost_above_reservation_settles_within_aggregate_cap(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "spend-control.sqlite3"
     with _authority(path) as authority:
+        lease = authority.authorize_attempt(_key(), reservation_microusd=500_000)
+        other = authority.authorize_attempt(
+            _key(case_id="held"), reservation_microusd=400_000
+        )
+        authority.record_response(
+            lease,
+            input_tokens=1,
+            output_tokens=1,
+            actual_microusd=600_000,
+            response_sha256="d" * 64,
+        )
+        authority.record_response(
+            lease,
+            input_tokens=1,
+            output_tokens=1,
+            actual_microusd=600_000,
+            response_sha256="d" * 64,
+        )
+        snapshot = authority.snapshot()
+        assert snapshot.committed_microusd == 1_000_000
+        assert snapshot.reserved_attempt_count == 1
+        assert not snapshot.authority_poisoned
+        assert authority.adopt_attempt(_key(case_id="held")) == other
+
+
+def test_actual_cost_above_aggregate_cap_poison_refuses_new_authorizations(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "spend-control.sqlite3"
+    with _authority(path, cap_microusd=500_000) as authority:
         lease = authority.authorize_attempt(_key(), reservation_microusd=500_000)
         with pytest.raises(SettlementError, match="exceeds"):
             authority.record_response(
@@ -475,6 +505,47 @@ def test_actual_cost_above_reservation_poison_refuses_new_authorizations(
     assert snapshot.committed_microusd == 500_000
     assert snapshot.reserved_attempt_count == 1
     assert snapshot.authority_poisoned is True
+
+
+def test_ambiguous_reconciliation_settles_overestimate_within_aggregate_cap(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "spend-control.sqlite3"
+    with _authority(path) as authority:
+        lease = authority.authorize_attempt(_key(), reservation_microusd=400_000)
+        authority.authorize_attempt(_key(case_id="held"), reservation_microusd=400_000)
+        authority.record_failure(lease, failure_type="ReadError", ambiguous=True)
+        for _ in range(2):
+            authority.reconcile_ambiguous(
+                lease,
+                usage_record_id="usage-overestimate",
+                usage_record_sha256="a" * 64,
+                billed_microusd=600_000,
+            )
+        snapshot = authority.snapshot()
+        assert snapshot.committed_microusd == 1_000_000
+        assert snapshot.ambiguous_attempt_count == 0
+        assert not snapshot.authority_poisoned
+
+
+def test_ambiguous_reconciliation_over_aggregate_cap_keeps_hold(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "spend-control.sqlite3"
+    with _authority(path, cap_microusd=400_000) as authority:
+        lease = authority.authorize_attempt(_key(), reservation_microusd=400_000)
+        authority.record_failure(lease, failure_type="ReadError", ambiguous=True)
+        with pytest.raises(SettlementError, match="aggregate provider cap"):
+            authority.reconcile_ambiguous(
+                lease,
+                usage_record_id="usage-over-cap",
+                usage_record_sha256="a" * 64,
+                billed_microusd=400_001,
+            )
+        snapshot = authority.snapshot()
+        assert snapshot.committed_microusd == 400_000
+        assert snapshot.ambiguous_attempt_count == 1
+        assert snapshot.authority_poisoned
 
 
 def test_sqlite_rejects_mutated_or_cross_authority_leases(tmp_path: Path) -> None:

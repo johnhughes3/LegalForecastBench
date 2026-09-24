@@ -21,6 +21,7 @@ from legalforecast.evals.provider_spend_control import (
     ProviderCapExceededError,
     ProviderSpendKey,
     ReconciliationMismatchError,
+    SettlementBudget,
     SettlementError,
     SpendControlSnapshot,
 )
@@ -815,7 +816,12 @@ class DynamoDbProviderSpendAuthority:
                     f"provider response cannot settle attempt in {status} state"
                 )
             stored_reservation = _number(attempt, "reservation_microusd")
-            delta = actual_microusd - stored_reservation
+            budget = SettlementBudget(
+                reservation_microusd=stored_reservation,
+                actual_microusd=actual_microusd,
+                cap_microusd=self.cap_microusd,
+            )
+            delta = budget.delta_microusd
             values: dict[str, AttributeValue] = {
                 ":delta": _n(delta),
                 ":minus_one": _n(-1),
@@ -830,7 +836,7 @@ class DynamoDbProviderSpendAuthority:
                 "committed_microusd >= :reservation"
             )
             if delta > 0:
-                values[":remaining"] = _n(self.cap_microusd - delta)
+                values[":remaining"] = _n(budget.maximum_committed_microusd)
                 ledger_condition += " AND committed_microusd <= :remaining"
             transaction: JsonObject = {
                 "TransactItems": [
@@ -915,10 +921,8 @@ class DynamoDbProviderSpendAuthority:
                     continue
                 ledger = self._get_required(_LEDGER_RECORD_KEY)
                 self._verify_ledger(ledger)
-                if (
-                    _number(ledger, "authority_poisoned") == 0
-                    and _number(ledger, "committed_microusd") + delta
-                    <= self.cap_microusd
+                if _number(ledger, "authority_poisoned") == 0 and budget.fits_cap(
+                    _number(ledger, "committed_microusd")
                 ):
                     continue
                 self._poison_authority(
@@ -1302,18 +1306,14 @@ class DynamoDbProviderSpendAuthority:
             raise SettlementError("reconciled provider cost cannot be negative")
         attempt = self._attempt_for_lease(lease)
         stored_reservation = _number(attempt, "reservation_microusd")
-        if billed_microusd is not None and billed_microusd > stored_reservation:
-            self._poison_authority(
-                lease,
-                reason=_RECONCILED_COST_POISON_REASON,
-            )
-            raise SettlementError(
-                "reconciled provider cost exceeds the frozen reservation; "
-                "authority is poisoned"
-            )
         target = "reconciled_unbilled" if billed_microusd is None else "settled"
         actual_cost = 0 if billed_microusd is None else billed_microusd
-        delta = actual_cost - stored_reservation
+        budget = SettlementBudget(
+            reservation_microusd=stored_reservation,
+            actual_microusd=actual_cost,
+            cap_microusd=self.cap_microusd,
+        )
+        delta = budget.delta_microusd
         settled_increment = 0 if billed_microusd is None else 1
         unbilled_increment = 1 if billed_microusd is None else 0
         source_status = _text(attempt, "status")
@@ -1374,6 +1374,24 @@ class DynamoDbProviderSpendAuthority:
                     ":response": _s(response_digest),
                 }
             )
+        ledger_condition = (
+            "authority_identity_sha256 = :identity AND "
+            "authority_poisoned = :zero AND "
+            "committed_microusd >= :reservation"
+        )
+        ledger_values: dict[str, AttributeValue] = {
+            ":delta": _n(delta),
+            ":reserved_delta": _n(reserved_decrement),
+            ":ambiguous_delta": _n(ambiguous_decrement),
+            ":settled": _n(settled_increment),
+            ":unbilled": _n(unbilled_increment),
+            ":identity": _s(self.authority_identity_sha256),
+            ":zero": _n(0),
+            ":reservation": _n(stored_reservation),
+        }
+        if delta > 0:
+            ledger_condition += " AND committed_microusd <= :remaining"
+            ledger_values[":remaining"] = _n(budget.maximum_committed_microusd)
         transaction: JsonObject = {
             "TransactItems": [
                 {
@@ -1403,21 +1421,8 @@ class DynamoDbProviderSpendAuthority:
                             "settled_attempt_count :settled, "
                             "reconciled_unbilled_count :unbilled"
                         ),
-                        "ConditionExpression": (
-                            "authority_identity_sha256 = :identity AND "
-                            "authority_poisoned = :zero AND "
-                            "committed_microusd >= :reservation"
-                        ),
-                        "ExpressionAttributeValues": {
-                            ":delta": _n(delta),
-                            ":reserved_delta": _n(reserved_decrement),
-                            ":ambiguous_delta": _n(ambiguous_decrement),
-                            ":settled": _n(settled_increment),
-                            ":unbilled": _n(unbilled_increment),
-                            ":identity": _s(self.authority_identity_sha256),
-                            ":zero": _n(0),
-                            ":reservation": _n(stored_reservation),
-                        },
+                        "ConditionExpression": ledger_condition,
+                        "ExpressionAttributeValues": ledger_values,
                     }
                 },
                 {
@@ -1440,26 +1445,51 @@ class DynamoDbProviderSpendAuthority:
                 },
             ]
         }
-        try:
-            self._runner("transact-write-items", _with_client_token(transaction))
-        except (DynamoDbConditionalError, DynamoDbIndeterminateError) as exc:
-            attempt = self._get_required(_attempt_record_key(lease))
+        for _ in range(_MAX_TRANSACTION_RETRIES):
             try:
-                self._verify_reconciliation_result(
-                    lease,
-                    attempt=attempt,
-                    target=target,
-                    actual_cost=actual_cost,
-                    usage_id=usage_id,
-                    usage_sha256=usage_sha256,
-                    input_tokens=input_tokens if complete_response else None,
-                    output_tokens=output_tokens if complete_response else None,
-                    response_digest=response_digest,
-                )
-            except ReconciliationMismatchError:
+                self._runner("transact-write-items", _with_client_token(transaction))
+                return
+            except (DynamoDbConditionalError, DynamoDbIndeterminateError) as exc:
+                attempt = self._get_required(_attempt_record_key(lease))
+                if _text(attempt, "status") in {"settled", "reconciled_unbilled"}:
+                    self._verify_reconciliation_result(
+                        lease,
+                        attempt=attempt,
+                        target=target,
+                        actual_cost=actual_cost,
+                        usage_id=usage_id,
+                        usage_sha256=usage_sha256,
+                        input_tokens=input_tokens if complete_response else None,
+                        output_tokens=output_tokens if complete_response else None,
+                        response_digest=response_digest,
+                    )
+                    return
                 if isinstance(exc, DynamoDbIndeterminateError):
                     raise
-                raise
+                if _text(attempt, "status") != source_status:
+                    raise ReconciliationMismatchError(
+                        "provider attempt changed during usage reconciliation"
+                    ) from None
+                if self._get_optional(usage_record_key) is not None:
+                    raise ReconciliationMismatchError(
+                        "provider usage evidence is already bound to another attempt"
+                    ) from None
+                ledger = self._get_required(_LEDGER_RECORD_KEY)
+                self._verify_ledger(ledger)
+                self._raise_if_poisoned(ledger)
+                if budget.fits_cap(_number(ledger, "committed_microusd")):
+                    continue
+                self._poison_authority(
+                    lease,
+                    reason=_RECONCILED_COST_POISON_REASON,
+                )
+                raise SettlementError(
+                    "reconciled provider cost exceeds the aggregate provider cap; "
+                    "authority is poisoned"
+                ) from None
+        raise DynamoDbAuthorityError(
+            "provider usage reconciliation could not converge after concurrent writes"
+        )
 
     def snapshot(self) -> SpendControlSnapshot:
         """Read exact accounting and breaker state from the ledger singleton."""
