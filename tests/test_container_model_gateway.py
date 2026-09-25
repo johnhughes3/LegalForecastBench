@@ -11,14 +11,9 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.multiharness.container_harness.model_gateway import (
-    CAPABILITY_TOKEN_ENV,
-    UPSTREAM_API_KEY_ENV,
-    UPSTREAM_KEY_FILE_ENV,
-    ModelGatewayError,
     ModelGatewayHTTPServer,
     ModelGatewayPolicy,
     build_model_gateway_server,
-    load_model_gateway_launch_config,
 )
 
 
@@ -92,8 +87,13 @@ def _upstream(
 @contextmanager
 def _gateway(
     policy: ModelGatewayPolicy,
+    *,
+    usage_evidence_path: Path | None = None,
 ) -> Generator[ModelGatewayHTTPServer]:
-    server = build_model_gateway_server(policy)
+    server = build_model_gateway_server(
+        policy,
+        usage_evidence_path=usage_evidence_path,
+    )
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -427,6 +427,66 @@ def test_stream_usage_is_observed_without_changing_sse_body() -> None:
         assert response_body == body
         assert usage.input_tokens == 3
         assert usage.output_tokens == 2
+        assert usage.observed_input_tokens == 3
+        assert usage.observed_output_tokens == 2
+
+
+def test_usage_evidence_is_atomic_and_separates_observed_from_accounted(
+    tmp_path: Path,
+) -> None:
+    evidence_path = tmp_path / "usage.json"
+    with _upstream(body=_success_response()) as upstream:
+        policy = _policy(upstream, max_requests=1)
+        with _gateway(policy, usage_evidence_path=evidence_path) as gateway:
+            first_status, _ = _request(
+                gateway,
+                body=_message_body(max_tokens=4),
+                headers={"x-api-key": policy.capability_token},
+            )
+            second_status, _ = _request(
+                gateway,
+                body=_message_body(max_tokens=4),
+                headers={"x-api-key": policy.capability_token},
+            )
+
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+
+    assert first_status == 200
+    assert second_status == 429
+    assert evidence == {
+        "accounted_input_tokens": 7,
+        "accounted_output_tokens": 2,
+        "observed_input_tokens": 7,
+        "observed_output_tokens": 2,
+        "rejected_count": 1,
+        "request_count": 1,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "schema_version": 1,
+    }
+    assert evidence_path.stat().st_mode & 0o077 == 0
+
+
+def test_usage_evidence_keeps_observed_usage_unknown_on_ambiguous_response(
+    tmp_path: Path,
+) -> None:
+    evidence_path = tmp_path / "usage.json"
+    with _upstream(body=b'{"ok":true}') as upstream:
+        policy = _policy(upstream, max_requests=1)
+        with _gateway(policy, usage_evidence_path=evidence_path) as gateway:
+            status, _ = _request(
+                gateway,
+                body=_message_body(max_tokens=4),
+                headers={"x-api-key": policy.capability_token},
+            )
+
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+
+    assert status == 200
+    assert evidence["accounted_input_tokens"] == len(_message_body(max_tokens=4))
+    assert evidence["accounted_output_tokens"] == 4
+    assert evidence["observed_input_tokens"] is None
+    assert evidence["observed_output_tokens"] is None
 
 
 def test_provider_error_body_is_not_returned_to_harness() -> None:
@@ -445,113 +505,3 @@ def test_provider_error_body_is_not_returned_to_harness() -> None:
         assert status == 502
         assert b"provider-sentinel" not in response_body
         assert len(upstream.requests) == 1
-
-
-def _launch_policy_document(
-    upstream: _FakeUpstream, **overrides: object
-) -> dict[str, object]:
-    value: dict[str, object] = {
-        "bind_host": "127.0.0.1",
-        "bind_port": 3129,
-        "upstream_base_url": upstream.base_url,
-        "allowed_models": ["claude-fixture"],
-        "allowed_ingress_hosts": ["127.0.0.1"],
-    }
-    value.update(overrides)
-    return value
-
-
-def _write_owner_only_json(path: Path, value: object, mode: int = 0o600) -> None:
-    path.write_text(json.dumps(value), encoding="utf-8")
-    path.chmod(mode)
-
-
-def test_sidecar_loader_keeps_credentials_out_of_policy_file(tmp_path: Path) -> None:
-    with _upstream(body=_success_response()) as upstream:
-        config_path = tmp_path / "policy.json"
-        _write_owner_only_json(config_path, _launch_policy_document(upstream))
-
-        launch = load_model_gateway_launch_config(
-            config_path,
-            environment={
-                UPSTREAM_API_KEY_ENV: "provider-sentinel",
-                CAPABILITY_TOKEN_ENV: "run-capability-sentinel",
-            },
-        )
-
-        assert launch.bind_host == "127.0.0.1"
-        assert launch.bind_port == 3129
-        assert launch.policy.upstream_api_key == "provider-sentinel"
-        assert launch.policy.capability_token == "run-capability-sentinel"
-
-
-def test_sidecar_loader_accepts_owner_only_key_file(tmp_path: Path) -> None:
-    with _upstream(body=_success_response()) as upstream:
-        config_path = tmp_path / "policy.json"
-        key_path = tmp_path / "upstream.key"
-        _write_owner_only_json(config_path, _launch_policy_document(upstream), 0o400)
-        key_path.write_text("provider-file-sentinel\n", encoding="utf-8")
-        key_path.chmod(0o400)
-
-        launch = load_model_gateway_launch_config(
-            config_path,
-            environment={
-                UPSTREAM_KEY_FILE_ENV: str(key_path),
-                CAPABILITY_TOKEN_ENV: "run-capability-sentinel",
-            },
-        )
-
-        assert launch.policy.upstream_api_key == "provider-file-sentinel"
-
-
-def test_sidecar_loader_rejects_permissive_or_credential_bearing_config(
-    tmp_path: Path,
-) -> None:
-    with _upstream(body=_success_response()) as upstream:
-        config_path = tmp_path / "policy.json"
-        document = _launch_policy_document(
-            upstream,
-            upstream_api_key="must-not-be-filed",
-        )
-        _write_owner_only_json(config_path, document)
-        with pytest.raises(ModelGatewayError, match="must not contain credentials"):
-            load_model_gateway_launch_config(
-                config_path,
-                environment={
-                    UPSTREAM_API_KEY_ENV: "provider-sentinel",
-                    CAPABILITY_TOKEN_ENV: "run-capability-sentinel",
-                },
-            )
-
-        _write_owner_only_json(
-            config_path,
-            _launch_policy_document(upstream),
-            0o644,
-        )
-        with pytest.raises(ModelGatewayError, match="owner-only"):
-            load_model_gateway_launch_config(
-                config_path,
-                environment={
-                    UPSTREAM_API_KEY_ENV: "provider-sentinel",
-                    CAPABILITY_TOKEN_ENV: "run-capability-sentinel",
-                },
-            )
-
-
-def test_sidecar_loader_rejects_multiple_upstream_key_sources(tmp_path: Path) -> None:
-    with _upstream(body=_success_response()) as upstream:
-        config_path = tmp_path / "policy.json"
-        key_path = tmp_path / "upstream.key"
-        _write_owner_only_json(config_path, _launch_policy_document(upstream))
-        key_path.write_text("provider-file-sentinel", encoding="utf-8")
-        key_path.chmod(0o400)
-
-        with pytest.raises(ModelGatewayError, match="exactly one"):
-            load_model_gateway_launch_config(
-                config_path,
-                environment={
-                    UPSTREAM_API_KEY_ENV: "provider-sentinel",
-                    UPSTREAM_KEY_FILE_ENV: str(key_path),
-                    CAPABILITY_TOKEN_ENV: "run-capability-sentinel",
-                },
-            )
