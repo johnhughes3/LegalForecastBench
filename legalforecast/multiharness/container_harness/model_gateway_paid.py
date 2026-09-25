@@ -33,9 +33,7 @@ from legalforecast.multiharness.protected_terminal_paid import (
     uniform_case_reservation_microusd,
 )
 
-PAID_GATEWAY_CONFIG_SCHEMA: Final[str] = (
-    "legalforecast.multiharness.protected-paid-gateway.v1"
-)
+PAID_GATEWAY_CONFIG_SCHEMA: Final[int] = 1
 PAID_GATEWAY_WORKFLOW_MARKER: Final[str] = (
     f"{PROTECTED_WORKFLOW_MARKER}={PROTECTED_WORKFLOW_MARKER_VALUE}"
 )
@@ -97,7 +95,7 @@ def load_paid_gateway_config(
 
     payload = _read_object(Path(config_path), "paid gateway config")
     _require_exact_fields(payload, _REQUIRED_FIELDS, _OPTIONAL_FIELDS)
-    if _required_str(payload, "schema_version") != PAID_GATEWAY_CONFIG_SCHEMA:
+    if _required_int(payload, "schema_version") != PAID_GATEWAY_CONFIG_SCHEMA:
         raise ProtectedTerminalPaidError(
             f"unsupported paid gateway config schema; expected "
             f"{PAID_GATEWAY_CONFIG_SCHEMA}"

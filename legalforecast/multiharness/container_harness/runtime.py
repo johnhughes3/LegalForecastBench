@@ -25,6 +25,7 @@ reach, and :mod:`.plan` for the argv and environment this module executes.
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import shutil
 import subprocess
@@ -44,10 +45,14 @@ from legalforecast.multiharness.container_harness.images import (
     resolve_rootless_backend,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_AUTHORITY_ENV,
     MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
+    MODEL_GATEWAY_PROXY_BASE_URL,
+    MODEL_GATEWAY_RELAY_ENV,
     MODEL_GATEWAY_UPSTREAM_KEY_ENV,
     MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
     ModelGatewayLaunch,
+    ModelGatewayRequest,
     build_model_gateway_run_argv,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
@@ -82,6 +87,9 @@ from legalforecast.multiharness.container_harness.plan import (
 from legalforecast.multiharness.container_harness.publication import (
     write_published_package,
 )
+from legalforecast.multiharness.protected_terminal_paid import (
+    GitHubEnvironmentGatewayCredentialSource,
+)
 
 # Kept as a module attribute for callers that previously patched the staging
 # source resolver on ``container_harness.runtime``.
@@ -92,11 +100,19 @@ PROXY_READY_TIMEOUT_SECONDS = 30.0
 EVIDENCE_FILE_NAME = "egress-evidence.json"
 
 
-def _stage_model_gateway(staging: Path, request: object) -> ModelGatewayLaunch:
+def _stage_model_gateway(
+    staging: Path,
+    request: object,
+    *,
+    environment: Mapping[str, str] | None = None,
+) -> ModelGatewayLaunch:
     """Preserve the historical runtime-level source-resolver seam."""
 
     return _stage_model_gateway_impl(
-        staging, request, source_resolver=model_gateway_source_path
+        staging,
+        request,
+        source_resolver=model_gateway_source_path,
+        environment=environment,
     )
 
 
@@ -108,7 +124,8 @@ def run_container_harness(
 ) -> ContainerHarnessResult:
     """Execute one fenced run and write its sole public result representation."""
 
-    spec.allowlist()
+    allowlist = spec.allowlist()
+    _validate_paid_network_allowlist(spec, allowlist)
     backend_path, environment = resolve_rootless_backend(backend)
     try:
         image_id = resolve_local_image_id(backend_path, spec.image, environment)
@@ -179,16 +196,11 @@ def run_container_harness(
             gateway_launch = _stage_model_gateway(
                 staging,
                 spec.model_gateway,
+                environment=os.environ,
             )
-            gateway_environment = dict(environment)
-            gateway_environment.update(
-                {
-                    MODEL_GATEWAY_CAPABILITY_TOKEN_ENV: (
-                        spec.model_gateway.run_capability
-                    ),
-                    MODEL_GATEWAY_UPSTREAM_KEY_ENV: spec.model_gateway.upstream_api_key
-                    or "",
-                }
+            gateway_environment = _model_gateway_environment(
+                spec.model_gateway,
+                environment,
             )
             _run_backend(
                 build_model_gateway_run_argv(
@@ -285,6 +297,78 @@ def run_container_harness(
         allowlist=spec.allowlist().to_record(),
     )
     return result
+
+
+def _model_gateway_environment(
+    request: object,
+    backend_environment: Mapping[str, str],
+) -> dict[str, str]:
+    """Build the Docker-client environment for the sidecar only.
+
+    The harness receives ``backend_environment`` separately and never sees the
+    protected workflow or AWS credential variables.  In paid mode the gateway
+    gets an explicit allowlist of those names so its AWS authority calls and
+    upstream traffic remain inside the sidecar/relay boundary.
+    """
+
+    if not isinstance(request, ModelGatewayRequest):
+        raise ContainerHarnessError("model gateway request is incomplete")
+    gateway_environment = dict(backend_environment)
+    paid = request.paid_config_path is not None
+    gateway_environment[MODEL_GATEWAY_CAPABILITY_TOKEN_ENV] = request.run_capability
+    if not paid:
+        assert request.upstream_api_key is not None
+        gateway_environment[MODEL_GATEWAY_UPSTREAM_KEY_ENV] = request.upstream_api_key
+        return gateway_environment
+    missing = [name for name in MODEL_GATEWAY_AUTHORITY_ENV if not os.environ.get(name)]
+    if missing:
+        raise ContainerHarnessError(
+            "protected paid gateway authority environment is incomplete: "
+            + ", ".join(missing)
+        )
+    gateway_environment.update(
+        {name: os.environ[name] for name in MODEL_GATEWAY_AUTHORITY_ENV}
+    )
+    gateway_environment.update(
+        GitHubEnvironmentGatewayCredentialSource().upstream_environment()
+    )
+    gateway_environment.update(
+        {
+            name: MODEL_GATEWAY_PROXY_BASE_URL
+            for name in MODEL_GATEWAY_RELAY_ENV
+            if name in {"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"}
+        }
+    )
+    gateway_environment.update(
+        {
+            "NO_PROXY": "localhost,127.0.0.1,::1,lfb-model-gateway",
+            "no_proxy": "localhost,127.0.0.1,::1,lfb-model-gateway",
+        }
+    )
+    return gateway_environment
+
+
+def _validate_paid_network_allowlist(
+    spec: ContainerHarnessSpec,
+    allowlist: object,
+) -> None:
+    """Require the relay to admit the ordinary regional DynamoDB endpoint."""
+
+    request = spec.model_gateway
+    if request is None or request.paid_config_path is None:
+        return
+    region = os.environ.get("LFB_AWS_REGION")
+    if not region:
+        raise ContainerHarnessError(
+            "protected paid gateway requires LFB_AWS_REGION before network setup"
+        )
+    endpoint = f"dynamodb.{region}.amazonaws.com"
+    permits = getattr(allowlist, "permits", None)
+    if not callable(permits) or permits(endpoint, 443) is not None:
+        raise ContainerHarnessError(
+            "protected paid gateway requires an explicit DynamoDB endpoint in "
+            f"the relay allowlist: {endpoint}:443"
+        )
 
 
 def _staging_directory(environment: Mapping[str, str], token: str) -> Path:

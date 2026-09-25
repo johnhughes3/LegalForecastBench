@@ -13,6 +13,27 @@ from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     model_registry_entry_sha256,
 )
+from legalforecast.multiharness.container_harness.model_gateway import (
+    CAPABILITY_TOKEN_ENV,
+    MODEL_REGISTRY_PATH_ENV,
+    PAID_CONFIG_PATH_ENV,
+    UPSTREAM_API_KEY_ENV,
+    load_model_gateway_launch_config,
+)
+from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_AUTHORITY_ENV,
+    MODEL_GATEWAY_MODEL_REGISTRY_TARGET,
+    MODEL_GATEWAY_PACKAGE_ROOT_TARGET,
+    MODEL_GATEWAY_PAID_CONFIG_TARGET,
+    MODEL_GATEWAY_RELAY_ENV,
+    MODEL_GATEWAY_SOURCE_TARGET,
+    ModelGatewayRequest,
+    build_model_gateway_run_argv,
+)
+from legalforecast.multiharness.container_harness.model_gateway_runtime import (
+    stage_model_gateway,
+)
+from legalforecast.multiharness.container_harness.plan import ContainerHarnessNames
 from legalforecast.multiharness.protected_terminal_paid import (
     GatewayChargeExtractor,
     ProtectedTerminalPaidError,
@@ -187,3 +208,105 @@ def test_build_paid_gateway_controller_uses_cache_aware_registry_pricing(
         separators=(",", ":"),
     ).encode()
     assert extractor(body, 200, "application/json") == 5_375
+
+
+def test_paid_gateway_stages_installed_image_inputs_without_fixture_pythonpath(
+    tmp_path: Path,
+) -> None:
+    config_path, registry_path, record = _files(tmp_path)
+    record["ceiling_microusd"] = 40_000_000
+    config_path.write_text(json.dumps(record), encoding="utf-8")
+    request = ModelGatewayRequest(
+        upstream_base_url="https://api.anthropic.com:443",
+        model_key="anthropic:claude-sonnet-4-5",
+        run_capability="run-capability",
+        paid_config_path=config_path,
+        model_registry_path=registry_path,
+    )
+    launch = stage_model_gateway(
+        tmp_path / "staging",
+        request,
+        environment=_ENVIRONMENT,
+    )
+
+    assert launch.source_path is None
+    assert launch.package_path is None
+    assert launch.paid_config_path is not None
+    assert launch.model_registry_path is not None
+    names = ContainerHarnessNames(
+        network="run-net",
+        egress_network="run-out",
+        proxy_container="run-relay",
+        model_gateway_container="run-gateway",
+        harness_container="run-harness",
+    )
+
+    class Spec:
+        def resolved_proxy_image(self) -> str:
+            return "lfb-paid-gateway@sha256:" + "a" * 64
+
+    argv = build_model_gateway_run_argv(
+        Path("/usr/bin/docker"),
+        Spec(),
+        names,
+        launch,
+        evidence_directory=tmp_path / "evidence",
+    )
+    env_values = [argv[index + 1] for index, item in enumerate(argv) if item == "--env"]
+    assert f"{PAID_CONFIG_PATH_ENV}={MODEL_GATEWAY_PAID_CONFIG_TARGET}" in env_values
+    assert (
+        f"{MODEL_REGISTRY_PATH_ENV}={MODEL_GATEWAY_MODEL_REGISTRY_TARGET}" in env_values
+    )
+    assert f"PYTHONPATH={MODEL_GATEWAY_PACKAGE_ROOT_TARGET}" not in env_values
+    assert MODEL_GATEWAY_SOURCE_TARGET not in argv
+    assert MODEL_GATEWAY_AUTHORITY_ENV[0] in env_values
+    assert MODEL_GATEWAY_RELAY_ENV[1] in env_values
+    assert "fixture-upstream-dummy-key" not in argv
+    assert "run-capability" not in argv
+
+
+def test_paid_gateway_loader_constructs_controller_before_server(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path, registry_path, record = _files(tmp_path)
+    record["ceiling_microusd"] = 40_000_000
+    config_path.write_text(json.dumps(record), encoding="utf-8")
+    policy_path = tmp_path / "policy.json"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "bind_host": "0.0.0.0",
+                "bind_port": 8080,
+                "upstream_base_url": "https://api.anthropic.com:443",
+                "proxy_base_url": "http://lfb-model-egress:3128",
+                "allowed_models": ["claude-sonnet-4-5", "claude-sonnet-4-5[1m]"],
+                "allowed_ingress_hosts": ["lfb-model-gateway"],
+                "usage_evidence_path": "/var/legalforecast-egress/gateway-usage.json",
+                "max_requests": 4,
+                "max_input_tokens": 1_000_000,
+                "max_output_tokens": 128_000,
+                "max_total_input_tokens": 4_000_000,
+                "max_total_output_tokens": 512_000,
+            }
+        ),
+        encoding="utf-8",
+    )
+    policy_path.chmod(0o400)
+    sentinel = object()
+    monkeypatch.setattr(
+        "legalforecast.multiharness.container_harness.model_gateway_paid.build_paid_gateway_controller",
+        lambda config: cast(Any, sentinel),
+    )
+    environment = {
+        **_ENVIRONMENT,
+        CAPABILITY_TOKEN_ENV: "run-capability",
+        UPSTREAM_API_KEY_ENV: "fixture-upstream-dummy-key",
+        PAID_CONFIG_PATH_ENV: str(config_path),
+        MODEL_REGISTRY_PATH_ENV: str(registry_path),
+    }
+
+    loaded = load_model_gateway_launch_config(policy_path, environment=environment)
+
+    assert loaded.spend_controller is sentinel
+    assert loaded.request_id == "paid-gateway:" + "b" * 64

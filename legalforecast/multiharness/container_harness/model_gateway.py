@@ -93,6 +93,8 @@ else:
 UPSTREAM_API_KEY_ENV: Final[str] = "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY"
 UPSTREAM_KEY_FILE_ENV: Final[str] = "LFB_MODEL_GATEWAY_UPSTREAM_KEY_FILE"
 CAPABILITY_TOKEN_ENV: Final[str] = "LFB_MODEL_GATEWAY_CAPABILITY_TOKEN"
+PAID_CONFIG_PATH_ENV: Final[str] = "LFB_MODEL_GATEWAY_PAID_CONFIG_PATH"
+MODEL_REGISTRY_PATH_ENV: Final[str] = "LFB_MODEL_GATEWAY_MODEL_REGISTRY_PATH"
 _POLICY_KEYS: Final[frozenset[str]] = frozenset(
     {
         "bind_host",
@@ -122,6 +124,8 @@ class ModelGatewayLaunchConfig:
     bind_host: str
     bind_port: int
     usage_evidence_path: Path
+    spend_controller: GatewaySpendController | None = None
+    request_id: str | None = None
 
 
 def load_model_gateway_launch_config(
@@ -199,7 +203,76 @@ def load_model_gateway_launch_config(
     if bind_port > 65_535:
         raise ModelGatewayError("gateway policy bind_port is out of range")
     usage_evidence_path = _config_absolute_path(config, "usage_evidence_path")
-    return ModelGatewayLaunchConfig(policy, bind_host, bind_port, usage_evidence_path)
+    spend_controller: GatewaySpendController | None = None
+    request_id: str | None = None
+    paid_config_path = env.get(PAID_CONFIG_PATH_ENV)
+    model_registry_path = env.get(MODEL_REGISTRY_PATH_ENV)
+    if bool(paid_config_path) != bool(model_registry_path):
+        raise ModelGatewayError(
+            f"set both {PAID_CONFIG_PATH_ENV} and {MODEL_REGISTRY_PATH_ENV} "
+            "for protected paid gateway mode"
+        )
+    if paid_config_path is not None and model_registry_path is not None:
+        if (
+            not Path(paid_config_path).is_absolute()
+            or not Path(model_registry_path).is_absolute()
+        ):
+            raise ModelGatewayError("paid gateway config paths must be absolute")
+        try:
+            # Keep paid imports lazy: the provider-free fixture image contains
+            # only the staged gateway package, while the paid image carries the
+            # complete installed package and its protected spend primitives.
+            from .model_gateway_paid import (  # type: ignore[import-not-found]
+                build_paid_gateway_controller,
+                load_paid_gateway_config,
+            )
+        except ImportError as exc:
+            raise ModelGatewayError(
+                "protected paid gateway support is unavailable in this image"
+            ) from exc
+        try:
+            paid_config = load_paid_gateway_config(
+                paid_config_path,
+                model_registry_path=model_registry_path,
+                environment=env,
+            )
+            wire_model = paid_config.model_key.removeprefix("anthropic:")
+            expected_models = frozenset({wire_model, f"{wire_model}[1m]"})
+            if policy.allowed_models != expected_models:
+                raise ModelGatewayError(
+                    "paid gateway policy model does not match the frozen registry"
+                )
+            if (
+                policy.max_requests != paid_config.max_requests
+                or policy.max_input_tokens != paid_config.registry_entry.context_limit
+                or policy.max_output_tokens
+                != paid_config.registry_entry.max_output_tokens
+                or policy.max_total_input_tokens
+                != paid_config.max_requests * paid_config.registry_entry.context_limit
+                or policy.max_total_output_tokens
+                != paid_config.max_requests
+                * paid_config.registry_entry.max_output_tokens
+            ):
+                raise ModelGatewayError(
+                    "paid gateway policy limits do not match the frozen registry"
+                )
+            spend_controller = build_paid_gateway_controller(paid_config)
+        except Exception as exc:
+            # The paid loader and authority constructor deliberately expose a
+            # single protected error type. Avoid leaking paths or provider
+            # details from the sidecar's command-line error.
+            if isinstance(exc, ModelGatewayError):
+                raise
+            raise ModelGatewayError(f"protected paid gateway refused: {exc}") from exc
+        request_id = f"paid-gateway:{paid_config.spend.reservation_ledger_sha256}"
+    return ModelGatewayLaunchConfig(
+        policy,
+        bind_host,
+        bind_port,
+        usage_evidence_path,
+        spend_controller,
+        request_id,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -229,6 +302,8 @@ def main(argv: list[str] | None = None) -> int:
             bind_host=launch.bind_host,
             port=launch.bind_port,
             usage_evidence_path=launch.usage_evidence_path,
+            spend_controller=launch.spend_controller,
+            request_id=launch.request_id,
         )
     except (OSError, ModelGatewayError, GatewayEvidenceError) as exc:
         parser.error(f"invalid gateway configuration: {exc}")
@@ -321,6 +396,8 @@ def _config_absolute_path(config: Mapping[str, object], name: str) -> Path:
 
 __all__ = [
     "CAPABILITY_TOKEN_ENV",
+    "MODEL_REGISTRY_PATH_ENV",
+    "PAID_CONFIG_PATH_ENV",
     "UPSTREAM_API_KEY_ENV",
     "UPSTREAM_KEY_FILE_ENV",
     "AnthropicModelGateway",

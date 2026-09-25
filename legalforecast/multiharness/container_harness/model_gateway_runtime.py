@@ -8,6 +8,7 @@ small and the gateway-specific validation has one seam.
 from __future__ import annotations
 
 import json
+import math
 import shutil
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -15,6 +16,10 @@ from typing import cast
 from urllib.parse import urlsplit
 
 from legalforecast.multiharness.container_harness.evidence import AccountedEgress
+from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    ProtectedPaidGatewayConfig,
+    load_paid_gateway_config,
+)
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
     MODEL_GATEWAY_PROXY_BASE_URL,
     MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
@@ -27,6 +32,9 @@ from legalforecast.multiharness.container_harness.plan import (
     ContainerHarnessError,
     ContainerHarnessSpec,
 )
+from legalforecast.multiharness.protected_terminal_paid import (
+    ProtectedTerminalPaidError,
+)
 
 
 def stage_model_gateway(
@@ -34,6 +42,7 @@ def stage_model_gateway(
     request: object,
     *,
     source_resolver: Callable[[], Path] = model_gateway_source_path,
+    environment: Mapping[str, str] | None = None,
 ) -> ModelGatewayLaunch:
     """Stage a gateway policy without writing sidecar credentials to disk."""
 
@@ -42,34 +51,62 @@ def stage_model_gateway(
     gateway_root = staging / "model-gateway"
     gateway_root.mkdir(mode=0o700, parents=True, exist_ok=False)
     config_path = gateway_root / "policy.json"
-    source_path = source_resolver()
-    package_path = (
-        gateway_root
-        / "package"
-        / "legalforecast"
-        / "multiharness"
-        / "container_harness"
-    )
-    package_path.mkdir(mode=0o700, parents=True, exist_ok=False)
-    for relative in (
-        "model_gateway.py",
-        "model_gateway_accounting.py",
-        "model_gateway_protocol.py",
-        "model_gateway_server.py",
-        "model_gateway_types.py",
-    ):
-        shutil.copyfile(source_path.parent / relative, package_path / relative)
-    for init_path in (
-        package_path.parent.parent / "__init__.py",
-        package_path.parent / "__init__.py",
-        package_path / "__init__.py",
-    ):
-        init_path.write_text("", encoding="utf-8")
-    if request.upstream_api_key is None:
+    if request.paid_config_path is None and request.upstream_api_key is None:
         raise ContainerHarnessError(
             "model gateway request must provide a sidecar-only upstream key"
         )
     wire_model = request.model_key.removeprefix("anthropic:")
+    source_path: Path | None = None
+    package_path: Path | None = None
+    paid_config_path: Path | None = None
+    model_registry_path: Path | None = None
+    if request.paid_config_path is not None:
+        assert request.model_registry_path is not None
+        try:
+            paid_config = load_paid_gateway_config(
+                request.paid_config_path,
+                model_registry_path=request.model_registry_path,
+                environment=environment,
+            )
+        except ProtectedTerminalPaidError as exc:
+            raise ContainerHarnessError(str(exc)) from exc
+        _validate_paid_budget(paid_config)
+        paid_config_path = gateway_root / "paid-gateway.json"
+        model_registry_path = gateway_root / "model-registry.json"
+        shutil.copyfile(request.paid_config_path, paid_config_path)
+        shutil.copyfile(request.model_registry_path, model_registry_path)
+        paid_config_path.chmod(0o444)
+        model_registry_path.chmod(0o444)
+        max_requests = paid_config.max_requests
+        max_input_tokens = paid_config.registry_entry.context_limit
+        max_output_tokens = paid_config.registry_entry.max_output_tokens
+    else:
+        source_path = source_resolver()
+        package_path = (
+            gateway_root
+            / "package"
+            / "legalforecast"
+            / "multiharness"
+            / "container_harness"
+        )
+        package_path.mkdir(mode=0o700, parents=True, exist_ok=False)
+        for relative in (
+            "model_gateway.py",
+            "model_gateway_accounting.py",
+            "model_gateway_protocol.py",
+            "model_gateway_server.py",
+            "model_gateway_types.py",
+        ):
+            shutil.copyfile(source_path.parent / relative, package_path / relative)
+        for init_path in (
+            package_path.parent.parent / "__init__.py",
+            package_path.parent / "__init__.py",
+            package_path / "__init__.py",
+        ):
+            init_path.write_text("", encoding="utf-8")
+        max_requests = 64
+        max_input_tokens = 1_000_000
+        max_output_tokens = 128_000
     config = {
         "bind_host": "0.0.0.0",
         "bind_port": request.port,
@@ -83,13 +120,13 @@ def stage_model_gateway(
         # must traverse the allowlisted CONNECT relay on the internal network.
         "proxy_base_url": MODEL_GATEWAY_PROXY_BASE_URL,
         "usage_evidence_path": MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
-        "max_requests": 64,
-        "max_input_tokens": 1_000_000,
+        "max_requests": max_requests,
+        "max_input_tokens": max_input_tokens,
         # Claude Code 2.1.282 sends max_tokens=128000 even for the fixture
         # turn; the gateway still accounts observed usage after forwarding.
-        "max_output_tokens": 128_000,
-        "max_total_input_tokens": 1_000_000,
-        "max_total_output_tokens": 256_000,
+        "max_output_tokens": max_output_tokens,
+        "max_total_input_tokens": max_requests * max_input_tokens,
+        "max_total_output_tokens": max_requests * max_output_tokens,
     }
     config_path.write_text(
         json.dumps(config, sort_keys=True, separators=(",", ":")) + "\n",
@@ -101,11 +138,44 @@ def stage_model_gateway(
             source_path=source_path,
             config_path=config_path,
             package_path=package_path,
+            paid_config_path=paid_config_path,
+            model_registry_path=model_registry_path,
             host=request.host,
             port=request.port,
         )
     except ModelGatewayPlanError as exc:
         raise ContainerHarnessError(str(exc)) from exc
+
+
+def _validate_paid_budget(config: ProtectedPaidGatewayConfig) -> None:
+    """Prove the frozen request envelope fits the approved run ceiling."""
+
+    # Keep this check independent of the controller constructor: staging must
+    # reject an unbounded paid launch before Docker can start the sidecar.
+    max_requests = config.max_requests
+    ceiling = config.spend.ceiling_microusd
+    entry = config.registry_entry
+    cache_read = entry.cache_read_token_price
+    cache_write = entry.cache_write_token_price
+    if cache_read is None or cache_write is None:
+        raise ContainerHarnessError(
+            "paid gateway requires frozen cache pricing for a bounded cost check"
+        )
+    input_price = max(entry.input_token_price, cache_read, cache_write)
+    output_price = entry.output_token_price
+    surcharge = entry.long_context_surcharge
+    max_input = entry.context_limit
+    if surcharge is not None and max_input > surcharge.threshold_input_tokens:
+        input_price *= surcharge.input_price_multiplier
+        output_price *= surcharge.output_price_multiplier
+    worst_case_microusd = math.ceil(
+        max_input * input_price + entry.max_output_tokens * output_price
+    )
+    worst_case_microusd *= max_requests
+    if not math.isfinite(worst_case_microusd) or worst_case_microusd > ceiling:
+        raise ContainerHarnessError(
+            "paid gateway worst-case token cost exceeds the approved ceiling"
+        )
 
 
 def read_model_gateway_evidence(

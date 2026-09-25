@@ -59,6 +59,8 @@ MODEL_GATEWAY_PACKAGE_TARGET = (
 )
 MODEL_GATEWAY_MODULE = "legalforecast.multiharness.container_harness.model_gateway"
 MODEL_GATEWAY_CONFIG_TARGET = "/etc/legalforecast/model-gateway-policy.json"
+MODEL_GATEWAY_PAID_CONFIG_TARGET = "/etc/legalforecast/model-gateway-paid.json"
+MODEL_GATEWAY_MODEL_REGISTRY_TARGET = "/etc/legalforecast/model-registry.json"
 MODEL_GATEWAY_ENV_TARGET = "/run/legalforecast/model-gateway.env"
 MODEL_GATEWAY_EVIDENCE_TARGET = f"{PROXY_EVIDENCE_DIR}/egress-evidence.json"
 MODEL_GATEWAY_USAGE_EVIDENCE_TARGET = f"{PROXY_EVIDENCE_DIR}/gateway-usage.json"
@@ -67,6 +69,34 @@ MODEL_GATEWAY_CAPABILITY_TOKEN_ENV = "LFB_MODEL_GATEWAY_CAPABILITY_TOKEN"
 # matches model_gateway.py's actual launch contract.
 MODEL_GATEWAY_RUN_CAPABILITY_ENV = MODEL_GATEWAY_CAPABILITY_TOKEN_ENV
 MODEL_GATEWAY_UPSTREAM_KEY_ENV = "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY"
+MODEL_GATEWAY_PAID_CONFIG_ENV = "LFB_MODEL_GATEWAY_PAID_CONFIG_PATH"
+MODEL_GATEWAY_MODEL_REGISTRY_ENV = "LFB_MODEL_GATEWAY_MODEL_REGISTRY_PATH"
+
+# These names are projected into the gateway container only in protected paid
+# mode. Their values live in the Docker-client environment; no value appears
+# in argv or in the harness environment. Endpoint overrides are intentionally
+# absent so AWS CLI resolves the region's ordinary DynamoDB endpoint, which is
+# then enforced by the relay allowlist.
+MODEL_GATEWAY_AUTHORITY_ENV = (
+    "GITHUB_ACTIONS",
+    "LFB_PROTECTED_TERMINAL_RELEASE",
+    "LFB_PROVIDER_AUTHORITY_TABLE",
+    "LFB_AWS_REGION",
+    "LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256",
+    "AWS_REGION",
+    "AWS_DEFAULT_REGION",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+)
+MODEL_GATEWAY_RELAY_ENV = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "NO_PROXY",
+    "no_proxy",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +107,8 @@ class ModelGatewayRequest:
     model_key: str
     run_capability: str
     upstream_api_key: str | None = None
+    paid_config_path: Path | None = None
+    model_registry_path: Path | None = None
     host: str = MODEL_GATEWAY_HOST
     port: int = MODEL_GATEWAY_PORT
 
@@ -102,12 +134,30 @@ class ModelGatewayRequest:
             char in self.run_capability for char in "\r\n"
         ):
             raise ModelGatewayPlanError("model gateway run capability is invalid")
-        if self.upstream_api_key is None or any(
-            char in self.upstream_api_key for char in "\r\n"
+        paid_mode = self.paid_config_path is not None
+        if not paid_mode and (
+            self.upstream_api_key is None
+            or any(char in self.upstream_api_key for char in "\r\n")
         ):
             raise ModelGatewayPlanError(
                 "model gateway upstream key must be supplied to the sidecar"
             )
+        if paid_mode and self.upstream_api_key is not None:
+            raise ModelGatewayPlanError(
+                "paid gateway upstream key must come from the protected workflow"
+            )
+        if (self.paid_config_path is None) != (self.model_registry_path is None):
+            raise ModelGatewayPlanError(
+                "paid gateway requires both paid_config_path and model_registry_path"
+            )
+        for field_name, path in (
+            ("paid_config_path", self.paid_config_path),
+            ("model_registry_path", self.model_registry_path),
+        ):
+            if path is not None and (not path.is_absolute() or not path.is_file()):
+                raise ModelGatewayPlanError(
+                    f"{field_name} must be an absolute regular file"
+                )
         if self.host != MODEL_GATEWAY_HOST:
             raise ModelGatewayPlanError(
                 f"model gateway host must be {MODEL_GATEWAY_HOST!r}"
@@ -122,27 +172,62 @@ class ModelGatewayRequest:
 class ModelGatewayLaunch:
     """Host paths staged for one detached gateway sidecar."""
 
-    source_path: Path
-    config_path: Path
+    source_path: Path | None = None
+    config_path: Path | None = None
     package_path: Path | None = None
+    paid_config_path: Path | None = None
+    model_registry_path: Path | None = None
     host: str = MODEL_GATEWAY_HOST
     port: int = MODEL_GATEWAY_PORT
     python: str = "python3"
 
     def __post_init__(self) -> None:
-        for field_name, path in (
-            ("source_path", self.source_path),
-            ("config_path", self.config_path),
-        ):
+        for field_name, path in (("config_path", self.config_path),):
+            if path is None:
+                raise ModelGatewayPlanError(f"{field_name} is required")
             if not path.is_absolute():
                 raise ModelGatewayPlanError(f"{field_name} must be absolute")
             if not path.is_file():
                 raise ModelGatewayPlanError(f"{field_name} is not a regular file")
-        if self.package_path is not None:
-            if not self.package_path.is_absolute() or not self.package_path.is_dir():
+        fixture_mode = self.source_path is not None
+        paid_mode = (
+            self.paid_config_path is not None or self.model_registry_path is not None
+        )
+        if fixture_mode == paid_mode:
+            raise ModelGatewayPlanError(
+                "gateway launch must select exactly one of fixture or paid mode"
+            )
+        if fixture_mode:
+            assert self.source_path is not None
+            if not self.source_path.is_absolute() or not self.source_path.is_file():
                 raise ModelGatewayPlanError(
-                    "package_path must be an absolute directory"
+                    "source_path must be an absolute regular file"
                 )
+            if self.package_path is not None:
+                if (
+                    not self.package_path.is_absolute()
+                    or not self.package_path.is_dir()
+                ):
+                    raise ModelGatewayPlanError(
+                        "package_path must be an absolute directory"
+                    )
+        else:
+            if self.package_path is not None:
+                raise ModelGatewayPlanError(
+                    "paid gateway must use its installed package"
+                )
+            for field_name, path in (
+                ("paid_config_path", self.paid_config_path),
+                ("model_registry_path", self.model_registry_path),
+            ):
+                if path is None:
+                    raise ModelGatewayPlanError(
+                        "paid gateway requires config and registry paths"
+                    )
+                if not path.is_absolute() or not path.is_file():
+                    raise ModelGatewayPlanError(
+                        f"{field_name} must be an absolute regular file"
+                    )
         if self.host != MODEL_GATEWAY_HOST or self.port != MODEL_GATEWAY_PORT:
             raise ModelGatewayPlanError("model gateway launch identity is invalid")
         if not self.python or any(char.isspace() for char in self.python):
@@ -176,7 +261,9 @@ def build_model_gateway_run_argv(
     the harness itself is never connected to that network.
     """
 
-    package_path = launch.package_path or launch.source_path.parent
+    if launch.config_path is None:
+        raise ModelGatewayPlanError("gateway launch config is required")
+    paid_mode = launch.paid_config_path is not None
     argv: list[str] = [
         str(backend_path),
         "run",
@@ -203,10 +290,6 @@ def build_model_gateway_run_argv(
         "256m",
         "--cpus=0.5",
         "--mount",
-        f"type=bind,src={launch.source_path},dst={MODEL_GATEWAY_SOURCE_TARGET},readonly",
-        "--mount",
-        f"type=bind,src={package_path},dst={MODEL_GATEWAY_PACKAGE_TARGET},readonly",
-        "--mount",
         f"type=bind,src={launch.config_path},dst={MODEL_GATEWAY_CONFIG_TARGET},readonly",
         "--mount",
         f"type=bind,src={evidence_directory},dst={PROXY_EVIDENCE_DIR}",
@@ -216,8 +299,6 @@ def build_model_gateway_run_argv(
         MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
         "--env",
         MODEL_GATEWAY_UPSTREAM_KEY_ENV,
-        "--env",
-        f"PYTHONPATH={MODEL_GATEWAY_PACKAGE_ROOT_TARGET}",
         "--entrypoint",
         launch.python,
         spec.resolved_proxy_image(),
@@ -226,6 +307,40 @@ def build_model_gateway_run_argv(
         "--config",
         MODEL_GATEWAY_CONFIG_TARGET,
     ]
+    if paid_mode:
+        assert launch.paid_config_path is not None
+        assert launch.model_registry_path is not None
+        # The paid image contains the complete installed package. Only its
+        # immutable paid descriptor and registry are mounted; staged fixture
+        # source and PYTHONPATH would shadow protected modules.
+        insertion = argv.index("--entrypoint")
+        argv[insertion:insertion] = [
+            "--mount",
+            f"type=bind,src={launch.paid_config_path},dst={MODEL_GATEWAY_PAID_CONFIG_TARGET},readonly",
+            "--mount",
+            f"type=bind,src={launch.model_registry_path},dst={MODEL_GATEWAY_MODEL_REGISTRY_TARGET},readonly",
+            "--env",
+            f"{MODEL_GATEWAY_PAID_CONFIG_ENV}={MODEL_GATEWAY_PAID_CONFIG_TARGET}",
+            "--env",
+            f"{MODEL_GATEWAY_MODEL_REGISTRY_ENV}={MODEL_GATEWAY_MODEL_REGISTRY_TARGET}",
+        ]
+        for name in MODEL_GATEWAY_AUTHORITY_ENV + MODEL_GATEWAY_RELAY_ENV:
+            argv[insertion:insertion] = ["--env", name]
+    else:
+        assert launch.source_path is not None
+        package_path = launch.package_path or launch.source_path.parent
+        insertion = argv.index("--mount", argv.index("--mount") + 1)
+        argv[insertion:insertion] = [
+            "--mount",
+            f"type=bind,src={launch.source_path},dst={MODEL_GATEWAY_SOURCE_TARGET},readonly",
+            "--mount",
+            f"type=bind,src={package_path},dst={MODEL_GATEWAY_PACKAGE_TARGET},readonly",
+        ]
+        insertion = argv.index("--entrypoint")
+        argv[insertion:insertion] = [
+            "--env",
+            f"PYTHONPATH={MODEL_GATEWAY_PACKAGE_ROOT_TARGET}",
+        ]
     return tuple(argv)
 
 
@@ -236,19 +351,25 @@ def model_gateway_environment_names() -> tuple[str, str]:
 
 
 __all__ = [
+    "MODEL_GATEWAY_AUTHORITY_ENV",
     "MODEL_GATEWAY_CAPABILITY_TOKEN_ENV",
     "MODEL_GATEWAY_CONFIG_TARGET",
     "MODEL_GATEWAY_ENV_TARGET",
     "MODEL_GATEWAY_EVIDENCE_TARGET",
     "MODEL_GATEWAY_HOST",
+    "MODEL_GATEWAY_MODEL_REGISTRY_ENV",
+    "MODEL_GATEWAY_MODEL_REGISTRY_TARGET",
     "MODEL_GATEWAY_MODULE",
     "MODEL_GATEWAY_PACKAGE_ROOT_TARGET",
     "MODEL_GATEWAY_PACKAGE_TARGET",
+    "MODEL_GATEWAY_PAID_CONFIG_ENV",
+    "MODEL_GATEWAY_PAID_CONFIG_TARGET",
     "MODEL_GATEWAY_PORT",
     "MODEL_GATEWAY_PROXY_BASE_URL",
     "MODEL_GATEWAY_PROXY_HOST",
     "MODEL_GATEWAY_PROXY_PORT",
     "MODEL_GATEWAY_READY_MARKER",
+    "MODEL_GATEWAY_RELAY_ENV",
     "MODEL_GATEWAY_RUN_CAPABILITY_ENV",
     "MODEL_GATEWAY_SOURCE_TARGET",
     "MODEL_GATEWAY_UPSTREAM_KEY_ENV",
