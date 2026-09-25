@@ -97,4 +97,7 @@ def test_gateway_lane_is_included_in_protected_fan_in() -> None:
         "needs: [prepare-inputs, run-openai, run-anthropic, run-gemini, run-gateway]"
         in combined
     )
-    assert "if: ${{ always() && needs.prepare-inputs.result == 'success' }}" in combined
+    assert (
+        "if: ${{ always() && inputs.execution_mode == 'native' && "
+        "needs.prepare-inputs.result == 'success' }}"
+    ) in combined

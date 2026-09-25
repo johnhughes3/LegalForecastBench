@@ -27,6 +27,18 @@ uv run legalforecast multiharness release-run \
 
 The fixture server runs under the `fixture-upstream` alias. After inspecting the result, remove the fixture container and network with `docker rm -f lfb-local-fixture-server` and `docker network rm lfb-local-fixture`. The outer container runner places the harness and model gateway on a per-run internal network. Only the fixed CONNECT relay joins the fixture network; the harness has no direct external route. The gateway rejects provider-side web and remote tools, while the image's managed Claude policy disables `WebSearch`, `WebFetch`, and MCP tools even if the agent invokes the vendor binary directly. Local Bash tools remain available for case work.
 
+For a split execution and scoring handoff, use `release-execute` with the same execution arguments above but omit `--labels-release`. It writes a portable, outcome-blinded run directory without reading labels. Move that directory to the scoring host, then run:
+
+```bash
+uv run legalforecast multiharness release-score \
+  --run-dir run-results \
+  --forecast-release run-inputs/forecast-release.json \
+  --labels-release run-inputs/labels-release.json \
+  --artifact-root run-inputs
+```
+
+The score command reads and validates the saved run package and writes `run-results/scores.json`; it does not launch Claude Code or contact a model provider. Keep the labels release outside the forecast worker and its container mounts. A failed forecast row remains in the scored unit denominator, while an incomplete package cannot claim a complete headline result.
+
 The repository's opt-in rootless smoke runs the complete scored path against a local fixture without a provider key:
 
 ```bash

@@ -138,6 +138,7 @@
     "tests/test_summary_comparator_models.py",
     "tests/test_supplementary_provider_registries.py",
     "tests/test_t0b_receipt_authority.py",
+    "tests/test_terminal_paid_workflow.py",
     "tests/test_terminal_release_container_e2e.py",
     "tests/test_validate_local_assume_access.py",
     "tests/test_vercel_gateway_registry.py",

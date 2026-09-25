@@ -4514,6 +4514,363 @@
         "release-run"
       ],
       "registration_index": 41
+    },
+    {
+      "aliases": [],
+      "group_dest": "multiharness_command",
+      "handler": {
+        "module": "legalforecast.multiharness.cli",
+        "name": "_cmd_terminal_release_execute",
+        "qualname": "_cmd_terminal_release_execute"
+      },
+      "logical_handler_id": "multiharness.release-execute",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "forecast_release",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--forecast-release"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "artifact_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--artifact-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "output_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--output-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "model_key",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model-key"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "image",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--image"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": [
+            "fixture-none",
+            "published-api-key"
+          ],
+          "default": "fixture-none",
+          "dest": "auth_profile",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--auth-profile"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "max_budget_usd",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--max-budget-usd"
+          ],
+          "required": false,
+          "type": "float"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "approval_reference",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--approval-reference"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "paid_config",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--paid-config"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "model_registry",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model-registry"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "gateway_upstream_base_url",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--gateway-upstream-base-url"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "gateway_image",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--gateway-image"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fixture_base_url",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fixture-base-url"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "fixture_egress_network",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--fixture-egress-network"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": [
+            "docker"
+          ],
+          "default": "docker",
+          "dest": "backend",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--backend"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": 900,
+          "dest": "timeout_seconds",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--timeout-seconds"
+          ],
+          "required": false,
+          "type": "int"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": "claude-code-release",
+          "dest": "run_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--run-id"
+          ],
+          "required": false,
+          "type": null
+        }
+      ],
+      "path": [
+        "multiharness",
+        "release-execute"
+      ],
+      "registration_index": 42
+    },
+    {
+      "aliases": [],
+      "group_dest": "multiharness_command",
+      "handler": {
+        "module": "legalforecast.multiharness.cli",
+        "name": "_cmd_terminal_release_score",
+        "qualname": "_cmd_terminal_release_score"
+      },
+      "logical_handler_id": "multiharness.release-score",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "run_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--run-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "forecast_release",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--forecast-release"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "labels_release",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--labels-release"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "artifact_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--artifact-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "output",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--output"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        }
+      ],
+      "path": [
+        "multiharness",
+        "release-score"
+      ],
+      "registration_index": 43
     }
   ],
   "prog": "legalforecast",
