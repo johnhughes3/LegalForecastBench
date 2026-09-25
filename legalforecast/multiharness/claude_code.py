@@ -41,6 +41,9 @@ from legalforecast.multiharness.auth_profiles import (
     AuthProfileError,
     require_auth_profile_id,
 )
+from legalforecast.multiharness.claude_code_stream import (
+    tool_call_count_from_stdout,
+)
 from legalforecast.multiharness.deliverables import (
     DeliverableArtifactProjection,
     DeliverableManifest,
@@ -1017,7 +1020,7 @@ def _public_summary(
         "sandbox_policy_id": request.sandbox_policy.policy_id,
         "spec_sha256": classified.spec.spec_sha256,
         "task_id": request.task.task_id,
-        "tool_call_count": _tool_call_count(classified.receipt),
+        "tool_call_count": tool_call_count_from_stdout(classified.receipt.stdout),
         "input_tokens": usage["input_tokens"],
         "output_tokens": usage["output_tokens"],
         "estimated_cost": usage["estimated_cost"],
@@ -1038,24 +1041,6 @@ def _public_summary(
         )
     summary["returncode"] = classified.receipt.returncode
     return summary
-
-
-def _tool_call_count(receipt: ExecutionReceipt) -> int:
-    """Read the private stream trace's count without publishing its transcript."""
-
-    try:
-        decoded: object = json.loads(receipt.stdout)
-    except json.JSONDecodeError:
-        return 0
-    if not isinstance(decoded, dict):
-        return 0
-    envelope = cast(dict[str, object], decoded)
-    trace_value = envelope.get("_lfb_tool_trace")
-    if not isinstance(trace_value, dict):
-        return 0
-    trace = cast(dict[str, object], trace_value)
-    count = trace.get("bash_tool_count")
-    return count if type(count) is int and count >= 0 else 0
 
 
 def _classified(
