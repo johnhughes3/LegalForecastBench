@@ -47,3 +47,7 @@ LFB_TERMINAL_RELEASE_E2E_IMAGE=sha256:REPLACE_WITH_BUILT_IMAGE_ID \
 ```
 
 These fixture results demonstrate execution and scoring behavior. They are not model forecasts or benchmark results. Paid runs require the protected workflow's credential and spend authority and remain subject to the existing spending and publication boundaries.
+
+The protected `run-benchmark.yaml` workflow accepts `execution_mode: claude-code-terminal`. Its terminal job reuses the locked outcome-blinded inputs, builds digest-pinned CLI and gateway images, and writes an `official-terminal-forecast-results-<run-id>-attempt-<attempt>` artifact. That artifact contains the scoreless run package and the exact blinded inputs. The terminal job has no labels and does not publish scores. It uses the existing run ceiling and protected provider authority; a local fixture run does not authorize a paid dispatch.
+
+After that workflow attempt completes, `score-terminal-release.yaml` can score its exact artifact ID in the protected fan-in environment. The dispatch supplies the source run ID and attempt, artifact ID, locked manifest, forecast and artifact locations, labels location, and model key. The score workflow compares the package's preserved blinded inputs with the locked inputs, reads labels only inside fan-in, and uploads a score artifact. It can retain partial failure scores, but an incomplete run cannot report a complete benchmark result. This path does not publish a benchmark release; publication remains a separate decision and workflow.
