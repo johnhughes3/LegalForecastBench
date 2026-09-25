@@ -155,7 +155,7 @@ class ClaudeCodeContainerExecutionService:
         upstream_port: int | None = None
         if self.execution_mode == OUTER_CONTAINER_ONLY_MODE:
             endpoint = self.gateway_base_url or (
-                f"http://{MODEL_GATEWAY_HOST}:{MODEL_GATEWAY_PORT}/v1"
+                f"http://{MODEL_GATEWAY_HOST}:{MODEL_GATEWAY_PORT}"
             )
             upstream_endpoint = self.gateway_upstream_base_url or self.fixture_base_url
             if upstream_endpoint is None:
@@ -197,9 +197,13 @@ class ClaudeCodeContainerExecutionService:
                     parsed.scheme != "http"
                     or host != MODEL_GATEWAY_HOST
                     or port != MODEL_GATEWAY_PORT
+                    or parsed.path not in {"", "/"}
+                    or parsed.query
+                    or parsed.fragment
                 ):
                     raise ValueError(
-                        "outer gateway endpoint must be the internal model gateway"
+                        "outer gateway endpoint must be the bare internal model "
+                        "gateway origin"
                     )
                 assert upstream_origin is not None
             else:

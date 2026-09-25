@@ -305,6 +305,9 @@ def build_claude_code_container_adapter(
                 parsed_gateway.scheme != "http"
                 or parsed_gateway.hostname != MODEL_GATEWAY_HOST
                 or (parsed_gateway.port or 80) != MODEL_GATEWAY_PORT
+                or parsed_gateway.path not in {"", "/"}
+                or parsed_gateway.query
+                or parsed_gateway.fragment
             ):
                 raise ClaudeCodeContainerAdapterError(
                     "outer-container-only requires the internal fixture gateway"

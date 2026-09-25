@@ -42,7 +42,7 @@ def test_outer_fixture_factory_uses_gateway_and_skips_native_probe(
         approval_reference=None,
         output_root=tmp_path,
         execution_mode="outer-container-only",
-        gateway_base_url="http://lfb-model-gateway:8080/v1",
+        gateway_base_url="http://lfb-model-gateway:8080",
         fixture_base_url="http://fixture-upstream:8081/v1",
     )
 
@@ -51,7 +51,7 @@ def test_outer_fixture_factory_uses_gateway_and_skips_native_probe(
     assert adapter.outer_container_verified is True
     service = adapter.delegate.execution_service
     assert isinstance(service, ClaudeCodeContainerExecutionService)
-    assert service.gateway_base_url == ("http://lfb-model-gateway:8080/v1")
+    assert service.gateway_base_url == ("http://lfb-model-gateway:8080")
     assert service.gateway_upstream_base_url is None
     adapter._preflight("anthropic:claude-sonnet-4")
 
@@ -118,7 +118,7 @@ def test_outer_fixture_service_bounds_gateway_and_projects_only_dummy_key(
         auth_profile="fixture-none",
         model_key="anthropic:claude-sonnet-4",
         output_root=tmp_path / "output",
-        gateway_base_url="http://lfb-model-gateway:8080/v1",
+        gateway_base_url="http://lfb-model-gateway:8080",
         gateway_upstream_base_url="http://fixture-upstream:8081/v1",
         execution_mode="outer-container-only",
         fixture_egress_network="fixture-network",
@@ -146,6 +146,39 @@ def test_outer_fixture_service_bounds_gateway_and_projects_only_dummy_key(
     assert "CLAUDE_CODE_OAUTH_TOKEN" not in planned.environment
     assert planned.read_only_workspace_paths == ("prompt.txt", "documents")
     assert planned.container_user == "0:0"
+
+
+def test_outer_fixture_service_rejects_gateway_path_before_harness(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_harness_call(*_args: object, **_kwargs: object) -> object:
+        pytest.fail("invalid gateway endpoint reached the container harness")
+
+    monkeypatch.setattr(
+        container_runtime, "run_container_harness", unexpected_harness_call
+    )
+    service = ClaudeCodeContainerExecutionService(
+        image_digest=IMAGE,
+        auth_profile="fixture-none",
+        model_key="anthropic:claude-sonnet-4",
+        output_root=tmp_path / "output",
+        gateway_base_url="http://lfb-model-gateway:8080/v1",
+        gateway_upstream_base_url="http://fixture-upstream:8081",
+        execution_mode="outer-container-only",
+        fixture_egress_network="fixture-network",
+    )
+
+    receipt = service.execute(
+        container_runtime.RunSpec(
+            spec_id="outer-invalid-gateway-path",
+            argv=("claude", "-p", "fixture"),
+            working_directory=tmp_path,
+        )
+    )
+
+    assert receipt.status == "failed"
+    assert receipt.stderr == "container setup refused: ValueError"
 
 
 def test_image_policy_is_managed_and_denies_direct_vendor_web_tools() -> None:

@@ -278,7 +278,9 @@ def test_staged_gateway_policy_matches_sidecar_entrypoint_contract(
 
     assert loaded.bind_host == "0.0.0.0"
     assert loaded.bind_port == 8080
-    assert loaded.policy.allowed_models == frozenset({"claude-sonnet-4"})
+    assert loaded.policy.allowed_models == frozenset(
+        {"claude-sonnet-4", "claude-sonnet-4[1m]"}
+    )
     assert loaded.policy.allowed_ingress_hosts == frozenset({"lfb-model-gateway"})
     assert loaded.usage_evidence_path.as_posix().endswith(
         "/var/legalforecast-egress/gateway-usage.json"
