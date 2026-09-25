@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from legalforecast.multiharness.claude_code_container import (
     CLAUDE_CODE_CONTAINER_ADAPTER_ID,
+    ClaudeCodeContainerAdapter,
     ClaudeCodeContainerAdapterError,
     ClaudeCodeContainerExecutionService,
     _normalize_claude_stream,
@@ -21,6 +24,15 @@ from legalforecast.multiharness.container_harness.fence import (
     ParserFenceFields,
     fence_from_parser_fields,
 )
+from legalforecast.multiharness.release_harness import (
+    RELEASE_FORECAST_OUTPUT_ARTIFACT_ID,
+    RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID,
+    read_release_object,
+    release_bytes_sha256,
+    write_release_json_create_only,
+)
+from legalforecast.multiharness.release_runtime import write_release_create_only
+from legalforecast.multiharness.spec import ArtifactRecord, RunResult
 
 IMAGE = "sha256:" + "a" * 64
 
@@ -56,6 +68,219 @@ def test_scored_forecast_requires_observed_no_web_fence(
 
 def _stream(*events: dict[str, object]) -> str:
     return "\n".join(json.dumps(event, separators=(",", ":")) for event in events)
+
+
+class _FakeClaudeDelegate:
+    def __init__(self, output: bytes) -> None:
+        self.output = output
+
+    def run_with_prompt(
+        self,
+        _request: object,
+        workspace: Path,
+        _instruction: str,
+    ) -> RunResult:
+        output_path = workspace / "deliverable-sealed/forecast.json"
+        output_path.parent.mkdir(parents=True)
+        write_release_create_only(output_path, self.output, mode=0o600)
+        artifact = ArtifactRecord(
+            artifact_id="claude-code-forecast",
+            path="deliverable-sealed/forecast.json",
+            sha256=release_bytes_sha256(self.output),
+            media_type="application/json",
+            public=True,
+            size_bytes=len(self.output),
+        )
+        return RunResult(
+            result_id="request:claude-code-container",
+            request_id="request",
+            status="succeeded",
+            result_sha256="sha256:" + "b" * 64,
+            artifacts=(artifact,),
+            public_summary={"tool_call_count": 2, "input_tokens": 9},
+        )
+
+
+def _write_container_evidence(output_root: Path, request_id: str) -> None:
+    run_key = hashlib.sha256(request_id.encode()).hexdigest()[:16]
+    run_root = output_root / run_key
+    package_root = run_root / "package"
+    logs_root = run_root / "logs"
+    package_root.mkdir(parents=True)
+    logs_root.mkdir()
+    write_release_json_create_only(
+        package_root / "result.json",
+        {
+            "run_id": "claude-test",
+            "exit_code": 0,
+            "timed_out": False,
+            "stdout_file": "harness.stdout",
+            "stderr_file": "harness.stderr",
+            "gateway_usage": {"request_count": 3},
+        },
+    )
+    write_release_json_create_only(
+        package_root / "fence.json",
+        {
+            "source": "parser",
+            "parser_fields": {
+                "tools_available": ["Bash", "StructuredOutput"],
+            },
+        },
+    )
+    write_release_json_create_only(
+        package_root / "proxy-logs.json",
+        {"decision_count": 3, "refused": []},
+    )
+    write_release_create_only(
+        logs_root / "harness.stdout", b"actual stdout\n", mode=0o600
+    )
+    write_release_create_only(
+        logs_root / "harness.stderr", b"actual stderr\n", mode=0o600
+    )
+
+
+def test_solver_input_run_bridges_container_forecast_and_evidence(
+    tmp_path: Path,
+) -> None:
+    request_id = "request"
+    prompt = b"authenticated prompt\n"
+    forecast = json.dumps(
+        {
+            "case_assessment": "ok",
+            "predictions": [
+                {"unit_id": "unit-1", "probability_fully_dismissed": 0.25}
+            ],
+        },
+        separators=(",", ":"),
+    ).encode()
+    solver_input_root = tmp_path / "solver-input"
+    solver_input_root.mkdir()
+    write_release_create_only(
+        solver_input_root / "prompt.txt", prompt, mode=0o600
+    )
+    output_root = tmp_path / "container-output"
+    _write_container_evidence(output_root, request_id)
+    request = SimpleNamespace(
+        request_id=request_id,
+        request_sha256="sha256:" + "c" * 64,
+        model_key="anthropic:claude-sonnet-4",
+        task=SimpleNamespace(
+            metadata={
+                "prompt_sha256": release_bytes_sha256(prompt),
+                "packet_sha256": "sha256:" + "d" * 64,
+                "required_unit_ids": ["unit-1"],
+            }
+        ),
+    )
+    adapter = ClaudeCodeContainerAdapter(
+        delegate=_FakeClaudeDelegate(forecast),
+        image_digest=IMAGE,
+        model_key=request.model_key,
+        auth_profile="fixture-none",
+        max_budget_usd=None,
+        approval_reference=None,
+        output_root=output_root,
+        backend="docker",
+        timeout_seconds=30,
+        case_count=None,
+        per_case_budget_usd=None,
+        execution_mode="outer-container-only",
+        outer_container_verified=True,
+    )
+
+    result = adapter.run_with_solver_input(
+        request, tmp_path / "workspace", solver_input_root
+    )
+
+    output_artifact = next(
+        artifact
+        for artifact in result.artifacts
+        if artifact.artifact_id == RELEASE_FORECAST_OUTPUT_ARTIFACT_ID
+    )
+    transcript_artifact = next(
+        artifact
+        for artifact in result.artifacts
+        if artifact.artifact_id == RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID
+    )
+    assert output_artifact.public is False
+    assert transcript_artifact.public is False
+    assert output_artifact.path == "private-logs/release-forecast-output.json"
+    assert transcript_artifact.path == "private-logs/release-harness-transcript.json"
+    assert result.public_summary["harness_track"] == "native"
+    assert result.public_summary["allowed_tools"] == ["Bash", "StructuredOutput"]
+    assert result.public_summary["tool_policy"] == "container_fence:parser"
+    assert result.public_summary["tool_call_count"] == 2
+    transcript = read_release_object(
+        tmp_path / "workspace/private-logs/release-harness-transcript.json",
+        "test transcript",
+    )
+    assert transcript["request_sha256"] == request.request_sha256
+    assert transcript["packet_sha256"] == request.task.metadata["packet_sha256"]
+    assert transcript["response_sha256"] == output_artifact.sha256
+    assert transcript["stdout_sha256"] == release_bytes_sha256(b"actual stdout\n")
+    assert transcript["stderr_sha256"] == release_bytes_sha256(b"actual stderr\n")
+    assert transcript["fence"]["source"] == "parser"
+    assert result.result_sha256 != "sha256:" + "b" * 64
+
+
+class _FailingClaudeDelegate:
+    def run_with_prompt(
+        self,
+        _request: object,
+        _workspace: Path,
+        _instruction: str,
+    ) -> RunResult:
+        return RunResult(
+            result_id="request:claude-code-container",
+            request_id="request",
+            status="failed",
+            result_sha256="sha256:" + "e" * 64,
+            public_summary={"failure_class": "timeout", "tool_call_count": 1},
+        )
+
+
+def test_solver_input_run_preserves_delegate_failure_without_projection(
+    tmp_path: Path,
+) -> None:
+    prompt = b"authenticated prompt\n"
+    solver_input_root = tmp_path / "solver-input"
+    solver_input_root.mkdir()
+    write_release_create_only(
+        solver_input_root / "prompt.txt", prompt, mode=0o600
+    )
+    request = SimpleNamespace(
+        request_id="request",
+        request_sha256="sha256:" + "c" * 64,
+        model_key="anthropic:claude-sonnet-4",
+        task=SimpleNamespace(
+            metadata={"prompt_sha256": release_bytes_sha256(prompt)}
+        ),
+    )
+    result = _FailingClaudeDelegate()
+    adapter = ClaudeCodeContainerAdapter(
+        delegate=result,
+        image_digest=IMAGE,
+        model_key=request.model_key,
+        auth_profile="fixture-none",
+        max_budget_usd=None,
+        approval_reference=None,
+        output_root=tmp_path / "container-output",
+        backend="docker",
+        timeout_seconds=30,
+        case_count=None,
+        per_case_budget_usd=None,
+        execution_mode="outer-container-only",
+        outer_container_verified=True,
+    )
+
+    observed = adapter.run_with_solver_input(
+        request, tmp_path / "workspace", solver_input_root
+    )
+
+    assert observed.status == "failed"
+    assert observed.result_sha256 == "sha256:" + "e" * 64
+    assert observed.public_summary["failure_class"] == "timeout"
 
 
 def test_factory_binds_image_and_release_identity(tmp_path: Path) -> None:

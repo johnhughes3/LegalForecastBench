@@ -46,6 +46,9 @@ from legalforecast.multiharness.claude_code_container_runtime import (
     ClaudeExecutionMode,
     probe_native_claude_sandbox,
 )
+from legalforecast.multiharness.claude_code_release_artifacts import (
+    project_successful_container_result as _project_successful_container_result,
+)
 from legalforecast.multiharness.claude_code_stream import (
     normalize_claude_stream,
     terminal_success,
@@ -173,13 +176,20 @@ class ClaudeCodeContainerAdapter:
                     _STAGED_PROMPT_INSTRUCTION,
                 )
                 _verify_staged_solver_input(staged_files)
-                return result
+                if result.status != "succeeded":
+                    return result
+                return _project_successful_container_result(
+                    result,
+                    request=request,
+                    workspace=workspace,
+                    output_root=self.output_root,
+                )
             finally:
                 for path, _payload in reversed(staged_files):
                     path.unlink(missing_ok=True)
                 for path in reversed(staged_directories):
                     path.rmdir()
-        except ReleaseHarnessError as exc:
+        except (ReleaseHarnessError, ValueError) as exc:
             raise ClaudeCodeContainerAdapterError(str(exc)) from exc
 
     def _preflight(self, requested_model_key: str) -> None:
