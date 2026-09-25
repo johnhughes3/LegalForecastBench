@@ -7,7 +7,9 @@ import os
 import subprocess
 from pathlib import Path
 
+import legalforecast.multiharness.claude_code_container as container_adapter
 import legalforecast.multiharness.claude_code_container_runtime as container_runtime
+import legalforecast.multiharness.container_harness.runtime as harness_runtime
 import pytest
 from legalforecast.multiharness.claude_code_container import (
     ClaudeCodeContainerAdapterError,
@@ -20,8 +22,18 @@ RUNTIME_ROOT = Path(__file__).resolve().parents[1] / "infra" / "claude-code-runt
 
 
 def test_outer_fixture_factory_uses_gateway_and_skips_native_probe(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(
+        container_adapter,
+        "resolve_rootless_backend",
+        lambda _backend: (Path("/usr/bin/docker"), {}),
+    )
+    monkeypatch.setattr(
+        container_adapter,
+        "resolve_local_image_id",
+        lambda _backend, _image, _environment: IMAGE,
+    )
     adapter = build_claude_code_container_adapter(
         image_digest=IMAGE,
         auth_profile="fixture-none",
@@ -30,7 +42,8 @@ def test_outer_fixture_factory_uses_gateway_and_skips_native_probe(
         approval_reference=None,
         output_root=tmp_path,
         execution_mode="outer-container-only",
-        gateway_base_url="https://fixture-gateway:8443/v1",
+        gateway_base_url="http://lfb-model-gateway:8080/v1",
+        fixture_base_url="http://fixture-upstream:8081/v1",
     )
 
     assert adapter.execution_mode == "outer-container-only"
@@ -38,11 +51,12 @@ def test_outer_fixture_factory_uses_gateway_and_skips_native_probe(
     assert adapter.outer_container_verified is True
     service = adapter.delegate.execution_service
     assert isinstance(service, ClaudeCodeContainerExecutionService)
-    assert service.gateway_base_url == ("https://fixture-gateway:8443/v1")
+    assert service.gateway_base_url == ("http://lfb-model-gateway:8080/v1")
+    assert service.gateway_upstream_base_url is None
     adapter._preflight("anthropic:claude-sonnet-4")
 
 
-def test_outer_fixture_mode_rejects_paid_profile_and_shared_network(
+def test_outer_fixture_mode_rejects_paid_profile_and_external_gateway(
     tmp_path: Path,
 ) -> None:
     with pytest.raises(ClaudeCodeContainerAdapterError, match="fixture-only"):
@@ -55,10 +69,13 @@ def test_outer_fixture_mode_rejects_paid_profile_and_shared_network(
             output_root=tmp_path,
             case_count=1,
             execution_mode="outer-container-only",
-            gateway_base_url="https://fixture-gateway:8443",
+            gateway_base_url="http://lfb-model-gateway:8080",
+            fixture_base_url="http://fixture-upstream:8081",
         )
 
-    with pytest.raises(ClaudeCodeContainerAdapterError, match="per-run egress"):
+    with pytest.raises(
+        ClaudeCodeContainerAdapterError, match="internal fixture gateway"
+    ):
         build_claude_code_container_adapter(
             image_digest=IMAGE,
             auth_profile="fixture-none",
@@ -68,7 +85,7 @@ def test_outer_fixture_mode_rejects_paid_profile_and_shared_network(
             output_root=tmp_path,
             execution_mode="outer-container-only",
             gateway_base_url="https://fixture-gateway:8443",
-            fixture_egress_network="shared-network",
+            fixture_base_url="http://fixture-upstream:8081",
         )
 
 
@@ -86,6 +103,9 @@ def test_outer_fixture_service_bounds_gateway_and_projects_only_dummy_key(
         raise RuntimeError("fixture probe stops before model exchange")
 
     monkeypatch.setattr(container_runtime, "run_container_harness", refuse_run)
+    source = tmp_path / "model_gateway.py"
+    source.write_text("# fixture gateway source\n", encoding="utf-8")
+    monkeypatch.setattr(harness_runtime, "model_gateway_source_path", lambda: source)
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "prompt.txt").write_text("fixture prompt", encoding="utf-8")
@@ -96,9 +116,12 @@ def test_outer_fixture_service_bounds_gateway_and_projects_only_dummy_key(
     service = ClaudeCodeContainerExecutionService(
         image_digest=IMAGE,
         auth_profile="fixture-none",
+        model_key="anthropic:claude-sonnet-4",
         output_root=tmp_path / "output",
-        gateway_base_url="https://fixture-gateway:8443/v1",
+        gateway_base_url="http://lfb-model-gateway:8080/v1",
+        gateway_upstream_base_url="http://fixture-upstream:8081/v1",
         execution_mode="outer-container-only",
+        fixture_egress_network="fixture-network",
     )
     receipt = service.execute(
         container_runtime.RunSpec(
@@ -111,10 +134,14 @@ def test_outer_fixture_service_bounds_gateway_and_projects_only_dummy_key(
     assert receipt.status == "failed"
     planned = captured["spec"]
     assert isinstance(planned, container_runtime.ContainerHarnessSpec)
-    assert planned.allow_hosts == ("fixture-gateway",)
-    assert planned.allow_ports == (8443,)
-    assert planned.egress_network is None
-    assert planned.environment["ANTHROPIC_API_KEY"] == "fixture-only-dummy-key"
+    assert planned.allow_hosts == ("fixture-upstream",)
+    assert planned.allow_ports == (8081,)
+    assert planned.egress_network == "fixture-network"
+    assert planned.model_gateway is not None
+    assert planned.model_gateway.host == "lfb-model-gateway"
+    assert planned.model_gateway.port == 8080
+    assert planned.environment["ANTHROPIC_API_KEY"]
+    assert planned.environment["ANTHROPIC_API_KEY"] != "fixture-only-dummy-key"
     assert "ANTHROPIC_AUTH_TOKEN" not in planned.environment
     assert "CLAUDE_CODE_OAUTH_TOKEN" not in planned.environment
     assert planned.read_only_workspace_paths == ("prompt.txt", "documents")

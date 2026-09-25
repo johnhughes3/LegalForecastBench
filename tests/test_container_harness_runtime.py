@@ -17,6 +17,20 @@ from legalforecast.multiharness.container_harness.images import (
     ContainerImageError,
     require_digest_pinned_image,
 )
+from legalforecast.multiharness.container_harness.model_gateway import (
+    CAPABILITY_TOKEN_ENV,
+    UPSTREAM_API_KEY_ENV,
+    load_model_gateway_launch_config,
+)
+from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_CONFIG_TARGET,
+    MODEL_GATEWAY_ENV_TARGET,
+    MODEL_GATEWAY_PACKAGE_TARGET,
+    MODEL_GATEWAY_SOURCE_TARGET,
+    ModelGatewayLaunch,
+    ModelGatewayRequest,
+    build_model_gateway_run_argv,
+)
 from legalforecast.multiharness.container_harness.plan import (
     PROXY_EVIDENCE_TARGET,
     PROXY_SOURCE_TARGET,
@@ -28,6 +42,7 @@ from legalforecast.multiharness.container_harness.plan import (
     build_egress_network_create_argv,
     build_harness_environment,
     build_harness_run_argv,
+    build_model_gateway_network_connect_argv,
     build_network_connect_argv,
     build_network_create_argv,
     build_proxy_run_argv,
@@ -36,6 +51,7 @@ from legalforecast.multiharness.container_harness.plan import (
     egress_proxy_source_path,
     stage_credential_home,
 )
+from legalforecast.multiharness.container_harness.runtime import _stage_model_gateway
 
 _IMAGE = "lfb-harness@sha256:" + "a" * 64
 _PROXY_IMAGE = "lfb-proxy@sha256:" + "b" * 64
@@ -188,6 +204,89 @@ def test_proxy_argv_carries_the_allowlist_and_bind_mounts_the_single_file(
     )
     assert f"type=bind,src={evidence},dst=/var/legalforecast-egress" in argv
     assert _flag_values(argv, "--evidence-file") == [PROXY_EVIDENCE_TARGET]
+
+
+def test_model_gateway_argv_uses_internal_network_and_env_file_only(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "model_gateway.py"
+    config = tmp_path / "policy.json"
+    environment = tmp_path / "gateway.env"
+    for path in (source, config, environment):
+        path.write_text("fixture", encoding="utf-8")
+    launch = ModelGatewayLaunch(source, config, environment)
+    request = ModelGatewayRequest(
+        upstream_base_url="http://fixture-upstream:8081",
+        model_key="anthropic:claude-sonnet-4",
+        run_capability="run-capability",
+        upstream_api_key="fixture-upstream-dummy-key",
+    )
+    spec = _spec(tmp_path, model_gateway=request, allow_hosts=("fixture-upstream",))
+    names = build_run_names(spec.run_id, _TOKEN)
+    argv = build_model_gateway_run_argv(
+        _BACKEND,
+        spec,
+        names,
+        launch,
+        evidence_directory=tmp_path / "evidence",
+    )
+
+    assert _flag_values(argv, "--network") == [names.network]
+    assert _flag_values(argv, "--network-alias") == ["lfb-model-gateway"]
+    assert _flag_values(argv, "--env-file") == [str(environment)]
+    assert f"type=bind,src={source},dst={MODEL_GATEWAY_SOURCE_TARGET},readonly" in argv
+    assert (
+        f"type=bind,src={source.parent},dst={MODEL_GATEWAY_PACKAGE_TARGET},readonly"
+        in argv
+    )
+    assert f"type=bind,src={config},dst={MODEL_GATEWAY_CONFIG_TARGET},readonly" in argv
+    assert (
+        f"type=bind,src={environment},dst={MODEL_GATEWAY_ENV_TARGET},readonly" in argv
+    )
+    assert argv[-2:] == ("--config", MODEL_GATEWAY_CONFIG_TARGET)
+    assert "run-capability" not in argv
+
+    connect = build_model_gateway_network_connect_argv(_BACKEND, spec, names)
+    assert connect[1:] == (
+        "network",
+        "connect",
+        names.egress_network,
+        names.proxy_container,
+    )
+
+
+def test_staged_gateway_policy_matches_sidecar_entrypoint_contract(
+    tmp_path: Path,
+) -> None:
+    request = ModelGatewayRequest(
+        upstream_base_url="http://fixture-upstream:8081",
+        model_key="anthropic:claude-sonnet-4",
+        run_capability="run-capability",
+        upstream_api_key="fixture-upstream-dummy-key",
+    )
+    launch = _stage_model_gateway(tmp_path, request)
+    environment = {
+        key: value
+        for line in launch.environment_path.read_text(encoding="utf-8").splitlines()
+        for key, value in [line.split("=", 1)]
+    }
+
+    loaded = load_model_gateway_launch_config(
+        launch.config_path,
+        environment=environment,
+    )
+
+    assert loaded.bind_host == "0.0.0.0"
+    assert loaded.bind_port == 8080
+    assert loaded.policy.allowed_models == frozenset({"claude-sonnet-4"})
+    assert loaded.policy.allowed_ingress_hosts == frozenset({"lfb-model-gateway"})
+    assert loaded.usage_evidence_path.as_posix().endswith(
+        "/var/legalforecast-egress/gateway-usage.json"
+    )
+    assert environment[CAPABILITY_TOKEN_ENV] == "run-capability"
+    assert environment[UPSTREAM_API_KEY_ENV] == "fixture-upstream-dummy-key"
+    assert stat.S_IMODE(launch.config_path.stat().st_mode) == 0o400
+    assert stat.S_IMODE(launch.environment_path.stat().st_mode) == 0o600
 
 
 def test_harness_argv_never_disables_the_network_and_keeps_the_isolation_flags(
@@ -355,6 +454,34 @@ def test_child_environment_is_clean_and_points_at_the_sidecar(
     assert environment["PATH"].startswith("/opt/legalforecast/bin:")
     assert environment["LFB_HARNESS_CLI"] == "claude"
     assert "LFB_HARNESS_REAL_BIN" not in environment
+
+
+def test_gateway_child_environment_has_no_generic_proxy_route(
+    tmp_path: Path,
+) -> None:
+    request = ModelGatewayRequest(
+        upstream_base_url="http://fixture-upstream:8081",
+        model_key="anthropic:claude-sonnet-4",
+        run_capability="run-capability",
+        upstream_api_key="fixture-upstream-dummy-key",
+    )
+    spec = _spec(
+        tmp_path,
+        model_gateway=request,
+        environment={
+            "ANTHROPIC_API_KEY": "run-capability",
+            "HTTP_PROXY": "attacker-proxy",
+            "HTTPS_PROXY": "attacker-proxy",
+        },
+    )
+    names = build_run_names(spec.run_id, _TOKEN)
+
+    environment = build_harness_environment(spec, names)
+
+    assert environment["NO_PROXY"] == "localhost,127.0.0.1,::1,lfb-model-gateway"
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+        assert name not in environment
+    assert environment["ANTHROPIC_API_KEY"] == "run-capability"
 
 
 def test_environment_reaches_the_container_only_through_explicit_env_flags(

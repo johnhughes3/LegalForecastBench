@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from importlib.resources import files
 from pathlib import Path, PurePosixPath
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from legalforecast.multiharness.container_harness.cli_fence import (
     DEFAULT_BIN_DIR,
@@ -30,6 +30,11 @@ from legalforecast.multiharness.container_harness.fence import FenceObservation
 from legalforecast.multiharness.container_harness.images import (
     require_digest_pinned_image,
 )
+
+if TYPE_CHECKING:
+    from legalforecast.multiharness.container_harness.model_gateway_plan import (
+        ModelGatewayRequest,
+    )
 
 FENCE_BIN_DIR = DEFAULT_BIN_DIR
 CREDENTIALS_TARGET = DEFAULT_CREDENTIALS_ROOT
@@ -93,6 +98,7 @@ class ContainerHarnessSpec:
     proxy_python: str = "python3"
     proxy_port: int = DEFAULT_PROXY_PORT
     egress_network: str | None = None
+    model_gateway: ModelGatewayRequest | None = None
     container_user: str | None = None
     read_only_workspace_paths: tuple[str, ...] = ()
     timeout_seconds: int = 900
@@ -184,6 +190,7 @@ class ContainerHarnessResult:
     refused: tuple[Mapping[str, Any], ...]
     allowlist: Mapping[str, Any]
     fence: FenceObservation
+    gateway_usage: Mapping[str, Any] | None = None
 
     def to_record(self) -> dict[str, Any]:
         """Return a public JSON record without attacker-controlled hostnames.
@@ -205,6 +212,11 @@ class ContainerHarnessResult:
             "egress_allowlist": dict(self.allowlist),
             "egress_allowed_host_count": len(self.allowed_hosts),
             "egress_refused_count": len(self.refused),
+            **(
+                {"gateway_usage": dict(self.gateway_usage)}
+                if self.gateway_usage is not None
+                else {}
+            ),
         }
 
 
@@ -326,6 +338,24 @@ def build_network_connect_argv(
     )
 
 
+def build_model_gateway_network_connect_argv(
+    backend_path: Path, spec: ContainerHarnessSpec, names: ContainerHarnessNames
+) -> tuple[str, ...]:
+    """Return argv connecting the model gateway to its external network."""
+
+    if spec.model_gateway is None:
+        raise ContainerHarnessError(
+            "model gateway network connect requires model_gateway configuration"
+        )
+    return (
+        str(backend_path),
+        "network",
+        "connect",
+        egress_network_name(spec, names),
+        names.proxy_container,
+    )
+
+
 def build_proxy_run_argv(
     backend_path: Path,
     spec: ContainerHarnessSpec,
@@ -403,22 +433,9 @@ def build_harness_environment(
     proxy_url = f"http://{names.proxy_container}:{spec.proxy_port}"
     no_proxy = "localhost,127.0.0.1,::1"
     cli = fenced_cli_name(spec)
-    environment = {
-        "HOME": spec.container_home,
-        "HTTP_PROXY": proxy_url,
-        "HTTPS_PROXY": proxy_url,
-        "http_proxy": proxy_url,
-        "https_proxy": proxy_url,
-        "NO_PROXY": no_proxy,
-        "no_proxy": no_proxy,
-    }
-    environment.update(spec.environment)
-    environment.update(
-        {
+    if spec.model_gateway is None:
+        environment = {
             "HOME": spec.container_home,
-            "PATH": FENCE_PATH,
-            "LFB_HARNESS_CLI": cli,
-            "LFB_CREDENTIALS_ROOT": CREDENTIALS_TARGET,
             "HTTP_PROXY": proxy_url,
             "HTTPS_PROXY": proxy_url,
             "http_proxy": proxy_url,
@@ -426,7 +443,44 @@ def build_harness_environment(
             "NO_PROXY": no_proxy,
             "no_proxy": no_proxy,
         }
+    else:
+        # The model gateway is reached directly over the internal Docker DNS
+        # name. Leaving generic proxy variables in the harness would create a
+        # second route and would make the gateway boundary observational only.
+        no_proxy = f"{no_proxy},{spec.model_gateway.host}"
+        environment = {
+            "HOME": spec.container_home,
+            "NO_PROXY": no_proxy,
+            "no_proxy": no_proxy,
+        }
+    environment.update(spec.environment)
+    environment.update(
+        {
+            "HOME": spec.container_home,
+            "PATH": FENCE_PATH,
+            "LFB_HARNESS_CLI": cli,
+            "LFB_CREDENTIALS_ROOT": CREDENTIALS_TARGET,
+            "NO_PROXY": no_proxy,
+            "no_proxy": no_proxy,
+        }
     )
+    if spec.model_gateway is None:
+        environment.update(
+            {
+                "HTTP_PROXY": proxy_url,
+                "HTTPS_PROXY": proxy_url,
+                "http_proxy": proxy_url,
+                "https_proxy": proxy_url,
+            }
+        )
+    else:
+        for variable in (
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "http_proxy",
+            "https_proxy",
+        ):
+            environment.pop(variable, None)
     # Never advertise the vendor binary: the agent has a shell and would
     # invoke it without the wrapper's disable flags.
     environment.pop("LFB_HARNESS_REAL_BIN", None)

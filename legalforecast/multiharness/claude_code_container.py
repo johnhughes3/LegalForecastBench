@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, cast
+from urllib.parse import urlsplit
 
 from legalforecast.multiharness.adapters import AdapterPreparation
 from legalforecast.multiharness.auth_profiles import (
@@ -37,6 +38,8 @@ from legalforecast.multiharness.claude_code_container_inputs import (
     verify_staged_solver_input as _verify_staged_solver_input,
 )
 from legalforecast.multiharness.claude_code_container_runtime import (
+    MODEL_GATEWAY_HOST,
+    MODEL_GATEWAY_PORT,
     NATIVE_SANDBOX_MODE,
     OUTER_CONTAINER_ONLY_MODE,
     ClaudeCodeContainerExecutionService,
@@ -46,6 +49,11 @@ from legalforecast.multiharness.claude_code_container_runtime import (
 from legalforecast.multiharness.claude_code_stream import (
     normalize_claude_stream,
     terminal_success,
+)
+from legalforecast.multiharness.container_harness.images import (
+    ContainerImageError,
+    resolve_local_image_id,
+    resolve_rootless_backend,
 )
 from legalforecast.multiharness.local_cli_manifest import (
     LocalCliAdapterManifest,
@@ -220,6 +228,7 @@ def build_claude_code_container_adapter(
     fixture_egress_network: str | None = None,
     execution_mode: ClaudeExecutionMode = NATIVE_SANDBOX_MODE,
     gateway_base_url: str | None = None,
+    gateway_upstream_base_url: str | None = None,
 ) -> ClaudeCodeContainerAdapter:
     """Build the ``claude-code-container`` adapter without starting a run.
 
@@ -272,7 +281,11 @@ def build_claude_code_container_adapter(
         raise ClaudeCodeContainerAdapterError(
             "execution_mode must be native-sandbox or outer-container-only"
         )
-    if gateway_base_url is not None and fixture_base_url is not None:
+    if (
+        execution_mode != OUTER_CONTAINER_ONLY_MODE
+        and gateway_base_url is not None
+        and fixture_base_url is not None
+    ):
         raise ClaudeCodeContainerAdapterError(
             "provide gateway_base_url or fixture_base_url, not both"
         )
@@ -282,20 +295,42 @@ def build_claude_code_container_adapter(
                 "outer-container-only is fixture-only until a credential broker "
                 "is integrated"
             )
-        if gateway_base_url is None and fixture_base_url is None:
+        if gateway_upstream_base_url is None and fixture_base_url is None:
             raise ClaudeCodeContainerAdapterError(
-                "outer-container-only requires gateway_base_url"
+                "outer-container-only requires a fixture upstream endpoint"
             )
-        if fixture_egress_network is not None:
-            raise ClaudeCodeContainerAdapterError(
-                "outer-container-only requires the per-run egress network"
-            )
+        if gateway_base_url is not None:
+            parsed_gateway = urlsplit(gateway_base_url)
+            if (
+                parsed_gateway.scheme != "http"
+                or parsed_gateway.hostname != MODEL_GATEWAY_HOST
+                or (parsed_gateway.port or 80) != MODEL_GATEWAY_PORT
+            ):
+                raise ClaudeCodeContainerAdapterError(
+                    "outer-container-only requires the internal fixture gateway"
+                )
+    elif gateway_upstream_base_url is not None:
+        raise ClaudeCodeContainerAdapterError(
+            "gateway_upstream_base_url requires outer-container-only"
+        )
 
     per_case_budget_usd = (
         None
         if max_budget_usd is None or case_count is None
         else max_budget_usd / case_count
     )
+    if execution_mode == OUTER_CONTAINER_ONLY_MODE:
+        # Outer mode skips the native bwrap probe, but it must still fail at
+        # adapter construction when the selected backend or pinned image is
+        # unavailable. Otherwise release scoring can turn setup failure into a
+        # misleading all-failed result.
+        try:
+            backend_path, backend_environment = resolve_rootless_backend(backend)
+            resolve_local_image_id(backend_path, image_digest, backend_environment)
+        except ContainerImageError as exc:
+            raise ClaudeCodeContainerAdapterError(
+                f"outer-container-only preflight failed: {exc}"
+            ) from exc
     manifest = _container_manifest(image_digest)
     sandbox_verified = (
         probe_native_claude_sandbox(
@@ -309,10 +344,12 @@ def build_claude_code_container_adapter(
     service = ClaudeCodeContainerExecutionService(
         image_digest=image_digest,
         auth_profile=profile,
+        model_key=model_key,
         output_root=output_root,
         backend=backend,
         fixture_base_url=fixture_base_url,
         gateway_base_url=gateway_base_url,
+        gateway_upstream_base_url=gateway_upstream_base_url,
         fixture_egress_network=fixture_egress_network,
         execution_mode=execution_mode,
         sandbox_verified=sandbox_verified,
