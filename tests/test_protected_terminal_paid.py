@@ -1,0 +1,174 @@
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+from typing import Any
+
+import pytest
+from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
+from legalforecast.multiharness.auth_profiles import (
+    PUBLISHED_API_KEY,
+    AuthProfileError,
+    ResolvedAuthProfile,
+)
+from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
+from legalforecast.multiharness.protected_terminal_paid import (
+    GitHubEnvironmentCredentialSource,
+    ProtectedSpendController,
+    ProtectedTerminalPaidError,
+    ProtectedTerminalSpendConfig,
+    protected_authority_environment,
+    uniform_case_reservation_microusd,
+)
+
+
+class _FakeAuthority:
+    def __init__(self) -> None:
+        self.authorized: list[tuple[ProviderSpendKey, int]] = []
+        self.responses: list[dict[str, Any]] = []
+        self.failures: list[dict[str, Any]] = []
+
+    def authorize_attempt(
+        self,
+        key: ProviderSpendKey,
+        *,
+        reservation_microusd: int,
+    ) -> AttemptLease:
+        self.authorized.append((key, reservation_microusd))
+        return AttemptLease(
+            attempt_id="a" * 64,
+            authority_identity_sha256="b" * 64,
+            logical_call_key=key.logical_call_key,
+            attempt_ordinal=1,
+            reservation_microusd=reservation_microusd,
+        )
+
+    def record_response(self, lease: AttemptLease, **kwargs: Any) -> None:
+        self.responses.append({"lease": lease, **kwargs})
+
+    def record_failure(self, lease: AttemptLease, **kwargs: Any) -> None:
+        self.failures.append({"lease": lease, **kwargs})
+
+    def adopt_attempt(self, *args: Any, **kwargs: Any) -> AttemptLease:
+        raise NotImplementedError
+
+    def reconcile_ambiguous(self, *args: Any, **kwargs: Any) -> None:
+        raise NotImplementedError
+
+
+def _profile() -> ResolvedAuthProfile:
+    return ResolvedAuthProfile(
+        profile_id=PUBLISHED_API_KEY,
+        projected_env_vars=("ANTHROPIC_API_KEY",),
+        infisical_path=None,
+        infisical_env="dev",
+    )
+
+
+def _spec(tmp_path: Path) -> RunSpec:
+    return RunSpec(
+        spec_id="row-case-1",
+        argv=("claude", "-p", "prompt"),
+        working_directory=tmp_path,
+    )
+
+
+def _config() -> ProtectedTerminalSpendConfig:
+    return ProtectedTerminalSpendConfig(
+        cycle_id="cycle-1",
+        account="official",
+        model_key="anthropic:claude-sonnet-4-5",
+        ceiling_microusd=100,
+        authority_identity_sha256="a" * 64,
+        reservation_ledger_sha256="b" * 64,
+        provider_authority_table="provider-spend",
+        provider_authority_region="us-east-1",
+        provider_authority_resource_identity_sha256="c" * 64,
+    )
+
+
+def _receipt(spec: RunSpec, *, status: str = "succeeded") -> ExecutionReceipt:
+    return ExecutionReceipt.from_transcript(
+        spec,
+        stdout='{"type":"result"}',
+        stderr="" if status == "succeeded" else "failed",
+        returncode=0 if status == "succeeded" else 1,
+        status=status,
+        usage=(
+            {"input_tokens": 12, "output_tokens": 4} if status == "succeeded" else {}
+        ),
+        cost_usd=0.000003 if status == "succeeded" else None,
+    )
+
+
+def test_github_environment_source_requires_protected_workflow() -> None:
+    source = GitHubEnvironmentCredentialSource(
+        {
+            "GITHUB_ACTIONS": "true",
+            "ANTHROPIC_API_KEY": "secret-value",
+        }
+    )
+    with pytest.raises(AuthProfileError, match="official workflow marker"):
+        source.fetch_projected_env(_profile())
+
+    projected = source.__class__(
+        {
+            "GITHUB_ACTIONS": "true",
+            "LFB_PROTECTED_TERMINAL_RELEASE": "1",
+            "ANTHROPIC_API_KEY": "secret-value",
+        }
+    ).fetch_projected_env(_profile())
+    assert projected == {"ANTHROPIC_API_KEY": "secret-value"}
+
+
+def test_protected_authority_environment_is_value_bound() -> None:
+    values = protected_authority_environment(
+        {
+            "GITHUB_ACTIONS": "true",
+            "LFB_PROTECTED_TERMINAL_RELEASE": "1",
+            "LFB_PROVIDER_AUTHORITY_TABLE": "provider-spend",
+            "LFB_AWS_REGION": "us-east-1",
+            "LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256": "a" * 64,
+        }
+    )
+    assert values == ("provider-spend", "us-east-1", "a" * 64)
+
+
+def test_uniform_reservation_leaves_remainder_in_shared_cap() -> None:
+    assert uniform_case_reservation_microusd(101, 4) == 25
+    with pytest.raises(ProtectedTerminalPaidError, match="at least one"):
+        uniform_case_reservation_microusd(3, 4)
+
+
+def test_controller_authorizes_and_settles_success(tmp_path: Path) -> None:
+    authority = _FakeAuthority()
+    config = _config()
+    controller = ProtectedSpendController(authority, config, 25)
+    spec = _spec(tmp_path)
+
+    receipt = controller.execute(spec, lambda value: _receipt(value))
+
+    assert receipt.status == "succeeded"
+    assert authority.authorized[0][0].case_id == spec.spec_id
+    assert authority.authorized[0][1] == 25
+    assert len(authority.responses) == 1
+    response = authority.responses[0]
+    assert response["input_tokens"] == 12
+    assert response["output_tokens"] == 4
+    assert response["actual_microusd"] == 3
+    assert (
+        response["response_sha256"]
+        == hashlib.sha256(receipt.stdout.encode()).hexdigest()
+    )
+    assert authority.failures == []
+
+
+def test_controller_retains_reservation_for_failed_receipt(tmp_path: Path) -> None:
+    authority = _FakeAuthority()
+    controller = ProtectedSpendController(authority, _config(), 25)
+    controller.execute(_spec(tmp_path), lambda value: _receipt(value, status="failed"))
+
+    assert authority.responses == []
+    assert len(authority.failures) == 1
+    assert authority.failures[0]["failure_type"] == "terminal_receipt_failed"
+    assert authority.failures[0]["ambiguous"] is True
