@@ -205,7 +205,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "contracts",
-        "fan_in": 13,
+        "fan_in": 14,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -214,8 +214,8 @@
         "largest_symbol": "SchemaIdentifier",
         "largest_symbol_lines": 13,
         "layer": "domain",
-        "line_count": 639,
-        "nonblank_line_count": 621,
+        "line_count": 642,
+        "nonblank_line_count": 624,
         "top_level_definition_count": 2
       },
       "legalforecast/evals/baselines.py": {
@@ -726,11 +726,11 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "AnthropicModelGateway",
-        "largest_symbol_lines": 261,
+        "largest_symbol_lines": 263,
         "layer": "application",
-        "line_count": 689,
-        "nonblank_line_count": 630,
-        "top_level_definition_count": 16
+        "line_count": 779,
+        "nonblank_line_count": 716,
+        "top_level_definition_count": 18
       },
       "legalforecast/multiharness/container_harness/plan.py": {
         "cycle_id": "",
@@ -1808,9 +1808,9 @@
         "largest_symbol": "_FakeUpstream",
         "largest_symbol_lines": 47,
         "layer": "test",
-        "line_count": 537,
-        "nonblank_line_count": 472,
-        "top_level_definition_count": 21
+        "line_count": 630,
+        "nonblank_line_count": 559,
+        "top_level_definition_count": 23
       },
       "tests/test_container_model_gateway_topology_e2e.py": {
         "cycle_id": "",
