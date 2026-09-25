@@ -567,10 +567,10 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "build_claude_code_container_adapter",
-        "largest_symbol_lines": 258,
+        "largest_symbol_lines": 270,
         "layer": "application",
-        "line_count": 527,
-        "nonblank_line_count": 497,
+        "line_count": 539,
+        "nonblank_line_count": 509,
         "top_level_definition_count": 4
       },
       "legalforecast/multiharness/cli.py": {
@@ -722,10 +722,10 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "AnthropicModelGateway",
-        "largest_symbol_lines": 256,
+        "largest_symbol_lines": 261,
         "layer": "application",
-        "line_count": 680,
-        "nonblank_line_count": 622,
+        "line_count": 689,
+        "nonblank_line_count": 630,
         "top_level_definition_count": 16
       },
       "legalforecast/multiharness/container_harness/plan.py": {
@@ -1082,10 +1082,10 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "ProviderGatewaySpendController",
-        "largest_symbol_lines": 110,
+        "largest_symbol_lines": 122,
         "layer": "application",
-        "line_count": 774,
-        "nonblank_line_count": 680,
+        "line_count": 790,
+        "nonblank_line_count": 693,
         "top_level_definition_count": 22
       },
       "legalforecast/multiharness/release_harness.py": {
