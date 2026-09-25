@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unbypassable web/search fence for tools-on agentic CLIs.
+"""Immutable web/search policy wrapper for tools-on agentic CLIs.
 
 Standard library only, and no imports from the rest of ``legalforecast``: the
 same file is unit-tested on the host, staged as a 0755 binary, and bind-mounted
@@ -15,7 +15,9 @@ image-baked libexec path.  It does not consult HOME, settings.json, environment
 overrides, or any other agent-writable config for tool enablement.  Image build
 should place the vendor binary at ``/opt/legalforecast/libexec/<cli>`` via
 :func:`install_cli_fence` so the only ``PATH`` hit for that name is this
-wrapper.
+wrapper.  The wrapper does not prevent a shell from invoking that vendor path
+directly; a runtime that needs an immutable binary boundary must add filesystem
+or process isolation outside this file.
 
 What this file cannot do: stop a provider-side web tool that ignores the
 vendor's own disable flag.  That is a parser-observation problem, not a PATH
@@ -39,12 +41,42 @@ DEFAULT_CREDENTIALS_ROOT: Final[str] = "/run/legalforecast/credentials"
 
 CLAUDE_DISABLE_FLAG: Final[str] = "--disallowedTools"
 CLAUDE_DISABLE_TOOLS: Final[tuple[str, ...]] = ("WebSearch", "WebFetch")
+CLAUDE_RESTRICTED_FLAG: Final[str] = "--restricted"
+CLAUDE_SANDBOX_SETTINGS: Final[str] = json.dumps(
+    {
+        "sandbox": {
+            "enabled": True,
+            "failIfUnavailable": True,
+            "allowUnsandboxedCommands": False,
+            "filesystem": {"denyRead": [DEFAULT_CREDENTIALS_ROOT]},
+            "network": {
+                "allowedDomains": [],
+                "strictAllowlist": True,
+                "allowManagedDomainsOnly": True,
+            },
+            "credentials": {
+                "envVars": [
+                    {"name": "ANTHROPIC_API_KEY", "mode": "deny"},
+                    {"name": "CLAUDE_CODE_OAUTH_TOKEN", "mode": "deny"},
+                ]
+            },
+        }
+    },
+    sort_keys=True,
+    separators=(",", ":"),
+)
 CLAUDE_TOOL_FLAGS: Final[frozenset[str]] = frozenset(
     {
         "--allowedTools",
         "--allowed-tools",
         "--disallowedTools",
         "--disallowed-tools",
+        "--tools",
+        "--settings",
+        "--setting-sources",
+        "--permission-mode",
+        "--dangerously-skip-permissions",
+        "--restricted",
     }
 )
 CODEX_WEB_SEARCH_CONFIG: Final[str] = 'web_search="disabled"'
@@ -83,7 +115,18 @@ def fenced_argv(cli: str, user_argv: Sequence[str]) -> list[str]:
     args = [str(item) for item in user_argv]
     if cli == "claude":
         stripped = _strip_flag_and_values(args, CLAUDE_TOOL_FLAGS)
-        return [CLAUDE_DISABLE_FLAG, *CLAUDE_DISABLE_TOOLS, *stripped]
+        return [
+            CLAUDE_RESTRICTED_FLAG,
+            CLAUDE_DISABLE_FLAG,
+            *CLAUDE_DISABLE_TOOLS,
+            "--tools",
+            "Bash",
+            "--settings",
+            CLAUDE_SANDBOX_SETTINGS,
+            "--setting-sources",
+            "",
+            *stripped,
+        ]
     if cli == "codex":
         subcommand, rest = _split_subcommand(args)
         stripped = _strip_codex_web_config(
