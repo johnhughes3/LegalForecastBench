@@ -148,17 +148,13 @@ def test_solver_input_run_bridges_container_forecast_and_evidence(
     forecast = json.dumps(
         {
             "case_assessment": "ok",
-            "predictions": [
-                {"unit_id": "unit-1", "probability_fully_dismissed": 0.25}
-            ],
+            "predictions": [{"unit_id": "unit-1", "probability_fully_dismissed": 0.25}],
         },
         separators=(",", ":"),
     ).encode()
     solver_input_root = tmp_path / "solver-input"
     solver_input_root.mkdir()
-    write_release_create_only(
-        solver_input_root / "prompt.txt", prompt, mode=0o600
-    )
+    write_release_create_only(solver_input_root / "prompt.txt", prompt, mode=0o600)
     output_root = tmp_path / "container-output"
     _write_container_evidence(output_root, request_id)
     request = SimpleNamespace(
@@ -246,16 +242,12 @@ def test_solver_input_run_preserves_delegate_failure_without_projection(
     prompt = b"authenticated prompt\n"
     solver_input_root = tmp_path / "solver-input"
     solver_input_root.mkdir()
-    write_release_create_only(
-        solver_input_root / "prompt.txt", prompt, mode=0o600
-    )
+    write_release_create_only(solver_input_root / "prompt.txt", prompt, mode=0o600)
     request = SimpleNamespace(
         request_id="request",
         request_sha256="sha256:" + "c" * 64,
         model_key="anthropic:claude-sonnet-4",
-        task=SimpleNamespace(
-            metadata={"prompt_sha256": release_bytes_sha256(prompt)}
-        ),
+        task=SimpleNamespace(metadata={"prompt_sha256": release_bytes_sha256(prompt)}),
     )
     result = _FailingClaudeDelegate()
     adapter = ClaudeCodeContainerAdapter(
