@@ -52,6 +52,8 @@ def _registry_bytes() -> bytes:
                     "model_id": "claude-sonnet-4-5",
                     "display_name": "Claude Sonnet",
                     "model_version_or_snapshot": "claude-sonnet-4-5",
+                    "release_timestamp": "2026-08-01T00:00:00Z",
+                    "release_timestamp_source": "fixture release note",
                     "provider_training_cutoff_status": "unknown",
                     "max_output_tokens": 128_000,
                     "network_disabled": True,
@@ -239,6 +241,24 @@ def test_descriptor_rejects_registry_model_not_in_locked_registry(
             model_registry_path=registry_path,
             model_key="anthropic:claude-opus-5-5",
             ceiling_microusd=_CEILING_MICROUSD,
+            account="official",
+            environment=_ENVIRONMENT,
+        )
+
+
+def test_descriptor_rejects_ceiling_below_one_worst_case_request(
+    tmp_path: Path,
+) -> None:
+    manifest_path, forecast_path, artifact_root, registry_path = _inputs(tmp_path)
+
+    with pytest.raises(ProtectedTerminalPaidError, match="worst-case request cost"):
+        issue_paid_gateway_descriptor(
+            manifest_path=manifest_path,
+            forecast_path=forecast_path,
+            artifact_root=artifact_root,
+            model_registry_path=registry_path,
+            model_key="anthropic:claude-sonnet-4-5",
+            ceiling_microusd=9_449_999,
             account="official",
             environment=_ENVIRONMENT,
         )

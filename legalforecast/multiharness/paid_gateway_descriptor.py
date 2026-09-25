@@ -20,18 +20,24 @@ from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     model_registry_entry_sha256,
     model_registry_sha256,
+    require_official_registry_entries,
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
     PAID_GATEWAY_CONFIG_SCHEMA,
     PAID_GATEWAY_WORKFLOW_MARKER,
+    worst_case_request_microusd,
 )
 from legalforecast.multiharness.protected_terminal_paid import (
     ProtectedTerminalPaidError,
     protected_authority_environment,
 )
 from legalforecast.release import load_forecast_run_inputs
-from legalforecast.runner import derive_run_identity_sha256
+from legalforecast.runner import (
+    RunValidationError,
+    derive_run_identity_sha256,
+    validate_executable_packets,
+)
 
 TERMINAL_HARNESS_ID: Final[str] = "claude-code-terminal"
 TERMINAL_ABLATION: Final[str] = "none"
@@ -129,6 +135,7 @@ def issue_paid_gateway_descriptor(
         )
         registry = load_model_registry_bytes(registry_bytes)
         registry_sha256 = model_registry_sha256(registry_bytes)
+        require_official_registry_entries(registry.entries)
         provider, separator, model_id = model_key.partition(":")
         if separator != ":" or provider != "anthropic" or not model_id:
             raise ProtectedTerminalPaidError(
@@ -148,6 +155,12 @@ def issue_paid_gateway_descriptor(
             raise ProtectedTerminalPaidError(
                 "locked Anthropic registry entry must disable network and search"
             )
+        try:
+            validate_executable_packets(run_inputs.execution)
+        except (RunValidationError, ValueError) as exc:
+            raise ProtectedTerminalPaidError(
+                f"locked paid gateway eligibility validation failed: {exc}"
+            ) from exc
     except ProtectedTerminalPaidError:
         raise
     except (OSError, ValueError) as exc:
@@ -160,6 +173,11 @@ def issue_paid_gateway_descriptor(
     if manifest_case_count != len(release.cases) or manifest_case_count <= 0:
         raise ProtectedTerminalPaidError(
             "locked manifest and forecast release must contain the same cases"
+        )
+    worst_case_microusd = worst_case_request_microusd(entry)
+    if worst_case_microusd > ceiling_microusd:
+        raise ProtectedTerminalPaidError(
+            "paid gateway worst-case request cost exceeds the approved ceiling"
         )
     run_identity_sha256 = derive_run_identity_sha256(
         execution=run_inputs.execution,

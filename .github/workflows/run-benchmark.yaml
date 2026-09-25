@@ -34,6 +34,14 @@ on:
         description: One provider:model_id key from the frozen model registry.
         required: true
         type: string
+      execution_mode:
+        description: Forecast treatment to run after locked-input validation.
+        required: false
+        default: native
+        type: choice
+        options:
+          - native
+          - claude-code-terminal
       ceiling_microusd:
         description: Positive run ceiling in millionths of one US dollar.
         required: true
@@ -576,9 +584,157 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ inputs.artifact_retention_days }}
 
+  run-terminal:
+    name: Claude Code terminal forecast release
+    if: ${{ inputs.execution_mode == 'claude-code-terminal' && startsWith(inputs.model_key, 'anthropic:') && needs.prepare-inputs.result == 'success' }}
+    needs: prepare-inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    environment: legalforecastbench-official-eval
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    env:
+      LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
+      GITHUB_ACTIONS: true
+      LFB_PROTECTED_TERMINAL_RELEASE: "1"
+    steps:
+      - name: Checkout and verify trusted source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require main-reachable exact source
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA:-$(git rev-parse HEAD)}"
+          git merge-base --is-ancestor HEAD origin/main
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+      - name: Install locked project environment
+        run: uv sync --locked
+      - name: Configure shared provider spend authority access
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          aws-region: ${{ env.LFB_AWS_REGION }}
+          role-session-name: lfb-terminal-${{ github.run_id }}-${{ github.run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      - name: Download outcome-blinded locked inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.prepare-inputs.outputs.locked_inputs_artifact_id }}
+          path: /tmp/lfb-terminal-inputs
+      - name: Configure rootless Docker for Claude Code and gateway
+        shell: bash
+        run: .github/scripts/setup-rootless-docker.sh
+      - name: Build pinned Claude Code and gateway images
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull=false -f infra/claude-code-runtime/Containerfile -t lfb-claude-code:release .
+          docker build --pull=false -f infra/model-gateway-runtime/Containerfile -t lfb-model-gateway:release .
+          claude_image_id="$(docker image inspect --format '{{.Id}}' lfb-claude-code:release)"
+          gateway_image_id="$(docker image inspect --format '{{.Id}}' lfb-model-gateway:release)"
+          [[ "${claude_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "${gateway_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_CLAUDE_IMAGE=${claude_image_id}" >> "${GITHUB_ENV}"
+          echo "LFB_GATEWAY_IMAGE=${gateway_image_id}" >> "${GITHUB_ENV}"
+      - name: Derive approved provider budget
+        shell: bash
+        env:
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+        run: |
+          set -euo pipefail
+          max_budget_usd="$(CEILING_MICROUSD="${CEILING_MICROUSD}" uv run python - <<'PY'
+          import os
+          from decimal import Decimal
+          ceiling = int(os.environ["CEILING_MICROUSD"])
+          if ceiling <= 0:
+              raise SystemExit("ceiling_microusd must be positive")
+          print(Decimal(ceiling) / Decimal(1_000_000))
+          PY
+          )"
+          echo "LFB_MAX_BUDGET_USD=${max_budget_usd}" >> "${GITHUB_ENV}"
+      - name: Issue protected paid gateway descriptor
+        shell: bash
+        env:
+          MODEL_KEY: ${{ inputs.model_key }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          ACCOUNT: ${{ inputs.account }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-terminal-paid
+          uv run python -m legalforecast.multiharness.paid_gateway_descriptor \
+            --manifest /tmp/lfb-terminal-inputs/run-manifest.json \
+            --forecast /tmp/lfb-terminal-inputs/forecast-release.json \
+            --artifact-root /tmp/lfb-terminal-inputs/artifacts \
+            --model-registry /tmp/lfb-terminal-inputs/model-registry.json \
+            --model-key "${MODEL_KEY}" \
+            --ceiling-microusd "${CEILING_MICROUSD}" \
+            --account "${ACCOUNT}" \
+            --output /tmp/lfb-terminal-paid/paid-gateway.json
+      - name: Execute scoreless Claude Code release
+        shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODEL_KEY: ${{ inputs.model_key }}
+        run: |
+          set -euo pipefail
+          uv run legalforecast multiharness release-execute \
+            --forecast-release /tmp/lfb-terminal-inputs/forecast-release.json \
+            --artifact-root /tmp/lfb-terminal-inputs/artifacts \
+            --output-dir /tmp/lfb-terminal-paid/release \
+            --model-key "${MODEL_KEY}" \
+            --image "${LFB_CLAUDE_IMAGE}" \
+            --auth-profile published-api-key \
+            --max-budget-usd "${LFB_MAX_BUDGET_USD}" \
+            --paid-config /tmp/lfb-terminal-paid/paid-gateway.json \
+            --model-registry /tmp/lfb-terminal-inputs/model-registry.json \
+            --gateway-upstream-base-url https://api.anthropic.com:443 \
+            --gateway-image "${LFB_GATEWAY_IMAGE}" \
+            --timeout-seconds 900 \
+            --run-id "claude-code-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+      - name: Preserve locked scoreless package inputs
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          input_root=/tmp/lfb-terminal-paid/release/inputs
+          mkdir -p "${input_root}"
+          for name in run-manifest.json forecast-release.json model-registry.json; do
+            test -f "/tmp/lfb-terminal-inputs/${name}"
+            test ! -L "/tmp/lfb-terminal-inputs/${name}"
+            cp -- "/tmp/lfb-terminal-inputs/${name}" "${input_root}/${name}"
+          done
+          test -d /tmp/lfb-terminal-inputs/artifacts
+          test ! -L /tmp/lfb-terminal-inputs/artifacts
+          cp -R -- /tmp/lfb-terminal-inputs/artifacts "${input_root}/artifacts"
+          if find "${input_root}" -type l -print -quit | grep -q .; then
+            echo "scoreless package inputs must not contain symlinks" >&2
+            exit 1
+          fi
+      - name: Upload outcome-blinded terminal forecast package
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: official-terminal-forecast-results-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: /tmp/lfb-terminal-paid/release
+          if-no-files-found: ignore
+          retention-days: ${{ inputs.artifact_retention_days }}
+
   run-openai:
     name: OpenAI resumable forecast cells
-    if: ${{ startsWith(inputs.model_key, 'openai:') && needs.prepare-inputs.outputs.openai_count != '0' }}
+    if: ${{ inputs.execution_mode == 'native' && startsWith(inputs.model_key, 'openai:') && needs.prepare-inputs.outputs.openai_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -746,7 +902,7 @@ jobs:
 
   run-anthropic:
     name: Anthropic resumable forecast cells
-    if: ${{ startsWith(inputs.model_key, 'anthropic:') && needs.prepare-inputs.outputs.anthropic_count != '0' }}
+    if: ${{ inputs.execution_mode == 'native' && startsWith(inputs.model_key, 'anthropic:') && needs.prepare-inputs.outputs.anthropic_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -916,7 +1072,7 @@ jobs:
 
   run-gemini:
     name: Google resumable forecast cells
-    if: ${{ (startsWith(inputs.model_key, 'gemini:') || startsWith(inputs.model_key, 'google:')) && needs.prepare-inputs.outputs.gemini_count != '0' }}
+    if: ${{ inputs.execution_mode == 'native' && (startsWith(inputs.model_key, 'gemini:') || startsWith(inputs.model_key, 'google:')) && needs.prepare-inputs.outputs.gemini_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -1083,7 +1239,7 @@ jobs:
 
   run-gateway:
     name: Vercel AI Gateway and TypeSafe Jev resumable forecast cells
-    if: ${{ (startsWith(inputs.model_key, 'vercel_ai_gateway:') || startsWith(inputs.model_key, 'typesafe:')) && needs.prepare-inputs.outputs.gateway_count != '0' }}
+    if: ${{ inputs.execution_mode == 'native' && (startsWith(inputs.model_key, 'vercel_ai_gateway:') || startsWith(inputs.model_key, 'typesafe:')) && needs.prepare-inputs.outputs.gateway_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -1278,7 +1434,7 @@ jobs:
 
   persist-forecast-results:
     name: Persist combined forecast result
-    if: ${{ always() && needs.prepare-inputs.result == 'success' }}
+    if: ${{ always() && inputs.execution_mode == 'native' && needs.prepare-inputs.result == 'success' }}
     needs: [prepare-inputs, run-openai, run-anthropic, run-gemini, run-gateway]
     runs-on: ubuntu-latest
     timeout-minutes: 20
