@@ -3,7 +3,6 @@ name: Claude Code terminal runtime smoke
 on:
   pull_request:
     paths:
-      - .github/scripts/setup-rootless-docker.sh
       - .github/workflows/claude-code-runtime-smoke.yaml
       - infra/claude-code-runtime/**
       - legalforecast/multiharness/claude_code_container.py
@@ -39,9 +38,6 @@ jobs:
 
       - name: Enable nested user namespaces on disposable runner
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-
-      - name: Configure rootless Docker
-        run: .github/scripts/setup-rootless-docker.sh
 
       - name: Build pinned Claude Code image
         run: |
