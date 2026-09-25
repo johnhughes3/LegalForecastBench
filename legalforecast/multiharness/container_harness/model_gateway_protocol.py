@@ -1,7 +1,9 @@
 """A bounded Anthropic-compatible gateway for one tools-on container run.
 
 The gateway is deliberately a small protocol proxy rather than a generic HTTP
-or CONNECT proxy.  The untrusted harness receives only a per-run capability;
+or CONNECT proxy.  When configured, its fixed upstream connection is carried
+through one trusted HTTP CONNECT relay; the untrusted harness receives only a
+per-run capability;
 the provider API key stays in this process.  Only ``POST /v1/messages`` is
 accepted, the upstream origin is fixed when the gateway is constructed, and
 request and response bodies are bounded before they are forwarded or returned.
@@ -75,7 +77,9 @@ class ModelGatewayPolicy:
     A client cannot select another host, scheme, or path.
     ``capability_token`` is the value the harness may receive as its synthetic
     ``ANTHROPIC_API_KEY``; ``upstream_api_key`` is never forwarded to the
-    harness and is injected only on the fixed upstream request.
+    harness and is injected only on the fixed upstream request.  When
+    ``proxy_base_url`` is set, every upstream connection uses HTTP CONNECT
+    through that plain-HTTP origin and has no direct fallback.
     """
 
     upstream_base_url: str
@@ -83,6 +87,7 @@ class ModelGatewayPolicy:
     capability_token: str
     allowed_models: frozenset[str]
     allowed_ingress_hosts: frozenset[str]
+    proxy_base_url: str | None = None
     max_request_bytes: int = DEFAULT_REQUEST_BYTES
     max_response_bytes: int = DEFAULT_RESPONSE_BYTES
     max_requests: int = 64
@@ -94,6 +99,8 @@ class ModelGatewayPolicy:
 
     def __post_init__(self) -> None:
         parsed = _parse_upstream_url(self.upstream_base_url)
+        if self.proxy_base_url is not None:
+            _parse_proxy_url(self.proxy_base_url)
         if parsed.query or parsed.fragment or parsed.username or parsed.password:
             raise ModelGatewayError(
                 "upstream_base_url must not contain credentials, query, or fragment"
@@ -199,6 +206,11 @@ class AnthropicModelGateway:
         self._spend_controller = spend_controller
         self._request_id = request_id
         self._upstream = _parse_upstream_url(policy.upstream_base_url)
+        self._proxy = (
+            _parse_proxy_url(policy.proxy_base_url)
+            if policy.proxy_base_url is not None
+            else None
+        )
         upstream_host = self._upstream.hostname
         if upstream_host is None:
             raise ModelGatewayError("upstream_base_url has no hostname")
@@ -384,18 +396,32 @@ class AnthropicModelGateway:
         route: str,
     ) -> tuple[bytes, int, str | None]:
         connection: HTTPConnection | HTTPSConnection
+        connection_host = self._upstream_host
+        connection_port = self._upstream_port
+        if self._proxy is not None:
+            proxy_host = self._proxy.hostname
+            proxy_port = self._proxy.port
+            if proxy_host is None or proxy_port is None:
+                raise ModelGatewayError("proxy_base_url has no usable origin")
+            connection_host = proxy_host
+            connection_port = proxy_port
         if self._upstream.scheme == "https":
             connection = HTTPSConnection(
-                self._upstream_host,
-                self._upstream_port,
+                connection_host,
+                connection_port,
                 timeout=self.policy.upstream_timeout_seconds,
             )
         else:
             connection = HTTPConnection(
-                self._upstream_host,
-                self._upstream_port,
+                connection_host,
+                connection_port,
                 timeout=self.policy.upstream_timeout_seconds,
             )
+        if self._proxy is not None:
+            # ``request`` performs this fixed-target CONNECT before sending
+            # the POST.  There is intentionally no direct retry if the relay
+            # cannot be reached or refuses the target.
+            connection.set_tunnel(self._upstream_host, self._upstream_port)
         forwarded: dict[str, str] = {
             "content-type": "application/json",
             "content-length": str(len(body)),
@@ -443,6 +469,31 @@ def _parse_upstream_url(value: str) -> SplitResult:
     if parsed.path not in {"", "/"} or port is None:
         raise ModelGatewayError(
             "upstream_base_url must specify an origin with an explicit port"
+        )
+    return parsed
+
+
+def _parse_proxy_url(value: str) -> SplitResult:
+    """Parse the immutable plain-HTTP origin of the outbound CONNECT relay."""
+
+    try:
+        parsed = urlsplit(value)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError as exc:
+        raise ModelGatewayError("proxy_base_url is malformed") from exc
+    if (
+        parsed.scheme != "http"
+        or hostname is None
+        or port is None
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ModelGatewayError(
+            "proxy_base_url must be a plain HTTP origin with an explicit port"
         )
     return parsed
 
