@@ -92,6 +92,8 @@ class ContainerHarnessSpec:
     proxy_python: str = "python3"
     proxy_port: int = DEFAULT_PROXY_PORT
     egress_network: str | None = None
+    container_user: str | None = None
+    read_only_workspace_paths: tuple[str, ...] = ()
     timeout_seconds: int = 900
     pids_limit: int = 512
     memory_limit: str = "4g"
@@ -120,6 +122,24 @@ class ContainerHarnessSpec:
             raise ContainerHarnessError("proxy_port is out of range")
         if self.timeout_seconds <= 0:
             raise ContainerHarnessError("timeout_seconds must be positive")
+        if self.container_user is not None and (
+            not self.container_user.strip()
+            or any(character.isspace() for character in self.container_user)
+        ):
+            raise ContainerHarnessError(
+                "container_user must be a single non-empty token"
+            )
+        for relative in self.read_only_workspace_paths:
+            path = PurePosixPath(relative)
+            if (
+                not relative
+                or path.is_absolute()
+                or any(part in {"", ".", ".."} for part in path.parts)
+            ):
+                raise ContainerHarnessError(
+                    "read_only_workspace_paths must contain relative paths "
+                    "without traversal segments"
+                )
         fenced_cli_name(self)
 
     def allowlist(self) -> EgressAllowlist:
@@ -448,19 +468,42 @@ def build_harness_run_argv(
         WORKSPACE_TARGET,
         "--mount",
         f"type=bind,src={spec.workspace},dst={WORKSPACE_TARGET}",
-        "--mount",
-        f"type=bind,src={credential_home},dst={CREDENTIALS_TARGET},readonly",
-        "--mount",
-        f"type=bind,src={fence},dst={FENCE_WRAPPER_TARGET},readonly",
-        "--mount",
-        f"type=bind,src={fence},dst={FENCE_BIN_DIR}/{cli},readonly",
-        "--tmpfs",
-        "/tmp:rw,nosuid,nodev,size=512m",
-        "--tmpfs",
-        f"{spec.container_home}:rw,nosuid,nodev,size=64m",
-        "--entrypoint",
-        FENCE_WRAPPER_TARGET,
     ]
+    for relative in spec.read_only_workspace_paths:
+        source = spec.workspace.joinpath(*PurePosixPath(relative).parts)
+        if not source.exists() or source.is_symlink():
+            raise ContainerHarnessError(
+                "read_only_workspace_paths must refer to existing non-symlink "
+                f"workspace paths: {relative}"
+            )
+        destination = f"{WORKSPACE_TARGET}/{PurePosixPath(relative).as_posix()}"
+        argv.extend(
+            (
+                "--mount",
+                f"type=bind,src={source},dst={destination},readonly",
+            )
+        )
+    argv.extend(
+        (
+            "--mount",
+            f"type=bind,src={credential_home},dst={CREDENTIALS_TARGET},readonly",
+            "--mount",
+            f"type=bind,src={fence},dst={FENCE_WRAPPER_TARGET},readonly",
+            "--mount",
+            f"type=bind,src={fence},dst={FENCE_BIN_DIR}/{cli},readonly",
+            "--tmpfs",
+            "/tmp:rw,nosuid,nodev,size=512m",
+            "--tmpfs",
+            f"{spec.container_home}:rw,nosuid,nodev,size=64m",
+            "--entrypoint",
+            FENCE_WRAPPER_TARGET,
+        )
+    )
+    if spec.container_user is not None:
+        argv[argv.index("--pull=never") : argv.index("--pull=never")] = [
+            "--user",
+            spec.container_user,
+        ]
     if spec.read_only_rootfs:
         argv.append("--read-only")
     for name, value in sorted(build_harness_environment(spec, names).items()):

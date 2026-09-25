@@ -219,6 +219,63 @@ def test_harness_argv_never_disables_the_network_and_keeps_the_isolation_flags(
     assert argv[-len(spec.harness_argv) - 1] == _IMAGE
 
 
+def test_harness_can_run_as_rootless_host_owner_for_private_workspace(
+    tmp_path: Path,
+) -> None:
+    spec = _spec(tmp_path, container_user="0:0")
+    names = build_run_names(spec.run_id, _TOKEN)
+
+    argv = build_harness_run_argv(
+        _BACKEND,
+        spec,
+        names,
+        credential_home=tmp_path / "home",
+        cidfile=tmp_path / "harness.cid",
+    )
+
+    assert _flag_values(argv, "--user") == ["0:0"]
+    assert _flag_values(argv, "--cap-drop") == ["ALL"]
+    assert _flag_values(argv, "--security-opt") == ["no-new-privileges"]
+
+
+def test_harness_can_bind_staged_inputs_read_only_while_workspace_stays_writable(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    (workspace / "documents").mkdir(parents=True)
+    (workspace / "prompt.txt").write_text("prompt")
+    spec = _spec(
+        tmp_path,
+        workspace=workspace,
+        read_only_workspace_paths=("prompt.txt", "documents"),
+    )
+    names = build_run_names(spec.run_id, _TOKEN)
+
+    argv = build_harness_run_argv(
+        _BACKEND,
+        spec,
+        names,
+        credential_home=tmp_path / "home",
+        cidfile=tmp_path / "harness.cid",
+    )
+
+    mounts = _flag_values(argv, "--mount")
+    assert (
+        f"type=bind,src={workspace / 'prompt.txt'},dst=/workspace/prompt.txt,readonly"
+        in mounts
+    )
+    assert (
+        f"type=bind,src={workspace / 'documents'},dst=/workspace/documents,readonly"
+        in mounts
+    )
+    assert f"type=bind,src={workspace},dst=/workspace" in mounts
+
+
+def test_read_only_workspace_paths_reject_traversal(tmp_path: Path) -> None:
+    with pytest.raises(ContainerHarnessError, match="relative paths"):
+        _spec(tmp_path, read_only_workspace_paths=("../outside",))
+
+
 def test_the_harness_entrypoint_is_always_the_fence_wrapper(tmp_path: Path) -> None:
     spec = _spec(tmp_path, harness_entrypoint="claude")
     names = build_run_names(spec.run_id, _TOKEN)

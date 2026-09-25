@@ -324,6 +324,17 @@ def test_fake_success_binds_spec_receipt_and_deliverable(
     _make_writable(workspace / "deliverable-sealed")
 
 
+def test_public_summary_reports_private_stream_tool_count(tmp_path: Path) -> None:
+    result = _adapter_from_mutated_success(
+        tmp_path,
+        mutate_envelope=lambda envelope: envelope.update(
+            {"_lfb_tool_trace": {"bash_tool_count": 2}}
+        ),
+    )
+
+    assert result.public_summary["tool_call_count"] == 2
+
+
 @pytest.mark.parametrize(
     ("fixture_name", "failure_class"),
     (

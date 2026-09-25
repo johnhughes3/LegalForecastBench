@@ -53,6 +53,10 @@ LOCAL_CLI_EXECUTION_RECEIPT_SCHEMA_VERSION = (
     "legalforecast.multiharness.local_cli_execution_receipt.v1"
 )
 LOCAL_CLI_OUTPUT_FORMAT_JSON = "json"
+LOCAL_CLI_OUTPUT_FORMAT_STREAM_JSON = "stream-json"
+LOCAL_CLI_OUTPUT_FORMATS = frozenset(
+    {LOCAL_CLI_OUTPUT_FORMAT_JSON, LOCAL_CLI_OUTPUT_FORMAT_STREAM_JSON}
+)
 LOCAL_CLI_RECEIPT_STATUSES = frozenset({"succeeded", "failed", "timeout"})
 _RUN_SPEC_REQUIRED_FIELDS = frozenset(
     {
@@ -199,8 +203,10 @@ class RunSpec:
             raise LocalCliContractError("argv must not invoke a shell")
         if self.timeout_seconds <= 0:
             raise LocalCliContractError("timeout_seconds must be positive")
-        if self.output_format != LOCAL_CLI_OUTPUT_FORMAT_JSON:
-            raise LocalCliContractError("RunSpec output_format must be json")
+        if self.output_format not in LOCAL_CLI_OUTPUT_FORMATS:
+            raise LocalCliContractError(
+                "RunSpec output_format must be json or stream-json"
+            )
         if self.max_budget_usd is not None and self.max_budget_usd < 0:
             raise LocalCliContractError("max_budget_usd must be non-negative")
         if type(self.stdin_bytes) is not bytes:

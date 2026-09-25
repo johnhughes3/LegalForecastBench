@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import shlex
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -104,6 +105,7 @@ class ClaudeCodeContainerExecutionService:
     backend: str = "docker"
     fixture_base_url: str | None = None
     fixture_egress_network: str | None = None
+    sandbox_verified: bool = False
     profile_env_vars: tuple[tuple[str, tuple[str, ...]], ...] = (
         (FIXTURE_NONE, ()),
         (PUBLISHED_API_KEY, ("ANTHROPIC_API_KEY",)),
@@ -116,6 +118,17 @@ class ClaudeCodeContainerExecutionService:
         return ()
 
     def execute(self, spec: RunSpec) -> ExecutionReceipt:
+        if not self.sandbox_verified:
+            return ExecutionReceipt.from_transcript(
+                spec,
+                stdout="",
+                stderr=(
+                    "native Claude Code sandbox is not verified for this "
+                    "container topology"
+                ),
+                returncode=None,
+                status="failed",
+            )
         if self.auth_profile == PUBLISHED_API_KEY:
             return ExecutionReceipt.from_transcript(
                 spec,
@@ -140,8 +153,8 @@ class ClaudeCodeContainerExecutionService:
             parsed = urlsplit(endpoint)
             host = parsed.hostname
             port = parsed.port or (443 if parsed.scheme == "https" else 80)
-            if parsed.scheme not in {"http", "https"} or host is None:
-                raise ValueError("fixture_base_url must be an HTTP URL")
+            if parsed.scheme != "https" or host is None:
+                raise ValueError("fixture_base_url must be an HTTPS URL")
             require_digest_pinned_image(self.image_digest, "image_digest")
             run_key = hashlib.sha256(spec.spec_id.encode("utf-8")).hexdigest()[:16]
             run_root = self.output_root / run_key
@@ -157,6 +170,9 @@ class ClaudeCodeContainerExecutionService:
                 # The local fixture uses an ephemeral self-signed certificate;
                 # this branch never applies to a published provider profile.
                 environment["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
+            read_only_workspace_paths = ["prompt.txt"]
+            if (spec.working_directory / "documents").is_dir():
+                read_only_workspace_paths.append("documents")
             result = run_container_harness(
                 ContainerHarnessSpec(
                     run_id=f"claude-{run_key}",
@@ -173,19 +189,36 @@ class ClaudeCodeContainerExecutionService:
                     environment=environment,
                     cli_name="claude",
                     egress_network=self.fixture_egress_network,
+                    # The row workspace is intentionally owner-only on the
+                    # host. Rootless Docker maps container UID 0 to that host
+                    # owner, while cap-drop/no-new-privileges remain active;
+                    # the agent receives no provider credential or host socket.
+                    container_user="0:0",
+                    read_only_workspace_paths=tuple(read_only_workspace_paths),
                     timeout_seconds=max(1, int(spec.timeout_seconds)),
                 ),
                 publication_directory=package_root,
                 backend=self.backend,
             )
-            stdout = result.stdout_path.read_text(encoding="utf-8", errors="replace")
+            raw_stdout = result.stdout_path.read_text(
+                encoding="utf-8", errors="replace"
+            )
             stderr = result.stderr_path.read_text(encoding="utf-8", errors="replace")
-            envelope = _json_object(stdout)
+            stdout, envelope, trace_ok = _normalize_claude_stream(
+                raw_stdout,
+                spec.working_directory,
+            )
+            terminal_ok = _terminal_success(envelope)
+            run_success = result.exit_code == 0 and trace_ok and terminal_ok
             status = (
                 "timeout"
                 if result.timed_out
-                else ("succeeded" if result.exit_code == 0 else "failed")
+                else ("succeeded" if run_success else "failed")
             )
+            if result.exit_code == 0 and not run_success:
+                stderr = (
+                    f"{stderr}\n" if stderr else ""
+                ) + "missing valid Claude terminal or Bash tool evidence"
             return ExecutionReceipt.from_transcript(
                 spec,
                 stdout=stdout,
@@ -377,6 +410,11 @@ def build_claude_code_container_adapter(
         else max_budget_usd / case_count
     )
     manifest = _container_manifest(image_digest)
+    sandbox_verified = probe_native_claude_sandbox(
+        image_digest,
+        backend=backend,
+        timeout_seconds=min(timeout_seconds, 30),
+    )
     service = ClaudeCodeContainerExecutionService(
         image_digest=image_digest,
         auth_profile=profile,
@@ -384,6 +422,7 @@ def build_claude_code_container_adapter(
         backend=backend,
         fixture_base_url=fixture_base_url,
         fixture_egress_network=fixture_egress_network,
+        sandbox_verified=sandbox_verified,
     )
     delegate = ClaudeCodeCliAdapter(
         execution_service=cast(LocalCliExecutionService, service),
@@ -393,6 +432,8 @@ def build_claude_code_container_adapter(
         max_budget_usd=(
             None if per_case_budget_usd is None else f"{per_case_budget_usd:.6f}"
         ),
+        output_format="stream-json",
+        verbose=True,
     )
     return ClaudeCodeContainerAdapter(
         delegate=delegate,
@@ -407,11 +448,7 @@ def build_claude_code_container_adapter(
         case_count=case_count,
         per_case_budget_usd=per_case_budget_usd,
         approval_verifier=approval_verifier,
-        sandbox_verified=probe_native_claude_sandbox(
-            image_digest,
-            backend=backend,
-            timeout_seconds=min(timeout_seconds, 30),
-        ),
+        sandbox_verified=sandbox_verified,
     )
 
 
@@ -542,7 +579,7 @@ def _stage_visible_solver_input(
         if parent != workspace and (parent.is_symlink() or not parent.is_dir()):
             raise ReleaseHarnessError("solver workspace path is not a directory")
         for directory in reversed(missing):
-            directory.mkdir(mode=0o700)
+            directory.mkdir(mode=0o755)
             directories.append(directory)
         # The image runs as UID 65532 while the host workspace belongs to the
         # operator. The workspace itself is private; 0444 is therefore the
@@ -568,6 +605,177 @@ def _json_object(stdout: str) -> dict[str, object] | None:
     return cast(dict[str, object], value) if isinstance(value, dict) else None
 
 
+def _normalize_claude_stream(
+    raw_stdout: str,
+    workspace: Path,
+) -> tuple[str, dict[str, object] | None, bool]:
+    """Extract Claude's terminal result while retaining tool evidence privately."""
+
+    events: list[dict[str, object]] = []
+    for line in raw_stdout.splitlines():
+        if not line.strip():
+            continue
+        try:
+            decoded: object = json.loads(line)
+        except json.JSONDecodeError:
+            return raw_stdout, _json_object(raw_stdout), False
+        if not isinstance(decoded, dict):
+            return raw_stdout, None, False
+        events.append(cast(dict[str, object], decoded))
+    terminal = next(
+        (event for event in reversed(events) if event.get("type") == "result"),
+        None,
+    )
+    if terminal is None:
+        return raw_stdout, None, False
+    envelope = dict(terminal)
+    init = next(
+        (
+            event
+            for event in events
+            if event.get("type") == "system" and event.get("subtype") == "init"
+        ),
+        None,
+    )
+    if "model" not in envelope and init is not None:
+        model = init.get("model")
+        if isinstance(model, str) and model.strip():
+            envelope["model"] = model
+    observations = _stream_bash_observations(events)
+    staged_paths = _staged_workspace_paths(workspace)
+    read_paths: set[str] = set()
+    for _tool_use_id, command in observations:
+        read_paths.update(_read_paths_from_cat(command, staged_paths))
+    referenced = tuple(path for path in staged_paths if path in read_paths)
+    envelope["_lfb_tool_trace"] = {
+        "bash_tool_count": len(observations),
+        "read_tool_count": sum(
+            1
+            for _tool_use_id, command in observations
+            if _read_paths_from_cat(command, staged_paths)
+        ),
+        "referenced_paths": list(referenced),
+    }
+    prompt_referenced = "/workspace/prompt.txt" in referenced
+    document_referenced = any(
+        path.startswith("/workspace/documents/") for path in referenced
+    )
+    trace_ok = (
+        bool(observations)
+        and prompt_referenced
+        and (
+            not any(path.startswith("/workspace/documents/") for path in staged_paths)
+            or document_referenced
+        )
+    )
+    return (
+        json.dumps(envelope, sort_keys=True, separators=(",", ":")),
+        envelope,
+        trace_ok,
+    )
+
+
+def _stream_bash_observations(
+    events: list[dict[str, object]],
+) -> tuple[tuple[str, str], ...]:
+    """Return Bash tool uses whose matching result is not marked as an error.
+
+    Stream events are untrusted until a ``tool_result`` with the same ID says
+    that the command completed without an error. The Anthropic stream omits
+    ``is_error`` for successful results, so only an explicit true value fails.
+    Keeping the command only in
+    this private in-memory observation also lets the public trace expose counts
+    and staged paths without copying case text or shell arguments into output.
+    """
+
+    successful_tool_use_ids: set[str] = set()
+    for event in events:
+        if event.get("type") != "user":
+            continue
+        message_value = event.get("message")
+        if not isinstance(message_value, dict):
+            continue
+        message = cast(dict[str, object], message_value)
+        content_value = message.get("content")
+        if not isinstance(content_value, list):
+            continue
+        content = cast(list[object], content_value)
+        for block_value in content:
+            if not isinstance(block_value, dict):
+                continue
+            block = cast(dict[str, object], block_value)
+            if block.get("type") == "tool_result" and block.get("is_error") is not True:
+                tool_use_id = block.get("tool_use_id")
+                if isinstance(tool_use_id, str) and tool_use_id:
+                    successful_tool_use_ids.add(tool_use_id)
+
+    observations: list[tuple[str, str]] = []
+    for event in events:
+        if event.get("type") != "assistant":
+            continue
+        message_value = event.get("message")
+        if not isinstance(message_value, dict):
+            continue
+        message = cast(dict[str, object], message_value)
+        content_value = message.get("content")
+        if not isinstance(content_value, list):
+            continue
+        content = cast(list[object], content_value)
+        for block_value in content:
+            block = block_value
+            if not isinstance(block, dict):
+                continue
+            block = cast(dict[str, object], block)
+            if block.get("type") != "tool_use" or block.get("name") != "Bash":
+                continue
+            tool_use_id = block.get("id")
+            if (
+                not isinstance(tool_use_id, str)
+                or not tool_use_id
+                or tool_use_id not in successful_tool_use_ids
+            ):
+                continue
+            tool_input_value = block.get("input")
+            if isinstance(tool_input_value, dict):
+                tool_input = cast(dict[str, object], tool_input_value)
+                command = tool_input.get("command")
+                if isinstance(command, str) and command.strip():
+                    observations.append((tool_use_id, command))
+    return tuple(observations)
+
+
+def _read_paths_from_cat(
+    command: str,
+    staged_paths: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Identify staged paths in the controlled read instruction.
+
+    This is evidence classification, not a shell-command denylist.  Claude can
+    still use any Bash command allowed by its immutable runtime policy; a run
+    only qualifies as a forecast when a successful, direct ``cat`` operation
+    names the staged inputs.
+    """
+
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return ()
+    if not tokens or tokens[0] != "cat":
+        return ()
+    return tuple(path for path in staged_paths if path in tokens[1:])
+
+
+def _staged_workspace_paths(workspace: Path) -> tuple[str, ...]:
+    paths = ["/workspace/prompt.txt"]
+    documents = workspace / "documents"
+    if documents.is_dir():
+        for path in sorted(documents.rglob("*")):
+            if path.is_file() and not path.is_symlink():
+                relative = path.relative_to(workspace).as_posix()
+                paths.append(f"/workspace/{relative}")
+    return tuple(paths)
+
+
 def _served_model(envelope: dict[str, object] | None) -> str | None:
     if envelope is None:
         return None
@@ -581,6 +789,15 @@ def _served_model(envelope: dict[str, object] | None) -> str | None:
             value = next(iter(typed_model_usage))
             return value if value.strip() else None
     return None
+
+
+def _terminal_success(envelope: dict[str, object] | None) -> bool:
+    return bool(
+        envelope is not None
+        and envelope.get("type") == "result"
+        and envelope.get("subtype") == "success"
+        and envelope.get("is_error") is False
+    )
 
 
 def _usage(envelope: dict[str, object] | None) -> dict[str, int]:
