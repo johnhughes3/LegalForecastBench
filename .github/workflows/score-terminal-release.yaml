@@ -324,7 +324,10 @@ jobs:
                   if member.is_dir():
                       continue
                   mode = member.external_attr >> 16
-                  if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
+                  # Some ZIP writers omit Unix file-type bits and preserve
+                  # only permissions; that is still an ordinary file entry.
+                  file_type = stat.S_IFMT(mode)
+                  if stat.S_ISLNK(mode) or file_type not in {0, stat.S_IFREG}:
                       raise SystemExit("terminal artifact contains a non-regular file")
                   destination = root / relative
                   destination.parent.mkdir(parents=True, exist_ok=True)
