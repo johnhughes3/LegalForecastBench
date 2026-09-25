@@ -890,9 +890,9 @@ class ClaudeCodeCliSolver:
         return SolverResponse(
             raw_output=classified.raw_output,
             request_count=1,
-            input_tokens=usage["input_tokens"],
-            output_tokens=usage["output_tokens"],
-            estimated_cost=usage["estimated_cost"],
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+            estimated_cost=usage.get("estimated_cost", 0.0),
             metadata={
                 "adapter_id": CLAUDE_CODE_ADAPTER_ID,
                 "auth_profile": bound.profile_id,
@@ -1031,10 +1031,8 @@ def _public_summary(
         "spec_sha256": classified.spec.spec_sha256,
         "task_id": request.task.task_id,
         "tool_call_count": tool_call_count_from_stdout(classified.receipt.stdout),
-        "input_tokens": usage["input_tokens"],
-        "output_tokens": usage["output_tokens"],
-        "estimated_cost": usage["estimated_cost"],
     }
+    summary.update(usage)
     if classified.receipt.served_model is not None:
         summary["served_model"] = classified.receipt.served_model
     if classified.receipt.deliverable_manifest_sha256 is not None:
@@ -1234,35 +1232,42 @@ def _usage_from_envelope(
     input_tokens = _lookup_int(
         envelope,
         reporting.input_tokens_field,
-        receipt.usage.get("input_tokens", 0),
+        receipt.usage.get("input_tokens"),
     )
     output_tokens = _lookup_int(
         envelope,
         reporting.output_tokens_field,
-        receipt.usage.get("output_tokens", 0),
+        receipt.usage.get("output_tokens"),
     )
-    estimated_cost = receipt.cost_usd if receipt.cost_usd is not None else 0.0
+    estimated_cost = receipt.cost_usd
     if reporting.cost_usd_field is not None and envelope is not None:
         raw_cost = _dotted_lookup(envelope, reporting.cost_usd_field)
         parsed_cost = _non_negative_number(raw_cost)
         if parsed_cost is not None:
             estimated_cost = parsed_cost
-    return {
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "estimated_cost": estimated_cost,
-    }
+    usage: dict[str, Any] = {}
+    if input_tokens is not None:
+        usage["input_tokens"] = input_tokens
+    if output_tokens is not None:
+        usage["output_tokens"] = output_tokens
+    if estimated_cost is not None:
+        usage["estimated_cost"] = estimated_cost
+    return usage
 
 
-def _lookup_int(envelope: Mapping[str, Any] | None, path: str, default: int) -> int:
+def _lookup_int(
+    envelope: Mapping[str, Any] | None,
+    path: str,
+    default: int | None,
+) -> int | None:
     if envelope is None:
-        if type(default) is not int or default < 0:
-            raise ClaudeCodeCliAdapterError(f"usage {path} is invalid")
         return default
     raw = _dotted_lookup(envelope, path)
     if type(raw) is int and raw >= 0:
         return raw
-    if type(default) is not int or default < 0:
+    if default is None:
+        return None
+    if default < 0:
         raise ClaudeCodeCliAdapterError(f"usage {path} is invalid")
     return default
 

@@ -395,6 +395,42 @@ def test_observed_auth_closed_envelope_is_crash_with_zero_cost(
     assert result.public_summary["estimated_cost"] == 0.0
 
 
+def test_paid_failure_without_usage_does_not_publish_zero_usage_or_cost(
+    tmp_path: Path,
+) -> None:
+    service = _ProfiledFakeService(
+        FixtureTranscript(
+            stdout="",
+            status="timeout",
+            returncode=None,
+            usage={},
+            cost_usd=None,
+        ),
+        auth_profile=PUBLISHED_API_KEY,
+        projected_env_vars=("ANTHROPIC_API_KEY",),
+    )
+    adapter = ClaudeCodeCliAdapter(
+        execution_service=service,
+        auth_profile=PUBLISHED_API_KEY,
+    )
+    request = _run_request()
+    request = replace(
+        request,
+        sandbox_policy=replace(
+            request.sandbox_policy,
+            network_policy="provider_egress_host_only",
+        ),
+    )
+
+    result = adapter.run(request, tmp_path / "workspace")
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == LocalCliFailureClass.TIMEOUT.value
+    assert "input_tokens" not in result.public_summary
+    assert "output_tokens" not in result.public_summary
+    assert "estimated_cost" not in result.public_summary
+
+
 def test_declared_failure_classes_match_fixtures() -> None:
     assert declared_failure_classes() == (
         "timeout",
