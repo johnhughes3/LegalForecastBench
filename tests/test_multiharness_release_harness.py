@@ -26,6 +26,7 @@ from legalforecast.multiharness.release_harness import (
     project_release_harness_result,
     release_bytes_sha256,
     release_record_sha256,
+    score_multiharness_release,
 )
 from legalforecast.multiharness.run_progress import (
     JOURNAL_INTERRUPTED,
@@ -45,6 +46,7 @@ from legalforecast.multiharness.solver_inputs import (
 )
 from legalforecast.multiharness.spec import ArtifactRecord, RunResult
 from legalforecast.multiharness.task_loaders import ReleaseLfbTaskLoader
+from legalforecast.release import validate_release
 from legalforecast.release.synthetic import issue_synthetic_release
 
 
@@ -258,6 +260,7 @@ def test_release_prompt_runs_through_neutral_and_native_shared_receipt(
         assert transcript["packet_sha256"] == row.task.metadata["packet_sha256"]
         assert transcript["prompt_sha256"] == row.task.metadata["prompt_sha256"]
         assert transcript["response_sha256"] == output_artifact.sha256
+
     assert all(receipt["result"]["parser_output"]["is_valid"] for receipt in receipts)
     assert (
         len(
@@ -426,6 +429,168 @@ def test_release_prompt_runs_through_neutral_and_native_shared_receipt(
         collect_release_harness_receipts(
             ((native_row.request, native_row.result, native_row.workspace),)
         )
+
+
+def test_score_multiharness_release_includes_failed_units_and_equal_case_metric(
+    tmp_path: Path,
+) -> None:
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    forecast, labels = validate_release(
+        release_root / "forecast-release.json",
+        release_root / "labels-release.json",
+        artifact_root=release_root,
+    )
+    solver_root = tmp_path / "solver-inputs"
+    task_index = ReleaseLfbTaskLoader().load_forecast_release(
+        release_root / "forecast-release.json",
+        artifact_root=release_root,
+        solver_input_root=solver_root,
+    )
+    task = task_index.tasks[0]
+    raw_output = json.dumps(
+        {
+            "case_assessment": "fixture",
+            "predictions": [
+                {"unit_id": "unit-001", "probability_fully_dismissed": 0.25}
+            ],
+        },
+        separators=(",", ":"),
+    )
+    adapter = NeutralApiFixtureAdapter(raw_output=raw_output)
+    config = MultiHarnessRunConfig(
+        task_index=task_index,
+        adapters=(adapter,),
+        model_configs=(
+            ModelConfig(adapter_id=adapter.manifest.adapter_id, model_key="fixture"),
+        ),
+        sandbox_policy=sandbox_policy(
+            policy_id="release-score-fixture",
+            backend="docker",
+            image="python:3.12-slim",
+            mounts=(),
+        ),
+        output_dir=tmp_path / "run",
+        selection=TaskSelection(task_ids=(task.task_id,)),
+        solver_inputs=SolverInputStore.load(solver_root),
+    )
+    run = run_multi_harness(config)
+    report = score_multiharness_release(run, forecast, labels)
+    model = report["models"][0]
+    assert model["unit_count"] == 1
+    assert model["completed_unit_count"] == 1
+    assert model["failed_unit_count"] == 0
+    assert model["micro_brier"] == model["equal_case_brier"] == 0.25**2
+    assert model["completion_rate"] == 1.0
+
+    failed_result = RunResult(
+        result_id="failed-result",
+        request_id=run.rows[0].request.request_id,
+        status="failed",
+        result_sha256="sha256:" + "f" * 64,
+        public_summary={
+            "error_type": "TimeoutError",
+            "error_message": "fixture timeout",
+            "input_tokens": 12,
+        },
+    )
+    failed_run = run.__class__(
+        manifest=run.manifest,
+        selection=run.selection,
+        rows=(
+            run.rows[0].__class__(
+                row_id=run.rows[0].row_id,
+                task=run.rows[0].task,
+                adapter_manifest=run.rows[0].adapter_manifest,
+                model_config=run.rows[0].model_config,
+                request=run.rows[0].request,
+                result=failed_result,
+                workspace=run.rows[0].workspace,
+                lfb_record=None,
+                container_execution=run.rows[0].container_execution,
+                container_receipt_sha256=None,
+                selection_label=run.rows[0].selection_label,
+                coverage_kind=run.rows[0].coverage_kind,
+            ),
+        ),
+        output_dir=run.output_dir,
+        interrupted=False,
+    )
+    failure_report = score_multiharness_release(failed_run, forecast, labels)
+    failed_model = failure_report["models"][0]
+    assert failed_model["unit_count"] == 1
+    assert failed_model["completed_unit_count"] == 0
+    assert failed_model["failed_unit_count"] == 1
+    assert failed_model["micro_brier"] == failed_model["equal_case_brier"] == 1.0
+    assert failed_model["failures"][0]["failure_kind"] == "TimeoutError"
+    assert failed_model["failures"][0]["probability_fully_dismissed"] is None
+
+
+def test_case_batch_release_projection_uses_one_case_receipt(tmp_path: Path) -> None:
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    solver_root = tmp_path / "solver-inputs"
+    task_index = ReleaseLfbTaskLoader().load_forecast_release(
+        release_root / "forecast-release.json",
+        artifact_root=release_root,
+        solver_input_root=solver_root,
+        case_batching=True,
+    )
+    task = task_index.tasks[0]
+    adapter = NeutralApiFixtureAdapter(
+        raw_output=json.dumps(
+            {
+                "case_assessment": "fixture",
+                "predictions": [
+                    {
+                        "unit_id": "unit-001",
+                        "probability_fully_dismissed": 0.25,
+                    }
+                ],
+            },
+            separators=(",", ":"),
+        )
+    )
+    adapter = replace(
+        adapter,
+        manifest=replace(adapter.manifest, adapter_id="claude-code-container"),
+    )
+    run = run_multi_harness(
+        MultiHarnessRunConfig(
+            task_index=task_index,
+            adapters=(adapter,),
+            model_configs=(
+                ModelConfig(
+                    adapter_id=adapter.manifest.adapter_id,
+                    model_key="fixture",
+                ),
+            ),
+            sandbox_policy=sandbox_policy(
+                policy_id="case-batch-projection",
+                backend="docker",
+                image="python:3.12-slim",
+                mounts=(),
+            ),
+            output_dir=tmp_path / "run",
+            container_execution="headless_cli",
+            selection=TaskSelection(task_ids=(task.task_id,)),
+            solver_inputs=SolverInputStore.load(solver_root),
+        )
+    )
+    assert run.rows[0].lfb_record is not None
+    assert run.rows[0].to_record()["container_execution"] == {
+        "mode": "headless_cli",
+        "status": "succeeded",
+    }
+    assert run.rows[0].lfb_record["sample_id"] == "case-001"
+    receipt = json.loads(
+        (run.output_dir / "release-harness-receipts.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()[0]
+    )
+    assert receipt["unit_id"] is None
+    assert receipt["case_id"] == "case-001"
+    assert receipt["result"]["parser_output"]["required_unit_ids"] == ["unit-001"]
 
 
 def test_resume_cleans_known_preresult_release_artifacts_before_rerun(

@@ -107,9 +107,10 @@ from legalforecast.multiharness.validation import (
 )
 
 INCOMPLETE_RUN_POLICIES = frozenset({"record_failure", "fail_fast"})
-CONTAINER_EXECUTION_MODES = frozenset({"plan_only", "live_tools"})
+CONTAINER_EXECUTION_MODES = frozenset({"plan_only", "live_tools", "headless_cli"})
 _FORECAST_RELEASE_SCHEMA_VERSION = str(FORECAST_RELEASE_V1)
 _OPENAI_RELEASE_ADAPTER_ID = "openai-responses-baseline"
+_CLAUDE_RELEASE_ADAPTER_ID = "claude-code-container"
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,9 +168,13 @@ class MultiHarnessRunConfig:
         if self.container_execution not in CONTAINER_EXECUTION_MODES:
             allowed = ", ".join(sorted(CONTAINER_EXECUTION_MODES))
             raise ValueError(f"container_execution must be one of: {allowed}")
-        if self.container_execution == "live_tools" and self.solver_inputs is None:
+        if (
+            self.container_execution in {"live_tools", "headless_cli"}
+            and self.solver_inputs is None
+        ):
             raise ValueError(
-                "live tool execution requires a private solver-input store"
+                "container-backed release execution requires a private "
+                "solver-input store"
             )
         if (
             self.solver_inputs is not None
@@ -261,6 +266,7 @@ class MultiHarnessRunRow:
             "container_execution": container_execution_record(
                 configured_mode=self.container_execution,
                 receipt_sha256=self.container_receipt_sha256,
+                result_status=self.result.status,
             ),
         }
 
@@ -299,6 +305,20 @@ def _ensure_private_run_directory(path: Path) -> Path:
         return ensure_private_directory(path)
     except ImmutableIOError as exc:
         raise ValueError(str(exc)) from exc
+
+
+def _sandbox_plan_record(policy: SandboxPolicy, *, mode: str) -> dict[str, Any]:
+    """Persist an honest sandbox plan for each execution owner."""
+
+    if mode == "live_tools":
+        return live_container_public_plan(policy)
+    if mode == "headless_cli":
+        return {
+            "mode": "headless_cli",
+            "owner": "adapter",
+            "policy": policy.to_record(),
+        }
+    return build_container_plan(policy).to_record()
 
 
 def validate_provider_environment_scope(
@@ -349,6 +369,40 @@ def _validate_live_release_adapter_routes(
             "live forecast-release.v1 execution supports only "
             f"{_OPENAI_RELEASE_ADAPTER_ID}; unsupported adapter route(s): "
             + ", ".join(unsupported)
+        )
+
+
+def _validate_headless_release_adapter_routes(
+    *,
+    container_execution: str,
+    tasks: Sequence[CanonicalTask],
+    adapters: Sequence[HarnessAdapter],
+    model_configs: Sequence[ModelConfig],
+) -> None:
+    if container_execution != "headless_cli" or not any(
+        task.metadata.get("release_schema_version") == _FORECAST_RELEASE_SCHEMA_VERSION
+        for task in tasks
+    ):
+        return
+    routed_adapters = tuple(
+        adapter
+        for adapter in adapters
+        if any(
+            model.adapter_id in {None, adapter.manifest.adapter_id}
+            for model in model_configs
+        )
+    )
+    unsupported = sorted(
+        adapter.manifest.adapter_id
+        for adapter in routed_adapters
+        if adapter.manifest.adapter_id != _CLAUDE_RELEASE_ADAPTER_ID
+        or not isinstance(adapter, release_harness.SolverInputAdapter)
+    )
+    if unsupported:
+        raise ValueError(
+            "headless CLI forecast-release.v1 execution supports only "
+            f"{_CLAUDE_RELEASE_ADAPTER_ID} via SolverInputAdapter; unsupported "
+            "adapter route(s): " + ", ".join(unsupported)
         )
 
 
@@ -439,6 +493,12 @@ class _MultiHarnessRunner:
             adapters=adapters,
             model_configs=self.config.model_configs,
         )
+        _validate_headless_release_adapter_routes(
+            container_execution=self.config.container_execution,
+            tasks=selection.tasks,
+            adapters=adapters,
+            model_configs=self.config.model_configs,
+        )
         if self.config.container_execution == "live_tools":
             validate_live_container_policy(self.config.sandbox_policy)
             _preflight_live_container(self.config.sandbox_policy)
@@ -461,7 +521,8 @@ class _MultiHarnessRunner:
             self.config.sandbox_policy.allowed_provider_env_vars
         )
         secret_values = tuple(provider_values.values())
-        build_container_plan(self.config.sandbox_policy)
+        if self.config.container_execution != "headless_cli":
+            build_container_plan(self.config.sandbox_policy)
         identity = _identity_binding_for(self.config, selection.selection_sha256)
         _ensure_private_run_directory(self.config.output_dir)
         (self.config.output_dir / "artifact-index.json").unlink(missing_ok=True)
@@ -792,10 +853,9 @@ class _MultiHarnessRunner:
             )
             write_json_object_safe(
                 plan.workspace / "sandbox.plan.json",
-                (
-                    live_container_public_plan(plan.request.sandbox_policy)
-                    if self.config.container_execution == "live_tools"
-                    else build_container_plan(plan.request.sandbox_policy).to_record()
+                _sandbox_plan_record(
+                    plan.request.sandbox_policy,
+                    mode=self.config.container_execution,
                 ),
             )
             if resumed_result is not None:
@@ -981,6 +1041,21 @@ class _MultiHarnessRunner:
         solver_input_entry: SolverInputEntry | None,
         solver_input_tree_sha256: str | None,
     ) -> tuple[RunResult, Mapping[str, Any] | None, str | None]:
+        if self.config.container_execution == "headless_cli":
+            if solver_input_root is None or solver_input_entry is None:
+                raise ValueError("headless CLI row solver input is unavailable")
+            if not isinstance(plan.adapter, release_harness.SolverInputAdapter):
+                raise ValueError(
+                    "headless CLI adapter must implement SolverInputAdapter"
+                )
+            result, lfb_record = release_harness.run_and_project_solver_input_adapter(
+                plan.adapter,
+                plan.request,
+                plan.workspace,
+                solver_input_root,
+                solver_input_entry,
+            )
+            return result, lfb_record, None
         if self.config.container_execution == "live_tools":
             if (
                 solver_input_root is None

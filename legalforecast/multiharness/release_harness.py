@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Self, cast
+from typing import TYPE_CHECKING, Any, Self, cast
 
 from legalforecast._json_io import write_json_object_safe
 from legalforecast.contracts import (
@@ -45,6 +45,10 @@ from legalforecast.multiharness.validation import (
     validate_safe_relative_path,
     validate_sha256,
 )
+from legalforecast.release.models import ForecastRelease, LabelsRelease
+
+if TYPE_CHECKING:
+    from legalforecast.multiharness.runner import MultiHarnessRun
 
 RELEASE_HARNESS_RECEIPT_SCHEMA_VERSION = str(RELEASE_HARNESS_RECEIPT_V1)
 RELEASE_FORECAST_OUTPUT_ARTIFACT_ID = "release-forecast-output-private"
@@ -107,7 +111,7 @@ class _ReleaseReceiptEvidence:
     tool_call_count: int
     release_id: str
     forecast_release_digest: str
-    unit_id: str
+    unit_id: str | None
     case_id: str
     transcript_sha256: str
     should_score: bool
@@ -267,6 +271,8 @@ def run_and_project_solver_input_adapter(
     if result.request_id != request.request_id:
         raise ValueError("run result request_id does not match request")
     write_json_object_safe(workspace / "result.json", result.to_record())
+    if result.status != "succeeded":
+        return result, None
     return result, project_and_write_release_harness_result(
         request,
         result,
@@ -354,6 +360,412 @@ def project_release_harness_result(
     return _projection_from_evidence(request, result, evidence)
 
 
+RELEASE_SCORE_SCHEMA_VERSION = "legalforecast.multiharness.release_score.v1"
+RELEASE_FAILURE_POLICY_ID = "failure-brier-1.0-v1"
+
+
+def score_multiharness_release(
+    run: MultiHarnessRun,
+    forecast_release: ForecastRelease,
+    labels_release: LabelsRelease,
+    *,
+    failure_brier: float = 1.0,
+) -> Mapping[str, Any]:
+    """Score selected release units, retaining complete failure accounting.
+
+    The terminal benchmark treats an execution failure as a scored unit with a
+    fixed Brier penalty of ``1.0``.  It never invents a probability for a
+    timeout, crash, denial, skipped row, or invalid model response.  Missing
+    rows remain selection/incompleteness diagnostics and are separate from
+    execution failures.  Successful rows are scored from their authenticated
+    public parser projection.
+    """
+
+    if isinstance(failure_brier, bool):
+        raise ValueError("failure_brier must be numeric")
+    failure_brier = float(failure_brier)
+    if failure_brier != 1.0:
+        raise ValueError("failure_brier is fixed at 1.0 for terminal releases")
+    if labels_release.release_id != forecast_release.release_id:
+        raise ValueError("labels release identity differs from forecast release")
+    if labels_release.forecast_release_digest != forecast_release.release_digest:
+        raise ValueError("labels release binds a different forecast release")
+
+    units_by_id = {unit.unit_id: unit for unit in forecast_release.prediction_units}
+    labels_by_id = {
+        label.unit_id: label.outcome for label in labels_release.unit_outcomes
+    }
+    expected_scoreable = {
+        unit.unit_id for unit in forecast_release.prediction_units if unit.should_score
+    }
+    if set(labels_by_id) != expected_scoreable:
+        raise ValueError("labels release does not match forecast scoreable unit set")
+
+    selected_tasks = tuple(run.selection.tasks)
+    selected_task_ids = tuple(task.task_id for task in selected_tasks)
+    selected_unit_ids: list[str] = []
+    selected_case_ids: list[str] = []
+    selected_units_by_task: dict[str, tuple[str, ...]] = {}
+    for task in selected_tasks:
+        metadata = task.metadata
+        case_id = metadata.get("case_id")
+        if not isinstance(case_id, str) or case_id not in {
+            case.case_id for case in forecast_release.cases
+        }:
+            raise ValueError("selected release task has an unknown case_id")
+        selected_case_ids.append(case_id)
+        raw_required = metadata.get("required_unit_ids")
+        if not isinstance(raw_required, list | tuple) or not raw_required:
+            raise ValueError("selected release task has no required_unit_ids")
+        required = tuple(cast(list[Any] | tuple[Any, ...], raw_required))
+        if any(not isinstance(unit_id, str) for unit_id in required):
+            raise ValueError("selected release task unit IDs must be strings")
+        unknown = set(required).difference(units_by_id)
+        if unknown or any(
+            units_by_id[unit_id].case_id != case_id for unit_id in required
+        ):
+            raise ValueError("selected release task units do not match its case")
+        selected_units_by_task[task.task_id] = required
+        selected_unit_ids.extend(required)
+    if len(selected_unit_ids) != len(set(selected_unit_ids)):
+        raise ValueError("selection repeats a release prediction unit")
+    scoreable_selected_ids = tuple(
+        unit_id for unit_id in selected_unit_ids if units_by_id[unit_id].should_score
+    )
+    if not scoreable_selected_ids:
+        raise ValueError("selection contains no scoreable release units")
+
+    rows_by_task: dict[str, list[Any]] = {}
+    for row in run.rows:
+        rows_by_task.setdefault(row.task.task_id, []).append(row)
+    missing_task_ids = tuple(
+        task_id for task_id in selected_task_ids if task_id not in rows_by_task
+    )
+    treatment_rows: dict[str, list[Any]] = {}
+    selected_task_id_set = set(selected_task_ids)
+    for task_id, rows in rows_by_task.items():
+        if task_id not in selected_task_id_set:
+            continue
+        for row in rows:
+            treatment = _release_treatment_id(row)
+            treatment_rows.setdefault(treatment, []).append(row)
+
+    model_reports: list[dict[str, Any]] = []
+    for treatment_id, rows in sorted(treatment_rows.items()):
+        # One adapter/model treatment must have at most one row for each task.
+        rows_by_selected_task: dict[str, Any] = {}
+        for row in rows:
+            task_id = row.task.task_id
+            if task_id in rows_by_selected_task:
+                raise ValueError(
+                    f"treatment {treatment_id} has duplicate row for {task_id}"
+                )
+            rows_by_selected_task[task_id] = row
+        model_missing_task_ids = tuple(
+            task_id
+            for task_id in selected_task_ids
+            if task_id not in rows_by_selected_task
+        )
+        model_missing_unit_ids = tuple(
+            unit_id
+            for task_id in model_missing_task_ids
+            for unit_id in selected_units_by_task[task_id]
+            if units_by_id[unit_id].should_score
+        )
+        unit_scores: list[dict[str, Any]] = []
+        failures: list[dict[str, Any]] = []
+        usage: list[dict[str, Any]] = []
+        for task in selected_tasks:
+            row = rows_by_selected_task.get(task.task_id)
+            required = selected_units_by_task[task.task_id]
+            scoreable = tuple(
+                unit_id for unit_id in required if units_by_id[unit_id].should_score
+            )
+            if row is None:
+                continue
+            result = row.result
+            summary = dict(result.public_summary)
+            usage_record = _release_usage_record(summary)
+            if usage_record:
+                usage.append({"task_id": task.task_id, **usage_record})
+            parser = _release_parser_projection(row)
+            if result.status != "succeeded":
+                failure_kind = _release_failure_kind(result.status, summary)
+                for unit_id in scoreable:
+                    failures.append(
+                        _release_failure_unit(
+                            task=task,
+                            unit_id=unit_id,
+                            outcome=labels_by_id[unit_id],
+                            status=result.status,
+                            failure_kind=failure_kind,
+                            failure_brier=failure_brier,
+                            summary=summary,
+                            usage=usage_record,
+                            parser=None,
+                        )
+                    )
+                continue
+            if parser is None:
+                for unit_id in scoreable:
+                    failures.append(
+                        _release_failure_unit(
+                            task=task,
+                            unit_id=unit_id,
+                            outcome=labels_by_id[unit_id],
+                            status="failed",
+                            failure_kind="projection_missing",
+                            failure_brier=failure_brier,
+                            summary=summary,
+                            usage=usage_record,
+                            parser=None,
+                        )
+                    )
+                continue
+            parser_record = parser.get("parser_output")
+            if isinstance(parser_record, Mapping):
+                parser_record = cast(Mapping[str, Any], parser_record)
+            else:
+                parser_record = parser
+            try:
+                parsed = parsed_output_from_public_record(parser_record)
+            except (TypeError, ValueError):
+                parsed = None
+            if (
+                parsed is None
+                or not parsed.is_valid
+                or tuple(parsed.required_unit_ids) != required
+            ):
+                failure_kind = "invalid_output"
+                for unit_id in scoreable:
+                    failures.append(
+                        _release_failure_unit(
+                            task=task,
+                            unit_id=unit_id,
+                            outcome=labels_by_id[unit_id],
+                            status="failed",
+                            failure_kind=failure_kind,
+                            failure_brier=failure_brier,
+                            summary=summary,
+                            usage=usage_record,
+                            parser=parser_record,
+                        )
+                    )
+                continue
+            for unit_id in scoreable:
+                prediction = parsed.prediction_for(unit_id)
+                if prediction.defaulted:
+                    failures.append(
+                        _release_failure_unit(
+                            task=task,
+                            unit_id=unit_id,
+                            outcome=labels_by_id[unit_id],
+                            status="failed",
+                            failure_kind="defaulted_prediction",
+                            failure_brier=failure_brier,
+                            summary=summary,
+                            usage=usage_record,
+                            parser=parser_record,
+                        )
+                    )
+                    continue
+                probability = prediction.probability_fully_dismissed
+                unit_scores.append(
+                    _release_success_unit(
+                        task=task,
+                        unit_id=unit_id,
+                        outcome=labels_by_id[unit_id],
+                        probability=probability,
+                        parser_status=parsed.status.value,
+                        raw_output_sha256=parsed.raw_output_sha256,
+                        usage=usage_record,
+                    )
+                )
+
+        # Unit-level failures are intentionally in the score denominator.
+        all_units = sorted(
+            (*unit_scores, *failures),
+            key=lambda record: (record["case_id"], record["unit_id"]),
+        )
+        by_case: dict[str, list[dict[str, Any]]] = {}
+        for record in all_units:
+            by_case.setdefault(record["case_id"], []).append(record)
+        micro = _mean(record["brier"] for record in all_units) if all_units else None
+        equal_case = (
+            _mean(
+                _mean(record["brier"] for record in case_records)
+                for case_records in by_case.values()
+            )
+            if by_case
+            else None
+        )
+        expected_count = len(scoreable_selected_ids)
+        failed_count = len(failures)
+        completed_count = len(unit_scores)
+        invalid_count = sum(
+            record["failure_kind"]
+            in {"invalid_output", "defaulted_prediction", "projection_missing"}
+            for record in failures
+        )
+        model_reports.append(
+            {
+                "treatment_id": treatment_id,
+                "adapter_id": rows[0].adapter_manifest.adapter_id,
+                "model_key": rows[0].model_config.model_key,
+                "case_count": len(by_case),
+                "unit_count": len(all_units),
+                "completed_unit_count": len(unit_scores),
+                "failed_unit_count": len(failures),
+                "invalid_unit_count": invalid_count,
+                "selection_complete": not model_missing_task_ids,
+                "missing_task_ids": list(model_missing_task_ids),
+                "missing_unit_ids": list(model_missing_unit_ids),
+                "selection_incomplete_unit_count": len(model_missing_unit_ids),
+                "completion_rate": completed_count / expected_count,
+                "failure_rate": failed_count / expected_count,
+                "micro_brier": micro,
+                "equal_case_brier": equal_case,
+                "unit_scores": all_units,
+                "failures": failures,
+                "usage": usage,
+            }
+        )
+
+    return {
+        "schema_version": RELEASE_SCORE_SCHEMA_VERSION,
+        "failure_policy": {
+            "policy_id": RELEASE_FAILURE_POLICY_ID,
+            "failure_brier": failure_brier,
+            "description": (
+                "execution and invalid-output failures receive a fixed Brier penalty"
+            ),
+        },
+        "selection": {
+            "selected_task_ids": list(selected_task_ids),
+            "selected_case_ids": sorted(set(selected_case_ids)),
+            "selected_unit_ids": list(scoreable_selected_ids),
+            "expected_unit_count": len(scoreable_selected_ids),
+            "missing_task_ids": list(missing_task_ids),
+            "incomplete_unit_count": sum(
+                len(
+                    tuple(
+                        unit_id
+                        for unit_id in selected_units_by_task[task_id]
+                        if units_by_id[unit_id].should_score
+                    )
+                )
+                for task_id in missing_task_ids
+            ),
+            "complete": not missing_task_ids,
+        },
+        "models": model_reports,
+    }
+
+
+def _release_treatment_id(row: Any) -> str:
+    record = cast(Mapping[str, Any] | None, row.lfb_record)
+    if isinstance(record, Mapping):
+        value = record.get("treatment_id")
+        if isinstance(value, str) and value.strip():
+            return value
+    return f"{row.adapter_manifest.adapter_id}:{row.model_config.model_key}"
+
+
+def _release_parser_projection(row: Any) -> Mapping[str, Any] | None:
+    record = cast(Mapping[str, Any] | None, row.lfb_record)
+    if not isinstance(record, Mapping):
+        return None
+    parser = record.get("parser_output")
+    if isinstance(parser, Mapping):
+        return record
+    return None
+
+
+def _release_usage_record(summary: Mapping[str, Any]) -> dict[str, Any]:
+    keys = (
+        "provider_request_count",
+        "request_count",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "estimated_cost",
+    )
+    return {key: summary[key] for key in keys if key in summary}
+
+
+def _release_failure_kind(status: str, summary: Mapping[str, Any]) -> str:
+    error_type = summary.get("error_type")
+    if isinstance(error_type, str) and error_type.strip():
+        return error_type
+    if status == "interrupted":
+        return "interrupted"
+    return status
+
+
+def _release_failure_unit(
+    *,
+    task: Any,
+    unit_id: str,
+    outcome: int,
+    status: str,
+    failure_kind: str,
+    failure_brier: float,
+    summary: Mapping[str, Any],
+    usage: Mapping[str, Any],
+    parser: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "case_id": task.metadata["case_id"],
+        "unit_id": unit_id,
+        "outcome": outcome,
+        "probability_fully_dismissed": None,
+        "brier": failure_brier,
+        "status": status,
+        "failure_kind": failure_kind,
+        "error_type": summary.get("error_type"),
+        "error_message": summary.get("error_message"),
+        "parser_status": parser.get("status") if parser is not None else None,
+        "parser_issues": parser.get("issues", []) if parser is not None else [],
+        "parser_defaulted_unit_ids": (
+            parser.get("defaulted_unit_ids", []) if parser is not None else []
+        ),
+        "usage": dict(usage),
+        "scored": True,
+    }
+
+
+def _release_success_unit(
+    *,
+    task: Any,
+    unit_id: str,
+    outcome: int,
+    probability: float,
+    parser_status: str,
+    raw_output_sha256: str,
+    usage: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        "case_id": task.metadata["case_id"],
+        "unit_id": unit_id,
+        "outcome": outcome,
+        "probability_fully_dismissed": probability,
+        "brier": (probability - outcome) ** 2,
+        "status": "scored",
+        "failure_kind": None,
+        "parser_status": parser_status,
+        "raw_output_sha256": raw_output_sha256,
+        "usage": dict(usage),
+        "scored": True,
+    }
+
+
+def _mean(values: Iterable[float]) -> float:
+    values_tuple = tuple(values)
+    if not values_tuple:
+        raise ValueError("cannot calculate a mean over no values")
+    return sum(values_tuple) / len(values_tuple)
+
+
 def _projection_from_evidence(
     request: RunRequest,
     result: RunResult,
@@ -371,9 +783,18 @@ def _projection_from_evidence(
         )
     summary = result.public_summary
     adapter_id = request.adapter.adapter_id
+    subject_id = evidence.unit_id or evidence.case_id
+    inspect_metadata: dict[str, Any] = {
+        "forecast_release_digest": evidence.forecast_release_digest,
+        "harness_track": evidence.track,
+        "release_id": evidence.release_id,
+        "transcript_sha256": evidence.transcript_sha256,
+    }
+    if evidence.unit_id is not None:
+        inspect_metadata["unit_id"] = evidence.unit_id
     inspect = {
-        "sample_id": evidence.unit_id,
-        "candidate_id": f"{evidence.release_id}:{evidence.unit_id}",
+        "sample_id": subject_id,
+        "candidate_id": f"{evidence.release_id}:{subject_id}",
         "case_id": evidence.case_id,
         "related_family_id": None,
         "mdl_family_id": None,
@@ -394,13 +815,7 @@ def _projection_from_evidence(
             {"tool_call_index": index + 1} for index in range(evidence.tool_call_count)
         ],
         "execution_backend": _summary_execution_backend(summary, evidence.track),
-        "metadata": {
-            "forecast_release_digest": evidence.forecast_release_digest,
-            "harness_track": evidence.track,
-            "release_id": evidence.release_id,
-            "transcript_sha256": evidence.transcript_sha256,
-            "unit_id": evidence.unit_id,
-        },
+        "metadata": inspect_metadata,
     }
     projected = project_lfb_adapter_record(
         inspect,
@@ -461,7 +876,12 @@ def _release_receipt_evidence(
     adapter_id = request.adapter.adapter_id
     adapter_version = request.adapter.adapter_version
     release_id = require_release_metadata_str(metadata, "release_id")
-    unit_id = require_release_metadata_str(metadata, "unit_id")
+    raw_unit_id = metadata.get("unit_id")
+    if raw_unit_id is not None and (
+        not isinstance(raw_unit_id, str) or not raw_unit_id.strip()
+    ):
+        raise ReleaseHarnessError("task metadata unit_id must be a non-empty string")
+    unit_id = raw_unit_id
     case_id = require_release_metadata_str(metadata, "case_id")
     should_score = _required_metadata_bool(metadata, "should_score")
     tools = _required_summary_string_list(summary, "allowed_tools")
@@ -703,8 +1123,11 @@ def _validate_release_receipt_content(content: Mapping[str, Any]) -> None:
     if set(content) != expected:
         raise ReleaseHarnessError("release harness receipt fields are invalid")
     require_schema_version(content, RELEASE_HARNESS_RECEIPT_SCHEMA_VERSION)
-    for field_name in ("receipt_id", "release_id", "case_id", "unit_id"):
+    for field_name in ("receipt_id", "release_id", "case_id"):
         require_str(content, field_name)
+    unit_id = content.get("unit_id")
+    if unit_id is not None and (not isinstance(unit_id, str) or not unit_id.strip()):
+        raise ReleaseHarnessError("release receipt unit_id must be null or non-empty")
     if not isinstance(content.get("should_score"), bool):
         raise ReleaseHarnessError("release receipt should_score must be a boolean")
     for field_name in (

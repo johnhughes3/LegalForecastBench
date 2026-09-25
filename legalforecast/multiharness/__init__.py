@@ -183,6 +183,11 @@ from legalforecast.multiharness.receipt_authority import (
     authority_from_synthetic_fixture_key,
     pending_evaluator_issuer_authority,
 )
+from legalforecast.multiharness.release_harness import (
+    RELEASE_FAILURE_POLICY_ID,
+    RELEASE_SCORE_SCHEMA_VERSION,
+    score_multiharness_release,
+)
 from legalforecast.multiharness.run_metadata import (
     RECEIPT_METADATA_BINDING_SCHEMA_VERSION,
     RUN_METADATA_SCHEMA_VERSION,
@@ -335,6 +340,8 @@ __all__ = [
     "PROVIDER_EGRESS_HOST_ONLY",
     "RECEIPT_AUTHORITY_SCHEMA_VERSION",
     "RECEIPT_METADATA_BINDING_SCHEMA_VERSION",
+    "RELEASE_FAILURE_POLICY_ID",
+    "RELEASE_SCORE_SCHEMA_VERSION",
     "REQUIRED_ATTESTATIONS",
     "REQUIRED_CONTRIBUTOR_ROLES",
     "RUN_MANIFEST_SCHEMA_VERSION",
@@ -493,6 +500,7 @@ __all__ = [
     "run_adapter_conformance",
     "run_multi_harness",
     "sandbox_policy",
+    "score_multiharness_release",
     "seal_deliverable",
     "solver_material_access",
     "validate_container_resume",
