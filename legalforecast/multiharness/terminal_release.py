@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Mapping
+from pathlib import Path
 from typing import Any
 
 from legalforecast._json_io import write_json_object_safe
@@ -23,27 +24,25 @@ from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.solver_inputs import SolverInputStore
 from legalforecast.multiharness.task_loaders import ReleaseLfbTaskLoader
 from legalforecast.multiharness.terminal_release_cli import TerminalReleaseOptions
+from legalforecast.multiharness.terminal_release_package import (
+    load_terminal_release_run,
+)
 from legalforecast.release.models import ForecastRelease, LabelsRelease
-from legalforecast.release.service import validate_release
+from legalforecast.release.service import load_forecast_execution, validate_release
 
 ReleaseScorer = Callable[
     [MultiHarnessRun, ForecastRelease, LabelsRelease], Mapping[str, Any]
 ]
 
 
-def execute_terminal_release(
+def _execute_blinded_release(
     options: TerminalReleaseOptions,
     *,
     adapter: HarnessAdapter,
-    score: ReleaseScorer,
-) -> Mapping[str, Any]:
-    """Stage only blinded inputs, execute one case call, and score the census."""
+    forecast: ForecastRelease,
+) -> MultiHarnessRun:
+    """Stage only blinded inputs and execute one case call per release case."""
 
-    forecast, labels = validate_release(
-        options.forecast_release,
-        options.labels_release,
-        artifact_root=options.artifact_root,
-    )
     if options.output_dir.exists() or options.output_dir.is_symlink():
         raise ValueError("--output-dir must be a fresh, absent path")
     ensure_private_directory(options.output_dir)
@@ -86,6 +85,62 @@ def execute_terminal_release(
             solver_inputs=inputs,
         )
     )
+    return run
+
+
+def execute_terminal_release(
+    options: TerminalReleaseOptions,
+    *,
+    adapter: HarnessAdapter,
+    score: ReleaseScorer,
+) -> Mapping[str, Any]:
+    """Run and score the existing one-command release convenience flow."""
+
+    if options.labels_release is None:
+        raise ValueError("release-run requires --labels-release")
+    forecast, labels = validate_release(
+        options.forecast_release,
+        options.labels_release,
+        artifact_root=options.artifact_root,
+    )
+    run = _execute_blinded_release(options, adapter=adapter, forecast=forecast)
     report = dict(score(run, forecast, labels))
     write_json_object_safe(options.output_dir / "scores.json", report)
+    return report
+
+
+def execute_terminal_release_only(
+    options: TerminalReleaseOptions,
+    *,
+    adapter: HarnessAdapter,
+) -> MultiHarnessRun:
+    """Execute a forecast release without loading labels or scoring."""
+
+    forecast = load_forecast_execution(
+        options.forecast_release,
+        artifact_root=options.artifact_root,
+    ).release
+    return _execute_blinded_release(options, adapter=adapter, forecast=forecast)
+
+
+def score_terminal_release(
+    *,
+    run_dir: Path,
+    forecast_release_path: Path,
+    labels_release_path: Path,
+    artifact_root: Path,
+    score: ReleaseScorer,
+    output_path: Path | None = None,
+) -> Mapping[str, Any]:
+    """Score a saved scoreless run using labels loaded only on this path."""
+
+    forecast, labels = validate_release(
+        forecast_release_path,
+        labels_release_path,
+        artifact_root=artifact_root,
+    )
+    run = load_terminal_release_run(run_dir)
+    report = dict(score(run, forecast, labels))
+    destination = output_path or run_dir / "scores.json"
+    write_json_object_safe(destination, report)
     return report

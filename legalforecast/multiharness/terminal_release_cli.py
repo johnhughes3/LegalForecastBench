@@ -28,7 +28,7 @@ class TerminalReleaseOptions:
     """Validated, non-secret command input before any release or key access."""
 
     forecast_release: Path
-    labels_release: Path
+    labels_release: Path | None
     artifact_root: Path
     output_dir: Path
     model_key: str
@@ -149,7 +149,11 @@ class TerminalReleaseOptions:
             raise ValueError("--timeout-seconds must be positive")
         return cls(
             forecast_release=Path(args.forecast_release),
-            labels_release=Path(args.labels_release),
+            labels_release=(
+                Path(args.labels_release)
+                if getattr(args, "labels_release", None) is not None
+                else None
+            ),
             artifact_root=Path(args.artifact_root),
             output_dir=output_dir,
             model_key=model_key,
@@ -173,8 +177,10 @@ def add_terminal_release_parser(
     commands: Any,
     *,
     handler: Callable[[argparse.Namespace], int],
+    execute_handler: Callable[[argparse.Namespace], int],
+    score_handler: Callable[[argparse.Namespace], int],
 ) -> None:
-    """Register one command that executes and scores a blinded release."""
+    """Register release execution, scoring, and convenience commands."""
 
     parser = commands.add_parser(
         "release-run",
@@ -185,18 +191,60 @@ def add_terminal_release_parser(
             "experiment, not an official benchmark publication."
         ),
     )
+    _add_release_execution_arguments(parser, include_labels=True)
+    parser.set_defaults(handler=handler)
+
+    execute = commands.add_parser(
+        "release-execute",
+        help="Execute Claude Code on a blinded release without loading labels.",
+        description=(
+            "Execute one Claude Code forecast per case and save the private run "
+            "package. This command never accepts or reads labels."
+        ),
+    )
+    _add_release_execution_arguments(execute, include_labels=False)
+    execute.set_defaults(handler=execute_handler)
+
+    score = commands.add_parser(
+        "release-score",
+        help="Score a saved scoreless terminal-release package.",
+        description=(
+            "Load a saved release-execute package and score it with labels on "
+            "the host. No model or container is invoked."
+        ),
+    )
+    score.add_argument("--run-dir", type=Path, required=True)
+    score.add_argument("--forecast-release", type=Path, required=True)
+    score.add_argument("--labels-release", type=Path, required=True)
+    score.add_argument("--artifact-root", type=Path, required=True)
+    score.add_argument(
+        "--output",
+        type=Path,
+        help="Score report destination; defaults to RUN_DIR/scores.json.",
+    )
+    score.set_defaults(handler=score_handler)
+
+
+def _add_release_execution_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    include_labels: bool,
+) -> None:
+    """Add common execution arguments for release-run and release-execute."""
+
     parser.add_argument(
         "--forecast-release",
         type=Path,
         required=True,
         help="Validated outcome-blinded forecast-release.json.",
     )
-    parser.add_argument(
-        "--labels-release",
-        type=Path,
-        required=True,
-        help="Separate labels-release.json, read only for host-side scoring.",
-    )
+    if include_labels:
+        parser.add_argument(
+            "--labels-release",
+            type=Path,
+            required=True,
+            help="Separate labels-release.json, read only for host-side scoring.",
+        )
     parser.add_argument(
         "--artifact-root",
         type=Path,
@@ -270,4 +318,3 @@ def add_terminal_release_parser(
     )
     parser.add_argument("--timeout-seconds", type=int, default=900)
     parser.add_argument("--run-id", default="claude-code-release")
-    parser.set_defaults(handler=handler)
