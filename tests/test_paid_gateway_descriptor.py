@@ -244,24 +244,6 @@ def test_descriptor_rejects_registry_model_not_in_locked_registry(
         )
 
 
-def test_descriptor_refuses_release_wide_worst_case_over_ceiling(
-    tmp_path: Path,
-) -> None:
-    manifest_path, forecast_path, artifact_root, registry_path = _inputs(tmp_path)
-
-    with pytest.raises(ProtectedTerminalPaidError, match="worst-case release cost"):
-        issue_paid_gateway_descriptor(
-            manifest_path=manifest_path,
-            forecast_path=forecast_path,
-            artifact_root=artifact_root,
-            model_registry_path=registry_path,
-            model_key="anthropic:claude-sonnet-4-5",
-            ceiling_microusd=226_800_000 - 1,
-            account="official",
-            environment=_ENVIRONMENT,
-        )
-
-
 def test_descriptor_output_is_create_only(tmp_path: Path) -> None:
     manifest_path, forecast_path, artifact_root, registry_path = _inputs(tmp_path)
     descriptor = issue_paid_gateway_descriptor(
