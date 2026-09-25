@@ -12,7 +12,10 @@ from legalforecast.cli import main
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.multiharness.adapters import AdapterPreparation
 from legalforecast.multiharness.release_adapters import NeutralApiFixtureAdapter
-from legalforecast.multiharness.release_harness import score_multiharness_release
+from legalforecast.multiharness.release_harness import (
+    release_bytes_sha256,
+    score_multiharness_release,
+)
 from legalforecast.multiharness.spec import (
     AdapterCapabilities,
     RunRequest,
@@ -41,12 +44,18 @@ from legalforecast.release import (
 class CaseBatchFixtureAdapter:
     """Return all predictions for a case in one neutral fixture invocation."""
 
-    def __init__(self, *, failed_case_id: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        failed_case_id: str | None = None,
+        error_case_id: str | None = None,
+    ) -> None:
         self.manifest = replace(
             NeutralApiFixtureAdapter(raw_output="{}").manifest,
             adapter_id="claude-code-container",
         )
         self.failed_case_id = failed_case_id
+        self.error_case_id = error_case_id
         self.calls: list[str] = []
 
     def _delegate(self, request: RunRequest) -> NeutralApiFixtureAdapter:
@@ -93,6 +102,11 @@ class CaseBatchFixtureAdapter:
         workspace: Path,
         solver_input_root: Path,
     ) -> RunResult:
+        case_id = request.task.metadata["case_id"]
+        if case_id == self.error_case_id:
+            assert isinstance(case_id, str)
+            self.calls.append(case_id)
+            raise RuntimeError("fixture pre-projection failure")
         return self._delegate(request).run_with_solver_input(
             request, workspace, solver_input_root
         )
@@ -297,9 +311,48 @@ def test_saved_package_rejects_row_workspace_traversal(tmp_path: Path) -> None:
     options = _options(release_root, artifact_root, tmp_path / "run")
     execute_terminal_release_only(options, adapter=CaseBatchFixtureAdapter())
     row_results = options.output_dir / "row-results.jsonl"
-    record = json.loads(row_results.read_text().splitlines()[0])
-    record["row_id"] = "../outside"
-    row_results.write_text(json.dumps(record) + "\n")
+    rewritten = json.loads(row_results.read_text().splitlines()[0])
+    rewritten["row_id"] = "../outside"
+    payload = (json.dumps(rewritten) + "\n").encode()
+    row_results.write_bytes(payload)
+    artifact_index_path = options.output_dir / "artifact-index.json"
+    artifact_index = json.loads(artifact_index_path.read_text())
+    row_results_record = next(
+        item
+        for item in artifact_index["artifacts"]
+        if item["path"] == "row-results.jsonl"
+    )
+    row_results_record["sha256"] = release_bytes_sha256(payload)
+    row_results_record["size_bytes"] = len(payload)
+    artifact_index_path.write_text(json.dumps(artifact_index))
 
     with pytest.raises(ValueError, match="safe path component"):
+        load_terminal_release_run(options.output_dir)
+
+
+def test_saved_package_rejects_mutated_preprojection_failure_result(
+    tmp_path: Path,
+) -> None:
+    release_root, artifact_root = _issue_unequal_case_release(tmp_path)
+    options = _options(release_root, artifact_root, tmp_path / "run")
+    execute_terminal_release_only(
+        options,
+        adapter=CaseBatchFixtureAdapter(error_case_id="case-002"),
+    )
+    result_path = next(
+        path
+        for path in (options.output_dir / "rows").glob("*/result.json")
+        if "case-002"
+        in json.loads((path.parent / "request.json").read_text())["task"]["metadata"][
+            "case_id"
+        ]
+    )
+    original_payload = result_path.read_text()
+    result = json.loads(original_payload)
+    original_error = result["public_summary"]["error_message"]
+    result_path.write_text(
+        original_payload.replace(original_error, "x" * len(original_error), 1)
+    )
+
+    with pytest.raises(ValueError, match="artifact digest does not match"):
         load_terminal_release_run(options.output_dir)

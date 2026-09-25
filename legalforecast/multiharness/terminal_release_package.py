@@ -16,6 +16,7 @@ from legalforecast.multiharness.runner import (
 )
 from legalforecast.multiharness.selection import SelectionResult, TaskSelection
 from legalforecast.multiharness.spec import (
+    ArtifactRecord,
     RunManifest,
     RunRequest,
     RunResult,
@@ -33,12 +34,19 @@ def load_terminal_release_run(run_dir: Path) -> MultiHarnessRun:
 
     if not run_dir.is_dir() or run_dir.is_symlink():
         raise ValueError("--run-dir must be an existing run directory")
-    manifest = RunManifest.from_record(_read_object(run_dir / "run-manifest.json"))
-    selection_record = _read_object(run_dir / "selection-manifest.json")
-    task_index = TaskIndex.from_record(_read_object(run_dir / "task-index.json"))
+    artifacts = _load_artifact_index(run_dir)
+    manifest = RunManifest.from_record(
+        _read_indexed_object(run_dir, "run-manifest.json", artifacts)
+    )
+    selection_record = _read_indexed_object(
+        run_dir, "selection-manifest.json", artifacts
+    )
+    task_index = TaskIndex.from_record(
+        _read_indexed_object(run_dir, "task-index.json", artifacts)
+    )
     selection = _selection_from_record(selection_record, task_index, manifest)
-    row_records = _read_jsonl(run_dir / "row-results.jsonl")
-    lfb_records = _read_jsonl_if_present(run_dir / "lfb" / "runs.jsonl")
+    row_records = _read_indexed_jsonl(run_dir, "row-results.jsonl", artifacts)
+    lfb_records = _read_indexed_jsonl_if_present(run_dir, "lfb/runs.jsonl", artifacts)
     lfb_by_key = _index_lfb_records(lfb_records)
     selected_tasks = {task.task_id: task for task in selection.tasks}
     rows_root = run_dir / "rows"
@@ -55,8 +63,12 @@ def load_terminal_release_run(run_dir: Path) -> MultiHarnessRun:
             raise ValueError(f"saved run contains duplicate row_id: {row_id}")
         seen_row_ids.add(row_id)
         workspace = _row_workspace(rows_root, row_id)
-        request = RunRequest.from_record(_read_object(workspace / "request.json"))
-        result = RunResult.from_record(_read_object(workspace / "result.json"))
+        request = RunRequest.from_record(
+            _read_indexed_object(run_dir, f"rows/{row_id}/request.json", artifacts)
+        )
+        result = RunResult.from_record(
+            _read_indexed_object(run_dir, f"rows/{row_id}/result.json", artifacts)
+        )
         _validate_row_record(row_record, request=request, result=result)
         selected_task = selected_tasks.get(request.task.task_id)
         if selected_task is None:
@@ -99,7 +111,7 @@ def load_terminal_release_run(run_dir: Path) -> MultiHarnessRun:
             )
         )
 
-    _validate_saved_release_evidence(rows, lfb_by_key, run_dir)
+    _validate_saved_release_evidence(rows, lfb_by_key, run_dir, artifacts)
 
     if seen_result_ids != set(manifest.result_ids):
         raise ValueError("saved run result census does not match run-manifest.json")
@@ -217,6 +229,7 @@ def _validate_saved_release_evidence(
     rows: list[MultiHarnessRunRow],
     lfb_records: Mapping[tuple[str, str | None], dict[str, Any]],
     run_dir: Path,
+    artifacts: Mapping[str, ArtifactRecord],
 ) -> None:
     """Revalidate per-row receipts before handing the package to scoring."""
 
@@ -253,7 +266,9 @@ def _validate_saved_release_evidence(
         if expected_receipts:
             raise ValueError("saved run release receipt aggregate is missing")
         return
-    aggregate = _read_jsonl(aggregate_path)
+    aggregate = _read_indexed_jsonl(
+        run_dir, "release-harness-receipts.jsonl", artifacts
+    )
     aggregate_by_id: dict[str, dict[str, Any]] = {}
     for receipt in aggregate:
         receipt_id = receipt.get("receipt_id")
@@ -277,6 +292,75 @@ def _read_object(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"saved run artifact must be an object: {path}")
     return cast(dict[str, Any], value)
+
+
+def _load_artifact_index(run_dir: Path) -> dict[str, ArtifactRecord]:
+    """Verify every indexed package file before consuming any run records."""
+
+    index_record = _read_object(run_dir / "artifact-index.json")
+    raw_artifacts = index_record.get("artifacts")
+    if not isinstance(raw_artifacts, list):
+        raise ValueError("saved run artifact index is invalid")
+    records: dict[str, ArtifactRecord] = {}
+    for raw_record in cast(list[object], raw_artifacts):
+        if not isinstance(raw_record, Mapping):
+            raise ValueError("saved run artifact index contains an invalid record")
+        artifact = ArtifactRecord.from_record(cast(Mapping[str, Any], raw_record))
+        if artifact.path in records:
+            raise ValueError("saved run artifact index contains duplicate paths")
+        records[artifact.path] = artifact
+        path = run_dir / artifact.path
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(
+                f"saved run indexed artifact is unavailable: {artifact.path}"
+            )
+        payload = read_single_link_file(path, label="saved run indexed artifact")
+        if len(payload) != artifact.size_bytes:
+            raise ValueError(f"saved run artifact size does not match: {artifact.path}")
+        if release_harness.release_bytes_sha256(payload) != artifact.sha256:
+            raise ValueError(
+                f"saved run artifact digest does not match: {artifact.path}"
+            )
+    return records
+
+
+def _read_indexed_object(
+    run_dir: Path,
+    relative_path: str,
+    artifacts: Mapping[str, ArtifactRecord],
+) -> dict[str, Any]:
+    _require_indexed_artifact(relative_path, artifacts)
+    return _read_object(run_dir / relative_path)
+
+
+def _read_indexed_jsonl(
+    run_dir: Path,
+    relative_path: str,
+    artifacts: Mapping[str, ArtifactRecord],
+) -> tuple[dict[str, Any], ...]:
+    _require_indexed_artifact(relative_path, artifacts)
+    return _read_jsonl(run_dir / relative_path)
+
+
+def _read_indexed_jsonl_if_present(
+    run_dir: Path,
+    relative_path: str,
+    artifacts: Mapping[str, ArtifactRecord],
+) -> tuple[dict[str, Any], ...]:
+    path = run_dir / relative_path
+    if not path.exists() and not path.is_symlink():
+        return ()
+    return _read_indexed_jsonl(run_dir, relative_path, artifacts)
+
+
+def _require_indexed_artifact(
+    relative_path: str,
+    artifacts: Mapping[str, ArtifactRecord],
+) -> ArtifactRecord:
+    artifact = artifacts.get(relative_path)
+    if artifact is None:
+        raise ValueError(f"saved run artifact is absent from index: {relative_path}")
+    return artifact
 
 
 def _row_workspace(rows_root: Path, row_id: str) -> Path:
@@ -318,12 +402,6 @@ def _read_jsonl(path: Path) -> tuple[dict[str, Any], ...]:
             )
         records.append(cast(dict[str, Any], value))
     return tuple(records)
-
-
-def _read_jsonl_if_present(path: Path) -> tuple[dict[str, Any], ...]:
-    if not path.exists() and not path.is_symlink():
-        return ()
-    return _read_jsonl(path)
 
 
 def _required_string(record: Mapping[str, Any], field_name: str) -> str:
