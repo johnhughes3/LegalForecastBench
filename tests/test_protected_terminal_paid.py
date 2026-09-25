@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+import legalforecast.multiharness.protected_terminal_paid as protected_terminal_paid
 import pytest
 from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
 from legalforecast.multiharness.auth_profiles import (
@@ -19,6 +20,7 @@ from legalforecast.multiharness.protected_terminal_paid import (
     ProtectedTerminalPaidError,
     ProtectedTerminalSpendConfig,
     ProviderGatewaySpendController,
+    build_protected_gateway_spend_controller,
     protected_authority_environment,
     uniform_case_reservation_microusd,
 )
@@ -164,6 +166,35 @@ def test_uniform_reservation_leaves_remainder_in_shared_cap() -> None:
     assert uniform_case_reservation_microusd(101, 4) == 25
     with pytest.raises(ProtectedTerminalPaidError, match="at least one"):
         uniform_case_reservation_microusd(3, 4)
+
+
+def test_protected_gateway_factory_uses_workflow_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authority = _FakeAuthority()
+    config = _config()
+    captured: list[ProtectedTerminalSpendConfig] = []
+
+    def fake_builder(
+        received: ProtectedTerminalSpendConfig,
+    ) -> _FakeAuthority:
+        captured.append(received)
+        return authority
+
+    monkeypatch.setattr(
+        protected_terminal_paid,
+        "build_dynamodb_spend_authority",
+        fake_builder,
+    )
+
+    controller = build_protected_gateway_spend_controller(
+        config,
+        reservation_microusd=25,
+        charge_extractor=lambda _body, _status, _content_type: 7,
+    )
+
+    assert controller.authority is authority
+    assert captured == [config]
 
 
 def test_controller_authorizes_and_settles_success(tmp_path: Path) -> None:
