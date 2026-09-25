@@ -95,7 +95,7 @@ def _files(tmp_path: Path) -> tuple[Path, Path, dict[str, Any]]:
         "cycle_id": "cycle-1",
         "account": "official",
         "model_key": entry.registry_key,
-        "ceiling_microusd": 101,
+        "ceiling_microusd": 10_000_000,
         "max_requests": 4,
         "authority_identity_sha256": "a" * 64,
         "reservation_ledger_sha256": "b" * 64,
@@ -123,7 +123,7 @@ def test_load_paid_gateway_config_binds_frozen_inputs_and_reservation(
 
     assert config.model_key == "anthropic:claude-sonnet-4-5"
     assert config.max_requests == 4
-    assert config.reservation_microusd == 25
+    assert config.reservation_microusd == 9_450_000
     assert config.registry_entry.registry_key == config.model_key
 
 
@@ -161,10 +161,10 @@ def test_load_paid_gateway_config_rejects_request_budget_not_coverable(
     tmp_path: Path,
 ) -> None:
     config_path, registry_path, record = _files(tmp_path)
-    record["max_requests"] = 102
+    record["ceiling_microusd"] = 9_449_999
     config_path.write_text(json.dumps(record), encoding="utf-8")
 
-    with pytest.raises(ProtectedTerminalPaidError, match="at least one"):
+    with pytest.raises(ProtectedTerminalPaidError, match="worst-case request cost"):
         paid.load_paid_gateway_config(
             config_path,
             model_registry_path=registry_path,
@@ -202,7 +202,7 @@ def test_build_paid_gateway_controller_uses_cache_aware_registry_pricing(
 
     assert controller is sentinel
     assert captured["spend"] is config.spend
-    assert captured["reservation"] == 25
+    assert captured["reservation"] == 9_450_000
     extractor = cast(
         Callable[[bytes, int, str | None], int | None], captured["extractor"]
     )

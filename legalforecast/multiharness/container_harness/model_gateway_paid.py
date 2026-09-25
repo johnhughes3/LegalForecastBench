@@ -5,12 +5,14 @@ paid gateway.  The descriptor binds the protected workflow marker, the frozen
 Anthropic registry bytes and entry, and the existing DynamoDB authority
 identity.  It contains no provider credential.  Construction delegates spend
 accounting to :mod:`protected_terminal_paid`; this module only derives the
-uniform request hold and selects the registry-aware charge extractor.
+conservative single-request hold and selects the registry-aware charge
+extractor.
 """
 
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,7 +32,6 @@ from legalforecast.multiharness.protected_terminal_paid import (
     anthropic_registry_charge_extractor,
     build_protected_gateway_spend_controller,
     protected_authority_environment,
-    uniform_case_reservation_microusd,
 )
 
 PAID_GATEWAY_CONFIG_SCHEMA: Final[int] = 1
@@ -158,10 +159,11 @@ def load_paid_gateway_config(
             "paid gateway registry entry must disable network and search"
         )
 
-    reservation = uniform_case_reservation_microusd(
-        config.ceiling_microusd,
-        max_requests,
-    )
+    reservation = worst_case_request_microusd(entry)
+    if reservation > config.ceiling_microusd:
+        raise ProtectedTerminalPaidError(
+            "paid gateway worst-case request cost exceeds the approved ceiling"
+        )
     return ProtectedPaidGatewayConfig(
         spend=config,
         model_registry_sha256=registry_sha256,
@@ -182,6 +184,47 @@ def build_paid_gateway_controller(
         reservation_microusd=config.reservation_microusd,
         charge_extractor=anthropic_registry_charge_extractor(config.registry_entry),
     )
+
+
+def worst_case_request_microusd(entry: ModelRegistryEntry) -> int:
+    """Return the conservative cost hold for one frozen provider request.
+
+    The hold covers the registry's maximum context and output sizes using the
+    highest declared input price, including cache pricing.  The protected
+    controller releases unused holds after settlement, so this single-request
+    bound remains safe when several case sidecars run concurrently without
+    multiplying the approved release ceiling by the number of cases.
+    """
+
+    cache_read = entry.cache_read_token_price
+    cache_write = entry.cache_write_token_price
+    if cache_read is None or cache_write is None:
+        raise ProtectedTerminalPaidError(
+            "paid gateway requires frozen cache pricing for a bounded cost check"
+        )
+    prices = (
+        entry.input_token_price,
+        entry.output_token_price,
+        cache_read,
+        cache_write,
+    )
+    if not all(math.isfinite(price) and price > 0 for price in prices):
+        raise ProtectedTerminalPaidError(
+            "paid gateway registry pricing must be finite and positive"
+        )
+    input_price = max(entry.input_token_price, cache_read, cache_write)
+    output_price = entry.output_token_price
+    surcharge = entry.long_context_surcharge
+    max_input = entry.context_limit
+    if surcharge is not None and max_input > surcharge.threshold_input_tokens:
+        input_price *= surcharge.input_price_multiplier
+        output_price *= surcharge.output_price_multiplier
+    worst_case = max_input * input_price + entry.max_output_tokens * output_price
+    if not math.isfinite(worst_case) or worst_case <= 0:
+        raise ProtectedTerminalPaidError(
+            "paid gateway worst-case request cost is invalid"
+        )
+    return math.ceil(worst_case)
 
 
 def _read_object(path: Path, description: str) -> Mapping[str, Any]:
@@ -267,4 +310,5 @@ __all__ = [
     "ProtectedPaidGatewayConfig",
     "build_paid_gateway_controller",
     "load_paid_gateway_config",
+    "worst_case_request_microusd",
 ]

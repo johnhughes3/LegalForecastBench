@@ -8,7 +8,6 @@ small and the gateway-specific validation has one seam.
 from __future__ import annotations
 
 import json
-import math
 import shutil
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -19,6 +18,7 @@ from legalforecast.multiharness.container_harness.evidence import AccountedEgres
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
     ProtectedPaidGatewayConfig,
     load_paid_gateway_config,
+    worst_case_request_microusd,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
     MODEL_GATEWAY_PROXY_BASE_URL,
@@ -152,29 +152,14 @@ def _validate_paid_budget(config: ProtectedPaidGatewayConfig) -> None:
 
     # Keep this check independent of the controller constructor: staging must
     # reject an unbounded paid launch before Docker can start the sidecar.
-    max_requests = config.max_requests
     ceiling = config.spend.ceiling_microusd
-    entry = config.registry_entry
-    cache_read = entry.cache_read_token_price
-    cache_write = entry.cache_write_token_price
-    if cache_read is None or cache_write is None:
+    try:
+        worst_case_microusd = worst_case_request_microusd(config.registry_entry)
+    except ProtectedTerminalPaidError as exc:
+        raise ContainerHarnessError(str(exc)) from exc
+    if worst_case_microusd > ceiling:
         raise ContainerHarnessError(
-            "paid gateway requires frozen cache pricing for a bounded cost check"
-        )
-    input_price = max(entry.input_token_price, cache_read, cache_write)
-    output_price = entry.output_token_price
-    surcharge = entry.long_context_surcharge
-    max_input = entry.context_limit
-    if surcharge is not None and max_input > surcharge.threshold_input_tokens:
-        input_price *= surcharge.input_price_multiplier
-        output_price *= surcharge.output_price_multiplier
-    worst_case_microusd = math.ceil(
-        max_input * input_price + entry.max_output_tokens * output_price
-    )
-    worst_case_microusd *= max_requests
-    if not math.isfinite(worst_case_microusd) or worst_case_microusd > ceiling:
-        raise ContainerHarnessError(
-            "paid gateway worst-case token cost exceeds the approved ceiling"
+            "paid gateway worst-case request cost exceeds the approved ceiling"
         )
 
 
