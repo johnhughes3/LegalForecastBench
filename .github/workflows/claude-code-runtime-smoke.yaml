@@ -6,6 +6,7 @@ on:
       - .github/scripts/setup-rootless-docker.sh
       - .github/workflows/claude-code-runtime-smoke.yaml
       - infra/claude-code-runtime/**
+      - infra/model-gateway-runtime/**
       - legalforecast/multiharness/claude_code_container.py
       - legalforecast/multiharness/claude_code_container_runtime.py
       - legalforecast/multiharness/claude_code_container_inputs.py
@@ -15,6 +16,7 @@ on:
       - tests/test_claude_code_runtime_image.py
       - tests/test_claude_code_managed_policy.py
       - tests/test_container_model_gateway_topology_e2e.py
+      - tests/test_model_gateway_runtime_image.py
       - tests/test_terminal_release_container_e2e.py
       - tests/fixtures/claude_code/release_fixture_server.py
   workflow_dispatch:
@@ -55,6 +57,20 @@ jobs:
           image_id="$(docker image inspect --format '{{.Id}}' lfb-claude-code:smoke)"
           [[ "${image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "LFB_CLAUDE_CODE_RUNTIME_IMAGE=${image_id}" >> "${GITHUB_ENV}"
+
+      - name: Build protected model gateway image
+        run: |
+          set -euo pipefail
+          docker build --pull=false -f infra/model-gateway-runtime/Containerfile -t lfb-model-gateway:smoke .
+          image_id="$(docker image inspect --format '{{.Id}}' lfb-model-gateway:smoke)"
+          [[ "${image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_MODEL_GATEWAY_RUNTIME_IMAGE=${image_id}" >> "${GITHUB_ENV}"
+
+      - name: Verify protected gateway image without network
+        run: |
+          set -euo pipefail
+          LEGALFORECAST_MODEL_GATEWAY_RUNTIME_IMAGE="${LFB_MODEL_GATEWAY_RUNTIME_IMAGE}" \
+          uv run pytest -q tests/test_model_gateway_runtime_image.py
 
       - name: Verify read-only inputs, managed policy, gateway isolation, and scored release
         run: |
