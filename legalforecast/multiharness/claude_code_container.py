@@ -4,8 +4,8 @@ The image and CLI policy are useful only when Claude's native Linux sandbox can
 create its child namespace and hide the parent process environment.  Rootless
 Docker on the supported development host cannot currently create that nested
 namespace.  This module keeps the release-facing adapter identity and factory
-in one place, but refuses execution until an independently verified runtime
-probe is supplied.  It deliberately does not project an API key into a child
+in one place, but refuses execution unless its production runtime preflight
+succeeds.  It deliberately does not project an API key into a child
 container as a workaround: a proxy that gives Bash the model route is not the
 required boundary.
 """

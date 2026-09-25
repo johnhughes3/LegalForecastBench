@@ -10,6 +10,8 @@ positional arguments:
     tier0        Execute the hash-bound paired Harvey LAB Tier-0 smoke.
     report       Summarize a multi-harness run directory as public JSON.
     community    Community submission packaging and aggregation commands.
+    release-run  Run Claude Code on a blinded release and score every selected
+                 unit.
 
 options:
   -h, --help     show this help message and exit

@@ -86,6 +86,10 @@ from legalforecast.multiharness.task_loaders import (
     DEFAULT_LAB_SUITE_VERSION,
     HarveyLabTaskLoader,
 )
+from legalforecast.multiharness.terminal_release_cli import (
+    TerminalReleaseOptions,
+    add_terminal_release_parser,
+)
 from legalforecast.multiharness.tier0_operator_contract import (
     caller_tier0_roots,
     infisical_evaluator_issuer_secret_loader,
@@ -524,6 +528,8 @@ def add_multiharness_parser(subparsers: Any) -> None:
     aggregate.add_argument("--dry-run", action="store_true")
     aggregate.set_defaults(handler=_cmd_community_aggregate)
 
+    add_terminal_release_parser(commands, handler=_cmd_terminal_release)
+
 
 def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--family", action="append", default=[])
@@ -803,6 +809,47 @@ def _cmd_run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 130
+
+
+def _cmd_terminal_release(args: argparse.Namespace) -> int:
+    """Run the release-backed Claude Code treatment and write its score census."""
+
+    from legalforecast.multiharness.claude_code_container import (
+        build_claude_code_container_adapter,
+    )
+    from legalforecast.multiharness.release_harness import (
+        score_multiharness_release,
+    )
+    from legalforecast.multiharness.terminal_release import execute_terminal_release
+
+    options = TerminalReleaseOptions.from_args(args)
+    if options.auth_profile != "fixture-none":
+        raise ValueError(
+            "published-api-key terminal execution is unavailable until the "
+            "container credential boundary and spend approval are verified"
+        )
+    adapter = build_claude_code_container_adapter(
+        image_digest=options.image,
+        auth_profile=options.auth_profile,
+        model_key=options.model_key,
+        max_budget_usd=options.max_budget_usd,
+        approval_reference=options.approval_reference,
+        output_root=options.output_dir.resolve() / "container-runs",
+        backend=options.backend,
+        timeout_seconds=options.timeout_seconds,
+        fixture_base_url=options.fixture_base_url,
+        fixture_egress_network=options.fixture_egress_network,
+    )
+    if not adapter.sandbox_verified:
+        raise ValueError(
+            "Claude Code native Bash sandbox is unavailable in this container "
+            "runtime; no benchmark rows were started"
+        )
+    report = execute_terminal_release(
+        options, adapter=adapter, score=score_multiharness_release
+    )
+    _cli_note(f"Wrote {options.output_dir / 'scores.json'}.")
+    return 0 if report.get("headline_metrics_available") is True else 1
 
 
 def _cmd_run_guarded(args: argparse.Namespace) -> int:
