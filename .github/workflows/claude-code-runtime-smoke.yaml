@@ -21,7 +21,7 @@ concurrency:
 jobs:
   smoke:
     name: Native Bash sandbox and read-only case inputs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
       - name: Check out repository
@@ -36,9 +36,6 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --locked
-
-      - name: Enable nested user namespaces on disposable runner
-        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Configure rootless Docker
         run: .github/scripts/setup-rootless-docker.sh
