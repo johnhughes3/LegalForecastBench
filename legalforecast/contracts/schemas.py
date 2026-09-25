@@ -330,6 +330,7 @@ LABELS_RELEASE_V1 = SchemaIdentifier("legalforecast.labels-release.v1")
 RELEASE_HARNESS_RECEIPT_V1 = SchemaIdentifier(
     "legalforecast.multiharness.release_harness_receipt.v1"
 )
+RELEASE_SCORE_V1 = SchemaIdentifier("legalforecast.multiharness.release_score.v1")
 PUBLIC_RUN_IDENTITY_V1 = SchemaIdentifier("legalforecast.public-run-identity.v1")
 PUBLIC_RUN_RECEIPT_V1 = SchemaIdentifier("legalforecast.public-run-receipt.v1")
 PUBLIC_RUN_MANIFEST_V1 = SchemaIdentifier("legalforecast.public-run-manifest.v1")
