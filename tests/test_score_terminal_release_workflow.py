@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+import textwrap
 from pathlib import Path
+
+import pytest
 
 WORKFLOW_PATH = Path(".github/workflows/score-terminal-release.yaml")
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
@@ -152,6 +156,67 @@ def test_score_step_cannot_execute_a_model_or_write_official_storage() -> None:
     )
     assert "/tmp/lfb-terminal-score-result" in WORKFLOW
     assert "if: ${{ always() }}" in _section("- name: Upload score-only result package")
+
+
+def test_score_result_requires_one_model_bound_to_dispatch_identity() -> None:
+    identity = _section(
+        "- name: Validate sole scored model identity",
+        "- name: Upload score-only result package",
+    )
+    for required in (
+        "if: ${{ always() }}",
+        "/tmp/lfb-terminal-score-result/scores.json",
+        'report.get("models")',
+        "len(models) != 1",
+        'model.get("model_key") != os.environ["EXPECTED_MODEL_KEY"]',
+        "EXPECTED_MODEL_KEY: ${{ inputs.model_key }}",
+    ):
+        assert required in identity
+
+
+def test_score_result_identity_script_rejects_mismatch_and_multiple_models(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = _section(
+        "- name: Validate sole scored model identity",
+        "- name: Upload score-only result package",
+    )
+    script = textwrap.dedent(
+        identity.split("uv run python - <<'PY'\n", 1)[1].split("          PY", 1)[0]
+    )
+    score_path = tmp_path / "scores.json"
+    script = script.replace(
+        'Path("/tmp/lfb-terminal-score-result/scores.json")',
+        f"Path({str(score_path)!r})",
+    )
+    monkeypatch.setenv("EXPECTED_MODEL_KEY", "anthropic:fixture")
+
+    score_path.write_text(
+        json.dumps({"models": [{"model_key": "anthropic:fixture"}]}),
+        encoding="utf-8",
+    )
+    exec(compile(script, "score-model-identity", "exec"), {})
+
+    score_path.write_text(
+        json.dumps({"models": [{"model_key": "anthropic:other"}]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit, match="model identity differs"):
+        exec(compile(script, "score-model-identity", "exec"), {})
+
+    score_path.write_text(
+        json.dumps(
+            {
+                "models": [
+                    {"model_key": "anthropic:fixture"},
+                    {"model_key": "anthropic:fixture"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit, match="exactly one model"):
+        exec(compile(script, "score-model-identity", "exec"), {})
 
 
 def test_result_metadata_binds_the_score_to_the_source_and_locked_inputs() -> None:

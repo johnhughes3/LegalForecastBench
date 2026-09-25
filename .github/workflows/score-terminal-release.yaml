@@ -545,6 +545,33 @@ jobs:
           INPUT_MODEL_KEY: ${{ inputs.model_key }}
           INPUT_RELEASE_SHA: ${{ inputs.release_sha }}
 
+      - name: Validate sole scored model identity
+        if: ${{ always() }}
+        shell: bash
+        env:
+          EXPECTED_MODEL_KEY: ${{ inputs.model_key }}
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          score_path = Path("/tmp/lfb-terminal-score-result/scores.json")
+          if not score_path.is_file() or score_path.is_symlink():
+              raise SystemExit("score output is missing")
+          try:
+              report = json.loads(score_path.read_text(encoding="utf-8"))
+          except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+              raise SystemExit("score output is not valid JSON") from exc
+          models = report.get("models") if isinstance(report, dict) else None
+          if not isinstance(models, list) or len(models) != 1:
+              raise SystemExit("score output must contain exactly one model")
+          model = models[0]
+          if not isinstance(model, dict) or model.get("model_key") != os.environ["EXPECTED_MODEL_KEY"]:
+              raise SystemExit("score output model identity differs from dispatch")
+          PY
+
       - name: Upload score-only result package
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
