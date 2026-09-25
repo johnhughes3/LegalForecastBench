@@ -434,6 +434,18 @@ def build_claude_code_container_adapter(
             raise ClaudeCodeContainerAdapterError(
                 f"outer-container-only preflight failed: {exc}"
             ) from exc
+        if profile == PUBLISHED_API_KEY and paid_config_path is not None:
+            assert gateway_image_digest is not None
+            try:
+                resolve_local_image_id(
+                    backend_path,
+                    gateway_image_digest,
+                    backend_environment,
+                )
+            except ContainerImageError as exc:
+                raise ClaudeCodeContainerAdapterError(
+                    f"protected gateway image preflight failed: {exc}"
+                ) from exc
     manifest = _container_manifest(image_digest)
     sandbox_verified = (
         probe_native_claude_sandbox(

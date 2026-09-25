@@ -89,6 +89,10 @@ class GatewaySpendController(Protocol):
         """Return false when bounded charge evidence is unavailable."""
         raise NotImplementedError
 
+    def mark_transport_started(self, lease: object) -> None:
+        """Durably mark provider transport immediately before forwarding."""
+        raise NotImplementedError
+
     def record_failure(
         self,
         lease: object,
@@ -674,6 +678,18 @@ class ProviderGatewaySpendController(GatewaySpendController):
             response_sha256=response_sha256,
         )
         return True
+
+    def mark_transport_started(self, lease: object) -> None:
+        """Fence the durable attempt before any provider bytes are sent."""
+
+        if not isinstance(lease, GatewaySpendLease):
+            raise ProtectedTerminalPaidError("gateway spend lease has the wrong type")
+        marker = getattr(self.authority, "mark_transport_started", None)
+        if not callable(marker):
+            raise ProtectedTerminalPaidError(
+                "protected gateway authority cannot mark transport start"
+            )
+        marker(lease.lease)
 
     def record_failure(
         self,

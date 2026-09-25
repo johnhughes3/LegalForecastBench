@@ -142,10 +142,12 @@ class _FakeSpendController:
         self,
         *,
         authorize_error: Exception | None = None,
+        transport_start_error: Exception | None = None,
         settle_result: bool = True,
         settle_error: Exception | None = None,
     ) -> None:
         self.authorize_error = authorize_error
+        self.transport_start_error = transport_start_error
         self.settle_result = settle_result
         self.settle_error = settle_error
         self.authorize_calls: list[tuple[str, bytes, str, int]] = []
@@ -153,6 +155,7 @@ class _FakeSpendController:
             tuple[object, bytes, int, str | None, int | None, int | None]
         ] = []
         self.failure_calls: list[tuple[object, str, bool]] = []
+        self.transport_started_calls: list[object] = []
 
     def authorize_request(
         self,
@@ -166,6 +169,11 @@ class _FakeSpendController:
         if self.authorize_error is not None:
             raise self.authorize_error
         return object()
+
+    def mark_transport_started(self, lease: object) -> None:
+        self.transport_started_calls.append(lease)
+        if self.transport_start_error is not None:
+            raise self.transport_start_error
 
     def settle_response(
         self,
@@ -221,6 +229,7 @@ def test_paid_controller_authorizes_and_settles_each_request_with_run_id() -> No
         (200, "application/json", 7, 2),
         (200, "application/json", 7, 2),
     ]
+    assert len(controller.transport_started_calls) == 2
     assert controller.failure_calls == []
 
 
@@ -240,6 +249,30 @@ def test_paid_authorization_failure_blocks_upstream_and_settles_reservation() ->
     assert usage.reserved_output_tokens == 0
     assert controller.settle_calls == []
     assert controller.failure_calls == []
+
+
+def test_transport_marker_failure_blocks_upstream_and_retains_spend_failure() -> None:
+    with _upstream() as upstream:
+        policy = _policy(upstream)
+        controller = _FakeSpendController(
+            transport_start_error=RuntimeError("marker unavailable")
+        )
+        with _gateway(policy, controller) as gateway:
+            status, response_body = _request(gateway, _message_body())
+            usage = gateway.gateway.usage.snapshot()
+
+    assert status == 503
+    assert b"spend authorization failed" in response_body
+    assert upstream.requests == []
+    assert len(controller.transport_started_calls) == 1
+    assert len(controller.failure_calls) == 1
+    assert controller.failure_calls[0][1:] == (
+        "gateway_transport_start_error",
+        True,
+    )
+    assert usage.request_count == 1
+    assert usage.reserved_input_tokens == 0
+    assert usage.reserved_output_tokens == 0
 
 
 def test_paid_settlement_failure_does_not_return_provider_success() -> None:

@@ -177,6 +177,10 @@ class GatewaySpendController(Protocol):
         """Return false when bounded charge evidence is unavailable."""
         raise NotImplementedError
 
+    def mark_transport_started(self, lease: object) -> None:
+        """Durably mark provider transport immediately before forwarding."""
+        raise NotImplementedError
+
     def record_failure(
         self,
         lease: object,
@@ -282,8 +286,13 @@ class AnthropicModelGateway:
                 )
                 if spend_lease is None:
                     raise RuntimeError("spend controller returned no lease")
+                self._spend_controller.mark_transport_started(spend_lease)
             except Exception:
-                self._settle_usage_after_failure(reservation, None, None)
+                if self._settle_usage_after_failure(reservation, None, spend_lease):
+                    self._record_spend_failure(
+                        spend_lease,
+                        failure_type="gateway_transport_start_error",
+                    )
                 return error_response(
                     HTTPStatus.SERVICE_UNAVAILABLE,
                     "spend authorization failed",

@@ -7,12 +7,18 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.multiharness.claude_code_container as claude_container
 import legalforecast.multiharness.container_harness.model_gateway_paid as paid
 import pytest
 from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     model_registry_entry_sha256,
 )
+from legalforecast.multiharness.claude_code_container import (
+    ClaudeCodeContainerAdapterError,
+    build_claude_code_container_adapter,
+)
+from legalforecast.multiharness.container_harness.images import ContainerImageError
 from legalforecast.multiharness.container_harness.model_gateway import (
     CAPABILITY_TOKEN_ENV,
     MODEL_REGISTRY_PATH_ENV,
@@ -299,9 +305,14 @@ def test_paid_gateway_loader_constructs_controller_before_server(
     )
     policy_path.chmod(0o400)
     sentinel = object()
+
+    def build_controller(_config: object) -> object:
+        return sentinel
+
     monkeypatch.setattr(
-        "legalforecast.multiharness.container_harness.model_gateway_paid.build_paid_gateway_controller",
-        lambda config: cast(Any, sentinel),
+        paid,
+        "build_paid_gateway_controller",
+        build_controller,
     )
     environment = {
         **_ENVIRONMENT,
@@ -318,9 +329,14 @@ def test_paid_gateway_loader_constructs_controller_before_server(
     assert loaded.request_id == "paid-gateway:" + "b" * 64 + ":case-" + "d" * 64
     missing_request_id = dict(environment)
     missing_request_id.pop(REQUEST_ID_ENV)
+
+    def fail_controller(_config: object) -> object:
+        pytest.fail("controller must not build without case identity")
+
     monkeypatch.setattr(
-        "legalforecast.multiharness.container_harness.model_gateway_paid.build_paid_gateway_controller",
-        lambda _config: pytest.fail("controller must not build without case identity"),
+        paid,
+        "build_paid_gateway_controller",
+        fail_controller,
     )
     with pytest.raises(ModelGatewayError, match=REQUEST_ID_ENV):
         load_model_gateway_launch_config(policy_path, environment=missing_request_id)
@@ -329,11 +345,15 @@ def test_paid_gateway_loader_constructs_controller_before_server(
 class _RecordingSpendAuthority:
     def __init__(self) -> None:
         self.keys: list[object] = []
+        self.transport_started: list[object] = []
 
     def authorize_attempt(self, key: object, *, reservation_microusd: int) -> object:
         del reservation_microusd
         self.keys.append(key)
         return object()
+
+    def mark_transport_started(self, lease: object) -> None:
+        self.transport_started.append(lease)
 
 
 def test_fresh_paid_sidecars_bind_gateway_keys_to_outer_case_identity(
@@ -358,12 +378,13 @@ def test_fresh_paid_sidecars_bind_gateway_keys_to_outer_case_identity(
         for authority in authorities
     )
 
-    controllers[0].authorize_request(
+    first_lease = controllers[0].authorize_request(
         request_id="case-alpha",
         body=b"{}",
         model="claude-sonnet-4-5",
         max_tokens=1,
     )
+    controllers[0].mark_transport_started(first_lease)
     controllers[1].authorize_request(
         request_id="case-beta",
         body=b"{}",
@@ -386,3 +407,47 @@ def test_fresh_paid_sidecars_bind_gateway_keys_to_outer_case_identity(
 
     assert authorities[0].keys[0] != authorities[1].keys[0]
     assert authorities[0].keys[0] == retry_authority.keys[0]
+    assert len(authorities[0].transport_started) == 1
+
+
+def test_paid_factory_resolves_gateway_image_before_building_adapter(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path, registry_path, record = _files(tmp_path)
+    record["ceiling_microusd"] = 40_000_000
+    config_path.write_text(json.dumps(record), encoding="utf-8")
+    for name, value in _ENVIRONMENT.items():
+        monkeypatch.setenv(name, value)
+    gateway_image = "sha256:" + "d" * 64
+
+    def fake_backend(_backend: str) -> tuple[Path, dict[str, str]]:
+        return Path("/usr/bin/docker"), {}
+
+    monkeypatch.setattr(claude_container, "resolve_rootless_backend", fake_backend)
+
+    def resolve_image(_backend: Path, image: str, _environment: object) -> str:
+        if image == gateway_image:
+            raise ContainerImageError("gateway image is not present")
+        return image
+
+    monkeypatch.setattr(claude_container, "resolve_local_image_id", resolve_image)
+
+    with pytest.raises(
+        ClaudeCodeContainerAdapterError, match="protected gateway image preflight"
+    ):
+        build_claude_code_container_adapter(
+            image_digest="sha256:" + "a" * 64,
+            auth_profile="published-api-key",
+            model_key="anthropic:claude-sonnet-4-5",
+            max_budget_usd=40.0,
+            approval_reference=None,
+            output_root=tmp_path,
+            case_count=1,
+            execution_mode="outer-container-only",
+            gateway_base_url="http://lfb-model-gateway:8080",
+            gateway_upstream_base_url="https://api.anthropic.com:443",
+            gateway_image_digest=gateway_image,
+            paid_config_path=config_path,
+            model_registry_path=registry_path,
+        )
