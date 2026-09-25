@@ -71,6 +71,8 @@ MODEL_GATEWAY_RUN_CAPABILITY_ENV = MODEL_GATEWAY_CAPABILITY_TOKEN_ENV
 MODEL_GATEWAY_UPSTREAM_KEY_ENV = "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY"
 MODEL_GATEWAY_PAID_CONFIG_ENV = "LFB_MODEL_GATEWAY_PAID_CONFIG_PATH"
 MODEL_GATEWAY_MODEL_REGISTRY_ENV = "LFB_MODEL_GATEWAY_MODEL_REGISTRY_PATH"
+MODEL_GATEWAY_REQUEST_ID_ENV = "LFB_MODEL_GATEWAY_REQUEST_ID"
+MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL = "https://api.anthropic.com:443"
 
 # These names are projected into the gateway container only in protected paid
 # mode. Their values live in the Docker-client environment; no value appears
@@ -109,6 +111,7 @@ class ModelGatewayRequest:
     upstream_api_key: str | None = None
     paid_config_path: Path | None = None
     model_registry_path: Path | None = None
+    request_id: str | None = None
     host: str = MODEL_GATEWAY_HOST
     port: int = MODEL_GATEWAY_PORT
 
@@ -145,6 +148,14 @@ class ModelGatewayRequest:
         if paid_mode and self.upstream_api_key is not None:
             raise ModelGatewayPlanError(
                 "paid gateway upstream key must come from the protected workflow"
+            )
+        if paid_mode and (
+            self.request_id is None
+            or not self.request_id
+            or any(char in self.request_id for char in "\r\n")
+        ):
+            raise ModelGatewayPlanError(
+                "paid gateway requires a stable per-case request_id"
             )
         if (self.paid_config_path is None) != (self.model_registry_path is None):
             raise ModelGatewayPlanError(
@@ -323,6 +334,8 @@ def build_model_gateway_run_argv(
             f"{MODEL_GATEWAY_PAID_CONFIG_ENV}={MODEL_GATEWAY_PAID_CONFIG_TARGET}",
             "--env",
             f"{MODEL_GATEWAY_MODEL_REGISTRY_ENV}={MODEL_GATEWAY_MODEL_REGISTRY_TARGET}",
+            "--env",
+            MODEL_GATEWAY_REQUEST_ID_ENV,
         ]
         for name in MODEL_GATEWAY_AUTHORITY_ENV + MODEL_GATEWAY_RELAY_ENV:
             argv[insertion:insertion] = ["--env", name]
@@ -365,11 +378,13 @@ __all__ = [
     "MODEL_GATEWAY_PAID_CONFIG_ENV",
     "MODEL_GATEWAY_PAID_CONFIG_TARGET",
     "MODEL_GATEWAY_PORT",
+    "MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL",
     "MODEL_GATEWAY_PROXY_BASE_URL",
     "MODEL_GATEWAY_PROXY_HOST",
     "MODEL_GATEWAY_PROXY_PORT",
     "MODEL_GATEWAY_READY_MARKER",
     "MODEL_GATEWAY_RELAY_ENV",
+    "MODEL_GATEWAY_REQUEST_ID_ENV",
     "MODEL_GATEWAY_RUN_CAPABILITY_ENV",
     "MODEL_GATEWAY_SOURCE_TARGET",
     "MODEL_GATEWAY_UPSTREAM_KEY_ENV",

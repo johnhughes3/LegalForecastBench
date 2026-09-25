@@ -17,6 +17,7 @@ from legalforecast.multiharness.container_harness.model_gateway import (
     CAPABILITY_TOKEN_ENV,
     MODEL_REGISTRY_PATH_ENV,
     PAID_CONFIG_PATH_ENV,
+    REQUEST_ID_ENV,
     UPSTREAM_API_KEY_ENV,
     load_model_gateway_launch_config,
 )
@@ -32,6 +33,9 @@ from legalforecast.multiharness.container_harness.model_gateway_plan import (
 )
 from legalforecast.multiharness.container_harness.model_gateway_runtime import (
     stage_model_gateway,
+)
+from legalforecast.multiharness.container_harness.model_gateway_types import (
+    ModelGatewayError,
 )
 from legalforecast.multiharness.container_harness.plan import ContainerHarnessNames
 from legalforecast.multiharness.protected_terminal_paid import (
@@ -222,6 +226,7 @@ def test_paid_gateway_stages_installed_image_inputs_without_fixture_pythonpath(
         run_capability="run-capability",
         paid_config_path=config_path,
         model_registry_path=registry_path,
+        request_id="case-" + "d" * 64,
     )
     launch = stage_model_gateway(
         tmp_path / "staging",
@@ -304,9 +309,80 @@ def test_paid_gateway_loader_constructs_controller_before_server(
         UPSTREAM_API_KEY_ENV: "fixture-upstream-dummy-key",
         PAID_CONFIG_PATH_ENV: str(config_path),
         MODEL_REGISTRY_PATH_ENV: str(registry_path),
+        REQUEST_ID_ENV: "case-" + "d" * 64,
     }
 
     loaded = load_model_gateway_launch_config(policy_path, environment=environment)
 
     assert loaded.spend_controller is sentinel
-    assert loaded.request_id == "paid-gateway:" + "b" * 64
+    assert loaded.request_id == "paid-gateway:" + "b" * 64 + ":case-" + "d" * 64
+    missing_request_id = dict(environment)
+    missing_request_id.pop(REQUEST_ID_ENV)
+    monkeypatch.setattr(
+        "legalforecast.multiharness.container_harness.model_gateway_paid.build_paid_gateway_controller",
+        lambda _config: pytest.fail("controller must not build without case identity"),
+    )
+    with pytest.raises(ModelGatewayError, match=REQUEST_ID_ENV):
+        load_model_gateway_launch_config(policy_path, environment=missing_request_id)
+
+
+class _RecordingSpendAuthority:
+    def __init__(self) -> None:
+        self.keys: list[object] = []
+
+    def authorize_attempt(self, key: object, *, reservation_microusd: int) -> object:
+        del reservation_microusd
+        self.keys.append(key)
+        return object()
+
+
+def test_fresh_paid_sidecars_bind_gateway_keys_to_outer_case_identity(
+    tmp_path: Path,
+) -> None:
+    config_path, registry_path, record = _files(tmp_path)
+    record["ceiling_microusd"] = 40_000_000
+    config_path.write_text(json.dumps(record), encoding="utf-8")
+    config = paid.load_paid_gateway_config(
+        config_path,
+        model_registry_path=registry_path,
+        environment=_ENVIRONMENT,
+    )
+    authorities = (_RecordingSpendAuthority(), _RecordingSpendAuthority())
+    controllers = tuple(
+        ProviderGatewaySpendController(
+            authority=cast(Any, authority),
+            config=config.spend,
+            reservation_microusd=config.reservation_microusd,
+            charge_extractor=lambda _body, _status, _content_type: 0,
+        )
+        for authority in authorities
+    )
+
+    controllers[0].authorize_request(
+        request_id="case-alpha",
+        body=b"{}",
+        model="claude-sonnet-4-5",
+        max_tokens=1,
+    )
+    controllers[1].authorize_request(
+        request_id="case-beta",
+        body=b"{}",
+        model="claude-sonnet-4-5",
+        max_tokens=1,
+    )
+    retry_authority = _RecordingSpendAuthority()
+    retry_controller = ProviderGatewaySpendController(
+        authority=cast(Any, retry_authority),
+        config=config.spend,
+        reservation_microusd=config.reservation_microusd,
+        charge_extractor=lambda _body, _status, _content_type: 0,
+    )
+    retry_controller.authorize_request(
+        request_id="case-alpha",
+        body=b"{}",
+        model="claude-sonnet-4-5",
+        max_tokens=1,
+    )
+
+    assert authorities[0].keys[0] != authorities[1].keys[0]
+    assert authorities[0].keys[0] == retry_authority.keys[0]

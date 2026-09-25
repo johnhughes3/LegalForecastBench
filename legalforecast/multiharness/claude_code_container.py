@@ -13,6 +13,7 @@ required boundary.
 from __future__ import annotations
 
 import math
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,8 +56,15 @@ from legalforecast.multiharness.claude_code_stream import (
 )
 from legalforecast.multiharness.container_harness.images import (
     ContainerImageError,
+    require_digest_pinned_image,
     resolve_local_image_id,
     resolve_rootless_backend,
+)
+from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    load_paid_gateway_config,
+)
+from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL,
 )
 from legalforecast.multiharness.local_cli_manifest import (
     LocalCliAdapterManifest,
@@ -64,6 +72,9 @@ from legalforecast.multiharness.local_cli_manifest import (
 )
 from legalforecast.multiharness.local_cli_runtime import (
     LocalCliExecutionService,
+)
+from legalforecast.multiharness.protected_terminal_paid import (
+    ProtectedTerminalPaidError,
 )
 from legalforecast.multiharness.release_harness import (
     ReleaseHarnessError,
@@ -122,6 +133,8 @@ class ClaudeCodeContainerAdapter:
     sandbox_verified: bool = False
     execution_mode: ClaudeExecutionMode = NATIVE_SANDBOX_MODE
     outer_container_verified: bool = False
+    paid_config_path: Path | None = None
+    model_registry_path: Path | None = None
 
     @property
     def manifest(self) -> AdapterManifest:
@@ -213,13 +226,10 @@ class ClaudeCodeContainerAdapter:
                 f"unsupported Claude Code execution mode: {self.execution_mode}"
             )
         if self.auth_profile == PUBLISHED_API_KEY:
-            verifier = self.approval_verifier
-            if verifier is None or self.approval_reference is None:
+            if self.paid_config_path is None or self.model_registry_path is None:
                 raise ClaudeCodeContainerAdapterError(
-                    "published-api-key requires an authoritative spend approval "
-                    "verifier and reference before credentials are resolved"
+                    "published-api-key requires a protected paid gateway config"
                 )
-            verifier(self.approval_reference, self.max_budget_usd or 0.0)
 
 
 def build_claude_code_container_adapter(
@@ -239,14 +249,18 @@ def build_claude_code_container_adapter(
     execution_mode: ClaudeExecutionMode = NATIVE_SANDBOX_MODE,
     gateway_base_url: str | None = None,
     gateway_upstream_base_url: str | None = None,
+    gateway_image_digest: str | None = None,
+    paid_config_path: Path | None = None,
+    model_registry_path: Path | None = None,
 ) -> ClaudeCodeContainerAdapter:
     """Build the ``claude-code-container`` adapter without starting a run.
 
     ``max_budget_usd`` is the aggregate release ceiling.  ``case_count`` is
     required for paid profiles so the factory can bind the per-case Claude
     ``--max-budget-usd`` value instead of silently treating a release total as
-    a per-case cap.  A published-api-key adapter also needs a verifier for the
-    repository's authoritative approval artifact before credentials are read.
+    a per-case cap.  A published-api-key adapter instead uses the protected
+    read-only gateway descriptor and frozen registry; free-form approval text is
+    not an authority source.
     """
 
     if not image_digest.startswith("sha256:"):
@@ -268,7 +282,11 @@ def build_claude_code_container_adapter(
         not math.isfinite(max_budget_usd) or max_budget_usd <= 0
     ):
         raise ClaudeCodeContainerAdapterError("max_budget_usd must be positive")
-    if profile == PUBLISHED_API_KEY and not approval_reference:
+    if (
+        profile == PUBLISHED_API_KEY
+        and not approval_reference
+        and paid_config_path is None
+    ):
         raise ClaudeCodeContainerAdapterError(
             "published-api-key requires an approval_reference"
         )
@@ -280,6 +298,58 @@ def build_claude_code_container_adapter(
         raise ClaudeCodeContainerAdapterError(
             "published-api-key requires the selected case_count to derive a "
             "per-case Claude ceiling"
+        )
+    if profile == PUBLISHED_API_KEY and paid_config_path is not None:
+        if approval_reference is not None:
+            raise ClaudeCodeContainerAdapterError(
+                "protected paid gateway does not accept an approval_reference"
+            )
+        if model_registry_path is None:
+            raise ClaudeCodeContainerAdapterError(
+                "published-api-key requires the frozen model registry"
+            )
+        for name, path in (
+            ("paid_config_path", paid_config_path),
+            ("model_registry_path", model_registry_path),
+        ):
+            if not path.is_absolute() or not path.is_file():
+                raise ClaudeCodeContainerAdapterError(
+                    f"{name} must be an absolute regular file"
+                )
+        try:
+            paid_config = load_paid_gateway_config(
+                paid_config_path,
+                model_registry_path=model_registry_path,
+                environment=os.environ,
+            )
+        except (OSError, ProtectedTerminalPaidError) as exc:
+            raise ClaudeCodeContainerAdapterError(
+                f"protected paid gateway config is invalid: {exc}"
+            ) from exc
+        if paid_config.model_key != model_key:
+            raise ClaudeCodeContainerAdapterError(
+                "protected paid gateway model does not match --model-key"
+            )
+        assert max_budget_usd is not None
+        if round(max_budget_usd * 1_000_000) != paid_config.spend.ceiling_microusd:
+            raise ClaudeCodeContainerAdapterError(
+                "--max-budget-usd must equal the protected gateway ceiling"
+            )
+        if gateway_image_digest is None:
+            raise ClaudeCodeContainerAdapterError(
+                "published-api-key requires a pinned gateway image"
+            )
+        try:
+            require_digest_pinned_image(gateway_image_digest, "gateway_image_digest")
+        except ContainerImageError as exc:
+            raise ClaudeCodeContainerAdapterError(str(exc)) from exc
+    elif profile == FIXTURE_NONE and (
+        paid_config_path is not None
+        or model_registry_path is not None
+        or gateway_image_digest is not None
+    ):
+        raise ClaudeCodeContainerAdapterError(
+            "fixture-none cannot carry a protected paid gateway config"
         )
     if not output_root.is_absolute():
         raise ClaudeCodeContainerAdapterError("output_root must be absolute")
@@ -300,12 +370,32 @@ def build_claude_code_container_adapter(
             "provide gateway_base_url or fixture_base_url, not both"
         )
     if execution_mode == OUTER_CONTAINER_ONLY_MODE:
-        if profile != FIXTURE_NONE:
+        if profile == PUBLISHED_API_KEY and (
+            fixture_base_url is not None or fixture_egress_network is not None
+        ):
             raise ClaudeCodeContainerAdapterError(
-                "outer-container-only is fixture-only until a credential broker "
-                "is integrated"
+                "protected paid gateway cannot use fixture routing; "
+                "published outer execution remains fixture-only"
             )
-        if gateway_upstream_base_url is None and fixture_base_url is None:
+        if profile == PUBLISHED_API_KEY and gateway_upstream_base_url is None:
+            raise ClaudeCodeContainerAdapterError(
+                "protected paid gateway requires gateway_upstream_base_url"
+            )
+        if profile == PUBLISHED_API_KEY and (
+            gateway_upstream_base_url != MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL
+        ):
+            raise ClaudeCodeContainerAdapterError(
+                "protected paid gateway is pinned to api.anthropic.com:443"
+            )
+        if profile not in {FIXTURE_NONE, PUBLISHED_API_KEY}:
+            raise ClaudeCodeContainerAdapterError(
+                "outer-container-only requires a supported auth profile"
+            )
+        if (
+            profile == FIXTURE_NONE
+            and gateway_upstream_base_url is None
+            and fixture_base_url is None
+        ):
             raise ClaudeCodeContainerAdapterError(
                 "outer-container-only requires a fixture upstream endpoint"
             )
@@ -320,7 +410,7 @@ def build_claude_code_container_adapter(
                 or parsed_gateway.fragment
             ):
                 raise ClaudeCodeContainerAdapterError(
-                    "outer-container-only requires the internal fixture gateway"
+                    "outer-container-only requires the internal fixture gateway origin"
                 )
     elif gateway_upstream_base_url is not None:
         raise ClaudeCodeContainerAdapterError(
@@ -363,6 +453,9 @@ def build_claude_code_container_adapter(
         fixture_base_url=fixture_base_url,
         gateway_base_url=gateway_base_url,
         gateway_upstream_base_url=gateway_upstream_base_url,
+        gateway_image_digest=gateway_image_digest,
+        paid_config_path=paid_config_path,
+        model_registry_path=model_registry_path,
         fixture_egress_network=fixture_egress_network,
         execution_mode=execution_mode,
         sandbox_verified=sandbox_verified,
@@ -394,6 +487,8 @@ def build_claude_code_container_adapter(
         sandbox_verified=sandbox_verified,
         execution_mode=execution_mode,
         outer_container_verified=execution_mode == OUTER_CONTAINER_ONLY_MODE,
+        paid_config_path=paid_config_path,
+        model_registry_path=model_registry_path,
     )
 
 

@@ -823,13 +823,14 @@ def _cmd_terminal_release(args: argparse.Namespace) -> int:
         score_multiharness_release,
     )
     from legalforecast.multiharness.terminal_release import execute_terminal_release
+    from legalforecast.release.service import validate_release
 
     options = TerminalReleaseOptions.from_args(args)
-    if options.auth_profile != "fixture-none":
-        raise ValueError(
-            "published-api-key terminal execution is unavailable until the "
-            "container credential boundary and spend approval are verified"
-        )
+    forecast, _labels = validate_release(
+        options.forecast_release,
+        options.labels_release,
+        artifact_root=options.artifact_root,
+    )
     try:
         adapter = build_claude_code_container_adapter(
             image_digest=options.image,
@@ -843,6 +844,11 @@ def _cmd_terminal_release(args: argparse.Namespace) -> int:
             fixture_base_url=options.fixture_base_url,
             fixture_egress_network=options.fixture_egress_network,
             execution_mode=OUTER_CONTAINER_ONLY_MODE,
+            case_count=len(forecast.cases),
+            paid_config_path=options.paid_config_path,
+            model_registry_path=options.model_registry_path,
+            gateway_upstream_base_url=options.gateway_upstream_base_url,
+            gateway_image_digest=options.gateway_image_digest,
         )
     except ClaudeCodeContainerAdapterError as exc:
         raise ValueError(str(exc)) from exc

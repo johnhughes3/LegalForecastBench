@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import secrets
 import subprocess
 from dataclasses import dataclass
@@ -34,9 +35,15 @@ from legalforecast.multiharness.container_harness.images import (
     resolve_local_image_id,
     resolve_rootless_backend,
 )
+from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL,
+)
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
     RunSpec,
+)
+from legalforecast.multiharness.protected_terminal_paid import (
+    PROTECTED_AUTHORITY_REGION_ENV,
 )
 
 ClaudeExecutionMode = Literal["native-sandbox", "outer-container-only"]
@@ -77,12 +84,10 @@ def _gateway_upstream_origin(value: str) -> tuple[str, str, int]:
 class ClaudeCodeContainerExecutionService:
     """Run one CLI spec through the existing rootless container harness.
 
-    The service deliberately supports only an HTTPS fixture or gateway
-    endpoint. A live API key cannot be placed in this container until an
-    external credential broker has proved the child boundary;
-    ``published-api-key`` therefore returns a typed refusal before any
-    credential lookup. ``outer-container-only`` uses the rootless harness's
-    per-run internal network and bounded egress sidecar, and is fixture-only.
+    The service supports an HTTPS fixture or the protected paid gateway
+    endpoint. In paid mode the provider key and AWS authority variables are
+    projected only into the gateway Docker client environment; the Claude
+    worker receives a per-run gateway capability instead.
     """
 
     image_digest: str
@@ -93,6 +98,9 @@ class ClaudeCodeContainerExecutionService:
     fixture_base_url: str | None = None
     gateway_base_url: str | None = None
     gateway_upstream_base_url: str | None = None
+    gateway_image_digest: str | None = None
+    paid_config_path: Path | None = None
+    model_registry_path: Path | None = None
     fixture_egress_network: str | None = None
     execution_mode: ClaudeExecutionMode = NATIVE_SANDBOX_MODE
     sandbox_verified: bool = False
@@ -127,26 +135,41 @@ class ClaudeCodeContainerExecutionService:
                 returncode=None,
                 status="failed",
             )
-        if self.execution_mode == OUTER_CONTAINER_ONLY_MODE and (
-            self.auth_profile != FIXTURE_NONE
+        paid_mode = self.auth_profile == PUBLISHED_API_KEY
+        if paid_mode and self.execution_mode != OUTER_CONTAINER_ONLY_MODE:
+            return ExecutionReceipt.from_transcript(
+                spec,
+                stdout="",
+                stderr=(
+                    "published-api-key requires the protected outer gateway "
+                    "execution mode"
+                ),
+                returncode=None,
+                status="failed",
+            )
+        if paid_mode and (
+            self.gateway_upstream_base_url != MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL
+            or self.gateway_image_digest is None
         ):
             return ExecutionReceipt.from_transcript(
                 spec,
                 stdout="",
                 stderr=(
-                    "outer-container-only is fixture-only until a credential "
-                    "broker is integrated"
+                    "protected paid gateway requires the pinned Anthropic origin "
+                    "and gateway image"
                 ),
                 returncode=None,
                 status="failed",
             )
-        if self.auth_profile == PUBLISHED_API_KEY:
+        if paid_mode and (
+            self.paid_config_path is None or self.model_registry_path is None
+        ):
             return ExecutionReceipt.from_transcript(
                 spec,
                 stdout="",
                 stderr=(
-                    "published-api-key requires a separate credential broker; "
-                    "the container harness does not project provider keys"
+                    "published-api-key requires the protected paid gateway "
+                    "config and frozen model registry"
                 ),
                 returncode=None,
                 status="failed",
@@ -157,13 +180,18 @@ class ClaudeCodeContainerExecutionService:
             endpoint = self.gateway_base_url or (
                 f"http://{MODEL_GATEWAY_HOST}:{MODEL_GATEWAY_PORT}"
             )
-            upstream_endpoint = self.gateway_upstream_base_url or self.fixture_base_url
+            upstream_endpoint = (
+                self.gateway_upstream_base_url
+                if paid_mode
+                else (self.gateway_upstream_base_url or self.fixture_base_url)
+            )
             if upstream_endpoint is None:
                 return ExecutionReceipt.from_transcript(
                     spec,
                     stdout="",
                     stderr=(
-                        "outer-container-only requires a fixture upstream endpoint"
+                        "outer-container-only requires a paid provider or fixture "
+                        "upstream endpoint"
                     ),
                     returncode=None,
                     status="failed",
@@ -228,15 +256,32 @@ class ClaudeCodeContainerExecutionService:
                     # per-run gateway capability, never an upstream key.
                     "ANTHROPIC_API_KEY": run_capability,
                 }
-                model_gateway = ModelGatewayRequest(
-                    upstream_base_url=upstream_origin,
-                    model_key=self.model_key,
-                    run_capability=run_capability,
-                    # The fixture gateway requires a sidecar-only upstream key.
-                    # It is a test capability, never a provider credential and
-                    # never added to the harness environment or argv.
-                    upstream_api_key="fixture-upstream-dummy-key",
-                )
+                if paid_mode:
+                    assert self.paid_config_path is not None
+                    assert self.model_registry_path is not None
+                    request_id = (
+                        "case-"
+                        + hashlib.sha256(spec.spec_id.encode("utf-8")).hexdigest()
+                    )
+                    model_gateway = ModelGatewayRequest(
+                        upstream_base_url=upstream_origin,
+                        model_key=self.model_key,
+                        run_capability=run_capability,
+                        paid_config_path=self.paid_config_path,
+                        model_registry_path=self.model_registry_path,
+                        request_id=request_id,
+                    )
+                else:
+                    model_gateway = ModelGatewayRequest(
+                        upstream_base_url=upstream_origin,
+                        model_key=self.model_key,
+                        run_capability=run_capability,
+                        # The fixture gateway requires a sidecar-only upstream
+                        # key. It is a test capability, never a provider
+                        # credential and never added to the harness environment
+                        # or argv.
+                        upstream_api_key="fixture-upstream-dummy-key",
+                    )
             else:
                 environment = {
                     "ANTHROPIC_BASE_URL": endpoint,
@@ -249,14 +294,36 @@ class ClaudeCodeContainerExecutionService:
             read_only_workspace_paths = ["prompt.txt"]
             if (spec.working_directory / "documents").is_dir():
                 read_only_workspace_paths.append("documents")
+            allow_hosts = (upstream_host,)
+            if paid_mode:
+                region = os.environ.get(PROTECTED_AUTHORITY_REGION_ENV)
+                if not region or any(
+                    character not in "abcdefghijklmnopqrstuvwxyz0123456789-"
+                    for character in region
+                ):
+                    return ExecutionReceipt.from_transcript(
+                        spec,
+                        stdout="",
+                        stderr=(
+                            "protected paid gateway requires a valid protected "
+                            "AWS region"
+                        ),
+                        returncode=None,
+                        status="failed",
+                    )
+                allow_hosts = (
+                    upstream_host,
+                    f"dynamodb.{region}.amazonaws.com",
+                )
             result = run_container_harness(
                 ContainerHarnessSpec(
                     run_id=f"claude-{run_key}",
                     image=self.image_digest,
+                    proxy_image=(self.gateway_image_digest if paid_mode else None),
                     harness_argv=spec.argv[1:],
                     workspace=spec.working_directory,
                     log_root=log_root,
-                    allow_hosts=(upstream_host,),
+                    allow_hosts=allow_hosts,
                     allow_ports=(upstream_port,),
                     # Claude requires an API-key-shaped value before it will
                     # send a request even when the endpoint is a local fixture.

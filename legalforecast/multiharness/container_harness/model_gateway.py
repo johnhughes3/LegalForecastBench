@@ -95,6 +95,7 @@ UPSTREAM_KEY_FILE_ENV: Final[str] = "LFB_MODEL_GATEWAY_UPSTREAM_KEY_FILE"
 CAPABILITY_TOKEN_ENV: Final[str] = "LFB_MODEL_GATEWAY_CAPABILITY_TOKEN"
 PAID_CONFIG_PATH_ENV: Final[str] = "LFB_MODEL_GATEWAY_PAID_CONFIG_PATH"
 MODEL_REGISTRY_PATH_ENV: Final[str] = "LFB_MODEL_GATEWAY_MODEL_REGISTRY_PATH"
+REQUEST_ID_ENV: Final[str] = "LFB_MODEL_GATEWAY_REQUEST_ID"
 _POLICY_KEYS: Final[frozenset[str]] = frozenset(
     {
         "bind_host",
@@ -218,6 +219,7 @@ def load_model_gateway_launch_config(
             or not Path(model_registry_path).is_absolute()
         ):
             raise ModelGatewayError("paid gateway config paths must be absolute")
+        outer_request_id = env.get(REQUEST_ID_ENV)
         try:
             # Keep paid imports lazy: the provider-free fixture image contains
             # only the staged gateway package, while the paid image carries the
@@ -236,6 +238,12 @@ def load_model_gateway_launch_config(
                 model_registry_path=model_registry_path,
                 environment=env,
             )
+            if outer_request_id is None or not outer_request_id.strip():
+                raise ModelGatewayError(
+                    f"{REQUEST_ID_ENV} must identify the stable outer case request"
+                )
+            if any(char in outer_request_id for char in "\r\n"):
+                raise ModelGatewayError(f"{REQUEST_ID_ENV} contains a line break")
             wire_model = paid_config.model_key.removeprefix("anthropic:")
             expected_models = frozenset({wire_model, f"{wire_model}[1m]"})
             if policy.allowed_models != expected_models:
@@ -264,7 +272,10 @@ def load_model_gateway_launch_config(
             if isinstance(exc, ModelGatewayError):
                 raise
             raise ModelGatewayError(f"protected paid gateway refused: {exc}") from exc
-        request_id = f"paid-gateway:{paid_config.spend.reservation_ledger_sha256}"
+        request_id = (
+            f"paid-gateway:{paid_config.spend.reservation_ledger_sha256}:"
+            f"{outer_request_id}"
+        )
     return ModelGatewayLaunchConfig(
         policy,
         bind_host,
@@ -398,6 +409,7 @@ __all__ = [
     "CAPABILITY_TOKEN_ENV",
     "MODEL_REGISTRY_PATH_ENV",
     "PAID_CONFIG_PATH_ENV",
+    "REQUEST_ID_ENV",
     "UPSTREAM_API_KEY_ENV",
     "UPSTREAM_KEY_FILE_ENV",
     "AnthropicModelGateway",

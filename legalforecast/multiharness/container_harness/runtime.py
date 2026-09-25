@@ -49,6 +49,7 @@ from legalforecast.multiharness.container_harness.model_gateway_plan import (
     MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
     MODEL_GATEWAY_PROXY_BASE_URL,
     MODEL_GATEWAY_RELAY_ENV,
+    MODEL_GATEWAY_REQUEST_ID_ENV,
     MODEL_GATEWAY_UPSTREAM_KEY_ENV,
     MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
     ModelGatewayLaunch,
@@ -332,6 +333,8 @@ def _model_gateway_environment(
     gateway_environment.update(
         GitHubEnvironmentGatewayCredentialSource().upstream_environment()
     )
+    assert request.request_id is not None
+    gateway_environment[MODEL_GATEWAY_REQUEST_ID_ENV] = request.request_id
     gateway_environment.update(
         {
             name: MODEL_GATEWAY_PROXY_BASE_URL

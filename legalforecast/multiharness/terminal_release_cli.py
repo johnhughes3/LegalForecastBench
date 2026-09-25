@@ -17,6 +17,9 @@ from legalforecast.multiharness.auth_profiles import (
 from legalforecast.multiharness.container_harness.images import (
     require_digest_pinned_image,
 )
+from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL,
+)
 from legalforecast.multiharness.sandbox import BACKEND_DOCKER
 
 
@@ -38,6 +41,10 @@ class TerminalReleaseOptions:
     backend: str
     timeout_seconds: int
     run_id: str
+    paid_config_path: Path | None = None
+    model_registry_path: Path | None = None
+    gateway_upstream_base_url: str | None = None
+    gateway_image_digest: str | None = None
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> TerminalReleaseOptions:
@@ -50,11 +57,33 @@ class TerminalReleaseOptions:
             raise ValueError("--output-dir must be a fresh, absent path")
         profile = str(args.auth_profile)
         amount = args.max_budget_usd
-        approval = args.approval_reference
-        fixture_base_url = args.fixture_base_url
-        fixture_egress_network = args.fixture_egress_network
+        approval = getattr(args, "approval_reference", None)
+        fixture_base_url = getattr(args, "fixture_base_url", None)
+        fixture_egress_network = getattr(args, "fixture_egress_network", None)
+        paid_config_path_arg = getattr(args, "paid_config", None)
+        model_registry_path_arg = getattr(args, "model_registry", None)
+        gateway_upstream_base_url = getattr(args, "gateway_upstream_base_url", None)
+        gateway_image_arg = getattr(args, "gateway_image", None)
+        gateway_image_digest = (
+            str(gateway_image_arg) if gateway_image_arg is not None else None
+        )
+        paid_config_path = (
+            Path(paid_config_path_arg) if paid_config_path_arg is not None else None
+        )
+        model_registry_path = (
+            Path(model_registry_path_arg)
+            if model_registry_path_arg is not None
+            else None
+        )
         if profile == FIXTURE_NONE:
-            if amount is not None or approval is not None:
+            if (
+                amount is not None
+                or approval is not None
+                or paid_config_path is not None
+                or model_registry_path is not None
+                or gateway_upstream_base_url is not None
+                or gateway_image_digest is not None
+            ):
                 raise ValueError("fixture-none cannot carry paid-run authority")
             if not isinstance(fixture_base_url, str) or not fixture_base_url.strip():
                 raise ValueError("fixture-none requires --fixture-base-url")
@@ -67,7 +96,11 @@ class TerminalReleaseOptions:
             if fixture_url.scheme == "http" and not fixture_egress_network:
                 raise ValueError("an HTTP fixture requires --fixture-egress-network")
         elif profile == PUBLISHED_API_KEY:
-            if fixture_base_url is not None or fixture_egress_network is not None:
+            if (
+                fixture_base_url is not None
+                or fixture_egress_network is not None
+                or approval is not None
+            ):
                 raise ValueError("published-api-key cannot use fixture routing")
             if (
                 not isinstance(amount, float | int)
@@ -75,10 +108,36 @@ class TerminalReleaseOptions:
                 or amount <= 0
             ):
                 raise ValueError("published-api-key requires a positive budget")
-            if not isinstance(approval, str) or not approval.strip():
+            if paid_config_path is None or model_registry_path is None:
                 raise ValueError(
-                    "published-api-key requires an existing approval reference"
+                    "published-api-key requires --paid-config and --model-registry"
                 )
+            if gateway_image_digest is None:
+                raise ValueError("published-api-key requires --gateway-image")
+            require_digest_pinned_image(gateway_image_digest, "gateway-image")
+            if gateway_upstream_base_url is None:
+                gateway_upstream_base_url = MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL
+            if not isinstance(gateway_upstream_base_url, str):
+                raise ValueError("--gateway-upstream-base-url must be HTTPS")
+            gateway_url = urlsplit(gateway_upstream_base_url)
+            if (
+                gateway_url.scheme != "https"
+                or gateway_url.hostname is None
+                or gateway_url.username is not None
+                or gateway_url.password is not None
+                or gateway_url.path not in {"", "/"}
+                or gateway_url.query
+                or gateway_url.fragment
+            ):
+                raise ValueError("--gateway-upstream-base-url must be an HTTPS origin")
+            if (
+                gateway_url.hostname != "api.anthropic.com"
+                or (gateway_url.port or 443) != 443
+            ):
+                raise ValueError(
+                    "protected paid gateway is pinned to api.anthropic.com:443"
+                )
+            gateway_upstream_base_url = MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL
         else:
             raise ValueError(f"unsupported auth profile: {profile}")
         model_key = str(args.model_key)
@@ -103,6 +162,10 @@ class TerminalReleaseOptions:
             backend=str(args.backend),
             timeout_seconds=timeout,
             run_id=run_id,
+            paid_config_path=paid_config_path,
+            model_registry_path=model_registry_path,
+            gateway_upstream_base_url=gateway_upstream_base_url,
+            gateway_image_digest=gateway_image_digest,
         )
 
 
@@ -172,7 +235,25 @@ def add_terminal_release_parser(
     )
     parser.add_argument(
         "--approval-reference",
-        help="Existing owner approval reference for a paid run.",
+        help="Deprecated paid authority input; protected runs use --paid-config.",
+    )
+    parser.add_argument(
+        "--paid-config",
+        type=Path,
+        help="Protected workflow paid gateway descriptor (API-key mode only).",
+    )
+    parser.add_argument(
+        "--model-registry",
+        type=Path,
+        help="Frozen model registry matching --paid-config (API-key mode only).",
+    )
+    parser.add_argument(
+        "--gateway-upstream-base-url",
+        help="HTTPS provider origin admitted by the protected gateway.",
+    )
+    parser.add_argument(
+        "--gateway-image",
+        help="Pinned digest for the protected model-gateway runtime image.",
     )
     parser.add_argument(
         "--fixture-base-url",
