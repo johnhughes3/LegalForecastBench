@@ -263,6 +263,31 @@ def build_dynamodb_spend_authority(
     )
 
 
+def build_protected_gateway_spend_controller(
+    config: ProtectedTerminalSpendConfig,
+    *,
+    reservation_microusd: int,
+    charge_extractor: GatewayChargeExtractor,
+) -> ProviderGatewaySpendController:
+    """Build the paid gateway controller inside the protected workflow.
+
+    The caller must provide the run's immutable config and fixed reservation
+    bound. The authority is constructed from the existing protected DynamoDB
+    environment; no approval string or ambient provider credential is
+    accepted. This function performs no provider request. A gateway sidecar
+    should construct it once and call ``authorize_request`` for every accepted
+    request before forwarding upstream.
+    """
+
+    authority = build_dynamodb_spend_authority(config)
+    return ProviderGatewaySpendController(
+        authority=authority,
+        config=config,
+        reservation_microusd=reservation_microusd,
+        charge_extractor=charge_extractor,
+    )
+
+
 def uniform_case_reservation_microusd(
     ceiling_microusd: int,
     case_count: int,
@@ -569,6 +594,7 @@ __all__ = [
     "ProtectedTerminalSpendConfig",
     "ProviderGatewaySpendController",
     "build_dynamodb_spend_authority",
+    "build_protected_gateway_spend_controller",
     "protected_authority_environment",
     "uniform_case_reservation_microusd",
 ]
