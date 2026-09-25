@@ -530,6 +530,9 @@ ZERO_COST_SUCCESSOR_CONFIG_V1 = SchemaIdentifier(
 MULTIHARNESS_TASK_IDENTITY_V1 = SchemaIdentifier(
     "legalforecast.multiharness.task_identity.v1"
 )
+MULTIHARNESS_SELECTION_MANIFEST_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.selection_manifest.v1"
+)
 MULTIHARNESS_SOLVER_IDENTITY_V1 = SchemaIdentifier(
     "legalforecast.multiharness.solver_identity.v1"
 )

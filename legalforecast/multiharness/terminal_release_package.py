@@ -7,6 +7,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.contracts import (
+    MANIFEST_RAW_SHA256_V1,
+    MULTIHARNESS_SELECTION_MANIFEST_V1,
+)
+from legalforecast.contracts.schemas import FORECAST_RUN_V1
 from legalforecast.immutable_io import read_single_link_file
 from legalforecast.multiharness import release_harness
 from legalforecast.multiharness.runner import (
@@ -38,6 +43,7 @@ def load_terminal_release_run(run_dir: Path) -> MultiHarnessRun:
     manifest = RunManifest.from_record(
         _read_indexed_object(run_dir, "run-manifest.json", artifacts)
     )
+    _validate_run_compatibility(run_dir, manifest, artifacts)
     selection_record = _read_indexed_object(
         run_dir, "selection-manifest.json", artifacts
     )
@@ -111,6 +117,7 @@ def load_terminal_release_run(run_dir: Path) -> MultiHarnessRun:
             )
         )
 
+    _validate_indexed_row_evidence(rows, run_dir, artifacts)
     _validate_saved_release_evidence(rows, lfb_by_key, run_dir, artifacts)
 
     if seen_result_ids != set(manifest.result_ids):
@@ -134,9 +141,7 @@ def _selection_from_record(
     task_index: TaskIndex,
     manifest: RunManifest,
 ) -> SelectionResult:
-    if record.get("schema_version") != (
-        "legalforecast.multiharness.selection_manifest.v1"
-    ):
+    if record.get("schema_version") != str(MULTIHARNESS_SELECTION_MANIFEST_V1):
         raise ValueError("saved run selection manifest schema is invalid")
     selection_sha256 = _required_string(record, "selection_sha256")
     if selection_sha256 != manifest.selection_sha256:
@@ -278,6 +283,65 @@ def _validate_saved_release_evidence(
         aggregate_by_id[receipt_id] = receipt
     if aggregate_by_id != expected_receipts:
         raise ValueError("saved run receipt aggregate does not match row receipts")
+
+
+def _validate_run_compatibility(
+    run_dir: Path,
+    manifest: RunManifest,
+    artifacts: Mapping[str, ArtifactRecord],
+) -> None:
+    """Authenticate the compatibility record before reconstructing any rows."""
+
+    expected = manifest.run_compatibility_sha256
+    if expected is None:
+        raise ValueError("saved run is missing run-compatibility commitment")
+    compatibility = _read_indexed_object(
+        run_dir,
+        "run-compatibility.json",
+        artifacts,
+    )
+    actual = "sha256:" + str(
+        MANIFEST_RAW_SHA256_V1.commit(
+            compatibility,
+            domain=FORECAST_RUN_V1,
+        ).digest
+    )
+    if actual != expected:
+        raise ValueError("saved run run-compatibility commitment does not match")
+
+
+def _validate_indexed_row_evidence(
+    rows: list[MultiHarnessRunRow],
+    run_dir: Path,
+    artifacts: Mapping[str, ArtifactRecord],
+) -> None:
+    """Require every row evidence path consumed by projection in the index."""
+
+    for row in rows:
+        row_prefix = f"rows/{row.row_id}/"
+        for result_artifact in row.result.artifacts:
+            indexed_path = f"{row_prefix}{result_artifact.path}"
+            indexed = _require_indexed_artifact(indexed_path, artifacts)
+            if indexed.sha256 != result_artifact.sha256:
+                raise ValueError(
+                    "saved run indexed result artifact digest does not match: "
+                    f"{indexed_path}"
+                )
+            if indexed.size_bytes != result_artifact.size_bytes:
+                raise ValueError(
+                    "saved run indexed result artifact size does not match: "
+                    f"{indexed_path}"
+                )
+
+        workspace = run_dir / "rows" / row.row_id
+        for relative_path in (
+            release_harness.RELEASE_HARNESS_RECEIPT_NAME,
+            release_harness.RELEASE_HARNESS_LFB_RECORD_NAME,
+            release_harness.RELEASE_HARNESS_PRIVATE_LFB_RECORD_NAME,
+        ):
+            path = workspace / relative_path
+            if path.exists() or path.is_symlink():
+                _require_indexed_artifact(f"{row_prefix}{relative_path}", artifacts)
 
 
 def _read_object(path: Path) -> dict[str, Any]:

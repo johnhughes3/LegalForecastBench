@@ -356,3 +356,59 @@ def test_saved_package_rejects_mutated_preprojection_failure_result(
 
     with pytest.raises(ValueError, match="artifact digest does not match"):
         load_terminal_release_run(options.output_dir)
+
+
+@pytest.mark.parametrize(
+    "relative_suffix",
+    (
+        "private-logs/release-forecast-output.json",
+        "release-harness-receipt.json",
+        "lfb-inspect-record.json",
+    ),
+)
+def test_saved_package_rejects_unindexed_row_evidence(
+    tmp_path: Path,
+    relative_suffix: str,
+) -> None:
+    release_root, artifact_root = _issue_unequal_case_release(tmp_path)
+    options = _options(release_root, artifact_root, tmp_path / "run")
+    execute_terminal_release_only(options, adapter=CaseBatchFixtureAdapter())
+
+    target = next(
+        path for path in (options.output_dir / "rows").glob(f"*/{relative_suffix}")
+    )
+    relative_path = target.relative_to(options.output_dir).as_posix()
+    artifact_index_path = options.output_dir / "artifact-index.json"
+    artifact_index = json.loads(artifact_index_path.read_text())
+    artifact_index["artifacts"] = [
+        item for item in artifact_index["artifacts"] if item["path"] != relative_path
+    ]
+    artifact_index_path.write_text(json.dumps(artifact_index))
+
+    with pytest.raises(ValueError, match="absent from index"):
+        load_terminal_release_run(options.output_dir)
+
+
+def test_saved_package_rejects_run_compatibility_mismatch(tmp_path: Path) -> None:
+    release_root, artifact_root = _issue_unequal_case_release(tmp_path)
+    options = _options(release_root, artifact_root, tmp_path / "run")
+    execute_terminal_release_only(options, adapter=CaseBatchFixtureAdapter())
+
+    compatibility_path = options.output_dir / "run-compatibility.json"
+    compatibility = json.loads(compatibility_path.read_text())
+    compatibility["tampered"] = True
+    compatibility_payload = (json.dumps(compatibility) + "\n").encode()
+    compatibility_path.write_bytes(compatibility_payload)
+    artifact_index_path = options.output_dir / "artifact-index.json"
+    artifact_index = json.loads(artifact_index_path.read_text())
+    compatibility_record = next(
+        item
+        for item in artifact_index["artifacts"]
+        if item["path"] == "run-compatibility.json"
+    )
+    compatibility_record["sha256"] = release_bytes_sha256(compatibility_payload)
+    compatibility_record["size_bytes"] = len(compatibility_payload)
+    artifact_index_path.write_text(json.dumps(artifact_index))
+
+    with pytest.raises(ValueError, match="run-compatibility commitment"):
+        load_terminal_release_run(options.output_dir)
