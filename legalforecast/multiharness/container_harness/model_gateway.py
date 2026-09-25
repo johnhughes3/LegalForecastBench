@@ -19,7 +19,11 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 if TYPE_CHECKING:
     from .model_gateway_accounting import GatewayUsage
-    from .model_gateway_protocol import AnthropicModelGateway, ModelGatewayPolicy
+    from .model_gateway_protocol import (
+        AnthropicModelGateway,
+        GatewaySpendController,
+        ModelGatewayPolicy,
+    )
     from .model_gateway_server import ModelGatewayHTTPServer, build_model_gateway_server
     from .model_gateway_types import (
         GatewayAuthenticationError,
@@ -45,6 +49,7 @@ elif __package__ in (None, ""):
     )
     from _lfb_model_gateway.model_gateway_protocol import (  # pyright: ignore[reportMissingImports]
         AnthropicModelGateway,
+        GatewaySpendController,
         ModelGatewayPolicy,
     )
     from _lfb_model_gateway.model_gateway_server import (  # pyright: ignore[reportMissingImports]
@@ -64,7 +69,11 @@ elif __package__ in (None, ""):
     )
 else:
     from .model_gateway_accounting import GatewayUsage
-    from .model_gateway_protocol import AnthropicModelGateway, ModelGatewayPolicy
+    from .model_gateway_protocol import (
+        AnthropicModelGateway,
+        GatewaySpendController,
+        ModelGatewayPolicy,
+    )
     from .model_gateway_server import (
         ModelGatewayHTTPServer,
         build_model_gateway_server,
@@ -316,6 +325,7 @@ __all__ = [
     "GatewayBudgetExceeded",
     "GatewayEvidenceError",
     "GatewayResponse",
+    "GatewaySpendController",
     "GatewayUpstreamError",
     "GatewayUsage",
     "GatewayUsageSnapshot",

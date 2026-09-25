@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from http.client import HTTPConnection, HTTPSConnection
 from pathlib import Path
-from typing import Any, Final, cast
+from typing import Any, Final, Protocol, cast
 from urllib.parse import SplitResult, urlsplit
 
 from .model_gateway_accounting import GatewayUsage
@@ -39,6 +39,7 @@ from .model_gateway_types import (
     GatewayUpstreamError,
     ModelGatewayError,
     ObservedUsage,
+    Reservation,
 )
 
 MAX_HTTP_HEADER_BYTES: Final[int] = 16 * 1024
@@ -136,6 +137,50 @@ class ModelGatewayPolicy:
             raise ModelGatewayError("upstream_timeout_seconds must be positive")
 
 
+class GatewaySpendController(Protocol):
+    """Optional paid-run hook around each fixed upstream request.
+
+    The gateway only depends on this structural contract.  Keeping the paid
+    implementation out of the public sidecar module means fixture runs remain
+    provider-free, while a protected caller can inject its own reservation and
+    settlement authority without handing credentials to the harness.
+    """
+
+    def authorize_request(
+        self,
+        *,
+        request_id: str,
+        body: bytes,
+        model: str,
+        max_tokens: int,
+    ) -> object:
+        """Reserve authority before the request is sent upstream."""
+        raise NotImplementedError
+
+    def settle_response(
+        self,
+        lease: object,
+        *,
+        response_body: bytes,
+        response_status: int,
+        content_type: str | None,
+        input_tokens: int | None,
+        output_tokens: int | None,
+    ) -> bool:
+        """Return false when bounded charge evidence is unavailable."""
+        raise NotImplementedError
+
+    def record_failure(
+        self,
+        lease: object,
+        *,
+        failure_type: str,
+        ambiguous: bool,
+    ) -> None:
+        """Record a failure without releasing uncertain provider spend."""
+        raise NotImplementedError
+
+
 class AnthropicModelGateway:
     """Validate and forward the single supported Anthropic API operation."""
 
@@ -144,9 +189,15 @@ class AnthropicModelGateway:
         policy: ModelGatewayPolicy,
         *,
         usage_evidence_path: Path | None = None,
+        spend_controller: GatewaySpendController | None = None,
+        request_id: str | None = None,
     ) -> None:
+        if spend_controller is not None:
+            _validate_run_request_id(request_id)
         self.policy = policy
         self.usage = GatewayUsage(evidence_path=usage_evidence_path)
+        self._spend_controller = spend_controller
+        self._request_id = request_id
         self._upstream = _parse_upstream_url(policy.upstream_base_url)
         upstream_host = self._upstream.hostname
         if upstream_host is None:
@@ -208,6 +259,24 @@ class AnthropicModelGateway:
         except ModelGatewayError as exc:
             return error_response(HTTPStatus.BAD_REQUEST, str(exc))
 
+        spend_lease: object | None = None
+        if self._spend_controller is not None:
+            try:
+                spend_lease = self._spend_controller.authorize_request(
+                    request_id=self._request_id or "",
+                    body=body,
+                    model=model,
+                    max_tokens=max_tokens,
+                )
+                if spend_lease is None:
+                    raise RuntimeError("spend controller returned no lease")
+            except Exception:
+                self._settle_usage_after_failure(reservation, None, None)
+                return error_response(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "spend authorization failed",
+                )
+
         try:
             response_body, response_status, content_type = self._forward(
                 body,
@@ -217,12 +286,38 @@ class AnthropicModelGateway:
             if len(response_body) > self.policy.max_response_bytes:
                 raise GatewayUpstreamError("upstream response exceeds response limit")
             observed = _usage_from_body(response_body, content_type)
-            try:
-                self.usage.settle(reservation, observed)
-            except GatewayEvidenceError:
+            if not self._settle_usage_after_failure(reservation, observed, spend_lease):
                 return error_response(
                     HTTPStatus.SERVICE_UNAVAILABLE, "usage accounting failed"
                 )
+            if self._spend_controller is not None:
+                try:
+                    settled = self._spend_controller.settle_response(
+                        spend_lease,
+                        response_body=response_body,
+                        response_status=response_status,
+                        content_type=content_type,
+                        input_tokens=(
+                            observed.input_tokens if observed is not None else None
+                        ),
+                        output_tokens=(
+                            observed.output_tokens if observed is not None else None
+                        ),
+                    )
+                except Exception:
+                    self._record_spend_failure(
+                        spend_lease,
+                        failure_type="gateway_settlement_error",
+                    )
+                    return error_response(
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                        "spend settlement failed",
+                    )
+                if not settled:
+                    return error_response(
+                        HTTPStatus.BAD_GATEWAY,
+                        "upstream charge evidence unavailable",
+                    )
             if response_status < 200 or response_status >= 300:
                 return error_response(HTTPStatus.BAD_GATEWAY, "upstream request failed")
             response_headers = {
@@ -231,13 +326,42 @@ class AnthropicModelGateway:
             }
             return GatewayResponse(response_status, response_headers, response_body)
         except (GatewayUpstreamError, OSError, TimeoutError, ValueError):
-            try:
-                self.usage.settle(reservation, None)
-            except GatewayEvidenceError:
-                return error_response(
-                    HTTPStatus.SERVICE_UNAVAILABLE, "usage accounting failed"
+            if self._settle_usage_after_failure(reservation, None, spend_lease):
+                self._record_spend_failure(
+                    spend_lease,
+                    failure_type="gateway_transport_error",
                 )
             return error_response(HTTPStatus.BAD_GATEWAY, "upstream request failed")
+
+    def _settle_usage_after_failure(
+        self,
+        reservation: Reservation,
+        observed: ObservedUsage | None,
+        spend_lease: object | None,
+    ) -> bool:
+        try:
+            self.usage.settle(reservation, observed)
+        except GatewayEvidenceError:
+            self._record_spend_failure(
+                spend_lease,
+                failure_type="gateway_accounting_error",
+            )
+            return False
+        return True
+
+    def _record_spend_failure(self, lease: object | None, *, failure_type: str) -> None:
+        if self._spend_controller is None or lease is None:
+            return
+        try:
+            self._spend_controller.record_failure(
+                lease,
+                failure_type=failure_type,
+                ambiguous=True,
+            )
+        except Exception:
+            # A failed failure-record write is still fail-closed.  Do not
+            # replace the bounded gateway response with controller internals.
+            return
 
     def _authorize(self, *, authorization: str | None, api_key: str | None) -> None:
         candidates: list[str] = []
@@ -477,6 +601,18 @@ def _nonnegative_int(value: object) -> int | None:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         return None
     return value
+
+
+def _validate_run_request_id(value: str | None) -> None:
+    if (
+        value is None
+        or not value.strip()
+        or len(value) > 256
+        or any(character in value for character in "\r\n")
+    ):
+        raise ModelGatewayError(
+            "request_id must be a nonempty single-line value of at most 256 characters"
+        )
 
 
 def error_response(status: HTTPStatus, reason: str) -> GatewayResponse:

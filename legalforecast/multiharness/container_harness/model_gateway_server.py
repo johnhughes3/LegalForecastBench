@@ -10,6 +10,7 @@ from typing import cast
 from .model_gateway_protocol import (
     MAX_HTTP_HEADER_BYTES,
     AnthropicModelGateway,
+    GatewaySpendController,
     ModelGatewayPolicy,
     error_response,
     host_header_allowed,
@@ -119,8 +120,15 @@ def build_model_gateway_server(
     bind_host: str = "127.0.0.1",
     port: int = 0,
     usage_evidence_path: Path | None = None,
+    spend_controller: GatewaySpendController | None = None,
+    request_id: str | None = None,
 ) -> ModelGatewayHTTPServer:
     """Build a server for one gateway without starting a background thread."""
 
-    gateway = AnthropicModelGateway(policy, usage_evidence_path=usage_evidence_path)
+    gateway = AnthropicModelGateway(
+        policy,
+        usage_evidence_path=usage_evidence_path,
+        spend_controller=spend_controller,
+        request_id=request_id,
+    )
     return ModelGatewayHTTPServer((bind_host, port), gateway)

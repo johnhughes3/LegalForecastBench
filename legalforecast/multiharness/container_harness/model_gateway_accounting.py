@@ -8,7 +8,7 @@ import tempfile
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 from .model_gateway_types import (
     GatewayBudgetExceeded,
@@ -18,8 +18,18 @@ from .model_gateway_types import (
     Reservation,
 )
 
-if TYPE_CHECKING:
-    from .model_gateway_protocol import ModelGatewayPolicy
+
+class GatewayBudgetPolicy(Protocol):
+    """Budget fields needed by accounting without importing the gateway."""
+
+    @property
+    def max_requests(self) -> int: ...
+
+    @property
+    def max_total_input_tokens(self) -> int: ...
+
+    @property
+    def max_total_output_tokens(self) -> int: ...
 
 
 @dataclass(slots=True)
@@ -52,7 +62,7 @@ class GatewayUsage:
         *,
         input_tokens: int,
         output_tokens: int,
-        policy: ModelGatewayPolicy,
+        policy: GatewayBudgetPolicy,
     ) -> Reservation:
         """Reserve worst-case input/output usage before contacting upstream."""
 
