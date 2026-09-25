@@ -39,6 +39,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [harness-efficiency-observations.md](harness-efficiency-observations.md): receipt-backed duration, cost, and token accounting published as peer columns.
 - [Multiharness contracts](multiharness/contracts.md): the current sealed-deliverable, evaluation, scoring, identity, compatibility, and Harvey LAB source boundaries.
 - [multiharness-receipt-authority.md](multiharness/receipt-authority.md): the external Ed25519 evaluator-issuer seam and credential-free executable probe procedure.
+- [Claude Code terminal release run](multiharness/terminal-release.md): provider-free reproduction of the rootless CLI, case-document, gateway, and complete-unit scoring path.
 
 ### Adapter tracks
 

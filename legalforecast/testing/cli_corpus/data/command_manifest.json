@@ -4393,6 +4393,58 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "paid_config",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--paid-config"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "model_registry",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model-registry"
+          ],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "gateway_upstream_base_url",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--gateway-upstream-base-url"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "gateway_image",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--gateway-image"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "fixture_base_url",
           "metavar": null,
           "nargs": null,
