@@ -38,6 +38,8 @@ class GatewayUsage:
     _observed_output_tokens: int = 0
     _observed_input_known: bool = True
     _observed_output_known: bool = True
+    _observed_input_seen: bool = False
+    _observed_output_seen: bool = False
 
     def __post_init__(self) -> None:
         if self.evidence_path is not None:
@@ -102,16 +104,22 @@ class GatewayUsage:
             self._input_tokens += input_tokens
             self._output_tokens += output_tokens
             if observed is None:
+                self._observed_input_seen = True
+                self._observed_output_seen = True
                 self._observed_input_known = False
                 self._observed_output_known = False
             else:
                 if observed.input_tokens is None:
+                    self._observed_input_seen = True
                     self._observed_input_known = False
                 elif self._observed_input_known:
+                    self._observed_input_seen = True
                     self._observed_input_tokens += observed.input_tokens
                 if observed.output_tokens is None:
+                    self._observed_output_seen = True
                     self._observed_output_known = False
                 elif self._observed_output_known:
+                    self._observed_output_seen = True
                     self._observed_output_tokens += observed.output_tokens
             self._write_evidence_locked()
 
@@ -170,10 +178,14 @@ class GatewayUsage:
             reserved_output_tokens=self._reserved_output_tokens,
             rejected_count=self._rejected_count,
             observed_input_tokens=(
-                self._observed_input_tokens if self._observed_input_known else None
+                self._observed_input_tokens
+                if self._observed_input_seen and self._observed_input_known
+                else None
             ),
             observed_output_tokens=(
-                self._observed_output_tokens if self._observed_output_known else None
+                self._observed_output_tokens
+                if self._observed_output_seen and self._observed_output_known
+                else None
             ),
         )
 

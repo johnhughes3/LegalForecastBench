@@ -15,20 +15,12 @@ import stat
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, cast
+from typing import TYPE_CHECKING, Any, Final, cast
 
-if __package__ in (None, ""):
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-
-try:
+if TYPE_CHECKING:
     from .model_gateway_accounting import GatewayUsage
     from .model_gateway_protocol import AnthropicModelGateway, ModelGatewayPolicy
-    from .model_gateway_server import (
-        ModelGatewayHTTPServer,
-        build_model_gateway_server,
-    )
+    from .model_gateway_server import ModelGatewayHTTPServer, build_model_gateway_server
     from .model_gateway_types import (
         GatewayAuthenticationError,
         GatewayBudgetExceeded,
@@ -40,19 +32,44 @@ try:
         ObservedUsage,
         Reservation,
     )
-except ImportError:
-    from legalforecast.multiharness.container_harness.model_gateway_accounting import (
+elif __package__ in (None, ""):
+    import sys
+    from types import ModuleType
+
+    _standalone_package_name = "_lfb_model_gateway"
+    _standalone_package = ModuleType(_standalone_package_name)
+    _standalone_package.__path__ = [str(Path(__file__).resolve().parent)]  # type: ignore[attr-defined]
+    sys.modules.setdefault(_standalone_package_name, _standalone_package)
+    from _lfb_model_gateway.model_gateway_accounting import (  # pyright: ignore[reportMissingImports]
         GatewayUsage,
     )
-    from legalforecast.multiharness.container_harness.model_gateway_protocol import (
+    from _lfb_model_gateway.model_gateway_protocol import (  # pyright: ignore[reportMissingImports]
         AnthropicModelGateway,
         ModelGatewayPolicy,
     )
-    from legalforecast.multiharness.container_harness.model_gateway_server import (
+    from _lfb_model_gateway.model_gateway_server import (  # pyright: ignore[reportMissingImports]
         ModelGatewayHTTPServer,
         build_model_gateway_server,
     )
-    from legalforecast.multiharness.container_harness.model_gateway_types import (
+    from _lfb_model_gateway.model_gateway_types import (  # pyright: ignore[reportMissingImports]
+        GatewayAuthenticationError,
+        GatewayBudgetExceeded,
+        GatewayEvidenceError,
+        GatewayResponse,
+        GatewayUpstreamError,
+        GatewayUsageSnapshot,
+        ModelGatewayError,
+        ObservedUsage,
+        Reservation,
+    )
+else:
+    from .model_gateway_accounting import GatewayUsage
+    from .model_gateway_protocol import AnthropicModelGateway, ModelGatewayPolicy
+    from .model_gateway_server import (
+        ModelGatewayHTTPServer,
+        build_model_gateway_server,
+    )
+    from .model_gateway_types import (
         GatewayAuthenticationError,
         GatewayBudgetExceeded,
         GatewayEvidenceError,
