@@ -466,6 +466,11 @@ def _prepare_incomplete_release_retry(plan: _RowPlan) -> None:
         raise ResumeRefusedError(
             "resume refused: incomplete release row uses an unsupported adapter"
         )
+    relative_paths += (
+        release_harness.RELEASE_HARNESS_RECEIPT_NAME,
+        release_harness.RELEASE_HARNESS_LFB_RECORD_NAME,
+        release_harness.RELEASE_HARNESS_PRIVATE_LFB_RECORD_NAME,
+    )
     for relative in relative_paths:
         try:
             (plan.workspace / relative).unlink(missing_ok=True)
