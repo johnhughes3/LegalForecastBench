@@ -244,7 +244,7 @@ def test_anthropic_registry_charge_extractor_prices_cache_buckets() -> None:
         }
     )
 
-    assert extract(body, 200, "application/json") == 8_325
+    assert extract(body, 200, "application/json") == 10_825
 
 
 def test_anthropic_registry_charge_extractor_accepts_explicit_zero_cache() -> None:
@@ -286,7 +286,21 @@ def test_anthropic_registry_charge_extractor_prices_stream_usage() -> None:
         b"data: [DONE]\n\n"
     )
 
-    assert extract(body, 200, "text/event-stream") == 8_325
+    assert extract(body, 200, "text/event-stream") == 10_825
+
+
+def test_anthropic_registry_charge_extractor_accepts_cache_larger_than_raw() -> None:
+    extract = anthropic_registry_charge_extractor(_registry_entry())
+    body = _usage_body(
+        {
+            "input_tokens": 100,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 400,
+            "cache_creation_input_tokens": 100,
+        }
+    )
+
+    assert extract(body, 200, "application/json") == 6_325
 
 
 @pytest.mark.parametrize(
@@ -305,14 +319,6 @@ def test_anthropic_registry_charge_extractor_prices_stream_usage() -> None:
                 "output_tokens": 200,
                 "cache_read_input_tokens": 400,
                 "cache_creation_input_tokens": "100",
-            }
-        ),
-        _usage_body(
-            {
-                "input_tokens": 100,
-                "output_tokens": 200,
-                "cache_read_input_tokens": 80,
-                "cache_creation_input_tokens": 30,
             }
         ),
     ),
@@ -467,3 +473,43 @@ def test_gateway_controller_retains_unknown_charge() -> None:
     assert authority.responses == []
     assert authority.failures[0]["failure_type"] == "gateway_charge_missing"
     assert authority.failures[0]["ambiguous"] is True
+
+
+def test_gateway_controller_journals_normalized_anthropic_input() -> None:
+    authority = _FakeAuthority()
+    controller = ProviderGatewaySpendController(
+        authority,
+        _config(),
+        25,
+        anthropic_registry_charge_extractor(_registry_entry()),
+    )
+    lease = controller.authorize_request(
+        request_id="case-1",
+        body=b"request",
+        model="claude-sonnet-4-5",
+        max_tokens=10,
+    )
+    response_body = _usage_body(
+        {
+            "input_tokens": 1000,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 400,
+            "cache_creation_input_tokens": 100,
+        }
+    )
+
+    assert (
+        controller.settle_response(
+            lease,
+            response_body=response_body,
+            response_status=200,
+            content_type="application/json",
+            input_tokens=1000,
+            output_tokens=200,
+        )
+        is True
+    )
+
+    assert authority.responses[0]["input_tokens"] == 1500
+    assert authority.responses[0]["output_tokens"] == 200
+    assert authority.responses[0]["actual_microusd"] == 10_825

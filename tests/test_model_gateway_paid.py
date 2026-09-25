@@ -217,7 +217,7 @@ def test_build_paid_gateway_controller_uses_cache_aware_registry_pricing(
         },
         separators=(",", ":"),
     ).encode()
-    assert extractor(body, 200, "application/json") == 5_375
+    assert extractor(body, 200, "application/json") == 8_375
 
 
 def test_paid_gateway_stages_installed_image_inputs_without_fixture_pythonpath(

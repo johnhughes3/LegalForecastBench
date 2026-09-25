@@ -539,11 +539,13 @@ def _anthropic_gateway_usage(
         or output_tokens is None
         or cache_read_tokens is None
         or cache_write_tokens is None
-        or cache_read_tokens + cache_write_tokens > input_tokens
     ):
         return None
     return _AnthropicGatewayUsage(
-        input_tokens=input_tokens,
+        # Anthropic reports ``input_tokens`` as the uncached portion.  The
+        # managed cost helper expects its input dimension to include both
+        # cache buckets, so normalize the provider response at this seam.
+        input_tokens=input_tokens + cache_read_tokens + cache_write_tokens,
         output_tokens=output_tokens,
         cache_read_tokens=cache_read_tokens,
         cache_write_tokens=cache_write_tokens,
@@ -669,11 +671,26 @@ class ProviderGatewaySpendController(GatewaySpendController):
                 ambiguous=True,
             )
             return False
+        # The protocol's generic observed usage exposes Anthropic's raw
+        # ``input_tokens`` field.  Reuse the same normalized usage parser that
+        # established the charge so the durable journal records the total
+        # input dimension, including cache reads and writes.
+        normalized_usage = _anthropic_gateway_usage(response_body, content_type)
+        journal_input_tokens = (
+            normalized_usage.input_tokens
+            if normalized_usage is not None
+            else input_tokens
+        )
+        journal_output_tokens = (
+            normalized_usage.output_tokens
+            if normalized_usage is not None
+            else output_tokens
+        )
         response_sha256 = hashlib.sha256(response_body).hexdigest()
         self.authority.record_response(
             lease.lease,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
+            input_tokens=journal_input_tokens,
+            output_tokens=journal_output_tokens,
             actual_microusd=actual_microusd,
             response_sha256=response_sha256,
         )
