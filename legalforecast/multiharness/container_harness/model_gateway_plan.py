@@ -11,14 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Protocol
 from urllib.parse import urlsplit
-
-if TYPE_CHECKING:
-    from legalforecast.multiharness.container_harness.plan import (
-        ContainerHarnessNames,
-        ContainerHarnessSpec,
-    )
 
 PROXY_EVIDENCE_DIR = "/var/legalforecast-egress"
 
@@ -150,10 +144,22 @@ class ModelGatewayLaunch:
             raise ModelGatewayPlanError("model gateway python executable is invalid")
 
 
+class _HarnessNames(Protocol):
+    @property
+    def network(self) -> str: ...
+
+    @property
+    def proxy_container(self) -> str: ...
+
+
+class _HarnessSpec(Protocol):
+    def resolved_proxy_image(self) -> str: ...
+
+
 def build_model_gateway_run_argv(
     backend_path: Path,
-    spec: ContainerHarnessSpec,
-    names: ContainerHarnessNames,
+    spec: _HarnessSpec,
+    names: _HarnessNames,
     launch: ModelGatewayLaunch,
     *,
     evidence_directory: Path,
