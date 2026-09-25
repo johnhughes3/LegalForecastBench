@@ -59,8 +59,13 @@ class TerminalReleaseOptions:
             if not isinstance(fixture_base_url, str) or not fixture_base_url.strip():
                 raise ValueError("fixture-none requires --fixture-base-url")
             fixture_url = urlsplit(fixture_base_url)
-            if fixture_url.scheme != "https" or fixture_url.hostname is None:
-                raise ValueError("--fixture-base-url must be an HTTPS endpoint")
+            if (
+                fixture_url.scheme not in {"http", "https"}
+                or fixture_url.hostname is None
+            ):
+                raise ValueError("--fixture-base-url must be an HTTP(S) endpoint")
+            if fixture_url.scheme == "http" and not fixture_egress_network:
+                raise ValueError("an HTTP fixture requires --fixture-egress-network")
         elif profile == PUBLISHED_API_KEY:
             if fixture_base_url is not None or fixture_egress_network is not None:
                 raise ValueError("published-api-key cannot use fixture routing")
@@ -171,7 +176,7 @@ def add_terminal_release_parser(
     )
     parser.add_argument(
         "--fixture-base-url",
-        help="HTTPS Anthropic-compatible fixture endpoint for credential-free tests.",
+        help="Anthropic-compatible fixture endpoint for credential-free tests.",
     )
     parser.add_argument(
         "--fixture-egress-network",

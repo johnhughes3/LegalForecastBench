@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 from legalforecast.cli import main
-from legalforecast.multiharness import claude_code_container
 from legalforecast.multiharness.release_adapters import NeutralApiFixtureAdapter
 from legalforecast.multiharness.release_harness import score_multiharness_release
 from legalforecast.multiharness.terminal_release import execute_terminal_release
@@ -64,16 +63,9 @@ def test_terminal_release_scores_staged_case(tmp_path: Path) -> None:
     assert (output / "run-progress.json").is_file()
 
 
-def test_terminal_release_refuses_unavailable_sandbox_before_scoring(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_terminal_release_preflights_image_before_scoring(tmp_path: Path) -> None:
     release_root = tmp_path / "release"
     issue_synthetic_release(release_root)
-    monkeypatch.setattr(
-        claude_code_container,
-        "probe_native_claude_sandbox",
-        lambda *_args, **_kwargs: False,
-    )
     output = tmp_path / "run"
     status = main(
         [
@@ -97,3 +89,34 @@ def test_terminal_release_refuses_unavailable_sandbox_before_scoring(
     )
     assert status == 2
     assert not output.exists()
+
+
+def test_http_fixture_requires_named_egress_network(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "run"
+    status = main(
+        [
+            "multiharness",
+            "release-run",
+            "--forecast-release",
+            str(tmp_path / "forecast-release.json"),
+            "--labels-release",
+            str(tmp_path / "labels-release.json"),
+            "--artifact-root",
+            str(tmp_path),
+            "--output-dir",
+            str(output),
+            "--model-key",
+            "anthropic:fixture",
+            "--image",
+            "sha256:" + "a" * 64,
+            "--fixture-base-url",
+            "http://fixture:8080",
+        ]
+    )
+    assert status == 2
+    assert not output.exists()
+    assert (
+        "an HTTP fixture requires --fixture-egress-network" in capsys.readouterr().err
+    )

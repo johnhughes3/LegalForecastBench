@@ -815,6 +815,8 @@ def _cmd_terminal_release(args: argparse.Namespace) -> int:
     """Run the release-backed Claude Code treatment and write its score census."""
 
     from legalforecast.multiharness.claude_code_container import (
+        OUTER_CONTAINER_ONLY_MODE,
+        ClaudeCodeContainerAdapterError,
         build_claude_code_container_adapter,
     )
     from legalforecast.multiharness.release_harness import (
@@ -828,23 +830,22 @@ def _cmd_terminal_release(args: argparse.Namespace) -> int:
             "published-api-key terminal execution is unavailable until the "
             "container credential boundary and spend approval are verified"
         )
-    adapter = build_claude_code_container_adapter(
-        image_digest=options.image,
-        auth_profile=options.auth_profile,
-        model_key=options.model_key,
-        max_budget_usd=options.max_budget_usd,
-        approval_reference=options.approval_reference,
-        output_root=options.output_dir.resolve() / "container-runs",
-        backend=options.backend,
-        timeout_seconds=options.timeout_seconds,
-        fixture_base_url=options.fixture_base_url,
-        fixture_egress_network=options.fixture_egress_network,
-    )
-    if not adapter.sandbox_verified:
-        raise ValueError(
-            "Claude Code native Bash sandbox is unavailable in this container "
-            "runtime; no benchmark rows were started"
+    try:
+        adapter = build_claude_code_container_adapter(
+            image_digest=options.image,
+            auth_profile=options.auth_profile,
+            model_key=options.model_key,
+            max_budget_usd=options.max_budget_usd,
+            approval_reference=options.approval_reference,
+            output_root=options.output_dir.resolve() / "container-runs",
+            backend=options.backend,
+            timeout_seconds=options.timeout_seconds,
+            fixture_base_url=options.fixture_base_url,
+            fixture_egress_network=options.fixture_egress_network,
+            execution_mode=OUTER_CONTAINER_ONLY_MODE,
         )
+    except ClaudeCodeContainerAdapterError as exc:
+        raise ValueError(str(exc)) from exc
     report = execute_terminal_release(
         options, adapter=adapter, score=score_multiharness_release
     )
