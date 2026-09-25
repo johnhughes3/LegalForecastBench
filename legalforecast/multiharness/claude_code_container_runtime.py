@@ -23,6 +23,7 @@ from legalforecast.multiharness.container_harness import (
     ContainerHarnessSpec,
     run_container_harness,
 )
+from legalforecast.multiharness.container_harness.fence import FenceObservation
 from legalforecast.multiharness.container_harness.images import (
     require_digest_pinned_image,
     resolve_local_image_id,
@@ -32,6 +33,17 @@ from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
     RunSpec,
 )
+
+
+def _fence_allows_forecast(fence: FenceObservation) -> bool:
+    """Accept only observed native tools with no provider-side web capability."""
+
+    return (
+        fence.observable
+        and fence.native_tools_enabled is True
+        and fence.server_side_web_tools_disabled is True
+        and fence.web_request_count == 0
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,7 +163,10 @@ class ClaudeCodeContainerExecutionService:
                 spec.working_directory,
             )
             terminal_ok = terminal_success(envelope)
-            run_success = result.exit_code == 0 and trace_ok and terminal_ok
+            fence_ok = _fence_allows_forecast(result.fence)
+            run_success = (
+                result.exit_code == 0 and trace_ok and terminal_ok and fence_ok
+            )
             status = (
                 "timeout"
                 if result.timed_out
@@ -160,7 +175,7 @@ class ClaudeCodeContainerExecutionService:
             if result.exit_code == 0 and not run_success:
                 stderr = (
                     f"{stderr}\n" if stderr else ""
-                ) + "missing valid Claude terminal or Bash tool evidence"
+                ) + "missing valid Claude terminal, Bash, or web-fence evidence"
             return ExecutionReceipt.from_transcript(
                 spec,
                 stdout=stdout,

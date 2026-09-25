@@ -14,8 +14,44 @@ from legalforecast.multiharness.claude_code_container import (
     _verify_staged_solver_input,
     build_claude_code_container_adapter,
 )
+from legalforecast.multiharness.claude_code_container_runtime import (
+    _fence_allows_forecast,
+)
+from legalforecast.multiharness.container_harness.fence import (
+    ParserFenceFields,
+    fence_from_parser_fields,
+)
 
 IMAGE = "sha256:" + "a" * 64
+
+
+@pytest.mark.parametrize(
+    ("tools", "web_tools", "web_requests", "observable", "accepted"),
+    (
+        (("Bash",), (), 0, True, True),
+        (("Bash",), ("WebSearch",), 0, True, False),
+        (("Bash",), (), 1, True, False),
+        ((), (), 0, True, False),
+        (("Bash",), (), 0, False, False),
+    ),
+)
+def test_scored_forecast_requires_observed_no_web_fence(
+    tools: tuple[str, ...],
+    web_tools: tuple[str, ...],
+    web_requests: int,
+    observable: bool,
+    accepted: bool,
+) -> None:
+    fence = fence_from_parser_fields(
+        ParserFenceFields(
+            parse_ok=True,
+            reports_fence=observable,
+            tools_available=tools,
+            server_side_web_tools_available=web_tools,
+            server_side_web_request_count=web_requests,
+        )
+    )
+    assert _fence_allows_forecast(fence) is accepted
 
 
 def _stream(*events: dict[str, object]) -> str:

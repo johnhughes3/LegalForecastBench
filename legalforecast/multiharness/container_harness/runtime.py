@@ -145,6 +145,13 @@ def run_container_harness(
         evidence = _read_evidence(evidence_directory / EVIDENCE_FILE_NAME)
     finally:
         _cleanup(backend_path, names, environment, staging)
+    try:
+        stdout = stdout_path.read_bytes()
+    except OSError as exc:
+        raise ContainerHarnessError(
+            "harness stdout is unreadable; fence evidence cannot be derived"
+        ) from exc
+    fence = fence_from_cli_output(fenced_cli_name(spec), stdout)
     result = ContainerHarnessResult(
         run_id=spec.run_id,
         exit_code=exit_code,
@@ -157,13 +164,8 @@ def run_container_harness(
         allowed_hosts=evidence.allowed_hosts,
         refused=evidence.refused,
         allowlist=spec.allowlist().to_record(),
+        fence=fence,
     )
-    try:
-        stdout = stdout_path.read_bytes()
-    except OSError as exc:
-        raise ContainerHarnessError(
-            "harness stdout is unreadable; fence evidence cannot be derived"
-        ) from exc
     write_published_package(
         publication_directory,
         result_record=result.to_record(),
@@ -172,7 +174,7 @@ def run_container_harness(
             "refused": [dict(record) for record in evidence.refused],
             "decision_count": evidence.decision_count,
         },
-        fence=fence_from_cli_output(fenced_cli_name(spec), stdout),
+        fence=fence,
         allowlist=spec.allowlist().to_record(),
     )
     return result

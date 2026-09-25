@@ -26,6 +26,7 @@ from legalforecast.multiharness.container_harness.egress_proxy import (
     DEFAULT_ALLOWED_PORTS,
     EgressAllowlist,
 )
+from legalforecast.multiharness.container_harness.fence import FenceObservation
 from legalforecast.multiharness.container_harness.images import (
     require_digest_pinned_image,
 )
@@ -182,6 +183,7 @@ class ContainerHarnessResult:
     allowed_hosts: tuple[str, ...]
     refused: tuple[Mapping[str, Any], ...]
     allowlist: Mapping[str, Any]
+    fence: FenceObservation
 
     def to_record(self) -> dict[str, Any]:
         """Return a public JSON record without attacker-controlled hostnames.

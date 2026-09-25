@@ -17,7 +17,7 @@ from legalforecast.multiharness.auth_profiles import (
 from legalforecast.multiharness.container_harness.images import (
     require_digest_pinned_image,
 )
-from legalforecast.multiharness.sandbox import BACKEND_DOCKER, BACKEND_PODMAN
+from legalforecast.multiharness.sandbox import BACKEND_DOCKER
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,7 +179,7 @@ def add_terminal_release_parser(
     )
     parser.add_argument(
         "--backend",
-        choices=(BACKEND_DOCKER, BACKEND_PODMAN),
+        choices=(BACKEND_DOCKER,),
         default=BACKEND_DOCKER,
     )
     parser.add_argument("--timeout-seconds", type=int, default=900)

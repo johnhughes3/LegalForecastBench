@@ -12,6 +12,7 @@ import stat
 from pathlib import Path
 
 import pytest
+from legalforecast.multiharness.container_harness.fence import unobservable_fence
 from legalforecast.multiharness.container_harness.images import (
     ContainerImageError,
     require_digest_pinned_image,
@@ -480,6 +481,7 @@ def test_result_record_carries_counts_but_no_attacker_controlled_hosts(
         allowed_hosts=("api.anthropic.com",),
         refused=({"host": "courtlistener.com", "port": 443, "reason": "x"},),
         allowlist={"hosts": ["api.anthropic.com"], "ports": [443]},
+        fence=unobservable_fence(source="unobservable"),
     )
 
     record = result.to_record()
