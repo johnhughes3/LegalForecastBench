@@ -11,8 +11,8 @@ request and response bodies are bounded before they are forwarded or returned.
 This module does not make provider calls by itself.  ``AnthropicModelGateway``
 can be hosted by :func:`build_model_gateway_server` next to a container, while
 tests use a local fake upstream.  A production caller must put the gateway on
-the harness-only network and give the gateway process its upstream key through
-the existing secret boundary.
+the internal network shared with the harness and relay, and give the gateway
+process its upstream key through the existing secret boundary.
 
 The capability is not a secret-provider credential.  A Bash tool in the same
 container can reuse it, so every accepted request consumes the same request and

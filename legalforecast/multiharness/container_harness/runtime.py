@@ -11,11 +11,13 @@ The topology, measured on rootless Docker rather than assumed:
 * outer fixture runs start the bounded model gateway and the allowlisted CONNECT
   relay on the internal network. Only the relay joins the selected fixture
   network. The harness uses the gateway's fixed HTTP endpoint and receives no
-  generic proxy route.
+  proxy variables or direct external network attachment. It can reach the
+  relay on the internal network, where CONNECT is limited to the declared
+  host and port.
 
-The standard proxy environment variables are therefore the convenience, not
-the fence: even a harness that ignored them has nowhere to go. The gateway
-mode has no proxy variables at all. See
+The standard proxy environment variables are therefore a convenience, not
+the fence: a harness that ignored them still has no unrestricted external
+route. The gateway mode has no proxy variables at all. See
 :mod:`legalforecast.multiharness.container_harness` for what the fence cannot
 reach, and :mod:`.plan` for the argv and environment this module executes.
 """

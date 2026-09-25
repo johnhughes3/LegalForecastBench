@@ -477,8 +477,9 @@ def build_harness_environment(
         }
     else:
         # The model gateway is reached directly over the internal Docker DNS
-        # name. Leaving generic proxy variables in the harness would create a
-        # second route and would make the gateway boundary observational only.
+        # name. The relay is reachable on the internal network, but its
+        # CONNECT policy admits only the declared host and port. Do not
+        # advertise that relay as a generic proxy to the harness.
         no_proxy = f"{no_proxy},{spec.model_gateway.host}"
         environment = {
             "HOME": spec.container_home,
@@ -486,8 +487,8 @@ def build_harness_environment(
             "no_proxy": no_proxy,
             # The image enables Claude's subprocess scrub for native mode; that
             # knob forces shell-mode sandboxing even when a session setting
-            # disables it. Outer mode has no provider credential or external
-            # route in the harness, so it must explicitly turn the scrub off
+            # disables it. Outer mode has no provider key or direct external
+            # network attachment, so it must explicitly turn the scrub off
             # to avoid requesting an unavailable nested user namespace.
             "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "0",
         }
