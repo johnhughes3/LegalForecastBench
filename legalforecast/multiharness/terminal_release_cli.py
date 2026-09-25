@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from legalforecast.multiharness.auth_profiles import (
     FIXTURE_NONE,
@@ -57,6 +58,9 @@ class TerminalReleaseOptions:
                 raise ValueError("fixture-none cannot carry paid-run authority")
             if not isinstance(fixture_base_url, str) or not fixture_base_url.strip():
                 raise ValueError("fixture-none requires --fixture-base-url")
+            fixture_url = urlsplit(fixture_base_url)
+            if fixture_url.scheme != "https" or fixture_url.hostname is None:
+                raise ValueError("--fixture-base-url must be an HTTPS endpoint")
         elif profile == PUBLISHED_API_KEY:
             if fixture_base_url is not None or fixture_egress_network is not None:
                 raise ValueError("published-api-key cannot use fixture routing")
@@ -167,7 +171,7 @@ def add_terminal_release_parser(
     )
     parser.add_argument(
         "--fixture-base-url",
-        help="Anthropic-compatible fixture endpoint for credential-free tests.",
+        help="HTTPS Anthropic-compatible fixture endpoint for credential-free tests.",
     )
     parser.add_argument(
         "--fixture-egress-network",

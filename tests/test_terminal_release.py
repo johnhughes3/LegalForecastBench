@@ -48,7 +48,7 @@ def test_terminal_release_scores_staged_case(tmp_path: Path) -> None:
             auth_profile="fixture-none",
             max_budget_usd=None,
             approval_reference=None,
-            fixture_base_url="http://fixture.invalid:8080",
+            fixture_base_url="https://fixture.invalid:8080",
             fixture_egress_network=None,
             backend="docker",
             timeout_seconds=30,
@@ -92,7 +92,7 @@ def test_terminal_release_refuses_unavailable_sandbox_before_scoring(
             "--image",
             "sha256:" + "a" * 64,
             "--fixture-base-url",
-            "http://fixture.invalid:8080",
+            "https://fixture.invalid:8080",
         ]
     )
     assert status == 2
