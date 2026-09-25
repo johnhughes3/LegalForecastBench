@@ -556,12 +556,29 @@
         "nonblank_line_count": 1357,
         "top_level_definition_count": 46
       },
+      "legalforecast/multiharness/claude_code_container.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 2,
+        "fan_out": 17,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "build_claude_code_container_adapter",
+        "largest_symbol_lines": 258,
+        "layer": "application",
+        "line_count": 527,
+        "nonblank_line_count": 497,
+        "top_level_definition_count": 4
+      },
       "legalforecast/multiharness/cli.py": {
         "cycle_id": "legalforecast/multiharness/cli.py,legalforecast/multiharness/tier0_mint.py,legalforecast/multiharness/tier0_production_factory.py",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 2,
-        "fan_out": 29,
+        "fan_out": 30,
         "flags": [
           "cycle",
           "oversized"
@@ -570,8 +587,8 @@
         "largest_symbol": "add_multiharness_parser",
         "largest_symbol_lines": 398,
         "layer": "application",
-        "line_count": 1586,
-        "nonblank_line_count": 1459,
+        "line_count": 1592,
+        "nonblank_line_count": 1465,
         "top_level_definition_count": 46
       },
       "legalforecast/multiharness/codex_cli.py": {
@@ -688,10 +705,10 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "load_model_gateway_launch_config",
-        "largest_symbol_lines": 145,
+        "largest_symbol_lines": 155,
         "layer": "application",
-        "line_count": 425,
-        "nonblank_line_count": 387,
+        "line_count": 437,
+        "nonblank_line_count": 399,
         "top_level_definition_count": 9
       },
       "legalforecast/multiharness/container_harness/model_gateway_protocol.py": {
@@ -741,8 +758,8 @@
         "largest_symbol": "run_container_harness",
         "largest_symbol_lines": 181,
         "layer": "application",
-        "line_count": 526,
-        "nonblank_line_count": 492,
+        "line_count": 529,
+        "nonblank_line_count": 495,
         "top_level_definition_count": 10
       },
       "legalforecast/multiharness/container_runtime.py": {
@@ -1058,7 +1075,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 3,
+        "fan_in": 5,
         "fan_out": 7,
         "flags": [
           "watch"
