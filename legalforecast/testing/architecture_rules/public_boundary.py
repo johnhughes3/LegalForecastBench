@@ -49,7 +49,9 @@ RETIRED_OFFICIAL_WORKFLOWS: frozenset[str] = frozenset(
     }
 )
 FORECAST_WORKFLOWS: frozenset[str] = frozenset({"run-benchmark.yaml"})
-FAN_IN_WORKFLOWS: frozenset[str] = frozenset({"fan-in-publish.yaml"})
+FAN_IN_WORKFLOWS: frozenset[str] = frozenset(
+    {"fan-in-publish.yaml", "score-terminal-release.yaml"}
+)
 ALWAYS_RETIRED_INPUTS: frozenset[str] = frozenset(
     {
         "acquisition_cycle",
