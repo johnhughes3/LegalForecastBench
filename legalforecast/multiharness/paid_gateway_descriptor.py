@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,7 +17,6 @@ from typing import Final
 
 from legalforecast.contracts import ARTIFACT_RAW_SHA256_V1, PUBLIC_RUN_IDENTITY_V1
 from legalforecast.evals.model_registry import (
-    ModelRegistryEntry,
     load_model_registry_bytes,
     model_registry_entry_sha256,
     model_registry_sha256,
@@ -163,17 +161,6 @@ def issue_paid_gateway_descriptor(
         raise ProtectedTerminalPaidError(
             "locked manifest and forecast release must contain the same cases"
         )
-    worst_case_request_microusd = _worst_case_request_microusd(entry)
-    worst_case_run_microusd = (
-        manifest_case_count
-        * PAID_GATEWAY_MAX_REQUESTS_PER_CASE
-        * worst_case_request_microusd
-    )
-    if worst_case_run_microusd > ceiling_microusd:
-        raise ProtectedTerminalPaidError(
-            "protected paid gateway worst-case release cost exceeds the approved "
-            f"ceiling: {worst_case_run_microusd} > {ceiling_microusd}"
-        )
     run_identity_sha256 = derive_run_identity_sha256(
         execution=run_inputs.execution,
         entry=entry,
@@ -210,35 +197,6 @@ def issue_paid_gateway_descriptor(
         model_registry_sha256=registry_sha256,
         model_registry_entry_sha256=model_registry_entry_sha256(entry),
     )
-
-
-def _worst_case_request_microusd(entry: ModelRegistryEntry) -> int:
-    """Mirror the gateway's conservative maximum charge calculation."""
-
-    if entry.cache_read_token_price is None or entry.cache_write_token_price is None:
-        raise ProtectedTerminalPaidError(
-            "protected paid gateway requires complete frozen cache pricing"
-        )
-    context_limit = entry.context_limit
-    max_output_tokens = entry.max_output_tokens
-    input_price = max(
-        entry.input_token_price,
-        entry.cache_read_token_price,
-        entry.cache_write_token_price,
-    )
-    output_price = entry.output_token_price
-    surcharge = entry.long_context_surcharge
-    if surcharge is not None:
-        threshold = surcharge.threshold_input_tokens
-        if context_limit > threshold:
-            input_price *= surcharge.input_price_multiplier
-            output_price *= surcharge.output_price_multiplier
-    charge = math.ceil(context_limit * input_price + max_output_tokens * output_price)
-    if charge <= 0 or not math.isfinite(charge):
-        raise ProtectedTerminalPaidError(
-            "protected paid gateway pricing produced an invalid request bound"
-        )
-    return charge
 
 
 def write_paid_gateway_descriptor(
