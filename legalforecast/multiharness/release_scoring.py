@@ -15,8 +15,11 @@ RELEASE_HARNESS_TRACKS = frozenset({"native", "neutral"})
 class MultiHarnessRunLike(Protocol):
     """Attributes consumed from a completed multi-harness run."""
 
-    selection: Any
-    rows: Sequence[Any]
+    @property
+    def selection(self) -> Any: ...
+
+    @property
+    def rows(self) -> Sequence[Any]: ...
 
 
 RELEASE_FAILURE_POLICY_ID = "failure-brier-1.0-v1"
