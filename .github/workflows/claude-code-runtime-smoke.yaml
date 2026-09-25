@@ -47,7 +47,6 @@ jobs:
       - name: Verify read-only inputs and hosted namespace capability
         run: |
           set -euo pipefail
-          uv run pytest -q tests/test_claude_code_runtime_image.py
           docker run --rm --user 0:0 --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges --pids-limit 32 \
             --memory 128m --cpus 0.25 \
@@ -56,3 +55,4 @@ jobs:
             --entrypoint /usr/bin/bwrap "${LFB_CLAUDE_CODE_RUNTIME_IMAGE}" \
             --unshare-user --unshare-pid --unshare-net \
             --ro-bind / / --proc /proc --dev /dev /bin/true
+          uv run pytest -q tests/test_claude_code_runtime_image.py
