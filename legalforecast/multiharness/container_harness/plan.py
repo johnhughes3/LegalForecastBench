@@ -128,6 +128,11 @@ class ContainerHarnessSpec:
             raise ContainerHarnessError("container_home must be an absolute path")
         if not 1 <= self.proxy_port <= 65535:
             raise ContainerHarnessError("proxy_port is out of range")
+        if self.model_gateway is not None and self.proxy_port != DEFAULT_PROXY_PORT:
+            raise ContainerHarnessError(
+                "model gateway relay requires the fixed proxy port "
+                f"{DEFAULT_PROXY_PORT}"
+            )
         if self.timeout_seconds <= 0:
             raise ContainerHarnessError("timeout_seconds must be positive")
         if self.container_user is not None and (
@@ -172,6 +177,7 @@ class ContainerHarnessNames:
     network: str
     egress_network: str
     proxy_container: str
+    model_gateway_container: str
     harness_container: str
 
 
@@ -233,6 +239,7 @@ def build_run_names(run_id: str, token: str) -> ContainerHarnessNames:
         network=f"{stem}-net",
         egress_network=f"{stem}-out",
         proxy_container=f"{stem}-egress",
+        model_gateway_container=f"{stem}-gateway",
         harness_container=f"{stem}-harness",
     )
 
@@ -352,7 +359,13 @@ def build_network_connect_argv(
 def build_model_gateway_network_connect_argv(
     backend_path: Path, spec: ContainerHarnessSpec, names: ContainerHarnessNames
 ) -> tuple[str, ...]:
-    """Return argv connecting the model gateway to its external network."""
+    """Return argv connecting the egress relay to its external network.
+
+    The historical function name is retained for callers that imported it
+    during the first gateway implementation.  The gateway itself is
+    deliberately internal-only; only the CONNECT relay may join the external
+    or fixture network.
+    """
 
     if spec.model_gateway is None:
         raise ContainerHarnessError(
@@ -420,6 +433,14 @@ def build_proxy_run_argv(
         "--evidence-file",
         PROXY_EVIDENCE_TARGET,
     ]
+    if spec.model_gateway is not None:
+        # The gateway uses this fixed alias as its only upstream route.  The
+        # alias is scoped to the per-run internal network and never exists on
+        # the external network.
+        argv[argv.index("--network") + 2 : argv.index("--network") + 2] = [
+            "--network-alias",
+            "lfb-model-egress",
+        ]
     for host in sorted(allowlist.hosts):
         argv.extend(("--allow-host", host))
     for parent in sorted(allowlist.subdomain_suffixes):

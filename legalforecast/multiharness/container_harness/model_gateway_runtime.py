@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 
 from legalforecast.multiharness.container_harness.evidence import AccountedEgress
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_PROXY_BASE_URL,
     MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
     ModelGatewayLaunch,
     ModelGatewayPlanError,
@@ -78,6 +79,9 @@ def stage_model_gateway(
         # one requested model; no arbitrary model name is admitted.
         "allowed_models": [wire_model, f"{wire_model}[1m]"],
         "allowed_ingress_hosts": [request.host],
+        # The gateway has no external interface.  Its fixed upstream request
+        # must traverse the allowlisted CONNECT relay on the internal network.
+        "proxy_base_url": MODEL_GATEWAY_PROXY_BASE_URL,
         "usage_evidence_path": MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
         "max_requests": 64,
         "max_input_tokens": 1_000_000,

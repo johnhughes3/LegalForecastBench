@@ -43,6 +43,11 @@ def model_gateway_source_path() -> Path:
 
 MODEL_GATEWAY_HOST = "lfb-model-gateway"
 MODEL_GATEWAY_PORT = 8080
+MODEL_GATEWAY_PROXY_HOST = "lfb-model-egress"
+MODEL_GATEWAY_PROXY_PORT = 3128
+MODEL_GATEWAY_PROXY_BASE_URL = (
+    f"http://{MODEL_GATEWAY_PROXY_HOST}:{MODEL_GATEWAY_PROXY_PORT}"
+)
 # Retained as a compatibility export for callers that imported the old plan
 # constant.  The gateway has no log-based readiness protocol; runtime probes
 # its bound socket instead.
@@ -149,7 +154,7 @@ class _HarnessNames(Protocol):
     def network(self) -> str: ...
 
     @property
-    def proxy_container(self) -> str: ...
+    def model_gateway_container(self) -> str: ...
 
 
 class _HarnessSpec(Protocol):
@@ -177,7 +182,7 @@ def build_model_gateway_run_argv(
         "run",
         "--detach",
         "--name",
-        names.proxy_container,
+        names.model_gateway_container,
         "--network",
         names.network,
         "--network-alias",
@@ -240,6 +245,9 @@ __all__ = [
     "MODEL_GATEWAY_PACKAGE_ROOT_TARGET",
     "MODEL_GATEWAY_PACKAGE_TARGET",
     "MODEL_GATEWAY_PORT",
+    "MODEL_GATEWAY_PROXY_BASE_URL",
+    "MODEL_GATEWAY_PROXY_HOST",
+    "MODEL_GATEWAY_PROXY_PORT",
     "MODEL_GATEWAY_READY_MARKER",
     "MODEL_GATEWAY_RUN_CAPABILITY_ENV",
     "MODEL_GATEWAY_SOURCE_TARGET",

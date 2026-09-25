@@ -8,9 +8,10 @@ The topology, measured on rootless Docker rather than assumed:
   ordinary network, so it is the only path off the internal one. It runs
   :mod:`~legalforecast.multiharness.container_harness.egress_proxy` and refuses
   anything outside the run allowlist;
-* outer fixture runs start the bounded model gateway on the internal network
-  and attach only that gateway to the selected fixture network. The harness
-  uses the gateway's fixed HTTP endpoint and receives no generic proxy route.
+* outer fixture runs start the bounded model gateway and the allowlisted CONNECT
+  relay on the internal network. Only the relay joins the selected fixture
+  network. The harness uses the gateway's fixed HTTP endpoint and receives no
+  generic proxy route.
 
 The standard proxy environment variables are therefore the convenience, not
 the fence: even a harness that ignored them has nowhere to go. The gateway
@@ -66,7 +67,6 @@ from legalforecast.multiharness.container_harness.plan import (
     ContainerHarnessSpec,
     build_egress_network_create_argv,
     build_harness_run_argv,
-    build_model_gateway_network_connect_argv,
     build_network_connect_argv,
     build_network_create_argv,
     build_proxy_run_argv,
@@ -158,6 +158,22 @@ def run_container_harness(
                 build_network_connect_argv(backend_path, spec, names), environment
             )
         else:
+            # The CONNECT relay is the sole member of the external or fixture
+            # network.  The model gateway remains on the internal network and
+            # reaches its fixed upstream only through the relay alias.
+            _run_backend(
+                build_proxy_run_argv(
+                    backend_path,
+                    spec,
+                    names,
+                    proxy_source=egress_proxy_source_path(),
+                    evidence_directory=evidence_directory,
+                ),
+                environment,
+            )
+            _run_backend(
+                build_network_connect_argv(backend_path, spec, names), environment
+            )
             gateway_launch = _stage_model_gateway(
                 staging,
                 spec.model_gateway,
@@ -181,10 +197,6 @@ def run_container_harness(
                     evidence_directory=evidence_directory,
                 ),
                 gateway_environment,
-            )
-            _run_backend(
-                build_model_gateway_network_connect_argv(backend_path, spec, names),
-                environment,
             )
         _await_sidecar_ready(backend_path, names, spec, environment)
         exit_code, timed_out = _run_harness(
@@ -215,11 +227,18 @@ def run_container_harness(
             environment,
             check=False,
         )
+        if spec.model_gateway is not None:
+            _run_backend(
+                (str(backend_path), "rm", "--force", names.model_gateway_container),
+                environment,
+                check=False,
+            )
         gateway_usage: Mapping[str, object] | None = None
         if spec.model_gateway is None:
             evidence = _read_evidence(evidence_directory / EVIDENCE_FILE_NAME)
         else:
-            evidence, gateway_usage = _read_model_gateway_evidence(
+            evidence = _read_evidence(evidence_directory / EVIDENCE_FILE_NAME)
+            _gateway_egress, gateway_usage = _read_model_gateway_evidence(
                 evidence_directory / Path(MODEL_GATEWAY_USAGE_EVIDENCE_TARGET).name,
                 spec,
             )
@@ -227,7 +246,7 @@ def run_container_harness(
         if spec.model_gateway is not None:
             _preserve_model_gateway_evidence(
                 evidence_directory / Path(MODEL_GATEWAY_USAGE_EVIDENCE_TARGET).name,
-                spec.log_root / f"{names.proxy_container}.gateway-usage.json",
+                spec.log_root / f"{names.model_gateway_container}.gateway-usage.json",
             )
         _cleanup(backend_path, names, environment, staging)
     try:
@@ -309,38 +328,36 @@ def _await_sidecar_ready(
     """Wait until the selected sidecar accepts a local TCP connection."""
 
     deadline = time.monotonic() + PROXY_READY_TIMEOUT_SECONDS
-    if spec.model_gateway is not None:
-        probe = (
-            str(backend_path),
-            "exec",
-            names.proxy_container,
-            "python3",
-            "-c",
-            (
-                "import socket; s=socket.create_connection("
-                "('lfb-model-gateway', 8080), 1); s.close()"
-            ),
-        )
-    else:
-        probe = None
+    gateway_probe = (
+        str(backend_path),
+        "exec",
+        names.model_gateway_container,
+        "python3",
+        "-c",
+        (
+            "import socket; s=socket.create_connection("
+            "('lfb-model-gateway', 8080), 1); s.close()"
+        ),
+    )
     while time.monotonic() < deadline:
-        if probe is None:
-            completed = subprocess.run(
-                (str(backend_path), "logs", names.proxy_container),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                timeout=30,
-                check=False,
-                env=dict(environment),
-            )
-            ready = (
-                completed.returncode == 0
-                and str(spec.proxy_port).encode("ascii") in completed.stdout
-            )
+        relay_completed = subprocess.run(
+            (str(backend_path), "logs", names.proxy_container),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+            check=False,
+            env=dict(environment),
+        )
+        relay_ready = (
+            relay_completed.returncode == 0
+            and str(spec.proxy_port).encode("ascii") in relay_completed.stdout
+        )
+        if spec.model_gateway is None:
+            ready = relay_ready
         else:
-            completed = subprocess.run(
-                probe,
+            gateway_completed = subprocess.run(
+                gateway_probe,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -348,7 +365,7 @@ def _await_sidecar_ready(
                 check=False,
                 env=dict(environment),
             )
-            ready = completed.returncode == 0
+            ready = relay_ready and gateway_completed.returncode == 0
         if ready:
             return
         time.sleep(0.25)
@@ -411,6 +428,7 @@ def _cleanup(
         for argv in (
             (str(backend_path), "rm", "--force", names.harness_container),
             (str(backend_path), "rm", "--force", names.proxy_container),
+            (str(backend_path), "rm", "--force", names.model_gateway_container),
             (str(backend_path), "network", "rm", names.network),
             (str(backend_path), "network", "rm", names.egress_network),
         ):

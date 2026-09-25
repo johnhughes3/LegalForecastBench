@@ -13,9 +13,9 @@ This package does not overload
 network-disabled tool-protocol session.
 
 The standard mode uses the generic HTTPS egress sidecar.  The outer fixture
-mode instead starts the bounded model gateway on the internal network and
-connects only that sidecar to the selected fixture network; its upstream key
-never enters the harness environment.
+mode instead starts the bounded model gateway and CONNECT relay on the
+internal network, then connects only the relay to the selected fixture
+network; its upstream key never enters the harness environment.
 
 The web/search fence is the image-baked wrapper in :mod:`.cli_fence`: it is
 the only ``PATH`` name for the CLI, always injects the vendor disable flags,
@@ -74,6 +74,9 @@ from legalforecast.multiharness.container_harness.model_gateway_plan import (
     MODEL_GATEWAY_PACKAGE_ROOT_TARGET,
     MODEL_GATEWAY_PACKAGE_TARGET,
     MODEL_GATEWAY_PORT,
+    MODEL_GATEWAY_PROXY_BASE_URL,
+    MODEL_GATEWAY_PROXY_HOST,
+    MODEL_GATEWAY_PROXY_PORT,
     MODEL_GATEWAY_READY_MARKER,
     MODEL_GATEWAY_RUN_CAPABILITY_ENV,
     MODEL_GATEWAY_SOURCE_TARGET,
@@ -127,6 +130,9 @@ __all__ = [
     "MODEL_GATEWAY_PACKAGE_ROOT_TARGET",
     "MODEL_GATEWAY_PACKAGE_TARGET",
     "MODEL_GATEWAY_PORT",
+    "MODEL_GATEWAY_PROXY_BASE_URL",
+    "MODEL_GATEWAY_PROXY_HOST",
+    "MODEL_GATEWAY_PROXY_PORT",
     "MODEL_GATEWAY_READY_MARKER",
     "MODEL_GATEWAY_RUN_CAPABILITY_ENV",
     "MODEL_GATEWAY_SOURCE_TARGET",

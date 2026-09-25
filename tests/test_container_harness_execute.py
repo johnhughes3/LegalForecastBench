@@ -214,17 +214,22 @@ def test_mocked_gateway_run_uses_sidecar_network_and_no_proxy(
     )
     assert public_result["gateway_usage"]["request_count"] == 1
     detached = [call for call in calls if call[1] == "run" and "--detach" in call]
-    assert len(detached) == 1
-    gateway = detached[0]
+    assert len(detached) == 2
+    gateway = next(
+        call for call in detached if "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY" in call
+    )
+    relay = next(call for call in detached if "egress_proxy.py" in " ".join(call))
     assert "lfb-model-gateway-ready" not in gateway
     assert "--env-file" not in gateway
     assert "LFB_MODEL_GATEWAY_CAPABILITY_TOKEN" in gateway
     assert "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY" in gateway
     assert "fixture-upstream-dummy-key" not in gateway
-    assert "egress_proxy.py" not in " ".join(gateway)
+    assert "--network" in relay
+    assert "lfb-model-egress" in relay
     assert any(call[1:3] == ("network", "connect") for call in calls)
     connect = next(call for call in calls if call[1:3] == ("network", "connect"))
     assert "-harness" not in " ".join(connect)
+    assert "-gateway" not in " ".join(connect)
     harness = next(
         call for call in calls if call[1] == "run" and "--detach" not in call
     )
@@ -234,7 +239,7 @@ def test_mocked_gateway_run_uses_sidecar_network_and_no_proxy(
     gateway_env = next(
         env
         for call, env in zip(calls, environment_calls, strict=False)
-        if call[1] == "run" and "--detach" in call
+        if call == gateway and "--detach" in call
     )
     harness_env = next(
         env

@@ -98,6 +98,7 @@ _POLICY_KEYS: Final[frozenset[str]] = frozenset(
         "bind_host",
         "bind_port",
         "upstream_base_url",
+        "proxy_base_url",
         "allowed_models",
         "allowed_ingress_hosts",
         "max_request_bytes",
@@ -167,6 +168,8 @@ def load_model_gateway_launch_config(
             _config_string_list(config, "allowed_ingress_hosts")
         ),
     }
+    if "proxy_base_url" in config:
+        policy_values["proxy_base_url"] = _config_string(config, "proxy_base_url")
     for name in (
         "max_request_bytes",
         "max_response_bytes",

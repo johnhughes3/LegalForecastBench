@@ -27,6 +27,8 @@ from legalforecast.multiharness.container_harness.model_gateway_plan import (
     MODEL_GATEWAY_CONFIG_TARGET,
     MODEL_GATEWAY_PACKAGE_ROOT_TARGET,
     MODEL_GATEWAY_PACKAGE_TARGET,
+    MODEL_GATEWAY_PROXY_BASE_URL,
+    MODEL_GATEWAY_PROXY_HOST,
     MODEL_GATEWAY_SOURCE_TARGET,
     MODEL_GATEWAY_UPSTREAM_KEY_ENV,
     ModelGatewayLaunch,
@@ -114,6 +116,7 @@ def test_run_names_are_unique_per_token_and_docker_safe(tmp_path: Path) -> None:
     assert names.network == f"lfb-cycle1-claude-code-{_TOKEN}-net"
     assert names.egress_network == f"lfb-cycle1-claude-code-{_TOKEN}-out"
     assert names.proxy_container == f"lfb-cycle1-claude-code-{_TOKEN}-egress"
+    assert names.model_gateway_container == (f"lfb-cycle1-claude-code-{_TOKEN}-gateway")
     assert names.harness_container == f"lfb-cycle1-claude-code-{_TOKEN}-harness"
     assert (
         len(
@@ -122,9 +125,10 @@ def test_run_names_are_unique_per_token_and_docker_safe(tmp_path: Path) -> None:
                 names.egress_network,
                 names.proxy_container,
                 names.harness_container,
+                names.model_gateway_container,
             }
         )
-        == 4
+        == 5
     )
     with pytest.raises(ContainerHarnessError, match="hex characters"):
         build_run_names("cycle1", "not-hex!")
@@ -234,6 +238,7 @@ def test_model_gateway_argv_uses_internal_network_and_name_only_env(
 
     assert _flag_values(argv, "--network") == [names.network]
     assert _flag_values(argv, "--network-alias") == ["lfb-model-gateway"]
+    assert _flag_values(argv, "--name") == [names.model_gateway_container]
     assert "--env-file" not in argv
     assert _flag_values(argv, "--env") == [
         MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
@@ -249,6 +254,15 @@ def test_model_gateway_argv_uses_internal_network_and_name_only_env(
     assert argv[-2:] == ("--config", MODEL_GATEWAY_CONFIG_TARGET)
     assert "run-capability" not in argv
     assert "fixture-upstream-dummy-key" not in argv
+
+    relay_argv = build_proxy_run_argv(
+        _BACKEND,
+        spec,
+        names,
+        proxy_source=Path("/srv/egress_proxy.py"),
+        evidence_directory=tmp_path / "evidence",
+    )
+    assert _flag_values(relay_argv, "--network-alias") == [MODEL_GATEWAY_PROXY_HOST]
 
     connect = build_model_gateway_network_connect_argv(_BACKEND, spec, names)
     assert connect[1:] == (
@@ -285,6 +299,7 @@ def test_staged_gateway_policy_matches_sidecar_entrypoint_contract(
         {"claude-sonnet-4", "claude-sonnet-4[1m]"}
     )
     assert loaded.policy.allowed_ingress_hosts == frozenset({"lfb-model-gateway"})
+    assert loaded.policy.proxy_base_url == MODEL_GATEWAY_PROXY_BASE_URL
     assert loaded.usage_evidence_path.as_posix().endswith(
         "/var/legalforecast-egress/gateway-usage.json"
     )
