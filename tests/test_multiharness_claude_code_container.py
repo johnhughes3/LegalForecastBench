@@ -211,6 +211,113 @@ def test_stream_result_does_not_count_path_mention_as_a_read(
     assert _terminal_success(envelope) is True
 
 
+@pytest.mark.parametrize(
+    "command",
+    (
+        "cat --help /workspace/prompt.txt /workspace/documents/opinion.txt",
+        "cat --version /workspace/prompt.txt /workspace/documents/opinion.txt",
+        "cat /workspace/prompt.txt /workspace/documents/opinion.txt; echo ok",
+        "cat /workspace/prompt.txt\n/workspace/documents/opinion.txt",
+    ),
+)
+def test_stream_result_rejects_cat_options_as_read_evidence(
+    tmp_path: Path,
+    command: str,
+) -> None:
+    (tmp_path / "documents").mkdir()
+    (tmp_path / "prompt.txt").write_text("prompt")
+    (tmp_path / "documents" / "opinion.txt").write_text("opinion")
+    stream = _stream(
+        {"type": "system", "subtype": "init", "model": "claude-sonnet-4"},
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu-option",
+                        "name": "Bash",
+                        "input": {"command": command},
+                    }
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu-option",
+                        "is_error": False,
+                    }
+                ]
+            },
+        },
+        {"type": "result", "subtype": "success", "is_error": False, "result": "{}"},
+    )
+
+    _normalized, envelope, trace_ok = _normalize_claude_stream(stream, tmp_path)
+
+    assert trace_ok is False
+    assert envelope is not None
+    assert envelope["_lfb_tool_trace"] == {
+        "bash_tool_count": 1,
+        "read_tool_count": 0,
+        "referenced_paths": [],
+    }
+
+
+def test_stream_result_requires_every_staged_document(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "documents").mkdir()
+    (tmp_path / "prompt.txt").write_text("prompt")
+    (tmp_path / "documents" / "opinion-a.txt").write_text("opinion a")
+    (tmp_path / "documents" / "opinion-b.txt").write_text("opinion b")
+    stream = _stream(
+        {"type": "system", "subtype": "init", "model": "claude-sonnet-4"},
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu-one-doc",
+                        "name": "Bash",
+                        "input": {
+                            "command": "cat /workspace/prompt.txt "
+                            "/workspace/documents/opinion-a.txt"
+                        },
+                    }
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu-one-doc",
+                        "is_error": False,
+                    }
+                ]
+            },
+        },
+        {"type": "result", "subtype": "success", "is_error": False, "result": "{}"},
+    )
+
+    _normalized, envelope, trace_ok = _normalize_claude_stream(stream, tmp_path)
+
+    assert trace_ok is False
+    assert envelope is not None
+    assert envelope["_lfb_tool_trace"]["referenced_paths"] == [
+        "/workspace/prompt.txt",
+        "/workspace/documents/opinion-a.txt",
+    ]
+
+
 def test_stream_result_requires_successful_matching_tool_result(
     tmp_path: Path,
 ) -> None:

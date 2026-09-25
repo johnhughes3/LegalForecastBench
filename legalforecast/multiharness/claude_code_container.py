@@ -477,6 +477,8 @@ def probe_native_claude_sandbox(
                 str(backend_path),
                 "run",
                 "--rm",
+                "--user",
+                "0:0",
                 "--network",
                 "none",
                 "--read-only",
@@ -657,17 +659,11 @@ def _normalize_claude_stream(
         "referenced_paths": list(referenced),
     }
     prompt_referenced = "/workspace/prompt.txt" in referenced
-    document_referenced = any(
-        path.startswith("/workspace/documents/") for path in referenced
+    staged_documents = tuple(
+        path for path in staged_paths if path.startswith("/workspace/documents/")
     )
-    trace_ok = (
-        bool(observations)
-        and prompt_referenced
-        and (
-            not any(path.startswith("/workspace/documents/") for path in staged_paths)
-            or document_referenced
-        )
-    )
+    documents_referenced = all(path in referenced for path in staged_documents)
+    trace_ok = bool(observations) and prompt_referenced and documents_referenced
     return (
         json.dumps(envelope, sort_keys=True, separators=(",", ":")),
         envelope,
@@ -756,11 +752,19 @@ def _read_paths_from_cat(
     names the staged inputs.
     """
 
+    # A newline is a shell command separator, even though ``shlex.split``
+    # treats it as ordinary whitespace. The staged paths are ordinary names,
+    # so rejecting it cannot turn a valid controlled read into a false success.
+    if "\n" in command or "\r" in command:
+        return ()
     try:
         tokens = shlex.split(command)
     except ValueError:
         return ()
-    if not tokens or tokens[0] != "cat":
+    if not tokens or tokens[0] != "cat" or not tokens[1:]:
+        return ()
+    staged = set(staged_paths)
+    if any(token not in staged for token in tokens[1:]):
         return ()
     return tuple(path for path in staged_paths if path in tokens[1:])
 
