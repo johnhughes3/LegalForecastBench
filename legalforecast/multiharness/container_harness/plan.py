@@ -46,6 +46,7 @@ WORKSPACE_TARGET: Final[str] = "/workspace"
 DEFAULT_CONTAINER_HOME: Final[str] = "/home/harness"
 DEFAULT_PROXY_PORT: Final[int] = 3128
 FENCE_WRAPPER_TARGET: Final[str] = f"{FENCE_BIN_DIR}/{WRAPPER_NAME}"
+OUTER_CONTAINER_MARKER_TARGET: Final[str] = "/etc/claude-code/outer-container-only"
 FENCE_PATH: Final[str] = (
     f"{FENCE_BIN_DIR}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 )
@@ -293,6 +294,16 @@ def stage_cli_fence(root: Path) -> Path:
     return dest
 
 
+def stage_outer_container_marker(root: Path) -> Path:
+    """Stage the immutable marker that selects the outer fixture wrapper mode."""
+
+    dest = root / "fence" / "outer-container-only"
+    dest.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    dest.write_text("outer-container-only\n", encoding="ascii")
+    dest.chmod(0o444)
+    return dest
+
+
 def build_network_create_argv(
     backend_path: Path, names: ContainerHarnessNames
 ) -> tuple[str, ...]:
@@ -452,6 +463,12 @@ def build_harness_environment(
             "HOME": spec.container_home,
             "NO_PROXY": no_proxy,
             "no_proxy": no_proxy,
+            # The image enables Claude's subprocess scrub for native mode; that
+            # knob forces shell-mode sandboxing even when a session setting
+            # disables it. Outer mode has no provider credential or external
+            # route in the harness, so it must explicitly turn the scrub off
+            # to avoid requesting an unavailable nested user namespace.
+            "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "0",
         }
     environment.update(spec.environment)
     environment.update(
@@ -495,6 +512,7 @@ def build_harness_run_argv(
     credential_home: Path,
     cidfile: Path,
     fence_binary: Path | None = None,
+    outer_container_marker: Path | None = None,
 ) -> tuple[str, ...]:
     """Return argv running the harness on the internal network only."""
 
@@ -555,6 +573,18 @@ def build_harness_run_argv(
             FENCE_WRAPPER_TARGET,
         )
     )
+    if outer_container_marker is not None:
+        if not outer_container_marker.is_file():
+            raise ContainerHarnessError(
+                "outer container marker must be a staged regular file"
+            )
+        argv.extend(
+            (
+                "--mount",
+                f"type=bind,src={outer_container_marker},"
+                f"dst={OUTER_CONTAINER_MARKER_TARGET},readonly",
+            )
+        )
     if spec.container_user is not None:
         argv[argv.index("--pull=never") : argv.index("--pull=never")] = [
             "--user",

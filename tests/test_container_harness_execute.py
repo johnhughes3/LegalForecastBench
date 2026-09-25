@@ -76,6 +76,7 @@ def _install_fake_backend(
     evidence_payload: dict[str, object] | None = None,
     harness_stdout: bytes = b"",
     gateway_ready: bool = False,
+    environment_calls: list[dict[str, str]] | None = None,
 ) -> list[tuple[str, ...]]:
     runtime_dir = tmp_path / "runtime"
     runtime_dir.mkdir()
@@ -99,6 +100,8 @@ def _install_fake_backend(
     ) -> SimpleNamespace:
         argv_t = tuple(str(item) for item in argv)  # type: ignore[arg-type]
         calls.append(argv_t)
+        if environment_calls is not None and isinstance(env, dict):
+            environment_calls.append(dict(env))
         if fail_on is not None and fail_on == argv_t[1:3]:
             raise OSError("injected backend failure")
         if len(argv_t) >= 2 and argv_t[1] == "logs":
@@ -126,7 +129,7 @@ def _install_fake_backend(
                         json.dumps(payload) + "\n",
                         encoding="utf-8",
                     )
-                    if "--env-file" in argv_t:
+                    if "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY" in argv_t:
                         gateway_payload = {
                             "schema_version": 1,
                             "request_count": 1,
@@ -184,6 +187,7 @@ def test_mocked_gateway_run_uses_sidecar_network_and_no_proxy(
         b'{"type":"result","subtype":"success","is_error":false,}'
         b'"result":"{}"}\n'
     )
+    environment_calls: list[dict[str, str]] = []
     calls = _install_fake_backend(
         monkeypatch,
         tmp_path,
@@ -194,6 +198,7 @@ def test_mocked_gateway_run_uses_sidecar_network_and_no_proxy(
             "decision_count": 1,
         },
         harness_stdout=transcript,
+        environment_calls=environment_calls,
     )
 
     result = run_container_harness(
@@ -212,7 +217,10 @@ def test_mocked_gateway_run_uses_sidecar_network_and_no_proxy(
     assert len(detached) == 1
     gateway = detached[0]
     assert "lfb-model-gateway-ready" not in gateway
-    assert "--env-file" in gateway
+    assert "--env-file" not in gateway
+    assert "LFB_MODEL_GATEWAY_CAPABILITY_TOKEN" in gateway
+    assert "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY" in gateway
+    assert "fixture-upstream-dummy-key" not in gateway
     assert "egress_proxy.py" not in " ".join(gateway)
     assert any(call[1:3] == ("network", "connect") for call in calls)
     connect = next(call for call in calls if call[1:3] == ("network", "connect"))
@@ -223,6 +231,20 @@ def test_mocked_gateway_run_uses_sidecar_network_and_no_proxy(
     assert "HTTP_PROXY" not in " ".join(harness)
     assert "HTTPS_PROXY" not in " ".join(harness)
     assert "run-capability" in " ".join(harness)
+    gateway_env = next(
+        env
+        for call, env in zip(calls, environment_calls, strict=False)
+        if call[1] == "run" and "--detach" in call
+    )
+    harness_env = next(
+        env
+        for call, env in zip(calls, environment_calls, strict=False)
+        if call[1] == "run" and "--detach" not in call
+    )
+    assert gateway_env["LFB_MODEL_GATEWAY_UPSTREAM_API_KEY"] == (
+        "fixture-upstream-dummy-key"
+    )
+    assert "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY" not in harness_env
 
 
 def test_gateway_usage_is_preserved_when_cleanup_fails(

@@ -65,6 +65,22 @@ CLAUDE_SANDBOX_SETTINGS: Final[str] = json.dumps(
     sort_keys=True,
     separators=(",", ":"),
 )
+# The outer-container-only treatment uses Docker's internal network, read-only
+# input mounts, and the gateway sidecar as its process boundary. Requiring a
+# second user namespace inside that container is unavailable on rootless
+# Docker and would prevent the managed Bash tool from running. This setting is
+# selected only by the host-owned outer fixture plan; the default remains the
+# strict native sandbox above.
+CLAUDE_OUTER_CONTAINER_SETTINGS: Final[str] = json.dumps(
+    {
+        "sandbox": {
+            "enabled": False,
+            "allowUnsandboxedCommands": True,
+        }
+    },
+    sort_keys=True,
+    separators=(",", ":"),
+)
 CLAUDE_TOOL_FLAGS: Final[frozenset[str]] = frozenset(
     {
         "--allowedTools",
@@ -102,7 +118,12 @@ class CliFenceError(RuntimeError):
     """Raised when the fence cannot be applied or installed."""
 
 
-def fenced_argv(cli: str, user_argv: Sequence[str]) -> list[str]:
+def fenced_argv(
+    cli: str,
+    user_argv: Sequence[str],
+    *,
+    outer_container_only: bool = False,
+) -> list[str]:
     """Return argv (no program name) with web/search forced off.
 
     ``user_argv`` is whatever the agent typed after the CLI name, including a
@@ -115,6 +136,11 @@ def fenced_argv(cli: str, user_argv: Sequence[str]) -> list[str]:
     args = [str(item) for item in user_argv]
     if cli == "claude":
         stripped = _strip_flag_and_values(args, CLAUDE_TOOL_FLAGS)
+        settings = (
+            CLAUDE_OUTER_CONTAINER_SETTINGS
+            if outer_container_only
+            else CLAUDE_SANDBOX_SETTINGS
+        )
         return [
             CLAUDE_RESTRICTED_FLAG,
             CLAUDE_DISABLE_FLAG,
@@ -122,7 +148,7 @@ def fenced_argv(cli: str, user_argv: Sequence[str]) -> list[str]:
             "--tools",
             "Bash",
             "--settings",
-            CLAUDE_SANDBOX_SETTINGS,
+            settings,
             "--setting-sources",
             "",
             *stripped,
@@ -289,7 +315,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if cli == "agy":
             seed_agy_web_fence(home)
         real = resolve_real_binary(cli)
-        fenced = fenced_argv(cli, user_argv)
+        fenced = fenced_argv(
+            cli,
+            user_argv,
+            outer_container_only=Path(
+                "/etc/claude-code/outer-container-only"
+            ).is_file(),
+        )
     except CliFenceError as exc:
         print(f"lfb-cli-fence: {exc}", file=sys.stderr)
         return 78

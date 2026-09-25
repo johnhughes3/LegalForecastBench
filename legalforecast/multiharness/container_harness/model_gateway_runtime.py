@@ -16,8 +16,6 @@ from urllib.parse import urlsplit
 
 from legalforecast.multiharness.container_harness.evidence import AccountedEgress
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
-    MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
-    MODEL_GATEWAY_UPSTREAM_KEY_ENV,
     MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
     ModelGatewayLaunch,
     ModelGatewayPlanError,
@@ -36,14 +34,13 @@ def stage_model_gateway(
     *,
     source_resolver: Callable[[], Path] = model_gateway_source_path,
 ) -> ModelGatewayLaunch:
-    """Stage a gateway policy and sidecar-only env file without logging secrets."""
+    """Stage a gateway policy without writing sidecar credentials to disk."""
 
     if not isinstance(request, ModelGatewayRequest):
         raise ContainerHarnessError("model_gateway has an invalid request type")
     gateway_root = staging / "model-gateway"
     gateway_root.mkdir(mode=0o700, parents=True, exist_ok=False)
     config_path = gateway_root / "policy.json"
-    environment_path = gateway_root / "gateway.env"
     source_path = source_resolver()
     package_path = (
         gateway_root
@@ -71,11 +68,15 @@ def stage_model_gateway(
         raise ContainerHarnessError(
             "model gateway request must provide a sidecar-only upstream key"
         )
+    wire_model = request.model_key.removeprefix("anthropic:")
     config = {
         "bind_host": "0.0.0.0",
         "bind_port": request.port,
         "upstream_base_url": request.upstream_base_url,
-        "allowed_models": [request.model_key.removeprefix("anthropic:")],
+        # Claude Code may append its context-window tier to the wire model
+        # (for example ``claude-opus-5-5[1m]``). Both values resolve to this
+        # one requested model; no arbitrary model name is admitted.
+        "allowed_models": [wire_model, f"{wire_model}[1m]"],
         "allowed_ingress_hosts": [request.host],
         "usage_evidence_path": MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
         "max_requests": 64,
@@ -91,17 +92,10 @@ def stage_model_gateway(
         encoding="utf-8",
     )
     config_path.chmod(0o400)
-    environment_lines = [
-        f"{MODEL_GATEWAY_CAPABILITY_TOKEN_ENV}={request.run_capability}",
-        f"{MODEL_GATEWAY_UPSTREAM_KEY_ENV}={request.upstream_api_key}",
-    ]
-    environment_path.write_text("\n".join(environment_lines) + "\n", encoding="utf-8")
-    environment_path.chmod(0o600)
     try:
         return ModelGatewayLaunch(
             source_path=source_path,
             config_path=config_path,
-            environment_path=environment_path,
             package_path=package_path,
             host=request.host,
             port=request.port,

@@ -2,8 +2,10 @@
 
 The gateway is deliberately a separate process from the Claude harness.  The
 harness receives one per-run capability, while any upstream credential stays
-in the gateway's private env-file.  The gateway source is bind-mounted from
-the installed package so the Claude image remains provider-free.
+in the gateway process environment. The Docker launch subprocess receives the
+credential only in its private environment and passes the variable name (never
+the value) to Docker. The gateway source is bind-mounted from the installed
+package so the Claude image remains provider-free.
 """
 
 from __future__ import annotations
@@ -117,7 +119,6 @@ class ModelGatewayLaunch:
 
     source_path: Path
     config_path: Path
-    environment_path: Path
     package_path: Path | None = None
     host: str = MODEL_GATEWAY_HOST
     port: int = MODEL_GATEWAY_PORT
@@ -127,7 +128,6 @@ class ModelGatewayLaunch:
         for field_name, path in (
             ("source_path", self.source_path),
             ("config_path", self.config_path),
-            ("environment_path", self.environment_path),
         ):
             if not path.is_absolute():
                 raise ModelGatewayPlanError(f"{field_name} must be absolute")
@@ -204,11 +204,13 @@ def build_model_gateway_run_argv(
         "--mount",
         f"type=bind,src={launch.config_path},dst={MODEL_GATEWAY_CONFIG_TARGET},readonly",
         "--mount",
-        f"type=bind,src={launch.environment_path},dst={MODEL_GATEWAY_ENV_TARGET},readonly",
-        "--mount",
         f"type=bind,src={evidence_directory},dst={PROXY_EVIDENCE_DIR}",
-        "--env-file",
-        str(launch.environment_path),
+        # Values are supplied through the subprocess environment at launch;
+        # only variable names appear in argv and the container definition.
+        "--env",
+        MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
+        "--env",
+        MODEL_GATEWAY_UPSTREAM_KEY_ENV,
         "--env",
         f"PYTHONPATH={MODEL_GATEWAY_PACKAGE_ROOT_TARGET}",
         "--entrypoint",

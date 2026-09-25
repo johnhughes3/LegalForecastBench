@@ -219,7 +219,6 @@ class ClaudeCodeContainerExecutionService:
             log_root = run_root / "logs"
             package_root = run_root / "package"
             log_root.mkdir(mode=0o700, parents=True, exist_ok=True)
-            package_root.mkdir(mode=0o700, parents=True, exist_ok=True)
             if self.execution_mode == OUTER_CONTAINER_ONLY_MODE:
                 assert upstream_origin is not None
                 run_capability = secrets.token_urlsafe(32)

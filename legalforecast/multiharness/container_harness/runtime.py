@@ -41,6 +41,8 @@ from legalforecast.multiharness.container_harness.images import (
     resolve_rootless_backend,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
+    MODEL_GATEWAY_UPSTREAM_KEY_ENV,
     MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
     ModelGatewayLaunch,
     build_model_gateway_run_argv,
@@ -73,6 +75,7 @@ from legalforecast.multiharness.container_harness.plan import (
     fenced_cli_name,
     stage_cli_fence,
     stage_credential_home,
+    stage_outer_container_marker,
 )
 from legalforecast.multiharness.container_harness.publication import (
     write_published_package,
@@ -130,6 +133,11 @@ def run_container_harness(
         evidence_directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         credential_home = stage_credential_home(staging, spec)
         fence_binary = stage_cli_fence(staging)
+        outer_container_marker = (
+            stage_outer_container_marker(staging)
+            if spec.model_gateway is not None
+            else None
+        )
         _run_backend(build_network_create_argv(backend_path, names), environment)
         if spec.egress_network is None:
             _run_backend(
@@ -154,6 +162,16 @@ def run_container_harness(
                 staging,
                 spec.model_gateway,
             )
+            gateway_environment = dict(environment)
+            gateway_environment.update(
+                {
+                    MODEL_GATEWAY_CAPABILITY_TOKEN_ENV: (
+                        spec.model_gateway.run_capability
+                    ),
+                    MODEL_GATEWAY_UPSTREAM_KEY_ENV: spec.model_gateway.upstream_api_key
+                    or "",
+                }
+            )
             _run_backend(
                 build_model_gateway_run_argv(
                     backend_path,
@@ -162,7 +180,7 @@ def run_container_harness(
                     gateway_launch,
                     evidence_directory=evidence_directory,
                 ),
-                environment,
+                gateway_environment,
             )
             _run_backend(
                 build_model_gateway_network_connect_argv(backend_path, spec, names),
@@ -177,6 +195,7 @@ def run_container_harness(
                 credential_home=credential_home,
                 cidfile=staging / "harness.cid",
                 fence_binary=fence_binary,
+                outer_container_marker=outer_container_marker,
             ),
             environment,
             stdout_path=stdout_path,

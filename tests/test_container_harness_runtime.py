@@ -23,10 +23,12 @@ from legalforecast.multiharness.container_harness.model_gateway import (
     load_model_gateway_launch_config,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
     MODEL_GATEWAY_CONFIG_TARGET,
-    MODEL_GATEWAY_ENV_TARGET,
+    MODEL_GATEWAY_PACKAGE_ROOT_TARGET,
     MODEL_GATEWAY_PACKAGE_TARGET,
     MODEL_GATEWAY_SOURCE_TARGET,
+    MODEL_GATEWAY_UPSTREAM_KEY_ENV,
     ModelGatewayLaunch,
     ModelGatewayRequest,
     build_model_gateway_run_argv,
@@ -206,15 +208,14 @@ def test_proxy_argv_carries_the_allowlist_and_bind_mounts_the_single_file(
     assert _flag_values(argv, "--evidence-file") == [PROXY_EVIDENCE_TARGET]
 
 
-def test_model_gateway_argv_uses_internal_network_and_env_file_only(
+def test_model_gateway_argv_uses_internal_network_and_name_only_env(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "model_gateway.py"
     config = tmp_path / "policy.json"
-    environment = tmp_path / "gateway.env"
-    for path in (source, config, environment):
+    for path in (source, config):
         path.write_text("fixture", encoding="utf-8")
-    launch = ModelGatewayLaunch(source, config, environment)
+    launch = ModelGatewayLaunch(source, config)
     request = ModelGatewayRequest(
         upstream_base_url="http://fixture-upstream:8081",
         model_key="anthropic:claude-sonnet-4",
@@ -233,18 +234,21 @@ def test_model_gateway_argv_uses_internal_network_and_env_file_only(
 
     assert _flag_values(argv, "--network") == [names.network]
     assert _flag_values(argv, "--network-alias") == ["lfb-model-gateway"]
-    assert _flag_values(argv, "--env-file") == [str(environment)]
+    assert "--env-file" not in argv
+    assert _flag_values(argv, "--env") == [
+        MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
+        MODEL_GATEWAY_UPSTREAM_KEY_ENV,
+        f"PYTHONPATH={MODEL_GATEWAY_PACKAGE_ROOT_TARGET}",
+    ]
     assert f"type=bind,src={source},dst={MODEL_GATEWAY_SOURCE_TARGET},readonly" in argv
     assert (
         f"type=bind,src={source.parent},dst={MODEL_GATEWAY_PACKAGE_TARGET},readonly"
         in argv
     )
     assert f"type=bind,src={config},dst={MODEL_GATEWAY_CONFIG_TARGET},readonly" in argv
-    assert (
-        f"type=bind,src={environment},dst={MODEL_GATEWAY_ENV_TARGET},readonly" in argv
-    )
     assert argv[-2:] == ("--config", MODEL_GATEWAY_CONFIG_TARGET)
     assert "run-capability" not in argv
+    assert "fixture-upstream-dummy-key" not in argv
 
     connect = build_model_gateway_network_connect_argv(_BACKEND, spec, names)
     assert connect[1:] == (
@@ -266,9 +270,8 @@ def test_staged_gateway_policy_matches_sidecar_entrypoint_contract(
     )
     launch = _stage_model_gateway(tmp_path, request)
     environment = {
-        key: value
-        for line in launch.environment_path.read_text(encoding="utf-8").splitlines()
-        for key, value in [line.split("=", 1)]
+        CAPABILITY_TOKEN_ENV: "run-capability",
+        UPSTREAM_API_KEY_ENV: "fixture-upstream-dummy-key",
     }
 
     loaded = load_model_gateway_launch_config(
@@ -288,7 +291,7 @@ def test_staged_gateway_policy_matches_sidecar_entrypoint_contract(
     assert environment[CAPABILITY_TOKEN_ENV] == "run-capability"
     assert environment[UPSTREAM_API_KEY_ENV] == "fixture-upstream-dummy-key"
     assert stat.S_IMODE(launch.config_path.stat().st_mode) == 0o400
-    assert stat.S_IMODE(launch.environment_path.stat().st_mode) == 0o600
+    assert not (tmp_path / "model-gateway" / "gateway.env").exists()
 
 
 def test_harness_argv_never_disables_the_network_and_keeps_the_isolation_flags(
@@ -484,6 +487,7 @@ def test_gateway_child_environment_has_no_generic_proxy_route(
     for name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
         assert name not in environment
     assert environment["ANTHROPIC_API_KEY"] == "run-capability"
+    assert environment["CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"] == "0"
 
 
 def test_environment_reaches_the_container_only_through_explicit_env_flags(
