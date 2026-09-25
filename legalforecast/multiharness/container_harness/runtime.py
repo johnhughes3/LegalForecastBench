@@ -42,6 +42,7 @@ from legalforecast.multiharness.container_harness.images import (
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
     MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
+    ModelGatewayLaunch,
     build_model_gateway_run_argv,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
@@ -54,7 +55,7 @@ from legalforecast.multiharness.container_harness.model_gateway_runtime import (
     read_model_gateway_evidence as _read_model_gateway_evidence,
 )
 from legalforecast.multiharness.container_harness.model_gateway_runtime import (
-    stage_model_gateway as _stage_model_gateway,
+    stage_model_gateway as _stage_model_gateway_impl,
 )
 from legalforecast.multiharness.container_harness.plan import (
     ContainerHarnessError,
@@ -84,6 +85,14 @@ model_gateway_source_path = _model_gateway_source_path
 STAGING_ROOT_NAME = "legalforecast-multiharness"
 PROXY_READY_TIMEOUT_SECONDS = 30.0
 EVIDENCE_FILE_NAME = "egress-evidence.json"
+
+
+def _stage_model_gateway(staging: Path, request: object) -> ModelGatewayLaunch:
+    """Preserve the historical runtime-level source-resolver seam."""
+
+    return _stage_model_gateway_impl(
+        staging, request, source_resolver=model_gateway_source_path
+    )
 
 
 def run_container_harness(

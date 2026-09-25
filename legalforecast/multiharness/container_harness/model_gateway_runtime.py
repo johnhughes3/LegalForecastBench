@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
@@ -33,6 +33,8 @@ from legalforecast.multiharness.container_harness.plan import (
 def stage_model_gateway(
     staging: Path,
     request: object,
+    *,
+    source_resolver: Callable[[], Path] = model_gateway_source_path,
 ) -> ModelGatewayLaunch:
     """Stage a gateway policy and sidecar-only env file without logging secrets."""
 
@@ -42,7 +44,7 @@ def stage_model_gateway(
     gateway_root.mkdir(mode=0o700, parents=True, exist_ok=False)
     config_path = gateway_root / "policy.json"
     environment_path = gateway_root / "gateway.env"
-    source_path = model_gateway_source_path()
+    source_path = source_resolver()
     package_path = (
         gateway_root
         / "package"
