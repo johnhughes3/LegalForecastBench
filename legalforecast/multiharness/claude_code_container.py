@@ -37,7 +37,10 @@ from legalforecast.multiharness.claude_code_container_inputs import (
     verify_staged_solver_input as _verify_staged_solver_input,
 )
 from legalforecast.multiharness.claude_code_container_runtime import (
+    NATIVE_SANDBOX_MODE,
+    OUTER_CONTAINER_ONLY_MODE,
     ClaudeCodeContainerExecutionService,
+    ClaudeExecutionMode,
     probe_native_claude_sandbox,
 )
 from legalforecast.multiharness.claude_code_stream import (
@@ -91,7 +94,7 @@ ApprovalVerifier = Callable[[str, float], None]
 
 @dataclass(frozen=True, slots=True)
 class ClaudeCodeContainerAdapter:
-    """Release-facing adapter that refuses an unproven native-tool boundary."""
+    """Release-facing adapter with fail-closed native and fixture-only modes."""
 
     delegate: ClaudeCodeCliAdapter
     image_digest: str
@@ -106,6 +109,8 @@ class ClaudeCodeContainerAdapter:
     per_case_budget_usd: float | None
     approval_verifier: ApprovalVerifier | None = None
     sandbox_verified: bool = False
+    execution_mode: ClaudeExecutionMode = NATIVE_SANDBOX_MODE
+    outer_container_verified: bool = False
 
     @property
     def manifest(self) -> AdapterManifest:
@@ -133,7 +138,7 @@ class ClaudeCodeContainerAdapter:
         The release harness authenticates the solver-input tree before calling
         this method. We repeat the prompt commitment check at the execution
         boundary, create the prompt read-only, and give Claude a fixed
-        instruction to read that file with its sandboxed Bash tool. The prompt
+        instruction to read that file with its managed Bash tool. The prompt
         bytes are not copied into task metadata or the host-side CLI argv.
         """
 
@@ -174,10 +179,20 @@ class ClaudeCodeContainerAdapter:
             raise ClaudeCodeContainerAdapterError(
                 "request model_key does not match the configured container adapter"
             )
-        if not self.sandbox_verified:
+        if self.execution_mode == NATIVE_SANDBOX_MODE and not self.sandbox_verified:
             raise ClaudeCodeContainerAdapterError(
                 "native Claude Code sandbox is not verified for this container "
                 "topology; refusing execution instead of retrying unsandboxed"
+            )
+        if self.execution_mode == OUTER_CONTAINER_ONLY_MODE and (
+            not self.outer_container_verified
+        ):
+            raise ClaudeCodeContainerAdapterError(
+                "outer-container-only fixture topology is not verified"
+            )
+        if self.execution_mode not in {NATIVE_SANDBOX_MODE, OUTER_CONTAINER_ONLY_MODE}:
+            raise ClaudeCodeContainerAdapterError(
+                f"unsupported Claude Code execution mode: {self.execution_mode}"
             )
         if self.auth_profile == PUBLISHED_API_KEY:
             verifier = self.approval_verifier
@@ -203,6 +218,8 @@ def build_claude_code_container_adapter(
     approval_verifier: ApprovalVerifier | None = None,
     fixture_base_url: str | None = None,
     fixture_egress_network: str | None = None,
+    execution_mode: ClaudeExecutionMode = NATIVE_SANDBOX_MODE,
+    gateway_base_url: str | None = None,
 ) -> ClaudeCodeContainerAdapter:
     """Build the ``claude-code-container`` adapter without starting a run.
 
@@ -251,6 +268,28 @@ def build_claude_code_container_adapter(
         raise ClaudeCodeContainerAdapterError("backend must be docker")
     if timeout_seconds <= 0:
         raise ClaudeCodeContainerAdapterError("timeout_seconds must be positive")
+    if execution_mode not in {NATIVE_SANDBOX_MODE, OUTER_CONTAINER_ONLY_MODE}:
+        raise ClaudeCodeContainerAdapterError(
+            "execution_mode must be native-sandbox or outer-container-only"
+        )
+    if gateway_base_url is not None and fixture_base_url is not None:
+        raise ClaudeCodeContainerAdapterError(
+            "provide gateway_base_url or fixture_base_url, not both"
+        )
+    if execution_mode == OUTER_CONTAINER_ONLY_MODE:
+        if profile != FIXTURE_NONE:
+            raise ClaudeCodeContainerAdapterError(
+                "outer-container-only is fixture-only until a credential broker "
+                "is integrated"
+            )
+        if gateway_base_url is None and fixture_base_url is None:
+            raise ClaudeCodeContainerAdapterError(
+                "outer-container-only requires gateway_base_url"
+            )
+        if fixture_egress_network is not None:
+            raise ClaudeCodeContainerAdapterError(
+                "outer-container-only requires the per-run egress network"
+            )
 
     per_case_budget_usd = (
         None
@@ -258,10 +297,14 @@ def build_claude_code_container_adapter(
         else max_budget_usd / case_count
     )
     manifest = _container_manifest(image_digest)
-    sandbox_verified = probe_native_claude_sandbox(
-        image_digest,
-        backend=backend,
-        timeout_seconds=min(timeout_seconds, 30),
+    sandbox_verified = (
+        probe_native_claude_sandbox(
+            image_digest,
+            backend=backend,
+            timeout_seconds=min(timeout_seconds, 30),
+        )
+        if execution_mode == NATIVE_SANDBOX_MODE
+        else False
     )
     service = ClaudeCodeContainerExecutionService(
         image_digest=image_digest,
@@ -269,7 +312,9 @@ def build_claude_code_container_adapter(
         output_root=output_root,
         backend=backend,
         fixture_base_url=fixture_base_url,
+        gateway_base_url=gateway_base_url,
         fixture_egress_network=fixture_egress_network,
+        execution_mode=execution_mode,
         sandbox_verified=sandbox_verified,
     )
     delegate = ClaudeCodeCliAdapter(
@@ -297,6 +342,8 @@ def build_claude_code_container_adapter(
         per_case_budget_usd=per_case_budget_usd,
         approval_verifier=approval_verifier,
         sandbox_verified=sandbox_verified,
+        execution_mode=execution_mode,
+        outer_container_verified=execution_mode == OUTER_CONTAINER_ONLY_MODE,
     )
 
 
@@ -324,9 +371,12 @@ def _container_manifest(image_digest: str) -> LocalCliAdapterManifest:
 __all__ = [
     "CLAUDE_CODE_CONTAINER_ADAPTER_ID",
     "CLAUDE_CODE_CONTAINER_ADAPTER_VERSION",
+    "NATIVE_SANDBOX_MODE",
+    "OUTER_CONTAINER_ONLY_MODE",
     "ClaudeCodeContainerAdapter",
     "ClaudeCodeContainerAdapterError",
     "ClaudeCodeContainerExecutionService",
+    "ClaudeExecutionMode",
     "build_claude_code_container_adapter",
     "probe_native_claude_sandbox",
 ]

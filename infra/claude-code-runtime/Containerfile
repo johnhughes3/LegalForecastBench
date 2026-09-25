@@ -6,6 +6,7 @@ ENV PATH="/opt/legalforecast/claude/node_modules/.bin:/opt/legalforecast/bin:/us
     HOME=/home/harness \
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
+    CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 \
     DISABLE_AUTOUPDATER=1 \
     DISABLE_BUG_COMMAND=1 \
     DISABLE_ERROR_REPORTING=1 \
@@ -28,8 +29,10 @@ RUN corepack enable pnpm \
     && node node_modules/@anthropic-ai/claude-code/install.cjs
 
 COPY legalforecast/multiharness/container_harness/cli_fence.py /opt/legalforecast/cli_fence.py
+COPY infra/claude-code-runtime/managed-settings.json /etc/claude-code/managed-settings.json
 
-RUN mkdir -p /opt/legalforecast/bin /opt/legalforecast/libexec /workspace \
+RUN chmod 0444 /etc/claude-code/managed-settings.json \
+    && mkdir -p /opt/legalforecast/bin /opt/legalforecast/libexec /workspace \
     && printf '%s\n' \
         '#!/bin/sh' \
         'exec /opt/legalforecast/claude/node_modules/.bin/claude "$@"' \

@@ -6,6 +6,7 @@ import hashlib
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final, Literal
 from urllib.parse import urlsplit
 
 from legalforecast.multiharness.auth_profiles import (
@@ -34,6 +35,11 @@ from legalforecast.multiharness.local_cli_contracts import (
     RunSpec,
 )
 
+ClaudeExecutionMode = Literal["native-sandbox", "outer-container-only"]
+NATIVE_SANDBOX_MODE: Final[ClaudeExecutionMode] = "native-sandbox"
+OUTER_CONTAINER_ONLY_MODE: Final[ClaudeExecutionMode] = "outer-container-only"
+_EXECUTION_MODES = frozenset({NATIVE_SANDBOX_MODE, OUTER_CONTAINER_ONLY_MODE})
+
 
 def _fence_allows_forecast(fence: FenceObservation) -> bool:
     """Accept only observed native tools with no provider-side web capability."""
@@ -50,10 +56,12 @@ def _fence_allows_forecast(fence: FenceObservation) -> bool:
 class ClaudeCodeContainerExecutionService:
     """Run one CLI spec through the existing rootless container harness.
 
-    The service deliberately supports only a local fixture endpoint. A live API
-    key cannot be placed in this container until an external credential broker
-    has proved the child boundary; ``published-api-key`` therefore returns a
-    typed refusal before any credential lookup.
+    The service deliberately supports only an HTTPS fixture or gateway
+    endpoint. A live API key cannot be placed in this container until an
+    external credential broker has proved the child boundary;
+    ``published-api-key`` therefore returns a typed refusal before any
+    credential lookup. ``outer-container-only`` uses the rootless harness's
+    per-run internal network and bounded egress sidecar, and is fixture-only.
     """
 
     image_digest: str
@@ -61,7 +69,9 @@ class ClaudeCodeContainerExecutionService:
     output_root: Path
     backend: str = "docker"
     fixture_base_url: str | None = None
+    gateway_base_url: str | None = None
     fixture_egress_network: str | None = None
+    execution_mode: ClaudeExecutionMode = NATIVE_SANDBOX_MODE
     sandbox_verified: bool = False
     profile_env_vars: tuple[tuple[str, tuple[str, ...]], ...] = (
         (FIXTURE_NONE, ()),
@@ -75,13 +85,34 @@ class ClaudeCodeContainerExecutionService:
         return ()
 
     def execute(self, spec: RunSpec) -> ExecutionReceipt:
-        if not self.sandbox_verified:
+        if self.execution_mode not in _EXECUTION_MODES:
+            return ExecutionReceipt.from_transcript(
+                spec,
+                stdout="",
+                stderr=f"unsupported Claude Code execution mode: {self.execution_mode}",
+                returncode=None,
+                status="failed",
+            )
+        if self.execution_mode == NATIVE_SANDBOX_MODE and not self.sandbox_verified:
             return ExecutionReceipt.from_transcript(
                 spec,
                 stdout="",
                 stderr=(
                     "native Claude Code sandbox is not verified for this "
                     "container topology"
+                ),
+                returncode=None,
+                status="failed",
+            )
+        if self.execution_mode == OUTER_CONTAINER_ONLY_MODE and (
+            self.auth_profile != FIXTURE_NONE
+        ):
+            return ExecutionReceipt.from_transcript(
+                spec,
+                stdout="",
+                stderr=(
+                    "outer-container-only is fixture-only until a credential "
+                    "broker is integrated"
                 ),
                 returncode=None,
                 status="failed",
@@ -97,12 +128,17 @@ class ClaudeCodeContainerExecutionService:
                 returncode=None,
                 status="failed",
             )
-        endpoint = self.fixture_base_url
+        endpoint = self.gateway_base_url or self.fixture_base_url
         if endpoint is None:
             return ExecutionReceipt.from_transcript(
                 spec,
                 stdout="",
-                stderr="fixture_base_url is required for fixture-none execution",
+                stderr=(
+                    "gateway_base_url is required for outer-container-only "
+                    "fixture execution"
+                    if self.execution_mode == OUTER_CONTAINER_ONLY_MODE
+                    else "fixture_base_url is required for fixture-none execution"
+                ),
                 returncode=None,
                 status="failed",
             )
@@ -111,7 +147,14 @@ class ClaudeCodeContainerExecutionService:
             host = parsed.hostname
             port = parsed.port or (443 if parsed.scheme == "https" else 80)
             if parsed.scheme != "https" or host is None:
-                raise ValueError("fixture_base_url must be an HTTPS URL")
+                raise ValueError("gateway endpoint must be an HTTPS URL")
+            if (
+                self.execution_mode == OUTER_CONTAINER_ONLY_MODE
+                and self.fixture_egress_network is not None
+            ):
+                raise ValueError(
+                    "outer-container-only requires the per-run egress network"
+                )
             require_digest_pinned_image(self.image_digest, "image_digest")
             run_key = hashlib.sha256(spec.spec_id.encode("utf-8")).hexdigest()[:16]
             run_root = self.output_root / run_key
@@ -261,6 +304,9 @@ def probe_native_claude_sandbox(
 
 
 __all__ = [
+    "NATIVE_SANDBOX_MODE",
+    "OUTER_CONTAINER_ONLY_MODE",
     "ClaudeCodeContainerExecutionService",
+    "ClaudeExecutionMode",
     "probe_native_claude_sandbox",
 ]
