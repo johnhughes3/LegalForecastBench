@@ -323,6 +323,12 @@ def build_proxy_run_argv(
         names.proxy_container,
         "--network",
         names.network,
+        # The rootless daemon maps this container UID 0 to the operator UID on
+        # the host. The sidecar has no capabilities and no-new-privileges; the
+        # explicit UID lets it write the private evidence bind mount, whose
+        # directory is created by the host-side harness.
+        "--user",
+        "0:0",
         "--pull=never",
         "--read-only",
         "--tmpfs",

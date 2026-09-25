@@ -464,6 +464,14 @@ def classify_execution(
             spec=spec,
             receipt=receipt,
         )
+    if not _served_model_reported(envelope, receipt):
+        return _classified(
+            LocalCliFailureClass.IDENTITY_DRIFT,
+            raw_output=_result_text(envelope) or "served model identity missing",
+            spec=spec,
+            receipt=receipt,
+            failure_slot="served_model",
+        )
     if _served_model_drifted(envelope, receipt, requested_model):
         return _classified(
             LocalCliFailureClass.IDENTITY_DRIFT,
@@ -577,9 +585,14 @@ class ClaudeCodeCliAdapter:
         default_factory=claude_code_local_manifest
     )
     auth_profile: str = FIXTURE_NONE
+    adapter_id: str = CLAUDE_CODE_ADAPTER_ID
+    max_budget_usd: str | None = None
 
     def __post_init__(self) -> None:
-        _require_offline_claude_manifest(self.local_manifest)
+        _require_offline_claude_manifest(
+            self.local_manifest,
+            expected_adapter_id=self.adapter_id,
+        )
         try:
             bind_adapter_auth_profile(self.local_manifest, self.auth_profile)
         except AuthProfileError as exc:
@@ -646,18 +659,51 @@ class ClaudeCodeCliAdapter:
             classified,
             usage_reporting=self.local_manifest.usage_reporting,
             auth_profile=self.auth_profile,
+            adapter_id=self.adapter_id,
+        )
+
+    def run_with_prompt(
+        self,
+        request: RunRequest,
+        workspace: Path,
+        prompt: str,
+    ) -> RunResult:
+        """Run with a prompt supplied by a caller-owned authenticated input.
+
+        The normal adapter path obtains the prompt from canonical task metadata.
+        A release adapter keeps the prompt outside that public task record and
+        stages it in the private workspace instead.  Its caller supplies a
+        short instruction that tells Claude to read that staged file; the
+        solver input bytes therefore remain in the container workspace rather
+        than being copied into a serialized task object.
+        """
+
+        if not prompt.strip():
+            raise ClaudeCodeCliAdapterError("prompt must be non-empty")
+        self.prepare(request, workspace)
+        classified = self._execute_request(request, workspace, prompt=prompt)
+        if classified.failure_class is None:
+            classified = _with_deliverable(classified, request, workspace)
+        return _run_result(
+            request,
+            classified,
+            usage_reporting=self.local_manifest.usage_reporting,
+            auth_profile=self.auth_profile,
+            adapter_id=self.adapter_id,
         )
 
     def _execute_request(
         self,
         request: RunRequest,
         workspace: Path,
+        *,
+        prompt: str | None = None,
     ) -> ClassifiedClaudeResult:
         required_unit_ids = _required_unit_ids(request.task)
         schema_path = workspace / CLAUDE_CODE_OUTPUT_SCHEMA_NAME
         write_forecast_output_schema(schema_path, required_unit_ids)
         plan = build_claude_invocation_plan(
-            prompt=_solver_prompt(request.task),
+            prompt=_solver_prompt(request.task) if prompt is None else prompt,
             model=_requested_model(request.model_key),
             required_unit_ids=required_unit_ids,
             workspace=workspace,
@@ -665,6 +711,7 @@ class ClaudeCodeCliAdapter:
             allowed_tools=_allowed_tools(request.task),
             manifest=self.local_manifest,
             auth_profile=self.auth_profile,
+            max_budget_usd=self.max_budget_usd,
         )
         spec = build_run_spec(
             request,
@@ -877,6 +924,7 @@ def _run_result(
     *,
     usage_reporting: LocalCliUsageReporting,
     auth_profile: str,
+    adapter_id: str = CLAUDE_CODE_ADAPTER_ID,
 ) -> RunResult:
     artifacts: tuple[ArtifactRecord, ...] = ()
     if classified.deliverable_manifest is not None:
@@ -896,6 +944,7 @@ def _run_result(
         classified,
         usage_reporting=usage_reporting,
         auth_profile=auth_profile,
+        adapter_id=adapter_id,
     )
     validate_public_record(summary, "claude_code.public_summary")
     commitment = {
@@ -906,7 +955,7 @@ def _run_result(
     }
     status = "succeeded" if classified.failure_class is None else "failed"
     return RunResult(
-        result_id=f"{request.request_id}:{CLAUDE_CODE_ADAPTER_ID}",
+        result_id=f"{request.request_id}:{adapter_id}",
         request_id=request.request_id,
         status=status,
         result_sha256=_record_sha256(commitment),
@@ -921,11 +970,12 @@ def _public_summary(
     *,
     usage_reporting: LocalCliUsageReporting,
     auth_profile: str,
+    adapter_id: str = CLAUDE_CODE_ADAPTER_ID,
 ) -> dict[str, Any]:
     usage = _usage_from_envelope(classified.receipt, usage_reporting)
     profile_id = require_auth_profile_id(auth_profile)
     summary: dict[str, Any] = {
-        "adapter_id": CLAUDE_CODE_ADAPTER_ID,
+        "adapter_id": adapter_id,
         "adapter_version": CLAUDE_CODE_ADAPTER_VERSION,
         "auth_mode": public_auth_mode(profile_id, fixture_mode="none-offline"),
         "auth_profile": profile_id,
@@ -1263,10 +1313,14 @@ def _require_flag_value(argv: Sequence[str], flag: str, expected: str) -> None:
         raise ClaudeCodeCliAdapterError(f"invocation {flag} must be {expected}")
 
 
-def _require_offline_claude_manifest(manifest: LocalCliAdapterManifest) -> None:
-    if manifest.manifest_id != CLAUDE_CODE_ADAPTER_ID:
+def _require_offline_claude_manifest(
+    manifest: LocalCliAdapterManifest,
+    *,
+    expected_adapter_id: str = CLAUDE_CODE_ADAPTER_ID,
+) -> None:
+    if manifest.manifest_id != expected_adapter_id:
         raise ClaudeCodeCliAdapterError(
-            "local CLI manifest_id must be claude-code-clean-native"
+            f"local CLI manifest_id must be {expected_adapter_id}"
         )
     if manifest.harness_binding.adapter_version != CLAUDE_CODE_ADAPTER_VERSION:
         raise ClaudeCodeCliAdapterError("local CLI adapter_version must be 1.0.0")
@@ -1322,6 +1376,18 @@ def _served_model_drifted(
     if isinstance(receipt.served_model, str) and receipt.served_model.strip():
         reported.append(receipt.served_model)
     return any(model != requested_model for model in reported)
+
+
+def _served_model_reported(
+    envelope: Mapping[str, Any], receipt: ExecutionReceipt
+) -> bool:
+    """Return whether either trusted transcript surface named the served model."""
+
+    envelope_model = envelope.get("model")
+    return bool(
+        (isinstance(envelope_model, str) and envelope_model.strip())
+        or (isinstance(receipt.served_model, str) and receipt.served_model.strip())
+    )
 
 
 def _forecast_matches_declared_schema(

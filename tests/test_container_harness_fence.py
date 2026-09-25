@@ -97,7 +97,17 @@ def test_kimi_is_not_a_fenced_cli() -> None:
 
 def test_fenced_argv_injects_disable_flags_when_the_agent_omits_them() -> None:
     claude = fenced_argv("claude", ["-p", "forecast"])
-    assert claude[:3] == ["--disallowedTools", "WebSearch", "WebFetch"]
+    assert claude[:7] == [
+        "--restricted",
+        "--disallowedTools",
+        "WebSearch",
+        "WebFetch",
+        "--tools",
+        "Bash",
+        "--settings",
+    ]
+    assert claude[7].startswith('{"sandbox":')
+    assert claude[8:] == ["--setting-sources", "", "-p", "forecast"]
     assert "-p" in claude and "forecast" in claude
 
     grok = fenced_argv("grok", ["-p", "forecast"])
@@ -116,7 +126,8 @@ def test_fenced_argv_strips_flags_that_would_re_enable_web_tools() -> None:
     )
     assert "WebSearch" in claude
     assert claude.count("--allowedTools") == 0
-    assert claude[0] == "--disallowedTools"
+    assert claude[0] == "--restricted"
+    assert claude[1:4] == ["--disallowedTools", "WebSearch", "WebFetch"]
 
     grok = fenced_argv("grok", ["--enable-web-search", "-p", "forecast"])
     assert "--enable-web-search" not in grok
@@ -156,7 +167,12 @@ def test_nested_invocation_without_disable_flags_still_has_tools_off(
     assert completed.returncode == 0, completed.stderr
     recorded = json.loads(dump.read_text(encoding="utf-8"))
     assert Path(recorded[0]).name == "claude"
-    assert recorded[1:4] == ["--disallowedTools", "WebSearch", "WebFetch"]
+    assert recorded[1:4] == ["--restricted", "--disallowedTools", "WebSearch"]
+    assert recorded[4] == "WebFetch"
+    assert recorded[5:7] == ["--tools", "Bash"]
+    assert recorded[7] == "--settings"
+    assert recorded[8].startswith('{"sandbox":')
+    assert recorded[9:11] == ["--setting-sources", ""]
     assert "-p" in recorded and "forecast" in recorded
 
 
@@ -188,7 +204,8 @@ def test_nested_invocation_cannot_reenable_tools_via_argv_or_home_config(
     assert completed.returncode == 0, completed.stderr
     recorded = json.loads(dump.read_text(encoding="utf-8"))
     assert "--allowedTools" not in recorded
-    assert recorded[1:4] == ["--disallowedTools", "WebSearch", "WebFetch"]
+    assert recorded[1:4] == ["--restricted", "--disallowedTools", "WebSearch"]
+    assert recorded[4:7] == ["WebFetch", "--tools", "Bash"]
 
 
 def test_the_only_path_name_for_the_cli_is_the_wrapper(tmp_path: Path) -> None:
@@ -346,7 +363,8 @@ def test_wrapper_ignores_agent_supplied_real_bin_path(tmp_path: Path) -> None:
     assert dump.is_file()
     assert not evil_dump.exists()
     recorded = json.loads(dump.read_text(encoding="utf-8"))
-    assert recorded[1:4] == ["--disallowedTools", "WebSearch", "WebFetch"]
+    assert recorded[1:4] == ["--restricted", "--disallowedTools", "WebSearch"]
+    assert recorded[4:7] == ["WebFetch", "--tools", "Bash"]
 
 
 def test_unknown_cli_is_refused_before_the_container_starts(tmp_path: Path) -> None:
