@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
 import legalforecast.multiharness.protected_terminal_paid as protected_terminal_paid
 import pytest
+from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
 from legalforecast.multiharness.auth_profiles import (
     PUBLISHED_API_KEY,
@@ -20,6 +22,7 @@ from legalforecast.multiharness.protected_terminal_paid import (
     ProtectedTerminalPaidError,
     ProtectedTerminalSpendConfig,
     ProviderGatewaySpendController,
+    anthropic_registry_charge_extractor,
     build_protected_gateway_spend_controller,
     protected_authority_environment,
     uniform_case_reservation_microusd,
@@ -89,6 +92,39 @@ def _config() -> ProtectedTerminalSpendConfig:
         provider_authority_region="us-east-1",
         provider_authority_resource_identity_sha256="c" * 64,
     )
+
+
+def _registry_entry(
+    model_id: str = "claude-opus-5",
+    *,
+    cache_read_price: float | None = 0.5,
+    cache_write_price: float | None = 6.25,
+) -> ModelRegistryEntry:
+    record: dict[str, object] = {
+        "provider": "anthropic",
+        "model_id": model_id,
+        "display_name": model_id,
+        "model_version_or_snapshot": model_id,
+        "provider_training_cutoff_status": "unknown",
+        "max_output_tokens": 128000,
+        "network_disabled": True,
+        "search_disabled": True,
+        "tool_policy": "controlled_docket_tool_only",
+        "context_limit": 1_000_000,
+        "pricing_source": "fixture-pricing",
+        "input_token_price": 5.0,
+        "output_token_price": 25.0,
+        "known_cutoff_publicity_caveats": [],
+    }
+    if cache_read_price is not None:
+        record["cache_read_token_price"] = cache_read_price
+    if cache_write_price is not None:
+        record["cache_write_token_price"] = cache_write_price
+    return ModelRegistryEntry.from_record(record)
+
+
+def _usage_body(usage: dict[str, object]) -> bytes:
+    return json.dumps({"usage": usage}, separators=(",", ":")).encode()
 
 
 def _receipt(spec: RunSpec, *, status: str = "succeeded") -> ExecutionReceipt:
@@ -195,6 +231,123 @@ def test_protected_gateway_factory_uses_workflow_authority(
 
     assert controller.authority is authority
     assert captured == [config]
+
+
+def test_anthropic_registry_charge_extractor_prices_cache_buckets() -> None:
+    extract = anthropic_registry_charge_extractor(_registry_entry())
+    body = _usage_body(
+        {
+            "input_tokens": 1000,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 400,
+            "cache_creation_input_tokens": 100,
+        }
+    )
+
+    assert extract(body, 200, "application/json") == 8_325
+
+
+def test_anthropic_registry_charge_extractor_accepts_explicit_zero_cache() -> None:
+    extract = anthropic_registry_charge_extractor(
+        _registry_entry(cache_read_price=None, cache_write_price=None)
+    )
+    body = _usage_body(
+        {
+            "input_tokens": 1000,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+        }
+    )
+
+    assert extract(body, 200, "application/json") == 10_000
+
+
+def test_anthropic_registry_charge_extractor_prices_stream_usage() -> None:
+    extract = anthropic_registry_charge_extractor(_registry_entry())
+    body = (
+        b"data: "
+        + json.dumps(
+            {
+                "type": "message_start",
+                "message": {
+                    "usage": {
+                        "input_tokens": 1000,
+                        "output_tokens": 0,
+                        "cache_read_input_tokens": 400,
+                        "cache_creation_input_tokens": 100,
+                    }
+                },
+            },
+            separators=(",", ":"),
+        ).encode()
+        + b"\n\n"
+        + b'data: {"type":"message_delta","usage":{"output_tokens":200}}\n\n'
+        b"data: [DONE]\n\n"
+    )
+
+    assert extract(body, 200, "text/event-stream") == 8_325
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        _usage_body(
+            {
+                "input_tokens": 1000,
+                "output_tokens": 200,
+                "cache_creation_input_tokens": 100,
+            }
+        ),
+        _usage_body(
+            {
+                "input_tokens": 1000,
+                "output_tokens": 200,
+                "cache_read_input_tokens": 400,
+                "cache_creation_input_tokens": "100",
+            }
+        ),
+        _usage_body(
+            {
+                "input_tokens": 100,
+                "output_tokens": 200,
+                "cache_read_input_tokens": 80,
+                "cache_creation_input_tokens": 30,
+            }
+        ),
+    ),
+)
+def test_anthropic_registry_charge_extractor_fails_closed_on_unknown_usage(
+    body: bytes,
+) -> None:
+    extract = anthropic_registry_charge_extractor(_registry_entry())
+
+    assert extract(body, 200, "application/json") is None
+
+
+def test_anthropic_registry_charge_extractor_fails_closed_on_unknown_cache_rate() -> (
+    None
+):
+    extract = anthropic_registry_charge_extractor(
+        _registry_entry(cache_write_price=None)
+    )
+    body = _usage_body(
+        {
+            "input_tokens": 1000,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 100,
+        }
+    )
+
+    assert extract(body, 200, "application/json") is None
+
+
+def test_anthropic_registry_charge_extractor_rejects_non_anthropic_entry() -> None:
+    record = _registry_entry().to_record()
+    record["provider"] = "openai"
+    with pytest.raises(ProtectedTerminalPaidError, match="Anthropic registry"):
+        anthropic_registry_charge_extractor(ModelRegistryEntry.from_record(record))
 
 
 def test_controller_authorizes_and_settles_success(tmp_path: Path) -> None:
