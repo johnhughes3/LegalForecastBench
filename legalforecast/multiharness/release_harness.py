@@ -4,26 +4,23 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Self, cast
 
+import legalforecast.multiharness.release_runtime as _release_runtime
+import legalforecast.multiharness.release_scoring as _release_scoring
 from legalforecast._json_io import write_json_object_safe
 from legalforecast.contracts import (
     FORECAST_RELEASE_V1,
-    RAW_BYTES_PREFIXED_SHA256_V1,
     RELEASE_HARNESS_RECEIPT_V1,
+    RELEASE_SCORE_V1,
 )
 from legalforecast.evals.output_parser import (
     ParsedModelOutput,
     parse_model_output,
     parsed_output_from_public_record,
     public_parser_record,
-)
-from legalforecast.immutable_io import (
-    ImmutableIOError,
-    read_single_link_file,
-    write_file_create_only,
 )
 from legalforecast.multiharness.adapters import HarnessAdapter, SolverInputAdapter
 from legalforecast.multiharness.artifacts import project_lfb_adapter_record
@@ -45,18 +42,43 @@ from legalforecast.multiharness.validation import (
     validate_safe_relative_path,
     validate_sha256,
 )
+from legalforecast.release.models import ForecastRelease, LabelsRelease
 
+ReleaseHarnessError = _release_runtime.ReleaseHarnessError
+read_release_object = _release_runtime.read_release_object
+read_release_regular_file = _release_runtime.read_release_regular_file
+release_bytes_sha256 = _release_runtime.release_bytes_sha256
+release_canonical_bytes = _release_runtime.release_canonical_bytes
+release_record_sha256 = _release_runtime.release_record_sha256
+write_release_create_only = _release_runtime.write_release_create_only
+write_release_json_create_only = _release_runtime.write_release_json_create_only
 RELEASE_HARNESS_RECEIPT_SCHEMA_VERSION = str(RELEASE_HARNESS_RECEIPT_V1)
+RELEASE_SCORE_SCHEMA_VERSION = str(RELEASE_SCORE_V1)
+RELEASE_FAILURE_POLICY_ID = _release_scoring.RELEASE_FAILURE_POLICY_ID
+RELEASE_HARNESS_TRACKS = _release_scoring.RELEASE_HARNESS_TRACKS
 RELEASE_FORECAST_OUTPUT_ARTIFACT_ID = "release-forecast-output-private"
 RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID = "release-harness-transcript-private"
-RELEASE_HARNESS_TRACKS = frozenset({"native", "neutral"})
 RELEASE_HARNESS_RECEIPT_NAME = "release-harness-receipt.json"
 RELEASE_HARNESS_LFB_RECORD_NAME = "lfb-inspect-record.json"
 RELEASE_HARNESS_PRIVATE_LFB_RECORD_NAME = "private-logs/lfb-inspect-record.json"
 
 
-class ReleaseHarnessError(ValueError):
-    """Raised when an adapter violates the release-backed harness protocol."""
+def score_multiharness_release(
+    run: _release_scoring.MultiHarnessRunLike,
+    forecast_release: ForecastRelease,
+    labels_release: LabelsRelease,
+    *,
+    failure_brier: float = 1.0,
+) -> Mapping[str, Any]:
+    """Score a selected release run with explicit failure accounting."""
+
+    return _release_scoring.score_release(
+        run,
+        forecast_release,
+        labels_release,
+        failure_brier=failure_brier,
+        score_schema_version=RELEASE_SCORE_SCHEMA_VERSION,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +129,7 @@ class _ReleaseReceiptEvidence:
     tool_call_count: int
     release_id: str
     forecast_release_digest: str
-    unit_id: str
+    unit_id: str | None
     case_id: str
     transcript_sha256: str
     should_score: bool
@@ -184,7 +206,7 @@ def validate_resumed_release_harness_result(
         solver_input_entry,
     )
     stored_receipt = ReleaseHarnessReceipt.from_record(
-        _read_object(workspace / RELEASE_HARNESS_RECEIPT_NAME, "release receipt")
+        read_release_object(workspace / RELEASE_HARNESS_RECEIPT_NAME, "release receipt")
     )
     if stored_receipt.to_record() != projection.receipt.to_record():
         raise ReleaseHarnessError("stored release receipt does not match")
@@ -267,13 +289,78 @@ def run_and_project_solver_input_adapter(
     if result.request_id != request.request_id:
         raise ValueError("run result request_id does not match request")
     write_json_object_safe(workspace / "result.json", result.to_record())
-    return result, project_and_write_release_harness_result(
+    if result.status != "succeeded":
+        return result, None
+    lfb_record = project_and_write_release_harness_result(
         request,
         result,
         workspace,
         solver_input_root,
         solver_input_entry,
     )
+    result = _mark_invalid_release_forecast(result, lfb_record)
+    if result.status != "succeeded":
+        write_json_object_safe(workspace / "result.json", result.to_record())
+    return result, lfb_record
+
+
+def _mark_invalid_release_forecast(
+    result: RunResult,
+    lfb_record: Mapping[str, Any] | None,
+) -> RunResult:
+    """Turn invalid or defaulted release forecasts into retryable failures."""
+
+    if not isinstance(lfb_record, Mapping):
+        return result
+    parser_record = lfb_record.get("parser_output")
+    if not isinstance(parser_record, Mapping):
+        return result
+    parser_record = cast(Mapping[str, Any], parser_record)
+    status = parser_record.get("status")
+    defaulted_unit_ids = parser_record.get("defaulted_unit_ids", [])
+    is_valid = parser_record.get("is_valid") is True
+    has_defaults = isinstance(defaulted_unit_ids, list) and bool(
+        cast(list[Any], defaulted_unit_ids)
+    )
+    if is_valid and not has_defaults:
+        return result
+    summary = dict(result.public_summary)
+    parser_issues = parser_record.get("issues", [])
+    summary.update(
+        {
+            "error_type": "InvalidForecastOutput",
+            "error_message": "release forecast output failed validation",
+            "parser_status": status,
+            "parser_issues": parser_issues,
+            "defaulted_unit_ids": defaulted_unit_ids,
+            "original_result_sha256": result.result_sha256,
+        }
+    )
+    summary["normalized_result_sha256"] = release_record_sha256(
+        _normalized_result_digest_payload(
+            result,
+            status="failed",
+            public_summary=summary,
+        )
+    )
+    return replace(result, status="failed", public_summary=summary)
+
+
+def _normalized_result_digest_payload(
+    result: RunResult,
+    *,
+    status: str,
+    public_summary: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build the digest payload for a result normalized after adapter output."""
+
+    return {
+        "result_id": result.result_id,
+        "request_id": result.request_id,
+        "status": status,
+        "artifacts": [artifact.to_record() for artifact in result.artifacts],
+        "public_summary": dict(public_summary),
+    }
 
 
 def collect_release_harness_receipts(
@@ -294,7 +381,10 @@ def collect_release_harness_projections(
 
     projections: list[ReleaseHarnessProjection] = []
     for request, result, workspace in rows:
-        if not is_release_task(request) or result.status != "succeeded":
+        if not is_release_task(request):
+            continue
+        receipt_path = workspace / RELEASE_HARNESS_RECEIPT_NAME
+        if result.status != "succeeded" and not receipt_path.is_file():
             continue
         if result.request_id != request.request_id:
             raise ReleaseHarnessError("release result request does not match row")
@@ -310,7 +400,7 @@ def collect_release_harness_projections(
             forecast_release_digest=forecast_release_digest,
         )
         receipt = ReleaseHarnessReceipt.from_record(
-            _read_object(workspace / RELEASE_HARNESS_RECEIPT_NAME, "release receipt")
+            read_release_object(receipt_path, "release receipt")
         )
         projection = _projection_from_evidence(request, result, evidence)
         if receipt.to_record() != projection.receipt.to_record():
@@ -363,7 +453,9 @@ def _projection_from_evidence(
         content=evidence.content,
         receipt_sha256=release_record_sha256(evidence.content),
     )
-    if not evidence.should_score:
+    if not evidence.should_score and (
+        evidence.parsed.is_valid and not evidence.parsed.defaulted_unit_ids
+    ):
         return ReleaseHarnessProjection(
             receipt=receipt,
             lfb_record=None,
@@ -371,9 +463,19 @@ def _projection_from_evidence(
         )
     summary = result.public_summary
     adapter_id = request.adapter.adapter_id
+    subject_id = evidence.unit_id or evidence.case_id
+    inspect_metadata: dict[str, Any] = {
+        "forecast_release_digest": evidence.forecast_release_digest,
+        "harness_track": evidence.track,
+        "release_id": evidence.release_id,
+        "should_score": str(evidence.should_score).lower(),
+        "transcript_sha256": evidence.transcript_sha256,
+    }
+    if evidence.unit_id is not None:
+        inspect_metadata["unit_id"] = evidence.unit_id
     inspect = {
-        "sample_id": evidence.unit_id,
-        "candidate_id": f"{evidence.release_id}:{evidence.unit_id}",
+        "sample_id": subject_id,
+        "candidate_id": f"{evidence.release_id}:{subject_id}",
         "case_id": evidence.case_id,
         "related_family_id": None,
         "mdl_family_id": None,
@@ -394,13 +496,7 @@ def _projection_from_evidence(
             {"tool_call_index": index + 1} for index in range(evidence.tool_call_count)
         ],
         "execution_backend": _summary_execution_backend(summary, evidence.track),
-        "metadata": {
-            "forecast_release_digest": evidence.forecast_release_digest,
-            "harness_track": evidence.track,
-            "release_id": evidence.release_id,
-            "transcript_sha256": evidence.transcript_sha256,
-            "unit_id": evidence.unit_id,
-        },
+        "metadata": inspect_metadata,
     }
     projected = project_lfb_adapter_record(
         inspect,
@@ -461,7 +557,12 @@ def _release_receipt_evidence(
     adapter_id = request.adapter.adapter_id
     adapter_version = request.adapter.adapter_version
     release_id = require_release_metadata_str(metadata, "release_id")
-    unit_id = require_release_metadata_str(metadata, "unit_id")
+    raw_unit_id = metadata.get("unit_id")
+    if raw_unit_id is not None and (
+        not isinstance(raw_unit_id, str) or not raw_unit_id.strip()
+    ):
+        raise ReleaseHarnessError("task metadata unit_id must be a non-empty string")
+    unit_id = raw_unit_id
     case_id = require_release_metadata_str(metadata, "case_id")
     should_score = _required_metadata_bool(metadata, "should_score")
     tools = _required_summary_string_list(summary, "allowed_tools")
@@ -595,30 +696,6 @@ def _read_workspace_artifact(workspace: Path, artifact: ArtifactRecord) -> bytes
     return payload
 
 
-def read_release_regular_file(path: Path) -> bytes:
-    """Read one immutable single-link file without following any symlink."""
-
-    try:
-        return read_single_link_file(path, label="release harness input")
-    except ImmutableIOError as exc:
-        raise ReleaseHarnessError("release harness input is unavailable") from exc
-
-
-def write_release_create_only(path: Path, payload: bytes, *, mode: int) -> None:
-    try:
-        write_file_create_only(path, payload, mode=mode)
-    except ImmutableIOError as exc:
-        raise ReleaseHarnessError(
-            "release harness staging path is unavailable"
-        ) from exc
-
-
-def write_release_json_create_only(path: Path, record: Mapping[str, Any]) -> None:
-    """Write one canonical release-runtime record without following links."""
-
-    write_release_create_only(path, release_canonical_bytes(record), mode=0o600)
-
-
 def _validate_stored_lfb_projection(
     workspace: Path,
     projection: ReleaseHarnessProjection,
@@ -631,10 +708,10 @@ def _validate_stored_lfb_projection(
         return
     if projection.private_lfb_record is None:
         raise AssertionError("private LFB projection is unavailable")
-    if _read_object(public_path, "release LFB record") != projection.lfb_record:
+    if read_release_object(public_path, "release LFB record") != projection.lfb_record:
         raise ReleaseHarnessError("stored release LFB record does not match")
     if (
-        _read_object(private_path, "private release LFB record")
+        read_release_object(private_path, "private release LFB record")
         != projection.private_lfb_record
     ):
         raise ReleaseHarnessError("stored private release LFB record does not match")
@@ -652,7 +729,7 @@ def _validate_or_create_release_record(
         return
     except OSError as exc:
         raise ReleaseHarnessError(f"{label} path is unavailable") from exc
-    if _read_object(path, label) != expected:
+    if read_release_object(path, label) != expected:
         raise ReleaseHarnessError(f"stored {label} does not match")
 
 
@@ -703,8 +780,11 @@ def _validate_release_receipt_content(content: Mapping[str, Any]) -> None:
     if set(content) != expected:
         raise ReleaseHarnessError("release harness receipt fields are invalid")
     require_schema_version(content, RELEASE_HARNESS_RECEIPT_SCHEMA_VERSION)
-    for field_name in ("receipt_id", "release_id", "case_id", "unit_id"):
+    for field_name in ("receipt_id", "release_id", "case_id"):
         require_str(content, field_name)
+    unit_id = content.get("unit_id")
+    if unit_id is not None and (not isinstance(unit_id, str) or not unit_id.strip()):
+        raise ReleaseHarnessError("release receipt unit_id must be null or non-empty")
     if not isinstance(content.get("should_score"), bool):
         raise ReleaseHarnessError("release receipt should_score must be a boolean")
     for field_name in (
@@ -892,32 +972,3 @@ def _summary_execution_backend(summary: Mapping[str, Any], track: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ReleaseHarnessError("result summary execution_backend is invalid")
     return value
-
-
-def release_canonical_bytes(record: Mapping[str, Any]) -> bytes:
-    return (
-        json.dumps(dict(record), sort_keys=True, separators=(",", ":"), allow_nan=False)
-        + "\n"
-    ).encode("utf-8")
-
-
-def release_record_sha256(record: Mapping[str, Any]) -> str:
-    return release_bytes_sha256(release_canonical_bytes(record))
-
-
-def release_bytes_sha256(payload: bytes) -> str:
-    commitment = RAW_BYTES_PREFIXED_SHA256_V1.commit(
-        payload,
-        domain=FORECAST_RELEASE_V1,
-    )
-    return str(commitment.digest)
-
-
-def _read_object(path: Path, label: str) -> dict[str, Any]:
-    try:
-        decoded = json.loads(read_release_regular_file(path).decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ReleaseHarnessError(f"{label} must be valid UTF-8 JSON") from exc
-    if not isinstance(decoded, dict):
-        raise ReleaseHarnessError(f"{label} must be an object")
-    return cast(dict[str, Any], decoded)

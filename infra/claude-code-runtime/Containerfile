@@ -1,0 +1,49 @@
+FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
+
+ARG CLAUDE_CODE_VERSION=2.1.282
+
+ENV PATH="/opt/legalforecast/claude/node_modules/.bin:/opt/legalforecast/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    HOME=/home/harness \
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+    CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
+    CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 \
+    DISABLE_AUTOUPDATER=1 \
+    DISABLE_BUG_COMMAND=1 \
+    DISABLE_ERROR_REPORTING=1 \
+    DISABLE_TELEMETRY=1
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes \
+        bash \
+        bubblewrap \
+        ca-certificates \
+        python3 \
+        socat \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable pnpm \
+    && mkdir -p /opt/legalforecast/claude \
+    && cd /opt/legalforecast/claude \
+    && pnpm init \
+    && pnpm add --prod --ignore-scripts "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+    && node node_modules/@anthropic-ai/claude-code/install.cjs
+
+COPY legalforecast/multiharness/container_harness/cli_fence.py /opt/legalforecast/cli_fence.py
+COPY infra/claude-code-runtime/managed-settings.json /etc/claude-code/managed-settings.json
+
+RUN chmod 0444 /etc/claude-code/managed-settings.json \
+    && mkdir -p /opt/legalforecast/bin /opt/legalforecast/libexec /workspace \
+    && printf '%s\n' \
+        '#!/bin/sh' \
+        'exec /opt/legalforecast/claude/node_modules/.bin/claude "$@"' \
+        > /opt/legalforecast/claude-launcher \
+    && chmod 0755 /opt/legalforecast/claude-launcher \
+    && python3 -c \
+        'from pathlib import Path; import sys; sys.path.insert(0, "/opt/legalforecast"); from cli_fence import install_cli_fence; install_cli_fence(bin_dir=Path("/opt/legalforecast/bin"), libexec_dir=Path("/opt/legalforecast/libexec"), cli="claude", real_binary=Path("/opt/legalforecast/claude-launcher"))' \
+    && groupadd --gid 65532 harness \
+    && useradd --uid 65532 --gid 65532 --create-home --shell /bin/bash harness \
+    && chown -R 65532:65532 /home/harness /workspace
+
+WORKDIR /workspace
+USER 65532:65532
+ENTRYPOINT ["/opt/legalforecast/bin/claude"]

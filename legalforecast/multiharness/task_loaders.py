@@ -24,9 +24,15 @@ from legalforecast.evals.prediction_units import (
     SourceCitation,
 )
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
+from legalforecast.multiharness.release_case_tasks import (
+    build_case_task,
+    build_case_task_index,
+    write_case_solver_inputs,
+)
 from legalforecast.multiharness.solver_inputs import (
     SolverInputPayload,
     SolverInputStore,
+    bytes_sha256,
     write_solver_input_store,
 )
 from legalforecast.multiharness.spec import ArtifactRecord, CanonicalTask, TaskIndex
@@ -37,7 +43,7 @@ from legalforecast.multiharness.validation import (
     validate_safe_relative_path,
     validate_unique_ids,
 )
-from legalforecast.release.models import ForecastPredictionUnit
+from legalforecast.release.models import ForecastPredictionUnit, ReleaseCase
 from legalforecast.release.service import ForecastExecution, load_forecast_execution
 
 DEFAULT_LFB_SUITE_VERSION = "legalforecast-mtd-v1"
@@ -192,20 +198,39 @@ class ReleaseLfbTaskLoader:
         index_id: str = "legalforecast-release",
         selection_namespace: str = "legalforecast_mtd",
         solver_input_root: Path | None = None,
+        case_batching: bool = False,
     ) -> TaskIndex:
-        """Load only outcome-blinded release bytes and issue runnable tasks."""
+        """Load only outcome-blinded release bytes and issue runnable tasks.
+
+        The historical default remains one task per prediction unit.  The
+        narrow ``case_batching`` path creates one task per case, which lets a
+        solver receive one shared prompt and the complete set of required unit
+        IDs in one invocation.
+        """
 
         execution = load_forecast_execution(
             forecast_path,
             artifact_root=artifact_root,
         )
-        task_index = self.from_execution(
-            execution,
-            index_id=index_id,
-            selection_namespace=selection_namespace,
+        task_index = (
+            self.from_execution_cases(
+                execution,
+                index_id=index_id,
+                selection_namespace=selection_namespace,
+            )
+            if case_batching
+            else self.from_execution(
+                execution,
+                index_id=index_id,
+                selection_namespace=selection_namespace,
+            )
         )
         if solver_input_root is not None:
-            self.write_solver_inputs(
+            self.write_solver_inputs_cases(
+                execution,
+                task_index=task_index,
+                destination_root=solver_input_root,
+            ) if case_batching else self.write_solver_inputs(
                 execution,
                 task_index=task_index,
                 destination_root=solver_input_root,
@@ -229,6 +254,22 @@ class ReleaseLfbTaskLoader:
             selection_namespace=selection_namespace,
             tasks=tasks,
             index_sha256=task_index_sha256(tasks),
+        )
+
+    def from_execution_cases(
+        self,
+        execution: ForecastExecution,
+        *,
+        index_id: str = "legalforecast-release-cases",
+        selection_namespace: str = "legalforecast_mtd",
+    ) -> TaskIndex:
+        return build_case_task_index(
+            execution,
+            suite_version=self.suite_version,
+            index_id=index_id,
+            selection_namespace=selection_namespace,
+            index_digest=task_index_sha256,
+            bytes_digest=bytes_sha256,
         )
 
     def write_solver_inputs(
@@ -264,6 +305,19 @@ class ReleaseLfbTaskLoader:
             destination_root=destination_root,
             task_index_sha256=task_index.index_sha256,
             payloads=tuple(payloads),
+        )
+
+    def write_solver_inputs_cases(
+        self,
+        execution: ForecastExecution,
+        *,
+        task_index: TaskIndex,
+        destination_root: Path,
+    ) -> SolverInputStore:
+        return write_case_solver_inputs(
+            execution,
+            task_index=task_index,
+            destination_root=destination_root,
         )
 
     def task_from_unit(
@@ -311,6 +365,20 @@ class ReleaseLfbTaskLoader:
             source_id=unit.unit_id,
             task_sha256=f"sha256:{unit.packet_sha256}",
             metadata=metadata,
+        )
+
+    def task_from_case(
+        self,
+        execution: ForecastExecution,
+        case: ReleaseCase,
+        units: Sequence[ForecastPredictionUnit],
+    ) -> CanonicalTask:
+        return build_case_task(
+            execution,
+            case,
+            units,
+            suite_version=self.suite_version,
+            bytes_digest=bytes_sha256,
         )
 
 
@@ -432,16 +500,6 @@ class HarveyLabTaskLoader:
         if result.returncode != 0 or not commit:
             return None
         return commit
-
-
-def task_index_sha256(tasks: Sequence[CanonicalTask]) -> str:
-    """Digest a task index's records the way every suite loader must.
-
-    Suite loaders live in different modules but their indexes are compared and
-    resumed against each other, so the digest has exactly one definition.
-    """
-
-    return _record_sha256([task.to_record() for task in tasks])
 
 
 def _extract_packet_record(record: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -621,17 +679,23 @@ def _top_level_str(record: Mapping[str, Any], field_names: Sequence[str]) -> str
     return None
 
 
-def _record_sha256(record: Any) -> str:
-    encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
 def _file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def task_index_sha256(tasks: Sequence[CanonicalTask]) -> str:
+    """Digest a task index's records the way every suite loader must."""
+
+    return _record_sha256([task.to_record() for task in tasks])
+
+
+def _record_sha256(record: Any) -> str:
+    encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _relative_posix(path: Path, root: Path) -> str:

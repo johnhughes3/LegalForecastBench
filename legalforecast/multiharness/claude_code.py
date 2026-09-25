@@ -41,6 +41,9 @@ from legalforecast.multiharness.auth_profiles import (
     AuthProfileError,
     require_auth_profile_id,
 )
+from legalforecast.multiharness.claude_code_stream import (
+    tool_call_count_from_stdout,
+)
 from legalforecast.multiharness.deliverables import (
     DeliverableArtifactProjection,
     DeliverableManifest,
@@ -184,7 +187,11 @@ class ClaudeInvocationPlan:
             raise ClaudeCodeCliAdapterError(
                 "invocation must not persist, resume, or use --bare"
             )
-        _require_flag_value(self.argv, "--output-format", "json")
+        if self.output_format not in {"json", "stream-json"}:
+            raise ClaudeCodeCliAdapterError(
+                "invocation output_format must be json or stream-json"
+            )
+        _require_flag_value(self.argv, "--output-format", self.output_format)
         if "--json-schema" not in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must enforce JSON schema")
         _require_inline_json_schema(self.argv)
@@ -198,7 +205,10 @@ class ClaudeInvocationPlan:
             raise ClaudeCodeCliAdapterError("invocation must set --strict-mcp-config")
         if "sh" in self.argv or "bash" in self.argv or "-c" in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must not invoke a shell")
-        _reject_unallowlisted_argv(self.argv)
+        _reject_unallowlisted_argv(
+            self.argv,
+            allow_stream_verbose=self.output_format == "stream-json",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,6 +335,8 @@ def build_claude_invocation_plan(
     json_schema: Mapping[str, Any] | None = None,
     extra_add_dirs: Sequence[Path] = (),
     max_budget_usd: str | None = None,
+    output_format: str = "json",
+    verbose: bool = False,
 ) -> ClaudeInvocationPlan:
     """Translate one task into a shell-safe argv from the frozen template."""
 
@@ -332,6 +344,8 @@ def build_claude_invocation_plan(
         raise ClaudeCodeCliAdapterError("prompt must be non-empty")
     if not model.strip() or "/" in model or "\\" in model:
         raise ClaudeCodeCliAdapterError("model must be a non-empty basename")
+    if output_format not in {"json", "stream-json"}:
+        raise ClaudeCodeCliAdapterError("output_format must be json or stream-json")
     local_manifest = manifest or claude_code_local_manifest()
     try:
         bound = bind_adapter_auth_profile(local_manifest, auth_profile)
@@ -359,6 +373,20 @@ def build_claude_invocation_plan(
         (local_manifest.executable.basename, *rendered),
         tools,
     )
+    if output_format != "json":
+        try:
+            output_index = argv.index("--output-format")
+        except ValueError as exc:
+            raise ClaudeCodeCliAdapterError(
+                "invocation template must declare --output-format"
+            ) from exc
+        argv = (
+            *argv[: output_index + 1],
+            output_format,
+            *argv[output_index + 2 :],
+        )
+    if verbose and "--verbose" not in argv:
+        argv = (*argv, "--verbose")
     extra_dirs: list[str] = []
     for extra in extra_add_dirs:
         extra_dirs.extend(["--add-dir", extra.as_posix()])
@@ -376,6 +404,7 @@ def build_claude_invocation_plan(
         output_schema_path=output_schema_path.as_posix(),
         allowed_tools=tools,
         auth_profile=bound.profile_id,
+        output_format=output_format,
     )
 
 
@@ -398,7 +427,7 @@ def build_run_spec(
         working_directory=workspace,
         environment={},
         timeout_seconds=timeout_seconds,
-        output_format="json",
+        output_format=plan.output_format,
         json_schema=plan.json_schema,
     )
 
@@ -463,6 +492,14 @@ def classify_execution(
             raw_output=receipt.stdout or "crash",
             spec=spec,
             receipt=receipt,
+        )
+    if not _served_model_reported(envelope, receipt):
+        return _classified(
+            LocalCliFailureClass.IDENTITY_DRIFT,
+            raw_output=_result_text(envelope) or "served model identity missing",
+            spec=spec,
+            receipt=receipt,
+            failure_slot="served_model",
         )
     if _served_model_drifted(envelope, receipt, requested_model):
         return _classified(
@@ -577,9 +614,16 @@ class ClaudeCodeCliAdapter:
         default_factory=claude_code_local_manifest
     )
     auth_profile: str = FIXTURE_NONE
+    adapter_id: str = CLAUDE_CODE_ADAPTER_ID
+    max_budget_usd: str | None = None
+    output_format: str = "json"
+    verbose: bool = False
 
     def __post_init__(self) -> None:
-        _require_offline_claude_manifest(self.local_manifest)
+        _require_offline_claude_manifest(
+            self.local_manifest,
+            expected_adapter_id=self.adapter_id,
+        )
         try:
             bind_adapter_auth_profile(self.local_manifest, self.auth_profile)
         except AuthProfileError as exc:
@@ -596,6 +640,15 @@ class ClaudeCodeCliAdapter:
         return self.local_manifest.to_adapter_capabilities()
 
     def prepare(self, request: RunRequest, workspace: Path) -> AdapterPreparation:
+        return self._prepare(request, workspace, require_metadata_prompt=True)
+
+    def _prepare(
+        self,
+        request: RunRequest,
+        workspace: Path,
+        *,
+        require_metadata_prompt: bool,
+    ) -> AdapterPreparation:
         workspace.mkdir(parents=True, exist_ok=True)
         capabilities = self.capabilities(workspace)
         if request.adapter.adapter_id != self.manifest.adapter_id:
@@ -611,7 +664,8 @@ class ClaudeCodeCliAdapter:
                 f"adapter does not support scoring mode: {request.task.scoring_mode}"
             )
         _required_unit_ids(request.task)
-        _solver_prompt(request.task)
+        if require_metadata_prompt:
+            _solver_prompt(request.task)
         _requested_model(request.model_key)
         try:
             bound = bind_adapter_auth_profile(self.local_manifest, self.auth_profile)
@@ -646,18 +700,51 @@ class ClaudeCodeCliAdapter:
             classified,
             usage_reporting=self.local_manifest.usage_reporting,
             auth_profile=self.auth_profile,
+            adapter_id=self.adapter_id,
+        )
+
+    def run_with_prompt(
+        self,
+        request: RunRequest,
+        workspace: Path,
+        prompt: str,
+    ) -> RunResult:
+        """Run with a prompt supplied by a caller-owned authenticated input.
+
+        The normal adapter path obtains the prompt from canonical task metadata.
+        A release adapter keeps the prompt outside that public task record and
+        stages it in the private workspace instead.  Its caller supplies a
+        short instruction that tells Claude to read that staged file; the
+        solver input bytes therefore remain in the container workspace rather
+        than being copied into a serialized task object.
+        """
+
+        if not prompt.strip():
+            raise ClaudeCodeCliAdapterError("prompt must be non-empty")
+        self._prepare(request, workspace, require_metadata_prompt=False)
+        classified = self._execute_request(request, workspace, prompt=prompt)
+        if classified.failure_class is None:
+            classified = _with_deliverable(classified, request, workspace)
+        return _run_result(
+            request,
+            classified,
+            usage_reporting=self.local_manifest.usage_reporting,
+            auth_profile=self.auth_profile,
+            adapter_id=self.adapter_id,
         )
 
     def _execute_request(
         self,
         request: RunRequest,
         workspace: Path,
+        *,
+        prompt: str | None = None,
     ) -> ClassifiedClaudeResult:
         required_unit_ids = _required_unit_ids(request.task)
         schema_path = workspace / CLAUDE_CODE_OUTPUT_SCHEMA_NAME
         write_forecast_output_schema(schema_path, required_unit_ids)
         plan = build_claude_invocation_plan(
-            prompt=_solver_prompt(request.task),
+            prompt=_solver_prompt(request.task) if prompt is None else prompt,
             model=_requested_model(request.model_key),
             required_unit_ids=required_unit_ids,
             workspace=workspace,
@@ -665,6 +752,9 @@ class ClaudeCodeCliAdapter:
             allowed_tools=_allowed_tools(request.task),
             manifest=self.local_manifest,
             auth_profile=self.auth_profile,
+            max_budget_usd=self.max_budget_usd,
+            output_format=self.output_format,
+            verbose=self.verbose,
         )
         spec = build_run_spec(
             request,
@@ -800,9 +890,9 @@ class ClaudeCodeCliSolver:
         return SolverResponse(
             raw_output=classified.raw_output,
             request_count=1,
-            input_tokens=usage["input_tokens"],
-            output_tokens=usage["output_tokens"],
-            estimated_cost=usage["estimated_cost"],
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+            estimated_cost=usage.get("estimated_cost", 0.0),
             metadata={
                 "adapter_id": CLAUDE_CODE_ADAPTER_ID,
                 "auth_profile": bound.profile_id,
@@ -877,6 +967,7 @@ def _run_result(
     *,
     usage_reporting: LocalCliUsageReporting,
     auth_profile: str,
+    adapter_id: str = CLAUDE_CODE_ADAPTER_ID,
 ) -> RunResult:
     artifacts: tuple[ArtifactRecord, ...] = ()
     if classified.deliverable_manifest is not None:
@@ -896,6 +987,7 @@ def _run_result(
         classified,
         usage_reporting=usage_reporting,
         auth_profile=auth_profile,
+        adapter_id=adapter_id,
     )
     validate_public_record(summary, "claude_code.public_summary")
     commitment = {
@@ -906,7 +998,7 @@ def _run_result(
     }
     status = "succeeded" if classified.failure_class is None else "failed"
     return RunResult(
-        result_id=f"{request.request_id}:{CLAUDE_CODE_ADAPTER_ID}",
+        result_id=f"{request.request_id}:{adapter_id}",
         request_id=request.request_id,
         status=status,
         result_sha256=_record_sha256(commitment),
@@ -921,11 +1013,12 @@ def _public_summary(
     *,
     usage_reporting: LocalCliUsageReporting,
     auth_profile: str,
+    adapter_id: str = CLAUDE_CODE_ADAPTER_ID,
 ) -> dict[str, Any]:
     usage = _usage_from_envelope(classified.receipt, usage_reporting)
     profile_id = require_auth_profile_id(auth_profile)
     summary: dict[str, Any] = {
-        "adapter_id": CLAUDE_CODE_ADAPTER_ID,
+        "adapter_id": adapter_id,
         "adapter_version": CLAUDE_CODE_ADAPTER_VERSION,
         "auth_mode": public_auth_mode(profile_id, fixture_mode="none-offline"),
         "auth_profile": profile_id,
@@ -937,11 +1030,9 @@ def _public_summary(
         "sandbox_policy_id": request.sandbox_policy.policy_id,
         "spec_sha256": classified.spec.spec_sha256,
         "task_id": request.task.task_id,
-        "tool_call_count": 0,
-        "input_tokens": usage["input_tokens"],
-        "output_tokens": usage["output_tokens"],
-        "estimated_cost": usage["estimated_cost"],
+        "tool_call_count": tool_call_count_from_stdout(classified.receipt.stdout),
     }
+    summary.update(usage)
     if classified.receipt.served_model is not None:
         summary["served_model"] = classified.receipt.served_model
     if classified.receipt.deliverable_manifest_sha256 is not None:
@@ -1141,35 +1232,42 @@ def _usage_from_envelope(
     input_tokens = _lookup_int(
         envelope,
         reporting.input_tokens_field,
-        receipt.usage.get("input_tokens", 0),
+        receipt.usage.get("input_tokens"),
     )
     output_tokens = _lookup_int(
         envelope,
         reporting.output_tokens_field,
-        receipt.usage.get("output_tokens", 0),
+        receipt.usage.get("output_tokens"),
     )
-    estimated_cost = receipt.cost_usd if receipt.cost_usd is not None else 0.0
+    estimated_cost = receipt.cost_usd
     if reporting.cost_usd_field is not None and envelope is not None:
         raw_cost = _dotted_lookup(envelope, reporting.cost_usd_field)
         parsed_cost = _non_negative_number(raw_cost)
         if parsed_cost is not None:
             estimated_cost = parsed_cost
-    return {
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "estimated_cost": estimated_cost,
-    }
+    usage: dict[str, Any] = {}
+    if input_tokens is not None:
+        usage["input_tokens"] = input_tokens
+    if output_tokens is not None:
+        usage["output_tokens"] = output_tokens
+    if estimated_cost is not None:
+        usage["estimated_cost"] = estimated_cost
+    return usage
 
 
-def _lookup_int(envelope: Mapping[str, Any] | None, path: str, default: int) -> int:
+def _lookup_int(
+    envelope: Mapping[str, Any] | None,
+    path: str,
+    default: int | None,
+) -> int | None:
     if envelope is None:
-        if type(default) is not int or default < 0:
-            raise ClaudeCodeCliAdapterError(f"usage {path} is invalid")
         return default
     raw = _dotted_lookup(envelope, path)
     if type(raw) is int and raw >= 0:
         return raw
-    if type(default) is not int or default < 0:
+    if default is None:
+        return None
+    if default < 0:
         raise ClaudeCodeCliAdapterError(f"usage {path} is invalid")
     return default
 
@@ -1231,13 +1329,17 @@ def _apply_allowed_tools(
     return tuple(mutable)
 
 
-def _reject_unallowlisted_argv(argv: Sequence[str]) -> None:
+def _reject_unallowlisted_argv(
+    argv: Sequence[str], *, allow_stream_verbose: bool = False
+) -> None:
     """Refuse flags the frozen clean-native template does not name."""
 
     index = 1
     while index < len(argv):
         token = argv[index]
-        if token in _ALLOWED_BARE_FLAGS:
+        if token in _ALLOWED_BARE_FLAGS or (
+            allow_stream_verbose and token == "--verbose"
+        ):
             index += 1
             continue
         if token in _ALLOWED_VALUE_FLAGS:
@@ -1263,10 +1365,14 @@ def _require_flag_value(argv: Sequence[str], flag: str, expected: str) -> None:
         raise ClaudeCodeCliAdapterError(f"invocation {flag} must be {expected}")
 
 
-def _require_offline_claude_manifest(manifest: LocalCliAdapterManifest) -> None:
-    if manifest.manifest_id != CLAUDE_CODE_ADAPTER_ID:
+def _require_offline_claude_manifest(
+    manifest: LocalCliAdapterManifest,
+    *,
+    expected_adapter_id: str = CLAUDE_CODE_ADAPTER_ID,
+) -> None:
+    if manifest.manifest_id != expected_adapter_id:
         raise ClaudeCodeCliAdapterError(
-            "local CLI manifest_id must be claude-code-clean-native"
+            f"local CLI manifest_id must be {expected_adapter_id}"
         )
     if manifest.harness_binding.adapter_version != CLAUDE_CODE_ADAPTER_VERSION:
         raise ClaudeCodeCliAdapterError("local CLI adapter_version must be 1.0.0")
@@ -1322,6 +1428,18 @@ def _served_model_drifted(
     if isinstance(receipt.served_model, str) and receipt.served_model.strip():
         reported.append(receipt.served_model)
     return any(model != requested_model for model in reported)
+
+
+def _served_model_reported(
+    envelope: Mapping[str, Any], receipt: ExecutionReceipt
+) -> bool:
+    """Return whether either trusted transcript surface named the served model."""
+
+    envelope_model = envelope.get("model")
+    return bool(
+        (isinstance(envelope_model, str) and envelope_model.strip())
+        or (isinstance(receipt.served_model, str) and receipt.served_model.strip())
+    )
 
 
 def _forecast_matches_declared_schema(

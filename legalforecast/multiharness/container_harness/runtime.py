@@ -4,15 +4,20 @@ The topology, measured on rootless Docker rather than assumed:
 
 * a per-run ``--internal`` Docker network, which has no external route at all --
   from a container on it, direct egress fails and external DNS returns NXDOMAIN;
-* an egress sidecar attached to that network *and* to an ordinary network, so it
-  is the only path off the internal one.  It runs
-  :mod:`~legalforecast.multiharness.container_harness.egress_proxy`, bind-mounted
-  in as a single stdlib file, and refuses anything outside the run allowlist;
-* the harness container, attached to the internal network only and pointed at
-  the sidecar by ``HTTPS_PROXY``/``HTTP_PROXY``.
+* standard runs start an egress sidecar attached to that network *and* to an
+  ordinary network, so it is the only path off the internal one. It runs
+  :mod:`~legalforecast.multiharness.container_harness.egress_proxy` and refuses
+  anything outside the run allowlist;
+* outer fixture runs start the bounded model gateway and the allowlisted CONNECT
+  relay on the internal network. Only the relay joins the selected fixture
+  network. The harness uses the gateway's fixed HTTP endpoint and receives no
+  proxy variables or direct external network attachment. It can reach the
+  relay on the internal network, where CONNECT is limited to the declared
+  host and port.
 
-The proxy environment variables are therefore the convenience, not the fence:
-even a harness that ignored them has nowhere to go.  See
+The standard proxy environment variables are therefore a convenience, not
+the fence: a harness that ignored them still has no unrestricted external
+route. The gateway mode has no proxy variables at all. See
 :mod:`legalforecast.multiharness.container_harness` for what the fence cannot
 reach, and :mod:`.plan` for the argv and environment this module executes.
 """
@@ -20,6 +25,7 @@ reach, and :mod:`.plan` for the argv and environment this module executes.
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import shutil
 import subprocess
@@ -38,6 +44,30 @@ from legalforecast.multiharness.container_harness.images import (
     resolve_local_image_id,
     resolve_rootless_backend,
 )
+from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    MODEL_GATEWAY_AUTHORITY_ENV,
+    MODEL_GATEWAY_CAPABILITY_TOKEN_ENV,
+    MODEL_GATEWAY_PROXY_BASE_URL,
+    MODEL_GATEWAY_RELAY_ENV,
+    MODEL_GATEWAY_REQUEST_ID_ENV,
+    MODEL_GATEWAY_UPSTREAM_KEY_ENV,
+    MODEL_GATEWAY_USAGE_EVIDENCE_TARGET,
+    ModelGatewayLaunch,
+    ModelGatewayRequest,
+    build_model_gateway_run_argv,
+)
+from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    model_gateway_source_path as _model_gateway_source_path,
+)
+from legalforecast.multiharness.container_harness.model_gateway_runtime import (
+    preserve_model_gateway_evidence as _preserve_model_gateway_evidence,
+)
+from legalforecast.multiharness.container_harness.model_gateway_runtime import (
+    read_model_gateway_evidence as _read_model_gateway_evidence,
+)
+from legalforecast.multiharness.container_harness.model_gateway_runtime import (
+    stage_model_gateway as _stage_model_gateway_impl,
+)
 from legalforecast.multiharness.container_harness.plan import (
     ContainerHarnessError,
     ContainerHarnessNames,
@@ -53,14 +83,38 @@ from legalforecast.multiharness.container_harness.plan import (
     fenced_cli_name,
     stage_cli_fence,
     stage_credential_home,
+    stage_outer_container_marker,
 )
 from legalforecast.multiharness.container_harness.publication import (
     write_published_package,
 )
+from legalforecast.multiharness.protected_terminal_paid import (
+    GitHubEnvironmentGatewayCredentialSource,
+)
+
+# Kept as a module attribute for callers that previously patched the staging
+# source resolver on ``container_harness.runtime``.
+model_gateway_source_path = _model_gateway_source_path
 
 STAGING_ROOT_NAME = "legalforecast-multiharness"
 PROXY_READY_TIMEOUT_SECONDS = 30.0
 EVIDENCE_FILE_NAME = "egress-evidence.json"
+
+
+def _stage_model_gateway(
+    staging: Path,
+    request: object,
+    *,
+    environment: Mapping[str, str] | None = None,
+) -> ModelGatewayLaunch:
+    """Preserve the historical runtime-level source-resolver seam."""
+
+    return _stage_model_gateway_impl(
+        staging,
+        request,
+        source_resolver=model_gateway_source_path,
+        environment=environment,
+    )
 
 
 def run_container_harness(
@@ -71,7 +125,8 @@ def run_container_harness(
 ) -> ContainerHarnessResult:
     """Execute one fenced run and write its sole public result representation."""
 
-    spec.allowlist()
+    allowlist = spec.allowlist()
+    _validate_paid_network_allowlist(spec, allowlist)
     backend_path, environment = resolve_rootless_backend(backend)
     try:
         image_id = resolve_local_image_id(backend_path, spec.image, environment)
@@ -93,28 +148,72 @@ def run_container_harness(
     # Staging holds the credential copies, so every path out of here -- including
     # a failure while staging them -- has to go through the cleanup that deletes
     # it; nothing that touches `staging` may sit outside this try.
+    evidence_directory = staging / "egress"
     try:
-        evidence_directory = staging / "egress"
         evidence_directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         credential_home = stage_credential_home(staging, spec)
         fence_binary = stage_cli_fence(staging)
+        outer_container_marker = (
+            stage_outer_container_marker(staging)
+            if spec.model_gateway is not None
+            else None
+        )
         _run_backend(build_network_create_argv(backend_path, names), environment)
         if spec.egress_network is None:
             _run_backend(
                 build_egress_network_create_argv(backend_path, names), environment
             )
-        _run_backend(
-            build_proxy_run_argv(
-                backend_path,
-                spec,
-                names,
-                proxy_source=egress_proxy_source_path(),
-                evidence_directory=evidence_directory,
-            ),
-            environment,
-        )
-        _run_backend(build_network_connect_argv(backend_path, spec, names), environment)
-        _await_proxy_ready(backend_path, names, spec, environment)
+        if spec.model_gateway is None:
+            _run_backend(
+                build_proxy_run_argv(
+                    backend_path,
+                    spec,
+                    names,
+                    proxy_source=egress_proxy_source_path(),
+                    evidence_directory=evidence_directory,
+                ),
+                environment,
+            )
+            _run_backend(
+                build_network_connect_argv(backend_path, spec, names), environment
+            )
+        else:
+            # The CONNECT relay is the sole member of the external or fixture
+            # network.  The model gateway remains on the internal network and
+            # reaches its fixed upstream only through the relay alias.
+            _run_backend(
+                build_proxy_run_argv(
+                    backend_path,
+                    spec,
+                    names,
+                    proxy_source=egress_proxy_source_path(),
+                    evidence_directory=evidence_directory,
+                ),
+                environment,
+            )
+            _run_backend(
+                build_network_connect_argv(backend_path, spec, names), environment
+            )
+            gateway_launch = _stage_model_gateway(
+                staging,
+                spec.model_gateway,
+                environment=os.environ,
+            )
+            gateway_environment = _model_gateway_environment(
+                spec.model_gateway,
+                environment,
+            )
+            _run_backend(
+                build_model_gateway_run_argv(
+                    backend_path,
+                    spec,
+                    names,
+                    gateway_launch,
+                    evidence_directory=evidence_directory,
+                ),
+                gateway_environment,
+            )
+        _await_sidecar_ready(backend_path, names, spec, environment)
         exit_code, timed_out = _run_harness(
             build_harness_run_argv(
                 backend_path,
@@ -123,6 +222,7 @@ def run_container_harness(
                 credential_home=credential_home,
                 cidfile=staging / "harness.cid",
                 fence_binary=fence_binary,
+                outer_container_marker=outer_container_marker,
             ),
             environment,
             stdout_path=stdout_path,
@@ -142,9 +242,35 @@ def run_container_harness(
             environment,
             check=False,
         )
-        evidence = _read_evidence(evidence_directory / EVIDENCE_FILE_NAME)
+        if spec.model_gateway is not None:
+            _run_backend(
+                (str(backend_path), "rm", "--force", names.model_gateway_container),
+                environment,
+                check=False,
+            )
+        gateway_usage: Mapping[str, object] | None = None
+        if spec.model_gateway is None:
+            evidence = _read_evidence(evidence_directory / EVIDENCE_FILE_NAME)
+        else:
+            evidence = _read_evidence(evidence_directory / EVIDENCE_FILE_NAME)
+            _gateway_egress, gateway_usage = _read_model_gateway_evidence(
+                evidence_directory / Path(MODEL_GATEWAY_USAGE_EVIDENCE_TARGET).name,
+                spec,
+            )
     finally:
+        if spec.model_gateway is not None:
+            _preserve_model_gateway_evidence(
+                evidence_directory / Path(MODEL_GATEWAY_USAGE_EVIDENCE_TARGET).name,
+                spec.log_root / f"{names.model_gateway_container}.gateway-usage.json",
+            )
         _cleanup(backend_path, names, environment, staging)
+    try:
+        stdout = stdout_path.read_bytes()
+    except OSError as exc:
+        raise ContainerHarnessError(
+            "harness stdout is unreadable; fence evidence cannot be derived"
+        ) from exc
+    fence = fence_from_cli_output(fenced_cli_name(spec), stdout)
     result = ContainerHarnessResult(
         run_id=spec.run_id,
         exit_code=exit_code,
@@ -157,13 +283,9 @@ def run_container_harness(
         allowed_hosts=evidence.allowed_hosts,
         refused=evidence.refused,
         allowlist=spec.allowlist().to_record(),
+        fence=fence,
+        gateway_usage=gateway_usage,
     )
-    try:
-        stdout = stdout_path.read_bytes()
-    except OSError as exc:
-        raise ContainerHarnessError(
-            "harness stdout is unreadable; fence evidence cannot be derived"
-        ) from exc
     write_published_package(
         publication_directory,
         result_record=result.to_record(),
@@ -172,10 +294,84 @@ def run_container_harness(
             "refused": [dict(record) for record in evidence.refused],
             "decision_count": evidence.decision_count,
         },
-        fence=fence_from_cli_output(fenced_cli_name(spec), stdout),
+        fence=fence,
         allowlist=spec.allowlist().to_record(),
     )
     return result
+
+
+def _model_gateway_environment(
+    request: object,
+    backend_environment: Mapping[str, str],
+) -> dict[str, str]:
+    """Build the Docker-client environment for the sidecar only.
+
+    The harness receives ``backend_environment`` separately and never sees the
+    protected workflow or AWS credential variables.  In paid mode the gateway
+    gets an explicit allowlist of those names so its AWS authority calls and
+    upstream traffic remain inside the sidecar/relay boundary.
+    """
+
+    if not isinstance(request, ModelGatewayRequest):
+        raise ContainerHarnessError("model gateway request is incomplete")
+    gateway_environment = dict(backend_environment)
+    paid = request.paid_config_path is not None
+    gateway_environment[MODEL_GATEWAY_CAPABILITY_TOKEN_ENV] = request.run_capability
+    if not paid:
+        assert request.upstream_api_key is not None
+        gateway_environment[MODEL_GATEWAY_UPSTREAM_KEY_ENV] = request.upstream_api_key
+        return gateway_environment
+    missing = [name for name in MODEL_GATEWAY_AUTHORITY_ENV if not os.environ.get(name)]
+    if missing:
+        raise ContainerHarnessError(
+            "protected paid gateway authority environment is incomplete: "
+            + ", ".join(missing)
+        )
+    gateway_environment.update(
+        {name: os.environ[name] for name in MODEL_GATEWAY_AUTHORITY_ENV}
+    )
+    gateway_environment.update(
+        GitHubEnvironmentGatewayCredentialSource().upstream_environment()
+    )
+    assert request.request_id is not None
+    gateway_environment[MODEL_GATEWAY_REQUEST_ID_ENV] = request.request_id
+    gateway_environment.update(
+        {
+            name: MODEL_GATEWAY_PROXY_BASE_URL
+            for name in MODEL_GATEWAY_RELAY_ENV
+            if name in {"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"}
+        }
+    )
+    gateway_environment.update(
+        {
+            "NO_PROXY": "localhost,127.0.0.1,::1,lfb-model-gateway",
+            "no_proxy": "localhost,127.0.0.1,::1,lfb-model-gateway",
+        }
+    )
+    return gateway_environment
+
+
+def _validate_paid_network_allowlist(
+    spec: ContainerHarnessSpec,
+    allowlist: object,
+) -> None:
+    """Require the relay to admit the ordinary regional DynamoDB endpoint."""
+
+    request = spec.model_gateway
+    if request is None or request.paid_config_path is None:
+        return
+    region = os.environ.get("LFB_AWS_REGION")
+    if not region:
+        raise ContainerHarnessError(
+            "protected paid gateway requires LFB_AWS_REGION before network setup"
+        )
+    endpoint = f"dynamodb.{region}.amazonaws.com"
+    permits = getattr(allowlist, "permits", None)
+    if not callable(permits) or permits(endpoint, 443) is not None:
+        raise ContainerHarnessError(
+            "protected paid gateway requires an explicit DynamoDB endpoint in "
+            f"the relay allowlist: {endpoint}:443"
+        )
 
 
 def _staging_directory(environment: Mapping[str, str], token: str) -> Path:
@@ -212,18 +408,28 @@ def _run_backend(
         )
 
 
-def _await_proxy_ready(
+def _await_sidecar_ready(
     backend_path: Path,
     names: ContainerHarnessNames,
     spec: ContainerHarnessSpec,
     environment: Mapping[str, str],
 ) -> None:
-    """Wait until the sidecar has printed the port it bound."""
+    """Wait until the selected sidecar accepts a local TCP connection."""
 
     deadline = time.monotonic() + PROXY_READY_TIMEOUT_SECONDS
-    expected = str(spec.proxy_port).encode("ascii")
+    gateway_probe = (
+        str(backend_path),
+        "exec",
+        names.model_gateway_container,
+        "python3",
+        "-c",
+        (
+            "import socket; s=socket.create_connection("
+            "('lfb-model-gateway', 8080), 1); s.close()"
+        ),
+    )
     while time.monotonic() < deadline:
-        completed = subprocess.run(
+        relay_completed = subprocess.run(
             (str(backend_path), "logs", names.proxy_container),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -232,7 +438,24 @@ def _await_proxy_ready(
             check=False,
             env=dict(environment),
         )
-        if completed.returncode == 0 and expected in completed.stdout:
+        relay_ready = (
+            relay_completed.returncode == 0
+            and str(spec.proxy_port).encode("ascii") in relay_completed.stdout
+        )
+        if spec.model_gateway is None:
+            ready = relay_ready
+        else:
+            gateway_completed = subprocess.run(
+                gateway_probe,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=30,
+                check=False,
+                env=dict(environment),
+            )
+            ready = relay_ready and gateway_completed.returncode == 0
+        if ready:
             return
         time.sleep(0.25)
     raise ContainerHarnessError(
@@ -294,6 +517,7 @@ def _cleanup(
         for argv in (
             (str(backend_path), "rm", "--force", names.harness_container),
             (str(backend_path), "rm", "--force", names.proxy_container),
+            (str(backend_path), "rm", "--force", names.model_gateway_container),
             (str(backend_path), "network", "rm", names.network),
             (str(backend_path), "network", "rm", names.egress_network),
         ):

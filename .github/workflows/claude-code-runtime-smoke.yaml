@@ -1,0 +1,86 @@
+name: Claude Code terminal runtime smoke
+
+on:
+  pull_request:
+    paths:
+      - .github/scripts/setup-rootless-docker.sh
+      - .github/workflows/claude-code-runtime-smoke.yaml
+      - infra/claude-code-runtime/**
+      - infra/model-gateway-runtime/**
+      - legalforecast/multiharness/claude_code_container.py
+      - legalforecast/multiharness/claude_code_container_runtime.py
+      - legalforecast/multiharness/claude_code_container_inputs.py
+      - legalforecast/multiharness/claude_code_release_artifacts.py
+      - legalforecast/multiharness/claude_code_stream.py
+      - legalforecast/multiharness/container_harness/**
+      - tests/test_claude_code_runtime_image.py
+      - tests/test_claude_code_managed_policy.py
+      - tests/test_container_model_gateway_topology_e2e.py
+      - tests/test_model_gateway_runtime_image.py
+      - tests/test_terminal_release_container_e2e.py
+      - tests/fixtures/claude_code/release_fixture_server.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Rootless Claude Code gateway and case inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Configure rootless Docker
+        run: .github/scripts/setup-rootless-docker.sh
+
+      - name: Build pinned Claude Code image
+        run: |
+          set -euo pipefail
+          docker build --pull=false -f infra/claude-code-runtime/Containerfile -t lfb-claude-code:smoke .
+          image_id="$(docker image inspect --format '{{.Id}}' lfb-claude-code:smoke)"
+          [[ "${image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_CLAUDE_CODE_RUNTIME_IMAGE=${image_id}" >> "${GITHUB_ENV}"
+
+      - name: Build protected model gateway image
+        run: |
+          set -euo pipefail
+          docker build --pull=false -f infra/model-gateway-runtime/Containerfile -t lfb-model-gateway:smoke .
+          image_id="$(docker image inspect --format '{{.Id}}' lfb-model-gateway:smoke)"
+          [[ "${image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_MODEL_GATEWAY_RUNTIME_IMAGE=${image_id}" >> "${GITHUB_ENV}"
+
+      - name: Verify protected gateway image without network
+        run: |
+          set -euo pipefail
+          LEGALFORECAST_MODEL_GATEWAY_RUNTIME_IMAGE="${LFB_MODEL_GATEWAY_RUNTIME_IMAGE}" \
+          uv run pytest -q tests/test_model_gateway_runtime_image.py
+
+      - name: Verify read-only inputs, managed policy, gateway isolation, and scored release
+        run: |
+          set -euo pipefail
+          LEGALFORECAST_CLAUDE_RUNTIME_E2E_IMAGE="${LFB_CLAUDE_CODE_RUNTIME_IMAGE}" \
+          LEGALFORECAST_GATEWAY_TOPOLOGY_E2E=1 \
+          LEGALFORECAST_GATEWAY_TOPOLOGY_IMAGE="${LFB_CLAUDE_CODE_RUNTIME_IMAGE}" \
+          LFB_TERMINAL_RELEASE_E2E_IMAGE="${LFB_CLAUDE_CODE_RUNTIME_IMAGE}" \
+          uv run pytest -q \
+            tests/test_claude_code_runtime_image.py \
+            tests/test_claude_code_managed_policy.py::test_built_image_direct_vendor_cannot_reenable_web_search \
+            tests/test_container_model_gateway_topology_e2e.py \
+            tests/test_terminal_release_container_e2e.py

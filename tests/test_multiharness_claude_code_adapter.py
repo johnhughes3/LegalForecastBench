@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -324,6 +324,17 @@ def test_fake_success_binds_spec_receipt_and_deliverable(
     _make_writable(workspace / "deliverable-sealed")
 
 
+def test_public_summary_reports_private_stream_tool_count(tmp_path: Path) -> None:
+    result = _adapter_from_mutated_success(
+        tmp_path,
+        mutate_envelope=lambda envelope: envelope.update(
+            {"_lfb_tool_trace": {"bash_tool_count": 2}}
+        ),
+    )
+
+    assert result.public_summary["tool_call_count"] == 2
+
+
 @pytest.mark.parametrize(
     ("fixture_name", "failure_class"),
     (
@@ -382,6 +393,42 @@ def test_observed_auth_closed_envelope_is_crash_with_zero_cost(
     assert result.public_summary["task_id"] == "lfb:case-1:full_packet"
     assert result.public_summary["returncode"] == 1
     assert result.public_summary["estimated_cost"] == 0.0
+
+
+def test_paid_failure_without_usage_does_not_publish_zero_usage_or_cost(
+    tmp_path: Path,
+) -> None:
+    service = _ProfiledFakeService(
+        FixtureTranscript(
+            stdout="",
+            status="timeout",
+            returncode=None,
+            usage={},
+            cost_usd=None,
+        ),
+        auth_profile=PUBLISHED_API_KEY,
+        projected_env_vars=("ANTHROPIC_API_KEY",),
+    )
+    adapter = ClaudeCodeCliAdapter(
+        execution_service=service,
+        auth_profile=PUBLISHED_API_KEY,
+    )
+    request = _run_request()
+    request = replace(
+        request,
+        sandbox_policy=replace(
+            request.sandbox_policy,
+            network_policy="provider_egress_host_only",
+        ),
+    )
+
+    result = adapter.run(request, tmp_path / "workspace")
+
+    assert result.status == "failed"
+    assert result.public_summary["failure_class"] == LocalCliFailureClass.TIMEOUT.value
+    assert "input_tokens" not in result.public_summary
+    assert "output_tokens" not in result.public_summary
+    assert "estimated_cost" not in result.public_summary
 
 
 def test_declared_failure_classes_match_fixtures() -> None:
@@ -631,6 +678,29 @@ def test_task_profile_tools_reach_the_run_spec(tmp_path: Path) -> None:
     )
     assert captured[0].argv[captured[0].argv.index("--tools") + 1] == "Read"
     _make_writable(tmp_path / "workspace" / "deliverable-sealed")
+
+
+def test_authenticated_prompt_does_not_require_public_task_prompt(
+    tmp_path: Path,
+) -> None:
+    request = _run_request()
+    task = replace(
+        request.task,
+        metadata={"required_unit_ids": ["count_i"]},
+    )
+    release_request = replace(request, task=task)
+    adapter = _adapter("success")
+
+    with pytest.raises(ClaudeCodeCliAdapterError, match="solver_prompt"):
+        adapter.run(release_request, tmp_path / "metadata-path")
+
+    result = adapter.run_with_prompt(
+        release_request,
+        tmp_path / "authenticated-path",
+        "Read the staged release prompt and documents before forecasting.",
+    )
+    assert result.status == "succeeded"
+    _make_writable(tmp_path / "authenticated-path" / "deliverable-sealed")
 
 
 def _adapter(fixture_name: str) -> ClaudeCodeCliAdapter:

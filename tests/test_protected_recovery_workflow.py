@@ -72,7 +72,7 @@ def test_native_failed_job_rerun_reuses_successful_prepare_artifact_id() -> None
     artifact_id_input = (
         "artifact-ids: ${{ needs.prepare-inputs.outputs.locked_inputs_artifact_id }}"
     )
-    assert RUN.count(artifact_id_input) == 5
+    assert RUN.count(artifact_id_input) == 6
     assert (
         RUN.count(
             "name: locked-forecast-inputs-${{ github.run_id }}-attempt-"

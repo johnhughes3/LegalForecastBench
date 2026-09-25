@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from importlib.resources import files
 from pathlib import Path, PurePosixPath
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from legalforecast.multiharness.container_harness.cli_fence import (
     DEFAULT_BIN_DIR,
@@ -26,9 +26,15 @@ from legalforecast.multiharness.container_harness.egress_proxy import (
     DEFAULT_ALLOWED_PORTS,
     EgressAllowlist,
 )
+from legalforecast.multiharness.container_harness.fence import FenceObservation
 from legalforecast.multiharness.container_harness.images import (
     require_digest_pinned_image,
 )
+
+if TYPE_CHECKING:
+    from legalforecast.multiharness.container_harness.model_gateway_plan import (
+        ModelGatewayRequest,
+    )
 
 FENCE_BIN_DIR = DEFAULT_BIN_DIR
 CREDENTIALS_TARGET = DEFAULT_CREDENTIALS_ROOT
@@ -40,6 +46,7 @@ WORKSPACE_TARGET: Final[str] = "/workspace"
 DEFAULT_CONTAINER_HOME: Final[str] = "/home/harness"
 DEFAULT_PROXY_PORT: Final[int] = 3128
 FENCE_WRAPPER_TARGET: Final[str] = f"{FENCE_BIN_DIR}/{WRAPPER_NAME}"
+OUTER_CONTAINER_MARKER_TARGET: Final[str] = "/etc/claude-code/outer-container-only"
 FENCE_PATH: Final[str] = (
     f"{FENCE_BIN_DIR}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 )
@@ -92,6 +99,9 @@ class ContainerHarnessSpec:
     proxy_python: str = "python3"
     proxy_port: int = DEFAULT_PROXY_PORT
     egress_network: str | None = None
+    model_gateway: ModelGatewayRequest | None = None
+    container_user: str | None = None
+    read_only_workspace_paths: tuple[str, ...] = ()
     timeout_seconds: int = 900
     pids_limit: int = 512
     memory_limit: str = "4g"
@@ -118,8 +128,31 @@ class ContainerHarnessSpec:
             raise ContainerHarnessError("container_home must be an absolute path")
         if not 1 <= self.proxy_port <= 65535:
             raise ContainerHarnessError("proxy_port is out of range")
+        if self.model_gateway is not None and self.proxy_port != DEFAULT_PROXY_PORT:
+            raise ContainerHarnessError(
+                "model gateway relay requires the fixed proxy port "
+                f"{DEFAULT_PROXY_PORT}"
+            )
         if self.timeout_seconds <= 0:
             raise ContainerHarnessError("timeout_seconds must be positive")
+        if self.container_user is not None and (
+            not self.container_user.strip()
+            or any(character.isspace() for character in self.container_user)
+        ):
+            raise ContainerHarnessError(
+                "container_user must be a single non-empty token"
+            )
+        for relative in self.read_only_workspace_paths:
+            path = PurePosixPath(relative)
+            if (
+                not relative
+                or path.is_absolute()
+                or any(part in {"", ".", ".."} for part in path.parts)
+            ):
+                raise ContainerHarnessError(
+                    "read_only_workspace_paths must contain relative paths "
+                    "without traversal segments"
+                )
         fenced_cli_name(self)
 
     def allowlist(self) -> EgressAllowlist:
@@ -144,6 +177,7 @@ class ContainerHarnessNames:
     network: str
     egress_network: str
     proxy_container: str
+    model_gateway_container: str
     harness_container: str
 
 
@@ -162,6 +196,8 @@ class ContainerHarnessResult:
     allowed_hosts: tuple[str, ...]
     refused: tuple[Mapping[str, Any], ...]
     allowlist: Mapping[str, Any]
+    fence: FenceObservation
+    gateway_usage: Mapping[str, Any] | None = None
 
     def to_record(self) -> dict[str, Any]:
         """Return a public JSON record without attacker-controlled hostnames.
@@ -183,6 +219,11 @@ class ContainerHarnessResult:
             "egress_allowlist": dict(self.allowlist),
             "egress_allowed_host_count": len(self.allowed_hosts),
             "egress_refused_count": len(self.refused),
+            **(
+                {"gateway_usage": dict(self.gateway_usage)}
+                if self.gateway_usage is not None
+                else {}
+            ),
         }
 
 
@@ -198,6 +239,7 @@ def build_run_names(run_id: str, token: str) -> ContainerHarnessNames:
         network=f"{stem}-net",
         egress_network=f"{stem}-out",
         proxy_container=f"{stem}-egress",
+        model_gateway_container=f"{stem}-gateway",
         harness_container=f"{stem}-harness",
     )
 
@@ -259,6 +301,16 @@ def stage_cli_fence(root: Path) -> Path:
     return dest
 
 
+def stage_outer_container_marker(root: Path) -> Path:
+    """Stage the immutable marker that selects the outer fixture wrapper mode."""
+
+    dest = root / "fence" / "outer-container-only"
+    dest.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    dest.write_text("outer-container-only\n", encoding="ascii")
+    dest.chmod(0o444)
+    return dest
+
+
 def build_network_create_argv(
     backend_path: Path, names: ContainerHarnessNames
 ) -> tuple[str, ...]:
@@ -304,6 +356,30 @@ def build_network_connect_argv(
     )
 
 
+def build_model_gateway_network_connect_argv(
+    backend_path: Path, spec: ContainerHarnessSpec, names: ContainerHarnessNames
+) -> tuple[str, ...]:
+    """Return argv connecting the egress relay to its external network.
+
+    The historical function name is retained for callers that imported it
+    during the first gateway implementation.  The gateway itself is
+    deliberately internal-only; only the CONNECT relay may join the external
+    or fixture network.
+    """
+
+    if spec.model_gateway is None:
+        raise ContainerHarnessError(
+            "model gateway network connect requires model_gateway configuration"
+        )
+    return (
+        str(backend_path),
+        "network",
+        "connect",
+        egress_network_name(spec, names),
+        names.proxy_container,
+    )
+
+
 def build_proxy_run_argv(
     backend_path: Path,
     spec: ContainerHarnessSpec,
@@ -323,6 +399,12 @@ def build_proxy_run_argv(
         names.proxy_container,
         "--network",
         names.network,
+        # The rootless daemon maps this container UID 0 to the operator UID on
+        # the host. The sidecar has no capabilities and no-new-privileges; the
+        # explicit UID lets it write the private evidence bind mount, whose
+        # directory is created by the host-side harness.
+        "--user",
+        "0:0",
         "--pull=never",
         "--read-only",
         "--tmpfs",
@@ -351,6 +433,14 @@ def build_proxy_run_argv(
         "--evidence-file",
         PROXY_EVIDENCE_TARGET,
     ]
+    if spec.model_gateway is not None:
+        # The gateway uses this fixed alias as its only upstream route.  The
+        # alias is scoped to the per-run internal network and never exists on
+        # the external network.
+        argv[argv.index("--network") + 2 : argv.index("--network") + 2] = [
+            "--network-alias",
+            "lfb-model-egress",
+        ]
     for host in sorted(allowlist.hosts):
         argv.extend(("--allow-host", host))
     for parent in sorted(allowlist.subdomain_suffixes):
@@ -375,22 +465,9 @@ def build_harness_environment(
     proxy_url = f"http://{names.proxy_container}:{spec.proxy_port}"
     no_proxy = "localhost,127.0.0.1,::1"
     cli = fenced_cli_name(spec)
-    environment = {
-        "HOME": spec.container_home,
-        "HTTP_PROXY": proxy_url,
-        "HTTPS_PROXY": proxy_url,
-        "http_proxy": proxy_url,
-        "https_proxy": proxy_url,
-        "NO_PROXY": no_proxy,
-        "no_proxy": no_proxy,
-    }
-    environment.update(spec.environment)
-    environment.update(
-        {
+    if spec.model_gateway is None:
+        environment = {
             "HOME": spec.container_home,
-            "PATH": FENCE_PATH,
-            "LFB_HARNESS_CLI": cli,
-            "LFB_CREDENTIALS_ROOT": CREDENTIALS_TARGET,
             "HTTP_PROXY": proxy_url,
             "HTTPS_PROXY": proxy_url,
             "http_proxy": proxy_url,
@@ -398,7 +475,51 @@ def build_harness_environment(
             "NO_PROXY": no_proxy,
             "no_proxy": no_proxy,
         }
+    else:
+        # The model gateway is reached directly over the internal Docker DNS
+        # name. The relay is reachable on the internal network, but its
+        # CONNECT policy admits only the declared host and port. Do not
+        # advertise that relay as a generic proxy to the harness.
+        no_proxy = f"{no_proxy},{spec.model_gateway.host}"
+        environment = {
+            "HOME": spec.container_home,
+            "NO_PROXY": no_proxy,
+            "no_proxy": no_proxy,
+            # The image enables Claude's subprocess scrub for native mode; that
+            # knob forces shell-mode sandboxing even when a session setting
+            # disables it. Outer mode has no provider key or direct external
+            # network attachment, so it must explicitly turn the scrub off
+            # to avoid requesting an unavailable nested user namespace.
+            "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "0",
+        }
+    environment.update(spec.environment)
+    environment.update(
+        {
+            "HOME": spec.container_home,
+            "PATH": FENCE_PATH,
+            "LFB_HARNESS_CLI": cli,
+            "LFB_CREDENTIALS_ROOT": CREDENTIALS_TARGET,
+            "NO_PROXY": no_proxy,
+            "no_proxy": no_proxy,
+        }
     )
+    if spec.model_gateway is None:
+        environment.update(
+            {
+                "HTTP_PROXY": proxy_url,
+                "HTTPS_PROXY": proxy_url,
+                "http_proxy": proxy_url,
+                "https_proxy": proxy_url,
+            }
+        )
+    else:
+        for variable in (
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "http_proxy",
+            "https_proxy",
+        ):
+            environment.pop(variable, None)
     # Never advertise the vendor binary: the agent has a shell and would
     # invoke it without the wrapper's disable flags.
     environment.pop("LFB_HARNESS_REAL_BIN", None)
@@ -413,6 +534,7 @@ def build_harness_run_argv(
     credential_home: Path,
     cidfile: Path,
     fence_binary: Path | None = None,
+    outer_container_marker: Path | None = None,
 ) -> tuple[str, ...]:
     """Return argv running the harness on the internal network only."""
 
@@ -442,19 +564,54 @@ def build_harness_run_argv(
         WORKSPACE_TARGET,
         "--mount",
         f"type=bind,src={spec.workspace},dst={WORKSPACE_TARGET}",
-        "--mount",
-        f"type=bind,src={credential_home},dst={CREDENTIALS_TARGET},readonly",
-        "--mount",
-        f"type=bind,src={fence},dst={FENCE_WRAPPER_TARGET},readonly",
-        "--mount",
-        f"type=bind,src={fence},dst={FENCE_BIN_DIR}/{cli},readonly",
-        "--tmpfs",
-        "/tmp:rw,nosuid,nodev,size=512m",
-        "--tmpfs",
-        f"{spec.container_home}:rw,nosuid,nodev,size=64m",
-        "--entrypoint",
-        FENCE_WRAPPER_TARGET,
     ]
+    for relative in spec.read_only_workspace_paths:
+        source = spec.workspace.joinpath(*PurePosixPath(relative).parts)
+        if not source.exists() or source.is_symlink():
+            raise ContainerHarnessError(
+                "read_only_workspace_paths must refer to existing non-symlink "
+                f"workspace paths: {relative}"
+            )
+        destination = f"{WORKSPACE_TARGET}/{PurePosixPath(relative).as_posix()}"
+        argv.extend(
+            (
+                "--mount",
+                f"type=bind,src={source},dst={destination},readonly",
+            )
+        )
+    argv.extend(
+        (
+            "--mount",
+            f"type=bind,src={credential_home},dst={CREDENTIALS_TARGET},readonly",
+            "--mount",
+            f"type=bind,src={fence},dst={FENCE_WRAPPER_TARGET},readonly",
+            "--mount",
+            f"type=bind,src={fence},dst={FENCE_BIN_DIR}/{cli},readonly",
+            "--tmpfs",
+            "/tmp:rw,nosuid,nodev,size=512m",
+            "--tmpfs",
+            f"{spec.container_home}:rw,nosuid,nodev,size=64m",
+            "--entrypoint",
+            FENCE_WRAPPER_TARGET,
+        )
+    )
+    if outer_container_marker is not None:
+        if not outer_container_marker.is_file():
+            raise ContainerHarnessError(
+                "outer container marker must be a staged regular file"
+            )
+        argv.extend(
+            (
+                "--mount",
+                f"type=bind,src={outer_container_marker},"
+                f"dst={OUTER_CONTAINER_MARKER_TARGET},readonly",
+            )
+        )
+    if spec.container_user is not None:
+        argv[argv.index("--pull=never") : argv.index("--pull=never")] = [
+            "--user",
+            spec.container_user,
+        ]
     if spec.read_only_rootfs:
         argv.append("--read-only")
     for name, value in sorted(build_harness_environment(spec, names).items()):

@@ -63,6 +63,42 @@ def test_live_tools_row_with_receipt_serializes_as_succeeded() -> None:
     }
 
 
+def test_headless_cli_row_serializes_adapter_owned_execution_truthfully() -> None:
+    record = _row(
+        container_execution="headless_cli",
+        container_receipt_sha256=None,
+    ).to_record()["container_execution"]
+
+    assert record == {"mode": "headless_cli", "status": "succeeded"}
+
+
+def test_headless_cli_failed_row_preserves_failure_status() -> None:
+    row = _row(
+        container_execution="headless_cli",
+        container_receipt_sha256=None,
+    )
+    failed = MultiHarnessRunRow(
+        row_id=row.row_id,
+        task=row.task,
+        adapter_manifest=row.adapter_manifest,
+        model_config=row.model_config,
+        request=row.request,
+        result=RunResult(
+            result_id="row-1-failed",
+            request_id=row.request.request_id,
+            status="failed",
+            result_sha256=SHA256,
+        ),
+        workspace=row.workspace,
+        container_execution=row.container_execution,
+    )
+
+    assert failed.to_record()["container_execution"] == {
+        "mode": "headless_cli",
+        "status": "failed",
+    }
+
+
 def _row(
     *,
     container_execution: str,

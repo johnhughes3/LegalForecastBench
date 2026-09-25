@@ -1,0 +1,36 @@
+{
+  "allowManagedPermissionRulesOnly": true,
+  "disableSideloadFlags": true,
+  "permissions": {
+    "deny": [
+      "WebSearch",
+      "WebFetch",
+      "mcp__*"
+    ],
+    "disableBypassPermissionsMode": "disable"
+  },
+  "sandbox": {
+    "credentials": {
+      "envVars": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "ANTHROPIC_AUTH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "CLAUDE_CODE_OAUTH_TOKEN",
+          "mode": "deny"
+        }
+      ]
+    },
+    "network": {
+      "allowManagedDomainsOnly": true,
+      "allowedDomains": [],
+      "strictAllowlist": true
+    }
+  },
+  "strictPluginOnlyCustomization": true
+}

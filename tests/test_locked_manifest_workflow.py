@@ -498,7 +498,10 @@ def test_combined_forecast_result_matches_protected_fan_in_contract() -> None:
         "needs: [prepare-inputs, run-openai, run-anthropic, run-gemini, run-gateway]"
         in combined
     )
-    assert "if: ${{ always() && needs.prepare-inputs.result == 'success' }}" in combined
+    assert (
+        "if: ${{ always() && inputs.execution_mode == 'native' && "
+        "needs.prepare-inputs.result == 'success' }}"
+    ) in combined
     assert (
         "name: official-forecast-results-${{ github.run_id }}-${{ github.run_attempt }}"
         in combined

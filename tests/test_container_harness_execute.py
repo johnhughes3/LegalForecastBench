@@ -15,6 +15,9 @@ from typing import IO, cast
 import pytest
 from legalforecast.multiharness import container_harness, container_runtime
 from legalforecast.multiharness.adapter_registry import builtin_adapter_registry
+from legalforecast.multiharness.container_harness.model_gateway_plan import (
+    ModelGatewayRequest,
+)
 from legalforecast.multiharness.container_harness.plan import (
     ContainerHarnessError,
     ContainerHarnessSpec,
@@ -72,6 +75,8 @@ def _install_fake_backend(
     fail_on: tuple[str, ...] | None = None,
     evidence_payload: dict[str, object] | None = None,
     harness_stdout: bytes = b"",
+    gateway_ready: bool = False,
+    environment_calls: list[dict[str, str]] | None = None,
 ) -> list[tuple[str, ...]]:
     runtime_dir = tmp_path / "runtime"
     runtime_dir.mkdir()
@@ -95,10 +100,19 @@ def _install_fake_backend(
     ) -> SimpleNamespace:
         argv_t = tuple(str(item) for item in argv)  # type: ignore[arg-type]
         calls.append(argv_t)
+        if environment_calls is not None and isinstance(env, dict):
+            environment_calls.append(dict(env))
         if fail_on is not None and fail_on == argv_t[1:3]:
             raise OSError("injected backend failure")
         if len(argv_t) >= 2 and argv_t[1] == "logs":
-            return SimpleNamespace(returncode=0, stdout=b"3128\n", stderr=b"")
+            marker = "3128"
+            return SimpleNamespace(
+                returncode=0, stdout=f"{marker}\n".encode(), stderr=b""
+            )
+        if len(argv_t) >= 2 and argv_t[1] == "exec":
+            return SimpleNamespace(
+                returncode=0 if gateway_ready else 1, stdout=b"", stderr=b""
+            )
         if "--detach" in argv_t:
             for item in argv_t:
                 if item.startswith("type=bind,src=") and item.endswith(
@@ -115,6 +129,22 @@ def _install_fake_backend(
                         json.dumps(payload) + "\n",
                         encoding="utf-8",
                     )
+                    if "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY" in argv_t:
+                        gateway_payload = {
+                            "schema_version": 1,
+                            "request_count": 1,
+                            "rejected_count": 0,
+                            "accounted_input_tokens": 1,
+                            "accounted_output_tokens": 1,
+                            "reserved_input_tokens": 0,
+                            "reserved_output_tokens": 0,
+                            "observed_input_tokens": 1,
+                            "observed_output_tokens": 1,
+                        }
+                        (Path(source) / "gateway-usage.json").write_text(
+                            json.dumps(gateway_payload) + "\n",
+                            encoding="utf-8",
+                        )
         elif len(argv_t) >= 2 and argv_t[1] == "run" and stdout is not None:
             writer = cast(IO[bytes], stdout)
             writer.write(harness_stdout)
@@ -134,6 +164,124 @@ def _install_fake_backend(
         fake_run,
     )
     return calls
+
+
+def test_mocked_gateway_run_uses_sidecar_network_and_no_proxy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request = ModelGatewayRequest(
+        upstream_base_url="http://fixture-upstream:8081",
+        model_key="anthropic:claude-sonnet-4",
+        run_capability="run-capability",
+        upstream_api_key="fixture-upstream-dummy-key",
+    )
+    spec = _spec(
+        tmp_path,
+        allow_hosts=("fixture-upstream",),
+        allow_ports=(8081,),
+        model_gateway=request,
+        environment={"ANTHROPIC_API_KEY": "run-capability"},
+    )
+    transcript = (
+        b'{"type":"system","subtype":"init","tools":["Bash"]}\n'
+        b'{"type":"result","subtype":"success","is_error":false,}'
+        b'"result":"{}"}\n'
+    )
+    environment_calls: list[dict[str, str]] = []
+    calls = _install_fake_backend(
+        monkeypatch,
+        tmp_path,
+        gateway_ready=True,
+        evidence_payload={
+            "allowed_hosts": ["fixture-upstream"],
+            "refused": [],
+            "decision_count": 1,
+        },
+        harness_stdout=transcript,
+        environment_calls=environment_calls,
+    )
+
+    result = run_container_harness(
+        spec,
+        publication_directory=tmp_path / "published",
+    )
+
+    assert result.exit_code == 0
+    assert result.gateway_usage is not None
+    assert result.gateway_usage["request_count"] == 1
+    public_result = json.loads(
+        (tmp_path / "published" / "result.json").read_text(encoding="utf-8")
+    )
+    assert public_result["gateway_usage"]["request_count"] == 1
+    detached = [call for call in calls if call[1] == "run" and "--detach" in call]
+    assert len(detached) == 2
+    gateway = next(
+        call for call in detached if "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY" in call
+    )
+    relay = next(call for call in detached if "egress_proxy.py" in " ".join(call))
+    assert "lfb-model-gateway-ready" not in gateway
+    assert "--env-file" not in gateway
+    assert "LFB_MODEL_GATEWAY_CAPABILITY_TOKEN" in gateway
+    assert "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY" in gateway
+    assert "fixture-upstream-dummy-key" not in gateway
+    assert "--network" in relay
+    assert "lfb-model-egress" in relay
+    assert any(call[1:3] == ("network", "connect") for call in calls)
+    connect = next(call for call in calls if call[1:3] == ("network", "connect"))
+    assert "-harness" not in " ".join(connect)
+    assert "-gateway" not in " ".join(connect)
+    harness = next(
+        call for call in calls if call[1] == "run" and "--detach" not in call
+    )
+    assert "HTTP_PROXY" not in " ".join(harness)
+    assert "HTTPS_PROXY" not in " ".join(harness)
+    assert "run-capability" in " ".join(harness)
+    gateway_env = next(
+        env
+        for call, env in zip(calls, environment_calls, strict=False)
+        if call == gateway and "--detach" in call
+    )
+    harness_env = next(
+        env
+        for call, env in zip(calls, environment_calls, strict=False)
+        if call[1] == "run" and "--detach" not in call
+    )
+    assert gateway_env["LFB_MODEL_GATEWAY_UPSTREAM_API_KEY"] == (
+        "fixture-upstream-dummy-key"
+    )
+    assert "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY" not in harness_env
+
+
+def test_gateway_usage_is_preserved_when_cleanup_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request = ModelGatewayRequest(
+        upstream_base_url="http://fixture-upstream:8081",
+        model_key="anthropic:claude-sonnet-4",
+        run_capability="run-capability",
+        upstream_api_key="fixture-upstream-dummy-key",
+    )
+    spec = _spec(
+        tmp_path,
+        allow_hosts=("fixture-upstream",),
+        allow_ports=(8081,),
+        model_gateway=request,
+        environment={"ANTHROPIC_API_KEY": "run-capability"},
+    )
+    _install_fake_backend(
+        monkeypatch,
+        tmp_path,
+        fail_on=("rm", "--force"),
+        gateway_ready=True,
+    )
+
+    with pytest.raises(ContainerHarnessError):
+        run_container_harness(spec, publication_directory=tmp_path / "published")
+
+    usage_files = list(spec.log_root.glob("*.gateway-usage.json"))
+    assert len(usage_files) == 1
+    assert json.loads(usage_files[0].read_text(encoding="utf-8"))["request_count"] == 1
+    assert usage_files[0].stat().st_mode & 0o777 == 0o600
 
 
 def test_failed_setup_deletes_the_credential_home(

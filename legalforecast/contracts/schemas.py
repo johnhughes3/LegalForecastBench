@@ -330,6 +330,7 @@ LABELS_RELEASE_V1 = SchemaIdentifier("legalforecast.labels-release.v1")
 RELEASE_HARNESS_RECEIPT_V1 = SchemaIdentifier(
     "legalforecast.multiharness.release_harness_receipt.v1"
 )
+RELEASE_SCORE_V1 = SchemaIdentifier("legalforecast.multiharness.release_score.v1")
 PUBLIC_RUN_IDENTITY_V1 = SchemaIdentifier("legalforecast.public-run-identity.v1")
 PUBLIC_RUN_RECEIPT_V1 = SchemaIdentifier("legalforecast.public-run-receipt.v1")
 PUBLIC_RUN_MANIFEST_V1 = SchemaIdentifier("legalforecast.public-run-manifest.v1")
@@ -528,6 +529,9 @@ ZERO_COST_SUCCESSOR_CONFIG_V1 = SchemaIdentifier(
 )
 MULTIHARNESS_TASK_IDENTITY_V1 = SchemaIdentifier(
     "legalforecast.multiharness.task_identity.v1"
+)
+MULTIHARNESS_SELECTION_MANIFEST_V1 = SchemaIdentifier(
+    "legalforecast.multiharness.selection_manifest.v1"
 )
 MULTIHARNESS_SOLVER_IDENTITY_V1 = SchemaIdentifier(
     "legalforecast.multiharness.solver_identity.v1"

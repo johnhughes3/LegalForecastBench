@@ -20,6 +20,7 @@ from legalforecast.testing.architecture_rules.public_boundary import (
     private_runtime_help_violations,
     retired_dispatch_inputs,
     scan_public_boundary,
+    workflow_role,
 )
 from legalforecast.testing.cli_corpus.invoke import invoke_cli
 
@@ -245,6 +246,7 @@ def test_fan_in_workflow_may_accept_labels_release_uri() -> None:
     assert retired_dispatch_inputs(_PERMITTED_FAN_IN_WORKFLOW, role="forecast") == (
         "labels_release_uri",
     )
+    assert workflow_role("score-terminal-release.yaml") == "fan-in"
 
 
 def test_seeded_retired_forecast_inputs_are_rejected() -> None:

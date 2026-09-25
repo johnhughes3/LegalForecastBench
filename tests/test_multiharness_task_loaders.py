@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from legalforecast._json_io import write_jsonl_objects
+from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.evals.packet_builder import PacketText, build_model_packet
 from legalforecast.evals.prediction_units import (
     ChallengeScope,
@@ -22,6 +23,16 @@ from legalforecast.multiharness.task_loaders import (
     HarveyLabTaskLoader,
     LfbTaskLoader,
     ReleaseLfbTaskLoader,
+)
+from legalforecast.release import (
+    CaseDraft,
+    DocumentDraft,
+    ForecastDraft,
+    LabelsDraft,
+    PredictionUnitDraft,
+    ScoringPolicy,
+    UnitOutcome,
+    issue_release,
 )
 from legalforecast.release.synthetic import issue_synthetic_release
 
@@ -154,6 +165,114 @@ def test_release_task_loader_binds_exact_public_release_without_labels(
     assert (solver_root / prompt_file["source_path"]).read_bytes() == (
         release_root / "prompts/unit-001.txt"
     ).read_bytes()
+
+
+def test_release_case_loader_batches_units_and_stages_only_shared_visible_documents(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    documents = (
+        DocumentDraft(
+            document_id="complaint",
+            role="complaint",
+            path="documents/case-001/complaint.txt",
+        ),
+        DocumentDraft(
+            document_id="opposition",
+            role="opposition",
+            path="documents/case-001/opposition.txt",
+        ),
+    )
+    (artifact_root / documents[0].path).parent.mkdir(parents=True)
+    (artifact_root / documents[0].path).write_bytes(b"complaint visible")
+    (artifact_root / documents[1].path).write_bytes(b"opposition excluded")
+    prompt_path = "prompts/case-001.txt"
+    packet_paths = ("packets/unit-001.json", "packets/unit-002.json")
+    (artifact_root / prompt_path).parent.mkdir(parents=True)
+    (artifact_root / prompt_path).write_bytes(b"shared blinded case prompt")
+    for unit_id, packet_path in zip(
+        ("unit-001", "unit-002"), packet_paths, strict=True
+    ):
+        (artifact_root / packet_path).parent.mkdir(parents=True, exist_ok=True)
+        (artifact_root / packet_path).write_bytes(
+            ARTIFACT_CANONICAL_JSON_V1.encode(
+                {
+                    "case_id": "case-001",
+                    "claim_name": f"Claim {unit_id}",
+                    "count": unit_id,
+                    "decision_date": "2026-08-23",
+                    "defendant_group": "defendants",
+                    "model_visible_document_ids": ["complaint"],
+                    "policy_digest": "1" * 64,
+                    "unit_id": unit_id,
+                }
+            )
+        )
+    issued = issue_release(
+        ForecastDraft(
+            release_id="case-batch-fixture-v1",
+            policy_digest="1" * 64,
+            code_version="fixture-code-v1",
+            packet_builder_version="fixture-packet-v1",
+            cases=(CaseDraft(case_id="case-001", documents=documents),),
+            prediction_units=tuple(
+                PredictionUnitDraft(
+                    unit_id=unit_id,
+                    case_id="case-001",
+                    claim_name=f"Claim {unit_id}",
+                    defendant_group="defendants",
+                    count=unit_id,
+                    should_score=True,
+                    model_visible_document_ids=("complaint",),
+                    packet_path=packet_path,
+                    prompt_path=prompt_path,
+                )
+                for unit_id, packet_path in zip(
+                    ("unit-001", "unit-002"), packet_paths, strict=True
+                )
+            ),
+        ),
+        LabelsDraft(
+            release_id="case-batch-fixture-v1",
+            scoring_policy=ScoringPolicy(policy_id="fixture-brier-v1"),
+            unit_outcomes=(
+                UnitOutcome(unit_id="unit-001", outcome=0),
+                UnitOutcome(unit_id="unit-002", outcome=1),
+            ),
+        ),
+        artifact_root=artifact_root,
+    )
+    release_root = tmp_path / "release"
+    release_root.mkdir()
+    (release_root / "forecast-release.json").write_bytes(
+        issued.payloads["forecast-release.json"]
+    )
+    solver_root = tmp_path / "solver-inputs"
+
+    index = ReleaseLfbTaskLoader().load_forecast_release(
+        release_root / "forecast-release.json",
+        artifact_root=artifact_root,
+        solver_input_root=solver_root,
+        case_batching=True,
+    )
+
+    assert len(index.tasks) == 1
+    task = index.tasks[0]
+    assert task.metadata["required_unit_ids"] == ["unit-001", "unit-002"]
+    assert task.metadata["scoreable_unit_ids"] == ["unit-001", "unit-002"]
+    assert [doc["document_id"] for doc in task.metadata["model_visible_documents"]] == [
+        "complaint"
+    ]
+    solver_index = json.loads(
+        (solver_root / "solver-input-index.json").read_text(encoding="utf-8")
+    )
+    entry = solver_index["entries"][0]
+    visible_paths = {
+        file["destination_path"] for file in entry["files"] if file["solver_visible"]
+    }
+    assert visible_paths == {"prompt.txt", "documents/0000-complaint.txt"}
+    assert "opposition" not in json.dumps(solver_index, sort_keys=True)
 
 
 def test_harvey_lab_task_loader_indexes_tasks_and_infers_taxonomy(

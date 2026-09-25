@@ -2,14 +2,19 @@ usage: legalforecast multiharness [-h] COMMAND ...
 
 positional arguments:
   COMMAND
-    tasks        Task index and selection commands.
-    adapters     Adapter inspection commands.
-    conformance  Run the no-provider adapter conformance suite.
-    run          Run or dry-run a selected task matrix through command
-                 adapters.
-    tier0        Execute the hash-bound paired Harvey LAB Tier-0 smoke.
-    report       Summarize a multi-harness run directory as public JSON.
-    community    Community submission packaging and aggregation commands.
+    tasks            Task index and selection commands.
+    adapters         Adapter inspection commands.
+    conformance      Run the no-provider adapter conformance suite.
+    run              Run or dry-run a selected task matrix through command
+                     adapters.
+    tier0            Execute the hash-bound paired Harvey LAB Tier-0 smoke.
+    report           Summarize a multi-harness run directory as public JSON.
+    community        Community submission packaging and aggregation commands.
+    release-run      Run Claude Code on a blinded release and score every
+                     selected unit.
+    release-execute  Execute Claude Code on a blinded release without loading
+                     labels.
+    release-score    Score a saved scoreless terminal-release package.
 
 options:
-  -h, --help     show this help message and exit
+  -h, --help         show this help message and exit

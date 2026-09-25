@@ -1,0 +1,582 @@
+name: Score Terminal Release
+
+# This workflow is deliberately a score-only boundary.  The forecast run has
+# already happened; this job downloads its scoreless package and reads labels
+# only after entering the protected fan-in environment.
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact main commit that supplies the score-only runtime.
+        required: true
+        type: string
+      cycle_id:
+        description: Public cycle identifier used for the retained result artifact name.
+        required: true
+        type: string
+      forecast_run_id:
+        description: Successful run-benchmark workflow run that produced the terminal package.
+        required: true
+        type: string
+      forecast_run_attempt:
+        description: Exact attempt of forecast_run_id whose terminal package is being scored.
+        required: true
+        type: string
+      forecast_artifact_id:
+        description: Numeric GitHub artifact ID from that exact run and attempt.
+        required: true
+        type: string
+      manifest_uri:
+        description: Locked public run-manifest URI.
+        required: true
+        type: string
+      forecast_release_uri:
+        description: Outcome-blinded forecast-release.json URI.
+        required: true
+        type: string
+      artifact_root_uri:
+        description: Immutable forecast artifact prefix ending in a slash.
+        required: true
+        type: string
+      labels_release_uri:
+        description: Labels-release.json URI; accepted only by this protected fan-in.
+        required: true
+        type: string
+      model_key:
+        description: Exact provider:model_id identity used by the terminal forecast.
+        required: true
+        type: string
+      artifact_retention_days:
+        description: Retention for the score-only result artifact.
+        required: true
+        default: "14"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: score-terminal-release-${{ inputs.cycle_id }}-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  score:
+    name: Validate and score terminal forecast
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: legalforecastbench-official-eval-fan-in
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_GITHUB_FAN_IN_ROLE_ARN: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+    steps:
+      - name: Checkout exact main scoring runtime
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.release_sha }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Validate protected request
+        shell: bash
+        env:
+          ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
+          CYCLE_ID: ${{ inputs.cycle_id }}
+          FORECAST_ARTIFACT_ID: ${{ inputs.forecast_artifact_id }}
+          FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
+          FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
+          MANIFEST_URI: ${{ inputs.manifest_uri }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_REF}" == "refs/heads/main" ]] || {
+            echo "score-only workflow is allowed only from refs/heads/main" >&2
+            exit 1
+          }
+          [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "release_sha must be a full lowercase commit SHA" >&2
+            exit 1
+          }
+          [[ "$(git rev-parse HEAD)" == "${RELEASE_SHA}" ]] || {
+            echo "checked-out HEAD does not equal release_sha" >&2
+            exit 1
+          }
+          git merge-base --is-ancestor "${RELEASE_SHA}" origin/main || {
+            echo "release_sha must remain reachable from origin/main" >&2
+            exit 1
+          }
+          [[ "${CYCLE_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || {
+            echo "cycle_id contains unsafe characters" >&2
+            exit 1
+          }
+          [[ "${FORECAST_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || {
+            echo "forecast_run_id must be a positive integer" >&2
+            exit 1
+          }
+          [[ "${FORECAST_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]] || {
+            echo "forecast_run_attempt must be a positive integer" >&2
+            exit 1
+          }
+          [[ "${FORECAST_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]] || {
+            echo "forecast_artifact_id must be a positive integer" >&2
+            exit 1
+          }
+          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google|vercel_ai_gateway|typesafe):[^:[:space:]]+$ ]] || {
+            echo "model_key must be provider:model_id" >&2
+            exit 1
+          }
+          [[ "${RETENTION_DAYS}" =~ ^[1-9][0-9]*$ && "${RETENTION_DAYS}" -le 90 ]] || {
+            echo "artifact_retention_days must be between 1 and 90" >&2
+            exit 1
+          }
+          [[ -n "${LFB_RESULTS_BUCKET:-}" ]] || {
+            echo "LFB_RESULTS_BUCKET must be configured on the protected environment" >&2
+            exit 1
+          }
+          for locator in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" \
+            "${ARTIFACT_ROOT_URI}" "${LABELS_RELEASE_URI}"; do
+            [[ "${locator}" =~ ^(s3://[^/]+/[A-Za-z0-9._/-]+|manifests/[A-Za-z0-9._/-]+)$ ]] || {
+              echo "locked locators must be s3:// URIs or manifests/ keys" >&2
+              exit 1
+            }
+            key_only="${locator#s3://}"
+            [[ "${locator}" != *..* && "${key_only}" != *"//"* ]] || {
+              echo "locked locator contains an unsafe path" >&2
+              exit 1
+            }
+          done
+          [[ "${ARTIFACT_ROOT_URI}" == */ ]] || {
+            echo "artifact_root_uri must be a prefix ending in /" >&2
+            exit 1
+          }
+          [[ "${LABELS_RELEASE_URI}" != "${FORECAST_RELEASE_URI}" ]] || {
+            echo "labels and forecast releases must be separate objects" >&2
+            exit 1
+          }
+          for locator in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" \
+            "${ARTIFACT_ROOT_URI}" "${LABELS_RELEASE_URI}"; do
+            case "${locator}" in
+              manifests/*) ;;
+              s3://*)
+                bucket_and_key="${locator#s3://}"
+                [[ "${bucket_and_key}" == "${LFB_RESULTS_BUCKET}/"* ]] || {
+                  echo "locked S3 locator must use LFB_RESULTS_BUCKET" >&2
+                  exit 1
+                }
+                ;;
+              *) echo "unsupported locked locator" >&2; exit 1 ;;
+            esac
+          done
+
+      - name: Validate exact forecast workflow attempt
+        shell: bash
+        env:
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY_NAME: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+          FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import urllib.error
+          import urllib.request
+
+          api = os.environ["GITHUB_API_URL"].rstrip("/")
+          repository = os.environ["GITHUB_REPOSITORY_NAME"]
+          run_id = int(os.environ["FORECAST_RUN_ID"])
+          attempt = int(os.environ["FORECAST_RUN_ATTEMPT"])
+          request = urllib.request.Request(
+              f"{api}/repos/{repository}/actions/runs/{run_id}/attempts/{attempt}",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "User-Agent": "legalforecastbench-score-terminal-release",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  run = json.load(response)
+          except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+              raise SystemExit("could not validate the forecast workflow attempt") from exc
+          if not isinstance(run, dict):
+              raise SystemExit("forecast workflow attempt response is invalid")
+          head_sha = run.get("head_sha")
+          if not isinstance(head_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", head_sha):
+              raise SystemExit("forecast workflow source SHA is invalid")
+          subprocess.run(["git", "merge-base", "--is-ancestor", head_sha, "origin/main"], check=True)
+          checks = {
+              "run identity": run.get("id") == run_id and run.get("run_attempt") == attempt,
+              "branch": run.get("head_branch") == "main",
+              "event": run.get("event") == "workflow_dispatch",
+              "workflow path": run.get("path") == ".github/workflows/run-benchmark.yaml",
+              # The producer uploads its package with always(), so a completed
+              # partial/interrupted forecast remains scoreable as a failure
+              # census. Canceled, timed-out, and in-progress runs are rejected.
+              "completed usable run": run.get("status") == "completed" and run.get("conclusion") in {"success", "failure", "neutral"},
+          }
+          for label, valid in checks.items():
+              if not valid:
+                  raise SystemExit(f"forecast workflow {label} check failed")
+          print(json.dumps({"run_id": run_id, "run_attempt": attempt, "head_sha": head_sha}, sort_keys=True))
+          PY
+
+      - name: Download exact terminal scoreless artifact
+        shell: bash
+        env:
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY_NAME: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          FORECAST_ARTIFACT_ID: ${{ inputs.forecast_artifact_id }}
+          FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
+          MODEL_KEY: ${{ inputs.model_key }}
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          import io
+          import json
+          import os
+          import stat
+          import subprocess
+          import urllib.error
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+
+          api = os.environ["GITHUB_API_URL"].rstrip("/")
+          repository = os.environ["GITHUB_REPOSITORY_NAME"]
+          run_id = os.environ["FORECAST_RUN_ID"]
+          attempt = os.environ["FORECAST_RUN_ATTEMPT"]
+          artifact_id = int(os.environ["FORECAST_ARTIFACT_ID"])
+          expected_name = f"official-terminal-forecast-results-{run_id}-attempt-{attempt}"
+          token = os.environ["GITHUB_TOKEN"]
+
+          def get_json(path: str) -> object:
+              request = urllib.request.Request(
+                  f"{api}{path}",
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "User-Agent": "legalforecastbench-score-terminal-release",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=60) as response:
+                      return json.load(response)
+              except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+                  raise SystemExit("could not read forecast artifact metadata") from exc
+
+          listing = get_json(f"/repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100")
+          if not isinstance(listing, dict) or not isinstance(listing.get("artifacts"), list):
+              raise SystemExit("forecast artifact listing is invalid")
+          matches = [
+              item for item in listing["artifacts"]
+              if isinstance(item, dict) and item.get("id") == artifact_id
+              and item.get("name") == expected_name
+          ]
+          if len(matches) != 1:
+              raise SystemExit("artifact ID/name does not identify the terminal package on this run")
+          if matches[0].get("expired") is True:
+              raise SystemExit("terminal scoreless artifact has expired")
+          try:
+              archive_bytes = subprocess.run(
+                  ["gh", "api", "--allow-escape-sequences", f"/repos/{repository}/actions/artifacts/{artifact_id}/zip"],
+                  check=True,
+                  capture_output=True,
+              ).stdout
+          except (OSError, subprocess.CalledProcessError) as exc:
+              raise SystemExit("could not download terminal scoreless artifact") from exc
+
+          root = Path("/tmp/lfb-terminal-scoreless")
+          root.mkdir(parents=True, exist_ok=False)
+          seen: set[str] = set()
+          with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+              for member in archive.infolist():
+                  relative = Path(member.filename)
+                  if relative.is_absolute() or ".." in relative.parts:
+                      raise SystemExit("terminal artifact contains an unsafe path")
+                  normalized = relative.as_posix()
+                  if normalized in seen:
+                      raise SystemExit("terminal artifact contains a duplicate path")
+                  seen.add(normalized)
+                  if member.is_dir():
+                      continue
+                  mode = member.external_attr >> 16
+                  # Some ZIP writers omit Unix file-type bits and preserve
+                  # only permissions; that is still an ordinary file entry.
+                  file_type = stat.S_IFMT(mode)
+                  if stat.S_ISLNK(mode) or file_type not in {0, stat.S_IFREG}:
+                      raise SystemExit("terminal artifact contains a non-regular file")
+                  destination = root / relative
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(archive.read(member))
+
+          required = (
+              "run-manifest.json",
+              "run-compatibility.json",
+              "selection-manifest.json",
+              "task-index.json",
+              "row-results.jsonl",
+              "inputs/run-manifest.json",
+              "inputs/forecast-release.json",
+              "inputs/model-registry.json",
+          )
+          for name in required:
+              path = root / name
+              if not path.is_file() or path.is_symlink() or path.stat().st_size == 0:
+                  raise SystemExit(f"terminal artifact is missing {name}")
+          rows = root / "rows"
+          if not rows.is_dir() or rows.is_symlink() or not any(rows.iterdir()):
+              raise SystemExit("terminal artifact is missing rows/")
+          input_artifacts = root / "inputs/artifacts"
+          if (
+              not input_artifacts.is_dir()
+              or input_artifacts.is_symlink()
+              or not any(input_artifacts.rglob("*"))
+          ):
+              raise SystemExit("terminal artifact is missing inputs/artifacts/")
+          forbidden = {
+              "labels-release.json",
+              "scores.json",
+              "unit-scores.jsonl",
+          }
+          for path in root.rglob("*"):
+              if path.name in forbidden or "label" in {part.lower() for part in path.parts}:
+                  raise SystemExit("terminal scoreless artifact contains labels or scores")
+
+          compatibility = json.loads((root / "run-compatibility.json").read_text(encoding="utf-8"))
+          run_config = compatibility.get("run_config") if isinstance(compatibility, dict) else None
+          models = run_config.get("model_configs") if isinstance(run_config, dict) else None
+          if not isinstance(models, list) or len(models) != 1 or not isinstance(models[0], dict):
+              raise SystemExit("terminal package must contain exactly one model configuration")
+          if models[0].get("model_key") != os.environ["MODEL_KEY"]:
+              raise SystemExit("terminal package model identity differs from dispatch")
+          if run_config.get("container_execution") != "headless_cli":
+              raise SystemExit("terminal package was not produced by headless_cli")
+          adapters = run_config.get("adapters")
+          if not isinstance(adapters, list) or not any(
+              isinstance(item, dict) and item.get("adapter_id") == "claude-code-container"
+              for item in adapters
+          ):
+              raise SystemExit("terminal package lacks the Claude Code container adapter")
+          PY
+
+      - name: Configure protected fan-in read access
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-terminal-score-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+
+      - name: Fetch locked releases and labels inside protected fan-in
+        shell: bash
+        env:
+          ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
+          FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
+          MANIFEST_URI: ${{ inputs.manifest_uri }}
+        run: |
+          set -euo pipefail
+          reference=/tmp/lfb-terminal-score-inputs
+          rm -rf "${reference}"
+          mkdir -p "${reference}/artifacts"
+          fetch_file() {
+            local locator="$1" destination="$2"
+            case "${locator}" in
+              s3://*) aws s3 cp "${locator}" "${destination}" --only-show-errors ;;
+              manifests/*) aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${locator}" "${destination}" --only-show-errors ;;
+              *) echo "unsupported locked locator: ${locator}" >&2; return 1 ;;
+            esac
+          }
+          fetch_file "${MANIFEST_URI}" "${reference}/run-manifest.json"
+          fetch_file "${FORECAST_RELEASE_URI}" "${reference}/forecast-release.json"
+          # Labels are intentionally fetched only after the protected OIDC role
+          # has been assumed and never enter the forecast workflow artifact.
+          fetch_file "${LABELS_RELEASE_URI}" "${reference}/labels-release.json"
+          case "${ARTIFACT_ROOT_URI}" in
+            s3://*) artifact_prefix="${ARTIFACT_ROOT_URI}" ;;
+            manifests/*) artifact_prefix="s3://${LFB_RESULTS_BUCKET}/${ARTIFACT_ROOT_URI}" ;;
+            *) echo "unsupported artifact root locator: ${ARTIFACT_ROOT_URI}" >&2; exit 1 ;;
+          esac
+          uv run python - <<'PY' > /tmp/lfb-terminal-declared-artifacts
+          import json
+          from pathlib import Path
+
+          payload = json.loads(
+              Path("/tmp/lfb-terminal-score-inputs/forecast-release.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          paths: set[str] = set()
+          for case in payload.get("cases", []):
+              for document in case.get("documents", []):
+                  paths.add(document["path"])
+          for unit in payload.get("prediction_units", []):
+              paths.add(unit["packet_path"])
+              paths.add(unit["prompt_path"])
+          if not paths:
+              raise SystemExit("forecast release declares no artifact paths")
+          for relative in sorted(paths):
+              path = Path(relative)
+              if path.is_absolute() or ".." in path.parts or not relative:
+                  raise SystemExit(f"unsafe declared artifact path: {relative!r}")
+              print(relative)
+          PY
+          while IFS= read -r relative; do
+            destination="${reference}/artifacts/${relative}"
+            mkdir -p "$(dirname -- "${destination}")"
+            aws s3 cp "${artifact_prefix}${relative}" "${destination}" --only-show-errors
+          done < /tmp/lfb-terminal-declared-artifacts
+          if find "${reference}" -type l -print -quit | grep -q .; then
+            echo "locked score inputs must not contain symlinks" >&2
+            exit 1
+          fi
+
+      - name: Validate locked releases before score-only command
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          package = Path("/tmp/lfb-terminal-scoreless")
+          reference = Path("/tmp/lfb-terminal-score-inputs")
+
+          def tree(root: Path) -> dict[str, bytes]:
+              result: dict[str, bytes] = {}
+              for path in root.rglob("*"):
+                  if path.is_symlink():
+                      raise SystemExit(f"symlink in locked input tree: {path}")
+                  if path.is_file():
+                      result[path.relative_to(root).as_posix()] = path.read_bytes()
+              return result
+
+          if (package / "inputs/run-manifest.json").read_bytes() != (
+              reference / "run-manifest.json"
+          ).read_bytes():
+              raise SystemExit("terminal package manifest differs from locked manifest")
+          if (package / "inputs/forecast-release.json").read_bytes() != (
+              reference / "forecast-release.json"
+          ).read_bytes():
+              raise SystemExit("terminal package forecast differs from locked forecast")
+          if tree(package / "inputs/artifacts") != tree(reference / "artifacts"):
+              raise SystemExit("terminal package artifacts differ from locked artifact root")
+          if (package / "inputs/labels-release.json").exists():
+              raise SystemExit("terminal package must not contain labels")
+          PY
+          uv run legalforecast manifest validate \
+            --manifest /tmp/lfb-terminal-score-inputs/run-manifest.json \
+            --forecast /tmp/lfb-terminal-score-inputs/forecast-release.json \
+            --labels /tmp/lfb-terminal-score-inputs/labels-release.json \
+            --artifact-root /tmp/lfb-terminal-score-inputs/artifacts
+
+      - name: Score saved terminal package without model or provider access
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-terminal-score-result
+          score_status=0
+          uv run legalforecast multiharness release-score \
+            --run-dir /tmp/lfb-terminal-scoreless \
+            --forecast-release /tmp/lfb-terminal-score-inputs/forecast-release.json \
+            --labels-release /tmp/lfb-terminal-score-inputs/labels-release.json \
+            --artifact-root /tmp/lfb-terminal-score-inputs/artifacts \
+            --output /tmp/lfb-terminal-score-result/scores.json || score_status=$?
+          [[ -s /tmp/lfb-terminal-score-result/scores.json ]] || exit "${score_status}"
+          uv run python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          score = Path("/tmp/lfb-terminal-score-result/scores.json")
+          metadata = {
+              "schema_version": "legalforecast.multiharness.terminal_score_run.v1",
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "source_forecast_run_id": int(os.environ["INPUT_FORECAST_RUN_ID"]),
+              "source_forecast_run_attempt": int(os.environ["INPUT_FORECAST_RUN_ATTEMPT"]),
+              "source_forecast_artifact_id": int(os.environ["INPUT_FORECAST_ARTIFACT_ID"]),
+              "release_sha": os.environ["INPUT_RELEASE_SHA"],
+              "cycle_id": os.environ["INPUT_CYCLE_ID"],
+              "model_key": os.environ["INPUT_MODEL_KEY"],
+              "manifest_uri": os.environ["INPUT_MANIFEST_URI"],
+              "forecast_release_uri": os.environ["INPUT_FORECAST_RELEASE_URI"],
+              "artifact_root_uri": os.environ["INPUT_ARTIFACT_ROOT_URI"],
+              "labels_release_uri": os.environ["INPUT_LABELS_RELEASE_URI"],
+              "scores_sha256": hashlib.sha256(score.read_bytes()).hexdigest(),
+          }
+          Path("/tmp/lfb-terminal-score-result/score-run.json").write_text(
+              json.dumps(metadata, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          exit "${score_status}"
+        env:
+          INPUT_ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
+          INPUT_CYCLE_ID: ${{ inputs.cycle_id }}
+          INPUT_FORECAST_ARTIFACT_ID: ${{ inputs.forecast_artifact_id }}
+          INPUT_FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
+          INPUT_FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
+          INPUT_FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
+          INPUT_LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
+          INPUT_MANIFEST_URI: ${{ inputs.manifest_uri }}
+          INPUT_MODEL_KEY: ${{ inputs.model_key }}
+          INPUT_RELEASE_SHA: ${{ inputs.release_sha }}
+
+      - name: Validate sole scored model identity
+        if: ${{ always() }}
+        shell: bash
+        env:
+          EXPECTED_MODEL_KEY: ${{ inputs.model_key }}
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          score_path = Path("/tmp/lfb-terminal-score-result/scores.json")
+          if not score_path.is_file() or score_path.is_symlink():
+              raise SystemExit("score output is missing")
+          try:
+              report = json.loads(score_path.read_text(encoding="utf-8"))
+          except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+              raise SystemExit("score output is not valid JSON") from exc
+          models = report.get("models") if isinstance(report, dict) else None
+          if not isinstance(models, list) or len(models) != 1:
+              raise SystemExit("score output must contain exactly one model")
+          model = models[0]
+          if not isinstance(model, dict) or model.get("model_key") != os.environ["EXPECTED_MODEL_KEY"]:
+              raise SystemExit("score output model identity differs from dispatch")
+          PY
+
+      - name: Upload score-only result package
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: terminal-score-${{ inputs.cycle_id }}-${{ github.run_id }}
+          path: /tmp/lfb-terminal-score-result
+          if-no-files-found: error
+          retention-days: ${{ inputs.artifact_retention_days }}

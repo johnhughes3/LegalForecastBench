@@ -656,6 +656,9 @@ def _bytes_sha256(value: bytes) -> str:
     return f"sha256:{hashlib.sha256(value).hexdigest()}"
 
 
+bytes_sha256 = _bytes_sha256
+
+
 def _normalized_sha256(value: str) -> str:
     return value.removeprefix("sha256:")
 

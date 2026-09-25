@@ -21,6 +21,15 @@ from legalforecast.multiharness.artifacts import (
     community_model_id,
     project_lfb_adapter_record,
 )
+from legalforecast.multiharness.claude_code_container import (
+    CLAUDE_CODE_CONTAINER_ADAPTER_ID,
+    CLAUDE_CODE_CONTAINER_ADAPTER_VERSION,
+    ClaudeCodeContainerAdapter,
+    ClaudeCodeContainerAdapterError,
+    ClaudeCodeContainerExecutionService,
+    build_claude_code_container_adapter,
+    probe_native_claude_sandbox,
+)
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterError,
@@ -183,6 +192,11 @@ from legalforecast.multiharness.receipt_authority import (
     authority_from_synthetic_fixture_key,
     pending_evaluator_issuer_authority,
 )
+from legalforecast.multiharness.release_harness import (
+    RELEASE_FAILURE_POLICY_ID,
+    RELEASE_SCORE_SCHEMA_VERSION,
+    score_multiharness_release,
+)
 from legalforecast.multiharness.run_metadata import (
     RECEIPT_METADATA_BINDING_SCHEMA_VERSION,
     RUN_METADATA_SCHEMA_VERSION,
@@ -288,6 +302,8 @@ __all__ = [
     "ATTEST_RIGHT_TO_SUBMIT",
     "BACKEND_DOCKER",
     "BACKEND_PODMAN",
+    "CLAUDE_CODE_CONTAINER_ADAPTER_ID",
+    "CLAUDE_CODE_CONTAINER_ADAPTER_VERSION",
     "CLAUDE_CODE_REGISTRY_NAME",
     "CODEX_CLI_REGISTRY_NAME",
     "COMMUNITY_AGGREGATE_SCHEMA_VERSION",
@@ -335,6 +351,8 @@ __all__ = [
     "PROVIDER_EGRESS_HOST_ONLY",
     "RECEIPT_AUTHORITY_SCHEMA_VERSION",
     "RECEIPT_METADATA_BINDING_SCHEMA_VERSION",
+    "RELEASE_FAILURE_POLICY_ID",
+    "RELEASE_SCORE_SCHEMA_VERSION",
     "REQUIRED_ATTESTATIONS",
     "REQUIRED_CONTRIBUTOR_ROLES",
     "RUN_MANIFEST_SCHEMA_VERSION",
@@ -363,6 +381,9 @@ __all__ = [
     "BinaryRunIdentity",
     "CanonicalArtifactBindings",
     "CanonicalTask",
+    "ClaudeCodeContainerAdapter",
+    "ClaudeCodeContainerAdapterError",
+    "ClaudeCodeContainerExecutionService",
     "CommandAdapter",
     "CommandAdapterError",
     "CommandExecutionLog",
@@ -459,6 +480,7 @@ __all__ = [
     "ToolResponse",
     "authority_from_synthetic_fixture_key",
     "bind_execution_receipt",
+    "build_claude_code_container_adapter",
     "build_container_plan",
     "build_evaluation_receipt",
     "build_evaluation_spec",
@@ -487,12 +509,14 @@ __all__ = [
     "pending_evaluator_issuer_authority",
     "probe_installed_cli",
     "probe_manifest_executable",
+    "probe_native_claude_sandbox",
     "project_harvey_lab_suite",
     "project_lfb_adapter_record",
     "require_container_backend",
     "run_adapter_conformance",
     "run_multi_harness",
     "sandbox_policy",
+    "score_multiharness_release",
     "seal_deliverable",
     "solver_material_access",
     "validate_container_resume",

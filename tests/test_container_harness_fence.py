@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 from legalforecast.multiharness.adapter_registry import builtin_adapter_registry
 from legalforecast.multiharness.container_harness.cli_fence import (
+    CLAUDE_OUTER_CONTAINER_SETTINGS,
     FENCED_CLIS,
     CliFenceError,
     fenced_argv,
@@ -30,6 +31,7 @@ from legalforecast.multiharness.container_harness.plan import (
     FENCE_BIN_DIR,
     FENCE_LIBEXEC_DIR,
     FENCE_WRAPPER_TARGET,
+    OUTER_CONTAINER_MARKER_TARGET,
     ContainerHarnessError,
     ContainerHarnessSpec,
     HarnessCredential,
@@ -38,6 +40,7 @@ from legalforecast.multiharness.container_harness.plan import (
     build_run_names,
     stage_cli_fence,
     stage_credential_home,
+    stage_outer_container_marker,
 )
 
 _IMAGE = "lfb-harness@sha256:" + "a" * 64
@@ -97,7 +100,17 @@ def test_kimi_is_not_a_fenced_cli() -> None:
 
 def test_fenced_argv_injects_disable_flags_when_the_agent_omits_them() -> None:
     claude = fenced_argv("claude", ["-p", "forecast"])
-    assert claude[:3] == ["--disallowedTools", "WebSearch", "WebFetch"]
+    assert claude[:7] == [
+        "--restricted",
+        "--disallowedTools",
+        "WebSearch",
+        "WebFetch",
+        "--tools",
+        "Bash",
+        "--settings",
+    ]
+    assert claude[7].startswith('{"sandbox":')
+    assert claude[8:] == ["--setting-sources", "", "-p", "forecast"]
     assert "-p" in claude and "forecast" in claude
 
     grok = fenced_argv("grok", ["-p", "forecast"])
@@ -109,6 +122,29 @@ def test_fenced_argv_injects_disable_flags_when_the_agent_omits_them() -> None:
     assert "--ignore-user-config" in codex
 
 
+def test_outer_container_argv_disables_only_the_unavailable_nested_sandbox() -> None:
+    claude = fenced_argv(
+        "claude",
+        ["-p", "forecast"],
+        outer_container_only=True,
+    )
+
+    assert claude[:7] == [
+        "--restricted",
+        "--disallowedTools",
+        "WebSearch",
+        "WebFetch",
+        "--tools",
+        "Bash",
+        "--settings",
+    ]
+    assert claude[7] == CLAUDE_OUTER_CONTAINER_SETTINGS
+    assert json.loads(claude[7]) == {
+        "sandbox": {"allowUnsandboxedCommands": True, "enabled": False}
+    }
+    assert claude[8:] == ["--setting-sources", "", "-p", "forecast"]
+
+
 def test_fenced_argv_strips_flags_that_would_re_enable_web_tools() -> None:
     claude = fenced_argv(
         "claude",
@@ -116,7 +152,8 @@ def test_fenced_argv_strips_flags_that_would_re_enable_web_tools() -> None:
     )
     assert "WebSearch" in claude
     assert claude.count("--allowedTools") == 0
-    assert claude[0] == "--disallowedTools"
+    assert claude[0] == "--restricted"
+    assert claude[1:4] == ["--disallowedTools", "WebSearch", "WebFetch"]
 
     grok = fenced_argv("grok", ["--enable-web-search", "-p", "forecast"])
     assert "--enable-web-search" not in grok
@@ -156,7 +193,12 @@ def test_nested_invocation_without_disable_flags_still_has_tools_off(
     assert completed.returncode == 0, completed.stderr
     recorded = json.loads(dump.read_text(encoding="utf-8"))
     assert Path(recorded[0]).name == "claude"
-    assert recorded[1:4] == ["--disallowedTools", "WebSearch", "WebFetch"]
+    assert recorded[1:4] == ["--restricted", "--disallowedTools", "WebSearch"]
+    assert recorded[4] == "WebFetch"
+    assert recorded[5:7] == ["--tools", "Bash"]
+    assert recorded[7] == "--settings"
+    assert recorded[8].startswith('{"sandbox":')
+    assert recorded[9:11] == ["--setting-sources", ""]
     assert "-p" in recorded and "forecast" in recorded
 
 
@@ -188,7 +230,8 @@ def test_nested_invocation_cannot_reenable_tools_via_argv_or_home_config(
     assert completed.returncode == 0, completed.stderr
     recorded = json.loads(dump.read_text(encoding="utf-8"))
     assert "--allowedTools" not in recorded
-    assert recorded[1:4] == ["--disallowedTools", "WebSearch", "WebFetch"]
+    assert recorded[1:4] == ["--restricted", "--disallowedTools", "WebSearch"]
+    assert recorded[4:7] == ["WebFetch", "--tools", "Bash"]
 
 
 def test_the_only_path_name_for_the_cli_is_the_wrapper(tmp_path: Path) -> None:
@@ -282,6 +325,31 @@ def test_plan_mounts_credentials_read_only_and_home_as_tmpfs(
     assert f"type=bind,src={fence},dst={FENCE_BIN_DIR}/claude,readonly" in mounts
 
 
+def test_outer_container_marker_is_a_read_only_mount(
+    tmp_path: Path,
+) -> None:
+    spec = _spec(tmp_path)
+    names = build_run_names(spec.run_id, _TOKEN)
+    home = stage_credential_home(tmp_path / "staging", spec)
+    fence = stage_cli_fence(tmp_path / "staging")
+    marker = stage_outer_container_marker(tmp_path / "staging")
+
+    argv = build_harness_run_argv(
+        _BACKEND,
+        spec,
+        names,
+        credential_home=home,
+        cidfile=tmp_path / "harness.cid",
+        fence_binary=fence,
+        outer_container_marker=marker,
+    )
+
+    assert (
+        f"type=bind,src={marker},dst={OUTER_CONTAINER_MARKER_TARGET},readonly"
+        in _flag_values(argv, "--mount")
+    )
+
+
 def test_child_path_puts_the_wrapper_first(tmp_path: Path) -> None:
     spec = _spec(tmp_path)
     names = build_run_names(spec.run_id, _TOKEN)
@@ -346,7 +414,8 @@ def test_wrapper_ignores_agent_supplied_real_bin_path(tmp_path: Path) -> None:
     assert dump.is_file()
     assert not evil_dump.exists()
     recorded = json.loads(dump.read_text(encoding="utf-8"))
-    assert recorded[1:4] == ["--disallowedTools", "WebSearch", "WebFetch"]
+    assert recorded[1:4] == ["--restricted", "--disallowedTools", "WebSearch"]
+    assert recorded[4:7] == ["WebFetch", "--tools", "Bash"]
 
 
 def test_unknown_cli_is_refused_before_the_container_starts(tmp_path: Path) -> None:
