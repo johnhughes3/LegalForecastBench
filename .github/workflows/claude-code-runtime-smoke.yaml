@@ -3,7 +3,6 @@ name: Claude Code terminal runtime smoke
 on:
   pull_request:
     paths:
-      - .github/scripts/setup-rootless-docker.sh
       - .github/workflows/claude-code-runtime-smoke.yaml
       - infra/claude-code-runtime/**
       - legalforecast/multiharness/claude_code_container.py
@@ -37,9 +36,6 @@ jobs:
       - name: Sync dependencies
         run: uv sync --locked
 
-      - name: Configure rootless Docker
-        run: .github/scripts/setup-rootless-docker.sh
-
       - name: Build pinned Claude Code image
         run: |
           set -euo pipefail
@@ -58,5 +54,5 @@ jobs:
 
           image_id = os.environ["LFB_CLAUDE_CODE_RUNTIME_IMAGE"]
           if not probe_native_claude_sandbox(image_id):
-              raise SystemExit("native Claude Bash sandbox unavailable in the rootless container runtime")
+              raise SystemExit("native Claude Bash sandbox unavailable in the container runtime")
           PY
