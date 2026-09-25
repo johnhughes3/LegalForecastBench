@@ -44,15 +44,15 @@ jobs:
           [[ "${image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "LFB_CLAUDE_CODE_RUNTIME_IMAGE=${image_id}" >> "${GITHUB_ENV}"
 
-      - name: Verify read-only inputs and native sandbox capability
+      - name: Verify read-only inputs and hosted namespace capability
         run: |
           set -euo pipefail
           uv run pytest -q tests/test_claude_code_runtime_image.py
-          uv run python - <<'PY'
-          import os
-          from legalforecast.multiharness.claude_code_container import probe_native_claude_sandbox
-
-          image_id = os.environ["LFB_CLAUDE_CODE_RUNTIME_IMAGE"]
-          if not probe_native_claude_sandbox(image_id):
-              raise SystemExit("native Claude Bash sandbox unavailable in the container runtime")
-          PY
+          docker run --rm --user 0:0 --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges --pids-limit 32 \
+            --memory 128m --cpus 0.25 \
+            --tmpfs /tmp:rw,nosuid,nodev,size=16m \
+            --tmpfs /workspace:rw,nosuid,nodev,size=16m \
+            --entrypoint /usr/bin/bwrap "${LFB_CLAUDE_CODE_RUNTIME_IMAGE}" \
+            --unshare-user --unshare-pid --unshare-net \
+            --ro-bind / / --proc /proc --dev /dev /bin/true
