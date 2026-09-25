@@ -220,6 +220,36 @@ def test_web_tool_request_never_reaches_upstream() -> None:
 
 
 @pytest.mark.parametrize(
+    "remote_field",
+    (
+        "mcp_servers",
+        "mcp_config",
+        "connectors",
+        "remote_tools",
+        "server_tools",
+        "web_search_options",
+        "web_fetch_options",
+        "mcpServers",
+    ),
+)
+def test_top_level_remote_tool_fields_never_reach_upstream(
+    remote_field: str,
+) -> None:
+    with _upstream(body=_success_response()) as upstream:
+        policy = _policy(upstream)
+        with _gateway(policy) as gateway:
+            status, response_body = _request(
+                gateway,
+                body=_message_body(**{remote_field: {"url": "https://example.test"}}),
+                headers={"x-api-key": policy.capability_token},
+            )
+
+        assert status == 400
+        assert b"remote provider tools" in response_body
+        assert upstream.requests == []
+
+
+@pytest.mark.parametrize(
     "tools",
     (
         "not-an-array",

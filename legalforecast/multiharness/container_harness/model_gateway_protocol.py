@@ -51,6 +51,14 @@ _WEB_TOOL_PREFIXES: Final[tuple[str, ...]] = (
     "websearch",
     "webfetch",
 )
+_REMOTE_TOOL_FIELD_PREFIXES: Final[tuple[str, ...]] = (
+    "mcp",
+    "connector",
+    "remote_tool",
+    "server_tool",
+    "web_search",
+    "web_fetch",
+)
 _CUSTOM_TOOL_KEYS: Final[frozenset[str]] = frozenset(
     {"name", "description", "input_schema", "cache_control"}
 )
@@ -167,6 +175,7 @@ class AnthropicModelGateway:
                 raise ModelGatewayError("route not allowlisted")
             self._authorize(authorization=authorization, api_key=api_key)
             payload = _decode_json_object(body, self.policy.max_request_bytes)
+            _validate_request_fields(payload)
             model = payload.get("model")
             if not isinstance(model, str) or model not in self.policy.allowed_models:
                 raise ModelGatewayError("model is not allowlisted")
@@ -324,6 +333,20 @@ def _decode_json_object(body: bytes, max_bytes: int) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ModelGatewayError("request body must be a JSON object")
     return cast(dict[str, Any], payload)
+
+
+def _validate_request_fields(payload: Mapping[str, object]) -> None:
+    """Reject top-level fields that can delegate work to remote providers."""
+
+    for raw_name in payload:
+        normalized_name = raw_name.lower().replace("-", "_")
+        compact_name = normalized_name.replace("_", "")
+        if normalized_name.startswith(
+            _REMOTE_TOOL_FIELD_PREFIXES
+        ) or compact_name.startswith(
+            ("mcp", "connector", "remotetool", "servertool", "websearch", "webfetch")
+        ):
+            raise ModelGatewayError("remote provider tools are disabled")
 
 
 def _validate_tools(value: object) -> None:
