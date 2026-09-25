@@ -18,9 +18,10 @@ from __future__ import annotations
 import hashlib
 import math
 import os
+import threading
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
-from typing import Final
+from dataclasses import dataclass, field
+from typing import Final, Protocol
 
 from legalforecast.evals.provider_spend_control import (
     AttemptLease,
@@ -40,6 +41,7 @@ from legalforecast.multiharness.local_cli_contracts import (
 )
 from legalforecast.multiharness.local_cli_environment import CredentialSource
 
+UPSTREAM_API_KEY_ENV: Final[str] = "LFB_MODEL_GATEWAY_UPSTREAM_API_KEY"
 PROTECTED_WORKFLOW_MARKER: Final[str] = "LFB_PROTECTED_TERMINAL_RELEASE"
 PROTECTED_WORKFLOW_MARKER_VALUE: Final[str] = "1"
 PROTECTED_ANTHROPIC_ENV: Final[str] = "ANTHROPIC_API_KEY"
@@ -52,6 +54,44 @@ PROTECTED_AUTHORITY_RESOURCE_ENV: Final[str] = (
 
 class ProtectedTerminalPaidError(RuntimeError):
     """Raised when protected paid execution is not authorized or reconcilable."""
+
+
+class GatewaySpendController(Protocol):
+    """Contract implemented by the bounded gateway request handler."""
+
+    def authorize_request(
+        self,
+        *,
+        request_id: str,
+        body: bytes,
+        model: str,
+        max_tokens: int,
+    ) -> object:
+        """Reserve before forwarding a validated request upstream."""
+        raise NotImplementedError
+
+    def settle_response(
+        self,
+        lease: object,
+        *,
+        response_body: bytes,
+        response_status: int,
+        content_type: str | None,
+        input_tokens: int | None,
+        output_tokens: int | None,
+    ) -> bool:
+        """Return false when bounded charge evidence is unavailable."""
+        raise NotImplementedError
+
+    def record_failure(
+        self,
+        lease: object,
+        *,
+        failure_type: str,
+        ambiguous: bool,
+    ) -> None:
+        """Record failure without releasing uncertain provider spend."""
+        raise NotImplementedError
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,21 +119,33 @@ class GitHubEnvironmentCredentialSource(CredentialSource):
                 "protected terminal credentials allow only ANTHROPIC_API_KEY"
             )
         environment = os.environ if self.parent_env is None else self.parent_env
-        if environment.get("GITHUB_ACTIONS") != "true":
-            raise AuthProfileError(
-                "protected terminal credentials require GitHub Actions"
-            )
-        if (
-            environment.get(PROTECTED_WORKFLOW_MARKER)
-            != PROTECTED_WORKFLOW_MARKER_VALUE
-        ):
-            raise AuthProfileError(
-                "protected terminal credentials require the official workflow marker"
-            )
+        try:
+            _require_protected_workflow(environment, "terminal credentials")
+        except ProtectedTerminalPaidError as exc:
+            raise AuthProfileError(str(exc)) from exc
         value = environment.get(PROTECTED_ANTHROPIC_ENV)
         if not value:
             raise AuthProfileError("protected terminal credentials are unavailable")
         return {PROTECTED_ANTHROPIC_ENV: value}
+
+
+@dataclass(frozen=True, slots=True)
+class GitHubEnvironmentGatewayCredentialSource:
+    """Project the GitHub Environment key into the gateway sidecar only."""
+
+    parent_env: Mapping[str, str] | None = None
+
+    def upstream_environment(self) -> Mapping[str, str]:
+        """Return the sidecar-only key name without exposing it to the harness."""
+
+        environment = os.environ if self.parent_env is None else self.parent_env
+        _require_protected_workflow(environment, "gateway credentials")
+        value = environment.get(PROTECTED_ANTHROPIC_ENV)
+        if not value:
+            raise ProtectedTerminalPaidError(
+                "protected gateway credentials are unavailable"
+            )
+        return {UPSTREAM_API_KEY_ENV: value}
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +195,26 @@ class ProtectedTerminalSpendConfig:
             stage=self.stage,
             model_key=self.model_key,
             case_id=spec.spec_id,
+            ablation=self.ablation,
+            repeat_index=self.repeat_index,
+        )
+
+    def key_for_gateway_request(
+        self,
+        request_id: str,
+        request_ordinal: int,
+    ) -> ProviderSpendKey:
+        """Bind each recursive CLI/Bash gateway request to its own cell."""
+
+        _non_empty(request_id, "request_id")
+        _positive_int(request_ordinal, "request_ordinal")
+        return ProviderSpendKey(
+            cycle_id=self.cycle_id,
+            provider="anthropic",
+            account=self.account,
+            stage=self.stage,
+            model_key=self.model_key,
+            case_id=f"{request_id}:gateway:{request_ordinal}",
             ablation=self.ablation,
             repeat_index=self.repeat_index,
         )
@@ -294,20 +366,140 @@ class ProtectedSpendController:
         )
 
 
+GatewayChargeExtractor = Callable[
+    [bytes, int, str | None],
+    int | None,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class GatewaySpendLease:
+    """One gateway request's durable provider-attempt lease."""
+
+    lease: AttemptLease
+    request_id: str
+
+
+@dataclass(slots=True)
+class ProviderGatewaySpendController(GatewaySpendController):
+    """DynamoDB spend control for every accepted gateway request.
+
+    The gateway calls this object after request validation and before its
+    upstream HTTP request.  ``charge_extractor`` must return a provider charge
+    in micro-USD from bounded gateway evidence.  Missing charge or usage
+    evidence is retained as ambiguous instead of being treated as zero.
+    """
+
+    authority: ProviderSpendAuthority
+    config: ProtectedTerminalSpendConfig
+    reservation_microusd: int
+    charge_extractor: GatewayChargeExtractor
+    _request_lock: threading.Lock = field(
+        default_factory=threading.Lock,
+        init=False,
+        repr=False,
+    )
+    _request_ordinal: int = field(default=0, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        _positive_int(self.reservation_microusd, "reservation_microusd")
+        if self.reservation_microusd > self.config.ceiling_microusd:
+            raise ProtectedTerminalPaidError(
+                "reservation_microusd cannot exceed ceiling_microusd"
+            )
+        if not callable(self.charge_extractor):
+            raise ProtectedTerminalPaidError("charge_extractor must be callable")
+
+    def authorize_request(
+        self,
+        *,
+        request_id: str,
+        body: bytes,
+        model: str,
+        max_tokens: int,
+    ) -> GatewaySpendLease:
+        del body, model, max_tokens
+        with self._request_lock:
+            self._request_ordinal += 1
+            ordinal = self._request_ordinal
+        key = self.config.key_for_gateway_request(request_id, ordinal)
+        lease = self.authority.authorize_attempt(
+            key,
+            reservation_microusd=self.reservation_microusd,
+        )
+        return GatewaySpendLease(lease=lease, request_id=request_id)
+
+    def settle_response(
+        self,
+        lease: object,
+        *,
+        response_body: bytes,
+        response_status: int,
+        content_type: str | None,
+        input_tokens: int | None,
+        output_tokens: int | None,
+    ) -> bool:
+        if not isinstance(lease, GatewaySpendLease):
+            raise ProtectedTerminalPaidError("gateway spend lease has the wrong type")
+        if response_status < 200 or response_status >= 300:
+            self.record_failure(
+                lease,
+                failure_type="gateway_upstream_error",
+                ambiguous=True,
+            )
+            return False
+        if input_tokens is None or output_tokens is None:
+            self.record_failure(
+                lease,
+                failure_type="gateway_usage_missing",
+                ambiguous=True,
+            )
+            return False
+        actual_microusd = self.charge_extractor(
+            response_body,
+            response_status,
+            content_type,
+        )
+        if actual_microusd is None or actual_microusd < 0:
+            self.record_failure(
+                lease,
+                failure_type="gateway_charge_missing",
+                ambiguous=True,
+            )
+            return False
+        response_sha256 = hashlib.sha256(response_body).hexdigest()
+        self.authority.record_response(
+            lease.lease,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            actual_microusd=actual_microusd,
+            response_sha256=response_sha256,
+        )
+        return True
+
+    def record_failure(
+        self,
+        lease: object,
+        *,
+        failure_type: str,
+        ambiguous: bool,
+    ) -> None:
+        if not isinstance(lease, GatewaySpendLease):
+            raise ProtectedTerminalPaidError("gateway spend lease has the wrong type")
+        self.authority.record_failure(
+            lease.lease,
+            failure_type=failure_type,
+            ambiguous=ambiguous,
+        )
+
+
 def protected_authority_environment(
     environment: Mapping[str, str] | None = None,
 ) -> tuple[str, str, str]:
     """Read the existing protected authority identity without secret values."""
 
     source = os.environ if environment is None else environment
-    if source.get("GITHUB_ACTIONS") != "true":
-        raise ProtectedTerminalPaidError(
-            "protected terminal authority requires GitHub Actions"
-        )
-    if source.get(PROTECTED_WORKFLOW_MARKER) != PROTECTED_WORKFLOW_MARKER_VALUE:
-        raise ProtectedTerminalPaidError(
-            "protected terminal authority requires the official workflow marker"
-        )
+    _require_protected_workflow(source, "terminal authority")
     table = source.get(PROTECTED_AUTHORITY_TABLE_ENV, "")
     region = source.get(PROTECTED_AUTHORITY_REGION_ENV, "")
     resource = source.get(PROTECTED_AUTHORITY_RESOURCE_ENV, "")
@@ -317,6 +509,20 @@ def protected_authority_environment(
             "protected terminal authority configuration is incomplete"
         )
     return table, region, resource
+
+
+def _require_protected_workflow(
+    environment: Mapping[str, str],
+    description: str,
+) -> None:
+    if environment.get("GITHUB_ACTIONS") != "true":
+        raise ProtectedTerminalPaidError(
+            f"protected {description} requires GitHub Actions"
+        )
+    if environment.get(PROTECTED_WORKFLOW_MARKER) != PROTECTED_WORKFLOW_MARKER_VALUE:
+        raise ProtectedTerminalPaidError(
+            f"protected {description} requires the official workflow marker"
+        )
 
 
 def _usage_token_count(usage: Mapping[str, int], name: str) -> int:
@@ -352,10 +558,16 @@ __all__ = [
     "PROTECTED_AUTHORITY_TABLE_ENV",
     "PROTECTED_WORKFLOW_MARKER",
     "PROTECTED_WORKFLOW_MARKER_VALUE",
+    "UPSTREAM_API_KEY_ENV",
+    "GatewayChargeExtractor",
+    "GatewaySpendController",
+    "GatewaySpendLease",
     "GitHubEnvironmentCredentialSource",
+    "GitHubEnvironmentGatewayCredentialSource",
     "ProtectedSpendController",
     "ProtectedTerminalPaidError",
     "ProtectedTerminalSpendConfig",
+    "ProviderGatewaySpendController",
     "build_dynamodb_spend_authority",
     "protected_authority_environment",
     "uniform_case_reservation_microusd",

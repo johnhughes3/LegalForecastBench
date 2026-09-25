@@ -14,9 +14,11 @@ from legalforecast.multiharness.auth_profiles import (
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
 from legalforecast.multiharness.protected_terminal_paid import (
     GitHubEnvironmentCredentialSource,
+    GitHubEnvironmentGatewayCredentialSource,
     ProtectedSpendController,
     ProtectedTerminalPaidError,
     ProtectedTerminalSpendConfig,
+    ProviderGatewaySpendController,
     protected_authority_environment,
     uniform_case_reservation_microusd,
 )
@@ -121,6 +123,30 @@ def test_github_environment_source_requires_protected_workflow() -> None:
     assert projected == {"ANTHROPIC_API_KEY": "secret-value"}
 
 
+def test_gateway_credential_source_keeps_provider_key_out_of_harness() -> None:
+    source = GitHubEnvironmentGatewayCredentialSource(
+        {
+            "GITHUB_ACTIONS": "true",
+            "LFB_PROTECTED_TERMINAL_RELEASE": "1",
+            "ANTHROPIC_API_KEY": "secret-value",
+        }
+    )
+
+    projected = source.upstream_environment()
+
+    assert projected == {"LFB_MODEL_GATEWAY_UPSTREAM_API_KEY": "secret-value"}
+    assert "ANTHROPIC_API_KEY" not in projected
+
+
+def test_gateway_credential_source_refuses_ambient_key() -> None:
+    source = GitHubEnvironmentGatewayCredentialSource(
+        {"ANTHROPIC_API_KEY": "secret-value"}
+    )
+
+    with pytest.raises(ProtectedTerminalPaidError, match="GitHub Actions"):
+        source.upstream_environment()
+
+
 def test_protected_authority_environment_is_value_bound() -> None:
     values = protected_authority_environment(
         {
@@ -171,4 +197,89 @@ def test_controller_retains_reservation_for_failed_receipt(tmp_path: Path) -> No
     assert authority.responses == []
     assert len(authority.failures) == 1
     assert authority.failures[0]["failure_type"] == "terminal_receipt_failed"
+    assert authority.failures[0]["ambiguous"] is True
+
+
+def test_gateway_controller_allocates_and_settles_each_recursive_request() -> None:
+    authority = _FakeAuthority()
+    controller = ProviderGatewaySpendController(
+        authority,
+        _config(),
+        25,
+        lambda _body, _status, _content_type: 7,
+    )
+
+    first = controller.authorize_request(
+        request_id="case-1",
+        body=b"first",
+        model="claude-sonnet-4-5",
+        max_tokens=10,
+    )
+    second = controller.authorize_request(
+        request_id="case-1",
+        body=b"second",
+        model="claude-sonnet-4-5",
+        max_tokens=10,
+    )
+
+    assert (
+        controller.settle_response(
+            first,
+            response_body=b"response-1",
+            response_status=200,
+            content_type="application/json",
+            input_tokens=12,
+            output_tokens=4,
+        )
+        is True
+    )
+    assert (
+        controller.settle_response(
+            second,
+            response_body=b"response-2",
+            response_status=502,
+            content_type="application/json",
+            input_tokens=None,
+            output_tokens=None,
+        )
+        is False
+    )
+
+    assert [key.case_id for key, _ in authority.authorized] == [
+        "case-1:gateway:1",
+        "case-1:gateway:2",
+    ]
+    assert authority.responses[0]["actual_microusd"] == 7
+    assert authority.failures[0]["failure_type"] == "gateway_upstream_error"
+    assert authority.failures[0]["ambiguous"] is True
+
+
+def test_gateway_controller_retains_unknown_charge() -> None:
+    authority = _FakeAuthority()
+    controller = ProviderGatewaySpendController(
+        authority,
+        _config(),
+        25,
+        lambda _body, _status, _content_type: None,
+    )
+    lease = controller.authorize_request(
+        request_id="case-1",
+        body=b"request",
+        model="claude-sonnet-4-5",
+        max_tokens=10,
+    )
+
+    assert (
+        controller.settle_response(
+            lease,
+            response_body=b"response",
+            response_status=200,
+            content_type="application/json",
+            input_tokens=12,
+            output_tokens=4,
+        )
+        is False
+    )
+    assert authority.responses == []
+    assert authority.failures[0]["failure_type"] == "gateway_charge_missing"
     assert authority.failures[0]["ambiguous"] is True
