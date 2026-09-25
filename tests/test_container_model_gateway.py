@@ -187,6 +187,9 @@ def test_forwards_only_messages_and_injects_provider_key_at_upstream() -> None:
                 headers={
                     "x-api-key": policy.capability_token,
                     "anthropic-version": "2023-06-01",
+                    "anthropic-beta": (
+                        "effort-2025-11-24,unapproved-premium-routing-beta"
+                    ),
                     "authorization": "Bearer " + policy.capability_token,
                 },
             )
@@ -199,6 +202,7 @@ def test_forwards_only_messages_and_injects_provider_key_at_upstream() -> None:
         assert headers["x-api-key"] == policy.upstream_api_key
         assert headers.get("authorization") is None
         assert headers["anthropic-version"] == "2023-06-01"
+        assert headers["anthropic-beta"] == "effort-2025-11-24"
         assert forwarded_body == body
 
 
@@ -217,6 +221,95 @@ def test_web_tool_request_never_reaches_upstream() -> None:
         assert status == 400
         assert b"provider-side web tools" in response_body
         assert upstream.requests == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        _message_body(service_tier="priority"),
+        _message_body(speed="fast"),
+        _message_body(inference_geo="us"),
+        _message_body(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "forecast",
+                            "cache_control": {
+                                "type": "ephemeral",
+                                "ttl": "1h",
+                            },
+                        }
+                    ],
+                }
+            ]
+        ),
+        _message_body(
+            system=[
+                {
+                    "type": "text",
+                    "text": "system",
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                }
+            ]
+        ),
+        _message_body(
+            tools=[
+                {
+                    "name": "Bash",
+                    "description": "run local commands",
+                    "input_schema": {"type": "object"},
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                }
+            ]
+        ),
+    ),
+)
+def test_paid_pricing_options_never_reach_upstream(body: bytes) -> None:
+    with _upstream(body=_success_response()) as upstream:
+        policy = _policy(upstream)
+        with _gateway(policy) as gateway:
+            status, _ = _request(
+                gateway,
+                body=body,
+                headers={"x-api-key": policy.capability_token},
+            )
+
+        assert status == 400
+        assert upstream.requests == []
+
+
+def test_approved_cache_control_values_reach_upstream_unchanged() -> None:
+    with _upstream(body=_success_response()) as upstream:
+        policy = _policy(upstream)
+        body = _message_body(
+            system=[
+                {
+                    "type": "text",
+                    "text": "system",
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            tools=[
+                {
+                    "name": "Bash",
+                    "description": "run local commands",
+                    "input_schema": {"type": "object"},
+                    "cache_control": {"type": "ephemeral", "ttl": "5m"},
+                }
+            ],
+        )
+        with _gateway(policy) as gateway:
+            status, _ = _request(
+                gateway,
+                body=body,
+                headers={"x-api-key": policy.capability_token},
+            )
+
+        assert status == 200
+        assert upstream.requests[0][2] == body
 
 
 @pytest.mark.parametrize(

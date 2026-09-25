@@ -66,6 +66,46 @@ _CUSTOM_TOOL_KEYS: Final[frozenset[str]] = frozenset(
     {"name", "description", "input_schema", "cache_control"}
 )
 _ALLOWED_MESSAGE_QUERY: Final[frozenset[str]] = frozenset({"", "beta=true"})
+_ALLOWED_CLAUDE_REQUEST_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "model",
+        "messages",
+        "system",
+        "tools",
+        "metadata",
+        "max_tokens",
+        "thinking",
+        "context_management",
+        "output_config",
+        "stream",
+    }
+)
+_PRICED_ROUTING_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "inference_geo",
+        "priority",
+        "route",
+        "routing",
+        "service_tier",
+        "speed",
+    }
+)
+_ALLOWED_CACHE_CONTROL: Final[tuple[dict[str, str], ...]] = (
+    {"type": "ephemeral"},
+    {"type": "ephemeral", "ttl": "5m"},
+)
+_ALLOWED_ANTHROPIC_BETA_VALUES: Final[frozenset[str]] = frozenset(
+    {
+        "claude-code-20250219",
+        "interleaved-thinking-2025-05-14",
+        "thinking-token-count-2026-05-13",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "mid-conversation-system-2026-04-07",
+        "per-turn-control-2026-07-01",
+        "effort-2025-11-24",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -438,10 +478,12 @@ class AnthropicModelGateway:
             "x-api-key": self.policy.upstream_api_key,
             "connection": "close",
         }
-        for name in ("anthropic-version", "anthropic-beta"):
-            value = headers.get(name)
-            if value:
-                forwarded[name] = value[:MAX_HTTP_HEADER_BYTES]
+        version = headers.get("anthropic-version")
+        if version:
+            forwarded["anthropic-version"] = version[:MAX_HTTP_HEADER_BYTES]
+        beta = _allowed_anthropic_beta_header(headers.get("anthropic-beta"))
+        if beta is not None:
+            forwarded["anthropic-beta"] = beta
         try:
             connection.request("POST", route, body=body, headers=forwarded)
             response = connection.getresponse()
@@ -520,7 +562,7 @@ def _decode_json_object(body: bytes, max_bytes: int) -> dict[str, Any]:
 
 
 def _validate_request_fields(payload: Mapping[str, object]) -> None:
-    """Reject top-level fields that can delegate work to remote providers."""
+    """Reject fields that change paid routing or enable remote providers."""
 
     for raw_name in payload:
         normalized_name = raw_name.lower().replace("-", "_")
@@ -531,6 +573,54 @@ def _validate_request_fields(payload: Mapping[str, object]) -> None:
             ("mcp", "connector", "remotetool", "servertool", "websearch", "webfetch")
         ):
             raise ModelGatewayError("remote provider tools are disabled")
+    unknown_fields = set(payload) - _ALLOWED_CLAUDE_REQUEST_FIELDS
+    if unknown_fields:
+        raise ModelGatewayError("request contains unsupported fields")
+    _validate_nested_request_values(payload)
+
+
+def _validate_nested_request_values(value: object) -> None:
+    if isinstance(value, Mapping):
+        mapping = cast(Mapping[object, object], value)
+        for raw_name, nested_value in mapping.items():
+            if not isinstance(raw_name, str):
+                raise ModelGatewayError("request field names must be strings")
+            normalized_name = raw_name.lower().replace("-", "_")
+            compact_name = normalized_name.replace("_", "")
+            if normalized_name in _PRICED_ROUTING_FIELDS:
+                raise ModelGatewayError("priced routing fields are disabled")
+            if normalized_name == "cache_control":
+                if nested_value not in _ALLOWED_CACHE_CONTROL:
+                    raise ModelGatewayError("cache_control must use the approved TTL")
+            elif normalized_name.startswith(
+                _REMOTE_TOOL_FIELD_PREFIXES
+            ) or compact_name.startswith(
+                (
+                    "mcp",
+                    "connector",
+                    "remotetool",
+                    "servertool",
+                    "websearch",
+                    "webfetch",
+                )
+            ):
+                raise ModelGatewayError("remote provider tools are disabled")
+            _validate_nested_request_values(nested_value)
+    elif isinstance(value, list):
+        items = cast(list[object], value)
+        for item in items:
+            _validate_nested_request_values(item)
+
+
+def _allowed_anthropic_beta_header(value: str | None) -> str | None:
+    if value is None:
+        return None
+    allowed: list[str] = []
+    for candidate in value.split(","):
+        beta = candidate.strip()
+        if beta in _ALLOWED_ANTHROPIC_BETA_VALUES and beta not in allowed:
+            allowed.append(beta)
+    return ",".join(allowed) if allowed else None
 
 
 def _validate_tools(value: object) -> None:
