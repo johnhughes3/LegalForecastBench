@@ -798,6 +798,79 @@ def test_release_scoring_suppresses_headlines_for_partial_and_zero_rows(
     )
 
 
+def test_release_scoring_groups_preprojection_failure_with_known_track(
+    tmp_path: Path,
+) -> None:
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    forecast, labels = validate_release(
+        release_root / "forecast-release.json",
+        release_root / "labels-release.json",
+        artifact_root=release_root,
+    )
+    solver_root = tmp_path / "solver-inputs"
+    task_index = ReleaseLfbTaskLoader().load_forecast_release(
+        release_root / "forecast-release.json",
+        artifact_root=release_root,
+        solver_input_root=solver_root,
+    )
+    selected_tasks = task_index.tasks[:2]
+    adapter = NeutralApiFixtureAdapter(
+        raw_output='{"case_assessment":"fixture","predictions":[{"unit_id":"unit-001","probability_fully_dismissed":0.25}]}'
+    )
+    run = run_multi_harness(
+        MultiHarnessRunConfig(
+            task_index=task_index,
+            adapters=(adapter,),
+            model_configs=(
+                ModelConfig(
+                    adapter_id=adapter.manifest.adapter_id, model_key="fixture"
+                ),
+            ),
+            sandbox_policy=sandbox_policy(
+                policy_id="preprojection-failure-fixture",
+                backend="docker",
+                image="python:3.12-slim",
+                mounts=(),
+            ),
+            output_dir=tmp_path / "run",
+            selection=TaskSelection(
+                task_ids=tuple(task.task_id for task in selected_tasks)
+            ),
+            solver_inputs=SolverInputStore.load(solver_root),
+        )
+    )
+    assert [row.result.status for row in run.rows] == ["succeeded", "failed"]
+    failed_row = replace(
+        run.rows[1],
+        lfb_record=None,
+        result=replace(
+            run.rows[1].result,
+            public_summary={
+                "error_type": "TimeoutError",
+                "error_message": "fixture timeout before projection",
+                "input_tokens": 4,
+                "output_tokens": 2,
+                "estimated_cost": 0.001,
+            },
+        ),
+    )
+    mixed = replace(run, rows=(run.rows[0], failed_row))
+    report = score_multiharness_release(mixed, forecast, labels)
+    assert len(report["models"]) == 1
+    model = report["models"][0]
+    assert model["treatment_id"].startswith("neutral:")
+    assert model["unit_count"] == 2
+    assert model["failed_unit_count"] == 1
+    assert model["micro_brier"] == model["equal_case_brier"] == 0.53125
+    assert model["failures"][0]["failure_kind"] == "TimeoutError"
+    assert model["failures"][0]["usage"] == {
+        "input_tokens": 4,
+        "output_tokens": 2,
+        "estimated_cost": 0.001,
+    }
+
+
 def test_release_scoring_rejects_task_and_treatment_identity_drift(
     tmp_path: Path,
 ) -> None:
@@ -972,6 +1045,22 @@ def test_invalid_release_forecast_is_failed_and_retryable(
         "InvalidForecastOutput"
     )
     assert first.rows[0].result.public_summary["parser_status"]
+    normalized_summary = dict(first.rows[0].result.public_summary)
+    normalized_digest = normalized_summary.pop("normalized_result_sha256")
+    assert normalized_summary["original_result_sha256"] == (
+        first.rows[0].result.result_sha256
+    )
+    assert normalized_digest == release_record_sha256(
+        {
+            "result_id": first.rows[0].result.result_id,
+            "request_id": first.rows[0].result.request_id,
+            "status": "failed",
+            "artifacts": [
+                artifact.to_record() for artifact in first.rows[0].result.artifacts
+            ],
+            "public_summary": normalized_summary,
+        }
+    )
     progress = json.loads(
         (config.output_dir / "run-progress.json").read_text(encoding="utf-8")
     )
@@ -980,6 +1069,59 @@ def test_invalid_release_forecast_is_failed_and_retryable(
     resumed = run_multi_harness(replace(config, resume=True))
     assert adapter.calls == 2
     assert resumed.rows[0].result.status == "failed"
+
+
+def test_invalid_unscoreable_release_forecast_keeps_census_projection(
+    tmp_path: Path,
+) -> None:
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    solver_root = tmp_path / "solver-inputs"
+    task_index = ReleaseLfbTaskLoader().load_forecast_release(
+        release_root / "forecast-release.json",
+        artifact_root=release_root,
+        solver_input_root=solver_root,
+    )
+    task = task_index.tasks[2]
+    adapter = NeutralApiFixtureAdapter(raw_output="not-json")
+    run = run_multi_harness(
+        MultiHarnessRunConfig(
+            task_index=task_index,
+            adapters=(adapter,),
+            model_configs=(
+                ModelConfig(
+                    adapter_id=adapter.manifest.adapter_id, model_key="fixture"
+                ),
+            ),
+            sandbox_policy=sandbox_policy(
+                policy_id="unscoreable-invalid-fixture",
+                backend="docker",
+                image="python:3.12-slim",
+                mounts=(),
+            ),
+            output_dir=tmp_path / "run",
+            selection=TaskSelection(task_ids=(task.task_id,)),
+            solver_inputs=SolverInputStore.load(solver_root),
+        )
+    )
+    row = run.rows[0]
+    assert row.result.status == "failed"
+    assert row.lfb_record is not None
+    assert row.lfb_record["required_unit_ids"] == ["unit-003"]
+    assert row.lfb_record["metadata"]["should_score"] == "false"
+    assert row.lfb_record["parser_output"]["is_valid"] is False
+    receipt = json.loads(
+        (row.workspace / "release-harness-receipt.json").read_text(encoding="utf-8")
+    )
+    assert receipt["should_score"] is False
+    assert receipt["result"]["parser_output"]["is_valid"] is False
+    aggregate_receipts = tuple(
+        json.loads(line)
+        for line in (row.workspace.parent.parent / "release-harness-receipts.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    assert aggregate_receipts[0]["should_score"] is False
 
 
 def test_resume_cleans_known_preresult_release_artifacts_before_rerun(

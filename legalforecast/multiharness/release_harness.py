@@ -315,9 +315,34 @@ def _mark_invalid_release_forecast(
             "parser_status": status,
             "parser_issues": parser_issues,
             "defaulted_unit_ids": defaulted_unit_ids,
+            "original_result_sha256": result.result_sha256,
         }
     )
+    summary["normalized_result_sha256"] = release_record_sha256(
+        _normalized_result_digest_payload(
+            result,
+            status="failed",
+            public_summary=summary,
+        )
+    )
     return replace(result, status="failed", public_summary=summary)
+
+
+def _normalized_result_digest_payload(
+    result: RunResult,
+    *,
+    status: str,
+    public_summary: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build the digest payload for a result normalized after adapter output."""
+
+    return {
+        "result_id": result.result_id,
+        "request_id": result.request_id,
+        "status": status,
+        "artifacts": [artifact.to_record() for artifact in result.artifacts],
+        "public_summary": dict(public_summary),
+    }
 
 
 def collect_release_harness_receipts(
@@ -338,7 +363,10 @@ def collect_release_harness_projections(
 
     projections: list[ReleaseHarnessProjection] = []
     for request, result, workspace in rows:
-        if not is_release_task(request) or result.status != "succeeded":
+        if not is_release_task(request):
+            continue
+        receipt_path = workspace / RELEASE_HARNESS_RECEIPT_NAME
+        if result.status != "succeeded" and not receipt_path.is_file():
             continue
         if result.request_id != request.request_id:
             raise ReleaseHarnessError("release result request does not match row")
@@ -354,7 +382,7 @@ def collect_release_harness_projections(
             forecast_release_digest=forecast_release_digest,
         )
         receipt = ReleaseHarnessReceipt.from_record(
-            _read_object(workspace / RELEASE_HARNESS_RECEIPT_NAME, "release receipt")
+            _read_object(receipt_path, "release receipt")
         )
         projection = _projection_from_evidence(request, result, evidence)
         if receipt.to_record() != projection.receipt.to_record():
@@ -496,17 +524,35 @@ def score_multiharness_release(
     missing_task_ids = tuple(
         task_id for task_id in selected_task_ids if task_id not in rows_by_task
     )
-    treatment_rows: dict[str, list[Any]] = {}
+    treatment_rows: dict[tuple[str, str, str], list[Any]] = {}
     selected_task_id_set = set(selected_task_ids)
     for task_id, rows in rows_by_task.items():
         if task_id not in selected_task_id_set:
             continue
         for row in rows:
-            treatment = _release_treatment_id(row)
-            treatment_rows.setdefault(treatment, []).append(row)
+            treatment_key = _release_treatment_key(row)
+            treatment_rows.setdefault(treatment_key, []).append(row)
 
     model_reports: list[dict[str, Any]] = []
-    for treatment_id, rows in sorted(treatment_rows.items()):
+    for _treatment_key, rows in sorted(treatment_rows.items()):
+        known_tracks = {
+            track
+            for row in rows
+            for track in (_release_row_track(row),)
+            if track is not None
+        }
+        if len(known_tracks) > 1:
+            raise ValueError(
+                "release treatment rows disagree about harness track: "
+                + ", ".join(sorted(known_tracks))
+            )
+        known_track = next(iter(known_tracks), None)
+        for row in rows:
+            _release_treatment_id(row, known_track=known_track)
+        treatment_id = _release_treatment_id(
+            rows[0],
+            known_track=known_track,
+        )
         # One adapter/model treatment must have at most one row for each task.
         rows_by_selected_task: dict[str, Any] = {}
         for row in rows:
@@ -844,14 +890,13 @@ def _validate_selected_release_task_metadata(
             )
 
 
-def _release_treatment_id(row: Any) -> str:
+def _release_treatment_key(row: Any) -> tuple[str, str, str]:
     record = cast(Mapping[str, Any] | None, row.lfb_record)
     expected = {
         "adapter_id": row.adapter_manifest.adapter_id,
         "adapter_version": row.adapter_manifest.adapter_version,
         "model_key": row.model_config.model_key,
     }
-    track_candidates: list[str] = []
     if isinstance(record, Mapping):
         for field_name, expected_value in expected.items():
             value = record.get(field_name)
@@ -859,34 +904,54 @@ def _release_treatment_id(row: Any) -> str:
                 raise ValueError(
                     f"release row {field_name} does not match treatment identity"
                 )
+    summary = row.result.public_summary
+    for field_name, expected_value in expected.items():
+        value = summary.get(field_name)
+        if value is not None and value != expected_value:
+            raise ValueError(
+                f"release result {field_name} does not match treatment identity"
+            )
+    return (
+        row.adapter_manifest.adapter_id,
+        row.adapter_manifest.adapter_version,
+        row.model_config.model_key,
+    )
+
+
+def _release_row_track(row: Any) -> str | None:
+    """Read a row's optional track while checking all available copies agree."""
+
+    record = cast(Mapping[str, Any] | None, row.lfb_record)
+    track_candidates: list[str] = []
+    if isinstance(record, Mapping):
         metadata = record.get("metadata")
         if isinstance(metadata, Mapping):
             record_metadata = cast(Mapping[str, Any], metadata)
             raw_track = record_metadata.get("harness_track")
             if isinstance(raw_track, str):
                 track_candidates.append(raw_track)
-        if not track_candidates:
-            raw_track = record.get("run_label")
-            if isinstance(raw_track, str):
-                track_candidates.append(raw_track)
+        raw_track = record.get("run_label")
+        if isinstance(raw_track, str):
+            track_candidates.append(raw_track)
     raw_track = row.result.public_summary.get("harness_track")
     if isinstance(raw_track, str):
         track_candidates.append(raw_track)
     if len(set(track_candidates)) > 1:
         raise ValueError("release row harness track does not match treatment identity")
-    if track_candidates:
-        track = track_candidates[0]
-    else:
-        # Adapter failures may happen before the harness wrapper can add its
-        # track.  Keep those failures isolated from projected rows rather than
-        # allowing an untrusted or absent receipt identity to merge treatments.
-        track = "unknown"
-    if track not in {*RELEASE_HARNESS_TRACKS, "unknown"}:
+    track = track_candidates[0] if track_candidates else None
+    if track is not None and track not in RELEASE_HARNESS_TRACKS:
         raise ValueError("release row harness track is invalid")
-    treatment_id = (
-        f"{track}:{row.adapter_manifest.adapter_id}:"
-        f"{row.adapter_manifest.adapter_version}:{row.model_config.model_key}"
-    )
+    return track
+
+
+def _release_treatment_id(row: Any, *, known_track: str | None = None) -> str:
+    record = cast(Mapping[str, Any] | None, row.lfb_record)
+    treatment_key = _release_treatment_key(row)
+    row_track = _release_row_track(row)
+    if row_track is not None and known_track is not None and row_track != known_track:
+        raise ValueError("release treatment rows disagree about harness track")
+    track = row_track or known_track or "unknown"
+    treatment_id = f"{track}:{treatment_key[0]}:{treatment_key[1]}:{treatment_key[2]}"
     if isinstance(record, Mapping):
         raw_treatment_id = record.get("treatment_id")
         if raw_treatment_id is not None and raw_treatment_id != treatment_id:
@@ -1026,7 +1091,9 @@ def _projection_from_evidence(
         content=evidence.content,
         receipt_sha256=release_record_sha256(evidence.content),
     )
-    if not evidence.should_score:
+    if not evidence.should_score and (
+        evidence.parsed.is_valid and not evidence.parsed.defaulted_unit_ids
+    ):
         return ReleaseHarnessProjection(
             receipt=receipt,
             lfb_record=None,
@@ -1039,6 +1106,7 @@ def _projection_from_evidence(
         "forecast_release_digest": evidence.forecast_release_digest,
         "harness_track": evidence.track,
         "release_id": evidence.release_id,
+        "should_score": str(evidence.should_score).lower(),
         "transcript_sha256": evidence.transcript_sha256,
     }
     if evidence.unit_id is not None:
