@@ -184,7 +184,11 @@ class ClaudeInvocationPlan:
             raise ClaudeCodeCliAdapterError(
                 "invocation must not persist, resume, or use --bare"
             )
-        _require_flag_value(self.argv, "--output-format", "json")
+        if self.output_format not in {"json", "stream-json"}:
+            raise ClaudeCodeCliAdapterError(
+                "invocation output_format must be json or stream-json"
+            )
+        _require_flag_value(self.argv, "--output-format", self.output_format)
         if "--json-schema" not in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must enforce JSON schema")
         _require_inline_json_schema(self.argv)
@@ -198,7 +202,10 @@ class ClaudeInvocationPlan:
             raise ClaudeCodeCliAdapterError("invocation must set --strict-mcp-config")
         if "sh" in self.argv or "bash" in self.argv or "-c" in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must not invoke a shell")
-        _reject_unallowlisted_argv(self.argv)
+        _reject_unallowlisted_argv(
+            self.argv,
+            allow_stream_verbose=self.output_format == "stream-json",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,6 +332,8 @@ def build_claude_invocation_plan(
     json_schema: Mapping[str, Any] | None = None,
     extra_add_dirs: Sequence[Path] = (),
     max_budget_usd: str | None = None,
+    output_format: str = "json",
+    verbose: bool = False,
 ) -> ClaudeInvocationPlan:
     """Translate one task into a shell-safe argv from the frozen template."""
 
@@ -332,6 +341,8 @@ def build_claude_invocation_plan(
         raise ClaudeCodeCliAdapterError("prompt must be non-empty")
     if not model.strip() or "/" in model or "\\" in model:
         raise ClaudeCodeCliAdapterError("model must be a non-empty basename")
+    if output_format not in {"json", "stream-json"}:
+        raise ClaudeCodeCliAdapterError("output_format must be json or stream-json")
     local_manifest = manifest or claude_code_local_manifest()
     try:
         bound = bind_adapter_auth_profile(local_manifest, auth_profile)
@@ -359,6 +370,20 @@ def build_claude_invocation_plan(
         (local_manifest.executable.basename, *rendered),
         tools,
     )
+    if output_format != "json":
+        try:
+            output_index = argv.index("--output-format")
+        except ValueError as exc:
+            raise ClaudeCodeCliAdapterError(
+                "invocation template must declare --output-format"
+            ) from exc
+        argv = (
+            *argv[: output_index + 1],
+            output_format,
+            *argv[output_index + 2 :],
+        )
+    if verbose and "--verbose" not in argv:
+        argv = (*argv, "--verbose")
     extra_dirs: list[str] = []
     for extra in extra_add_dirs:
         extra_dirs.extend(["--add-dir", extra.as_posix()])
@@ -376,6 +401,7 @@ def build_claude_invocation_plan(
         output_schema_path=output_schema_path.as_posix(),
         allowed_tools=tools,
         auth_profile=bound.profile_id,
+        output_format=output_format,
     )
 
 
@@ -398,7 +424,7 @@ def build_run_spec(
         working_directory=workspace,
         environment={},
         timeout_seconds=timeout_seconds,
-        output_format="json",
+        output_format=plan.output_format,
         json_schema=plan.json_schema,
     )
 
@@ -587,6 +613,8 @@ class ClaudeCodeCliAdapter:
     auth_profile: str = FIXTURE_NONE
     adapter_id: str = CLAUDE_CODE_ADAPTER_ID
     max_budget_usd: str | None = None
+    output_format: str = "json"
+    verbose: bool = False
 
     def __post_init__(self) -> None:
         _require_offline_claude_manifest(
@@ -712,6 +740,8 @@ class ClaudeCodeCliAdapter:
             manifest=self.local_manifest,
             auth_profile=self.auth_profile,
             max_budget_usd=self.max_budget_usd,
+            output_format=self.output_format,
+            verbose=self.verbose,
         )
         spec = build_run_spec(
             request,
@@ -987,7 +1017,7 @@ def _public_summary(
         "sandbox_policy_id": request.sandbox_policy.policy_id,
         "spec_sha256": classified.spec.spec_sha256,
         "task_id": request.task.task_id,
-        "tool_call_count": 0,
+        "tool_call_count": _tool_call_count(classified.receipt),
         "input_tokens": usage["input_tokens"],
         "output_tokens": usage["output_tokens"],
         "estimated_cost": usage["estimated_cost"],
@@ -1008,6 +1038,24 @@ def _public_summary(
         )
     summary["returncode"] = classified.receipt.returncode
     return summary
+
+
+def _tool_call_count(receipt: ExecutionReceipt) -> int:
+    """Read the private stream trace's count without publishing its transcript."""
+
+    try:
+        decoded: object = json.loads(receipt.stdout)
+    except json.JSONDecodeError:
+        return 0
+    if not isinstance(decoded, dict):
+        return 0
+    envelope = cast(dict[str, object], decoded)
+    trace_value = envelope.get("_lfb_tool_trace")
+    if not isinstance(trace_value, dict):
+        return 0
+    trace = cast(dict[str, object], trace_value)
+    count = trace.get("bash_tool_count")
+    return count if type(count) is int and count >= 0 else 0
 
 
 def _classified(
@@ -1281,13 +1329,17 @@ def _apply_allowed_tools(
     return tuple(mutable)
 
 
-def _reject_unallowlisted_argv(argv: Sequence[str]) -> None:
+def _reject_unallowlisted_argv(
+    argv: Sequence[str], *, allow_stream_verbose: bool = False
+) -> None:
     """Refuse flags the frozen clean-native template does not name."""
 
     index = 1
     while index < len(argv):
         token = argv[index]
-        if token in _ALLOWED_BARE_FLAGS:
+        if token in _ALLOWED_BARE_FLAGS or (
+            allow_stream_verbose and token == "--verbose"
+        ):
             index += 1
             continue
         if token in _ALLOWED_VALUE_FLAGS:
