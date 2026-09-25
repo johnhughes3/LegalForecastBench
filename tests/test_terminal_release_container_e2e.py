@@ -107,8 +107,10 @@ def _assert_bash_read(stdout_path: Path) -> str:
     or not os.environ.get("LFB_TERMINAL_RELEASE_E2E_IMAGE"),
     reason="set LFB_TERMINAL_RELEASE_E2E_IMAGE to a locally built Claude image ID",
 )
+@pytest.mark.parametrize("separate_scoring", [False, True])
 def test_rootless_release_run_reads_and_scores_every_selected_unit(
     tmp_path: Path,
+    separate_scoring: bool,
 ) -> None:
     image_id = os.environ["LFB_TERMINAL_RELEASE_E2E_IMAGE"]
     release_root = tmp_path / "release"
@@ -147,34 +149,37 @@ def test_rootless_release_run_reads_and_scores_every_selected_unit(
             for key, value in os.environ.items()
             if not key.startswith(("ANTHROPIC_", "AWS_"))
         }
+        command = [
+            "uv",
+            "run",
+            "legalforecast",
+            "multiharness",
+            "release-execute" if separate_scoring else "release-run",
+            "--forecast-release",
+            str(release_root / "forecast-release.json"),
+            "--artifact-root",
+            str(release_root),
+            "--output-dir",
+            str(output_root),
+            "--model-key",
+            "anthropic:claude-opus-5-5",
+            "--image",
+            image_id,
+            "--fixture-base-url",
+            "http://fixture-upstream:8081/v1",
+            "--fixture-egress-network",
+            network,
+            "--timeout-seconds",
+            "90",
+            "--run-id",
+            f"release-smoke-{suffix}",
+        ]
+        if not separate_scoring:
+            command.extend(
+                ("--labels-release", str(release_root / "labels-release.json"))
+            )
         run = subprocess.run(
-            (
-                "uv",
-                "run",
-                "legalforecast",
-                "multiharness",
-                "release-run",
-                "--forecast-release",
-                str(release_root / "forecast-release.json"),
-                "--labels-release",
-                str(release_root / "labels-release.json"),
-                "--artifact-root",
-                str(release_root),
-                "--output-dir",
-                str(output_root),
-                "--model-key",
-                "anthropic:claude-opus-5-5",
-                "--image",
-                image_id,
-                "--fixture-base-url",
-                "http://fixture-upstream:8081/v1",
-                "--fixture-egress-network",
-                network,
-                "--timeout-seconds",
-                "90",
-                "--run-id",
-                f"release-smoke-{suffix}",
-            ),
+            command,
             check=False,
             capture_output=True,
             text=True,
@@ -182,6 +187,34 @@ def test_rootless_release_run_reads_and_scores_every_selected_unit(
             timeout=420,
         )
         assert run.returncode == 0, run.stderr
+
+        if separate_scoring:
+            moved_root = tmp_path / "downloaded-run"
+            shutil.move(output_root, moved_root)
+            output_root = moved_root
+            scored = subprocess.run(
+                (
+                    "uv",
+                    "run",
+                    "legalforecast",
+                    "multiharness",
+                    "release-score",
+                    "--run-dir",
+                    str(output_root),
+                    "--forecast-release",
+                    str(release_root / "forecast-release.json"),
+                    "--labels-release",
+                    str(release_root / "labels-release.json"),
+                    "--artifact-root",
+                    str(release_root),
+                ),
+                check=False,
+                capture_output=True,
+                text=True,
+                env=environment,
+                timeout=60,
+            )
+            assert scored.returncode == 0, scored.stderr
 
         scores = _read_json(output_root / "scores.json")
         assert scores["selection"]["complete"] is True
