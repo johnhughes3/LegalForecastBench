@@ -640,6 +640,15 @@ class ClaudeCodeCliAdapter:
         return self.local_manifest.to_adapter_capabilities()
 
     def prepare(self, request: RunRequest, workspace: Path) -> AdapterPreparation:
+        return self._prepare(request, workspace, require_metadata_prompt=True)
+
+    def _prepare(
+        self,
+        request: RunRequest,
+        workspace: Path,
+        *,
+        require_metadata_prompt: bool,
+    ) -> AdapterPreparation:
         workspace.mkdir(parents=True, exist_ok=True)
         capabilities = self.capabilities(workspace)
         if request.adapter.adapter_id != self.manifest.adapter_id:
@@ -655,7 +664,8 @@ class ClaudeCodeCliAdapter:
                 f"adapter does not support scoring mode: {request.task.scoring_mode}"
             )
         _required_unit_ids(request.task)
-        _solver_prompt(request.task)
+        if require_metadata_prompt:
+            _solver_prompt(request.task)
         _requested_model(request.model_key)
         try:
             bound = bind_adapter_auth_profile(self.local_manifest, self.auth_profile)
@@ -711,7 +721,7 @@ class ClaudeCodeCliAdapter:
 
         if not prompt.strip():
             raise ClaudeCodeCliAdapterError("prompt must be non-empty")
-        self.prepare(request, workspace)
+        self._prepare(request, workspace, require_metadata_prompt=False)
         classified = self._execute_request(request, workspace, prompt=prompt)
         if classified.failure_class is None:
             classified = _with_deliverable(classified, request, workspace)

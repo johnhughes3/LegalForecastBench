@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -642,6 +642,29 @@ def test_task_profile_tools_reach_the_run_spec(tmp_path: Path) -> None:
     )
     assert captured[0].argv[captured[0].argv.index("--tools") + 1] == "Read"
     _make_writable(tmp_path / "workspace" / "deliverable-sealed")
+
+
+def test_authenticated_prompt_does_not_require_public_task_prompt(
+    tmp_path: Path,
+) -> None:
+    request = _run_request()
+    task = replace(
+        request.task,
+        metadata={"required_unit_ids": ["count_i"]},
+    )
+    release_request = replace(request, task=task)
+    adapter = _adapter("success")
+
+    with pytest.raises(ClaudeCodeCliAdapterError, match="solver_prompt"):
+        adapter.run(release_request, tmp_path / "metadata-path")
+
+    result = adapter.run_with_prompt(
+        release_request,
+        tmp_path / "authenticated-path",
+        "Read the staged release prompt and documents before forecasting.",
+    )
+    assert result.status == "succeeded"
+    _make_writable(tmp_path / "authenticated-path" / "deliverable-sealed")
 
 
 def _adapter(fixture_name: str) -> ClaudeCodeCliAdapter:
