@@ -70,12 +70,8 @@ def project_successful_container_result(
     tool_call_count = _summary_tool_call_count(result.public_summary)
     allowed_tools = _fence_allowed_tools(fence_record)
     tool_policy = _fence_tool_policy(fence_record)
-    packet_sha256 = require_release_metadata_str(
-        request.task.metadata, "packet_sha256"
-    )
-    prompt_sha256 = require_release_metadata_str(
-        request.task.metadata, "prompt_sha256"
-    )
+    packet_sha256 = require_release_metadata_str(request.task.metadata, "packet_sha256")
+    prompt_sha256 = require_release_metadata_str(request.task.metadata, "prompt_sha256")
     forecast_sha256 = release_bytes_sha256(forecast_bytes)
 
     private_logs = workspace / "private-logs"

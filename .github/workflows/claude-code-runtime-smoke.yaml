@@ -9,11 +9,14 @@ on:
       - legalforecast/multiharness/claude_code_container.py
       - legalforecast/multiharness/claude_code_container_runtime.py
       - legalforecast/multiharness/claude_code_container_inputs.py
+      - legalforecast/multiharness/claude_code_release_artifacts.py
       - legalforecast/multiharness/claude_code_stream.py
       - legalforecast/multiharness/container_harness/**
       - tests/test_claude_code_runtime_image.py
       - tests/test_claude_code_managed_policy.py
       - tests/test_container_model_gateway_topology_e2e.py
+      - tests/test_terminal_release_container_e2e.py
+      - tests/fixtures/claude_code/release_fixture_server.py
   workflow_dispatch:
 
 permissions:
@@ -53,13 +56,15 @@ jobs:
           [[ "${image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "LFB_CLAUDE_CODE_RUNTIME_IMAGE=${image_id}" >> "${GITHUB_ENV}"
 
-      - name: Verify read-only inputs, managed policy, and gateway isolation
+      - name: Verify read-only inputs, managed policy, gateway isolation, and scored release
         run: |
           set -euo pipefail
           LEGALFORECAST_CLAUDE_RUNTIME_E2E_IMAGE="${LFB_CLAUDE_CODE_RUNTIME_IMAGE}" \
           LEGALFORECAST_GATEWAY_TOPOLOGY_E2E=1 \
           LEGALFORECAST_GATEWAY_TOPOLOGY_IMAGE="${LFB_CLAUDE_CODE_RUNTIME_IMAGE}" \
+          LFB_TERMINAL_RELEASE_E2E_IMAGE="${LFB_CLAUDE_CODE_RUNTIME_IMAGE}" \
           uv run pytest -q \
             tests/test_claude_code_runtime_image.py \
             tests/test_claude_code_managed_policy.py::test_built_image_direct_vendor_cannot_reenable_web_search \
-            tests/test_container_model_gateway_topology_e2e.py
+            tests/test_container_model_gateway_topology_e2e.py \
+            tests/test_terminal_release_container_e2e.py
