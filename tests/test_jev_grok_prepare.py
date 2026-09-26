@@ -4,6 +4,7 @@ import json
 import sqlite3
 from collections.abc import Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import legalforecast.jev.prepare as prepare
@@ -78,6 +79,18 @@ class _FakeResult:
     def __init__(self, output: object, usage: object) -> None:
         self.output = output
         self.usage = usage
+        self.response = SimpleNamespace(
+            finish_reason="stop", provider_details={"finish_reason": "completed"}
+        )
+
+    def __enter__(self) -> _FakeResult:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        pass
+
+    def get_output(self) -> object:
+        return self.output
 
 
 class _FakeAgent:
@@ -85,7 +98,7 @@ class _FakeAgent:
         self.owner = owner
         self.model = model
 
-    def run_sync(self, prompt: str, *, usage_limits: object) -> _FakeResult:
+    def run_stream_sync(self, prompt: str, *, usage_limits: object) -> _FakeResult:
         del usage_limits
         self.owner.prompts.append(prompt)
         self.owner.models.append(self.model)
@@ -110,7 +123,7 @@ class _FlakySummaryAgent:
         self.calls = 0
         self.failures = failures
 
-    def run_sync(self, prompt: str, *, usage_limits: object) -> _FakeResult:
+    def run_stream_sync(self, prompt: str, *, usage_limits: object) -> _FakeResult:
         del prompt, usage_limits
         self.calls += 1
         if self.calls <= self.failures:
