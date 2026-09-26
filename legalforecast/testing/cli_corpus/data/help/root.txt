@@ -11,6 +11,7 @@ positional arguments:
     jev           Prepare a distinct one-shot Jev condition using unchanged
                   release units.
     score         Parse model outputs and score them against locked labels.
+    site          Export public data for the results site.
     report        Render leaderboard artifacts from score summaries.
     study         Compute reproducible evaluation-study reports from public
                   artifacts.

@@ -20,11 +20,14 @@ def test_ci_workflow_uses_ci_runner_clamp_with_ubicloud_fallback() -> None:
 def test_ci_workflow_runs_contract_ratchet_before_typecheck() -> None:
     ratchet_step = (
         "- name: Contract ratchet\n"
+        "        if: ${{ steps.changes.outputs.run_python == 'true' }}\n"
         "        run: uv run python -m legalforecast.contracts.ratchet"
     )
     assert ratchet_step in WORKFLOW
     assert WORKFLOW.index(ratchet_step) < WORKFLOW.index(
-        "- name: Type-check\n        run: uv run pyright"
+        "- name: Type-check\n"
+        "        if: ${{ steps.changes.outputs.run_python == 'true' }}\n"
+        "        run: uv run pyright"
     )
 
 

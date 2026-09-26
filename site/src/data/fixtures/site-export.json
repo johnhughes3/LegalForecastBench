@@ -1,0 +1,136 @@
+{
+  "contamination_boundary": null,
+  "excluded_case_count": 0,
+  "results": [
+    {
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": null,
+          "observed_rate": null,
+          "unit_count": 0,
+          "upper": 0.1
+        },
+        {
+          "lower": 0.1,
+          "mean_probability": null,
+          "observed_rate": null,
+          "unit_count": 0,
+          "upper": 0.2
+        },
+        {
+          "lower": 0.2,
+          "mean_probability": null,
+          "observed_rate": null,
+          "unit_count": 0,
+          "upper": 0.3
+        },
+        {
+          "lower": 0.3,
+          "mean_probability": null,
+          "observed_rate": null,
+          "unit_count": 0,
+          "upper": 0.4
+        },
+        {
+          "lower": 0.4,
+          "mean_probability": 0.4,
+          "observed_rate": 0.0,
+          "unit_count": 1,
+          "upper": 0.5
+        },
+        {
+          "lower": 0.5,
+          "mean_probability": null,
+          "observed_rate": null,
+          "unit_count": 0,
+          "upper": 0.6
+        },
+        {
+          "lower": 0.6,
+          "mean_probability": null,
+          "observed_rate": null,
+          "unit_count": 0,
+          "upper": 0.7
+        },
+        {
+          "lower": 0.7,
+          "mean_probability": 0.7,
+          "observed_rate": 0.0,
+          "unit_count": 1,
+          "upper": 0.8
+        },
+        {
+          "lower": 0.8,
+          "mean_probability": 0.8,
+          "observed_rate": 1.0,
+          "unit_count": 1,
+          "upper": 0.9
+        },
+        {
+          "lower": 0.9,
+          "mean_probability": null,
+          "observed_rate": null,
+          "unit_count": 0,
+          "upper": 1.0
+        }
+      ],
+      "case_count": 2,
+      "costs": {
+        "basis": "unavailable",
+        "cost_per_case": null,
+        "covered_case_count": 0,
+        "currency": "USD",
+        "missing_case_count": 2,
+        "standard_rate_status": "unavailable",
+        "standard_rate_total_cost": null,
+        "total_cost": null
+      },
+      "equal_case_brier": 0.295,
+      "metadata": {
+        "ablation": null,
+        "comparison_eligibility": "unknown",
+        "condition": "unknown",
+        "display_name": "synthetic-model",
+        "eligibility_reason": "missing_registry_or_decision_boundary",
+        "model_version": null,
+        "provider": null,
+        "reasoning_effort": null,
+        "thinking_level": null,
+        "training_cutoff": null
+      },
+      "micro_brier": 0.22999999999999998,
+      "model_id": "synthetic-model",
+      "unit_count": 3,
+      "units": [
+        {
+          "brier": 0.03999999999999998,
+          "case_id": "synthetic-case-a",
+          "outcome": 1,
+          "probability_fully_dismissed": 0.8,
+          "unit_id": "synthetic-unit-a1"
+        },
+        {
+          "brier": 0.16000000000000003,
+          "case_id": "synthetic-case-a",
+          "outcome": 0,
+          "probability_fully_dismissed": 0.4,
+          "unit_id": "synthetic-unit-a2"
+        },
+        {
+          "brier": 0.48999999999999994,
+          "case_id": "synthetic-case-b",
+          "outcome": 0,
+          "probability_fully_dismissed": 0.7,
+          "unit_id": "synthetic-unit-b1"
+        }
+      ]
+    }
+  ],
+  "schema_version": "legalforecast-site-export-v1",
+  "source": {
+    "generated_at": "2026-01-01T00:00:00Z",
+    "model_registry_sha256": null,
+    "run_identity_sha256": null
+  }
+}
