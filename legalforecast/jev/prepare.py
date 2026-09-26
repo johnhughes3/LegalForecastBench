@@ -403,21 +403,34 @@ def prepare_summaries(
                 def call(
                     agent: Agent[None, str] = agent, prompt: str = prompt
                 ) -> dict[str, object]:
-                    result = agent.run_sync(
+                    # Receive response events while long reasoning requests run;
+                    # a buffered response can lose its idle gateway connection.
+                    with agent.run_stream_sync(
                         prompt, usage_limits=UsageLimits(request_limit=1)
-                    )
-                    usage = result.usage
+                    ) as result:
+                        summary_text = result.get_output()
+                        # EOF alone is not a successful Responses API completion.
+                        # Never save partial text or settle missing final usage.
+                        details = result.response.provider_details or {}
+                        if (
+                            result.response.finish_reason != "stop"
+                            or details.get("finish_reason") != "completed"
+                        ):
+                            raise ValueError(
+                                "Summary stream ended without a completed response"
+                            )
+                        usage = result.usage
                     input_tokens = usage.input_tokens
                     output_tokens = usage.output_tokens
                     if (
                         type(input_tokens) is not int
                         or type(output_tokens) is not int
-                        or input_tokens < 0
-                        or output_tokens < 0
+                        or input_tokens <= 0
+                        or output_tokens <= 0
                     ):
                         raise ValueError(f"{summary_label} token usage is invalid")
                     return {
-                        "text": result.output,
+                        "text": summary_text,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                         "cost": _estimated_cost(  # pyright: ignore[reportPrivateUsage]

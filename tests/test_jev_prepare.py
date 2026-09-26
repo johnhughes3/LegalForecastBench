@@ -14,6 +14,9 @@ from legalforecast.jev.packets import case_documents
 from legalforecast.release import ForecastExecution, load_forecast_execution
 from legalforecast.runner import issue_runner_fixture
 from pydantic_ai.usage import RequestUsage
+from tests.test_jev_grok_prepare import (
+    _FakeResult,  # pyright: ignore[reportPrivateUsage]
+)
 
 
 def _entry(*, surcharge_threshold: int = 272_000) -> ModelRegistryEntry:
@@ -69,18 +72,12 @@ def _documents(execution: ForecastExecution) -> tuple[Any, ...]:
     )
 
 
-class _FakeResult:
-    def __init__(self, output: object, usage: object) -> None:
-        self.output = output
-        self.usage = usage
-
-
 class _FakeAgent:
     def __init__(self, owner: _FakeAgentFactory, model: object) -> None:
         self.owner = owner
         self.model = model
 
-    def run_sync(self, prompt: str, *, usage_limits: object) -> _FakeResult:
+    def run_stream_sync(self, prompt: str, *, usage_limits: object) -> _FakeResult:
         del usage_limits
         self.owner.prompts.append(prompt)
         self.owner.models.append(self.model)
@@ -299,7 +296,7 @@ def test_large_summary_is_accepted_when_the_whole_case_fits(
         output="x" * 12_000,
         usage=RequestUsage(input_tokens=10, output_tokens=10),
     )
-    original_run = _FakeAgent.run_sync
+    original_run = _FakeAgent.run_stream_sync
 
     def run_once_large(
         self: _FakeAgent, prompt: str, *, usage_limits: object
@@ -308,7 +305,7 @@ def test_large_summary_is_accepted_when_the_whole_case_fits(
         self.owner.output = "Short faithful summary."
         return result
 
-    monkeypatch.setattr(_FakeAgent, "run_sync", run_once_large)
+    monkeypatch.setattr(_FakeAgent, "run_stream_sync", run_once_large)
     monkeypatch.setattr(prepare, "Agent", factory)
     monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
     cache = tmp_path / "summaries.json"
