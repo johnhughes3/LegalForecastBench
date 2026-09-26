@@ -108,9 +108,11 @@ def _assert_bash_read(stdout_path: Path) -> str:
     reason="set LFB_TERMINAL_RELEASE_E2E_IMAGE to a locally built Claude image ID",
 )
 @pytest.mark.parametrize("separate_scoring", [False, True])
+@pytest.mark.parametrize("case_id", [None, "case-001"])
 def test_rootless_release_run_reads_and_scores_every_selected_unit(
     tmp_path: Path,
     separate_scoring: bool,
+    case_id: str | None,
 ) -> None:
     image_id = os.environ["LFB_TERMINAL_RELEASE_E2E_IMAGE"]
     release_root = tmp_path / "release"
@@ -174,6 +176,8 @@ def test_rootless_release_run_reads_and_scores_every_selected_unit(
             "--run-id",
             f"release-smoke-{suffix}",
         ]
+        if case_id is not None:
+            command.extend(("--case-id", case_id))
         if not separate_scoring:
             command.extend(
                 ("--labels-release", str(release_root / "labels-release.json"))
@@ -219,14 +223,20 @@ def test_rootless_release_run_reads_and_scores_every_selected_unit(
         scores = _read_json(output_root / "scores.json")
         assert scores["selection"]["complete"] is True
         model = scores["models"][0]
-        assert model["selected_unit_count"] == 2
-        assert model["completed_unit_count"] == 2
+        expected_count = 1 if case_id is not None else 2
+        assert scores["selection"]["coverage_kind"] == (
+            "scoped" if case_id is not None else "full"
+        )
+        assert scores["selection"]["full_release_selected"] is (case_id is None)
+        assert model["selected_unit_count"] == expected_count
+        assert model["completed_unit_count"] == expected_count
         assert model["failed_unit_count"] == 0
-        assert model["micro_brier"] == pytest.approx(0.3125)
-        assert model["equal_case_brier"] == pytest.approx(0.3125)
+        expected_brier = 0.0625 if case_id is not None else 0.3125
+        assert model["micro_brier"] == pytest.approx(expected_brier)
+        assert model["equal_case_brier"] == pytest.approx(expected_brier)
 
         packages = sorted((output_root / "container-runs").glob("*/package"))
-        assert len(packages) == 3
+        assert len(packages) == (1 if case_id is not None else 3)
         observed_units: set[str] = set()
         for package in packages:
             result = _read_json(package / "result.json")
@@ -240,12 +250,16 @@ def test_rootless_release_run_reads_and_scores_every_selected_unit(
             assert proxy["decision_count"] == 3
             stdout = next(package.parent.glob("logs/*harness.stdout"))
             observed_units.add(_assert_bash_read(stdout))
-        assert observed_units == {"unit-001", "unit-002", "unit-003"}
+        assert observed_units == (
+            {"unit-001"}
+            if case_id is not None
+            else {"unit-001", "unit-002", "unit-003"}
+        )
 
         requests = [
             json.loads(line) for line in _docker("logs", fixture).stdout.splitlines()
         ]
-        assert len(requests) == 9
+        assert len(requests) == 3 * len(packages)
         assert {item["unit_id"] for item in requests} == observed_units
         assert {item["path"] for item in requests} == {"/v1/messages?beta=true"}
     finally:

@@ -41,6 +41,7 @@ class TerminalReleaseOptions:
     backend: str
     timeout_seconds: int
     run_id: str
+    case_id: str | None = None
     paid_config_path: Path | None = None
     model_registry_path: Path | None = None
     gateway_upstream_base_url: str | None = None
@@ -144,6 +145,9 @@ class TerminalReleaseOptions:
         run_id = str(args.run_id)
         if not model_key.strip() or not run_id.strip():
             raise ValueError("model key and run ID must be non-empty")
+        case_id = getattr(args, "case_id", None)
+        if case_id is not None and not case_id.strip():
+            raise ValueError("--case-id must be non-empty")
         timeout = int(args.timeout_seconds)
         if timeout <= 0:
             raise ValueError("--timeout-seconds must be positive")
@@ -166,6 +170,7 @@ class TerminalReleaseOptions:
             backend=str(args.backend),
             timeout_seconds=timeout,
             run_id=run_id,
+            case_id=case_id,
             paid_config_path=paid_config_path,
             model_registry_path=model_registry_path,
             gateway_upstream_base_url=gateway_upstream_base_url,
@@ -315,6 +320,13 @@ def _add_release_execution_arguments(
         "--backend",
         choices=(BACKEND_DOCKER,),
         default=BACKEND_DOCKER,
+    )
+    parser.add_argument(
+        "--case-id",
+        help=(
+            "Execute only this exact release case, retaining all its prediction "
+            "units. Omit for the full release."
+        ),
     )
     parser.add_argument("--timeout-seconds", type=int, default=900)
     parser.add_argument("--run-id", default="claude-code-release")

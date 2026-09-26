@@ -4485,6 +4485,19 @@
         {
           "action": "store",
           "choices": null,
+          "default": null,
+          "dest": "case_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--case-id"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
           "default": 900,
           "dest": "timeout_seconds",
           "metavar": null,
@@ -4737,6 +4750,19 @@
           "nargs": null,
           "option_strings": [
             "--backend"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "case_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--case-id"
           ],
           "required": false,
           "type": null

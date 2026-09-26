@@ -76,3 +76,31 @@ def test_terminal_workflow_builds_and_verifies_local_pinned_images() -> None:
     assert terminal.count("=~ ^sha256:[0-9a-f]{64}$") == 2
     assert 'LFB_PROTECTED_TERMINAL_RELEASE: "1"' in terminal
     assert "id-token: write" in terminal
+
+
+def test_terminal_case_selector_is_quoted_and_rejected_for_native_mode() -> None:
+    import os
+    import subprocess
+    import textwrap
+
+    terminal = _job("run-terminal", "run-openai")
+    assert "TERMINAL_CASE_ID: ${{ inputs.terminal_case_id }}" in terminal
+    assert 'case_args+=(--case-id "${TERMINAL_CASE_ID}")' in terminal
+    assert 'release-execute "${case_args[@]}"' in terminal
+    prepare = _job("prepare-inputs", "run-terminal")
+    start = prepare.index('          if [[ -n "${TERMINAL_CASE_ID}"')
+    end = prepare.index("          fi", start) + len("          fi")
+    guard = textwrap.dedent(prepare[start:end])
+    for mode, case_id, accepted in (
+        ("native", "case-001", False),
+        ("native", "", True),
+        ("claude-code-terminal", "case-001", True),
+    ):
+        result = subprocess.run(
+            ["bash", "-c", guard],
+            env={**os.environ, "EXECUTION_MODE": mode, "TERMINAL_CASE_ID": case_id},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert (result.returncode == 0) is accepted

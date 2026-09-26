@@ -379,10 +379,18 @@ def score_release(
             ),
         },
         "selection": {
+            "coverage_kind": getattr(
+                run.selection,
+                "coverage_kind",
+                "full" if set(selected_unit_ids) == set(units_by_id) else "scoped",
+            ),
             "selected_task_ids": list(selected_task_ids),
             "selected_case_ids": sorted(set(selected_case_ids)),
             "selected_unit_ids": list(scoreable_selected_ids),
             "expected_unit_count": len(scoreable_selected_ids),
+            "release_scoreable_unit_count": len(expected_scoreable),
+            "release_case_count": len(release_case_ids),
+            "full_release_selected": set(selected_unit_ids) == set(units_by_id),
             "missing_task_ids": list(missing_task_ids),
             "incomplete_unit_count": sum(
                 len(
