@@ -134,6 +134,8 @@
     "tests/test_recovery_artifact_loader.py",
     "tests/test_release_check.py",
     "tests/test_scripts_docs.py",
+    "tests/test_site_export.py",
+    "tests/test_site_workflows.py",
     "tests/test_stable_score_timestamps.py",
     "tests/test_summary_comparator_models.py",
     "tests/test_supplementary_provider_registries.py",
@@ -222,6 +224,9 @@
     "tests/test_provider_spend_settlement_contract.py": [
       "legalforecast/evals/provider_spend_control.py",
       "legalforecast/evals/provider_spend_dynamodb.py"
+    ],
+    "tests/test_site_workflows.py": [
+      "legalforecast/scoring.py"
     ]
   },
   "schema_version": 1
