@@ -18,6 +18,7 @@ This index covers the current public contracts, operator guides, and reproducibl
 - [Contamination-tier reporting](contamination-tier-reporting.md): the mechanical rule that distinguishes contamination-resistant scores from preliminary (non-contamination-resistant) scores — both official, viable results — and the paired drift metric between them.
 - [official-run-runbook.md](official-run-runbook.md): the public release boundary — immutable inputs, protected forecast/fan-in workflows, strict scoring, reporting, and hold conditions.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
+- [Website data contract](site-data.md): public score exports, generated TypeScript types, frontend integration, and withdrawal behavior.
 - [Publication governance](publication-governance.md): current track-separation, arm, reporting, and non-affiliation rules.
 - [Hugging Face benchmark publication](hugging-face-publication.md): manually gated access, immutable dataset revisions, native leaderboard registration, and short-lived automated publication.
 

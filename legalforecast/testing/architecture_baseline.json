@@ -2,9 +2,9 @@
   "cli_metrics": {
     "command_handler_count": 0,
     "command_handler_lines": 0,
-    "line_count": 135,
-    "nonblank_line_count": 115,
-    "parser_line_count": 24,
+    "line_count": 137,
+    "nonblank_line_count": 117,
+    "parser_line_count": 25,
     "top_level_class_count": 1,
     "top_level_definition_count": 5,
     "verifier_family_count": 0,
@@ -28,6 +28,7 @@
       "tests/test_public_runner.py",
       "tests/test_release_artifact_contract.py",
       "tests/test_release_cli.py",
+      "tests/test_site_export.py",
       "tests/test_study_cli.py",
       "tests/test_terminal_release.py",
       "tests/test_terminal_release_execute_score.py"
@@ -49,6 +50,7 @@
       "tests/test_public_runner.py",
       "tests/test_release_artifact_contract.py",
       "tests/test_release_cli.py",
+      "tests/test_site_export.py",
       "tests/test_study_cli.py",
       "tests/test_terminal_release.py",
       "tests/test_terminal_release_execute_score.py"
@@ -75,6 +77,7 @@
       "tests/test_public_runner.py",
       "tests/test_release_artifact_contract.py",
       "tests/test_release_cli.py",
+      "tests/test_site_export.py",
       "tests/test_study_cli.py",
       "tests/test_terminal_release.py",
       "tests/test_terminal_release_execute_score.py"
@@ -97,6 +100,7 @@
       "tests/test_public_runner.py::legalforecast.cli.main",
       "tests/test_release_artifact_contract.py::legalforecast.cli.main",
       "tests/test_release_cli.py::legalforecast.cli.main",
+      "tests/test_site_export.py::legalforecast.cli.main",
       "tests/test_study_cli.py::legalforecast.cli.main",
       "tests/test_terminal_release.py::legalforecast.cli.main",
       "tests/test_terminal_release_execute_score.py::legalforecast.cli.main"
@@ -290,7 +294,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 27,
+        "fan_in": 28,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -307,7 +311,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 14,
+        "fan_in": 15,
         "fan_out": 0,
         "flags": [
           "watch"
@@ -392,7 +396,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 3,
+        "fan_in": 4,
         "fan_out": 6,
         "flags": [
           "watch"
@@ -409,7 +413,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 8,
+        "fan_in": 9,
         "fan_out": 1,
         "flags": [
           "watch"
@@ -1404,7 +1408,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "reporting",
-        "fan_in": 9,
+        "fan_in": 10,
         "fan_out": 3,
         "flags": [
           "watch"
@@ -1421,7 +1425,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "reporting",
-        "fan_in": 2,
+        "fan_in": 3,
         "fan_out": 7,
         "flags": [
           "watch"

@@ -1,0 +1,77 @@
+name: Site data contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'legalforecast/**'
+      - 'docs/schemas/site-export-v1.schema.json'
+      - 'tests/test_site*'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/site-contract.yaml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'legalforecast/**'
+      - 'docs/schemas/site-export-v1.schema.json'
+      - 'tests/test_site*'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/site-contract.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Site contract and TypeScript
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Sync Python dependencies
+        run: uv sync --locked
+
+      - name: Check Python exporter and cross-language fixture
+        run: uv run pytest tests/test_site_export.py -q
+
+      - name: Check generated JSON Schema
+        run: |
+          uv run legalforecast site schema --output /tmp/site-export-v1.schema.json
+          diff -u docs/schemas/site-export-v1.schema.json /tmp/site-export-v1.schema.json
+
+      - name: Install Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+
+      - name: Install site contract dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.27.0 --activate
+          pnpm install --frozen-lockfile
+
+      - name: Validate contract, generated types, and TypeScript
+        run: pnpm site:check

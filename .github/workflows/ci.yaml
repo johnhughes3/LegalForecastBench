@@ -26,53 +26,74 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Classify changes for Python checks
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash .github/scripts/classify-python-changes.sh
 
       - name: Install uv
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
 
       - name: Sync dependencies
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: uv sync --locked
 
       - name: Install Node for the native Jev SDK regression tests
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
 
       - name: Install the pinned Jev evaluation SDK
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: |
           corepack enable
           corepack prepare pnpm@11.27.0 --activate
           pnpm --dir integrations/jev install --frozen-lockfile
 
       - name: Test the native Jev adapter without provider access
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: node --test integrations/jev/*.test.mjs
 
       - name: Check formatting
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: uv run ruff format --check .
 
       - name: Lint
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: uv run ruff check .
 
       - name: Contract ratchet
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: uv run python -m legalforecast.contracts.ratchet
 
       - name: Type-check
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: uv run pyright
 
       - name: Check benchmark and settlement contracts
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: >-
           uv run pytest tests/test_fan_in_metadata.py
           tests/test_provider_spend_settlement_contract.py -q
 
       - name: Check public API docstring coverage
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: >-
           uv run interrogate
           legalforecast/publication
           scripts
 
       - name: Test
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         # Supported parallel full-suite command (see AGENTS.md “Testing”).
         # pytest-cov combines the per-worker xdist coverage data automatically.
         run: >-
@@ -84,7 +105,7 @@ jobs:
       - name: Upload coverage reports to Codecov
         # Coverage is most useful when the suite failed, so upload unless the
         # run was cancelled rather than only on success.
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.changes.outputs.run_python == 'true' }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -95,7 +116,7 @@ jobs:
       # report_type: test_results.  codecov/test-results-action is deprecated in
       # favour of this, and it was the last thing pulling in a Node 20 runtime.
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.changes.outputs.run_python == 'true' }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -104,4 +125,5 @@ jobs:
           report_type: test_results
 
       - name: Build package
+        if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: uv build --out-dir tmp/ci-dist

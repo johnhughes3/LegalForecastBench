@@ -707,6 +707,27 @@ jobs:
           print(f"Published immutable Hugging Face revision: {commit.oid}")
           PY
 
+      # Copying the public inputs works even when release_sha predates the site
+      # exporter. The separate read-only site workflow runs current main code.
+      - name: Prepare published site export inputs
+        if: ${{ inputs.publish }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-site-source
+          cp -f /tmp/lfb-score.json /tmp/lfb-site-source/scores.json
+          cp -f /tmp/lfb-report/leaderboard.json /tmp/lfb-site-source/report.json
+          cp -f /tmp/lfb-fan-in-reference/model-registry.json /tmp/lfb-site-source/model-registry.json
+
+      - name: Upload published site export inputs
+        if: ${{ inputs.publish }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: site-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/lfb-site-source
+          if-no-files-found: error
+          retention-days: ${{ inputs.artifact_retention_days }}
+
       - name: Upload sanitized score and report artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0

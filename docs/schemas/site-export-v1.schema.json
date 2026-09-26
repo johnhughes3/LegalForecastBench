@@ -1,0 +1,462 @@
+{
+  "$defs": {
+    "SiteCalibrationBin": {
+      "additionalProperties": false,
+      "description": "Calibration values computed by the Python scorer.",
+      "properties": {
+        "lower": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Lower",
+          "type": "number"
+        },
+        "mean_probability": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean Probability"
+        },
+        "observed_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Observed Rate"
+        },
+        "unit_count": {
+          "minimum": 0,
+          "title": "Unit Count",
+          "type": "integer"
+        },
+        "upper": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Upper",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lower",
+        "upper",
+        "unit_count",
+        "mean_probability",
+        "observed_rate"
+      ],
+      "title": "SiteCalibrationBin",
+      "type": "object"
+    },
+    "SiteCosts": {
+      "additionalProperties": false,
+      "description": "Cost availability; missing accounting is never interpreted as free usage.",
+      "properties": {
+        "basis": {
+          "enum": [
+            "unavailable",
+            "estimated_accounting"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "cost_per_case": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cost Per Case"
+        },
+        "covered_case_count": {
+          "minimum": 0,
+          "title": "Covered Case Count",
+          "type": "integer"
+        },
+        "currency": {
+          "const": "USD",
+          "default": "USD",
+          "title": "Currency",
+          "type": "string"
+        },
+        "missing_case_count": {
+          "minimum": 0,
+          "title": "Missing Case Count",
+          "type": "integer"
+        },
+        "standard_rate_status": {
+          "const": "unavailable",
+          "default": "unavailable",
+          "title": "Standard Rate Status",
+          "type": "string"
+        },
+        "standard_rate_total_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Standard Rate Total Cost"
+        },
+        "total_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total Cost"
+        }
+      },
+      "required": [
+        "basis",
+        "total_cost",
+        "cost_per_case",
+        "covered_case_count",
+        "missing_case_count"
+      ],
+      "title": "SiteCosts",
+      "type": "object"
+    },
+    "SiteModelMetadata": {
+      "additionalProperties": false,
+      "description": "A whitelist of display and experimental settings from a frozen registry.",
+      "properties": {
+        "ablation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ablation"
+        },
+        "comparison_eligibility": {
+          "enum": [
+            "eligible",
+            "qualified",
+            "unknown"
+          ],
+          "title": "Comparison Eligibility",
+          "type": "string"
+        },
+        "condition": {
+          "enum": [
+            "agentic",
+            "summary",
+            "full_text_one_shot",
+            "unknown"
+          ],
+          "title": "Condition",
+          "type": "string"
+        },
+        "display_name": {
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "eligibility_reason": {
+          "title": "Eligibility Reason",
+          "type": "string"
+        },
+        "model_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model Version"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Provider"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reasoning Effort"
+        },
+        "thinking_level": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Thinking Level"
+        },
+        "training_cutoff": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Training Cutoff"
+        }
+      },
+      "required": [
+        "display_name",
+        "provider",
+        "model_version",
+        "condition",
+        "ablation",
+        "reasoning_effort",
+        "thinking_level",
+        "training_cutoff",
+        "comparison_eligibility",
+        "eligibility_reason"
+      ],
+      "title": "SiteModelMetadata",
+      "type": "object"
+    },
+    "SiteResult": {
+      "additionalProperties": false,
+      "description": "One model/condition row, including its public unit-level explorer data.",
+      "properties": {
+        "calibration": {
+          "items": {
+            "$ref": "#/$defs/SiteCalibrationBin"
+          },
+          "title": "Calibration",
+          "type": "array"
+        },
+        "case_count": {
+          "minimum": 0,
+          "title": "Case Count",
+          "type": "integer"
+        },
+        "costs": {
+          "$ref": "#/$defs/SiteCosts"
+        },
+        "equal_case_brier": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Equal Case Brier",
+          "type": "number"
+        },
+        "metadata": {
+          "$ref": "#/$defs/SiteModelMetadata"
+        },
+        "micro_brier": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Micro Brier",
+          "type": "number"
+        },
+        "model_id": {
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "unit_count": {
+          "minimum": 0,
+          "title": "Unit Count",
+          "type": "integer"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/$defs/SiteUnit"
+          },
+          "title": "Units",
+          "type": "array"
+        }
+      },
+      "required": [
+        "model_id",
+        "metadata",
+        "case_count",
+        "unit_count",
+        "micro_brier",
+        "equal_case_brier",
+        "calibration",
+        "costs",
+        "units"
+      ],
+      "title": "SiteResult",
+      "type": "object"
+    },
+    "SiteSource": {
+      "additionalProperties": false,
+      "description": "Existing score provenance, without local paths or new identity machinery.",
+      "properties": {
+        "generated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Generated At"
+        },
+        "model_registry_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model Registry Sha256"
+        },
+        "run_identity_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Run Identity Sha256"
+        }
+      },
+      "required": [
+        "run_identity_sha256",
+        "model_registry_sha256",
+        "generated_at"
+      ],
+      "title": "SiteSource",
+      "type": "object"
+    },
+    "SiteUnit": {
+      "additionalProperties": false,
+      "description": "A public prediction unit, with no document content or execution details.",
+      "properties": {
+        "brier": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Brier",
+          "type": "number"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            0,
+            1
+          ],
+          "title": "Outcome",
+          "type": "integer"
+        },
+        "probability_fully_dismissed": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Probability Fully Dismissed",
+          "type": "number"
+        },
+        "unit_id": {
+          "minLength": 1,
+          "title": "Unit Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "unit_id",
+        "probability_fully_dismissed",
+        "outcome",
+        "brier"
+      ],
+      "title": "SiteUnit",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Versioned site data generated only from scored, public benchmark outputs.",
+  "properties": {
+    "contamination_boundary": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Contamination Boundary"
+    },
+    "excluded_case_count": {
+      "minimum": 0,
+      "title": "Excluded Case Count",
+      "type": "integer"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/SiteResult"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "legalforecast-site-export-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SiteSource"
+    }
+  },
+  "required": [
+    "schema_version",
+    "source",
+    "contamination_boundary",
+    "excluded_case_count",
+    "results"
+  ],
+  "title": "SiteExport",
+  "type": "object"
+}
