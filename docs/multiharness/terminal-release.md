@@ -37,7 +37,7 @@ uv run legalforecast multiharness release-score \
   --artifact-root run-inputs
 ```
 
-For a one-case smoke, add `--case-id CASE_ID` to `release-run` or `release-execute`. The ID must exist in the unchanged forecast release; unknown IDs fail before an adapter is built. The selected case retains every prediction unit, and the saved selection is marked scoped. Scoring reports the selected unit denominator alongside the release case and scoreable-unit counts and `full_release_selected`; completing the smoke does not establish full-release coverage. Omitting `--case-id` preserves full-release execution.
+For a one-case smoke, add `--case-id CASE_ID` to `release-run` or `release-execute`. The ID must exist in the unchanged forecast release; unknown IDs and cases with no scoreable units fail before an adapter is built. The selected case retains every prediction unit, and the saved selection is marked scoped. Scoring reports the selected unit denominator alongside the release case and scoreable-unit counts and `full_release_selected`; completing the smoke does not establish full-release coverage. Omitting `--case-id` preserves full-release execution.
 
 The score command reads and validates the saved run package and writes `run-results/scores.json`; it does not launch Claude Code or contact a model provider. Keep the labels release outside the forecast worker and its container mounts. A failed forecast row remains in the scored unit denominator, while an incomplete package cannot claim a complete headline result.
 

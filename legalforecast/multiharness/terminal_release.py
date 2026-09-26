@@ -44,6 +44,11 @@ def terminal_case_count(
         return len(forecast.cases)
     if options.case_id not in {case.case_id for case in forecast.cases}:
         raise ValueError(f"unknown release case ID: {options.case_id}")
+    if not any(
+        unit.case_id == options.case_id and unit.should_score
+        for unit in forecast.prediction_units
+    ):
+        raise ValueError(f"selected case has no scoreable units: {options.case_id}")
     return 1
 
 

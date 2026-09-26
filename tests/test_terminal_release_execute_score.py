@@ -454,15 +454,19 @@ def test_single_case_execute_score_preserves_all_selected_units(
 
 
 @pytest.mark.parametrize("command", ["release-run", "release-execute"])
-def test_unknown_case_fails_before_adapter_creation(
-    tmp_path: Path, monkeypatch: Any, command: str
+@pytest.mark.parametrize("case_id", ["unknown-case", "case-003"])
+def test_invalid_case_fails_before_adapter_creation(
+    tmp_path: Path, monkeypatch: Any, command: str, case_id: str
 ) -> None:
     from legalforecast.multiharness import cli as multiharness_cli
+    from legalforecast.release.synthetic import issue_synthetic_release
 
-    release_root, artifact_root = _issue_unequal_case_release(tmp_path)
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    artifact_root = release_root
 
     def forbidden(*args: Any, **kwargs: Any) -> None:
-        pytest.fail("unknown case must fail before adapter creation")
+        pytest.fail("invalid case must fail before adapter creation")
 
     monkeypatch.setattr(multiharness_cli, "_build_terminal_release_adapter", forbidden)
     args = [
@@ -481,7 +485,7 @@ def test_unknown_case_fails_before_adapter_creation(
         "--fixture-base-url",
         "https://fixture.invalid:8080",
         "--case-id",
-        "unknown-case",
+        case_id,
     ]
     if command == "release-run":
         args.extend(["--labels-release", str(release_root / "labels-release.json")])
