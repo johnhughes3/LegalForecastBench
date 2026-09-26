@@ -35,6 +35,23 @@ ReleaseScorer = Callable[
 ]
 
 
+def terminal_case_count(
+    options: TerminalReleaseOptions, forecast: ForecastRelease
+) -> int:
+    """Validate the case scope before building an adapter or spending."""
+
+    if options.case_id is None:
+        return len(forecast.cases)
+    if options.case_id not in {case.case_id for case in forecast.cases}:
+        raise ValueError(f"unknown release case ID: {options.case_id}")
+    if not any(
+        unit.case_id == options.case_id and unit.should_score
+        for unit in forecast.prediction_units
+    ):
+        raise ValueError(f"selected case has no scoreable units: {options.case_id}")
+    return 1
+
+
 def _execute_blinded_release(
     options: TerminalReleaseOptions,
     *,
@@ -43,6 +60,7 @@ def _execute_blinded_release(
 ) -> MultiHarnessRun:
     """Stage only blinded inputs and execute one case call per release case."""
 
+    terminal_case_count(options, forecast)
     if options.output_dir.exists() or options.output_dir.is_symlink():
         raise ValueError("--output-dir must be a fresh, absent path")
     ensure_private_directory(options.output_dir)
@@ -77,7 +95,11 @@ def _execute_blinded_release(
             ),
             sandbox_policy=policy,
             output_dir=options.output_dir,
-            selection=TaskSelection.full(),
+            selection=(
+                TaskSelection(case_ids=(options.case_id,))
+                if options.case_id is not None
+                else TaskSelection.full()
+            ),
             run_id=options.run_id,
             max_parallelism=1,
             incomplete_run_policy="record_failure",

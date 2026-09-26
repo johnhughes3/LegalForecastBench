@@ -97,3 +97,7 @@ At close:
 
 - [ ] Result **or** an explicit structural halt, reported plainly with evidence (rule 6).
 - [ ] Any spend journaled against its approved ceiling (rule 7).
+
+## Terminal release smoke
+
+For a bounded Claude Code terminal validation, use `legalforecast multiharness release-execute --case-id CASE_ID` with the existing release inputs and execution options, then `release-score` on the saved package. The protected `run-benchmark.yaml` equivalent is `execution_mode=claude-code-terminal` plus `terminal_case_id=CASE_ID`. The selector keeps all units of that case and the existing spend ceiling; it does not issue a smaller corpus release or authorize paid execution. Check `selection.full_release_selected` and selected versus release counts when reporting coverage. Omit the selector for a full-release run.

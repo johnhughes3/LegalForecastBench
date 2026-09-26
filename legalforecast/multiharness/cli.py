@@ -825,7 +825,10 @@ def _cmd_terminal_release(args: argparse.Namespace) -> int:
     from legalforecast.multiharness.release_harness import (
         score_multiharness_release,
     )
-    from legalforecast.multiharness.terminal_release import execute_terminal_release
+    from legalforecast.multiharness.terminal_release import (
+        execute_terminal_release,
+        terminal_case_count,
+    )
     from legalforecast.release.service import validate_release
 
     options = TerminalReleaseOptions.from_args(args)
@@ -839,7 +842,7 @@ def _cmd_terminal_release(args: argparse.Namespace) -> int:
     try:
         adapter = _build_terminal_release_adapter(
             options,
-            case_count=len(forecast.cases),
+            case_count=terminal_case_count(options, forecast),
         )
     except ClaudeCodeContainerAdapterError as exc:
         raise ValueError(str(exc)) from exc
@@ -858,6 +861,7 @@ def _cmd_terminal_release_execute(args: argparse.Namespace) -> int:
     )
     from legalforecast.multiharness.terminal_release import (
         execute_terminal_release_only,
+        terminal_case_count,
     )
     from legalforecast.release.service import load_forecast_execution
 
@@ -869,7 +873,7 @@ def _cmd_terminal_release_execute(args: argparse.Namespace) -> int:
     try:
         adapter = _build_terminal_release_adapter(
             options,
-            case_count=len(forecast.cases),
+            case_count=terminal_case_count(options, forecast),
         )
     except ClaudeCodeContainerAdapterError as exc:
         raise ValueError(str(exc)) from exc

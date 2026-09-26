@@ -42,6 +42,11 @@ on:
         options:
           - native
           - claude-code-terminal
+      terminal_case_id:
+        description: Optional exact case ID for a scoped Claude Code smoke run; empty runs the full release.
+        required: false
+        default: ""
+        type: string
       ceiling_microusd:
         description: Positive run ceiling in millionths of one US dollar.
         required: true
@@ -142,6 +147,8 @@ jobs:
       - name: Validate dispatch identity and bounded values
         shell: bash
         env:
+          EXECUTION_MODE: ${{ inputs.execution_mode }}
+          TERMINAL_CASE_ID: ${{ inputs.terminal_case_id }}
           MANIFEST_URI: ${{ inputs.manifest_uri }}
           FORECAST_RELEASE_URI: ${{ inputs.forecast_release_uri }}
           ARTIFACT_ROOT_URI: ${{ inputs.artifact_root_uri }}
@@ -158,6 +165,10 @@ jobs:
           RESUME_SOURCES: ${{ inputs.resume_sources }}
         run: |
           set -euo pipefail
+          if [[ -n "${TERMINAL_CASE_ID}" && "${EXECUTION_MODE}" != "claude-code-terminal" ]]; then
+            echo "terminal_case_id requires claude-code-terminal execution mode" >&2
+            exit 1
+          fi
           for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
             [[ -n "${value}" && "${value}" != *..* ]] || { echo "unsafe or empty dispatch identity" >&2; exit 1; }
           done
@@ -687,9 +698,14 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MODEL_KEY: ${{ inputs.model_key }}
+          TERMINAL_CASE_ID: ${{ inputs.terminal_case_id }}
         run: |
           set -euo pipefail
-          uv run legalforecast multiharness release-execute \
+          case_args=()
+          if [[ -n "${TERMINAL_CASE_ID}" ]]; then
+            case_args+=(--case-id "${TERMINAL_CASE_ID}")
+          fi
+          uv run legalforecast multiharness release-execute "${case_args[@]}" \
             --forecast-release /tmp/lfb-terminal-inputs/forecast-release.json \
             --artifact-root /tmp/lfb-terminal-inputs/artifacts \
             --output-dir /tmp/lfb-terminal-paid/release \

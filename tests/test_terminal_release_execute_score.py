@@ -242,9 +242,11 @@ def test_scoreless_execution_round_trip_scores_unequal_case_failure(
     assert report["headline_metrics_available"] is True
 
 
+@pytest.mark.parametrize("case_id", [None, "case-001"])
 def test_release_execute_and_score_cli_separate_label_boundary(
     tmp_path: Path,
     monkeypatch: Any,
+    case_id: str | None,
 ) -> None:
     from legalforecast.multiharness import cli as multiharness_cli
 
@@ -254,7 +256,8 @@ def test_release_execute_and_score_cli_separate_label_boundary(
     def build_fixture_adapter(
         options: TerminalReleaseOptions, *, case_count: int
     ) -> CaseBatchFixtureAdapter:
-        del options, case_count
+        assert options.case_id == case_id
+        assert case_count == (1 if case_id is not None else 2)
         return adapter
 
     monkeypatch.setattr(
@@ -279,6 +282,8 @@ def test_release_execute_and_score_cli_separate_label_boundary(
         "--fixture-base-url",
         "https://fixture.invalid:8080",
     ]
+    if case_id is not None:
+        common.extend(["--case-id", case_id])
     assert main(common) == 0
     assert (output / "row-results.jsonl").is_file()
     assert not (output / "scores.json").exists()
@@ -412,3 +417,77 @@ def test_saved_package_rejects_run_compatibility_mismatch(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="run-compatibility commitment"):
         load_terminal_release_run(options.output_dir)
+
+
+@pytest.mark.parametrize(
+    "case_id,unit_count,failed",
+    [("case-001", 2, False), ("case-001", 2, True), ("case-002", 1, False)],
+)
+def test_single_case_execute_score_preserves_all_selected_units(
+    tmp_path: Path, case_id: str, unit_count: int, failed: bool
+) -> None:
+    release_root, artifact_root = _issue_unequal_case_release(tmp_path)
+    adapter = CaseBatchFixtureAdapter(failed_case_id=case_id if failed else None)
+    options = replace(
+        _options(release_root, artifact_root, tmp_path / "run"), case_id=case_id
+    )
+    execute_terminal_release_only(options, adapter=adapter)
+    loaded = load_terminal_release_run(options.output_dir)
+    assert loaded.selection.coverage_kind == "scoped"
+    assert len(loaded.selection.tasks) == 1
+    report = score_terminal_release(
+        run_dir=options.output_dir,
+        forecast_release_path=options.forecast_release,
+        labels_release_path=release_root / "labels-release.json",
+        artifact_root=artifact_root,
+        score=score_multiharness_release,
+    )
+    assert adapter.calls == [case_id]
+    assert report["selection"]["selected_case_ids"] == [case_id]
+    assert report["selection"]["expected_unit_count"] == unit_count
+    assert report["selection"]["coverage_kind"] == "scoped"
+    assert report["selection"]["full_release_selected"] is False
+    assert report["selection"]["release_scoreable_unit_count"] == 3
+    assert report["selection"]["release_case_count"] == 2
+    assert report["models"][0]["unit_count"] == unit_count
+    assert report["models"][0]["failed_unit_count"] == (unit_count if failed else 0)
+
+
+@pytest.mark.parametrize("command", ["release-run", "release-execute"])
+@pytest.mark.parametrize("case_id", ["unknown-case", "case-003"])
+def test_invalid_case_fails_before_adapter_creation(
+    tmp_path: Path, monkeypatch: Any, command: str, case_id: str
+) -> None:
+    from legalforecast.multiharness import cli as multiharness_cli
+    from legalforecast.release.synthetic import issue_synthetic_release
+
+    release_root = tmp_path / "release"
+    issue_synthetic_release(release_root)
+    artifact_root = release_root
+
+    def forbidden(*args: Any, **kwargs: Any) -> None:
+        pytest.fail("invalid case must fail before adapter creation")
+
+    monkeypatch.setattr(multiharness_cli, "_build_terminal_release_adapter", forbidden)
+    args = [
+        "multiharness",
+        command,
+        "--forecast-release",
+        str(release_root / "forecast-release.json"),
+        "--artifact-root",
+        str(artifact_root),
+        "--output-dir",
+        str(tmp_path / "run"),
+        "--model-key",
+        "fixture",
+        "--image",
+        "sha256:" + "a" * 64,
+        "--fixture-base-url",
+        "https://fixture.invalid:8080",
+        "--case-id",
+        case_id,
+    ]
+    if command == "release-run":
+        args.extend(["--labels-release", str(release_root / "labels-release.json")])
+    assert main(args) != 0
+    assert not (tmp_path / "run").exists()

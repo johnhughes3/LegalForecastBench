@@ -591,8 +591,8 @@
         "largest_symbol": "add_multiharness_parser",
         "largest_symbol_lines": 403,
         "layer": "application",
-        "line_count": 1661,
-        "nonblank_line_count": 1523,
+        "line_count": 1665,
+        "nonblank_line_count": 1527,
         "top_level_definition_count": 49
       },
       "legalforecast/multiharness/codex_cli.py": {
@@ -1120,10 +1120,10 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "score_release",
-        "largest_symbol_lines": 375,
+        "largest_symbol_lines": 383,
         "layer": "application",
-        "line_count": 594,
-        "nonblank_line_count": 552,
+        "line_count": 602,
+        "nonblank_line_count": 560,
         "top_level_definition_count": 12
       },
       "legalforecast/multiharness/runner.py": {
