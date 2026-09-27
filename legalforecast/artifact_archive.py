@@ -14,7 +14,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from legalforecast.contracts.schemas import GITHUB_ARTIFACT_POINTER_V1
 from legalforecast.immutable_io import write_file_replace_safe
 
 _HELPER = Path(__file__).resolve().parents[1] / ".github/scripts/reconcile-s3-object.sh"
@@ -149,7 +148,6 @@ def _pointer(repository: str, artifact: dict[str, object]) -> tuple[str, bytes] 
     # Only immutable metadata, sorted, so an archive re-run reproduces the same
     # bytes and the create-once helper reuses the existing object.
     value = {
-        "schema_version": str(GITHUB_ARTIFACT_POINTER_V1),
         "repository": repository,
         "source_run_id": run_id,
         "artifact_id": identifier,
