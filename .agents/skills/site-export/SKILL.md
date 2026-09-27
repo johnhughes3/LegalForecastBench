@@ -12,3 +12,7 @@ The Python contract is authoritative. After changing it, run `uv run legalforeca
 Keep Python scoring and eligibility logic shared. Withdrawals must affect aggregate metrics as well as visible case rows. Null cost means missing evidence, not zero. Separate summary experiments from full-document agentic runs, and do not infer eligibility from model release dates. The synthetic fixture supports development only.
 
 See [the public contract guide](../../../docs/site-data.md) for integration and publication semantics. Exporting data does not deploy the website or authorize publication of private inputs.
+
+The selected site combines the historical aggregate snapshot with validated native exports in `site/src/data/exports/`. Reproduce its updated paired case-cluster analysis with `uv run scripts/compare_site_results.py --inputs site/src/data/significance/inputs.json --output /tmp/comparison.json`. Preserve the input manifest's planned comparison family and missing-model disclosure; missing prediction data is not evidence of nonsignificance.
+
+When the owner requests S3 publication, dispatch `gh workflow run publish-site-data.yaml --ref main` after the selected data lands. The protected fan-in environment publishes built JSON and JSONL under `reports/site-data/multi-ablation/<commit>/data/` and checks every object by readback. Verify the job's publication step and dataset count before claiming success. This is separate from the website's Vercel deployment.
