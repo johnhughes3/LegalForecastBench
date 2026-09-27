@@ -27,9 +27,9 @@ from legalforecast.multiharness.openclaw import (
     unit_ids,
     validate_request,
 )
-from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
+from legalforecast.multiharness.openclaw_tool import PromptDelivery, bridge_read
+from legalforecast.multiharness.sandbox import PROVIDER_EGRESS_HOST_ONLY
 from legalforecast.multiharness.spec import RunRequest, RunResult
-from legalforecast.multiharness.tool_protocol import ToolRequest, encode_tool_message
 
 
 def runtime_root() -> Path:
@@ -92,39 +92,6 @@ def build_config(model: str, descriptor: int) -> dict[str, Any]:
     }
 
 
-def bridge_read(
-    channel: socket.socket,
-    transport: ToolTransport,
-    request_id: str,
-    reads: list[int],
-    failures: list[BaseException],
-) -> None:
-    """Translate the plugin's sole operation into the existing container protocol."""
-    try:
-        with channel.makefile("rb") as reader:
-            message = reader.readline(256)
-            if message != b'{"operation":"read_solver_prompt"}\n':
-                raise OpenClawError("OpenClaw tool sent an unsupported operation")
-            request = ToolRequest(
-                request_id=f"{request_id}:openclaw:read",
-                operation="read_text",
-                arguments={"encoding": "utf-8"},
-                input_paths=(SOLVER_INPUT_ENTRY_PATH,),
-            )
-            response = transport.execute(request)
-            if (
-                response.request_id != request.request_id
-                or response.status != "succeeded"
-            ):
-                raise OpenClawError("OpenClaw host tool response failed or mismatched")
-            channel.sendall(encode_tool_message(response))
-            reads.append(1)
-    except (OSError, ValueError, RuntimeError) as exc:
-        failures.append(exc)
-    finally:
-        channel.close()
-
-
 def run_openclaw(
     request: RunRequest,
     workspace: Path,
@@ -134,8 +101,8 @@ def run_openclaw(
     validate_request(request)
     if request.sandbox_policy.allowed_provider_env_vars != ("OPENAI_API_KEY",):
         raise OpenClawError("OpenClaw provider grant must be exactly OPENAI_API_KEY")
-    if request.sandbox_policy.network_policy != "provider-egress-host-only":
-        raise OpenClawError("OpenClaw requires provider-egress-host-only policy")
+    if request.sandbox_policy.network_policy != PROVIDER_EGRESS_HOST_ONLY:
+        raise OpenClawError(f"OpenClaw requires {PROVIDER_EGRESS_HOST_ONLY} policy")
     if not request.model_key.startswith("openai:") or not request.model_key[7:].strip():
         raise OpenClawError("OpenClaw model must use openai:<model>")
     required = unit_ids(request)
@@ -167,11 +134,11 @@ def run_openclaw(
         )
         host, child = socket.socketpair()
         host.settimeout(60)
-        reads: list[int] = []
+        delivery = PromptDelivery()
         failures: list[BaseException] = []
         worker = threading.Thread(
             target=bridge_read,
-            args=(host, transport, request.request_id, reads, failures),
+            args=(host, transport, request.request_id, delivery, failures),
             daemon=True,
         )
         try:
@@ -182,7 +149,10 @@ def run_openclaw(
             config_path.chmod(0o600)
             prompt_path = root / "prompt.txt"
             prompt_path.write_text(
-                f"Call {TOOL_NAME} exactly once to read the complete solver prompt. "
+                f"Read the complete solver prompt with {TOOL_NAME}, starting with "
+                'page 0 and receipt "". Each result supplies next_page and a receipt: '
+                "pass both back to the same tool until it confirms complete=true. "
+                "Do not forecast before acknowledging the final page. "
                 "Use only that prompt. Return only a JSON object with a nonempty "
                 "case_assessment and predictions array. Each prediction has unit_id "
                 "and probability_fully_dismissed between 0 and 1. Include exactly "
@@ -242,7 +212,8 @@ def run_openclaw(
                 request,
                 workspace,
                 cast(Mapping[str, Any], envelope),
-                tool_reads=len(reads),
+                tool_reads=delivery.tool_calls,
+                prompt_complete=delivery.complete,
             )
         except subprocess.TimeoutExpired:
             raise OpenClawError("OpenClaw managed run timed out") from None

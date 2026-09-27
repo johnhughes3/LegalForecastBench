@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.conformance import run_adapter_conformance
+from legalforecast.multiharness.harvey_tools import HarveyToolExecutor
 from legalforecast.multiharness.openclaw import (
     ADAPTER_ID,
     OPENCLAW_COMMIT,
@@ -21,12 +22,18 @@ from legalforecast.multiharness.openclaw import (
     offline_fixture,
 )
 from legalforecast.multiharness.openclaw_runtime import (
-    bridge_read,
     build_config,
     run_openclaw,
     runtime_root,
     verify_runtime,
 )
+from legalforecast.multiharness.openclaw_tool import (
+    PromptDelivery,
+    bridge_read,
+    prompt_pages,
+)
+from legalforecast.multiharness.runner import validate_provider_environment_scope
+from legalforecast.multiharness.sandbox import PROVIDER_EGRESS_HOST_ONLY
 from legalforecast.multiharness.spec import (
     AdapterManifest,
     CanonicalTask,
@@ -57,7 +64,7 @@ def request() -> RunRequest:
             policy_id="host-tools",
             backend="podman",
             image="worker@sha256:" + "2" * 64,
-            network_policy="provider-egress-host-only",
+            network_policy=PROVIDER_EGRESS_HOST_ONLY,
             timeout_seconds=30,
             allowed_provider_env_vars=("OPENAI_API_KEY",),
         ),
@@ -95,7 +102,9 @@ def test_public_manifest_and_offline_conformance(tmp_path: Path) -> None:
 
 
 def test_normalization_retains_actual_predictions_privately(tmp_path: Path) -> None:
-    result = normalize_result(request(), tmp_path, envelope(), tool_reads=1)
+    result = normalize_result(
+        request(), tmp_path, envelope(), tool_reads=2, prompt_complete=True
+    )
     artifact = result.artifacts[0]
     assert artifact.public is False
     forecast = json.loads((tmp_path / artifact.path).read_text())
@@ -105,9 +114,24 @@ def test_normalization_retains_actual_predictions_privately(tmp_path: Path) -> N
     assert (
         result.result_sha256
         != normalize_result(
-            request(), tmp_path / "other", envelope(0.12), tool_reads=1
+            request(),
+            tmp_path / "other",
+            envelope(0.12),
+            tool_reads=2,
+            prompt_complete=True,
         ).result_sha256
     )
+
+
+def test_normalization_retains_parser_accepted_fenced_forecast(tmp_path: Path) -> None:
+    value = envelope()
+    value["final"] = f"```json\n{value['final']}\n```"
+    result = normalize_result(
+        request(), tmp_path, value, tool_reads=2, prompt_complete=True
+    )
+    forecast = json.loads((tmp_path / result.artifacts[0].path).read_text())
+    assert forecast["case_assessment"] == "Assessment from staged evidence."
+    assert forecast["predictions"][0]["probability_fully_dismissed"] == 0.73
 
 
 @pytest.mark.parametrize(
@@ -125,14 +149,20 @@ def test_failed_drifted_or_defaulted_outputs_refused(
     tmp_path: Path, change: dict[str, object]
 ) -> None:
     with pytest.raises(OpenClawError):
-        normalize_result(request(), tmp_path, envelope() | change, tool_reads=1)
+        normalize_result(
+            request(), tmp_path, envelope() | change, tool_reads=2, prompt_complete=True
+        )
     assert not (tmp_path / "private-logs/openclaw-forecast.json").exists()
 
 
-@pytest.mark.parametrize("reads", [0, 2])
-def test_requires_actual_single_tool_read(tmp_path: Path, reads: int) -> None:
-    with pytest.raises(OpenClawError, match="exactly once"):
-        normalize_result(request(), tmp_path, envelope(), tool_reads=reads)
+@pytest.mark.parametrize("reads,complete", [(0, False), (1, True), (20, False)])
+def test_requires_complete_acknowledged_delivery(
+    tmp_path: Path, reads: int, complete: bool
+) -> None:
+    with pytest.raises(OpenClawError, match="acknowledge every"):
+        normalize_result(
+            request(), tmp_path, envelope(), tool_reads=reads, prompt_complete=complete
+        )
 
 
 @pytest.mark.parametrize(
@@ -161,17 +191,20 @@ def test_unavailable_runtime_and_nonfixture_ordinary_run_refused(
 
 
 class Transport:
-    def __init__(self, *, mismatch: bool = False) -> None:
+    """Run the same executor used by infra/tool-runtime/worker.py, offline."""
+
+    def __init__(
+        self, root: Path, prompt: str = "Public synthetic solver prompt"
+    ) -> None:
         self.requests: list[ToolRequest] = []
-        self.mismatch = mismatch
+        self.root = root
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "prompt.txt").write_text(prompt)
+        self.executor = HarveyToolExecutor(root)
 
     def execute(self, value: ToolRequest) -> ToolResponse:
         self.requests.append(value)
-        return ToolResponse(
-            request_id="wrong" if self.mismatch else value.request_id,
-            status="succeeded",
-            output={"text": "Public synthetic solver prompt"},
-        )
+        return self.executor.execute(value, self.root)
 
 
 def test_real_node_plugin_routes_only_the_host_read(tmp_path: Path) -> None:
@@ -181,11 +214,11 @@ def test_real_node_plugin_routes_only_the_host_read(tmp_path: Path) -> None:
     if node is None:
         pytest.skip("Node is needed for the actual plugin transport test")
     host, child = socket.socketpair()
-    transport = Transport()
-    reads: list[int] = []
+    transport = Transport(tmp_path)
+    delivery = PromptDelivery()
     failures: list[BaseException] = []
     worker = threading.Thread(
-        target=bridge_read, args=(host, transport, "test", reads, failures)
+        target=bridge_read, args=(host, transport, "test", delivery, failures)
     )
     worker.start()
     plugin_uri = json.dumps(
@@ -196,10 +229,12 @@ def test_real_node_plugin_routes_only_the_host_read(tmp_path: Path) -> None:
         + """
 let tool;
 plugin.register({pluginConfig: {descriptor: fd}, registerTool: value => {tool=value;}});
-const result = await tool.execute('call', {});
+const result = await tool.execute('call', {page: 0, receipt: ''});
+const page = JSON.parse(result.content[0].text);
+const ack = await tool.execute('ack', {page: page.next_page, receipt: page.receipt});
 let denied = false;
-try { await tool.execute('second', {}); } catch { denied = true; }
-console.log(JSON.stringify({result, denied}));
+try { await tool.execute('second', {page: 0, receipt: ''}); } catch { denied = true; }
+console.log(JSON.stringify({result, ack, denied}));
 """
     )
     try:
@@ -216,22 +251,24 @@ console.log(JSON.stringify({result, denied}));
         worker.join(timeout=2)
     assert not worker.is_alive()
     assert failures == []
-    assert reads == [1]
+    assert delivery.complete
+    assert delivery.tool_calls == 2
     record = json.loads(completed.stdout)
     assert record["denied"] is True
     assert "Public synthetic solver prompt" in record["result"]["content"][0]["text"]
     assert len(transport.requests) == 1
-    assert transport.requests[0].operation == "read_text"
+    assert json.loads(record["ack"]["content"][0]["text"]) == {"complete": True}
+    assert transport.requests[0].operation == "read"
     assert transport.requests[0].input_paths == ("prompt.txt",)
 
 
-def test_unsupported_tool_operation_never_reaches_host() -> None:
+def test_unsupported_tool_operation_never_reaches_host(tmp_path: Path) -> None:
     host, child = socket.socketpair()
-    transport = Transport()
+    transport = Transport(tmp_path)
     failures: list[BaseException] = []
     try:
         child.sendall(b'{"operation":"exec","command":"curl example.com"}\n')
-        bridge_read(host, transport, "test", [], failures)
+        bridge_read(host, transport, "test", PromptDelivery(), failures)
     finally:
         child.close()
     assert not transport.requests
@@ -276,11 +313,20 @@ def test_pinned_upstream_validates_config_and_loads_real_plugin(tmp_path: Path) 
     os.environ.get("LEGALFORECAST_OPENCLAW_E2E") != "1",
     reason="opt-in installed OpenClaw offline provider-double integration",
 )
+@pytest.mark.parametrize("stop_early", [False, True])
 def test_real_openclaw_turn_with_local_provider_double(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stop_early: bool
 ) -> None:
     """Actual upstream loop + plugin + container protocol; NOT a provider smoke."""
     requests: list[dict[str, object]] = []
+    prompt = (
+        "BEGIN-SENTINEL\n"
+        + "x" * 45000
+        + "MIDDLE-SENTINEL"
+        + "y" * 45000
+        + "\nEND-SENTINEL"
+    )
+    seen_pages: list[str] = []
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
@@ -292,8 +338,20 @@ def test_real_openclaw_turn_with_local_provider_double(
             tool_messages = [
                 message for message in messages if message["role"] == "tool"
             ]
-            if tool_messages:
-                assert "Public synthetic solver prompt" in json.dumps(tool_messages)
+            page = json.loads(tool_messages[-1]["content"]) if tool_messages else None
+            if page and "content" in page:
+                seen_pages.append(page["content"])
+            if page and (page.get("complete") or stop_early):
+                if not stop_early:
+                    assert "".join(seen_pages) == prompt
+                    assert all(
+                        marker in json.dumps(tool_messages)
+                        for marker in (
+                            "BEGIN-SENTINEL",
+                            "MIDDLE-SENTINEL",
+                            "END-SENTINEL",
+                        )
+                    )
                 delta = {"content": envelope()["final"]}
                 finish = "stop"
             else:
@@ -301,9 +359,17 @@ def test_real_openclaw_turn_with_local_provider_double(
                     "tool_calls": [
                         {
                             "index": 0,
-                            "id": "call_read",
+                            "id": f"call_read_{len(requests)}",
                             "type": "function",
-                            "function": {"name": "lfb_read_task", "arguments": "{}"},
+                            "function": {
+                                "name": "lfb_read_task",
+                                "arguments": json.dumps(
+                                    {
+                                        "page": page["next_page"] if page else 0,
+                                        "receipt": page["receipt"] if page else "",
+                                    }
+                                ),
+                            },
                         }
                     ]
                 }
@@ -371,8 +437,16 @@ def test_real_openclaw_turn_with_local_provider_double(
     monkeypatch.setattr(
         "legalforecast.multiharness.openclaw_runtime.build_config", fixture_config
     )
-    transport = Transport()
+    transport = Transport(tmp_path / "staged", prompt)
+    validate_provider_environment_scope(
+        sandbox_policy=request().sandbox_policy, adapter_count=1, model_count=1
+    )
     try:
+        if stop_early:
+            with pytest.raises(OpenClawError):
+                run_openclaw(request(), tmp_path / "run", transport)
+            assert not (tmp_path / "run/private-logs/openclaw-forecast.json").exists()
+            return
         result = run_openclaw(request(), tmp_path / "run", transport)
     except OpenClawError:
         log = tmp_path / "run/private-logs/openclaw-stderr.log"
@@ -382,8 +456,10 @@ def test_real_openclaw_turn_with_local_provider_double(
         server.server_close()
         thread.join(timeout=2)
     assert result.status == "succeeded"
-    assert len(requests) == 2
+    assert len(requests) == len(prompt_pages(prompt)) + 2
     assert len(transport.requests) == 1
+    assert "".join(seen_pages) == prompt
+    assert result.public_summary["prompt_delivery_complete"] is True
     assert (
         json.loads((tmp_path / "run" / result.artifacts[0].path).read_text())[
             "predictions"

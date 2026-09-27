@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol, cast
@@ -123,6 +122,7 @@ def normalize_result(
     envelope: Mapping[str, Any],
     *,
     tool_reads: int,
+    prompt_complete: bool,
 ) -> RunResult:
     """Reject failed/drifted runs and retain predictions only as private data."""
     model = request.model_key.removeprefix("openai:")
@@ -130,8 +130,8 @@ def normalize_result(
         raise OpenClawError("OpenClaw run did not succeed")
     if envelope.get("provider") != "openai" or envelope.get("model") != model:
         raise OpenClawError("OpenClaw served model or provider mismatch")
-    if tool_reads != 1:
-        raise OpenClawError("OpenClaw must read the solver prompt exactly once")
+    if not prompt_complete or tool_reads < 2:
+        raise OpenClawError("OpenClaw must acknowledge every solver prompt page")
     raw = envelope.get("final")
     if not isinstance(raw, str):
         raise OpenClawError("OpenClaw final output is missing")
@@ -141,7 +141,15 @@ def normalize_result(
     private = workspace / "private-logs"
     private.mkdir(mode=0o700, parents=True, exist_ok=True)
     output = private / "openclaw-forecast.json"
-    write_json_object(output, json.loads(raw))
+    write_json_object(
+        output,
+        {
+            "case_assessment": parsed.case_assessment,
+            "predictions": [
+                prediction.to_record() for prediction in parsed.predictions
+            ],
+        },
+    )
     output.chmod(0o600)
     data = output.read_bytes()
     digest = "sha256:" + hashlib.sha256(data).hexdigest()
@@ -158,6 +166,7 @@ def normalize_result(
         "served_model": model,
         "tool_policy": "host-container-solver-prompt-only",
         "tool_call_count": tool_reads,
+        "prompt_delivery_complete": prompt_complete,
         "transcript_mirror_behavior": "private-state-only",
         "task_id": request.task.task_id,
         "sandbox_policy_id": request.sandbox_policy.policy_id,

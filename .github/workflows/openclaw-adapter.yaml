@@ -6,7 +6,7 @@ on:
       - '.github/workflows/openclaw-adapter.yaml'
       - 'examples/adapters/openclaw-pinned/**'
       - 'legalforecast/multiharness/**'
-      - 'tests/test_multiharness_openclaw.py'
+      - 'tests/test_multiharness_openclaw*.py'
       - 'uv.lock'
   push:
     branches: [main]
@@ -14,7 +14,7 @@ on:
       - '.github/workflows/openclaw-adapter.yaml'
       - 'examples/adapters/openclaw-pinned/**'
       - 'legalforecast/multiharness/**'
-      - 'tests/test_multiharness_openclaw.py'
+      - 'tests/test_multiharness_openclaw*.py'
       - 'uv.lock'
   workflow_dispatch:
 
@@ -49,4 +49,4 @@ jobs:
       - name: Exercise installed OpenClaw with a local provider double
         env:
           LEGALFORECAST_OPENCLAW_E2E: '1'
-        run: uv run pytest tests/test_multiharness_openclaw.py -q
+        run: uv run pytest tests/test_multiharness_openclaw*.py -q
