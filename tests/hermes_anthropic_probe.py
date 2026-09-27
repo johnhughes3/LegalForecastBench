@@ -52,11 +52,23 @@ def main() -> None:
             for block in message["content"]
             if isinstance(block, dict) and block.get("type") == "tool_result"
         ]
+        assert {tool["name"] for tool in wire["tools"]} == {
+            "read_canonical_task",
+            "read_release_document",
+        }
         if tools:
             content = tools[-1]["content"]
             if isinstance(content, list):
                 content = "".join(item["text"] for item in content)
-            assert json.loads(content)["text"] == "PRIVATE canonical forecast task"
+            assert (
+                json.loads(content)["text"]
+                == [
+                    "PRIVATE canonical forecast task",
+                    '["documents/record.txt"]',
+                    "PRIVATE full pleading evidence",
+                ][len(calls) - 1]
+            )
+        if len(calls) == 3:
             block = {"type": "text", "text": ""}
             delta = {
                 "type": "text_delta",
@@ -76,11 +88,14 @@ def main() -> None:
         else:
             block = {
                 "type": "tool_use",
-                "id": "read_1",
-                "name": "read_canonical_task",
+                "id": f"read_{len(calls) + 1}",
+                "name": "read_canonical_task" if not calls else "read_release_document",
                 "input": {},
             }
-            delta = {"type": "input_json_delta", "partial_json": '{"offset":0}'}
+            arguments = {"offset": 0}
+            if len(calls) == 2:
+                arguments["path"] = "documents/record.txt"
+            delta = {"type": "input_json_delta", "partial_json": json.dumps(arguments)}
             stop = "tool_use"
         events = [
             {
@@ -133,16 +148,26 @@ def main() -> None:
     assert spec is not None and spec.loader is not None
     bridge = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bridge)
+    outputs = [
+        {"text": "PRIVATE canonical forecast task"},
+        {"text": '["documents/record.txt"]', "next_offset": 24, "complete": True},
+        {"text": "PRIVATE full pleading evidence", "next_offset": 30, "complete": True},
+    ]
+    for output in outputs[1:]:
+        output["next_offset"] = len(output["text"])
     incoming = io.StringIO(
-        json.dumps(
-            {
-                "schema_version": "legalforecast.multiharness.tool_response.v1",
-                "request_id": "case:hermes-tool:1",
-                "status": "succeeded",
-                "output": {"text": "PRIVATE canonical forecast task"},
-            }
+        "".join(
+            json.dumps(
+                {
+                    "schema_version": "legalforecast.multiharness.tool_response.v1",
+                    "request_id": f"case:hermes-tool:{index}",
+                    "status": "succeeded",
+                    "output": output,
+                }
+            )
+            + "\n"
+            for index, output in enumerate(outputs, 1)
         )
-        + "\n"
     )
     outgoing = io.StringIO()
     result = bridge.execute(
@@ -168,9 +193,12 @@ def main() -> None:
         outgoing,
     )
     assert result["result"]["completed"] is True
-    assert result["tool_call_count"] == 1
-    assert len(calls) == 2
-    assert json.loads(outgoing.getvalue())["operation"] == "read_text"
+    assert result["tool_call_count"] == 3
+    assert result["document_tool_call_count"] == 2
+    assert len(calls) == 4
+    assert [
+        json.loads(line)["operation"] for line in outgoing.getvalue().splitlines()
+    ] == ["read_text", "read_release_document", "read_release_document"]
     (private_home / "wire.json").write_text(json.dumps(calls))
     print("Pinned Hermes Anthropic conversation passed (SDK wire fixtures only)")
 

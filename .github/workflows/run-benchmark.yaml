@@ -643,6 +643,13 @@ jobs:
           path: hermes-runtime
           persist-credentials: false
           fetch-depth: 0
+      - name: Verify pinned Hermes tag
+        if: ${{ inputs.execution_mode == 'hermes-agent' }}
+        run: |
+          set -euo pipefail
+          git -C hermes-runtime fetch --no-tags origin refs/tags/v2026.9.24:refs/tags/v2026.9.24
+          test "$(git -C hermes-runtime rev-parse --verify 'refs/tags/v2026.9.24^{commit}')" = f97608f178d1ffeca59860195ab7da295f7c8e5f
+          test "$(git -C hermes-runtime rev-parse --verify HEAD)" = f97608f178d1ffeca59860195ab7da295f7c8e5f
       - name: Install locked Hermes Anthropic runtime
         if: ${{ inputs.execution_mode == 'hermes-agent' }}
         run: uv sync --project hermes-runtime --locked --python 3.13.15 --extra anthropic

@@ -271,7 +271,7 @@ def test_paid_wrapper_requires_durable_settlement(
     if failure:
         with pytest.raises(ValueError, match="fully settle"):
             admitted.run_with_tools(paid_request(admitted), tmp_path, object())
-        assert not (tmp_path / "private-gateway/settlement.json").exists()
+        assert not (tmp_path / "private-logs/gateway/settlement.json").exists()
         if failure == "exhausted":
             assert forwarded == []
         if failure == "unknown_charge":
@@ -288,7 +288,19 @@ def test_paid_wrapper_requires_durable_settlement(
         assert evidence["request_sha256"] == paid_request(admitted).request_sha256
         assert evidence["settled_microusd"] == 320
         assert not artifact.public
-    assert not (tmp_path / "private-gateway/route.json").exists()
+        from legalforecast.multiharness.runner import _artifact_index
+
+        # Run-wide rescanning must not promote private accounting to public.
+        index = _artifact_index(tmp_path)
+        accounting = [
+            item
+            for item in index
+            if item["path"].endswith(("usage.json", "settlement.json"))
+        ]
+        assert len(accounting) == 2
+        assert all(not item["public"] for item in accounting)
+        assert all("private-logs" in item["path"].split("/") for item in accounting)
+    assert not (tmp_path / "private-logs/gateway/route.json").exists()
 
 
 @pytest.mark.parametrize("change", ["auth", "model", "task", "evaluator"])
@@ -407,8 +419,8 @@ def test_pinned_native_anthropic_wire_is_gateway_admissible(
             headers=call["headers"],
         )
         assert response.status_code == 200
-    assert len(authority.responses) == 2
-    assert controller.settlement_totals() == (2, 320)
+    assert len(authority.responses) == 4
+    assert controller.settlement_totals() == (4, 640)
 
 
 @pytest.mark.skipif(
@@ -430,6 +442,7 @@ def test_real_task_container_reads_blinded_prompt_and_cleans_up(tmp_path):
         release / "forecast-release.json",
         artifact_root=release,
         solver_input_root=inputs,
+        case_batching=True,
     )
     store = SolverInputStore.load(inputs)
     task = index.tasks[0]
@@ -467,6 +480,9 @@ def test_real_task_container_reads_blinded_prompt_and_cleans_up(tmp_path):
         )
         assert response.status == "succeeded"
         assert response.output["text"] == (materialized_root / "prompt.txt").read_text()
+        from test_hermes_release_documents import assert_container_documents
+
+        assert_container_documents(session, workspace, materialized_root)
         receipt = session.finalize(
             RunResult(
                 result_id="fixture",

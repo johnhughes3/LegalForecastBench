@@ -143,7 +143,9 @@ class ProtectedHermesAdapter:
             max_total_output_tokens=entry.max_output_tokens * self.config.max_requests,
             upstream_timeout_seconds=min(120, self.timeout_seconds),
         )
-        private = ensure_private_directory(workspace.absolute() / "private-gateway")
+        private = ensure_private_directory(
+            workspace.absolute() / "private-logs" / "gateway"
+        )
         server = build_model_gateway_server(
             policy,
             usage_evidence_path=private / "usage.json",

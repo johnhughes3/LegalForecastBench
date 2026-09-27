@@ -252,6 +252,9 @@ def run(
     if not isinstance(result, dict):
         raise HermesAdapterError("Hermes result is malformed")
     result = cast(dict[str, object], result)
+    document_calls = execution.get("document_tool_call_count", 0)
+    if type(document_calls) is not int or document_calls < 0:
+        raise HermesAdapterError("Hermes document tool count is malformed")
     if (
         result.get("completed") is not True
         or result.get("failed")
@@ -259,7 +262,8 @@ def run(
         or result.get("error")
         or execution.get("session_id") != session_id
         or execution.get("model") != model
-        or execution.get("tool_call_count") != 1
+        or execution.get("tool_call_count") != 1 + document_calls
+        or (gateway is None and document_calls != 0)
         or execution.get("hermes_version") != HERMES_VERSION
         or not str(execution.get("python_version", "")).startswith("3.13.")
         or (gateway is not None and execution.get("python_version") != "3.13.15")
@@ -284,7 +288,8 @@ def run(
         "served_model_source": "Hermes response header when available",
         "memory_session_policy": "fresh-profile-per-attempt-memory-disabled",
         "enabled_toolsets": ["legalforecast"],
-        "tool_call_count": 1,
+        "tool_call_count": execution["tool_call_count"],
+        "document_tool_call_count": document_calls,
         "task_id": request.task.task_id,
     }
     try:
