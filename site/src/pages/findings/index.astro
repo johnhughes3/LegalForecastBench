@@ -1,0 +1,29 @@
+---
+import FindingCard from "../../components/FindingCard.astro";
+import { publishedFindings } from "../../data/findings";
+import Layout from "../../layouts/Layout.astro";
+
+const findings = await publishedFindings();
+const groups = [
+	{ kind: "report", title: "Reports" },
+	{ kind: "note", title: "Notes" },
+	{ kind: "critique", title: "Benchmark critiques" },
+] as const;
+---
+
+<Layout title="Findings" description="Reports and notes on what LegalForecastBench shows about AI models and legal forecasting.">
+	<section class="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
+		<p class="eyebrow">Findings</p>
+		<h1 class="mt-3 max-w-3xl font-serif text-4xl font-medium tracking-tight sm:text-5xl">What the forecasts show</h1>
+		<p class="mt-5 max-w-2xl text-lg text-ink-2">Results reports, short notes on individual models, and observations about how legal AI benchmarks are built.</p>
+		{groups.map(({ kind, title }) => {
+			const entries = findings.filter((f) => f.data.kind === kind);
+			return entries.length > 0 && (
+				<div class="mt-14">
+					<h2 class="font-serif text-2xl font-semibold tracking-tight">{title}</h2>
+					<div class="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">{entries.map((entry) => <FindingCard entry={entry} />)}</div>
+				</div>
+			);
+		})}
+	</section>
+</Layout>

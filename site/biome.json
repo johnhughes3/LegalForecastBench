@@ -1,7 +1,18 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
 	"files": {
-		"includes": ["**", "!src/generated", "!src/data/fixtures"]
+		"includes": [
+			"**",
+			"!src/generated",
+			"!src/data/fixtures",
+			"!dist",
+			"!.astro"
+		]
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
 	},
 	"linter": {
 		"enabled": true,
@@ -11,5 +22,18 @@
 				"noExplicitAny": "error"
 			}
 		}
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.astro"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedVariables": "off",
+						"noUnusedImports": "off"
+					}
+				}
+			}
+		}
+	]
 }

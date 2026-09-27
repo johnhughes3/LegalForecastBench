@@ -1,0 +1,307 @@
+{
+	"snapshot_id": "beta-2026-09-18",
+	"title": "Beta results",
+	"status": "beta",
+	"as_of": "2026-09-18",
+	"provenance": {
+		"release": "cycle-1-91-2026-09-08-luna-r5",
+		"release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		"method": "Aggregate figures transcribed from the September 18, 2026 beta analysis. Receipts for all ten runs were re-downloaded on September 18 and confirmed 91 case receipts and the same 387 scoreable prediction IDs per configuration. Brier, accuracy, and significance values are the prior verified analysis; they were not recomputed from labels for this page."
+	},
+	"cohort": {
+		"case_count": 91,
+		"unit_count": 387,
+		"dismissed_unit_count": 285,
+		"decision_window": {
+			"start": "2026-06-30",
+			"end": "2026-08-07"
+		},
+		"constant_forecast_micro_brier": 0.1940989123,
+		"majority_class_accuracy": 0.7364341085,
+		"bootstrap": {
+			"method": "Paired case-cluster percentile bootstrap",
+			"replicates": 1000000,
+			"correction": "Bonferroni across 45 model pairs and three metrics",
+			"caveat": "Exploratory. Cross-case dependence (for example, related cases in one MDL) has not yet been verified."
+		}
+	},
+	"significant_pairs": [
+		{
+			"better": "grok-4-6",
+			"worse": "muse-spark-1-3",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "grok-4-6",
+			"worse": "muse-spark-1-3",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "claude-opus-5",
+			"worse": "muse-spark-1-3",
+			"metric": "micro_brier"
+		}
+	],
+	"models": [
+		{
+			"slug": "claude-fable-5-1",
+			"display_name": "Claude Fable 5.1",
+			"provider": "Anthropic",
+			"model_key": "anthropic:claude-fable-5-1",
+			"access": "Anthropic API",
+			"reasoning": "Adaptive thinking (provider default)",
+			"release_date": "2026-09-01",
+			"training_cutoff": "June 2026",
+			"eligibility": "qualified",
+			"eligibility_reason": "A June 2026 cutoff overlaps the earliest June 30 decision, so it cannot establish that the cutoff predates every scored decision.",
+			"github_run_id": "34307189166",
+			"micro_brier": 0.1287705426356589,
+			"equal_case_brier": 0.13653489478775194,
+			"correct": 318,
+			"high_confidence": {
+				"count": 81,
+				"wrong": 0,
+				"mean_confidence": 0.9288888888888889
+			},
+			"cost": {
+				"usd": 83.18,
+				"basis": "estimated",
+				"note": "Estimated cost with caching. The run was inadvertently uncached (actual successful workload $189.70); the cached cost was reconstructed from saved per-turn token usage and validated against the other Anthropic runs."
+			}
+		},
+		{
+			"slug": "grok-4-6",
+			"display_name": "Grok 4.6",
+			"provider": "SpaceXAI",
+			"model_key": "vercel_ai_gateway:spacexai/grok-4.6",
+			"access": "Vercel AI Gateway (served by xAI)",
+			"reasoning": "High",
+			"release_date": "2026-08-12",
+			"training_cutoff": null,
+			"eligibility": "qualified",
+			"eligibility_reason": "Cutoff evidence is conflicting or unknown.",
+			"github_run_id": "34294236811",
+			"micro_brier": 0.13368062015503876,
+			"equal_case_brier": 0.13480444111444112,
+			"correct": 312,
+			"high_confidence": {
+				"count": 112,
+				"wrong": 1,
+				"mean_confidence": 0.9302678571428571
+			},
+			"cost": {
+				"usd": 15.72,
+				"basis": "standard_rate",
+				"note": null
+			}
+		},
+		{
+			"slug": "claude-opus-5",
+			"display_name": "Claude Opus 5",
+			"provider": "Anthropic",
+			"model_key": "anthropic:claude-opus-5",
+			"access": "Anthropic API",
+			"reasoning": "Adaptive thinking (provider default: high)",
+			"release_date": "2026-07-24",
+			"training_cutoff": "May 2026",
+			"eligibility": "eligible",
+			"eligibility_reason": "A May 2026 cutoff predates every scored decision.",
+			"github_run_id": "34845972981",
+			"micro_brier": 0.13987105943152456,
+			"equal_case_brier": 0.1354839407417979,
+			"correct": 310,
+			"high_confidence": {
+				"count": 121,
+				"wrong": 4,
+				"mean_confidence": 0.936198347107438
+			},
+			"cost": {
+				"usd": 45.89,
+				"basis": "standard_rate",
+				"note": null
+			}
+		},
+		{
+			"slug": "gpt-5-6-sol",
+			"display_name": "GPT-5.6 Sol",
+			"provider": "OpenAI",
+			"model_key": "vercel_ai_gateway:openai/gpt-5.6-sol",
+			"access": "Vercel AI Gateway (served by OpenAI, Flex)",
+			"reasoning": "High",
+			"release_date": "2026-06-26",
+			"training_cutoff": "February 16, 2026",
+			"eligibility": "eligible",
+			"eligibility_reason": "A February 16, 2026 cutoff predates every scored decision.",
+			"github_run_id": "34428487985",
+			"micro_brier": 0.14009137209302325,
+			"equal_case_brier": 0.1331861701607916,
+			"correct": 313,
+			"high_confidence": {
+				"count": 228,
+				"wrong": 26,
+				"mean_confidence": 0.9701710526315789
+			},
+			"cost": {
+				"usd": 24.91,
+				"basis": "standard_rate",
+				"note": "Standard-rate equivalent. Flex pricing and a Vercel discount made the actual cost roughly 75% lower."
+			}
+		},
+		{
+			"slug": "kimi-k3",
+			"display_name": "Kimi K3",
+			"provider": "Moonshot",
+			"model_key": "vercel_ai_gateway:moonshotai/kimi-k3",
+			"access": "Vercel AI Gateway (served by DeepInfra)",
+			"reasoning": "High",
+			"release_date": "2026-07-17",
+			"training_cutoff": null,
+			"eligibility": "qualified",
+			"eligibility_reason": "Moonshot has not published a training cutoff.",
+			"github_run_id": "34305285043",
+			"micro_brier": 0.14129870801033592,
+			"equal_case_brier": 0.15366887350744493,
+			"correct": 303,
+			"high_confidence": {
+				"count": 92,
+				"wrong": 1,
+				"mean_confidence": 0.9284782608695652
+			},
+			"cost": {
+				"usd": 16.87,
+				"basis": "standard_rate",
+				"note": null
+			}
+		},
+		{
+			"slug": "gpt-5-6-luna",
+			"display_name": "GPT-5.6 Luna",
+			"provider": "OpenAI",
+			"model_key": "openai:gpt-5.6-luna",
+			"access": "OpenAI API",
+			"reasoning": "High",
+			"release_date": "2026-06-26",
+			"training_cutoff": "February 16, 2026",
+			"eligibility": "eligible",
+			"eligibility_reason": "A February 16, 2026 cutoff predates every scored decision.",
+			"github_run_id": "34222142006",
+			"micro_brier": 0.1432169250645995,
+			"equal_case_brier": 0.15083510810617953,
+			"correct": 313,
+			"high_confidence": {
+				"count": 182,
+				"wrong": 20,
+				"mean_confidence": 0.9492307692307692
+			},
+			"cost": {
+				"usd": 1.48,
+				"basis": "standard_rate",
+				"note": "Billing-derived; includes eight extra requests."
+			}
+		},
+		{
+			"slug": "gpt-6-astra",
+			"display_name": "GPT-6 Astra",
+			"provider": "OpenAI",
+			"model_key": "openai:gpt-6-astra",
+			"access": "OpenAI API (Flex)",
+			"reasoning": "High",
+			"release_date": "2026-09-03",
+			"training_cutoff": "April 30, 2026",
+			"eligibility": "eligible",
+			"eligibility_reason": "An April 30, 2026 cutoff predates every scored decision.",
+			"github_run_id": "34305259900",
+			"micro_brier": 0.15221040051679585,
+			"equal_case_brier": 0.1427474770665842,
+			"correct": 305,
+			"high_confidence": {
+				"count": 207,
+				"wrong": 21,
+				"mean_confidence": 0.9547584541062801
+			},
+			"cost": {
+				"usd": 59.74,
+				"basis": "standard_rate",
+				"note": "Standard-rate equivalent. Flex pricing made the actual cost lower."
+			}
+		},
+		{
+			"slug": "gemini-3-8-flash",
+			"display_name": "Gemini 3.8 Flash",
+			"provider": "Google",
+			"model_key": "google:gemini-3.8-flash",
+			"access": "Google Gemini API",
+			"reasoning": "High thinking",
+			"release_date": "2026-09-02",
+			"training_cutoff": "March 2026",
+			"eligibility": "eligible",
+			"eligibility_reason": "A March 2026 cutoff predates every scored decision.",
+			"github_run_id": "34293244222",
+			"micro_brier": 0.1533139534883721,
+			"equal_case_brier": 0.13899537216751504,
+			"correct": 310,
+			"high_confidence": {
+				"count": 276,
+				"wrong": 35,
+				"mean_confidence": 0.9518478260869564
+			},
+			"cost": {
+				"usd": 35.61,
+				"basis": "standard_rate",
+				"note": "Uses Google's Standard introductory pricing; cache usage is imputed for three cases."
+			}
+		},
+		{
+			"slug": "claude-sonnet-5",
+			"display_name": "Claude Sonnet 5",
+			"provider": "Anthropic",
+			"model_key": "anthropic:claude-sonnet-5",
+			"access": "Anthropic API",
+			"reasoning": "Adaptive thinking (provider default)",
+			"release_date": "2026-06-30",
+			"training_cutoff": "January 2026",
+			"eligibility": "eligible",
+			"eligibility_reason": "A January 2026 cutoff predates every scored decision.",
+			"github_run_id": "34895753581",
+			"micro_brier": 0.15848397932816538,
+			"equal_case_brier": 0.15963922014493442,
+			"correct": 293,
+			"high_confidence": {
+				"count": 60,
+				"wrong": 5,
+				"mean_confidence": 0.9256666666666666
+			},
+			"cost": {
+				"usd": 24.68,
+				"basis": "standard_rate",
+				"note": null
+			}
+		},
+		{
+			"slug": "muse-spark-1-3",
+			"display_name": "Muse Spark 1.3",
+			"provider": "Meta",
+			"model_key": "vercel_ai_gateway:meta/muse-spark-1.3-contributor",
+			"access": "Vercel AI Gateway (served by Meta, contributor tier)",
+			"reasoning": "High",
+			"release_date": "2026-09-02",
+			"training_cutoff": null,
+			"eligibility": "qualified",
+			"eligibility_reason": "Meta has not published a training cutoff.",
+			"github_run_id": "34272944667",
+			"micro_brier": 0.18120671834625324,
+			"equal_case_brier": 0.17844744224029938,
+			"correct": 279,
+			"high_confidence": {
+				"count": 135,
+				"wrong": 15,
+				"mean_confidence": 0.9351851851851852
+			},
+			"cost": {
+				"usd": 8.78,
+				"basis": "standard_rate",
+				"note": "Ran on the contributor-tier endpoint; cost shown at standard rates. Standard-tier execution has not been measured."
+			}
+		}
+	]
+}

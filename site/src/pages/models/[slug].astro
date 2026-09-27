@@ -1,0 +1,204 @@
+---
+import type { GetStaticPaths } from "astro";
+import ConfidenceChart from "../../components/ConfidenceChart";
+import EligibilityBadge from "../../components/EligibilityBadge";
+import FindingCard from "../../components/FindingCard.astro";
+import ParetoChart from "../../components/ParetoChart";
+import { publishedFindings } from "../../data/findings";
+import {
+	formatPercent,
+	formatUsd,
+	METRICS,
+	paretoFrontier,
+	ranks,
+} from "../../data/metrics";
+import { snapshot } from "../../data/results";
+import type { Metric, SnapshotModel } from "../../data/snapshot";
+import Layout from "../../layouts/Layout.astro";
+
+export const getStaticPaths = (() =>
+	snapshot.models.map((model) => ({
+		params: { slug: model.slug },
+		props: { model },
+	}))) satisfies GetStaticPaths;
+
+const { model } = Astro.props as { model: SnapshotModel };
+const n = snapshot.cohort.unit_count;
+const total = snapshot.models.length;
+const metrics: Metric[] = ["micro_brier", "equal_case_brier", "accuracy"];
+const cards = metrics.map((metric) => {
+	const value = metric === "accuracy" ? model.correct / n : model[metric];
+	return {
+		metric,
+		spec: METRICS[metric],
+		value,
+		rank: ranks(snapshot, metric).get(model.slug) ?? total,
+		frontier: paretoFrontier(snapshot, metric).some(
+			(m) => m.slug === model.slug,
+		),
+	};
+});
+const hc = model.high_confidence;
+const sig = snapshot.significant_pairs
+	.filter((p) => p.better === model.slug || p.worse === model.slug)
+	.map((p) => {
+		const other = snapshot.models.find(
+			(m) => m.slug === (p.better === model.slug ? p.worse : p.better),
+		);
+		return { ...p, other, won: p.better === model.slug };
+	});
+const related = (await publishedFindings()).filter((f) =>
+	f.data.models.includes(model.slug),
+);
+const facts: [string, string][] = [
+	["Model key", model.model_key],
+	["Access", model.access],
+	["Reasoning", model.reasoning],
+	[
+		"Public release",
+		new Date(`${model.release_date}T00:00:00Z`).toLocaleDateString("en-US", {
+			month: "long",
+			day: "numeric",
+			year: "numeric",
+			timeZone: "UTC",
+		}),
+	],
+	["Training cutoff", model.training_cutoff ?? "Not disclosed"],
+	["Harness", "Full-document agentic (document tools, no internet)"],
+];
+---
+
+<Layout
+	title={model.display_name}
+	description={`${model.display_name} on LegalForecastBench: micro Brier ${model.micro_brier.toFixed(4)} across ${n} units.`}
+>
+	<section class="border-b border-rule">
+		<div class="mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6">
+			<a href="/#leaderboard" class="text-sm text-ink-3 hover:text-ink">← Leaderboard</a>
+			<div class="mt-6 flex flex-wrap items-center gap-3">
+				<p class="eyebrow">{model.provider}</p>
+				<EligibilityBadge eligibility={model.eligibility} reason={model.eligibility_reason} />
+			</div>
+			<h1 class="mt-3 font-serif text-4xl font-medium tracking-tight sm:text-5xl">{model.display_name}</h1>
+			<div class="mt-10 grid gap-4 sm:grid-cols-3">
+				{
+					cards.map((c) => (
+						<div class="card p-5">
+							<p class="text-sm text-ink-3">
+								{c.spec.label}
+								{c.metric === "micro_brier" && (
+									<span class="ml-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-[11px]">Headline</span>
+								)}
+							</p>
+							<p class="mt-2 font-serif text-4xl font-medium tabular">{c.spec.format(c.value)}</p>
+							<p class="mt-2 text-sm text-ink-2">
+								Rank {c.rank} of {total}
+								{c.frontier && <span class="text-series-1"> · on the cost frontier</span>}
+							</p>
+						</div>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	<section class="mx-auto grid max-w-6xl gap-10 px-4 pt-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+		<div class="min-w-0 space-y-12">
+			<div>
+				<h2 class="font-serif text-2xl font-semibold tracking-tight">Cost and quality</h2>
+				<div class="card mt-4 p-4 sm:p-6">
+					<ParetoChart client:visible snapshot={snapshot} highlight={model.slug} />
+				</div>
+			</div>
+			<div>
+				<h2 class="font-serif text-2xl font-semibold tracking-tight">High-confidence forecasts</h2>
+				<p class="mt-2 text-ink-2">
+					{hc.count} of {n} predictions ({formatPercent(hc.count / n)}) were at least 90% confident either way.
+					{hc.wrong === 0 ? " None were wrong." : ` ${hc.wrong} were wrong, an error rate of ${formatPercent(hc.wrong / hc.count)}.`}
+					{hc.mean_confidence !== null && ` Mean stated confidence in that subset was ${formatPercent(hc.mean_confidence)}.`}
+				</p>
+				<div class="card mt-4 p-4 sm:p-6">
+					<ConfidenceChart snapshot={snapshot} highlight={model.slug} />
+				</div>
+			</div>
+			{
+				sig.length > 0 && (
+					<div>
+						<h2 class="font-serif text-2xl font-semibold tracking-tight">Statistically distinguishable differences</h2>
+						<ul class="mt-3 space-y-2 text-ink-2">
+							{sig.map((s) => (
+								<li>
+									{s.won ? "Better" : "Worse"} than{" "}
+									<a class="text-accent hover:underline" href={`/models/${s.other?.slug}/`}>
+										{s.other?.display_name}
+									</a>{" "}
+									on {METRICS[s.metric].label}.
+								</li>
+							))}
+						</ul>
+						<p class="mt-3 text-sm text-ink-3">
+							{snapshot.cohort.bootstrap.method}, {snapshot.cohort.bootstrap.replicates.toLocaleString("en-US")} replicates,{" "}
+							{snapshot.cohort.bootstrap.correction}. {snapshot.cohort.bootstrap.caveat}
+						</p>
+					</div>
+				)
+			}
+			{
+				related.length > 0 && (
+					<div>
+						<h2 class="font-serif text-2xl font-semibold tracking-tight">Related findings</h2>
+						<div class="mt-4 grid gap-4 sm:grid-cols-2">
+							{related.map((entry) => (
+								<FindingCard entry={entry} />
+							))}
+						</div>
+					</div>
+				)
+			}
+		</div>
+
+		<aside class="space-y-4">
+			<div class="card p-5">
+				<h2 class="text-sm font-semibold text-ink">Configuration</h2>
+				<dl class="mt-3 space-y-3 text-sm">
+					{
+						facts.map(([k, v]) => (
+							<div>
+								<dt class="text-xs text-ink-3">{k}</dt>
+								<dd class="mt-0.5 break-words text-ink-2">{v}</dd>
+							</div>
+						))
+					}
+				</dl>
+			</div>
+			<div class="card p-5 text-sm">
+				<h2 class="font-semibold text-ink">Eligibility</h2>
+				<p class="mt-2 text-ink-2">{model.eligibility_reason}</p>
+				<p class="mt-2 text-xs text-ink-3">
+					Eligible means the documented training cutoff strictly predates every scored decision ({
+						snapshot.cohort.decision_window.start
+					} to {snapshot.cohort.decision_window.end}). A provider cutoff is evidence, not proof of what the model saw.
+				</p>
+			</div>
+			<div class="card p-5 text-sm">
+				<h2 class="font-semibold text-ink">Cost</h2>
+				<p class="mt-2 font-serif text-2xl tabular">{formatUsd(model.cost.usd)}</p>
+				<p class="text-xs text-ink-3">
+					{model.cost.basis === "estimated" ? "Estimated" : "Standard-rate"} cost for {snapshot.cohort.case_count} cases ·{" "}
+					{formatUsd(model.cost.usd === null ? null : model.cost.usd / snapshot.cohort.case_count)} per case
+				</p>
+				{model.cost.note && <p class="mt-2 text-ink-2">{model.cost.note}</p>}
+			</div>
+			<div class="card p-5 text-sm">
+				<h2 class="font-semibold text-ink">Run</h2>
+				<p class="mt-2 text-ink-2">
+					<a
+						class="text-accent hover:underline"
+						href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${model.github_run_id}`}
+						>GitHub Actions run {model.github_run_id}</a
+					>
+				</p>
+			</div>
+		</aside>
+	</section>
+</Layout>
