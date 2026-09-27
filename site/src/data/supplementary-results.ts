@@ -1,10 +1,11 @@
 import provenance from "../../public/data/summary-comparison/catalog.json";
-import type { SiteExport } from "../generated/site-export";
+import type { SiteCalibrationBin, SiteExport } from "../generated/site-export";
 import gpt41 from "./exports/gpt-4-1.json";
 import lunaHigh from "./exports/gpt-5-6-luna-summaries-high.json";
 import lunaNone from "./exports/gpt-6-luna-summaries-none.json";
 import jev from "./exports/jev-luna-summaries.json";
 import { publicUnitCensus } from "./extend-snapshot";
+import { meanForecast, rankAuc } from "./metrics";
 import { parseSiteExport } from "./site-export";
 
 export interface SupplementaryRow {
@@ -20,6 +21,12 @@ export interface SupplementaryRow {
 	case_count: number;
 	forecast_run: string;
 	source_url: string;
+	auc: number;
+	mean_forecast: number;
+	calibration: SiteCalibrationBin[];
+	/** Registry-rate estimate for the successful workload; null when not recorded here. */
+	inference_usd: number | null;
+	preparation_usd: number | null;
 }
 
 export interface SummarySource {
@@ -29,6 +36,8 @@ export interface SummarySource {
 	summary_cache_sha256: string;
 	run_identity_sha256: string;
 	model_registry_sha256: string;
+	summary_preparation_estimated_usd: number;
+	successful_inference_estimated_usd: number;
 }
 
 export interface SummaryComparison {
@@ -111,6 +120,11 @@ export function buildSupplementaryRows(
 			case_count: row.case_count,
 			forecast_run: source.forecast_run,
 			source_url: `/data/exports/${source.slug}.json`,
+			auc: rankAuc(row.units),
+			mean_forecast: meanForecast(row.units),
+			calibration: row.calibration,
+			inference_usd: source.successful_inference_estimated_usd,
+			preparation_usd: source.summary_preparation_estimated_usd,
 		};
 	});
 	rows.sort(
@@ -132,6 +146,11 @@ export function buildSupplementaryRows(
 		case_count: referenceRow.case_count,
 		forecast_run: "35954543028",
 		source_url: "/models/gpt-4-1/",
+		auc: rankAuc(referenceRow.units),
+		mean_forecast: meanForecast(referenceRow.units),
+		calibration: referenceRow.calibration,
+		inference_usd: null,
+		preparation_usd: null,
 	});
 	return rows;
 }

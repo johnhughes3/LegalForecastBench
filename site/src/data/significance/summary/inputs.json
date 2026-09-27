@@ -1,0 +1,27 @@
+{
+	"models": {
+		"jev-luna-summaries": "jev-luna-summaries.jsonl",
+		"gpt-6-luna-summaries-none": "gpt-6-luna-summaries-none.jsonl",
+		"gpt-5-6-luna-summaries-high": "gpt-5-6-luna-summaries-high.jsonl"
+	},
+	"family_model_count": 3,
+	"missing_models": [],
+	"provenance": {
+		"release": "cycle-1-91-2026-09-08-luna-r5",
+		"release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		"models": {
+			"jev-luna-summaries": {
+				"forecast_run": "35459485218",
+				"source": "summary_export_units"
+			},
+			"gpt-6-luna-summaries-none": {
+				"forecast_run": "35799226577",
+				"source": "summary_export_units"
+			},
+			"gpt-5-6-luna-summaries-high": {
+				"forecast_run": "35773842374",
+				"source": "summary_export_units"
+			}
+		}
+	}
+}

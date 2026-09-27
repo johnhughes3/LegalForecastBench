@@ -4,7 +4,6 @@ import FindingCard from "../components/FindingCard.astro";
 import Leaderboard from "../components/Leaderboard";
 import ParetoChart from "../components/ParetoChart";
 import Stat from "../components/Stat.astro";
-import SupplementaryResults from "../components/SupplementaryResults.astro";
 import { publishedFindings } from "../data/findings";
 import { formatPercent } from "../data/metrics";
 import { snapshot } from "../data/results";
@@ -17,6 +16,9 @@ const primarySnapshot = {
 	models: snapshot.models.filter((model) => model.slug !== "gpt-4-1"),
 };
 const findings = (await publishedFindings()).slice(0, 3);
+const jevRow = supplementaryRows.find(
+	(row) => row.slug === "jev-luna-summaries",
+);
 const fmtDate = (iso: string) =>
 	new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
 		month: "short",
@@ -53,7 +55,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
                 <ol class="mt-5 space-y-4 text-[1.02rem] leading-relaxed text-ink-2">
                     <li><strong class="font-semibold text-ink">Six newer agentic runs are included.</strong> GPT-6 Sol, GPT-6 Luna, Claude Opus 5.5, Grok 4.7, GPT-4.1, and the labelled Gemini 3.1 Pro preview were scored on the same 91-case, 387-unit cohort.</li>
                     <li><strong class="font-semibold text-ink">Micro Brier is the headline.</strong> The table also shows equal-case Brier and accuracy. Different weighting can change the observed ordering.</li>
-                    <li><strong class="font-semibold text-ink">GPT-4.1 is an older model and significantly worse than most other tested models.</strong> <a class="text-accent hover:underline" href="/data/beta-run-mechanics/#significance">Nine-model comparison →</a></li>
+                    <li><strong class="font-semibold text-ink">Pipelines that summarize first, and older non-reasoning models, fall below naive baselines.</strong> Jev on case summaries and GPT-4.1 on the full record both scored worse than always forecasting 50%. <a class="text-accent hover:underline" href="/experiments/summary-pipelines/">See the experiment →</a></li>
 
                 </ol>
 			</div>
@@ -106,7 +108,19 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 		</div>
 	</section>
 
-	<SupplementaryResults rows={supplementaryRows} />
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+		<a href="/experiments/summary-pipelines/" class="group grid gap-6 overflow-hidden rounded-2xl border border-rule-strong bg-surface-2 p-6 transition hover:border-accent/40 sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
+			<div>
+				<p class="eyebrow">Experiment · Summary pipelines</p>
+				<h2 class="mt-2 font-serif text-2xl font-semibold tracking-tight group-hover:text-accent sm:text-3xl">Given the same case summaries, Jev forecast worse than a coin flip</h2>
+				<p class="mt-3 max-w-2xl text-sm leading-relaxed text-ink-2">Typesafe.ai's Jev forecast from GPT-5.6 Luna summaries and scored below every naive baseline. OpenAI models reading the same summaries beat the base rate, even with reasoning off.</p>
+			</div>
+			<div class="flex gap-6 md:text-right">
+				{jevRow && <div><p class="font-serif text-3xl tabular text-ink">{jevRow.micro_brier.toFixed(3)}</p><p class="text-xs text-ink-3">Jev micro Brier</p></div>}
+				<div><p class="font-serif text-3xl tabular text-ink">0.250</p><p class="text-xs text-ink-3">Always 50%</p></div>
+			</div>
+		</a>
+	</section>
 
 	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
 		<div class="mb-6 flex items-end justify-between gap-4">

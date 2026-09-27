@@ -1,0 +1,178 @@
+---
+import ReliabilityGrid from "../../components/ReliabilityGrid";
+import Stat from "../../components/Stat.astro";
+import SummaryBrierChart from "../../components/SummaryBrierChart";
+import { formatPercent, formatUsd, METRICS } from "../../data/metrics";
+import { snapshot } from "../../data/results";
+import summarySignificance from "../../data/significance/summary/comparison.json";
+import {
+	summaryComparisons,
+	supplementaryRows,
+} from "../../data/supplementary-results";
+import Layout from "../../layouts/Layout.astro";
+
+const { cohort } = snapshot;
+const baseRate = cohort.dismissed_unit_count / cohort.unit_count;
+const baseRateBrier = cohort.constant_forecast_micro_brier;
+const bySlug = (slug: string) => {
+	const row = supplementaryRows.find((r) => r.slug === slug);
+	if (!row) throw new Error(`Missing comparison row ${slug}`);
+	return row;
+};
+const jev = bySlug("jev-luna-summaries");
+const lunaOff = bySlug("gpt-6-luna-summaries-none");
+const lunaHigh = bySlug("gpt-5-6-luna-summaries-high");
+const gpt41 = bySlug("gpt-4-1");
+const lunaPair = summarySignificance.pairs.filter(
+	(p) =>
+		p.model_a === "gpt-5-6-luna-summaries-high" &&
+		p.model_b === "gpt-6-luna-summaries-none",
+);
+const lunaPairSignificant = lunaPair.some((p) => p.significant);
+const preparation = jev.preparation_usd ?? 0;
+---
+
+<Layout
+	title="Summary pipelines"
+	description="A summary-based legal model forecast motions to dismiss worse than always guessing 50%. Frontier models given the same summaries beat the base rate."
+>
+	<section class="border-b border-rule">
+		<div class="mx-auto max-w-6xl px-4 pb-12 pt-12 sm:px-6">
+			<a href="/experiments/" class="text-sm text-ink-3 hover:text-ink">← Experiments</a>
+			<p class="eyebrow mt-8">Experiment · Summary pipelines</p>
+			<h1 class="mt-3 max-w-4xl font-serif text-4xl font-medium leading-[1.1] tracking-tight sm:text-5xl">
+				Given the same case summaries, Jev forecast worse than a coin flip. Frontier models did not.
+			</h1>
+			<p class="mt-6 max-w-3xl text-lg leading-relaxed text-ink-2">
+				Typesafe.ai's Jev has too small a context window for the full motion papers, so GPT-5.6 Luna first summarized the 482 filings across the {jev.case_count} cases. Jev forecast from those summaries in one shot. As controls, two OpenAI models received the identical summaries.
+			</p>
+			<div class="mt-10 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
+				<Stat value={METRICS.micro_brier.format(jev.micro_brier)} label="Jev micro Brier" detail="Always forecasting 50% scores 0.2500" />
+				<Stat value={formatPercent(jev.correct / jev.unit_count)} label="Jev accuracy" detail={`Always predicting dismissal: ${formatPercent(baseRate)}`} />
+				<Stat value={formatPercent(jev.mean_forecast, 0)} label="Jev's average forecast" detail={`${formatPercent(baseRate, 0)} of units were dismissed`} />
+				<Stat value={METRICS.micro_brier.format(lunaOff.micro_brier)} label="GPT-6 Luna, reasoning off" detail="Same summaries; beats the base rate" />
+			</div>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
+		<div class="grid gap-10 lg:grid-cols-[18rem_1fr]">
+			<div>
+				<p class="eyebrow">Result</p>
+				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Scores against naive baselines</h2>
+				<p class="mt-4 text-sm leading-relaxed text-ink-2">
+					Jev's micro Brier of {jev.micro_brier.toFixed(3)} is worse than always answering 50% ({(0.25).toFixed(3)}) and far worse than always forecasting the cohort's dismissal rate ({baseRateBrier.toFixed(3)}). Both OpenAI controls, reading exactly the same summaries, beat that base-rate forecast.
+				</p>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">
+					Jev is significantly worse than both controls on micro Brier, equal-case Brier, and accuracy in a paired bootstrap with a Bonferroni correction. {lunaPairSignificant ? "The two controls also differ significantly." : "The two controls are not significantly different from each other."}
+				</p>
+			</div>
+			<div class="card min-w-0 p-4 sm:p-6">
+				<SummaryBrierChart rows={supplementaryRows} baseRateBrier={baseRateBrier} />
+			</div>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+		<div class="max-w-3xl">
+			<p class="eyebrow">Diagnosis</p>
+			<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Jev ranked cases reasonably. Its probabilities were anchored far too low.</h2>
+			<p class="mt-4 leading-relaxed text-ink-2">
+				A Brier score mixes two abilities: ranking stronger cases above weaker ones, and putting the right number on each. Jev's ranking ability (AUC {jev.auc.toFixed(2)}) is close to GPT-6 Luna with reasoning off ({lunaOff.auc.toFixed(2)}). Its failure is calibration. Jev's average forecast was {formatPercent(jev.mean_forecast, 0)} when {formatPercent(baseRate, 0)} of units were dismissed, so nearly every dismissal counted as a confident miss. In the diagrams below, Jev's points sit well above the diagonal: when it said 20–30%, the claim was usually dismissed.
+			</p>
+			<p class="mt-3 leading-relaxed text-ink-2">
+				GPT-4.1, an older non-reasoning model run on the full record with document tools, failed differently. Its ranking is no better than chance (AUC {gpt41.auc.toFixed(2)}), and it mostly answered 0% or 100%, which Brier scoring punishes heavily.
+			</p>
+		</div>
+		<div class="card mt-8 min-w-0 p-4 sm:p-6">
+			<ReliabilityGrid rows={[jev, lunaOff, lunaHigh, gpt41]} baseRate={baseRate} />
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+		<p class="eyebrow">All conditions</p>
+		<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Scores and costs</h2>
+		<div class="card mt-6 overflow-hidden">
+			<div class="overflow-x-auto">
+				<table class="w-full min-w-[820px] border-collapse text-left text-sm">
+					<caption class="sr-only">Summary-pipeline comparison. Lower Brier is better; higher accuracy and AUC are better.</caption>
+					<thead class="border-b border-rule text-xs text-ink-3">
+						<tr>
+							<th scope="col" class="px-4 py-3 font-medium">Model</th>
+							<th scope="col" class="px-4 py-3 font-medium">Input</th>
+							<th scope="col" class="px-4 py-3 text-right font-medium">Micro Brier</th>
+							<th scope="col" class="px-4 py-3 text-right font-medium">Equal-case</th>
+							<th scope="col" class="px-4 py-3 text-right font-medium">Accuracy</th>
+							<th scope="col" class="px-4 py-3 text-right font-medium">AUC</th>
+							<th scope="col" class="px-4 py-3 text-right font-medium">Mean forecast</th>
+							<th scope="col" class="px-4 py-3 text-right font-medium">Inference cost</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-rule">
+						{supplementaryRows.map((row) => (
+							<tr>
+								<th scope="row" class="px-4 py-3.5 font-medium text-ink">
+									<a href={row.source_url} class="hover:text-accent hover:underline">{row.display_name}</a>
+									<span class="block text-xs font-normal text-ink-3">Reasoning: {row.reasoning_label.toLowerCase()}</span>
+								</th>
+								<td class="px-4 py-3.5 text-ink-2">{row.input_label}</td>
+								<td class="px-4 py-3.5 text-right tabular text-ink">{METRICS.micro_brier.format(row.micro_brier)}</td>
+								<td class="px-4 py-3.5 text-right tabular text-ink-2">{METRICS.equal_case_brier.format(row.equal_case_brier)}</td>
+								<td class="px-4 py-3.5 text-right tabular text-ink-2">{METRICS.accuracy.format(row.correct / row.unit_count)}</td>
+								<td class="px-4 py-3.5 text-right tabular text-ink-2">{row.auc.toFixed(2)}</td>
+								<td class="px-4 py-3.5 text-right tabular text-ink-2">{formatPercent(row.mean_forecast, 0)}</td>
+								<td class="px-4 py-3.5 text-right tabular text-ink-2">{row.inference_usd === null ? <a class="text-accent hover:underline" href={row.source_url}>Model page</a> : formatUsd(row.inference_usd)}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+			<p class="border-t border-rule px-4 py-3 text-xs text-ink-3">
+				Summary preparation by GPT-5.6 Luna cost an estimated {formatUsd(preparation)} once and was shared by all three summary conditions. Costs are registry-rate estimates for successful requests, not invoices. Base rate: {formatPercent(baseRate)} of {cohort.unit_count} units dismissed.
+			</p>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+		<div class="grid gap-10 lg:grid-cols-2">
+			<div>
+				<h2 class="font-serif text-2xl font-semibold tracking-tight">What this shows</h2>
+				<ul class="mt-4 list-disc space-y-2 pl-5 leading-relaxed text-ink-2">
+					<li>The summaries carried enough information to beat the base rate: both OpenAI controls did so from the same text.</li>
+					<li>On this task, Jev's forecasts were systematically too low. Its ranking signal was real, but it did not translate into usable probabilities.</li>
+					<li>Cheap is possible without being wrong: GPT-6 Luna with reasoning off cost about {formatUsd(lunaOff.inference_usd)} in inference for all {cohort.case_count} cases.</li>
+				</ul>
+			</div>
+			<div>
+				<h2 class="font-serif text-2xl font-semibold tracking-tight">What it does not show</h2>
+				<ul class="mt-4 list-disc space-y-2 pl-5 leading-relaxed text-ink-2">
+					<li>It does not isolate the effect of reasoning. The high-reasoning control is a different model version (GPT-5.6 rather than GPT-6), and {lunaPairSignificant ? "the difference between the controls should be read with that confound in mind" : "the two controls are not significantly different"}.</li>
+					<li>It does not describe Jev's internals. Jev returns probabilities natively; we do not assume it works like a reasoning-off setting.</li>
+					<li>It is one task. Jev may perform differently on work it was designed for.</li>
+				</ul>
+			</div>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+		<div class="prose-lfb prose max-w-3xl">
+			<h2 id="method">Method and provenance</h2>
+			<p>
+				Jev, GPT-6 Luna with reasoning off, and GPT-5.6 Luna with high reasoning received the same frozen summaries of 482 documents prepared by GPT-5.6 Luna. Each predicted the original {cohort.unit_count} claim-defendant units in one shot, without document tools or search. GPT-4.1 used the full-document agentic harness from the main benchmark and did not receive the summaries.
+			</p>
+			<p>
+				Saved forecasts were rescored with the benchmark's scorer against the published outcomes for the same {cohort.case_count} cases. These rows are separate from the main leaderboard, whose models read the full record with document tools. Significance uses the repository's paired case-cluster bootstrap ({summarySignificance.replicates.toLocaleString("en-US")} replicates) across the three summary conditions. {summarySignificance.caveat}
+			</p>
+			<ul>
+				{summaryComparisons.map(({ source }) => (
+					<li>
+						<a href={`/data/exports/${source.slug}.json`} download>{supplementaryRows.find((r) => r.slug === source.slug)?.display_name} (reasoning {supplementaryRows.find((r) => r.slug === source.slug)?.reasoning_label.toLowerCase()})</a> ·{" "}
+						<a href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${source.forecast_run}`}>forecast run</a>
+					</li>
+				))}
+				<li><a href="/data/significance/summary/comparison.json" download>Significance results</a> and <a href="/data/significance/summary/inputs.json" download>reproduction inputs</a></li>
+				<li><a href="/data/summary-comparison/catalog.json" download>Source catalog and cost evidence</a></li>
+			</ul>
+		</div>
+	</section>
+</Layout>
