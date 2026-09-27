@@ -49,7 +49,7 @@ on:
       artifact_retention_days:
         description: Retention for the score-only result artifact.
         required: true
-        default: "14"
+        default: "90"
         type: string
 
 permissions:
