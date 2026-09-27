@@ -6,8 +6,16 @@ import Layout from "../layouts/Layout.astro";
 const methods = await getEntry("docs", "methods");
 if (!methods)
 	throw new Error("docs/METHODS.md is missing from the docs collection");
-const { Content, headings } = await render(methods);
+const { headings } = await render(methods);
 const toc = headings.filter((h) => h.depth === 2);
+if (!methods.rendered?.html)
+	throw new Error("docs/METHODS.md has no rendered content");
+// Embed the source document beneath the appendix heading without changing its
+// text or anchor IDs. Escaped code examples are not heading tags.
+const technicalHtml = methods.rendered.html.replace(
+	/<(\/?)h([1-5])(?=[\s>])/g,
+	(_tag, closing: string, level: string) => `<${closing}h${Number(level) + 1}`,
+);
 ---
 
 <Layout title="Methods" description="How LegalForecastBench builds its cases, runs models, and scores forecasts.">
@@ -24,9 +32,7 @@ const toc = headings.filter((h) => h.depth === 2);
 			</p>
 		</div>
 		<div class="mt-10 grid gap-12 lg:grid-cols-[minmax(0,1fr)_15rem]">
-			<div class="prose-lfb prose min-w-0 max-w-[46rem] break-words prose-headings:scroll-mt-24 [&_h1]:hidden">
-				<Content />
-			</div>
+			<div class="prose-lfb prose min-w-0 max-w-[46rem] break-words prose-headings:scroll-mt-24 [&>h2:first-child]:hidden" set:html={technicalHtml} />
 			<aside class="hidden lg:block">
 				<nav class="sticky top-24 text-sm" aria-label="Full technical methods contents">
 					<p class="font-medium text-ink">In the full methods</p>

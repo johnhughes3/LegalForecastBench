@@ -133,6 +133,28 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 						1,
 						`${context}: methods baseline uses the same rate`,
 					);
+					assert.equal(
+						await page
+							.getByRole("heading", {
+								name: "Construct And Intended Use",
+								level: 3,
+								exact: true,
+							})
+							.count(),
+						1,
+						`${context}: technical sections nest beneath the appendix`,
+					);
+					assert.equal(
+						await page
+							.getByRole("heading", {
+								name: "Model eligibility and contamination",
+								level: 4,
+								exact: true,
+							})
+							.count(),
+						1,
+						`${context}: technical subsections retain their hierarchy`,
+					);
 					await page.close();
 				}
 			}
