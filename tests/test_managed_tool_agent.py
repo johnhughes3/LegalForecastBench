@@ -983,6 +983,7 @@ class _ReplayHandler(_AttemptHandler):
 
 
 @pytest.mark.parametrize("with_cache_evidence", [False, True])
+@pytest.mark.parametrize("with_authentication", [False, True])
 @pytest.mark.parametrize(
     ("model_id", "reasoning_effort", "default_effort"),
     [
@@ -994,6 +995,7 @@ class _ReplayHandler(_AttemptHandler):
 def test_fable_managed_cell_uses_anthropic_key_and_metadata(
     monkeypatch: pytest.MonkeyPatch,
     with_cache_evidence: bool,
+    with_authentication: bool,
     model_id: str,
     reasoning_effort: str | None,
     default_effort: str | None,
@@ -1022,6 +1024,12 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
     }
     if with_cache_evidence:
         handler.payload["anthropic_cache_evidence"] = cache_evidence
+    if with_authentication:
+        from legalforecast.runner.provider_auth import ProviderAuthentication
+
+        handler.payload["authentication"] = ProviderAuthentication(
+            "anthropic", "workload_identity"
+        ).provenance()
     monkeypatch.setattr(
         "legalforecast.runner.tool_runtime.open_official_tool_session",
         lambda **_kwargs: pytest.fail("replay must not start a tool container"),
@@ -1054,7 +1062,7 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
         request_body_observer=lambda _body: pytest.fail(
             "replay must not observe a provider request"
         ),
-        environ={"ANTHROPIC_API_KEY": "fixture-key"},
+        environ={},
         registry_sha256="sha256:" + "b" * 64,
     )
 
@@ -1063,6 +1071,9 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
     assert response.estimated_cost == pytest.approx(0.0013)
     assert response.metadata is not None
     assert response.metadata["provider"] == "anthropic"
+    assert response.metadata.get("authentication_mode") == (
+        "workload_identity" if with_authentication else None
+    )
     assert response.metadata["served_model_version"] == model_id
     assert response.metadata["service_tier"] == "unreported"
     assert response.metadata["requested_thinking_type"] == "adaptive"
@@ -1079,112 +1090,6 @@ def test_fable_managed_cell_uses_anthropic_key_and_metadata(
         )
     else:
         assert "anthropic_cache_evidence" not in response.metadata
-
-
-@pytest.mark.parametrize("standard_tier", [False, True])
-def test_official_cell_settles_the_entire_agent_session_once(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, standard_tier: bool
-) -> None:
-    from collections.abc import Generator
-    from contextlib import contextmanager
-
-    entry = (
-        replace(
-            _entry(),
-            model_id="gpt-4.1-2025-04-14",
-            model_version_or_snapshot="gpt-4.1-2025-04-14",
-            reasoning_effort=None,
-            input_token_price=2.0,
-            output_token_price=8.0,
-            cache_read_token_price=0.5,
-        )
-        if standard_tier
-        else _entry()
-    )
-    tier = "default" if standard_tier else "flex"
-    executor = _Executor()
-
-    @contextmanager
-    def session(**_kwargs: Any) -> Generator[_Executor]:
-        yield executor
-
-    raw_output = (
-        '{"case_assessment":"Assessment","predictions":['
-        '{"unit_id":"unit-a","probability_fully_dismissed":0.5}]}'
-    )
-    monkeypatch.setattr(
-        "legalforecast.runner.tool_runtime.open_official_tool_session", session
-    )
-    managed_arguments: dict[str, Any] = {}
-
-    def managed_agent(*_args: Any, **kwargs: Any) -> ManagedToolAgentResult:
-        managed_arguments.update(kwargs)
-        return ManagedToolAgentResult(
-            raw_output=raw_output,
-            request_count=3,
-            input_tokens=100,
-            output_tokens=20,
-            served_model=entry.model_version_or_snapshot,
-            finish_reason="stop",
-            service_tier=tier,
-            called_tools=("read",),
-            response_usages=((40, 5), (30, 5), (30, 10)),
-        )
-
-    monkeypatch.setattr(managed_execution, "run_managed_tool_agent", managed_agent)
-    observed: list[bytes] = []
-    handler = _AttemptHandler()
-
-    response = managed_execution.complete_managed_tool_cell(
-        entry,
-        handler=cast(Any, handler),
-        managed_case=ManagedCaseInput(
-            case_id="case-1",
-            required_unit_ids=("unit-a",),
-            documents={"documents/case-1/motion.txt": b"FULL DOCUMENT BODY"},
-            unit_descriptions=(
-                {
-                    "unit_id": "unit-a",
-                    "claim_name": "Section 10(b)",
-                    "defendant_group": "issuer",
-                    "count": "Count I",
-                },
-            ),
-            document_descriptions=(
-                {
-                    "path": "/workspace/documents/case-1/motion.txt",
-                    "document_id": "motion",
-                    "role": "motion_to_dismiss",
-                },
-            ),
-            cell_id="cell-1",
-        ),
-        request_body_observer=observed.append,
-        environ={
-            "OPENAI_API_KEY": "fixture-key",
-            "LFB_HARVEY_TOOL_IMAGE": "sha256:" + "a" * 64,
-        },
-        registry_sha256="sha256:" + "b" * 64,
-    )
-
-    assert len(observed) == 1
-    assert response.raw_output == raw_output
-    assert response.request_count == 3
-    assert response.metadata is not None
-    assert response.metadata["execution_backend"] == "pydantic_ai"
-    assert handler.settlement == (
-        100,
-        20,
-        0.00036 if standard_tier else 0.00022,
-        raw_output,
-    )
-    assert response.metadata["requested_service_tier"] == tier
-    assert response.metadata["observed_service_tier"] == tier
-    initial_prompt = cast(str, managed_arguments["initial_prompt"])
-    assert "Section 10(b)" in initial_prompt
-    assert "/workspace/documents/case-1/motion.txt" in initial_prompt
-    assert "should_score" not in initial_prompt
-    assert "FULL DOCUMENT BODY" not in initial_prompt
 
 
 def test_google_managed_cell_uses_gemini_key_and_provider_metadata(

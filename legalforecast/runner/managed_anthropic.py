@@ -10,9 +10,15 @@ from legalforecast.evals.model_registry import (
     OpenAIReasoningEffort,
     ToolPolicy,
 )
+from legalforecast.runner.provider_auth import ProviderAuthentication
 
 
-def anthropic_model(entry: ModelRegistryEntry, *, api_key: str | None) -> Model:
+def anthropic_model(
+    entry: ModelRegistryEntry,
+    *,
+    api_key: str | None,
+    authentication: ProviderAuthentication | None = None,
+) -> Model:
     """Build the optional native Anthropic model adapter on demand.
 
     Anthropic is an optional Pydantic AI provider because the public benchmark
@@ -27,7 +33,11 @@ def anthropic_model(entry: ModelRegistryEntry, *, api_key: str | None) -> Model:
 
     return AnthropicModel(
         entry.model_id,
-        provider=AnthropicProvider(api_key=api_key),
+        provider=(
+            AnthropicProvider(anthropic_client=authentication.anthropic_client())
+            if authentication is not None
+            else AnthropicProvider(api_key=api_key)
+        ),
     )
 
 

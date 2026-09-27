@@ -16,6 +16,17 @@ def add_managed_cost_evidence(
 
     if metadata is None or "cost_basis" not in metadata:
         return
+    if "authentication_mode" in metadata:
+        receipt["authentication"] = {
+            key.removeprefix("authentication_"): metadata[key]
+            for key in (
+                "authentication_mode",
+                "authentication_provider",
+                "authentication_endpoint",
+                "authentication_issuer",
+            )
+            if key in metadata
+        }
     required = ("cost_basis", "cost_method", "rate_provenance", "service_tier")
     if any(key not in metadata or not metadata[key] for key in required):
         raise RunValidationError("managed cost evidence metadata is incomplete")
