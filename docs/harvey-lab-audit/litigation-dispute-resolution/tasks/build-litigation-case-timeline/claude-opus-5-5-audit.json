@@ -1,0 +1,604 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "build-litigation-case-timeline",
+  "title": "Build Litigation Case Timeline — Chronological Event Summary for Breach of Contract and Fraud Defense",
+  "criteria_total": 64,
+  "criterion_lines": {
+    "C-001": 19,
+    "C-002": 27,
+    "C-003": 35,
+    "C-004": 43,
+    "C-005": 51,
+    "C-006": 59,
+    "C-007": 67,
+    "C-008": 75,
+    "C-009": 83,
+    "C-010": 91,
+    "C-011": 99,
+    "C-012": 107,
+    "C-013": 115,
+    "C-014": 123,
+    "C-015": 131,
+    "C-016": 139,
+    "C-017": 147,
+    "C-018": 155,
+    "C-019": 163,
+    "C-020": 171,
+    "C-021": 179,
+    "C-022": 187,
+    "C-023": 195,
+    "C-024": 203,
+    "C-025": 211,
+    "C-026": 219,
+    "C-027": 227,
+    "C-028": 235,
+    "C-029": 243,
+    "C-030": 251,
+    "C-031": 259,
+    "C-032": 267,
+    "C-033": 275,
+    "C-034": 283,
+    "C-035": 291,
+    "C-036": 299,
+    "C-037": 307,
+    "C-038": 315,
+    "C-039": 323,
+    "C-040": 331,
+    "C-041": 339,
+    "C-042": 347,
+    "C-043": 355,
+    "C-044": 363,
+    "C-045": 371,
+    "C-046": 379,
+    "C-047": 387,
+    "C-048": 395,
+    "C-049": 403,
+    "C-050": 411,
+    "C-051": 419,
+    "C-052": 427,
+    "C-053": 435,
+    "C-054": 443,
+    "C-055": 451,
+    "C-056": 459,
+    "C-057": 467,
+    "C-058": 475,
+    "C-059": 483,
+    "C-060": 491,
+    "C-061": 499,
+    "C-062": 507,
+    "C-063": 515,
+    "C-064": 523
+  },
+  "blind": {
+    "task": "build-litigation-case-timeline",
+    "criteria_reviewed": 64,
+    "coverage": "Read all 64 criteria and the instructions (one sentence plus the output filename). Read in full: the EDA, the Notice of Material Breach, the Notice of Termination, the Stanton-to-Ivers email, both internal email threads, the Scheduling Order, and Holcomb deposition summary sections I-VII. Searched the rest by keyword: the Complaint (causes of action, filing date, SOL allegations, damages, direct-sales allegations), the Answer/Counterclaim (Year 1-3 figures, $408K/$792K breakdown, affirmative defenses), the QA log totals, the Buckley report (14 vs 2, 11 of 14, who retained him), the Chakrabarti report (diversion table, 5-year projection, dates, list of depositions), the Fong deposition (privilege exchange), the Harborview response (preservation demand, $5.8M figure), and spoliation facts. Verified the ORS 12.110(1) fraud discovery clause through a public.law fetch, which returned a model summary quoting the clause, not a full primary-text read. Did not read the Fong deposition summary or the Harborview response line by line. Did not run the legal research needed to confirm how Oregon courts count the 90-day non-renewal period.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-045"
+        ],
+        "title": "Discovery-rule criterion assumes the fraud claim needs tolling to be timely; it is timely on its face",
+        "explanation": "All the alleged fraud conduct runs from June 2022 to February 2023. The Complaint was filed February 28, 2024, which is less than two years after even the earliest act (June 8, 2022). The claim is therefore timely under ORS 12.110(1) without any discovery rule. Also, the statute's discovery clause sets the accrual date; it is not tolling. C-045 requires the answer to say the discovery rule is 'potentially making the fraud claim timely despite the 2-year statute.' That treats timeliness as depending on discovery, which is wrong. It also suggests Harborview may not have discovered the fraud until the September 30, 2024 production. That is impossible: the February 2024 Complaint already quotes the June 8, September 14, October 3 and December 1 emails. A competent answer that correctly says SOL is not a viable defense because every act falls within two years of filing, and does not build a tolling theory, would fail this criterion.",
+        "evidence": [
+          {
+            "source": "C-045",
+            "quote": "Harborview may not have discovered the selective QA enforcement and Cascade diversion until the September 30, 2024 document production or some earlier point, potentially making the fraud claim timely despite the 2-year statute"
+          },
+          {
+            "source": "plaintiff-complaint.docx.txt",
+            "quote": "Harborview filed this action on February 28, 2024. This filing is within two years of the last acts of diversion and fabricated quality-control rejections, which continued through at least February 2023"
+          },
+          {
+            "source": "plaintiff-complaint.docx.txt",
+            "quote": "On or about June 8, 2022, Holcomb sent an email to Nolan Yee of Cascade stating: \"Let's start with a small trial run --- 2 pallets of the Trail Mix Bars. Keep it quiet for now.\""
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "ORS 12.110(1)",
+            "proposition": "Two-year limitation; 'in an action at law based upon fraud or deceit, the limitation shall be deemed to commence only from the discovery of the fraud or deceit.'",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the output assesses the fraud claim's timeliness correctly: timely because it was filed within two years of all alleged conduct, with the ORS 12.110(1) discovery-based accrual as further support. Remove the post-filing discovery date and the 'despite the 2-year statute' premise."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-009",
+          "C-050"
+        ],
+        "title": "Non-renewal deadline fixed at Dec 15, 2022, but the record also gives Dec 14 and the contract arithmetic supports Dec 14",
+        "explanation": "EDA §9.3 requires non-renewal notice 'at least ninety (90) days prior to the expiration' of a term that expires March 14, 2023. Counting back 90 days from March 14 gives December 14, 2022, and the Holcomb deposition summary says expressly that December 14 was the deadline. The December 1 Holcomb email and the Chakrabarti report say December 15. C-009's PASS condition requires an entry for, or a reference to, 'December 15, 2022'. C-050 also names December 15. A solver who computes the date or follows the deposition summary and writes December 14 lands between PASS (which needs Dec 15) and FAIL (deadline not mentioned at all). A literal judge may fail a correct answer over a one-day difference that the record itself creates.",
+        "evidence": [
+          {
+            "source": "exclusive-distribution-agreement.docx.txt",
+            "quote": "unless either Party provides written notice of non-renewal to the other Party at least ninety (90) days prior to the expiration of the then-current term"
+          },
+          {
+            "source": "deposition-summary-holcomb.docx.txt",
+            "quote": "the December 14, 2022 date would have been the 90-day deadline for non-renewal notice prior to the March 14, 2023 expiration of the initial three-year term"
+          },
+          {
+            "source": "internal-emails-holcomb-yee-stanton.eml.txt",
+            "quote": "the December 15 deadline for the 90-day non-renewal notice is coming up fast"
+          },
+          {
+            "source": "C-009",
+            "quote": "PASS if the timeline includes an entry for December 15, 2022 (or references this date) as the deadline"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Accept 'December 14 or 15, 2022' (or 'on or about mid-December 2022') as the 90-day non-renewal deadline in C-009 and C-050."
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-052"
+        ],
+        "title": "Requires a ranked 'top 5 critical issues' summary that the one-line instructions never ask for",
+        "explanation": "The only instruction is to 'build a detailed litigation case timeline with strategic annotations for summary judgment preparation.' Strategic annotations attached to timeline entries fully satisfy that. A separate summary section that ranks a specific number of issues (about five) by importance is a template feature, not an implicit part of a case timeline. A timeline that carries thorough issue annotations inline, or groups issues without ranking them, is competent work. It fails this criterion and so scores zero under all-pass.",
+        "evidence": [
+          {
+            "source": "instructions",
+            "quote": "Review the attached documents and build a detailed litigation case timeline with strategic annotations for summary judgment preparation."
+          },
+          {
+            "source": "C-052",
+            "quote": "PASS if the output includes a summary section that identifies and ranks the top 5 (or approximately 5) most critical issues for summary judgment by importance."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop C-052, or relax it to 'identifies the most significant summary-judgment issues somewhere in the output' with no count, ranking or section requirement, or add the requirement to the instructions."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-053",
+          "C-054",
+          "C-055",
+          "C-056",
+          "C-057"
+        ],
+        "title": "Hidden 'summary section' with a claim-by-claim exposure assessment and pre-filing next steps; client side is never stated",
+        "explanation": "These criteria require a summary section that assesses Greenleaf's exposure on each of the four claims and recommends next steps 'before filing' the SJ motion. 'Strategic annotations for summary judgment preparation' arguably implies some claim assessment, so this is not clearly hidden. But the section structure, the full claim-by-claim coverage, and the Greenleaf-exposure framing are not stated. The instructions also never say which side the solver represents. The side can be inferred, since Greenleaf's counsel prepared the Holcomb summary and retained Buckley, but a solver who writes neutrally or from the plaintiff's side, or who analyzes claims only through the entry-level annotations, risks failing up to five criteria.",
+        "evidence": [
+          {
+            "source": "C-053",
+            "quote": "PASS if the summary section includes an assessment of Greenleaf's exposure on Harborview's Breach of Contract (exclusivity violation) claim."
+          },
+          {
+            "source": "C-057",
+            "quote": "PASS if the summary section includes recommended next steps before filing the summary judgment motion"
+          },
+          {
+            "source": "deposition-summary-holcomb.docx.txt",
+            "quote": "This deposition summary was prepared by Colin Rourke, Senior Associate, Ashford, Kline & Pryor LLP"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "State in the instructions that the user is Greenleaf's defense counsel and wants a closing summary assessing exposure on each claim with recommended next steps, or let these criteria pass on equivalent analysis anywhere in the output."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-047"
+        ],
+        "title": "Requires linking the 'supply chain' cover story specifically to spoliation or evidentiary-integrity concerns",
+        "explanation": "The December 1, 2022 'supply chain issues' email is most naturally analyzed as an affirmative misrepresentation (the fraud claim), as concealment, and as impeachment material, and C-008 and C-049 already credit those uses. C-047 fails any answer that does not tie it to spoliation or evidentiary integrity (for example, if Cascade communications were deleted). The record supports a spoliation issue: a litigation hold only around March 2024 and Holcomb's vague retention testimony. But this particular linkage is one advocate's framing, not a conclusion a competent reviewer must reach. 'Consciousness of guilt' offers partial leeway, so some competent answers pass and others fail.",
+        "evidence": [
+          {
+            "source": "C-047",
+            "quote": "FAIL if the false supply chain explanation is not connected to spoliation or evidentiary integrity concerns."
+          },
+          {
+            "source": "deposition-summary-holcomb.docx.txt",
+            "quote": "\"I follow company retention policies. I don't recall deleting anything specific.\""
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass if the output treats the December 1 email as evidence of knowing concealment or falsity (fraud, consciousness of guilt, impeachment, or spoliation risk). Do not require the spoliation linkage specifically."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-064",
+          "C-007"
+        ],
+        "title": "QA rejection records conflict on lot identities, dates, values and denominators",
+        "explanation": "Fong's October 3, 2022 email lists four rejected lots (H-2209 Maple Almond, H-2211, H-2213, H-2214) worth about $187,000. The QA log shows H-2209 as Cranberry Cashew Bars worth $112,000 alone. Buckley's report dates the H-2211 rejection October 14 and the H-2210 rejection October 10, both after the October 3 email said the rejections had already happened. The QA log counts 34 Harborview lots (41.2% rejection rate) and 18 non-Harborview lots. Buckley counts 86 and 78 (16.3%). The log's raw rejection total is $1,317,900, 'adjusted' to $1.4M. Year 3 purchase figures also move inconsistently: $4.27M on January 10, $5.6M on February 15, and $5.8M on both February 22 and March 14. The graded counts (14 vs 2, $1.4M, $5.8M) are consistent across documents, so the grading impact is limited. But a lot-level QA timeline or any rejection-rate figure cannot be accurate against every source.",
+        "evidence": [
+          {
+            "source": "internal-emails-stanton-fong-qa.eml.txt",
+            "quote": "Total product value on the four rejected lots comes to approximately $187,000 at wholesale."
+          },
+          {
+            "source": "qa-rejection-log.xlsx.txt",
+            "quote": "Rejection Rate: 14 / 34 = 41.2%"
+          },
+          {
+            "source": "expert-report-buckley.docx.txt",
+            "quote": "fourteen (14) rejections out of approximately eighty-six (86) Harborview-bound lots, compared to two (2) rejections out of approximately seventy-eight (78) non-Harborview-bound lots"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Reconcile the lot-level data across the Fong email, the QA log and the Buckley report, or tell judges that discrepancies in lot details and rates are acceptable when counts and totals match."
+      }
+    ],
+    "overall": "The rubric is mostly sound. The 29 timeline-entry criteria (C-001 to C-029) and the numeric criteria (C-058 to C-064) match the record, and the analytic issues are well grounded in the documents: premature breach notice, selective QA enforcement, the causation loop, privilege and clawback, speculative 5-year damages, spoliation, the ambiguity in 'distribute', impeachment, and auto-renewal. Three things could fail correct work. C-045 builds on a wrong legal premise: the fraud claim is timely without any discovery rule, and discovery after filing is impossible. C-009 and C-050 fix the non-renewal deadline at December 15 even though the EDA's arithmetic and the Holcomb deposition summary give December 14. C-052 demands a ranked top-5 summary the instructions never ask for. The claim-by-claim summary criteria (C-053 to C-057) are arguably hidden structure, compounded by instructions that never name the client's side. Because scoring is all-pass across 64 criteria, these few defects, together with the high volume of specific required insights, make a perfect score depend heavily on the solver matching the rubric author's template."
+  },
+  "final": {
+    "task": "build-litigation-case-timeline",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Definite defects: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-009",
+          "C-050"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-009",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-050",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "EDA §9.1 has the term expiring March 14, 2023, and §9.3 requires notice 'at least ninety (90) days prior.' Counting back gives Dec 14 (17+31+28+14=90), and the Holcomb deposition summary says Dec 14. The Complaint ¶49, the Chakrabarti report and the Dec 1 email say Dec 15. C-009 makes Dec 15 the PASS anchor and C-050 states it as fact. A solver who computes the date correctly risks failing C-009."
+      },
+      {
+        "sol_locator": "Definite defects: item 2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-045"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-045",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "The earliest alleged conduct is June 8, 2022 and the Complaint was filed Feb 28, 2024. The claim is inside two years on its face, and the Complaint itself pleads this. C-045 requires a discovery or tolling theory making the claim timely 'despite the 2-year statute.' It also floats a discovery date of Sept 30, 2024, which is impossible because the Complaint already quotes the emails. The premise is wrong."
+      },
+      {
+        "sol_locator": "Definite defects: item 3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-028",
+          "C-029",
+          "C-052",
+          "C-053",
+          "C-054",
+          "C-055",
+          "C-056",
+          "C-057"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-028",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-029",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-052",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-053",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-054",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-055",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-056",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-057",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Source cites and named actors are standard parts of a litigation chronology for SJ, and competent timelines clear 80% easily, so C-028 and C-029 are sound. A ranked top-5 list (C-052) is a hidden template feature. Claim-by-claim exposure assessments and next steps (C-053 to C-057) are arguably implicit in 'strategic annotations for summary judgment preparation.' But the 'summary section' placement and the unstated client side make them debatable."
+      },
+      {
+        "sol_locator": "Arguable/qualified concerns: item 1",
+        "sol_status": "qualified_check",
+        "sol_criteria": [
+          "C-046",
+          "C-047"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-046",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-047",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "C-046 is well grounded. The record has Harborview's Feb 2023 preservation demand, a litigation hold only in March 2024, and Holcomb's vague retention testimony. C-047's PASS accepts 'consciousness of guilt,' but its FAIL requires a 'spoliation or evidentiary integrity' link. An answer that treats the Dec 1 email as a fraudulent cover story or impeachment material, without linking it to evidence integrity, falls between the two conditions."
+      },
+      {
+        "sol_locator": "Arguable/qualified concerns: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-036",
+          "C-037",
+          "C-038"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-036",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-037",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-038",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The criteria are hedged: 'contributed to or caused' and 'could have been as high as approximately $9.1M.' The $9.1M arithmetic appears in the Complaint, the Harborview response, the Chakrabarti report, and the Greenleaf-counsel Holcomb summary, which itself says it 'directly undermines Greenleaf's stated basis for termination.' Noting the 3-of-14 and rework-adjustment caveats does not prevent a pass, and flagging a risk to the client's counterclaim is exactly what candid SJ prep does."
+      },
+      {
+        "sol_locator": "Arguable/qualified concerns: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-042",
+          "C-043"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-042",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-043",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "Chakrabarti admits the renewals were one-year terms and pre-emptively rebuts a 'speculative' challenge, so the record itself flags the vulnerability. C-042 accepts 'speculative or unsupported,' which a defense-oriented annotation would naturally say. C-043 accepts SJ, Daubert, or exclusion. Both are reasonable defense analysis, not a hidden advocacy mandate."
+      },
+      {
+        "sol_locator": "Arguable/qualified concerns: item 4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-034",
+          "C-061",
+          "C-064"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-034",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-061",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-064",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The graded figures are consistent across sources: 14 vs 2 (Chakrabarti, Buckley), 11 of 14 inconsistent and 3 consistent (Buckley), and 14 notices worth $1.4M (Chakrabarti, and the QA log's adjusted total). The spreadsheet's internal inconsistencies, such as sheet2 E25=4 against five listed lots and the lot and denominator mismatches, do not change what these criteria require."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-045"
+        ],
+        "title": "C-045 assumes the fraud claim needs a discovery rule to be timely; it is timely on its face and the posited discovery date is impossible",
+        "explanation": "All alleged fraud conduct runs from June 2022 to Feb 2023. The Complaint was filed Feb 28, 2024, less than two years after even the earliest act (June 8, 2022). Under ORS 12.110(1) the claim is timely without any discovery rule, and the statute's discovery clause sets accrual rather than tolling. C-045 requires the answer to say discovery 'potentially mak[es] the fraud claim timely despite the 2-year statute.' It also suggests Harborview may not have discovered the fraud until the Sept 30, 2024 production, which is impossible because the Feb 2024 Complaint quotes the June 8, Sept 14, Oct 3 and Dec 1 emails. A competent answer that says SOL is not a viable defense because everything falls within two years of filing, and builds no tolling theory, would fail.",
+        "evidence": [
+          {
+            "source": "C-045",
+            "quote": "Harborview may not have discovered the selective QA enforcement and Cascade diversion until the September 30, 2024 document production or some earlier point, potentially making the fraud claim timely despite the 2-year statute"
+          },
+          {
+            "source": "plaintiff-complaint.docx.txt",
+            "quote": "Harborview filed this action on February 28, 2024. This filing is within two years of the last acts of diversion and fabricated quality-control rejections"
+          },
+          {
+            "source": "plaintiff-complaint.docx.txt",
+            "quote": "On or about June 8, 2022, Holcomb sent an email to Nolan Yee of Cascade stating: \"Let's start with a small trial run"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "ORS 12.110(1)",
+            "proposition": "Two-year limitation; in an action based on fraud or deceit the limitation is deemed to commence only from discovery of the fraud.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the output assesses timeliness correctly: timely because it was filed within two years of all alleged conduct, with the discovery-based accrual as further support. Delete the post-filing discovery date and the 'despite the 2-year statute' premise.",
+        "origin": "blind",
+        "sol_locators": [
+          "Definite defects: item 2"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-009",
+          "C-050"
+        ],
+        "title": "Non-renewal deadline fixed at Dec 15, 2022; the EDA arithmetic and the Holcomb summary give Dec 14",
+        "explanation": "EDA §9.3 requires notice 'at least ninety (90) days prior to the expiration' of a term that expires March 14, 2023 (§9.1). Dec 14 to Mar 14 is exactly 90 days (17+31+28+14), so Dec 14 is the last compliant date and a Dec 15 notice would be 89 days. The Holcomb deposition summary says Dec 14. The Complaint ¶49, the Chakrabarti report and the Dec 1 internal email say Dec 15. C-009 makes Dec 15 the PASS anchor, and C-050 states Dec 15 as the deadline. A solver who computes the date correctly or follows the deposition summary risks a literal-minded FAIL on C-009, and C-050 rewards a wrong fact.",
+        "evidence": [
+          {
+            "source": "exclusive-distribution-agreement.docx.txt",
+            "quote": "expiring on March 14, 2023"
+          },
+          {
+            "source": "deposition-summary-holcomb.docx.txt",
+            "quote": "the December 14, 2022 date would have been the 90-day deadline for non-renewal notice prior to the March 14, 2023 expiration"
+          },
+          {
+            "source": "plaintiff-complaint.docx.txt",
+            "quote": "any notice of non-renewal had to be sent no later than December 15, 2022"
+          },
+          {
+            "source": "C-009",
+            "quote": "PASS if the timeline includes an entry for December 15, 2022 (or references this date) as the deadline"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "In C-009 and C-050, accept Dec 14 or Dec 15, 2022 (or mid-December), and credit an answer that notes the discrepancy. The core point is that no notice was sent, so the EDA auto-renewed.",
+        "origin": "blind",
+        "sol_locators": [
+          "Definite defects: item 1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-052"
+        ],
+        "title": "Requires a ranked 'top 5 critical issues' summary the one-line instructions never ask for",
+        "explanation": "The only instruction is to build a detailed litigation case timeline with strategic annotations for SJ preparation. Inline strategic annotations fully satisfy that. A separate summary section ranking about five issues by importance is a template feature, not an implicit part of a case timeline. A thorough annotated timeline with no ranked list, or with unranked issue groupings, is competent work, yet it fails this criterion and scores zero under all-pass.",
+        "evidence": [
+          {
+            "source": "instructions",
+            "quote": "Review the attached documents and build a detailed litigation case timeline with strategic annotations for summary judgment preparation."
+          },
+          {
+            "source": "C-052",
+            "quote": "PASS if the output includes a summary section that identifies and ranks the top 5 (or approximately 5) most critical issues for summary judgment by importance."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop C-052, or pass any output that identifies the most significant SJ issues anywhere, with no count, ranking or section requirement.",
+        "origin": "blind",
+        "sol_locators": [
+          "Definite defects: item 3"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-053",
+          "C-054",
+          "C-055",
+          "C-056",
+          "C-057"
+        ],
+        "title": "Hidden 'summary section' with claim-by-claim exposure assessments and pre-filing next steps; client side never stated",
+        "explanation": "'Strategic annotations for summary judgment preparation' arguably implies assessing claims and next steps, so the substance is not clearly hidden. But the criteria tie the assessment to 'the summary section,' require separate coverage of all four claims, and frame it as Greenleaf's exposure. The instructions never say which side the solver represents. The side is inferable, since Greenleaf's counsel prepared the Holcomb summary. A solver who analyzes the claims only in entry-level annotations or in a differently named section, or who writes neutrally, risks failing up to five criteria under a literal judge.",
+        "evidence": [
+          {
+            "source": "C-053",
+            "quote": "PASS if the summary section includes an assessment of Greenleaf's exposure on Harborview's Breach of Contract (exclusivity violation) claim."
+          },
+          {
+            "source": "C-057",
+            "quote": "PASS if the summary section includes recommended next steps before filing the summary judgment motion"
+          },
+          {
+            "source": "deposition-summary-holcomb.docx.txt",
+            "quote": "This deposition summary was prepared by Colin Rourke, Senior Associate, Ashford, Kline & Pryor LLP"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass equivalent claim assessments and next steps wherever they appear in the output, or state in the instructions that the user is Greenleaf's counsel and wants a closing claim-by-claim assessment.",
+        "origin": "blind",
+        "sol_locators": [
+          "Definite defects: item 3"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-047"
+        ],
+        "title": "C-047's PASS ('consciousness of guilt') and FAIL ('spoliation or evidentiary integrity') conditions do not align",
+        "explanation": "The Dec 1, 2022 'supply chain issues' email is most naturally analyzed as an affirmative misrepresentation, as concealment, and as impeachment material, and C-008 and C-049 already credit those uses. C-047's PASS accepts a link to 'consciousness of guilt,' but its FAIL condition requires a link to 'spoliation or evidentiary integrity concerns.' An answer that calls the email a knowing cover story evidencing fraudulent intent, without tying it to preservation, falls between the two conditions. Judges may split on it. The record does support a spoliation issue (a March 2024 hold and vague retention testimony), so the criterion is defensible but inconsistently framed.",
+        "evidence": [
+          {
+            "source": "C-047",
+            "quote": "FAIL if the false supply chain explanation is not connected to spoliation or evidentiary integrity concerns."
+          },
+          {
+            "source": "deposition-summary-holcomb.docx.txt",
+            "quote": "\"I follow company retention policies. I don't recall deleting anything specific.\""
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass if the output treats the Dec 1 email as evidence of knowing concealment or falsity (fraud intent, consciousness of guilt, impeachment, or spoliation risk), and align the FAIL condition with that.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable/qualified concerns: item 1"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      }
+    ],
+    "changes_from_blind": "I dropped blind O6, the document_defect on C-064 and C-007. On re-checking, every figure those criteria grade is consistent across sources: the Fong email's four rejected lots, 14 notices, $1.4M, 14 vs 2, and Buckley's 11/3 split. The lot-level and denominator mismatches in the QA log are real but do not change any criterion's correct answer, which matches Sol's qualified item 4. After reviewing Sol, I rejected its C-028 and C-029 finding: source citations and named actors are implicit in a litigation chronology. I also rejected its C-036 to C-038 finding, because the criteria are hedged and the $9.1M arithmetic appears throughout the record, including the Greenleaf-counsel summary. I rejected its C-042 and C-043 finding as well, because Chakrabarti himself anticipates the 'speculative' challenge. I kept C-053 to C-057 as arguable rather than adopting Sol's 'confirmed,' because claim assessment is arguably implicit in SJ-prep annotations. I kept C-047 as arguable, where Sol found no defect. I strengthened O2 with the day count (Dec 14 to Mar 14 is exactly 90 days) and the Complaint ¶49 Dec 15 statement. I could not re-verify the ORS 12.110 primary text because the web fetch was blocked by a spend limit, so that authority stays verified=false.",
+    "overall": "The rubric is mostly well grounded. The timeline-entry criteria and numeric criteria track the record, and the analytic issues are supported by the documents: selective QA enforcement, the causation loop, speculative 5-year damages, spoliation, and auto-renewal. Three criteria would misgrade competent work. C-045 rests on a wrong premise, because the fraud claim is timely without any discovery rule and the posited post-filing discovery date is impossible. C-009 and C-050 fix the non-renewal deadline at Dec 15 when the EDA arithmetic and the Holcomb summary give Dec 14. C-052 demands a ranked top-5 summary the instructions never request. C-053 to C-057 (a claim-by-claim assessment in a 'summary section') and C-047 (a mismatch between its PASS and FAIL conditions) are arguable. Under all-pass scoring across 64 criteria, these defects make a perfect score depend on matching the rubric author's template.",
+    "coverage": "Covered all 64 criteria and the instructions. In the blind pass I read the key documents in full: the EDA, the notices, the emails, the scheduling order, and the Holcomb summary. On this pass I re-checked the Dec 14/15 references across the Complaint ¶49, the Chakrabarti report, the Holcomb summary and the Dec 1 email; the $9.1M and $3.3M causation sources; the QA log's adjusted total note and sheet2 E25/J25; Buckley's 11/3 findings; Chakrabarti's five-year rationale; and the Answer's affirmative defenses. I also read Sol's full report and index. The ORS 12.110(1) primary text was not read in this session because the fetch was blocked, so that citation stays unverified. I did not independently recalculate the expert damages models."
+  }
+}

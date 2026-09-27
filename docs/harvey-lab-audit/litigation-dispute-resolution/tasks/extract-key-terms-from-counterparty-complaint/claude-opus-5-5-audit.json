@@ -1,0 +1,620 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "extract-key-terms-from-counterparty-complaint",
+  "title": "Extract Key Terms from Counterparty Complaint — Litigation Summary Memorandum",
+  "criteria_total": 75,
+  "criterion_lines": {
+    "C-001": 19,
+    "C-002": 27,
+    "C-003": 35,
+    "C-004": 43,
+    "C-005": 51,
+    "C-006": 59,
+    "C-007": 67,
+    "C-008": 75,
+    "C-009": 83,
+    "C-010": 91,
+    "C-011": 99,
+    "C-012": 107,
+    "C-013": 115,
+    "C-014": 123,
+    "C-015": 131,
+    "C-016": 139,
+    "C-017": 147,
+    "C-018": 155,
+    "C-019": 163,
+    "C-020": 171,
+    "C-021": 179,
+    "C-022": 187,
+    "C-023": 195,
+    "C-024": 203,
+    "C-025": 211,
+    "C-026": 219,
+    "C-027": 227,
+    "C-028": 235,
+    "C-029": 243,
+    "C-030": 251,
+    "C-031": 259,
+    "C-032": 267,
+    "C-033": 275,
+    "C-034": 283,
+    "C-035": 291,
+    "C-036": 299,
+    "C-037": 307,
+    "C-038": 315,
+    "C-039": 323,
+    "C-040": 331,
+    "C-041": 339,
+    "C-042": 347,
+    "C-043": 355,
+    "C-044": 363,
+    "C-045": 371,
+    "C-046": 379,
+    "C-047": 387,
+    "C-048": 395,
+    "C-049": 403,
+    "C-050": 411,
+    "C-051": 419,
+    "C-052": 427,
+    "C-053": 435,
+    "C-054": 443,
+    "C-055": 451,
+    "C-056": 459,
+    "C-057": 467,
+    "C-058": 475,
+    "C-059": 483,
+    "C-060": 491,
+    "C-061": 499,
+    "C-062": 507,
+    "C-063": 515,
+    "C-064": 523,
+    "C-065": 531,
+    "C-066": 539,
+    "C-067": 547,
+    "C-068": 555,
+    "C-069": 563,
+    "C-070": 571,
+    "C-071": 579,
+    "C-072": 587,
+    "C-073": 595,
+    "C-074": 603,
+    "C-075": 611
+  },
+  "blind": {
+    "task": "extract-key-terms-from-counterparty-complaint",
+    "criteria_reviewed": 75,
+    "coverage": "I read all three supplied documents in full: the complaint with Exhibits A-F (1,107 lines), the client email, and the affidavit of service. I also read the solver system prompt and the judge prompt (rubric_criterion.txt). The judge prompt has no guidance on how literally to read words like 'verifies' or 'flags'. I reviewed all 75 criteria against the record. I recomputed every damages figure, the 169-day interval, and the 180-day date. I checked O.C.G.A. § 10-1-763(b) against its primary statutory text (FindLaw reproduction). I did not check primary text this session for: NC R. Civ. P. 6(a)/12(a), which I believe supports May 27; Georgia's rule barring unjust enrichment where an express contract exists; the Georgia Restrictive Covenants Act §§ 13-8-53/13-8-57; or the removal statutes. I relied on general knowledge for those, and none of them is the basis of a 'problematic' finding.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-056"
+        ],
+        "title": "C-056 misstates the GTSA exemplary-damages cap and requires flagging a complaint error that does not exist",
+        "explanation": "O.C.G.A. § 10-1-763(b) caps exemplary damages at 'twice any award made under subsection (a),' not at 1x actual damages as C-056 says. The complaint (¶107) describes the cap as 'not exceeding double the actual damages,' which states the statute correctly. It also asks for only $3.4M in exemplary damages (1x the $3.4M actual), well inside the 2x ceiling. So the criterion rests on wrong law and a false premise, and it rewards a wrong statement. A competent memo that says the complaint correctly recites the GTSA cap and claims less than the maximum fails, while a memo that repeats the criterion's wrong 1x cap passes. A defense memo that relied on the criterion's view would also understate exposure on Count III, since the ceiling is up to $6.8M in exemplary damages on $3.4M actual. (There is a minor miscitation in ¶107: it cites § 10-1-762 for actual damages, which are in § 10-1-763(a). C-056 does not rely on it.)",
+        "evidence": [
+          {
+            "source": "task.json C-056",
+            "quote": "flags that this is an imprecise or misleading characterization of O.C.G.A. § 10-1-763, which caps exemplary damages at the amount of actual damages (not a 'double damages' multiplier)"
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "the court may award exemplary damages in an amount not exceeding double the actual damages awarded under O.C.G.A. § 10-1-762"
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "Apex is therefore entitled to exemplary damages of \\$3,400,000, for a combined total of actual and exemplary damages of \\$3,400,000 + \\$3,400,000 = **\\$6,800,000**"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.C.G.A. § 10-1-763(b)",
+            "proposition": "If willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any award made under subsection (a).",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Delete C-056, or rewrite it: PASS if the memo notes that Count III seeks exemplary damages under § 10-1-763(b), that the statutory ceiling is twice the actual award, and that Apex claims 1x ($3.4M), with willful and malicious misappropriation as the predicate the defense should contest."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-008",
+          "C-009"
+        ],
+        "title": "Defense firm name 'Harmon & Lyle LLP' appears nowhere in the record",
+        "explanation": "The only trace of the defense firm in the three documents is the email address cng@harmonlyle.com. No document names 'Harmon & Lyle LLP,' or any firm. A careful memo that names only Catherine Ng, or leaves the firm blank, fails C-008. A memo that infers 'Harmon Lyle' from the domain may be marked 'incorrect' against the exact 'Harmon & Lyle LLP' (ampersand and LLP both invented). C-008 is effectively a coin flip that rewards guessing over accuracy. On C-009, the record also never describes Ng as 'lead partner,' but C-009 fails only if she is not named, so the risk there is small.",
+        "evidence": [
+          {
+            "source": "client-initial-email.eml.txt",
+            "quote": "To: Catherine Ng <cng@harmonlyle.com>"
+          },
+          {
+            "source": "task.json C-008",
+            "quote": "PASS if the memorandum identifies defense counsel as Harmon & Lyle LLP. FAIL if the firm name is not identified or is incorrect."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete C-008, or add the firm name to the record (e.g., in the email signature or salutation). Otherwise, pass any memo that identifies Catherine Ng as defense counsel."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-027",
+          "C-050"
+        ],
+        "title": "180-day notice date is Sept 1, 2023 under the same day count that gives '169 days / 11 short'; the rubric mixes conventions",
+        "explanation": "Counting by simple date subtraction, Sept 12, 2023 to Feb 28, 2024 is 169 days (C-050), and the same method puts the 180th day before Feb 28, 2024 on September 1, 2023, not August 31. August 31 is 181 days out. Only a 'clear days' method gives Aug 31, and that method gives 168 days and 12 days late. The complaint contradicts itself on this: ¶38 says Sept 12 is 'twelve days after' the Aug 31 deadline, and ¶40 says '11 days too late.' A memo that recomputes and gives Sept 1 as the deadline, without also reciting Aug 31, fails C-027, even though its arithmetic matches C-050's. I rate this arguable because both record documents say Aug 31, most memos will repeat that date, and the outcome is the same either way (Sept 12 is late under both).",
+        "evidence": [
+          {
+            "source": "task.json C-027",
+            "quote": "PASS if the memorandum states the notice deadline as August 31, 2023 (180 days before the February 28, 2024 expiration). FAIL if this deadline date is not mentioned."
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "On September 12, 2023 --- twelve days after the August 31, 2023 non-renewal deadline had passed"
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "The September 12, 2023 notice was sent 11 days too late (180 days minus 169 days equals 11 days)."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "C-027: PASS if the memo gives the notice deadline as August 31, 2023 or September 1, 2023, ideally noting the one-day discrepancy. C-050: accept '11 or 12 days short' as long as the notice is identified as untimely."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-022",
+          "C-061",
+          "C-062",
+          "C-063"
+        ],
+        "title": "'Independently verified/confirmed' has no clear test when the complaint already shows the arithmetic",
+        "explanation": "The complaint shows every calculation itself: 16.1M × 22% × 2; 4.26M × 18%; 4.26M × 35%; and the total $22,341,800. A memo that restates these components and totals correctly has reproduced the math, but the judge cannot tell whether that counts as 'independently verified.' C-022 fails the memo if the total is 'not independently verified/confirmed.' So an accurate memo that does not literally say 'we confirmed' may fail one judge and pass the other, and under all-pass scoring that zeroes the run. Checking opposing counsel's math is part of competent work; the problem is that the pass/fail line is not observable.",
+        "evidence": [
+          {
+            "source": "task.json C-022",
+            "quote": "FAIL if the grand total is missing or not independently verified/confirmed."
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "Total damages of not less than **\\$22,341,800** (\\$7,850,800 + \\$6,200,000 + \\$6,800,000 + \\$1,491,000)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo recites each component and total and they are arithmetically correct, or it expressly confirms or corrects the complaint's arithmetic."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-054",
+          "C-055"
+        ],
+        "title": "The waiver conclusion depends on omitted contract sections and misframes the relevance of the Year 2 shortfall",
+        "explanation": "C-054 requires the memo to say that failing to send a cure notice 'likely constitutes waiver.' But Exhibit A omits Sections 14.3-16.0, where a non-waiver clause would normally appear. A careful memo would say waiver is plausible but depends on whether the full Agreement has an anti-waiver clause, and how the judge reads that hedge is unclear. The more precise analysis is also different: Greenfield never terminated under § 12.1(b). It relied on § 4.2 non-renewal, which needs no breach, and § 5.3 simply makes a cure notice a condition precedent to terminating for breach. A memo that calls the shortfall largely irrelevant to the non-renewal dispute, and treats it only as a weak prior-breach defense, is competent but may not use the waiver framing the criteria require.",
+        "evidence": [
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "*\\[Sections 14.3 through 16.0 omitted.\\]*"
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "No termination rights under Section 12.1(b) may be exercised with respect to a Curable Default unless the non-breaching party has first provided the written notice and cure opportunity required by this Section 5.3"
+          },
+          {
+            "source": "task.json C-054",
+            "quote": "PASS if the memorandum discusses that Greenfield's failure to send the cure notice likely constitutes waiver of the right to terminate based on the Year 2 shortfall."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo discusses how the missing § 5.3 cure notice weakens any reliance on the Year 2 shortfall, whether framed as waiver, estoppel, failure of a condition precedent, or irrelevance to the § 4.2 non-renewal."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-068"
+        ],
+        "title": "C-068 requires 'file the answer by May 27' as an action item, which a competent memo recommending removal or a Rule 12 motion or extension may not list",
+        "explanation": "The complaint pleads a federal DTSA claim in state court. Section 16.3 allows suit in 'state or federal courts located in Mecklenburg County,' so federal-question removal within 30 days of service is a live strategic option; Greenfield's NC citizenship blocks only diversity removal. Other competent choices include a clerk's extension or a Rule 12 motion against Count IV. A memo whose action items read 'respond to the complaint (answer, Rule 12 motion, or removal) by May 27' is correct, but a literal judge may say that is not 'filing the answer.' This is low risk because most memos will list the answer deadline anyway.",
+        "evidence": [
+          {
+            "source": "task.json C-068",
+            "quote": "PASS if the memorandum includes filing the answer by May 27, 2025 as an action item."
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "shall be brought exclusively in the state or federal courts located in Mecklenburg County, North Carolina"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "28 U.S.C. §§ 1441, 1446(b)",
+            "proposition": "Federal-question removal is available within 30 days of service; the forum-defendant bar applies only to diversity removal.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the memo lists a responsive pleading, a responsive motion, or an extension request by May 27, 2025 as an action item."
+      }
+    ],
+    "overall": "The rubric is mostly sound. Most of its 75 criteria are fact-extraction checks that match the complaint, the email, and the affidavit, and I confirmed the damages arithmetic, the 169-day count, and the May 27 answer deadline. Two criteria are clearly defective. C-056 states the wrong GTSA exemplary-damages cap (the statute allows twice actual damages, not 1x) and requires flagging an error the complaint did not make. C-008 requires a defense-firm name the record never gives. Under all-pass scoring, either one can zero a correct memo. Other risks are arguable: mixed day-count conventions on the 180-day notice date, an unclear 'independently verified' test, waiver framing that depends on omitted contract sections, and a rigid 'file the answer' action item. Two things the rubric misses are not defects but matter for calibration. The complaint's ¶111 says the direct sales began 'within weeks of' the February 2024 hires, yet sales began in October 2023, which undercuts the trade-secret theory. And every Exhibit E invoice (Nov 15, 2023 to Feb 5, 2024) falls inside the undisputed Initial Term, so the renewal dispute does not decide whether the direct sales breached exclusivity."
+  },
+  "final": {
+    "task": "extract-key-terms-from-counterparty-complaint",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Definite defects: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-056"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-056",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "I re-read O.C.G.A. § 10-1-763(b) this session. It allows exemplary damages 'not exceeding twice any award made under subsection (a).' Complaint ¶107's 'not exceeding double the actual damages' is therefore correct, and the $3.4M exemplary claim sits inside the cap. C-056 requires the memo to flag a correct statement as wrong, citing a 1x cap that does not exist. The only real error in ¶107 is the § 10-1-762 cross-reference."
+      },
+      {
+        "sol_locator": "Definite defects: item 2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-027"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-027",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Simple date subtraction puts the 180th day before Feb 28, 2024 on Sept 1, 2023. C-050's 169 days uses that same method, and ¶38 ('twelve days after') conflicts with ¶40 ('11 days too late'). But Aug 31 is what the complaint, the Exhibit C letter, and the client email all say, and a clear-days reading of 'at least 180 days prior' supports it. C-027 fails a memo only if Aug 31 is never mentioned, so it misgrades only a memo that gives Sept 1 alone."
+      },
+      {
+        "sol_locator": "Definite defects: item 3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-041"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-041",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The PASS and FAIL branches leave a gap: PASS needs two components, FAIL covers zero, and a memo naming exactly one fits neither. The gap is real but rarely matters. ¶100 lists all four components together, and a one-component description is arguably incomplete rather than clearly correct. Arguable, not definite."
+      },
+      {
+        "sol_locator": "Definite defects: item 4",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-065",
+          "C-066"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-065",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-066",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The instruction asks only for a 'comprehensive litigation summary memo.' A key-dates chronology and a damages breakdown by count are common, near-standard parts of that document, and both criteria accept lenient forms ('ordered list', up to three dates missing, 'numbered list'). A competent memo written as organized narrative could still fail, so the format demand is debatable rather than clearly hidden."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-019"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-019",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "Sol's premise is wrong on the record. Complaint ¶99 says Count III 'is brought pursuant to the Georgia Trade Secrets Act, O.C.G.A. § 10-1-760 et seq., and the federal Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836,' and ¶1, ¶62, ¶69 and ¶108 also invoke the DTSA. Only the client email calls it a GTSA count. Accepting GTSA 'and/or' DTSA fits what was pleaded."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-054"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-054",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I agree. § 5.3 makes a cure notice a condition precedent to terminating under § 12.1(b), and failing a condition is not the same as waiving a right. Greenfield also relied on § 4.2 non-renewal, which needs no breach. Exhibit A omits §§ 14.3-16.0, where an anti-waiver clause would normally sit. A hedged or differently framed analysis may fail C-054's 'likely constitutes waiver' test."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-068"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-068",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I agree. May 27 is correct under NC Rule 6. But a Rule 12 motion, an extension, or federal-question removal (the complaint pleads the DTSA, and § 16.3 permits federal court in Mecklenburg County) are all competent responses. An action item reading 'respond to the complaint by May 27' may not satisfy a literal 'filing the answer' test. The risk is low because most memos will list the answer deadline anyway."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-056"
+        ],
+        "title": "C-056 misstates the GTSA exemplary-damages cap as 1x and requires flagging a correct statement in the complaint as wrong",
+        "explanation": "O.C.G.A. § 10-1-763(b) caps exemplary damages at 'twice any award made under subsection (a).' Complaint ¶107's 'not exceeding double the actual damages' states the law correctly, and Apex seeks only $3.4M exemplary on $3.4M actual, inside the 2x ceiling. C-056 passes a memo only if it calls the 'double' language misleading and says the cap is 1x actual damages. A competent memo that correctly recites the cap fails; a memo that repeats the wrong law passes. On defense exposure, the criterion's view also understates the Count III ceiling, which is up to $6.8M exemplary on $3.4M actual. The only real error in ¶107 is its cross-reference to § 10-1-762 for actual damages, which are in § 10-1-763(a).",
+        "evidence": [
+          {
+            "source": "task.json C-056",
+            "quote": "flags that this is an imprecise or misleading characterization of O.C.G.A. § 10-1-763, which caps exemplary damages at the amount of actual damages (not a 'double damages' multiplier)"
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "the court may award exemplary damages in an amount not exceeding double the actual damages awarded under O.C.G.A. § 10-1-762"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.C.G.A. § 10-1-763(b)",
+            "proposition": "If willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any award made under subsection (a).",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Rewrite: PASS if the memo notes that Count III seeks exemplary damages under § 10-1-763(b), that the ceiling is twice the actual award, and that Apex claims 1x ($3.4M), with willful and malicious misappropriation as the predicate to contest. Optionally credit catching the § 10-1-762 miscitation.",
+        "origin": "blind",
+        "sol_locators": [
+          "Definite defects: item 1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-008"
+        ],
+        "title": "Defense firm name 'Harmon & Lyle LLP' appears nowhere in the record",
+        "explanation": "The only trace of the defense firm is the email domain in 'cng@harmonlyle.com.' No document names a firm, and neither the ampersand nor 'LLP' is supported. A careful memo that names only Catherine Ng, or leaves the firm out, fails C-008. A memo that infers 'Harmon Lyle' is exposed to an 'incorrect' ruling. The criterion rewards guessing from an email domain rather than accurate extraction.",
+        "evidence": [
+          {
+            "source": "client-initial-email.eml.txt",
+            "quote": "To: Catherine Ng <cng@harmonlyle.com>"
+          },
+          {
+            "source": "task.json C-008",
+            "quote": "PASS if the memorandum identifies defense counsel as Harmon & Lyle LLP. FAIL if the firm name is not identified or is incorrect."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete C-008, or add the firm name to the record (e.g., the email signature). Otherwise, pass any memo that identifies Catherine Ng as defense counsel.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-027"
+        ],
+        "title": "C-027's Aug 31 deadline uses a different day count from the 169-day figure; simple subtraction gives Sept 1",
+        "explanation": "Feb 28, 2024 minus 180 days is Sept 1, 2023, not Aug 31, and Aug 31 to Sept 12 is 12 days, not 11. The complaint conflicts with itself: ¶38 says 'twelve days after' and ¶40 says '11 days too late.' C-050's 169 days uses simple subtraction, while C-027's parenthetical '(180 days before the February 28, 2024 expiration)' is off by one under that same method. Still, Aug 31 appears in the complaint, the Exhibit C letter, and the client email, and a clear-days reading of 'at least 180 days prior' supports it. C-027 also fails a memo only if Aug 31 is never mentioned. So only a memo that recomputes and states Sept 1 alone is misgraded. Either way the Sept 12 notice is late, so the outcome does not change.",
+        "evidence": [
+          {
+            "source": "task.json C-027",
+            "quote": "PASS if the memorandum states the notice deadline as August 31, 2023 (180 days before the February 28, 2024 expiration). FAIL if this deadline date is not mentioned."
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "On September 12, 2023 --- twelve days after the August 31, 2023 non-renewal deadline had passed"
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "The September 12, 2023 notice was sent 11 days too late (180 days minus 169 days equals 11 days)."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo gives the deadline as August 31, 2023 (as pleaded) or September 1, 2023 (recomputed), ideally noting the one-day discrepancy.",
+        "origin": "revised",
+        "sol_locators": [
+          "Definite defects: item 2"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-022",
+          "C-061",
+          "C-062",
+          "C-063"
+        ],
+        "title": "'Independently verified/confirmed' has no observable test when the complaint already shows the arithmetic",
+        "explanation": "The complaint shows every calculation itself (16.1M × 22% × 2; 4.26M × 18%; 4.26M × 35%; the $22,341,800 total). A memo that restates the correct components and totals has reproduced the math, but a judge cannot tell whether that counts as 'independent verification' unless the memo says so. The two judges may split, which zeroes the run under all-pass scoring.",
+        "evidence": [
+          {
+            "source": "task.json C-022",
+            "quote": "FAIL if the grand total is missing or not independently verified/confirmed."
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "Total damages of not less than **\\$22,341,800** (\\$7,850,800 + \\$6,200,000 + \\$6,800,000 + \\$1,491,000)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo recites the components and totals correctly, or expressly confirms or corrects the complaint's arithmetic.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-054"
+        ],
+        "title": "C-054 treats a missing cure notice as waiver, when the record supports failure of a condition precedent and the full contract is omitted",
+        "explanation": "§ 5.3 makes a cure notice a condition precedent to terminating under § 12.1(b). Failing a condition is not intentional relinquishment of a right. Greenfield also never terminated for breach; it relied on § 4.2 non-renewal, which needs no breach. Exhibit A omits §§ 14.3-16.0, where an anti-waiver clause would normally appear. A competent memo might describe the unmet condition, hedge on waiver because of that possible clause, or call the shortfall irrelevant to the non-renewal dispute, and any of these may fail 'likely constitutes waiver.'",
+        "evidence": [
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "*\\[Sections 14.3 through 16.0 omitted.\\]*"
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "No termination rights under Section 12.1(b) may be exercised with respect to a Curable Default unless the non-breaching party has first provided the written notice and cure opportunity required by this Section 5.3"
+          },
+          {
+            "source": "task.json C-054",
+            "quote": "PASS if the memorandum discusses that Greenfield's failure to send the cure notice likely constitutes waiver of the right to terminate based on the Year 2 shortfall."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo explains how the missing § 5.3 cure notice weakens reliance on the Year 2 shortfall, framed as waiver, estoppel, failure of a condition precedent, or irrelevance to § 4.2 non-renewal.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable concerns: item 2"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-068"
+        ],
+        "title": "C-068 requires 'file the answer by May 27' when a Rule 12 motion, an extension, or removal is also a competent response",
+        "explanation": "May 27 is correct. But Count III pleads the DTSA (¶99), and § 16.3 allows federal courts in Mecklenburg County, so federal-question removal is open; a Rule 12 motion or an extension is also competent. An action item like 'serve responsive pleading/motion by May 27' is correct but may fail a literal 'filing the answer' test. Low risk.",
+        "evidence": [
+          {
+            "source": "task.json C-068",
+            "quote": "PASS if the memorandum includes filing the answer by May 27, 2025 as an action item."
+          },
+          {
+            "source": "apex-v-greenfield-complaint.docx.txt",
+            "quote": "This claim is brought pursuant to the Georgia Trade Secrets Act, O.C.G.A. § 10-1-760 *et seq.*, and the federal Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "28 U.S.C. §§ 1441, 1446(b)",
+            "proposition": "Federal-question removal is available within 30 days of service.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the memo lists an answer, a responsive motion, or an extension request by May 27, 2025 as an action item.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable concerns: item 3"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-065",
+          "C-066"
+        ],
+        "title": "Ten-date timeline and non-prose damages breakdown are format demands the prompt does not state",
+        "explanation": "The prompt asks only for a 'comprehensive litigation summary memo.' A key-dates chronology and a damages breakdown by count are common parts of that document, and both criteria are lenient: C-065 allows up to three dates missing and accepts an 'ordered list,' and C-066 accepts a numbered list. So they are close to implicit. Still, a competent memo written as well-organized narrative could fail either one: C-065 fails 'if there is no chronological timeline,' and C-066 fails a memo that is 'only in narrative prose.'",
+        "evidence": [
+          {
+            "source": "task.json C-066",
+            "quote": "FAIL if damages are discussed only in narrative prose without any table, list, or structured breakdown."
+          },
+          {
+            "source": "task.json C-065",
+            "quote": "FAIL if there is no chronological timeline or if more than three of these dates are missing."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Grade whether the key dates and each count's damages components are accurately covered, regardless of table, list, or prose format.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "Definite defects: item 4"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-041"
+        ],
+        "title": "C-041's PASS (two or more components) and FAIL (none) leave a one-component memo ungraded",
+        "explanation": "A memo that describes exactly one trade-secret component meets neither the PASS nor the FAIL condition, so the judges must guess. The practical impact is small: ¶100 lists all four components together, and a one-component description is arguably incomplete.",
+        "evidence": [
+          {
+            "source": "task.json C-041",
+            "quote": "PASS if the memorandum identifies the alleged trade secrets by referencing at least two of the following ... FAIL if the memorandum does not describe any specific components of the alleged trade secrets."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make FAIL the complement of PASS: 'FAIL if fewer than two components are identified.'",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "Definite defects: item 3"
+        ],
+        "blind_ids": []
+      }
+    ],
+    "changes_from_blind": "From Sol I adopted C-065/C-066 (hidden format demands) and C-041 (PASS/FAIL gap), both as arguable rather than Sol's 'confirmed.' I kept C-027 as arguable despite Sol's 'confirmed,' because the record and a clear-days reading support Aug 31 and the criterion fails a memo only if Aug 31 is never mentioned. I dropped C-050 from the C-027 finding, since its 169/11 figures are arithmetically correct and low-risk. I dropped C-009 from the C-008 finding, since C-009 fails only if Ng is not named. I rejected Sol's C-019 concern: complaint ¶99 pleads Count III under both the GTSA and the DTSA, so 'and/or' is accurate. I re-verified the § 10-1-763(b) text this session. C-056 and C-008 remain problematic.",
+    "overall": "The rubric is mostly sound fact extraction, and the damages arithmetic, the 169-day count, and the May 27 deadline all check out. Two criteria are clearly defective. C-056 requires the memo to 'correct' a correctly stated GTSA exemplary-damages cap (the statute allows up to twice actual damages, not 1x). C-008 requires a firm name, 'Harmon & Lyle LLP,' that the record never gives. Either can zero a correct memo under all-pass scoring. The remaining concerns are arguable: an off-by-one on the 180-day deadline date, an unobservable 'independently verified' test, waiver framing for a condition-precedent problem, a rigid 'file the answer' action item, format demands for a timeline and damages table, and a PASS/FAIL gap in C-041. Sol's C-019 concern rests on a misreading: the complaint pleads the DTSA alongside the GTSA.",
+    "coverage": "I reviewed all 75 criteria and the instructions, and re-checked the record passages behind every Sol finding and blind finding: complaint ¶¶1, 21-22, 35-41, 99-108 and the prayer; Exhibit A § 4.2; the Exhibit C letter; the client email; and a search of all documents for the defense firm name. I recomputed the 180-day date, the 169-day interval, and the Aug 31 to Sept 12 gap with Python. I re-read O.C.G.A. § 10-1-763 (FindLaw reproduction) this session. I did not verify primary text this session for NC Rules 6/12, the removal statutes, or Georgia waiver doctrine, and no problematic finding depends on them."
+  }
+}

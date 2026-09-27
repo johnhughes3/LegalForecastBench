@@ -1,0 +1,734 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-witness-examination-outline",
+  "title": "Draft Direct and Cross-Examination Outlines for Key Fact Witness in Breach of Contract and Fraud Action",
+  "criteria_total": 62,
+  "criterion_lines": {
+    "C-001": 19,
+    "C-002": 27,
+    "C-003": 35,
+    "C-004": 43,
+    "C-005": 51,
+    "C-006": 59,
+    "C-007": 67,
+    "C-008": 75,
+    "C-009": 83,
+    "C-010": 91,
+    "C-011": 99,
+    "C-012": 107,
+    "C-013": 115,
+    "C-014": 123,
+    "C-015": 131,
+    "C-016": 139,
+    "C-017": 147,
+    "C-018": 155,
+    "C-019": 163,
+    "C-020": 171,
+    "C-021": 179,
+    "C-022": 187,
+    "C-023": 195,
+    "C-024": 203,
+    "C-025": 211,
+    "C-026": 219,
+    "C-027": 227,
+    "C-028": 235,
+    "C-029": 243,
+    "C-030": 251,
+    "C-031": 259,
+    "C-032": 267,
+    "C-033": 275,
+    "C-034": 283,
+    "C-035": 291,
+    "C-036": 299,
+    "C-037": 307,
+    "C-038": 315,
+    "C-039": 323,
+    "C-040": 331,
+    "C-041": 339,
+    "C-042": 347,
+    "C-043": 355,
+    "C-044": 363,
+    "C-045": 371,
+    "C-046": 379,
+    "C-047": 387,
+    "C-048": 395,
+    "C-049": 403,
+    "C-050": 411,
+    "C-051": 419,
+    "C-052": 427,
+    "C-053": 435,
+    "C-054": 443,
+    "C-055": 451,
+    "C-056": 459,
+    "C-057": 467,
+    "C-058": 475,
+    "C-059": 483,
+    "C-060": 491,
+    "C-061": 499,
+    "C-062": 507
+  },
+  "blind": {
+    "task": "draft-witness-examination-outline",
+    "criteria_reviewed": 62,
+    "coverage": "I read the instructions and all 62 criteria. I read these documents in full: the pretrial order, the Cascade trial brief excerpt, the Elliston deposition excerpts and the email chain. I searched the rest for the facts the criteria rely on. Severance agreement: §6 and §8(b), dates, and the 21-day consideration period. EDA: §5.2 and §7.1–7.3. Forensic summary: $7,315,000, $456,975 and Kowalski. Q3 spreadsheet: I checked the Summary and Sales Comparison tabs in full and tallied the Shipment Detail rows with a script. I checked date arithmetic: Sept 28, 2023 was a Thursday; Oct 30 to Nov 17 is 18 days; Jan 12 to Feb 5 is 24 days. I did not open the harness system prompt or the judge prompt files. I verified no legal authority against primary sources. The FRE propositions below rely on rule text as the pretrial order quotes it and on general knowledge, so each is marked unverified. The advisor tool was rate-limited, so nobody else reviewed these findings.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-040",
+          "C-059"
+        ],
+        "title": "Hidden three-part structure: a separate 'Part 3 Issue Flags and Strategic Notes' section is required but never requested",
+        "explanation": "The instructions say only 'Prepare a complete trial witness examination outline.' They do not ask for Parts 1/2/3 or for a standalone strategic-notes section. Direct and cross/redirect prep (C-057, C-058) are implicit in the document type. A separate issue-flags section is not. Many competent outlines put evidentiary notes, pretrial-ruling references and objection responses inline beside each topic block, which is exactly what C-033 rewards. C-040 explicitly FAILs such an outline 'even if some strategic notes appear within Parts 1 and 2.' C-059 likewise requires a distinct section. The 'Part 3' label shows these criteria track a hidden spec. Under all-pass scoring, a thorough integrated outline scores zero.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "Prepare a complete trial witness examination outline for Marcus Elliston using the attached case materials and pretrial rulings."
+          },
+          {
+            "source": "C-040",
+            "quote": "FAIL if there is no separate section for issue flags and strategic notes (even if some strategic notes appear within Parts 1 and 2)."
+          },
+          {
+            "source": "C-059",
+            "quote": "PASS if the output document contains a Part 3 (Issue Flags and Strategic Notes) or clearly equivalent section"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Either add the three-part structure to the instructions, or rewrite C-040/C-059 to pass when the evidentiary and strategic issues are covered anywhere in the outline, inline or in a separate section."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-037",
+          "C-017"
+        ],
+        "title": "Severity/threat ratings for cross-examination attacks are required but never requested",
+        "explanation": "C-037 FAILs any outline with no high/medium/low (or equivalent) rating on any attack vector. C-017 separately requires the outline to 'assess the threat level' of the expertise attack. Rating attacks is one practitioner's style, not a standard part of a witness examination outline, and the instructions don't ask for it. An outline that anticipates every attack, maps the impeachment sources and scripts redirect would fail on format alone. It is only 'arguable' because 'or equivalent' may let a judge accept prose prioritization.",
+        "evidence": [
+          {
+            "source": "C-037",
+            "quote": "FAIL if no threat/severity assessments are provided for any attack vector."
+          },
+          {
+            "source": "C-017",
+            "quote": "assesses the threat level, and proposes redirect questions"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop C-037, or fold it into a substantive criterion (e.g., 'identifies which attacks are most damaging'). Remove the 'assesses the threat level' element from C-017."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-010",
+          "C-051"
+        ],
+        "title": "C-010 requires raising the Trimble commission dispute on direct, but the record shows Ridgeline told the court it would not",
+        "explanation": "The pretrial order records Ridgeline's position that it 'does not intend to introduce the commission dispute on direct examination but reserves the right to address it on redirect.' The court allows either sequence. An outline that follows plaintiff's own representation holds the dispute for redirect, perhaps with the 'predates by months / unrelated subject' points scripted there. That is a defensible, and arguably more candid, choice. C-010 fails it because the FAIL condition requires the direct examination to address the conflict proactively. The rubric also points the other way: C-051 lists the Trimble conflict only as one example of front-loading, and C-009/C-034 treat it as a cross-and-redirect matter.",
+        "evidence": [
+          {
+            "source": "pretrial-order-evidentiary-rulings.docx.txt",
+            "quote": "Ridgeline responds that it does not intend to introduce the commission dispute on direct examination but reserves the right to address it on redirect if Cascade raises it on cross-examination"
+          },
+          {
+            "source": "pretrial-order-evidentiary-rulings.docx.txt",
+            "quote": "both parties may address this issue at the time and in the manner each deems appropriate"
+          },
+          {
+            "source": "C-010",
+            "quote": "FAIL if the direct examination does not address the Trimble conflict proactively."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass C-010 if the outline makes a reasoned choice to address the dispute on direct or to reserve it for redirect, provided the defusing points (timing, different subject matter) appear somewhere."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-001",
+          "C-002",
+          "C-039"
+        ],
+        "title": "Severance carve-out must be elicited on direct, though the court already barred the argument and C-039 frames it as redirect material",
+        "explanation": "C-001/C-002 require the outline to establish the §8(b) carve-out on direct to 'preempt' a non-disparagement argument. But the court has already ruled that it 'will not entertain any argument at trial that Elliston's testimony is barred by or inconsistent with the terms of his release.' Cascade's counsel also conceded at deposition that the carve-out permits the testimony. A competent outline could rely on the ruling and hold the carve-out for redirect if the defense raises the release. C-039's own example ('the severance agreement to show the carve-out') treats the carve-out as redirect material. Such an outline fails C-002.",
+        "evidence": [
+          {
+            "source": "pretrial-order-evidentiary-rulings.docx.txt",
+            "quote": "the Court will not entertain any argument at trial that Elliston's testimony is barred by or inconsistent with the terms of his release."
+          },
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "For the record, Cascade does not dispute that the carve-out permits the witness to testify."
+          },
+          {
+            "source": "C-039",
+            "quote": "the severance agreement to show the carve-out"
+          },
+          {
+            "source": "C-002",
+            "quote": "FAIL if the direct examination does not include questions about the severance release and its carve-out."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass if the outline identifies the carve-out and the court's ruling and deploys it on direct or redirect. Keep direct-only as a preference, not a pass/fail condition."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-014",
+          "C-013",
+          "C-023"
+        ],
+        "title": "Criteria require eliciting through Elliston facts he knows only secondhand (the hold instruction, Hoffman's promotion date)",
+        "explanation": "C-014 is titled 'Establishes Elliston's personal knowledge of hold instruction.' But Elliston admits he never heard the instruction; Karen Cho told him about it. A hearsay objection is preserved, and the pretrial order did not rule on it. He also only 'understand[s]' the Nov 17 filing date. C-023 requires eliciting from Elliston that his position was filled on ~Feb 5, 2024. He knows only 'early February,' from 'former colleagues' (hearsay; FRE 602). A careful outline would limit Elliston to what he saw: the Oct 10 meeting and his five-year experience that reports were never late. It would get the hold instruction in through Cho (possibly FRE 801(d)(2)(D)) and the late filing and Feb 5 promotion through documents, Cascade's own trial-brief admission, or another witness. Such an outline may fail C-014, C-023, and C-013's 'prominently features' requirement.",
+        "evidence": [
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "I did not personally hear Ms. Trimble give the instruction. Karen Cho told me about it the same day."
+          },
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "MR. STOKES: Move to strike the testimony regarding Ms. Cho's statement as hearsay."
+          },
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "I was told by former colleagues."
+          },
+          {
+            "source": "C-023",
+            "quote": "establishing that Elliston's VP of Sales Operations position was filled on approximately February 5, 2024"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Evid. 602, 801(d)(2)(D), 802",
+            "proposition": "A lay witness needs personal knowledge; an out-of-court statement relayed by a coworker is hearsay unless it qualifies as a party-opponent (agent/employee) statement.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Reword C-014 to 'addresses how Elliston learned of the hold instruction and the hearsay issue (e.g., Cho as source, 801(d)(2)(D), or alternative witness)'. Let C-023 pass if the outline proves the refill through an admissible source even when that source is not Elliston."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-003",
+          "C-004"
+        ],
+        "title": "Date-inconsistency criteria adopt the defense's framing ('discovered MidAmerican POs on Sept 25', 'last week of September')",
+        "explanation": "At deposition p.72 Elliston dated the unit discrepancy to about Sept 25, not the MidAmerican POs. The Sept 28 email says 'I do not have an explanation for where these units went.' The Oct 5 email says 'I have now identified the source' (MidAmerican). C-003 repeats the defense brief's mischaracterization. Separately, the record supports a rehabilitation of 'noticed the gap the week of Sept 18–22 (spreadsheet begun Sept 22), spoke to Voss Monday Sept 25.' C-004's parenthetical fixes the discovery at the 'last week of September,' which a Sept 22 date does not fit. An outline that gets the chronology more precisely right might be judged as off-target. Most judges will probably read these leniently.",
+        "evidence": [
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "Q. Mr. Elliston, when did you first identify this discrepancy? A. I believe it was around September 25, 2023."
+          },
+          {
+            "source": "elliston-email-chain.docx.txt",
+            "quote": "As I mentioned when we briefly spoke on Monday, I've now completed a more detailed analysis of the discrepancy I identified last week"
+          },
+          {
+            "source": "elliston-email-chain.docx.txt",
+            "quote": "I have now identified the source of the discrepancy."
+          },
+          {
+            "source": "C-004",
+            "quote": "clarify the approximate timeline of Elliston's discovery (last week of September 2023)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Describe the inconsistency as the date he first identified the unit discrepancy. Let C-004 accept any timeline consistent with the record (e.g., the week of Sept 18–25), not only 'last week of September'."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-053"
+        ],
+        "title": "C-053 dates the VP role from August 2018, but Elliston testified he was promoted to VP in early 2019",
+        "explanation": "C-053 requires the background block to establish Elliston's 'role as VP of Sales Operations at Cascade (August 2018 to January 2024).' At deposition p.216 Elliston says he was 'promoted to VP of Sales Operations in approximately early 2019.' The omitted pp.20–26 cover 'his transition into the VP of Sales Operations role.' August 2018 is when he joined Cascade, not when he took the VP title. An outline that states 'joined August 2018; VP from early 2019' is more accurate and gives defense counsel less to impeach, but a literal judge could fail it for not showing a VP tenure of 2018–2024.",
+        "evidence": [
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "From the time I was promoted to VP of Sales Operations in approximately early 2019 --- so roughly four and a half years."
+          },
+          {
+            "source": "C-053",
+            "quote": "establishing Elliston's role as VP of Sales Operations at Cascade (August 2018 to January 2024)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change to 'employment at Cascade (August 2018–January 12, 2024) and his role as VP of Sales Operations' without tying the title to August 2018."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 offers FRE 803(6) as an electronic-authentication consideration and requires more than the court's authentication roadmap",
+        "explanation": "FRE 803(6) is a hearsay exception, not an authentication rule. Elliston's one-off investigative spreadsheet is a doubtful fit for 'regularly conducted activity' in any case, so the criterion can reward a misapplied citation. Meanwhile the court held that creator testimony under FRE 901(b)(1) suffices: he created it, from SAP and warehouse data, recognizes it, and it is substantially unchanged. An outline that follows that roadmap exactly, which C-011 rewards, could still fail C-012 as 'identical to a paper document.' In practice most answers will mention metadata because of the date issue, so misgrading is limited.",
+        "evidence": [
+          {
+            "source": "C-012",
+            "quote": "(e.g., referencing FRE 803(6) business records exception, metadata, or chain of custody for the spreadsheet file)"
+          },
+          {
+            "source": "pretrial-order-evidentiary-rulings.docx.txt",
+            "quote": "Elliston, as the creator of the spreadsheet, is competent to authenticate it by testifying that he personally created the document"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Evid. 901(b)(1); 803(6)",
+            "proposition": "Authentication by a witness with knowledge is sufficient; 803(6) governs hearsay, not authenticity.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Drop the 803(6) example. Pass if the outline addresses electronic-file integrity (export process, native file, metadata, USB custody) or follows the court's 901(b)(1) roadmap including the unaltered-condition element."
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-011",
+          "C-032",
+          "C-042"
+        ],
+        "title": "The supplied Q3 spreadsheet cannot be the Sept 28 attachment: it has Sept 29–30 shipments and a note citing the 2024 deposition",
+        "explanation": "Elliston swears the exhibit is 'the same version I attached to my September 28 email,' and the court's 901 foundation depends on its being 'in substantially the same condition.' But the Shipment Detail tab lists 13 shipments dated Sept 29–30, 2023. One is a Sept 29 MidAmerican shipment of 20 units, and the MidAmerican rows reach exactly 1,113 only because it is included. The Summary tab also carries a note citing 'Elliston's deposition testimony (p. 72),' given in December 2024. The Q3 1,113 total reported on Sept 28 could not have existed before the quarter closed. A careful solver has to flag this as a serious authentication and impeachment risk. The rubric assumes a clean exhibit and gives no credit for spotting the problem. C-011's 'not altered' foundation is at odds with the file supplied.",
+        "evidence": [
+          {
+            "source": "q3-unit-discrepancy-spreadsheet.xlsx.txt",
+            "quote": "A111='110' | B111='09/29/2023' | C111='DN-2023-04808' | D111='PO-MDA-23-0082' | E111='MidAmerican Distribution Services, LLC'"
+          },
+          {
+            "source": "q3-unit-discrepancy-spreadsheet.xlsx.txt",
+            "quote": "which is inconsistent with Elliston's deposition testimony (p. 72) that he first discovered the MidAmerican POs on September 25, 2023."
+          },
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "The version I provided to your firm --- to Ridgeline's counsel --- is the same version I attached to my September 28 email."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Remove the post-Sept-28 rows and the anachronistic analyst note from the exhibit, or keep them deliberately and add a criterion rewarding identification of the integrity problem."
+      }
+    ],
+    "overall": "The rubric is mostly sound on the facts. Figures, dates, entity names, the EDA §7.3 reference, the email subject lines, the expert amounts and the pretrial-ruling content all check out against the record, and most substantive criteria follow the court's rulings closely. The clearest defect is the hidden three-part structure: C-040 and C-059 require a separate 'Part 3 Issue Flags and Strategic Notes' section that the one-line instructions never ask for. C-037's severity ratings are a lesser version of the same problem. Several criteria turn tactical choices the court left open into pass/fail rules: raising the Trimble dispute on direct (C-010, contrary to Ridgeline's own stated position), putting the carve-out on direct (C-001/C-002), and eliciting hearsay-based facts through Elliston (C-014, C-023). Each of these could fail a competent outline. The supplied spreadsheet also has a real integrity defect: shipments dated after the Sept 28 email and a note citing the December 2024 deposition. The rubric ignores it, although a strong answer would flag it. Given all-pass scoring, these issues make it likely that a good outline scores zero."
+  },
+  "final": {
+    "task": "draft-witness-examination-outline",
+    "sol_verdicts": [
+      {
+        "sol_locator": "confirmed_defects/0",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-060"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-060",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The PASS/FAIL gap is real: with exactly one correct subject line, neither condition is met. But the judge prompt says PASS only when the output 'satisfies the criterion as described', so one line will reliably FAIL and the gap causes little misgrading by itself. The stronger problem is the requirement itself. A competent outline can cite the emails by date, exhibit number or Bates range without quoting subject lines, and the instructions never ask for subject lines. That makes it arguable, not confirmed."
+      },
+      {
+        "sol_locator": "confirmed_defects/1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-037",
+          "C-040",
+          "C-059"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-037",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-040",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-059",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The instructions are one line with no structure, and the system prompt adds none. C-040 expressly FAILs integrated strategic notes 'even if some strategic notes appear within Parts 1 and 2', so it is a hidden-format requirement that fails a competent inline outline. C-059 is more lenient ('clearly equivalent section'; FAIL only if 'entirely missing'). C-037's severity ratings are one practitioner's style, but 'or equivalent' may admit prose prioritization. Both are arguable."
+      },
+      {
+        "sol_locator": "arguable/0",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-007"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-007",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The pretrial order denied Cascade's attempt to stop Ridgeline from inoculating on USB during direct. It calls the Nov 15, Nov 20 and Dec 8 timing 'relevant context'. Elliston himself says 'I considered it self-preservation' and that he was 'afraid the evidence would be deleted' (pp.147-152). The FAIL condition ('self-preservation/whistleblower context') matches his own testimony. Favorable framing on your own direct is basic advocacy, and it does not require dropping candor about the policy. This is unlike C-010, where Ridgeline told the court it would not raise the issue on direct."
+      },
+      {
+        "sol_locator": "arguable/1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-003",
+          "C-004",
+          "C-005",
+          "C-050"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-003",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-004",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-005",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-050",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "None of these criteria requires conceding a material contradiction. Each requires identifying and preparing for attacks the defense brief explicitly lists (the date inconsistency; 1,100 vs 1,113, which C-050 itself calls 'minor'). C-004's 'last week of September' is Elliston's own deposition phrasing (p.74). Deposition p.78 ties the Sept 28 email to having 'identified the MidAmerican purchase orders', so C-003's phrasing is defensible. Its 'and/or' passes any outline that names the date conflict."
+      },
+      {
+        "sol_locator": "arguable/2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-025"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-025",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The pretrial order expressly admits Voss's statement under FRE 801(d)(2)(A), quoting the 'representative capacity' text. The rulings bind this exercise, so a competent outline follows them. The FAIL condition does not depend on the subsection ('FRE 801(d)(2) is not referenced'), so an outline citing (D) together with the ruling avoids FAIL. The doctrinal point that agent statements usually fall under (C)/(D) is real, but it misgrades nobody here."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-040"
+        ],
+        "title": "C-040 requires a separate 'Part 3' issue-flags section and fails integrated strategic notes",
+        "explanation": "The instructions say only 'Prepare a complete trial witness examination outline', and the solver system prompt adds nothing about structure. Direct and cross/redirect prep are implicit in the document type. A standalone 'Part 3 Issue Flags and Strategic Notes' section is not. Many competent outlines put evidentiary notes, pretrial-ruling references and objection responses inline beside each topic block, which is what C-033 rewards. C-040 expressly FAILs such an outline 'even if some strategic notes appear within Parts 1 and 2.' The 'Part 3' label shows the criterion tracks a hidden spec. Under all-pass scoring, a thorough integrated outline scores zero.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "Prepare a complete trial witness examination outline for Marcus Elliston using the attached case materials and pretrial rulings."
+          },
+          {
+            "source": "C-040",
+            "quote": "FAIL if there is no separate section for issue flags and strategic notes (even if some strategic notes appear within Parts 1 and 2)."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass when evidentiary, procedural and strategic issues, with FRE and pretrial-ruling references, are covered anywhere in the outline, inline or in a separate section.",
+        "origin": "revised",
+        "sol_locators": [
+          "confirmed_defects/1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-059",
+          "C-037",
+          "C-017"
+        ],
+        "title": "Hidden format: a Part 3 / equivalent section (C-059) and threat or severity ratings (C-037, C-017)",
+        "explanation": "C-059 requires a 'Part 3 (Issue Flags and Strategic Notes) or clearly equivalent section'. It is more lenient than C-040 (FAIL only if 'entirely missing'), but it still demands a structural element the instructions never mention. C-037 FAILs an outline with no high/medium/low 'or equivalent' rating on any attack vector. C-017 separately requires the outline to 'assess the threat level'. Rating attacks is a practitioner's style choice, not a standard component of an examination outline. An outline that anticipates every attack, maps the impeachment sources and scripts redirect could fail on format alone. These are only arguable because 'clearly equivalent' and 'or equivalent' may let judges accept prose prioritization or a strategic subsection.",
+        "evidence": [
+          {
+            "source": "C-059",
+            "quote": "PASS if the output document contains a Part 3 (Issue Flags and Strategic Notes) or clearly equivalent section"
+          },
+          {
+            "source": "C-037",
+            "quote": "FAIL if no threat/severity assessments are provided for any attack vector."
+          },
+          {
+            "source": "C-017",
+            "quote": "assesses the threat level, and proposes redirect questions"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Fold C-059 into a substantive check that strategic issues are covered anywhere. Drop C-037 or replace it with 'identifies which attacks are most damaging'. Remove 'assesses the threat level' from C-017.",
+        "origin": "revised",
+        "sol_locators": [
+          "confirmed_defects/1"
+        ],
+        "blind_ids": [
+          "O1",
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-060"
+        ],
+        "title": "C-060 requires quoting at least two email subject lines, and its PASS/FAIL conditions leave a gap",
+        "explanation": "The instructions never ask for subject lines. A competent outline can identify the three emails by date, exhibit number or Bates range (CASCADE_EMAIL_003847-59) without quoting subject lines, and it would fail. There is also a gap between PASS (at least two correct) and FAIL (none, or substantially incorrect), so an outline with exactly one correct subject line fits neither condition. The judge prompt passes only when the output 'satisfies the criterion as described', so that case most likely FAILs. The gap therefore matters less than the hidden requirement.",
+        "evidence": [
+          {
+            "source": "C-060",
+            "quote": "PASS if the outline references at least two of the three correct email subject lines"
+          },
+          {
+            "source": "C-060",
+            "quote": "FAIL if none of the email subject lines are referenced or they are substantially incorrect."
+          },
+          {
+            "source": "rubric_criterion.txt",
+            "quote": "**PASS**: The agent's output satisfies the criterion as described"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass if the outline accurately identifies the Sept 28, Oct 5 and Nov 15 emails by date, subject, exhibit or Bates number, and make PASS and FAIL complementary.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "confirmed_defects/0"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-010"
+        ],
+        "title": "C-010 requires raising the Trimble commission dispute on direct, though Ridgeline told the court it would not",
+        "explanation": "The pretrial order records Ridgeline's position that it 'does not intend to introduce the commission dispute on direct examination but reserves the right to address it on redirect.' The court leaves the timing to each party. An outline that follows plaintiff's own representation holds the dispute for redirect, with the 'predates by months / different subject' points scripted there. That is a defensible choice. C-010 FAILs it because the direct examination does not address the conflict proactively. The USB issue (C-007) is different: there Ridgeline sought to inoculate on direct and the court allowed it.",
+        "evidence": [
+          {
+            "source": "pretrial-order-evidentiary-rulings.docx.txt",
+            "quote": "Ridgeline responds that it does not intend to introduce the commission dispute on direct examination but reserves the right to address it on redirect if Cascade raises it on cross-examination"
+          },
+          {
+            "source": "pretrial-order-evidentiary-rulings.docx.txt",
+            "quote": "both parties may address this issue at the time and in the manner each deems appropriate"
+          },
+          {
+            "source": "C-010",
+            "quote": "FAIL if the direct examination does not address the Trimble conflict proactively."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass if the outline makes a reasoned choice between direct and redirect, provided the defusing points (timing, different subject matter) appear somewhere.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-001",
+          "C-002"
+        ],
+        "title": "The severance carve-out must be elicited on direct, though the court already barred the release argument",
+        "explanation": "C-001 and C-002 require direct-exam questions on the §8(b) carve-out to 'preempt' a non-disparagement argument. But the court has already held that the carve-out 'expressly permits' the testimony and that it 'will not entertain any argument at trial that Elliston's testimony is barred by or inconsistent with the terms of his release.' Cascade's counsel conceded the point at deposition. A competent outline could rely on the ruling and hold the carve-out for redirect, which C-039's own example contemplates ('the severance agreement to show the carve-out'). Such an outline fails C-002.",
+        "evidence": [
+          {
+            "source": "pretrial-order-evidentiary-rulings.docx.txt",
+            "quote": "the Court will not entertain any argument at trial that Elliston's testimony is barred by or inconsistent with the terms of his release."
+          },
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "For the record, Cascade does not dispute that the carve-out permits the witness to testify."
+          },
+          {
+            "source": "C-002",
+            "quote": "FAIL if the direct examination does not include questions about the severance release and its carve-out."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass if the outline identifies the carve-out and the court's ruling and deploys them on direct or redirect.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-014"
+        ],
+        "title": "C-014 demands 'personal knowledge' of a hold instruction that Elliston only heard about from Karen Cho",
+        "explanation": "C-014's title and PASS condition require establishing Elliston's personal knowledge of Trimble's instruction to 'hold' the Q3 royalty report. He admits he did not hear it: Cho told him the same day. Cascade moved to strike that testimony as hearsay, and Ridgeline's counsel said it was offered for state of mind, adding that the instruction 'may also be admissible as a party-opponent statement through Ms. Trimble.' A careful outline limits Elliston to what he saw (the Oct 10 closed-door meeting, his experience that reports were never late) and flags the hearsay issue and alternative witnesses. Its FAIL wording ('personally observed or learned of') may save that outline, but the PASS wording demands personal knowledge that the record contradicts. (I dropped C-023 from this finding: the court denied Cascade's motion to exclude refill testimony, treating the Feb 5 refill as something the jury will hear.)",
+        "evidence": [
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "I did not personally hear Ms. Trimble give the instruction. Karen Cho told me about it the same day."
+          },
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "At trial, the instruction itself may also be admissible as a party-opponent statement through Ms. Trimble."
+          },
+          {
+            "source": "C-014",
+            "quote": "establishing Elliston's personal knowledge of the Voss-Trimble closed-door meeting on October 10, 2023, and Trimble's subsequent instruction to accounting to 'hold' the Q3 royalty report"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Evid. 602, 801(c), 802",
+            "proposition": "A lay witness must testify from personal knowledge, and a coworker's relayed out-of-court statement offered for its truth is hearsay unless an exclusion applies.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Reword it to 'addresses how Elliston learned of the hold instruction and the resulting hearsay issue (Cho as source, state-of-mind purpose, or an alternative witness)'.",
+        "origin": "revised",
+        "sol_locators": [],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-053"
+        ],
+        "title": "C-053 dates the VP role from August 2018, but Elliston testified he became VP in early 2019",
+        "explanation": "C-053 requires establishing Elliston's 'role as VP of Sales Operations at Cascade (August 2018 to January 2024).' At deposition he said he was 'promoted to VP of Sales Operations in approximately early 2019.' August 2018 is when he joined Cascade. An outline that correctly states 'joined August 2018; VP from early 2019' could be failed by a literal judge. Low risk, but the criterion states a fact the record contradicts.",
+        "evidence": [
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "From the time I was promoted to VP of Sales Operations in approximately early 2019 --- so roughly four and a half years."
+          },
+          {
+            "source": "C-053",
+            "quote": "establishing Elliston's role as VP of Sales Operations at Cascade (August 2018 to January 2024)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change it to 'employment at Cascade (August 2018 to January 12, 2024) and his role as VP of Sales Operations'.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 offers FRE 803(6) as an electronic-authentication consideration",
+        "explanation": "FRE 803(6) is a hearsay exception, not an authentication rule. Elliston's one-off investigative spreadsheet is a doubtful fit for 'regularly conducted activity' in any case, so the criterion can reward a misapplied citation. The court held that creator testimony under FRE 901(b)(1) suffices. An outline that follows that roadmap exactly (which C-011 rewards) could still be judged as treating the file 'identically to a simple paper document.' Most answers will mention metadata because of the date issue, so misgrading is limited.",
+        "evidence": [
+          {
+            "source": "C-012",
+            "quote": "(e.g., referencing FRE 803(6) business records exception, metadata, or chain of custody for the spreadsheet file)"
+          },
+          {
+            "source": "pretrial-order-evidentiary-rulings.docx.txt",
+            "quote": "Elliston, as the creator of the spreadsheet, is competent to authenticate it by testifying that he personally created the document"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Evid. 901(b)(1); 803(6)",
+            "proposition": "Authentication by a witness with knowledge is sufficient; 803(6) governs hearsay, not authenticity.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Drop the 803(6) example. Pass if the outline addresses electronic-file integrity (native file, metadata, USB custody) or follows the court's 901(b)(1) roadmap including the unaltered-condition element.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O8"
+        ]
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-011"
+        ],
+        "title": "The supplied Q3 spreadsheet cannot be the Sept 28 attachment: it has Sept 29-30 shipments and a note citing the 2024 deposition",
+        "explanation": "Elliston swears the exhibit is 'the same version I attached to my September 28 email,' and C-011 requires foundation that the data 'has not been altered since creation.' But the Shipment Detail tab has 13 rows dated Sept 29-30, 2023, including a Sept 29 MidAmerican shipment. The Summary tab covers 'Q3 2023 (July 1 – September 30, 2023)', and its D3 note cites 'Elliston's deposition testimony (p. 72)', given in December 2024. That note is on Elliston's own Summary sheet, not a separate annotation tab. A careful solver must flag a serious authentication and impeachment risk. The rubric assumes a clean exhibit and gives no credit for spotting the problem.",
+        "evidence": [
+          {
+            "source": "q3-unit-discrepancy-spreadsheet.xlsx.txt",
+            "quote": "A111='110' | B111='09/29/2023' | C111='DN-2023-04808' | D111='PO-MDA-23-0082' | E111='MidAmerican Distribution Services, LLC'"
+          },
+          {
+            "source": "q3-unit-discrepancy-spreadsheet.xlsx.txt",
+            "quote": "which is inconsistent with Elliston's deposition testimony (p. 72) that he first discovered the MidAmerican POs on September 25, 2023."
+          },
+          {
+            "source": "elliston-deposition-excerpts.docx.txt",
+            "quote": "The version I provided to your firm --- to Ridgeline's counsel --- is the same version I attached to my September 28 email."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Remove the post-Sept-28 rows and the anachronistic note from the exhibit, or keep them deliberately and add a criterion rewarding identification of the integrity problem.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O9"
+        ]
+      }
+    ],
+    "changes_from_blind": "I split blind O1. C-040 stays problematic, but C-059 drops to arguable, because its 'clearly equivalent section / FAIL only if entirely missing' wording is materially more lenient. I merged C-059 into the C-037/C-017 finding (now O2). I checked the solver system prompt, and it says nothing about structure, so O1 stands. I adopted Sol's C-060 finding as arguable (O3), recasting it mainly as a hidden subject-line requirement. The judge prompt passes only when the criterion is satisfied, so the PASS/FAIL gap alone rarely misgrades. I dropped blind O6 (C-003/C-004). C-004's 'last week of September' is Elliston's own deposition wording (p.74), and deposition p.78 links the Sept 28 email to the MidAmerican POs, so C-003's phrasing is defensible. Its 'and/or' also passes any outline naming the date conflict. From blind O5 I removed C-023 and C-013. The pretrial order denied Cascade's motion to exclude testimony about the Feb 5 Hoffman refill, so the court contemplates that fact reaching the jury. O5 now rests on C-014 alone (now O6). I rejected Sol's C-007, C-003/004/005/050 and C-025 findings as not defects (reasons in sol_verdicts). I confirmed that the O9 deposition-citing note sits on the Summary sheet itself, not an annotation tab.",
+    "overall": "The rubric is factually careful. Figures, dates, entity names, email content and the pretrial rulings mostly check out, and several criteria Sol questioned (C-007, C-025, the date and unit-count items) track the record and the binding rulings closely. The clearest defect is C-040. It requires a separate 'Part 3' issue-flags section that the one-line instructions never request, and it fails integrated strategic notes outright. C-059, C-037/C-017 (threat ratings) and C-060 (subject lines) are milder hidden-format requirements. Several criteria turn tactical choices the court left open into pass/fail rules: raising the Trimble dispute on direct (C-010, contrary to Ridgeline's own representation), putting the carve-out on direct (C-001/C-002), and claiming personal knowledge of a relayed instruction (C-014). The supplied spreadsheet also has an unacknowledged integrity defect: shipments dated after the Sept 28 email and a note citing the December 2024 deposition. Under all-pass scoring, C-040 alone can zero out a strong outline.",
+    "coverage": "I read all 62 criteria, the instructions, the solver system prompt and the judge prompt. I read these documents in full: the pretrial order, the Cascade trial brief excerpt, the Elliston deposition excerpts and the email chain. I checked the severance agreement, the EDA, the forensic summary and the Q3 spreadsheet (all three tabs, including row-level Shipment Detail) for the facts the criteria rely on. In this pass I re-verified the pretrial rulings on 801(d)(2)(A), the USB copying, the severance carve-out, the termination and refill, and authentication. I also re-verified deposition pp.72-78 and 145-152 and the spreadsheet's sheet structure. I read Sol's audit markdown and index entry. I read no primary legal authority in this session: FRE propositions rely on the rule text as the pretrial order quotes it, and every authority is marked unverified."
+  }
+}

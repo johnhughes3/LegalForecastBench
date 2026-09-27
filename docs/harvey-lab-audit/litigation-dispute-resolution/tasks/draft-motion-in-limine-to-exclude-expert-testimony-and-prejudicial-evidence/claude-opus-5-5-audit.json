@@ -1,0 +1,454 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence",
+  "title": "Draft Motion in Limine to Exclude Expert Testimony and Prejudicial Evidence in Commercial Breach of Contract Case",
+  "criteria_total": 49,
+  "criterion_lines": {
+    "C-001": 20,
+    "C-002": 28,
+    "C-003": 36,
+    "C-004": 44,
+    "C-005": 52,
+    "C-006": 60,
+    "C-007": 68,
+    "C-008": 76,
+    "C-009": 84,
+    "C-010": 92,
+    "C-011": 100,
+    "C-012": 108,
+    "C-013": 116,
+    "C-014": 124,
+    "C-015": 132,
+    "C-016": 140,
+    "C-017": 148,
+    "C-018": 156,
+    "C-019": 164,
+    "C-020": 172,
+    "C-021": 180,
+    "C-022": 188,
+    "C-023": 196,
+    "C-024": 204,
+    "C-025": 212,
+    "C-026": 220,
+    "C-027": 228,
+    "C-028": 236,
+    "C-029": 244,
+    "C-030": 252,
+    "C-031": 260,
+    "C-032": 268,
+    "C-033": 276,
+    "C-034": 284,
+    "C-035": 292,
+    "C-036": 300,
+    "C-037": 308,
+    "C-038": 316,
+    "C-039": 324,
+    "C-040": 332,
+    "C-041": 340,
+    "C-042": 348,
+    "C-043": 356,
+    "C-044": 364,
+    "C-045": 372,
+    "C-046": 380,
+    "C-047": 388,
+    "C-048": 396,
+    "C-049": 404
+  },
+  "blind": {
+    "task": "draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence",
+    "criteria_reviewed": 49,
+    "coverage": "Read all 49 criteria and the instructions. Read all 8 supplied documents in full: the Solano meet-and-confer email, the defense strategy memo, the Marchetti deposition excerpts, the Marchetti expert report, the Gerhardt rebuttal report, the OSHA citation, the Supply Agreement, and Plaintiff's exhibit list. Checked every figure and date the criteria rely on against the record: $14,211,000 vs $14,200,000; the Aug 22 to Sept 28, 2023 notice interval of 37 days; the December 2023 Northline order; the deposition page cites; OSHA No. 2023-OR-00487 and the $14,502 penalty. Read the text of FRE 407 on Cornell LII. Did not pull case law on the feasibility-controverted split, or on whether an expert's lack of prior federal testimony is relevant under Rule 702. Did not verify the W.D. Wash. local-rule page limits for motions in limine; no criterion depends on them. I did not read the generic system prompt or the judge prompt closely, since no finding turns on them.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-019",
+          "C-020",
+          "C-045"
+        ],
+        "title": "Rubric calls Section 7.2 a '$2M cap on consequential damages'; the clause first excludes them entirely, with the $2M cap only as a fallback",
+        "explanation": "Section 7.2 first says neither party is liable for consequential damages at all, and names lost profits, cost of substitute goods and reputational harm. The $2,000,000 aggregate cap applies only if a court holds consequential damages recoverable despite that exclusion. The criteria follow the strategy memo's shorthand ('capping consequential damages at $2,000,000'), not the contract. A competent motion could make the stronger argument: consequential damages are barred outright, so Marchetti's $10.29M consequential testimony is irrelevant under FRE 401/402/403. If that motion describes 7.2 accurately but does not frame it as a '$2M cap', it risks failing C-045 ('caps consequential damages at $2,000,000') and C-020 ('substantially exceed the $2,000,000 contractual cap'). Answers that mention both tiers will pass, so this misgrades only some competent work.",
+        "evidence": [
+          {
+            "source": "supply-agreement.docx.txt",
+            "quote": "IN NO EVENT SHALL EITHER PARTY BE LIABLE TO THE OTHER PARTY FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES"
+          },
+          {
+            "source": "supply-agreement.docx.txt",
+            "quote": "IN THE EVENT THAT ANY COURT OF COMPETENT JURISDICTION DETERMINES THAT CONSEQUENTIAL DAMAGES ARE RECOVERABLE ... SHALL NOT EXCEED TWO MILLION DOLLARS ($2,000,000)"
+          },
+          {
+            "source": "C-045",
+            "quote": "PASS if the motion correctly states that the Supply Agreement's limitation-of-liability clause caps consequential damages at $2,000,000."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Describe 7.2 as an exclusion of consequential damages with a $2,000,000 fallback cap. Accept either framing: a total bar or the fallback cap."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-022"
+        ],
+        "title": "C-022 rewards using Marchetti's lack of prior federal Daubert qualification to argue for 'heightened scrutiny', which Rule 702 does not provide",
+        "explanation": "Rule 702 and Daubert apply the same reliability standard to every proffered expert. No doctrine calls for 'heightened scrutiny' because an expert has not testified in federal court before, and her record elsewhere is not a Daubert factor. The memo itself warns against a credentialism argument and treats the fact only as 'relevant context'. A careful drafter might leave the point out as legally irrelevant, or as a distraction that invites a weight-not-admissibility response. That drafter would fail an all-pass criterion. The criterion also bakes a legally inaccurate framing into what it rewards. Because the memo flags the fact, many solvers will include it, so the risk of misgrading is moderate.",
+        "evidence": [
+          {
+            "source": "C-022",
+            "quote": "uses this fact to support the argument for heightened scrutiny of her methodology. FAIL if this fact is not mentioned."
+          },
+          {
+            "source": "defense-strategy-memo.docx.txt",
+            "quote": "We should not make a credentialism argument --- her academic and professional credentials in forensic economics are not genuinely in dispute"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Evid. 702",
+            "proposition": "The same admissibility standard applies to every expert. It has no forum-history or 'heightened scrutiny' component.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Make this optional context, or drop the 'heightened scrutiny' framing. Pass a motion that omits the point, or that mentions it only as background."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-043"
+        ],
+        "title": "C-043 assumes the motion first seeks to exclude all of Marchetti's testimony; the record-directed strategy is targeted exclusion from the start",
+        "explanation": "The memo says not to challenge the $1,578,500 resin cost or the $512,500 replacement premium. It recommends a motion that seeks exclusion of 'specified portions', with severable arguments for each category. A motion drafted that way never asks the court to exclude all of Marchetti's testimony, so no alternative to full exclusion is possible. C-043 passes only an alternative request made 'if the court declines to exclude all of Marchetti's testimony', and fails only 'all-or-nothing' relief. A targeted, category-by-category motion without a separate fallback fits neither condition, and judges may split on it.",
+        "evidence": [
+          {
+            "source": "C-043",
+            "quote": "PASS if the motion requests, in the alternative, that if the court declines to exclude all of Marchetti's testimony, specific opinion categories ... be excluded individually"
+          },
+          {
+            "source": "defense-strategy-memo.docx.txt",
+            "quote": "We should not challenge the replacement resin premium ($512,500)."
+          },
+          {
+            "source": "defense-strategy-memo.docx.txt",
+            "quote": "We should draft the motion with clear, severable arguments for each damages category so the court can grant relief on a category-by-category basis."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the motion either (a) requests alternative or limiting relief, or (b) structures its Marchetti requests as severable, category-by-category exclusions."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [],
+        "title": "Record inconsistencies: exhibit numbering, the '24-month' lost-profits table, and Marchetti's report vs. her deposition on industry reports",
+        "explanation": "(1) Solano's email calls the OSHA citation 'Exhibit 18'. On Plaintiff's exhibit list, PX-18 is the audited financials, and the OSHA exhibits are PX-25 through PX-27. A motion that identifies exhibits by number must choose between the two. (2) Marchetti's report says lost profits cover a 24-month period, Aug 2023 to Jul 2025. Its table runs only from Aug 2023 to Jul 2024, and the report is dated Oct 2024, so it cannot contain actual revenue through 2025. (3) The report says she reviewed regional industry reports and rejected an industry adjustment. At deposition she said she was not aware of the Q2 2023 downturn. Her regression uses 36 monthly observations, yet the memo and Gerhardt describe 'three data points'. None of these misgrades a criterion as written. They do affect what an accurate motion should say, and a solver who notices them can be penalized by nothing but also rewarded by nothing.",
+        "evidence": [
+          {
+            "source": "solano-trial-strategy-email.eml.txt",
+            "quote": "Exhibit 18 is the OSHA Citation and Notification of Penalty dated April 10, 2023"
+          },
+          {
+            "source": "plaintiff-exhibit-list.docx.txt",
+            "quote": "PX-18             **Ridgeline Audited Financial Statements (FY 2022--2023)**"
+          },
+          {
+            "source": "marchetti-expert-report.docx.txt",
+            "quote": "for the 24-month impact period from August 2023 through July 2025"
+          },
+          {
+            "source": "marchetti-expert-report.docx.txt",
+            "quote": "I determined that Ridgeline's revenue performance was primarily driven by company-specific factors"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make the exhibit numbers consistent across the documents. Make the impact-period table match its stated span, or state the span correctly."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [],
+        "title": "Instructions call this a 'product liability defense'; the record is a commercial breach-of-contract and warranty case",
+        "explanation": "The instructions ask for a motion 'for our product liability defense'. The task title, the memo and the expert report all describe claims for breach of contract and breach of the implied warranty of merchantability under a supply agreement. No product-liability claim appears. A solver who follows the instructions literally could frame the motion around a claim that does not exist, for example in the introduction or in the FRE 407 context. No criterion rewards or penalizes the framing directly, so the impact on grading is low.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "Draft a motion in limine based on the attached case files for our product liability defense."
+          },
+          {
+            "source": "defense-strategy-memo.docx.txt",
+            "quote": "alleges breach of contract and breach of the implied warranty of merchantability arising from deliveries of CascadeMax 7200 polymer resin"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change the instructions to 'for our defense in this breach-of-contract/warranty action'."
+      }
+    ],
+    "overall": "The rubric is mostly sound and closely tracks both the record and the defense strategy memo the solver receives. Nearly every factual premise checks out against the primary documents. The deposition admissions (sensitivity analysis, the downturn, the Cho spreadsheet, the 5-10% range), the $11,000 arithmetic gap, the dates, the OSHA details and the 37-day notice all match. The FRE 407, 403 and 404(b) propositions are correct, and the rebuttals the rubric expects are reasonable and flexibly worded. The weak points are that the criteria describe Section 7.2 as a plain $2M cap when it is an exclusion with a fallback cap, and that C-022 frames the no-federal-Daubert fact as grounds for 'heightened scrutiny'. C-043 also assumes a full-exclusion request that the targeted strategy never makes. Each of these could fail some competent answers under all-pass scoring, but none is a clear misstatement likely to fail most correct answers. The supplied record has minor internal inconsistencies (exhibit numbers, the impact-period table) and the instructions mislabel the case as product liability, but none of these makes any criterion misgrade."
+  },
+  "final": {
+    "task": "draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Arguable mandatory-advocacy concern: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-022"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-022",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I agree, and it matches my blind O2. The memo calls the fact 'relevant context' and warns against a credentialism argument. C-022 requires using the fact to support 'heightened scrutiny', a standard Rule 702 does not contain, and it fails any motion that leaves the fact out. A careful drafter might leave out a legally irrelevant point, so this misgrades some competent work. It is not a flat misstatement of law, because 'heightened scrutiny' can be read as rhetoric."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-023"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-023",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The FRE govern evidence in federal court, and the criterion targets only Washington 'evidence rules... for evidentiary rulings'. Washington substantive law under the §9.1 choice-of-law clause (UCC notice, cap enforceability) is not an evidence rule, so citing it does not trigger FAIL. Nothing in the record invokes Washington ER, and a competent federal motion would not cite ER 407/404 alongside the FRE. The chance of a hypothetical 'comparison' citation is too small to call this a defect."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-007",
+          "C-008"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-007",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-008",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "C-007/008 require the motion to make an advocacy argument, not to state a rule that unverified client data is always inadmissible. The record strongly supports the argument. Marchetti admitted she did not check Cho's spreadsheet against production logs or the audited financials (Dep. 56–58). Gerhardt Opinion No. 2 and memo §III.D both direct it. C-008 also accepts the 'parrot a party's self-serving calculations' framing, which courts regularly use. Rule 703 reliance is the opponent's response, and the rubric does not have to adopt it."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-019",
+          "C-020",
+          "C-021"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-019",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-020",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-021",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "Sol's merits-versus-admissibility concern mostly fails. Memo §§III.G and VI tell the drafter to raise the cap and the notice issues briefly as FRE 403 sequencing points, and C-019 accepts any argument that the cap bears on presentation. Sol's claim that the resin premium is not consequential is contradicted by §7.2, which lists 'COST OF SUBSTITUTE GOODS'. C-019 and C-020 are still arguable on a different ground (my O1): §7.2 first excludes consequential damages outright and makes the $2M cap only a fallback. C-021 simply tracks the memo."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-009",
+          "C-010"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-009",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-010",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The $14,211,000 vs $14,200,000 gap is accurate (Dep. 92–93). Memo §III.F tells the drafter to use it as the closing cumulative-reliability point in the Daubert section. C-010 asks for exactly that link, and it does not require arguing that the error alone warrants exclusion or penalize a proportionate description. A brief but explicit cumulative link is not 'only in passing', so a memo-following motion passes."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-020",
+          "C-045",
+          "C-019"
+        ],
+        "title": "Rubric calls §7.2 a '$2M cap on consequential damages'; the clause first excludes them entirely, with the $2M cap only as a fallback",
+        "explanation": "Section 7.2 first provides that neither party is liable for consequential damages at all. It expressly lists lost profits, cost of substitute goods and reputational harm. The $2,000,000 aggregate cap applies only if a court holds consequential damages recoverable despite that disclaimer. The criteria follow the memo's shorthand ('capping consequential damages at $2,000,000'), not the contract. A competent motion could make the stronger and accurate argument that the $10.29M of consequential testimony is barred outright and therefore irrelevant under FRE 401–403. If that motion does not also frame §7.2 as a '$2M cap', a judge could fail it on C-045 ('caps consequential damages at $2,000,000') or C-020 ('substantially exceed the $2,000,000 contractual cap'). C-019's 'or otherwise argues the cap is relevant' makes it the lowest risk of the three. Answers that mention both tiers pass, so this misgrades only some competent work.",
+        "evidence": [
+          {
+            "source": "supply-agreement.docx.txt",
+            "quote": "IN NO EVENT SHALL EITHER PARTY BE LIABLE TO THE OTHER PARTY FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ... INCLUDING WITHOUT LIMITATION LOST PROFITS ... COST OF SUBSTITUTE GOODS OR SERVICES, REPUTATIONAL HARM"
+          },
+          {
+            "source": "supply-agreement.docx.txt",
+            "quote": "IN THE EVENT THAT ANY COURT OF COMPETENT JURISDICTION DETERMINES THAT CONSEQUENTIAL DAMAGES ARE RECOVERABLE ... SHALL NOT EXCEED TWO MILLION DOLLARS ($2,000,000)"
+          },
+          {
+            "source": "C-045",
+            "quote": "PASS if the motion correctly states that the Supply Agreement's limitation-of-liability clause caps consequential damages at $2,000,000."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Describe §7.2 as an exclusion of consequential damages with a $2,000,000 fallback cap. Accept either framing: a total bar or the fallback cap.",
+        "origin": "revised",
+        "sol_locators": [
+          "Arguable concerns: item 3"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-022"
+        ],
+        "title": "C-022 requires using Marchetti's lack of prior federal Daubert qualification to argue 'heightened scrutiny', which Rule 702 does not provide",
+        "explanation": "Rule 702 and Daubert apply one reliability standard to every proffered expert. Whether an expert has testified in federal court before is not a Daubert factor and does not raise the standard. The memo itself warns against a credentialism argument and treats the fact only as 'relevant context'. C-022 fails any motion that omits the fact, and it rewards a legally inaccurate framing. A careful drafter might leave it out as irrelevant, or as an invitation to a weight-not-admissibility response, and would then fail an all-pass criterion. The fact appears in the memo, so many solvers will include it, and 'heightened scrutiny' can be read as rhetoric. That keeps this arguable rather than problematic.",
+        "evidence": [
+          {
+            "source": "C-022",
+            "quote": "uses this fact to support the argument for heightened scrutiny of her methodology. FAIL if this fact is not mentioned."
+          },
+          {
+            "source": "defense-strategy-memo.docx.txt",
+            "quote": "We should not make a credentialism argument --- her academic and professional credentials in forensic economics are not genuinely in dispute"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Evid. 702",
+            "proposition": "The same admissibility standard applies to every expert. It has no forum-history or 'heightened scrutiny' component.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Make the point optional context. Drop the 'heightened scrutiny' requirement, or pass a motion that omits it or mentions it only as background.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable mandatory-advocacy concern: item 1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-043"
+        ],
+        "title": "C-043 assumes a full-exclusion request first; the record-directed strategy is targeted, severable exclusion from the start",
+        "explanation": "The memo tells the drafter not to challenge the $1,578,500 resin cost or the $512,500 premium. It seeks exclusion of 'specified portions' of Marchetti's testimony through severable, category-by-category arguments. A motion drafted that way never asks the court to exclude all of her testimony, so it has no 'alternative' to full exclusion to offer. C-043 passes only an alternative request made 'if the court declines to exclude all', and fails only 'all-or-nothing' relief. A targeted motion without a separate fallback fits neither condition, and the two judges may split. Its 'or that the testimony be limited in some way' clause will rescue many answers, so this is arguable.",
+        "evidence": [
+          {
+            "source": "C-043",
+            "quote": "PASS if the motion requests, in the alternative, that if the court declines to exclude all of Marchetti's testimony, specific opinion categories ... be excluded individually"
+          },
+          {
+            "source": "defense-strategy-memo.docx.txt",
+            "quote": "We should draft the motion with clear, severable arguments for each damages category so the court can grant relief on a category-by-category basis."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the motion either (a) requests alternative or limiting relief, or (b) structures its Marchetti requests as severable, category-by-category exclusions.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [],
+        "title": "Record inconsistencies: OSHA exhibit numbering, the '24-month' lost-profits table, and Marchetti's report vs. her deposition on industry data",
+        "explanation": "(1) Solano's email calls the OSHA citation 'Exhibit 18'. On Plaintiff's exhibit list, PX-18 is the audited financials. (2) Marchetti's report states a 24-month impact period, Aug 2023 to Jul 2025, but its table runs only to Jul 2024, and the report is dated Oct 2024. (3) The report says she considered regional industry conditions, while at deposition she said she was unaware of the Q2 2023 downturn. None of these misgrades a criterion as written. They do affect what an accurate motion should say about exhibit numbers and facts.",
+        "evidence": [
+          {
+            "source": "solano-trial-strategy-email.eml.txt",
+            "quote": "Exhibit 18 is the OSHA Citation and Notification of Penalty dated April 10, 2023"
+          },
+          {
+            "source": "plaintiff-exhibit-list.docx.txt",
+            "quote": "PX-18             **Ridgeline Audited Financial Statements (FY 2022--2023)**"
+          },
+          {
+            "source": "marchetti-expert-report.docx.txt",
+            "quote": "for the 24-month impact period from August 2023 through July 2025"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make the exhibit numbers consistent across the documents. Make the impact-period table match its stated span.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [],
+        "title": "Instructions call this a 'product liability defense'; the record is a commercial breach-of-contract and warranty case",
+        "explanation": "The instructions ask for a motion 'for our product liability defense'. The memo and the expert report describe claims for breach of contract and breach of the implied warranty of merchantability under a supply agreement, and no product-liability claim appears. A solver who follows the instructions literally could mis-frame the introduction. No criterion turns on the framing, so the impact on grading is low.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "Draft a motion in limine based on the attached case files for our product liability defense."
+          },
+          {
+            "source": "defense-strategy-memo.docx.txt",
+            "quote": "alleges breach of contract and breach of the implied warranty of merchantability arising from deliveries of CascadeMax 7200 polymer resin"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change the instructions to 'for our defense in this breach-of-contract/warranty action'.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O5"
+        ]
+      }
+    ],
+    "changes_from_blind": "I kept all five blind findings. I revised O1 to link it to Sol's item 3 and to rank C-019 below C-020 and C-045, since C-019's 'or otherwise argues the cap is relevant' clause makes it the lowest risk. I also added the fact that §7.2 expressly lists 'cost of substitute goods', which rebuts Sol's side point that the resin premium is not inherently consequential. I adopted none of Sol's other findings. I rejected C-023 because it targets only Washington evidence rules, and Washington substantive law is not covered. I rejected C-007/008 because the criteria require a well-supported advocacy argument, not a per-se rule. I rejected C-021 because the memo expressly directs the brief notice point. I rejected C-009/010 because C-010 asks only for the cumulative-reliability link the memo prescribes. Sol's C-022 finding matches my blind O2.",
+    "overall": "The rubric is largely sound and closely tracks the record and the defense strategy memo the solver receives. The deposition admissions, figures, dates, OSHA details and the 37-day notice all check out, and the FRE 407, 403 and 404(b) propositions are correct. The weak spots are all arguable, none problematic. The criteria describe §7.2 as a plain $2M cap when it is an outright exclusion with a fallback cap (C-020, C-045, C-019). C-022 requires tying the no-federal-Daubert fact to 'heightened scrutiny', a standard Rule 702 does not contain. C-043 assumes a full-exclusion request that the targeted strategy never makes. Of Sol's five arguable findings, I agree only on C-022, and on C-019/020 for a different reason. Its C-023, C-007/008, C-021 and C-009/010 concerns are not defects because the criteria track memo-directed advocacy that the record supports. The record also has minor document inconsistencies (exhibit numbering, the impact-period table, the 'product liability' label), but none of them misgrades a criterion.",
+    "coverage": "Read all 49 criteria and the instructions. In the blind pass I read all 8 documents in full. In this pass I re-checked the record facts behind each Sol finding: §7.2 in full, §9.1 governing law, the memo's sections on scrap, mitigation, the arithmetic gap, the notice issue, the cap and FRE 407, the deposition on the Cho spreadsheet and the $11,000 gap, and a grep for any Washington evidence-rule citation (none found). I read Sol's audit markdown and index entry. I tried to fetch the text of Rules 702 and 703 from Cornell LII, but WebFetch was blocked by a spend limit, so those authorities are marked unverified. I did no case-law research on the reliance-on-client-data doctrine or the feasibility exception."
+  }
+}

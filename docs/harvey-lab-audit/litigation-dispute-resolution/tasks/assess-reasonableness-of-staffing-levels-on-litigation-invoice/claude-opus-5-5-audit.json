@@ -1,0 +1,670 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+  "title": "Assess Reasonableness of Staffing Levels on Litigation Invoice",
+  "criteria_total": 49,
+  "criterion_lines": {
+    "C-001": 19,
+    "C-002": 27,
+    "C-003": 35,
+    "C-004": 43,
+    "C-005": 51,
+    "C-006": 59,
+    "C-007": 67,
+    "C-008": 75,
+    "C-009": 83,
+    "C-010": 91,
+    "C-011": 99,
+    "C-012": 107,
+    "C-013": 115,
+    "C-014": 123,
+    "C-015": 131,
+    "C-016": 139,
+    "C-017": 147,
+    "C-018": 155,
+    "C-019": 163,
+    "C-020": 171,
+    "C-021": 179,
+    "C-022": 187,
+    "C-023": 195,
+    "C-024": 203,
+    "C-025": 211,
+    "C-026": 219,
+    "C-027": 227,
+    "C-028": 235,
+    "C-029": 243,
+    "C-030": 251,
+    "C-031": 259,
+    "C-032": 267,
+    "C-033": 275,
+    "C-034": 283,
+    "C-035": 291,
+    "C-036": 299,
+    "C-037": 307,
+    "C-038": 315,
+    "C-039": 323,
+    "C-040": 331,
+    "C-041": 339,
+    "C-042": 347,
+    "C-043": 355,
+    "C-044": 363,
+    "C-045": 371,
+    "C-046": 379,
+    "C-047": 387,
+    "C-048": 395,
+    "C-049": 403
+  },
+  "blind": {
+    "task": "assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+    "criteria_reviewed": 49,
+    "coverage": "I read the instructions and all 49 criteria. I read all five supplied documents in full: the billing guidelines, the staffing plan, the Barros email thread, the case status summary, and the invoice (Summary, Time Detail, Expense Detail and Rate Schedule sheets). I checked the invoice arithmetic with a script. It found all 117 time entries, and each entry's rate times hours equals its fee. The Time Detail entries add up to 483.5 hrs and $215,680.00. The invoice's printed SUBTOTAL row is a hardcoded value of 422.5 hrs and $193,372.50. Hargrove's hours (38.5) match exactly, which confirms the script read the entries correctly. I also recomputed every dollar figure the criteria use (C-003, 009, 012, 020, 022, 026, 027, 031, 032, 034, 036, 038, 049). Every legal point the criteria rely on is contractual (the billing guidelines and the staffing plan), so I ran no case-law or statute searches. The authorities listed are guideline and plan provisions I read in this session. Not verified: how the two LLM judges would read \"materially incorrect\" for small differences such as Sengupta's $187.50.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "document_defect",
+        "criteria": [
+          "C-003",
+          "C-009",
+          "C-012",
+          "C-028",
+          "C-032",
+          "C-045",
+          "C-046",
+          "C-049"
+        ],
+        "title": "Invoice Time Detail totals $215,680 (483.5 hrs) but Summary and SUBTOTAL show $193,372.50 (422.5 hrs); rubric accepts only the Summary figures",
+        "explanation": "The line items do not match the Summary for 6 of the 7 timekeepers. Detail vs Summary: Tate 154.5 vs 120 hrs, Cho 89.5 vs 74, Pettersson 91 vs 82.5, Barros 49 vs 45, Webb 34 vs 35, Sengupta 27 vs 27.5. The Time Detail SUBTOTAL row is a hardcoded value, not a formula, and it understates its own entries by $22,307.50. A reviewer asked for 'reduction calculations' naturally works from the line items. That reviewer gets Barros at $23,275 (C-003 requires $21,375), Tate at $1,545 (C-012 requires $1,200) and Sengupta at $10,125 (C-009 requires $10,312.50). All three would be failed as 'materially incorrect'. A reviewer who recomputes the fee subtotal from the detail also fails C-028, C-032 (the overage becomes $25,930), C-045, C-046 and C-049 (the overage becomes about 30.7%). Those five are lower risk because $193,372.50 is the amount actually billed. Also, no criterion rewards catching the $22K discrepancy, which is the most important reconciliation finding in this record.",
+        "evidence": [
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "A28='Marcus Tate | Contract Attorney | $210.00 | 120.0 | $25,200.00'"
+          },
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "A25='Nina Barros | Mid-Level Associate | $475.00 | 45.0 | $21,375.00'"
+          },
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "A120='SUBTOTAL' | F120='422.5' | G120='193372.50'"
+          },
+          {
+            "source": "C-003",
+            "quote": "states that Nina Barros's time at risk is $21,375.00 (45.0 hours × $475/hr)"
+          },
+          {
+            "source": "C-012",
+            "quote": "$1,200.00 ($10/hr overcharge × 120 hours)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pinnacle Billing Guidelines § 9.1(d)-(e)",
+            "proposition": "Invoices must include both a summary page by timekeeper and a time detail page; the two are meant to reconcile.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Fix the invoice so the Time Detail adds up to the Summary. Otherwise, accept figures derived from either the Summary or the Detail for C-003/009/012/028/032/045/046/049, and add a criterion rewarding identification of the Summary-vs-Detail variance."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 fixes the Tate reduction at the $200 cap ($1,200) although the approved plan fixes his pass-through rate at $185 ($3,000)",
+        "explanation": "Section 5.1's caps apply 'unless otherwise agreed in writing in the... Approved Staffing Plan.' The approved plan sets the contract attorney at $185/hr as a no-markup pass-through. It says rates are fixed and will not rise without Pinnacle's written agreement. Section 4.4 also requires contract attorneys to be passed through at actual cost. Tate billed $210, so the contractual overcharge is $25/hr, or $3,000 on 120 hrs, not $10/hr. A competent memo that reduces Tate to the approved $185 reports $3,000 and fails C-012 as 'materially incorrect.' The rubric is also inconsistent with itself: C-036 treats $185 as the contract attorney rate for the Webb reduction.",
+        "evidence": [
+          {
+            "source": "pinnacle-billing-guidelines.docx.txt",
+            "quote": "Unless otherwise agreed in writing in the engagement letter or Approved Staffing Plan, the following maximum hourly rates apply"
+          },
+          {
+            "source": "approved-staffing-plan.docx.txt",
+            "quote": "These rates are fixed for the duration of the discovery phase and will not be increased without the prior written agreement of Pinnacle."
+          },
+          {
+            "source": "approved-staffing-plan.docx.txt",
+            "quote": "Billing Rate:** \\$185/hr (pass-through at vendor rates with no firm markup"
+          },
+          {
+            "source": "C-036",
+            "quote": "from $375/hr to $185/hr (contract attorney rate)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pinnacle Billing Guidelines § 5.1",
+            "proposition": "Rate caps apply unless otherwise agreed in the Approved Staffing Plan; rates above cap are reduced to cap.",
+            "verified": true
+          },
+          {
+            "citation": "Pinnacle Billing Guidelines § 4.4",
+            "proposition": "Contract attorney rates are passed through at actual cost with no markup, subject to 5.1 caps.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept either $1,200 (reduction to the § 5.1 cap) or $3,000 (reduction to the approved $185 pass-through rate), or require the $3,000 figure and mention the cap as an alternative."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-035",
+          "C-036"
+        ],
+        "title": "Webb May 22 review was 'for relevance and privilege', which § 6.1 assigns to the junior level; the $665 target ignores the $200 benchmark in § 6.1",
+        "explanation": "Section 6.1(a) makes a junior associate the appropriate timekeeper for document review 'where the exercise of legal judgment on privilege is required.' The rule that cuts junior review to the contract rate covers only 'routine first-level review for relevance or responsiveness.' Webb's entry includes privilege review, and the status report says he stepped in because volume exceeded Tate's capacity. A competent reviewer could therefore decline the reduction or treat it as a judgment call, and would fail C-035 and C-036. Even a reviewer who does reduce could use the '$200/hr cap' that § 6.1 itself names as the contract attorney rate. That gives $612.50, which is $52.50 away from the 'approximately $665' target and may be judged incorrect.",
+        "evidence": [
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "Review third batch of MedCore production documents for relevance and privilege."
+          },
+          {
+            "source": "pinnacle-billing-guidelines.docx.txt",
+            "quote": "Document review by a junior associate that constitutes routine first-level review for relevance or responsiveness → reduced to the contract attorney rate."
+          },
+          {
+            "source": "pinnacle-billing-guidelines.docx.txt",
+            "quote": "(appropriate timekeeper: contract attorney or, where the exercise of legal judgment on privilege is required, junior associate)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pinnacle Billing Guidelines § 6.1",
+            "proposition": "Junior-associate document review is reduced to contract rate only when it is routine first-level relevance/responsiveness review; privilege judgment may warrant junior level.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Pass a memo that flags the entry, or that discusses it and declines the reduction because of the privilege component. Accept any reduction computed at either $185 or $200 (about $612.50 to $665)."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-018",
+          "C-020"
+        ],
+        "title": "Hargrove May 5 entry includes a client memo component, yet C-020 requires a rate reduction on all 4.5 hours; C-044 calls this a judgment call",
+        "explanation": "The entry covers both reviewing documents and preparing a detailed memo of key findings for the client. Client counseling and significant legal analysis are partner work under § 6.1. The status report says the review was a targeted calibration of the review protocol. C-044 itself lists 'whether document review entries by Hargrove had a strategic component' as a judgment call. C-020 nonetheless requires a reduction on all 4.5 hours. A competent memo might split the entry, treat it as block billing under § 5.4, or decline a rate reduction. Any of those could fail C-020, and C-018's framing of the whole entry as 'routine' document review.",
+        "evidence": [
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "Review and analyze documents produced by MedCore in third production batch; prepare detailed memorandum summarizing key findings for client."
+          },
+          {
+            "source": "case-status-summary.docx.txt",
+            "quote": "Mr. Hargrove undertook this review in early May to ensure that the team's overall approach to categorization, prioritization, and issue-tagging was properly calibrated"
+          },
+          {
+            "source": "C-044",
+            "quote": "whether document review entries by Hargrove had a strategic component"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pinnacle Billing Guidelines § 6.1",
+            "proposition": "Partners should focus on significant legal judgment and client counseling; document review by partners is presumptively reducible.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Let C-020 pass a reduction on only the review portion of the entry, a § 5.4 block-billing treatment, or a quantified potential reduction presented as a judgment call."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-040"
+        ],
+        "title": "C-040's FAIL clause cross-references 'per C-034' (Hargrove excess hours) instead of C-039 (deposition staffing)",
+        "explanation": "C-040's FAIL condition says the memo 'flags the deposition staffing concern (per C-034)'. C-034 is the Hargrove excess-hours criterion, and the deposition-staffing flag is C-039. A judge could be confused about which prerequisite applies. The impact is probably low, since the intended meaning can be inferred.",
+        "evidence": [
+          {
+            "source": "C-040",
+            "quote": "FAIL if the memo flags the deposition staffing concern (per C-034) but provides no analysis"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change 'per C-034' to 'per C-039'."
+      }
+    ],
+    "overall": "Most of the rubric matches the record. The citations to guideline sections (4.2, 4.3, 5.1, 5.4, 6.1, 7.3), the Barros/Sengupta distinction, the block-billing and budget-threshold arithmetic, and the case-status facts are all accurate. The serious defect is in the supplied invoice. Its Time Detail entries total $215,680 (483.5 hrs), but the Summary and the SUBTOTAL row show $193,372.50 (422.5 hrs). The rubric accepts only the Summary figures, so a careful reviewer who calculates from the line items fails several dollar-amount criteria, and no criterion rewards catching the $22K discrepancy. Separately, C-012 fixes the Tate reduction at the $200 cap and ignores the approved plan's $185 fixed pass-through rate, which is the better-supported reduction. The Webb and Hargrove task-level criteria treat judgment calls as required reductions with single target figures. Other points, noted but not filed: many other entries also combine tasks in the way § 5.4 prohibits (e.g., Hargrove's and Pettersson's May 19 entries). The Liu deposition breaches § 4.3's two-timekeeper rule outright. Neither causes a misgrade, because no total recommended reduction is fixed."
+  },
+  "final": {
+    "task": "assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+    "sol_verdicts": [
+      {
+        "sol_locator": "F1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-003",
+          "C-009",
+          "C-012",
+          "C-028",
+          "C-032",
+          "C-045",
+          "C-046",
+          "C-049"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-003",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-009",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-012",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-028",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-032",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-045",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-046",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-049",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I re-ran the check. The 117 Time Detail entries total 483.5 hrs and $215,680. The Summary and the hardcoded SUBTOTAL show 422.5 hrs and $193,372.50. Barros comes to 49 hrs in the detail (45 in the Summary), Sengupta 27 (27.5), Tate 154.5 (120). The per-timekeeper criteria fix the Summary figures, so a reviewer who works from the line items fails them. The face-amount criteria (C-028/032/045/046/049) report what was actually billed, which a competent memo usually states. Those carry lower risk, so I rate them arguable."
+      },
+      {
+        "sol_locator": "F2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-034"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-034",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The plan gives 'Expected Monthly Hours: 15--25' and says 'Actual hours may fluctuate'. So '25-hour cap' and 'plan ceiling' mislabel an expected range. The PASS test only needs the 13.5 hrs / $13,297.50 arithmetic, which most reviewers flagging C-033 will do. But a reviewer who treats the range as non-binding may not dollarize the variance as a reduction. The risk is real but not certain."
+      },
+      {
+        "sol_locator": "F3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-018",
+          "C-020",
+          "C-021",
+          "C-022",
+          "C-035",
+          "C-036"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-018",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-020",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-021",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-022",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-035",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-036",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "C-018 fails only a memo that never flags the entry; flagging it with a strategic caveat still passes. C-020 requires a reduction on all 4.5 hours of a mixed review-plus-client-memo entry. Hargrove's May 14 entry, 'finalize citations', is cite-checking, which §2 and §6.1(b) expressly list; §6.1 reduces partner cite-checking to the junior rate; and C-022's FAIL clause is lenient. For Webb, §6.1(a) allows a junior associate where privilege judgment is required, and his entry includes privilege."
+      },
+      {
+        "sol_locator": "F4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-006",
+          "C-044"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-006",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-044",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "Under §4.2, 'the absence of a response shall not constitute approval'. So a memo can say Barros is plainly unapproved and still distinguish her from Sengupta. That memo escapes C-006's FAIL clause but may fail its PASS clause, which requires 'creating ambiguity'. C-044 uses Barros only as an 'e.g.' of a discretionary issue. The §4.2 remedy is at 'Pinnacle's sole discretion', so C-044 is sound."
+      },
+      {
+        "sol_locator": "F5",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-040"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-040",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The cross-reference is definitely wrong: C-034 is Hargrove's monthly hours, and the deposition-staffing flag is C-039. A judge can infer the intended prerequisite from the rest of the text, so a misgrade is unlikely but possible."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "document_defect",
+        "criteria": [
+          "C-003",
+          "C-009",
+          "C-012"
+        ],
+        "title": "Time Detail entries do not reconcile to the Summary; the per-timekeeper amounts at risk accept only the Summary figures",
+        "explanation": "The 117 Time Detail entries total 483.5 hrs and $215,680. The Summary and the hardcoded SUBTOTAL row show 422.5 hrs and $193,372.50. By timekeeper, detail vs Summary: Tate 154.5 vs 120, Barros 49 vs 45, Sengupta 27 vs 27.5, Cho 89.5 vs 74, Pettersson 91 vs 82.5, Webb 34 vs 35. Only Hargrove matches. A reviewer asked for 'reduction calculations' naturally works from the line items. That reviewer gets Barros $23,275 (C-003 requires $21,375), Sengupta $10,125 (C-009 requires $10,312.50) and Tate $1,545 (C-012 requires $1,200). Each would be failed as 'materially incorrect'. No criterion rewards catching the $22,307.50 variance, which suggests the discrepancy was unintended.",
+        "evidence": [
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "A25='Nina Barros | Mid-Level Associate | $475.00 | 45.0 | $21,375.00'"
+          },
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "A28='Marcus Tate | Contract Attorney | $210.00 | 120.0 | $25,200.00'"
+          },
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "A120='SUBTOTAL' | F120='422.5' | G120='193372.50'"
+          },
+          {
+            "source": "C-003",
+            "quote": "states that Nina Barros's time at risk is $21,375.00 (45.0 hours × $475/hr)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pinnacle Billing Guidelines § 9.1(d)-(e)",
+            "proposition": "Invoices include both a timekeeper summary and a time detail, which are meant to reconcile.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Correct the invoice so the detail matches the Summary. Otherwise, accept either Summary-based or detail-based figures and add a criterion rewarding identification of the variance.",
+        "origin": "revised",
+        "sol_locators": [
+          "F1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-028",
+          "C-032",
+          "C-045",
+          "C-046",
+          "C-049"
+        ],
+        "title": "The invoice-level fee and budget figures follow the invoice face amount, which does not reconcile to its own line items",
+        "explanation": "These criteria fix the $193,372.50 subtotal, the $201,822.50 total, the $3,622.50 overage and the 17.2% overage. Those are the amounts actually billed, and most competent memos will state them, so the risk is lower than for O1. A reviewer who recomputes from the Time Detail gets $215,680 in fees, $224,130 in total, a $25,930 overage and about 30.7% over budget, and fails C-032, C-045, C-046 and C-049 as 'materially incorrect'. C-028 also names the $193,372.50 figure.",
+        "evidence": [
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "A31='Subtotal — Attorney Fees:' | B31='$193,372.50'"
+          },
+          {
+            "source": "C-032",
+            "quote": "approximately $3,622.50 ($193,372.50 − $189,750.00)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Accept the face-amount figures, or reconciled figures with an explanation of the variance.",
+        "origin": "revised",
+        "sol_locators": [
+          "F1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 fixes the Tate reduction at the $200 cap ($1,200) though the approved plan fixes the contract attorney at $185",
+        "explanation": "Section 5.1's caps apply 'unless otherwise agreed in writing in the... Approved Staffing Plan.' The plan sets the Redwood contract attorney at $185/hr as a no-markup pass-through. It lists the $200 cap separately and says the rates 'are fixed... and will not be increased without the prior written agreement of Pinnacle.' Section 4.4 also requires pass-through at actual cost. Tate billed $210, so the contractual overcharge is $25/hr, or $3,000 on 120 hrs. A memo reducing to the approved $185 is at least as well supported, yet it fails C-012 as 'materially incorrect.' The rubric also contradicts itself: C-036 treats $185 as 'contract attorney rate'.",
+        "evidence": [
+          {
+            "source": "approved-staffing-plan.docx.txt",
+            "quote": "Contract Attorney (via Redwood Document Solutions)   Contract/Staff Attorney   \\$185/hr          \\$200/hr"
+          },
+          {
+            "source": "approved-staffing-plan.docx.txt",
+            "quote": "These rates are fixed for the duration of the discovery phase and will not be increased without the prior written agreement of Pinnacle."
+          },
+          {
+            "source": "C-036",
+            "quote": "from $375/hr to $185/hr (contract attorney rate)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pinnacle Billing Guidelines § 5.1 and Appendix rate caps",
+            "proposition": "Caps apply unless otherwise agreed in the Approved Staffing Plan; rates above cap are reduced to cap.",
+            "verified": true
+          },
+          {
+            "citation": "Pinnacle Billing Guidelines § 4.4",
+            "proposition": "Contract attorney rates pass through at actual cost with no markup.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept $1,200 (to the cap) or $3,000 (to the approved $185 rate).",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-035",
+          "C-036"
+        ],
+        "title": "The Webb May 22 review covered 'relevance and privilege', which § 6.1(a) allows a junior associate to perform",
+        "explanation": "Section 6.1(a) names the junior associate as the appropriate timekeeper where privilege judgment is required. The rule that reduces junior review to the contract rate covers only 'routine first-level review for relevance or responsiveness.' Webb's entry includes privilege review. A competent reviewer could decline the reduction, or treat it as a judgment call and not quantify it, and would then fail both criteria. The rate is not the problem: C-036's FAIL clause is lenient, so a $612.50 figure computed at the $200 cap would likely pass.",
+        "evidence": [
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "Review third batch of MedCore production documents for relevance and privilege."
+          },
+          {
+            "source": "pinnacle-billing-guidelines.docx.txt",
+            "quote": "Document review by a junior associate that constitutes routine first-level review for relevance or responsiveness → reduced to the contract attorney rate."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pinnacle Billing Guidelines § 6.1(a)",
+            "proposition": "Junior associate is the appropriate timekeeper for review requiring privilege judgment.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Also pass a memo that flags the entry and reasons about the privilege component, whether or not it applies the reduction.",
+        "origin": "blind",
+        "sol_locators": [
+          "F3"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-020"
+        ],
+        "title": "C-020 requires a rate reduction on all 4.5 hours of Hargrove's May 5 entry, which includes a client memo and is conceded to be a judgment call",
+        "explanation": "The entry covers document review and 'prepare detailed memorandum summarizing key findings for client'. Client counseling is partner work under § 6.1. The status report calls the review a calibration of the review protocol, and C-044 itself lists the Hargrove strategic component as a judgment issue. A competent memo that declines a rate reduction on this entry fails C-020. A memo that splits the entry probably still passes, given the lenient FAIL clause. I have dropped C-018 from this finding: it fails only a memo that never flags the entry.",
+        "evidence": [
+          {
+            "source": "hl-may-2025-invoice.xlsx.txt",
+            "quote": "prepare detailed memorandum summarizing key findings for client."
+          },
+          {
+            "source": "C-044",
+            "quote": "whether document review entries by Hargrove had a strategic component"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pinnacle Billing Guidelines § 6.1",
+            "proposition": "Partners focus on legal judgment and client counseling; partner document review is presumptively reducible.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Also pass a reasoned partial reduction, or a quantified potential reduction presented as a judgment call.",
+        "origin": "revised",
+        "sol_locators": [
+          "F3"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-034"
+        ],
+        "title": "C-034 calls Hargrove's expected 15–25 hour range a '25-hour cap' and 'plan ceiling'",
+        "explanation": "The plan gives 'Expected Monthly Hours: 15--25' and says actual hours 'may fluctuate'. Section 4.1 refers to 'anticipated' hours. No provision disallows fees above an individual's range; the binding controls are the budget ceiling in § 7.3 and the approval rules. A reviewer who treats the range as non-binding and does not dollarize 13.5 hrs as a reduction could fail C-034. Most reviewers will compute the figure anyway, so the risk is moderate.",
+        "evidence": [
+          {
+            "source": "approved-staffing-plan.docx.txt",
+            "quote": "Expected Monthly Hours:** 15--25 hours/month"
+          },
+          {
+            "source": "approved-staffing-plan.docx.txt",
+            "quote": "Actual hours may fluctuate from month to month depending on the pace and intensity of litigation activity"
+          },
+          {
+            "source": "C-034",
+            "quote": "13.5 hours above the 25-hour cap, representing approximately $13,297.50 in fees above the plan ceiling"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Describe the figure as variance above the expected range, and pass either a quantified variance or a reasoned proportionality analysis.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "F2"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-006"
+        ],
+        "title": "C-006's PASS clause requires 'ambiguity' in Barros's status, though § 4.2 says silence is not approval",
+        "explanation": "Section 4.2 says 'the absence of a response shall not constitute approval.' So a competent memo may say Barros is clearly unapproved while noting the pending request and distinguishing her from Sengupta. Such a memo avoids C-006's FAIL clause, but a strict judge may fail it under the PASS clause's 'creating ambiguity in her approval status.' The memo would then fall between the PASS and FAIL conditions.",
+        "evidence": [
+          {
+            "source": "pinnacle-billing-guidelines.docx.txt",
+            "quote": "However, the absence of a response shall not constitute approval."
+          },
+          {
+            "source": "C-006",
+            "quote": "creating ambiguity in her approval status"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pinnacle Billing Guidelines § 4.2",
+            "proposition": "Absence of a response to a staffing request is not approval; fees of unapproved timekeepers are reducible at Pinnacle's discretion.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Pass a memo that notes no final written approval or denial was issued and distinguishes Barros from Sengupta, whether it frames her status as ambiguous or as not approved.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "F4"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-040"
+        ],
+        "title": "C-040's FAIL clause cross-references C-034 (Hargrove's hours) instead of C-039 (deposition staffing)",
+        "explanation": "The FAIL condition reads 'flags the deposition staffing concern (per C-034)'. C-034 is the Hargrove monthly-hours criterion; the deposition flag is C-039. The intended meaning can be inferred, so a misgrade is unlikely but possible.",
+        "evidence": [
+          {
+            "source": "C-040",
+            "quote": "FAIL if the memo flags the deposition staffing concern (per C-034) but provides no analysis"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change 'per C-034' to 'per C-039'.",
+        "origin": "blind",
+        "sol_locators": [
+          "F5"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      }
+    ],
+    "changes_from_blind": "I split blind O1 into two findings. C-003, C-009 and C-012 stay problematic as O1. The face-amount criteria (C-028, C-032, C-045, C-046, C-049) are now arguable as O2, because they report the amount actually billed. I removed C-018 from the Hargrove finding (now O5): its FAIL clause catches only a memo that never flags the entry. C-020 stays arguable. I adopted two points from Sol: C-034's 'cap' mischaracterization (O6, arguable) and C-006's ambiguity framing (O7, arguable). I rejected Sol's C-021, C-022 and C-044 points. The May 14 entry is expressly cite-checking under §6.1(b), which makes C-021 and C-022 sound, and C-044 uses Barros only as an 'e.g.'. I kept the Tate $185-vs-$200 finding (O3), which Sol did not raise. I kept C-040 as arguable rather than Sol's confirmed.",
+    "overall": "The rubric tracks the guidelines closely, and most criteria are sound. The main defect is in the supplied invoice. Its Time Detail entries total $215,680 (483.5 hrs), but the Summary and SUBTOTAL show $193,372.50 (422.5 hrs), and only the Summary figures are accepted. A reviewer who works from the line items therefore fails C-003, C-009 and C-012, and is at risk on the invoice-level figures. C-012 also ignores the approved plan's fixed $185 contract rate, which is at least as well supported as the $200 cap. Several task-level criteria (Webb privilege review, Hargrove May 5, Hargrove's hours range, Barros 'ambiguity') turn judgment calls into required outcomes and are arguable. C-040 has a cosmetic cross-reference error.",
+    "coverage": "I read all 49 criteria and the instructions again. I re-checked all five documents on the points each finding relies on, including §4.2, §6.1, §6.2, §7.3, the plan's rate table and hour ranges, the Barros emails and the Rate Schedule. I re-ran a script over the invoice: 117 entries, 483.5 hrs, $215,680, with per-timekeeper totals. I read Sol's index and its markdown report. All authorities are contractual provisions I read in this session; no case law was needed."
+  }
+}

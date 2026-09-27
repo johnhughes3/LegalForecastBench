@@ -1,0 +1,834 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-jury-instructions",
+  "title": "Draft Proposed Jury Instructions for Title VII Retaliation, Ohio Whistleblower, and Implied Contract Claims",
+  "criteria_total": 57,
+  "criterion_lines": {
+    "C-001": 21,
+    "C-002": 29,
+    "C-003": 37,
+    "C-004": 45,
+    "C-005": 53,
+    "C-006": 61,
+    "C-007": 69,
+    "C-008": 77,
+    "C-009": 85,
+    "C-010": 93,
+    "C-011": 101,
+    "C-012": 109,
+    "C-013": 117,
+    "C-014": 125,
+    "C-015": 133,
+    "C-016": 141,
+    "C-017": 149,
+    "C-018": 157,
+    "C-019": 165,
+    "C-020": 173,
+    "C-021": 181,
+    "C-022": 189,
+    "C-023": 197,
+    "C-024": 205,
+    "C-025": 213,
+    "C-026": 221,
+    "C-027": 229,
+    "C-028": 237,
+    "C-029": 245,
+    "C-030": 253,
+    "C-031": 261,
+    "C-032": 269,
+    "C-033": 277,
+    "C-034": 285,
+    "C-035": 293,
+    "C-036": 301,
+    "C-037": 309,
+    "C-038": 317,
+    "C-039": 325,
+    "C-040": 333,
+    "C-041": 341,
+    "C-042": 349,
+    "C-043": 357,
+    "C-044": 365,
+    "C-045": 373,
+    "C-046": 381,
+    "C-047": 389,
+    "C-048": 397,
+    "C-049": 405,
+    "C-050": 413,
+    "C-051": 421,
+    "C-052": 429,
+    "C-053": 438,
+    "C-054": 447,
+    "C-055": 455,
+    "C-056": 463,
+    "C-057": 471
+  },
+  "blind": {
+    "task": "draft-jury-instructions",
+    "criteria_reviewed": 57,
+    "coverage": "I read task.json (the instructions and all 57 criteria), the judge prompt, the solver system prompt, and all five supplied documents in full: the summary-judgment order, the defendant's pretrial brief, the handbook excerpts, the Felton deposition excerpt, and the Cavender email. I read these primary sources in this session: the ORC 4113.52 text on codes.ohio.gov (current version effective March 2024; the substance of former (A)(1)(a) and (A)(2) is unchanged), Karnes v. Doctors Hospital in full, and passages of Contreras v. Ferro, Brown v. Packaging Corp. and Bennett v. Columbiana Cty. Coroner. I also checked the Sixth Circuit's pattern-instructions page and a law-library guide. I did not read Nassar, McKennon, Kolstad, Ford Motor v. EEOC, Mers, Wing, 42 U.S.C. 1981a, or any Ohio authority on after-acquired evidence in contract claims; propositions resting on those are marked unverified. I did not verify that OAC 3745-55 was promulgated under ORC Chapter 3734, or that the alleged disposal would be a criminal offense. The record has minor inconsistencies: the acknowledgment date (Sept. 14 vs. 15); the position she was hired into (Account Manager vs. Senior Account Manager); the length of Felton's vacation; the SJ order's wording of Felton's quote; and the SJ order calling the Cavender email quoted 'in its entirety' when the exhibit is longer. None of these changes what a correct answer is, so none is raised as a finding.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-044"
+        ],
+        "title": "Requires citations to 'Sixth Circuit Pattern Jury Instructions (Civil)', which do not exist",
+        "explanation": "The Sixth Circuit publishes only pattern criminal jury instructions. There is no official Sixth Circuit civil pattern set, so none exists for Title VII retaliation, damages, or Ohio claims. According to the defendant's brief, the standing order requires pattern citations only 'where available'. A competent drafter would say no civil pattern set exists and cite O'Malley's Federal Jury Practice, Ohio Jury Instructions, or case law. As written, the criterion fails that honest answer and passes one that invents 'Sixth Cir. Pattern Civ. Instr.' numbers. A judge might accept general instructions adapted from the Sixth Circuit criminal pattern set, such as credibility, but the criterion names the civil set specifically.",
+        "evidence": [
+          {
+            "source": "task.json C-044",
+            "quote": "PASS if the proposed jury instructions cite to Sixth Circuit Pattern Jury Instructions (Civil) where applicable... FAIL if no citations to Sixth Circuit Pattern Jury Instructions appear anywhere in the document."
+          },
+          {
+            "source": "defendant-pretrial-brief.docx.txt",
+            "quote": "which requires citation to Sixth Circuit Pattern Jury Instructions where available"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "U.S. Court of Appeals for the Sixth Circuit, Pattern Jury Instructions page (ca6.uscourts.gov/pattern-jury-instructions)",
+            "proposition": "The Sixth Circuit publishes pattern criminal jury instructions only; no civil pattern set.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the instructions cite appropriate pattern or model sources, such as Sixth Circuit criminal pattern general instructions adapted for civil use, O'Malley's Federal Jury Practice, Ohio Jury Instructions, or controlling case law, or correctly note that no Sixth Circuit civil pattern instructions exist."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-009"
+        ],
+        "title": "Requires the memo to identify a mixed-motive request in 'plaintiff's pretrial brief', which is not in the record",
+        "explanation": "None of the five documents is a plaintiff filing. The only reference is the SJ order noting that plaintiff's summary-judgment briefing 'at times invoked' a motivating-factor framework, which the court already rejected. That is not a pretrial request for a mixed-motive jury instruction. A careful solver will not say a plaintiff's pretrial brief made that request, because that would misstate the record. Such a solver may reasonably leave plaintiff's positions out of the memo or mention only the SJ briefing. The criterion then fails an accurate memo and rewards one that invents a filing.",
+        "evidence": [
+          {
+            "source": "task.json C-009",
+            "quote": "PASS if the cover memorandum identifies that plaintiff's pretrial brief requested a mixed-motive instruction for the Title VII retaliation claim"
+          },
+          {
+            "source": "partial-summary-judgment-order.docx.txt",
+            "quote": "The Court notes that Plaintiff's briefing at times invoked a \"motivating factor\" framework in discussing the retaliation claim. That framework is inapplicable here."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo explains that but-for causation under Nassar governs Count I and rejects any motivating-factor or mixed-motive framing, such as the one plaintiff raised at summary judgment. Do not require a reference to a plaintiff pretrial brief."
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-043"
+        ],
+        "title": "Demands a good-faith-belief protected-activity instruction although the court already found protected activity as a matter of law",
+        "explanation": "The SJ order granted plaintiff partial summary judgment: the January 17, 2023 EEO complaint is protected activity as a matter of law. The correct instruction, and the defense-preferred one, tells the jury that this element is established. It does not re-instruct on the reasonable good-faith-belief standard, which is no longer for the jury and could only confuse it. That answer does not meet C-043's PASS condition ('instructs that the plaintiff need only have had a reasonable, good-faith belief'). It also does not trigger the FAIL condition. The judge prompt asks whether the output 'satisfies the criterion as described', so judges are likely to fail it.",
+        "evidence": [
+          {
+            "source": "task.json C-043",
+            "quote": "PASS if the instruction on protected activity ... instructs that the plaintiff need only have had a reasonable, good-faith belief that she was opposing or reporting unlawful discrimination"
+          },
+          {
+            "source": "partial-summary-judgment-order.docx.txt",
+            "quote": "The Court finds as a matter of law that Plaintiff's January 17, 2023 internal EEO complaint constitutes protected activity for purposes of Count I."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the instructions either tell the jury that protected activity for Count I is established by the Court's ruling, or, if they instruct on it, use the reasonable good-faith-belief standard. FAIL only if they require proof of actual pay discrimination."
+      },
+      {
+        "id": "O4",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-007",
+          "C-008"
+        ],
+        "title": "Requires a 'contributing factor' causation standard for ORC 4113.52, a standard Ohio law does not supply",
+        "explanation": "ORC 4113.52(B) bars retaliation 'for making any report authorized by division (A)'. It does not use contributing-factor language, which comes from federal whistleblower statutes such as SOX and the WPA. Contreras v. Ferro, which the order cites for that standard, contains no 'contributing factor' language. It holds only that the employee must strictly comply with the statute. The Ohio appellate cases I checked use a 'causal link' plus McDonnell Douglas framework. In this fictional case, however, the court has ordered a contributing-factor instruction and the defendant's own Proposed Instruction No. 7 concedes it, so a solver who follows the record passes. The criteria still state the wrong law. They would fail a defense drafter who proposes a 'because of' or causal-connection standard and preserves an objection, which is the natural defense position under actual Ohio law.",
+        "evidence": [
+          {
+            "source": "task.json C-007",
+            "quote": "PASS if the jury instruction for the Ohio Whistleblower Protection Act (ORC § 4113.52) claim uses a 'contributing factor' causation standard ... FAIL if the Ohio Whistleblower instruction uses the same but-for causation standard as the Title VII retaliation claim"
+          },
+          {
+            "source": "partial-summary-judgment-order.docx.txt",
+            "quote": "the Ohio Whistleblower Protection Act employs a \"contributing factor\" standard --- a lower threshold that requires only that the protected activity was a contributing factor in the adverse employment action. See Contreras, 73 Ohio St.3d at 248."
+          },
+          {
+            "source": "defendant-pretrial-brief.docx.txt",
+            "quote": "Defendant acknowledges that the Ohio Whistleblower Protection Act, ORC § 4113.52, applies a \"contributing factor\" causation standard"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ohio Rev. Code 4113.52(B)",
+            "proposition": "No employer shall take disciplinary or retaliatory action against a person 'for making any report authorized by division (A)(1) or (2)'; no contributing-factor language.",
+            "verified": true
+          },
+          {
+            "citation": "Contreras v. Ferro Corp., 73 Ohio St.3d 244 (1995)",
+            "proposition": "Employee must strictly comply with R.C. 4113.52 to receive whistleblower protection; opinion contains no 'contributing factor' standard.",
+            "verified": true
+          },
+          {
+            "citation": "Bennett v. Columbiana Cty. Coroner, 2016-Ohio-7182 (7th Dist.)",
+            "proposition": "Applies prima facie causal-link and McDonnell Douglas burden-shifting to whistleblower-based retaliation; no contributing-factor test.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept an Ohio causation instruction that follows the court's order or states a causal-connection ('because of') standard, provided it is kept distinct from Title VII's Nassar but-for instruction. Alternatively, correct the SJ order's statement of Ohio law."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-018",
+          "C-019"
+        ],
+        "title": "SJ order cites Karnes for the opposite of its holding on handbook disclaimers; C-018 penalizes the defense's strongest position",
+        "explanation": "The SJ order cites Karnes v. Doctors Hospital for the proposition that a general disclaimer may not negate specific termination procedures. Karnes actually held that a handbook disclaiming contractual intent, together with a signed receipt, meant the employee 'cannot be characterized as that of a contract employee', and it affirmed judgment for the employer. Here the plaintiff signed a stipulated acknowledgment of the at-will provision. The court's denial of summary judgment binds the parties at trial, so presenting the implied-contract question to the jury is defensible. But C-018 would fail a defense drafter who proposes a Karnes-style instruction, or the defendant's own Proposed Instruction No. 9, which directs a defense verdict if the disclaimer is clear. C-019 is mostly sound: its 'always negate' FAIL trigger overstates Karnes only mildly.",
+        "evidence": [
+          {
+            "source": "partial-summary-judgment-order.docx.txt",
+            "quote": "See Karnes v. Doctors Hospital, 51 Ohio St.3d 139, 142, 555 N.E.2d 280 (1990) (holding that a general disclaimer may be insufficient to negate specific representations regarding termination procedures)"
+          },
+          {
+            "source": "task.json C-018",
+            "quote": "FAIL if the instruction resolves the conflict as a matter of law rather than presenting it for jury determination."
+          },
+          {
+            "source": "employee-handbook-excerpts.docx.txt",
+            "quote": "The parties have further stipulated that Mariana Okafor-Reyes signed the Handbook Acknowledgment Form on September 14, 2021, confirming her receipt and review of the Employee Handbook, Version 7.2, including the at-will employment provision"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Karnes v. Doctors Hospital, 51 Ohio St.3d 139, 555 N.E.2d 280 (1990) (per curiam)",
+            "proposition": "Manual that 'specifically disclaims any intent to create a contractual relationship', plus signed receipt, precludes contract-employee status; judgment for employer affirmed.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Correct the SJ order's description of Karnes. Or let C-018 pass an instruction that submits the disclaimer's clarity and effect to the jury, even if it tells the jury that a clear, acknowledged disclaimer defeats the claim, as long as disputed facts remain for the jury."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-014",
+          "C-040"
+        ],
+        "title": "States ORC 4113.52's internal-reporting prerequisite incompletely: omits the written report and 24-hour window, and ignores (A)(2)",
+        "explanation": "Under the statute, the employee must first notify orally and then file a written report with the supervisor. External reporting is allowed only if the employer fails to correct the violation within 24 hours. C-014 and the SJ order describe the prerequisite only as a report plus a 'reasonable correction period'. Omitting the written report drops a defense-favorable element that Contreras says must be strictly met; no written report exists here. Separately, (A)(2) lets an employee report a criminal violation of Chapter 3734 (hazardous waste) directly to the agency. That may apply to chromium-waste disposal and would remove the internal-reporting prerequisite altogether. An accurate instruction probably still passes C-014, so the risk of misgrading is low. But the rubric rewards an incomplete statement of the statute.",
+        "evidence": [
+          {
+            "source": "task.json C-014",
+            "quote": "the employee must first report the violation to a supervisor and allow a reasonable correction period before filing an external complaint"
+          },
+          {
+            "source": "partial-summary-judgment-order.docx.txt",
+            "quote": "requires that before filing a report with an outside authority, an employee must \"orally notify his or her supervisor or other responsible officer of the employer of the violation\" and allow \"a reasonable time\" for the employer to correct the violation"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ohio Rev. Code 4113.52(A)(1) (current (A)(1)(f); former (A)(1)(a))",
+            "proposition": "Employee 'orally shall notify' supervisor 'and subsequently shall file with that supervisor or officer a written report'; may report externally if the employer does not correct 'within twenty-four hours'.",
+            "verified": true
+          },
+          {
+            "citation": "Ohio Rev. Code 4113.52(A)(2)",
+            "proposition": "For a violation of Chapter 3704, 3734, 6109, or 6111 that is a criminal offense, the person 'directly may notify' the appropriate agency.",
+            "verified": true
+          },
+          {
+            "citation": "OAC 3745-55 as promulgated under ORC Chapter 3734",
+            "proposition": "The alleged hexavalent-chromium disposal violation may fall within Chapter 3734 for (A)(2) purposes.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Reword C-014 to follow the statute: oral notice, then a written report, then 24 hours for the employer to correct. Expressly accept instructions that include the (A)(2) direct-report path or the written-report element."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-002",
+          "C-004",
+          "C-013",
+          "C-022",
+          "C-009"
+        ],
+        "title": "Memo criteria assume an internal audience that critiques the client's own filed brief; the one-line instructions never say this",
+        "explanation": "The instructions say only 'a cover memo for the defendant'. They do not say who reads it or what it covers. Several criteria require the memo to say that the defendant's own pretrial brief was legally wrong: on Faragher/Ellerth, on after-acquired evidence as a complete defense, and on the mitigation burden. They also require it to discuss the damages cap. That content fits an internal memo to a supervising attorney. It would not appear in a cover memo filed with the court, which would not concede the client's errors. A competent drafter who chooses the court-facing form can explain the legal basis for each instruction, as C-045 asks, without naming the brief's mistakes. That drafter fails several criteria because of an unstated assumption about the audience, not a substantive error.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "Draft proposed jury instructions and a cover memo for the defendant in the attached employment retaliation and breach of contract case."
+          },
+          {
+            "source": "task.json C-013",
+            "quote": "PASS if the cover memorandum identifies that defendant's pretrial brief framed the after-acquired evidence doctrine as a complete defense and notes this was legally incorrect."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Say in the instructions that the memo goes to the supervising attorney and should explain where and why the proposals depart from the defendant's pretrial brief. Or let these criteria pass when the memo gives the correct legal basis for the instruction without naming the brief."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-011",
+          "C-013"
+        ],
+        "title": "Treats McKennon's remedies-only rule as governing all claims, including the Ohio implied-contract claim",
+        "explanation": "McKennon is a federal statutory-discrimination decision. It rightly governs the Title VII claim and probably the whistleblower claim. The Ohio implied-contract claim is governed by state contract law, where resume fraud could support rescission or a complete defense. C-011 fails any instruction that 'presents after-acquired evidence as a complete defense to liability'. C-013 requires calling the brief's complete-defense framing 'legally incorrect' without exception. Both could fail a drafter who distinguishes by claim and preserves a complete-defense argument only on Count IV. I did not verify Ohio authority either way, so this stays arguable.",
+        "evidence": [
+          {
+            "source": "task.json C-011",
+            "quote": "FAIL if the instruction presents after-acquired evidence as a complete defense to liability."
+          },
+          {
+            "source": "defendant-pretrial-brief.docx.txt",
+            "quote": "after-acquired evidence of Plaintiff's material misrepresentation of her educational credentials constitutes a complete defense to all claims asserted in this action"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "McKennon v. Nashville Banner Publishing Co., 513 U.S. 352 (1995)",
+            "proposition": "After-acquired evidence of wrongdoing limits remedies but does not bar liability under the federal anti-discrimination statute at issue.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Limit C-011 and C-013 to the statutory claims (Counts I and II). For Count IV, accept either a remedies-limiting instruction or a reasoned state-law treatment."
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-050",
+          "C-033"
+        ],
+        "title": "Requires a separate jury damages figure for the Ohio whistleblower claim, though 4113.52(E) remedies are court-ordered",
+        "explanation": "Under ORC 4113.52(E), the court may order reinstatement, back wages, fringe benefits and seniority, plus fees. The statute provides no compensatory or punitive damages, and it frames even back wages as relief the court orders. A competent drafter might ask the jury only for liability findings on Count II, or at most for back wages, and leave remedies to the court. C-050 requires a separate damages amount for Count II on the verdict form and would fail that approach. C-033 only requires that Count II damages be treated differently from Title VII, which is sound. How Ohio courts actually split this between judge and jury was not verified.",
+        "evidence": [
+          {
+            "source": "task.json C-050",
+            "quote": "PASS if the special verdict form asks the jury to specify damages separately for each claim on which they find liability (i.e., separate damages amounts for Title VII retaliation, Ohio Whistleblower, and implied contract)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ohio Rev. Code 4113.52(E)",
+            "proposition": "'The court ... may order ... reinstatement ..., the payment of back wages, full reinstatement of fringe benefits and seniority rights'; no compensatory or punitive damages listed.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the verdict form keeps each claim's monetary findings separate, or explains that remedies for a claim are reserved to the court, and does not ask for a single lump sum."
+      }
+    ],
+    "overall": "The rubric is mostly well built. Its main checks are all grounded in the record and correct on the law: but-for causation under Nassar, no Faragher/Ellerth instruction for retaliation, keeping the § 1981a cap from the jury, McKennon remedies limits, putting the mitigation burden on the employer, Kolstad, a special verdict form, and no hostile-work-environment instructions. Because scoring is all-pass, a few defects matter a lot. C-044 requires citations to Sixth Circuit civil pattern instructions, which do not exist, so it rewards invented citations. C-009 depends on a plaintiff pretrial brief that is not in the record. C-043 conflicts with the court's ruling that protected activity is established as a matter of law. The supplied SJ order misstates Ohio law in two places, and C-007/C-008 and C-018 inherit those errors: it invents a contributing-factor standard for ORC 4113.52, and it reverses the holding of Karnes. It also gives an incomplete version of the statute's internal-reporting prerequisite. Answers that follow the record will usually pass those criteria, but the criteria state the wrong law and penalize a better-informed defense drafter."
+  },
+  "final": {
+    "task": "draft-jury-instructions",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Confirmed defects: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-044"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-044",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "I agree. The Sixth Circuit publishes only pattern criminal instructions. The defendant's brief says the standing order requires pattern citations 'where available'. C-044 fails any submission with no 'Sixth Circuit Pattern Jury Instructions (Civil)' citations. A candid drafter who says no civil set exists therefore fails, while one who invents civil instruction numbers passes."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-014",
+          "C-015",
+          "C-040"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-014",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-015",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-040",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The statutory premise is wrong. Former 4113.52(A)(1)(a) requires oral notice, then a written report, with a 24-hour correction window. (A)(2) allows direct reporting of Chapter 3734 violations, and OAC 3745-55 is authorized by ORC 3734.12. Still, an accurate instruction still 'addresses' the prerequisite, so C-014 and C-040 misgrade little. C-015 is sound: whether the oral report happened stays a disputed jury question even under the correct statute."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-018",
+          "C-019"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-018",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-019",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I confirmed that the order reverses both cases it cites. Wing holds that absent fraud in the inducement, an at-will disclaimer 'irrespective of the terms of the handbook' bars a contract claim. Karnes enforced a disclaimer backed by a signed receipt. C-018 fails a defense instruction that treats the acknowledged disclaimer as dispositive. C-019's 'always negate' FAIL trigger comes close to Wing's actual rule."
+      },
+      {
+        "sol_locator": "Arguable or unverified concerns: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-007",
+          "C-008"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-007",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-008",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "4113.52(B) has no contributing-factor language. Contreras (cited by the order) addresses strict compliance, not a lower causation test. But the court ordered a contributing-factor instruction and the defendant conceded it, so solvers who follow the record pass. The real-law defect would bite only a drafter who contests the order."
+      },
+      {
+        "sol_locator": "Arguable or unverified concerns: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-039",
+          "C-043"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-039",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-043",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "C-039 is met by the standard practice of listing the elements and telling the jury which ones the court has established. C-043 is different. Its PASS condition requires good-faith-belief language on an element the order resolved as a matter of law. A correct 'established by the Court' instruction does not meet PASS and is likely to be failed."
+      },
+      {
+        "sol_locator": "Arguable or unverified concerns: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-042"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-042",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "In Brown v. Packaging Corp. (6th Cir. 2003), the lead judge urged trial courts not to parrot McDonnell Douglas in jury charges, and the opinion cites Loeb's rule that the judge decides whether a reason was 'articulated'. It also recounts Lewis's preference for charges that avoid the model. C-042 requires asking the jury whether the defendant 'articulated' a reason. That could fail a charge that addresses the RIF and pretext without the burden-shifting language."
+      },
+      {
+        "sol_locator": "Arguable or unverified concerns: item 4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-009"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-009",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "The record contains no plaintiff pretrial brief. The only reference is the order noting that plaintiff's summary-judgment briefing 'at times invoked' a motivating-factor framework. The PASS condition requires the memo to identify a request in 'plaintiff's pretrial brief'. That rewards inventing a filing and puts accurate memos at risk. I rate it higher than Sol does because the criterion's premise is not in the record."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-044"
+        ],
+        "title": "Requires citations to 'Sixth Circuit Pattern Jury Instructions (Civil)', which do not exist",
+        "explanation": "The Sixth Circuit publishes only pattern criminal jury instructions; it has no official civil set for Title VII retaliation, damages, or Ohio claims. According to the defendant's brief, the standing order requires pattern citations only 'where available'. A competent drafter would say no civil set exists and would cite O'Malley, Ohio Jury Instructions, adapted criminal general instructions, or case law. C-044 fails that honest answer ('FAIL if no citations to Sixth Circuit Pattern Jury Instructions appear') and passes one that invents civil pattern numbers.",
+        "evidence": [
+          {
+            "source": "task.json C-044",
+            "quote": "PASS if the proposed jury instructions cite to Sixth Circuit Pattern Jury Instructions (Civil) where applicable"
+          },
+          {
+            "source": "defendant-pretrial-brief.docx.txt",
+            "quote": "which requires citation to Sixth Circuit Pattern Jury Instructions where available"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "U.S. Court of Appeals for the Sixth Circuit, Pattern Jury Instructions page (ca6.uscourts.gov/pattern-jury-instructions)",
+            "proposition": "The Sixth Circuit publishes pattern criminal jury instructions only.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the instructions cite appropriate pattern or model sources (adapted Sixth Circuit criminal general instructions, O'Malley, OJI) or controlling case law, or correctly note that no Sixth Circuit civil pattern set exists.",
+        "origin": "blind",
+        "sol_locators": [
+          "Confirmed defects: item 1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-009"
+        ],
+        "title": "Requires the memo to identify a mixed-motive request in 'plaintiff's pretrial brief', which is not in the record",
+        "explanation": "None of the five documents is a plaintiff filing. The only reference is the order noting that plaintiff's summary-judgment briefing 'at times invoked' a motivating-factor framework, which the court has already rejected. C-009's PASS condition requires the memo to say that plaintiff's pretrial brief requested a mixed-motive instruction. A careful solver will not assert that about a filing it has not seen. Such a solver may leave plaintiff's positions out or mention only the summary-judgment briefing. The criterion rewards inventing a filing and puts accurate memos at risk.",
+        "evidence": [
+          {
+            "source": "task.json C-009",
+            "quote": "PASS if the cover memorandum identifies that plaintiff's pretrial brief requested a mixed-motive instruction"
+          },
+          {
+            "source": "partial-summary-judgment-order.docx.txt",
+            "quote": "The Court notes that Plaintiff\\'s briefing at times invoked a \\\"motivating factor\\\" framework in discussing the retaliation claim. That framework is inapplicable here."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo explains that Nassar's but-for standard governs Count I and rejects any motivating-factor or mixed-motive framing, such as the one plaintiff raised at summary judgment. Do not require a reference to a plaintiff pretrial brief.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable or unverified concerns: item 4"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-043"
+        ],
+        "title": "Demands a good-faith-belief protected-activity instruction on an element the court resolved as a matter of law",
+        "explanation": "The court granted plaintiff partial summary judgment: the January 17, 2023 EEO complaint is protected activity as a matter of law. The correct instruction, and the one a defense drafter would prefer, tells the jury this element is established. It does not re-instruct on the reasonable good-faith-belief standard, which is no longer for the jury. That answer does not meet C-043's PASS condition, and it does not trigger the FAIL condition either. Because the judge asks whether the output 'satisfies the criterion', a correct answer is likely to be failed. C-039 does not have this problem: it can be met by listing the elements and noting which are established.",
+        "evidence": [
+          {
+            "source": "task.json C-043",
+            "quote": "PASS if the instruction on protected activity ... instructs that the plaintiff need only have had a reasonable, good-faith belief"
+          },
+          {
+            "source": "partial-summary-judgment-order.docx.txt",
+            "quote": "The Court finds as a matter of law that Plaintiff\\'s January 17, 2023 internal EEO complaint constitutes protected activity for purposes of Count I."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the instructions tell the jury that protected activity for Count I is established, or, if they instruct on it, use the good-faith-belief standard. FAIL only if they require proof of actual pay discrimination.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable or unverified concerns: item 2"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "problematic",
+        "category": "document_defect",
+        "criteria": [
+          "C-018"
+        ],
+        "title": "SJ order reverses Karnes and Wing on handbook disclaimers; C-018 requires the reversed rule",
+        "explanation": "The order cites Karnes and Wing for the rule that a general disclaimer may not negate specific termination procedures, and says the question is for the factfinder. Both cases hold the opposite. Wing holds that, absent fraud in the inducement, an at-will disclaimer 'irrespective of the terms of the handbook, bars the finding of a contract'. Karnes enforced a disclaimer backed by a signed receipt. Here the plaintiff signed a stipulated acknowledgment. C-018 fails any instruction that 'resolves the conflict as a matter of law'. That includes a defense instruction built on Wing, or on the defendant's own Proposed Instruction No. 9, which directs a defense verdict if the disclaimer is clear. Denial of summary judgment does not stop defense counsel from proposing the correct legal rule and preserving it.",
+        "evidence": [
+          {
+            "source": "partial-summary-judgment-order.docx.txt",
+            "quote": "See Karnes v. Doctors Hospital, 51 Ohio St.3d 139, 142, 555 N.E.2d 280 (1990) (holding that a general disclaimer may be insufficient to negate specific representations regarding termination procedures)"
+          },
+          {
+            "source": "task.json C-018",
+            "quote": "FAIL if the instruction resolves the conflict as a matter of law rather than presenting it for jury determination."
+          },
+          {
+            "source": "defendant-pretrial-brief.docx.txt",
+            "quote": "If you find that the disclaimer was clear and conspicuous, then you must find that no implied contract was formed, and you must find for Defendant on this claim."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Wing v. Anchor Media, Ltd. of Texas, 59 Ohio St.3d 108, 570 N.E.2d 1095 (1991)",
+            "proposition": "Absent fraud in the inducement, a handbook disclaimer stating employment is at will precludes a non-at-will contract based on the handbook, irrespective of its terms.",
+            "verified": true
+          },
+          {
+            "citation": "Karnes v. Doctors Hospital, 51 Ohio St.3d 139, 555 N.E.2d 280 (1990)",
+            "proposition": "Manual that 'specifically disclaims any intent to create a contractual relationship', plus signed receipt, defeats a contract theory.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Correct the SJ order's description of Karnes and Wing. Let C-018 pass either an instruction that submits the disputed facts to the jury or one that states Wing's rule (a clear, acknowledged disclaimer defeats the claim absent fraud in the inducement) together with the RIF-scope question.",
+        "origin": "revised",
+        "sol_locators": [
+          "Confirmed defects: item 3"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-019"
+        ],
+        "title": "C-019's 'always negate' FAIL trigger penalizes a near-accurate statement of Wing",
+        "explanation": "C-019's PASS condition, that handbooks can create implied contracts under Mers, is correct in general. Its FAIL condition, 'incorrectly states that at-will disclaimers always negate implied contract claims as a matter of law', comes close to Wing's actual rule: a disclaimer bars a handbook-based contract absent fraud in the inducement. A defense instruction saying a clear, acknowledged disclaimer negates any handbook contract states Ohio law accurately, apart from the narrow fraud exception. It could still be read as the forbidden 'always negate' statement and failed.",
+        "evidence": [
+          {
+            "source": "task.json C-019",
+            "quote": "FAIL if the instruction ignores Ohio's recognition of implied contracts from handbook provisions or incorrectly states that at-will disclaimers always negate implied contract claims as a matter of law."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Wing v. Anchor Media, Ltd. of Texas, 59 Ohio St.3d 108 (1991)",
+            "proposition": "Disclaimer precludes handbook-based contract absent fraud in the inducement.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "FAIL only if the instruction denies that handbooks can ever create contractual obligations. Accept an instruction that a clear, acknowledged disclaimer defeats a handbook-based contract absent fraud or another recognized exception.",
+        "origin": "revised",
+        "sol_locators": [
+          "Confirmed defects: item 3"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-007",
+          "C-008"
+        ],
+        "title": "'Contributing factor' causation for ORC 4113.52 comes from the fictional order, not Ohio law, though the record compels it",
+        "explanation": "ORC 4113.52(B) bars retaliation 'for making any report authorized by division (A)'. It has no contributing-factor language, and Contreras, the case the order cites, addresses strict procedural compliance, not a lower causation test. In this fictional record, though, the court ordered a contributing-factor instruction and the defendant conceded it in its brief. Drafters who follow the record therefore pass. The criteria would misgrade only a defense drafter who proposes a 'because of' standard and preserves an objection. I rate this arguable rather than problematic because the record controls, and I did not complete a search for any Ohio authority that uses the phrase.",
+        "evidence": [
+          {
+            "source": "task.json C-007",
+            "quote": "PASS if the jury instruction for the Ohio Whistleblower Protection Act (ORC § 4113.52) claim uses a 'contributing factor' causation standard"
+          },
+          {
+            "source": "defendant-pretrial-brief.docx.txt",
+            "quote": "Defendant acknowledges that the Ohio Whistleblower Protection Act, ORC § 4113.52, applies a \\\"contributing factor\\\" causation standard"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ohio Rev. Code 4113.52(B)",
+            "proposition": "Prohibits retaliation for making a report authorized by (A); no contributing-factor language.",
+            "verified": true
+          },
+          {
+            "citation": "Contreras v. Ferro Corp., 73 Ohio St.3d 244 (1995)",
+            "proposition": "Strict compliance with R.C. 4113.52 required; no contributing-factor standard stated.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Accept any Ohio causation instruction that is kept distinct from Nassar's but-for standard, whether it follows the court's order or states a causal-connection standard. Alternatively, correct the order's statement of Ohio law.",
+        "origin": "revised",
+        "sol_locators": [
+          "Arguable or unverified concerns: item 1"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-014",
+          "C-040"
+        ],
+        "title": "ORC 4113.52's internal-reporting prerequisite stated incompletely: no written report or 24-hour window, and (A)(2) ignored",
+        "explanation": "Former 4113.52(A)(1)(a) requires oral notice, then a written report, and allows outside reporting only if the employer does not correct the violation within 24 hours. The order, and C-014 following it, describe only a report and 'a reasonable correction period'. Omitting the written report drops an element that favors the defense. The defendant's brief argues it, and Felton testified that a search found no written record. (A)(2) also permits direct reporting of criminal Chapter 3734 violations, and OAC 3745-55 is authorized by ORC 3734.12. An accurate instruction still 'addresses' the prerequisite, so the risk of misgrading is low, but the rubric rewards an incomplete statement of the statute. C-015 is unaffected, because the oral report remains a disputed jury fact.",
+        "evidence": [
+          {
+            "source": "task.json C-014",
+            "quote": "the employee must first report the violation to a supervisor and allow a reasonable correction period before filing an external complaint"
+          },
+          {
+            "source": "felton-deposition-excerpt.docx.txt",
+            "quote": "We searched for any such records during this litigation and found nothing."
+          },
+          {
+            "source": "defendant-pretrial-brief.docx.txt",
+            "quote": "without first reducing her internal complaint to writing and without allowing a reasonable correction period"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ohio Rev. Code 4113.52(A)(1)(a) (2006 version)",
+            "proposition": "Oral notice to supervisor, then a written report; outside report permitted if no correction within 24 hours.",
+            "verified": true
+          },
+          {
+            "citation": "Ohio Rev. Code 4113.52(A)(2)",
+            "proposition": "For specified environmental violations (incl. Ch. 3734), the employee directly may notify the appropriate agency.",
+            "verified": true
+          },
+          {
+            "citation": "Ohio Adm. Code Chapter 3745-55",
+            "proposition": "Rules authorized by ORC 3734.12.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Reword C-014 and C-040 to follow the statute: oral notice, then a written report, then 24 hours for the employer to correct. Expressly accept instructions that include the written-report element or address the (A)(2) path.",
+        "origin": "blind",
+        "sol_locators": [
+          "Confirmed defects: item 2"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-042"
+        ],
+        "title": "Asks the jury whether the employer 'articulated' a legitimate reason, burden-shifting language the Sixth Circuit discourages in jury charges",
+        "explanation": "C-042 requires the instructions to tell the jury to consider 'whether the defendant has articulated a legitimate reason and whether plaintiff has shown it to be pretextual'. That is the McDonnell Douglas/Burdine burden-shifting framework. In Brown v. Packaging Corp., the lead judge said trial courts should be discouraged from parroting it in jury charges. The opinion also cites Loeb's rule that the judge decides whether a reason was articulated, and recounts Lewis's preference for charges that avoid the model. Brown does not forbid such charges. A charge that presents the RIF as the defense theory and puts the ultimate but-for question, perhaps with pretext language, is sound. Because it omits the 'articulated' step, some judges may fail it.",
+        "evidence": [
+          {
+            "source": "task.json C-042",
+            "quote": "instruct the jury to consider whether the defendant has articulated a legitimate reason and whether plaintiff has shown it to be pretextual"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Brown v. Packaging Corp. of America, 338 F.3d 586 (6th Cir. 2003)",
+            "proposition": "Lead opinion: trial courts should be discouraged from parroting McDonnell Douglas in charges; notes Lewis's preference for charges avoiding the model and Loeb's rule that the judge decides whether a reason was articulated; charge not reversible on those facts.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the instructions present the RIF as the defendant's stated reason and let the jury weigh whether it was the true reason or a pretext. Do not require burden-shifting ('articulated') language.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "Arguable or unverified concerns: item 3"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-011",
+          "C-013"
+        ],
+        "title": "Treats McKennon's remedies-only rule as governing all claims, including the Ohio implied-contract claim",
+        "explanation": "McKennon is a federal statutory-discrimination decision. It properly governs the Title VII claim and probably the whistleblower claim. The Ohio implied-contract claim is governed by state contract law, where resume fraud could support rescission or a complete defense. C-011 fails any instruction that presents after-acquired evidence as a complete defense to liability. C-013 requires calling the brief's complete-defense framing 'legally incorrect' without exception. Both could fail a drafter who distinguishes by claim and preserves a complete defense only on Count IV. I did not verify Ohio authority either way.",
+        "evidence": [
+          {
+            "source": "task.json C-011",
+            "quote": "FAIL if the instruction presents after-acquired evidence as a complete defense to liability."
+          },
+          {
+            "source": "defendant-pretrial-brief.docx.txt",
+            "quote": "constitutes a complete defense to all claims asserted in this action"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "McKennon v. Nashville Banner Publishing Co., 513 U.S. 352 (1995)",
+            "proposition": "After-acquired evidence limits remedies but does not bar liability under the federal anti-discrimination statute.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Limit C-011 and C-013 to Counts I and II. For Count IV, accept a remedies-limiting instruction or a reasoned state-law treatment.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O8"
+        ]
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-050"
+        ],
+        "title": "Requires a separate jury damages figure for the Ohio whistleblower claim, though 4113.52(E) remedies are court-ordered",
+        "explanation": "ORC 4113.52(E) lets the court order reinstatement, back wages, restored benefits and seniority, costs, and fees. It lists no compensatory or punitive damages and frames even back wages as relief the court orders. A competent drafter might ask the jury only for liability findings on Count II, or only for back wages, and leave remedies to the court. C-050 requires a separate damages amount for Count II on the verdict form, so it would fail that approach. I did not verify how Ohio federal courts actually divide these remedies between judge and jury.",
+        "evidence": [
+          {
+            "source": "task.json C-050",
+            "quote": "separate damages amounts for Title VII retaliation, Ohio Whistleblower, and implied contract"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ohio Rev. Code 4113.52(E)",
+            "proposition": "Court may order reinstatement, back wages, benefits/seniority, costs and fees; no compensatory or punitive damages listed.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the verdict form keeps each claim's monetary findings separate, or explains that a claim's remedies are reserved to the court, and does not use a single lump sum.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O9"
+        ]
+      }
+    ],
+    "changes_from_blind": "Upgraded C-018 from arguable to problematic, now a separate finding (O4). This pass I read Wing v. Anchor Media, which holds that absent fraud in the inducement a disclaimer bars a handbook contract 'irrespective of the terms of the handbook'. So the SJ order reverses both cases it cites, and the defendant's own Proposed Instruction No. 9 is the kind of instruction C-018 fails. Upgraded C-019 from mostly sound to arguable (O5), because its 'always negate' FAIL trigger comes close to Wing's actual rule. Downgraded C-007/C-008 from problematic to arguable (O6): the court's order and the defendant's concession make the contributing-factor instruction what a drafter following the record would write, and my search for Ohio authority was not exhaustive. Adopted C-042 as arguable from Sol (O8), based on my reading of Brown v. Packaging Corp. Dropped blind O7 (memo-audience criteria C-002/C-004/C-013/C-022). On reflection, a defense cover memo that flags where the proposals depart from the client's flawed pretrial brief is implicit in the task; those criteria are demanding, not hidden. Removed C-033 from the C-050 finding. Kept C-009 as problematic, one level above Sol's rating. Rated C-015 and C-039 not defects, contrary to Sol's grouping. Verified OAC 3745-55 is authorized by ORC 3734.12, which strengthens the (A)(2) point in O7.",
+    "overall": "Most of the rubric's core checks are sound and grounded in the record: Nassar but-for causation, no Faragher/Ellerth instruction for retaliation, keeping the § 1981a cap from the jury, McKennon remedies limits, the mitigation burden on the employer, Kolstad, a special verdict form, and no hostile-work-environment instruction. Because scoring is all-pass, four criteria are serious. C-044 requires citations to a Sixth Circuit civil pattern set that does not exist. C-009 depends on a plaintiff pretrial brief that is not in the record. C-043 requires an instruction on an element the court already decided as a matter of law. C-018 adopts the SJ order's reversal of Karnes and Wing. The SJ order also invents a contributing-factor standard for ORC 4113.52 and gives an incomplete version of its internal-reporting prerequisite. The related criteria (C-007/C-008, C-014/C-040) mostly pass drafters who follow the record, but they state or reward incorrect Ohio law. Remaining concerns (C-019, C-042, C-011/C-013, C-050) are judgment calls that would misgrade only some competent answers.",
+    "coverage": "In the blind pass I read all 57 criteria, the instructions, the judge and solver prompts, and all five documents in full. This pass I re-read the SJ order's Count II and Count IV sections, the defendant's brief sections on 4113.52 and the handbook, and the Felton deposition on written records, plus Sol's full report and index entry. Primary sources read this session: ORC 4113.52 (2006 version) via codes.ohio.gov; the OAC 3745-55 chapter page, showing authority under ORC 3734.12; Wing v. Anchor Media and Karnes v. Doctors Hospital (disclaimer passages); and Brown v. Packaging Corp. (6th Cir. 2003), on McDonnell Douglas charges. Not verified: McKennon, Contreras (re-read only in the blind pass), any Ohio authority on after-acquired evidence in contract claims, and how Ohio courts divide 4113.52(E) remedies between judge and jury."
+  }
+}

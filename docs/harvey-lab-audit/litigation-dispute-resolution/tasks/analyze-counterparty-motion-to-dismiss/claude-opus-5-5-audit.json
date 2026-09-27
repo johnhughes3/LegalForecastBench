@@ -1,0 +1,834 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_c91f804f-adb",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "analyze-counterparty-motion-to-dismiss",
+  "title": "Analyze Counterparty Motion to Dismiss — Issue Identification Memorandum",
+  "criteria_total": 34,
+  "criterion_lines": {
+    "C-001": 20,
+    "C-002": 28,
+    "C-003": 36,
+    "C-004": 44,
+    "C-005": 52,
+    "C-006": 60,
+    "C-007": 68,
+    "C-008": 76,
+    "C-009": 84,
+    "C-010": 92,
+    "C-011": 100,
+    "C-012": 108,
+    "C-013": 116,
+    "C-014": 124,
+    "C-015": 132,
+    "C-016": 140,
+    "C-017": 148,
+    "C-018": 156,
+    "C-019": 164,
+    "C-020": 172,
+    "C-021": 180,
+    "C-022": 188,
+    "C-023": 196,
+    "C-024": 204,
+    "C-025": 212,
+    "C-026": 220,
+    "C-027": 228,
+    "C-028": 236,
+    "C-029": 244,
+    "C-030": 252,
+    "C-031": 260,
+    "C-032": 268,
+    "C-033": 276,
+    "C-034": 284
+  },
+  "blind": {
+    "task": "analyze-counterparty-motion-to-dismiss",
+    "criteria_reviewed": 34,
+    "coverage": "Read in full: task.json (instructions plus all 34 criteria), all six document extractions (motion memorandum, complaint, MSA with Exhibits A-C, Whitford declaration, Sousa-Nance email chain, January 2023 CTO email), the solver system prompt, and the judge prompt. The judge prompt applies each criterion literally (\"satisfies the criterion as described\") and shows the judge the criterion title as well as match_criteria. How the authorities were checked: I ran targeted snippet searches of the primary opinion text on CourtListener, not full reads, for Italian Cowboy (Tex. 2011), IBM v. Lufkin (Tex. 2019), Novare v. Sarif (Ga. 2011), Raysoni (Ga. 2014), Atlantic Marine (2013), Med. Ctr. v. Bowden (Ga. App. 2018) and Collins v. Athens Orthopedic (Ga. App. 2018). I read Tex. Civ. Prac. & Rem. Code § 16.070 on a public mirror (texas.public.law) because the official Texas statutes site did not render. What I did not verify: O.C.G.A. § 10-1-373, which I read only as quoted inside Collins and Bowden because the Justia page returned 403; Schlumberger, Forest Oil and First Data POS, which I saw only as cited inside other opinions; Tex. Bus. & Com. Code § 2.725; the Eleventh Circuit's case law on how far a 'relating to' forum clause reaches; and Georgia registration-based consent to jurisdiction. Record problems I noted but did not count as rubric defects, because a solver should catch them: the complaint misquotes Exhibits A and D against the actual emails; Nance's February 9, 2022 email states current and projected volume as 3,500 now and 5,000-6,000 later, against the complaint's 10,000-15,000 'non-negotiable' requirement; MSA § 9.4's actual text ('arising out of or relating to an alleged breach') differs from both parties' quotations of it; the $432,000 cap figure in C-018 depends on the event date; and MSA § 14.9 contains a written-waiver clause. I opened no other audit of Harvey LAB.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 applies the 'merger clause can't bar fraud' rule to a clause that also expressly disclaims reliance",
+        "explanation": "C-012 passes only a memo that calls DataCore's integration-clause argument 'legally incorrect' because 'an integration clause cannot bar a claim for fraudulent inducement' under Georgia and/or Texas law. MSA § 14.7 is more than a merger clause: it also says each party 'has not relied upon' any representation outside the agreement. The motion quotes only the first sentence. Under Texas law, which the motion applies, Italian Cowboy limits the no-bar rule to pure merger clauses. A clear disclaimer of reliance can defeat fraudulent inducement: IBM v. Lufkin enforced one against 'out-of-the-box' enterprise-software representations. Under Georgia law, a party that affirms a contract containing a merger or disclaimer clause is estopped from claiming reliance (Novare). Pinnacle used the platform for 21 months and seeks benefit-of-the-bargain damages. The criterion therefore rewards a memo that recites the wrong rule. It can fail a competent memo that warns the argument is stronger than DataCore framed it and pivots to the circumstances of formation, Italian Cowboy's point about a new business relationship, or Georgia's rescission election.",
+        "evidence": [
+          {
+            "source": "msa-pinnacle-datacore.docx.txt",
+            "quote": "Each party acknowledges that it has not relied upon any statement, representation, warranty, or agreement of the other party except for those expressly set forth in this Agreement."
+          },
+          {
+            "source": "datacore-motion-to-dismiss.docx.txt",
+            "quote": "This Agreement constitutes the entire agreement between the parties and supersedes all prior and contemporaneous agreements, representations, warranties, and understandings, whether written or oral, relating to the subject matter hereof."
+          },
+          {
+            "source": "C-012",
+            "quote": "under well-established law (Georgia and/or Texas), an integration clause cannot bar a claim for fraudulent inducement"
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "Compensatory damages in an amount to be determined at trial, including but not limited to actual damages of at least \\$2,335,000"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Italian Cowboy Partners, Ltd. v. Prudential Ins. Co. of Am., 341 S.W.3d 323 (Tex. 2011)",
+            "proposition": "Pure merger clauses without clear and unequivocal disclaimer of reliance do not bar fraudulent inducement; a clear disclaimer-of-reliance clause can, subject to the circumstances of formation.",
+            "verified": true
+          },
+          {
+            "citation": "Int'l Bus. Machs. Corp. v. Lufkin Indus., LLC, 573 S.W.3d 224 (Tex. 2019)",
+            "proposition": "Disclaimer of reliance enforced to defeat fraudulent inducement based on pre-contract 'out-of-the-box' software representations.",
+            "verified": true
+          },
+          {
+            "citation": "Novare Group, Inc. v. Sarif, 290 Ga. 186 (2011)",
+            "proposition": "A party that affirms a contract containing a merger or disclaimer provision is estopped from asserting reliance on representations outside the contract; this bars fraudulent inducement and negligent misrepresentation claims.",
+            "verified": true
+          },
+          {
+            "citation": "Schlumberger Tech. Corp. v. Swanson, 959 S.W.2d 171 (Tex. 1997); Forest Oil Corp. v. McAllen, 268 S.W.3d 51 (Tex. 2008)",
+            "proposition": "Disclaimer-of-reliance clauses can preclude fraudulent inducement claims depending on circumstances",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Pass a memo that engages § 14.7's non-reliance sentence. Credit either a Texas argument (the circumstances of formation, including Whitford ¶ 12's concession that DataCore's standard terms 'were not modified during the negotiation process', plus Italian Cowboy's language on new business relationships) or a Georgia argument (rescission election, or the clause not reaching fraud). Also credit noting that reliance is fact-bound at the pleading stage. Drop the categorical 'cannot bar' premise."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-016"
+        ],
+        "title": "C-016 sanctions only unconscionability and misses that Texas law voids limitations periods under two years",
+        "explanation": "C-016 fails any memo that does not raise 'the unconscionability argument regarding the shortened limitations period.' Under Texas law, which is DataCore's own chosen law, Tex. Civ. Prac. & Rem. Code § 16.070(a) makes any contract limitations period shorter than two years 'void in this state.' The only exception is for sales of a business entity. That is the strongest available attack on § 9.4. It directly rebuts the motion's claim that one-year periods are 'routinely enforced under Texas law.' DataCore's likely response is to treat SaaS as a sale of goods, since § 2.725 allows a one-year floor. The motion's table of authorities cites § 2.725 but the brief never argues it, and whether SaaS counts as goods is contested. Voidness is therefore not certain. Still, a memo leading with § 16.070 fails C-016 as written. The criterion also ties unconscionability to DataCore's later 'concealment or minimization', which is an estoppel or tolling theory. Unconscionability is judged at contract formation.",
+        "evidence": [
+          {
+            "source": "C-016",
+            "quote": "FAIL if the unconscionability argument regarding the shortened limitations period is not raised."
+          },
+          {
+            "source": "datacore-motion-to-dismiss.docx.txt",
+            "quote": "This one-year contractual limitations period is well-recognized and routinely enforced under Texas law."
+          },
+          {
+            "source": "msa-pinnacle-datacore.docx.txt",
+            "quote": "This Agreement shall be governed by and construed in accordance with the laws of the State of Texas, without regard to its conflict-of-laws principles."
+          },
+          {
+            "source": "datacore-motion-to-dismiss.docx.txt",
+            "quote": "Tex. Bus. & Com. Code § 2.725       16"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Tex. Civ. Prac. & Rem. Code § 16.070(a)-(b)",
+            "proposition": "A contract limiting the time to sue to less than two years is void in Texas, except for contracts for the sale or purchase of a business entity with at least $500,000 in consideration.",
+            "verified": true
+          },
+          {
+            "citation": "Tex. Bus. & Com. Code § 2.725",
+            "proposition": "UCC Article 2 (sale of goods) permits contractual reduction of the limitations period to not less than one year",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the memo raises any challenge to § 9.4's enforceability: statutory voidness under Tex. Civ. Prac. & Rem. Code § 16.070, unreasonableness or unconscionability, or estoppel based on DataCore's promise to fix. Move the concealment point into an estoppel or tolling criterion."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-022",
+          "C-023",
+          "C-024",
+          "C-025"
+        ],
+        "title": "Four criteria require a severity rating the instructions never asked for",
+        "explanation": "The instructions ask only for 'a comprehensive opposition issues memo.' Ranking issues is implicit in such a memo. A Critical/Significant/Minor label for each issue is not. Each of these criteria passes only if the memo 'rates' the issue as Critical or Significant 'or equivalent.' The judge applies criteria literally, so a memo that analyzes an issue well without labeling it can fail. C-022 has an extra problem. Under Atlantic Marine, the 12(b)(3) defect mostly turns dismissal into a nearly automatic § 1404(a) transfer, because the plaintiff's choice of forum gets no weight. DataCore already asked for transfer in the alternative. A competent memo could reasonably rate this procedural win as moderate, since it does not keep the case in Georgia.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "produce a comprehensive opposition issues memo."
+          },
+          {
+            "source": "C-022",
+            "quote": "PASS if the memo rates the procedural defect regarding the forum selection clause ... as 'Critical' or 'Significant' (or equivalent high-severity language)."
+          },
+          {
+            "source": "datacore-motion-to-dismiss.docx.txt",
+            "quote": "In the alternative, should this Court decline to dismiss the Complaint, DataCore respectfully requests that this Court transfer this action to the United States District Court for the Western District of Texas, Austin Division"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Atlantic Marine Constr. Co. v. U.S. Dist. Ct., 571 U.S. 49 (2013)",
+            "proposition": "A forum-selection clause cannot be enforced under § 1406(a) or Rule 12(b)(3); it is enforced through a § 1404(a) transfer.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept any clear signal of priority, such as ordering, 'strongest argument' or 'lead with', in place of a label. For C-022, accept any rating that correctly explains the defect's limited practical payoff."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-014",
+          "C-015",
+          "C-032"
+        ],
+        "title": "Three of the four accrual dates C-014 accepts still leave the breach claim untimely",
+        "explanation": "The complaint was filed March 22, 2024. Of C-014's listed dates, August 2022, November 2022 and January 12, 2023 are all more than one year earlier. Only the April 15, 2023 failed patch falls within § 9.4's one-year window. The rubric treats November 2022 and January 2023 as dates that 'undermine' DataCore's August 2022 position. They show that separate breaches accrued separately (C-015), but they do not save the claim. A careful memo might say exactly that and offer April 15, 2023 plus a continuing-breach or failure-to-cure theory (¶ 66: 'no further patches or fixes were provided'). It would then have only one date from C-014's 'from among' list and could fail the 'at least two' requirement. It would also expose the rubric's arithmetic.",
+        "evidence": [
+          {
+            "source": "C-014",
+            "quote": "identifies at least two alternative accrual dates or events (from among: ADP issue August 2022, latency issue November 2022, Venkatesh acknowledgment January 2023, failed patch April 2023)"
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "Even assuming an earlier discovery date, the complaint was filed on March 22, 2024, within one year of the April 15, 2023 patch delivery."
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "Despite additional communications with DataCore, no further patches or fixes were provided"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Require the memo to show that the claim is timely under at least one plausible accrual theory, or that accrual cannot be decided on the pleadings. Credit continuing-breach and estoppel theories. Do not require two dates from a fixed list."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-007",
+          "C-008"
+        ],
+        "title": "C-007/C-008 require raising a weak argument that the torts fall outside a broad forum clause",
+        "explanation": "MSA § 14.2 covers 'Any dispute, claim, or controversy arising out of or relating to this Agreement, including the determination of the scope or applicability of this Agreement,' and waives inconvenient-forum objections. Pinnacle's own Count I pleads breach based on the same sales-process representations (¶ 76(b)). A 'relating to' clause of this breadth usually reaches tort claims built on the same facts. Fraud in inducing the contract as a whole does not avoid the forum clause unless the clause itself was induced by fraud. A competent memo could raise this scope argument and reject it, or advise against making it because it would split the case. C-007 passes only a memo that says the torts 'may fall outside' the clause. C-008 requires tying the SOW document's non-incorporation specifically to the forum-clause argument, although it matters more to reliance and choice of law.",
+        "evidence": [
+          {
+            "source": "msa-pinnacle-datacore.docx.txt",
+            "quote": "Any dispute, claim, or controversy arising out of or relating to this Agreement, including the determination of the scope or applicability of this Agreement, shall be resolved exclusively in the state or federal courts located in Travis County, Texas."
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "failing to deliver a platform capable of processing the volume of concurrent temporary worker records necessary for Pinnacle's operations, as represented during the sales process"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo analyzes whether the forum clause reaches the tort and statutory claims, whatever its conclusion. Let C-008 credit non-incorporation in any relevant context."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-001"
+        ],
+        "title": "C-001 requires calling DataCore's use of Twombly/Iqbal and Rule 9(b) 'inconsistent'",
+        "explanation": "Twombly/Iqbal plausibility and Rule 9(b) particularity both apply to fraud claims. Applying the first while citing the second is not inconsistent. The real defect is that the 9(b) argument is a one-sentence footnote, which is perfunctory and arguably waived. Scienter can also be alleged generally under 9(b). A memo that says 'DataCore's 9(b) challenge is undeveloped and the complaint satisfies who, what, when, where and how' identifies the substance. A literal judge could still fail it for not naming an 'inconsistency between the Twombly/Iqbal standard and Rule 9(b).'",
+        "evidence": [
+          {
+            "source": "C-001",
+            "quote": "FAIL if this inconsistency between the Twombly/Iqbal standard and Rule 9(b) is not identified."
+          },
+          {
+            "source": "datacore-motion-to-dismiss.docx.txt",
+            "quote": "Moreover, Pinnacle's fraud allegations lack the specificity required under Federal Rule of Civil Procedure 9(b), as they fail to identify the particular statements alleged to be false with the requisite precision."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo notes that DataCore's Rule 9(b) argument is perfunctory or confined to a footnote, or that it does not apply the 9(b) framework to the pleaded specifics."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-017"
+        ],
+        "title": "C-017 calls the GUDTPA claim 'independently viable' without noting the statute allows only injunctions",
+        "explanation": "The Georgia UDTPA's remedy is an injunction for a person 'likely to be damaged'. Georgia courts treat injunctive relief as the only remedy and require an allegation of likely future harm. Pinnacle terminated the MSA in January 2024 and seeks damages under Count IV. That is a serious weakness DataCore did not raise, and a competent opposition memo would flag it. C-017 also calls the GUDTPA a 'consumer protection' statute, when it chiefly regulates deceptive practices between businesses. A memo can still pass by attacking DataCore's duplicativeness argument while flagging the remedy gap. But the criterion's premise overstates the claim's strength, and a memo that concludes Count IV is weak could be marked down.",
+        "evidence": [
+          {
+            "source": "C-017",
+            "quote": "because the GUDTPA is a statutory consumer protection/deceptive trade practices claim that can proceed alongside contract claims"
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "Pinnacle seeks injunctive relief, actual damages, reasonable attorneys' fees, costs of litigation"
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "On January 15, 2024, Pinnacle, through its counsel, sent DataCore a formal written notice of termination of the MSA"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Med. Ctr., Inc. v. Bowden, 348 Ga. App. 165 (2018)",
+            "proposition": "The only remedy available for a UDTPA violation is injunctive relief under OCGA § 10-1-373(a).",
+            "verified": true
+          },
+          {
+            "citation": "Collins v. Athens Orthopedic Clinic, 815 S.E.2d 639 (Ga. App. 2018)",
+            "proposition": "To state a UDTPA claim, the plaintiff must allege it is likely to be damaged in the future.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo rebuts the duplicativeness and economic-loss arguments. Do not require a conclusion that the claim is 'independently viable', and credit flagging the injunction-only remedy and future-harm problem."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-031",
+          "C-014"
+        ],
+        "title": "The CTO's name is 'Venkatesh' in the email but 'Subramanian' in the pleadings; the rubric uses 'Venkatesh'",
+        "explanation": "The supplied January 12, 2023 email is signed 'Anil Venkatesh' but sent from a.subramanian@datacoresystems.com. The complaint (Exhibit D) and the motion both name the CTO 'Anil Subramanian.' C-031's title and text, and C-014's list of dates, name 'Venkatesh.' A memo that follows the pleadings and cites 'Subramanian's January 12, 2023 email' identifies the right document. A literal judge might still see a name mismatch. The inconsistency is a record defect, and possibly a planted authentication issue, that neither criterion accommodates.",
+        "evidence": [
+          {
+            "source": "subramanian-email-jan2023.eml.txt",
+            "quote": "From: Anil Venkatesh <a.subramanian@datacoresystems.com>"
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "DataCore's Chief Executive Officer is Rajesh Narayan, and its Chief Technology Officer is Anil Subramanian."
+          },
+          {
+            "source": "C-031",
+            "quote": "references the January 12, 2023 email from DataCore CTO Anil Venkatesh"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Identify the email by date and quoted text, 'Anil Subramanian (signed as Anil Venkatesh)', and accept either name."
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-020"
+        ],
+        "title": "C-020's Georgia choice-of-law analysis assumes the case stays in Georgia",
+        "explanation": "C-020 says the memo 'should' argue that Georgia conflict-of-laws rules (lex loci delicti) may apply Georgia law to the torts. That holds only while the case remains in the Northern District of Georgia. Under Atlantic Marine, a § 1404(a) transfer to enforce a forum clause does not carry the original court's choice-of-law rules, so a Texas transferee court would apply Texas rules. A complete memo would connect the choice-of-law analysis to the transfer risk. The core requirement, that the narrow 'arising under' clause may not reach the torts, is sound, so this finding is minor.",
+        "evidence": [
+          {
+            "source": "C-020",
+            "quote": "The memo should note that under Georgia conflict-of-laws principles (lex loci delicti or similar), the tort claims may be governed by Georgia law."
+          },
+          {
+            "source": "msa-pinnacle-datacore.docx.txt",
+            "quote": "All disputes arising under this Agreement shall be resolved in accordance with the laws of the State of Texas."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Atlantic Marine Constr. Co. v. U.S. Dist. Ct., 571 U.S. 49 (2013)",
+            "proposition": "A § 1404(a) transfer to enforce a forum-selection clause does not carry the original venue's choice-of-law rules.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Keep the scope requirement. Accept a Georgia-rules analysis, or one noting that a transfer would bring Texas conflict rules into play."
+      }
+    ],
+    "overall": "The rubric tracks the motion's planted flaws closely: Atlantic Marine, the missing specific-jurisdiction analysis, damages caps confused with failure to state a claim, a waiver defense raised too early, and choice-of-law scope. Most of its criteria are sound and supported by the record. Two criteria state the wrong law in ways that would misgrade competent work. C-012 applies the 'merger clause cannot bar fraud' rule to MSA § 14.7, which also expressly disclaims reliance; that clause is a live threat under both Texas law (Italian Cowboy, IBM v. Lufkin) and Georgia law (Novare). C-016 channels the attack on the one-year limitations clause into unconscionability and ignores that Texas law voids contractual limitations periods under two years (§ 16.070), which is the stronger argument under DataCore's own chosen law. The remaining issues are arguable: severity labels nobody asked for, accrual-date arithmetic that does not help Pinnacle, a weak forum-scope argument the rubric requires, literal phrasing for the Rule 9(b) point, the GUDTPA injunction-only remedy, and the Venkatesh/Subramanian name conflict in the record."
+  },
+  "final": {
+    "task": "analyze-counterparty-motion-to-dismiss",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Definite defects: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-012",
+          "C-024"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-012",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-024",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "C-012: agree. MSA § 14.7's second sentence expressly disclaims reliance. Italian Cowboy confines the no-bar rule to pure merger clauses, and Novare treats affirmance of a contract with a merger clause as fatal to reliance. C-024: not a consequential problematic finding. A memo that engages the disclaimer still rates the issue high, as a threat to Counts II and III. The only way C-024 misgrades is its requirement for a severity label, so it belongs in the severity cluster at arguable."
+      },
+      {
+        "sol_locator": "Definite defects: item 2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-001"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-001",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Agree that 'inconsistent' is the wrong frame: plausibility and 9(b) particularity are cumulative standards. But the criterion's PASS text also describes the real defect, a footnote-only 9(b) argument (motion n.5) that never applies who/what/when. Many judges would pass a memo that calls that argument perfunctory. The risk depends on how literally the judge reads the criterion, so arguable rather than confirmed."
+      },
+      {
+        "sol_locator": "Definite defects: item 3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-022",
+          "C-023",
+          "C-024",
+          "C-025"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-022",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-023",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-024",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-025",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The instructions give no severity scale. Prioritization is implicit in an issues memo, and 'or equivalent high-severity language' lets a judge credit ordering or 'lead argument.' So the risk turns on memo style. Some of the prescribed conclusions are also debatable. Atlantic Marine's modified § 1404(a) transfer means the C-022 win does not keep the case in Georgia, and a damages cap still limits recovery later (C-025)."
+      },
+      {
+        "sol_locator": "Definite defects: item 4",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-026",
+          "C-028"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-026",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-028",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "C-026 accepts 'separate sections or groupings' and fails only a memo that 'lacks organizational structure tied to the motion's framework.' An opposition memo answering a motion brought under 12(b)(1), (2), (3) and (6) tracks that framework by default. C-028: the rubric's substantive criteria (C-005, C-007, C-009, C-012, C-013, C-016 to C-020) each require the memo to argue a position. Under all-pass, any memo that clears them already has eight or more recommended arguments."
+      },
+      {
+        "sol_locator": "Arguable or qualified concerns: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-007",
+          "C-008"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-007",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-008",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Agree. § 14.2 covers claims 'arising out of or relating to this Agreement,' including 'scope or applicability,' and Count I pleads the same sales-process representations. The torts plausibly fall within the clause. C-007 requires raising exclusion as a live argument. C-008 ties non-incorporation of the SOW document to forum scope, where it matters less than it does for reliance or choice of law."
+      },
+      {
+        "sol_locator": "Arguable or qualified concerns: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-016"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-016",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "The FAIL sentence keys on 'the unconscionability argument.' A memo that leads with Tex. Civ. Prac. & Rem. Code § 16.070 (periods under two years are 'void in this state') and omits unconscionability fails as written. § 16.070(b) exempts only sales of a business entity. The § 2.725 escape requires treating a 'Master Services Agreement' for platform access as a sale of goods, which is a weak fit. The criterion omits the controlling statute under DataCore's own chosen law."
+      },
+      {
+        "sol_locator": "Arguable or qualified concerns: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-014",
+          "C-015"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-014",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-015",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "C-014: agree. August 2022, November 2022 and January 2023 are all more than a year before March 22, 2024, so only April 15, 2023 helps, yet the criterion requires two 'undermining' dates. C-015 is sound. The motion (at 287-291) rests accrual solely on August 2022 ADP discovery. Distinguishing the separate latency breach is a correct observation, and the criterion does not claim it saves the claim."
+      },
+      {
+        "sol_locator": "Arguable or qualified concerns: item 4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-005"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-005",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "Atlantic Marine does route clauses naming state or foreign forums through forum non conveniens. But § 14.2 permits Travis County federal court, and W.D. Tex. (Austin) is available, so § 1404(a) is the correct vehicle here. A memo that mentions both routes still satisfies C-005's PASS text. No competent answer is failed."
+      },
+      {
+        "sol_locator": "Arguable or qualified concerns: item 5",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-031"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-031",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Agree. The email header reads 'From: Anil Venkatesh <a.subramanian@datacoresystems.com>' and is signed 'Anil Venkatesh.' The complaint (¶ 63) and the motion name the CTO 'Anil Subramanian.' C-031 (and C-014's list) use 'Venkatesh', so a memo that follows the pleadings risks a literal name mismatch."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 applies the 'merger clause cannot bar fraud' rule to a clause that also expressly disclaims reliance",
+        "explanation": "C-012 passes only a memo that calls DataCore's § 14.7 argument 'legally incorrect' because 'an integration clause cannot bar a claim for fraudulent inducement.' But § 14.7 also says each party 'has not relied upon' any representation outside the agreement, and the motion quotes only the merger sentence. Italian Cowboy (Tex. 2011) holds that pure merger clauses do not bar fraud. It distinguishes clear disclaimers of reliance, which can bar fraud depending on the circumstances of formation. Under Georgia law, Novare holds that a purchaser bound by a contract with a comprehensive merger clause cannot show justifiable reliance. Pinnacle affirmed the contract for 21 months. The criterion therefore rewards reciting an incorrect categorical rule. It can fail a competent memo that warns the argument is stronger than DataCore framed it and pivots to the circumstances of formation, Whitford ¶ 12's concession that the terms 'were not modified', Italian Cowboy's point about new business relationships, or rescission.",
+        "evidence": [
+          {
+            "source": "msa-pinnacle-datacore.docx.txt",
+            "quote": "Each party acknowledges that it has not relied upon any statement, representation, warranty, or agreement of the other party except for those expressly set forth in this Agreement."
+          },
+          {
+            "source": "C-012",
+            "quote": "under well-established law (Georgia and/or Texas), an integration clause cannot bar a claim for fraudulent inducement"
+          },
+          {
+            "source": "whitford-declaration.docx.txt",
+            "quote": "were not modified during the negotiation process"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Italian Cowboy Partners, Ltd. v. Prudential Ins. Co. of Am., 341 S.W.3d 323 (Tex. 2011)",
+            "proposition": "Pure merger clauses without clear and unequivocal disclaimer of reliance never preclude fraudulent inducement; a clear disclaimer-of-reliance clause may, subject to the circumstances of formation (n.8).",
+            "verified": true
+          },
+          {
+            "citation": "Novare Group, Inc. v. Sarif, 290 Ga. 186, 718 S.E.2d 304 (2011)",
+            "proposition": "No justifiable reliance where purchasers are bound by agreements containing a comprehensive merger clause; fraud-based claims fail as a matter of law.",
+            "verified": true
+          },
+          {
+            "citation": "Int'l Bus. Machs. Corp. v. Lufkin Indus., LLC, 573 S.W.3d 224 (Tex. 2019)",
+            "proposition": "Disclaimer of reliance enforced against pre-contract software representations.",
+            "verified": false
+          },
+          {
+            "citation": "Schlumberger Tech. Corp. v. Swanson, 959 S.W.2d 171 (Tex. 1997); Forest Oil Corp. v. McAllen, 268 S.W.3d 51 (Tex. 2008)",
+            "proposition": "Clear disclaimer-of-reliance clauses can preclude fraudulent inducement (seen only as discussed in Italian Cowboy).",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS a memo that engages § 14.7's non-reliance sentence and gives a jurisdiction-specific response: the Texas circumstances-of-formation factors, the Georgia rescission election, or that reliance is fact-bound at the pleading stage. Drop the categorical 'cannot bar' premise.",
+        "origin": "blind",
+        "sol_locators": [
+          "Definite defects: item 1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-016"
+        ],
+        "title": "C-016 accepts only an unconscionability attack and misses that Texas voids contractual limitations periods under two years",
+        "explanation": "C-016 fails any memo that does not raise 'the unconscionability argument regarding the shortened limitations period.' Texas law governs the MSA under § 14.3. Tex. Civ. Prac. & Rem. Code § 16.070(a) makes any contractual limitations period shorter than two years 'void in this state,' with an exception only for sales of a business entity (§ 16.070(b)). That directly rebuts the motion's claim that one-year periods are 'routinely enforced under Texas law.' DataCore's only escape is to treat the MSA as a sale of goods under Tex. Bus. & Com. Code § 2.725, which the motion lists in its table of authorities but never argues. That is a weak fit for a 'Master Services Agreement' for platform access. A memo that leads with statutory voidness fails as written. The criterion also ties unconscionability, which is judged at contract formation, to DataCore's later 'concealment or minimization', which is really an estoppel or tolling theory.",
+        "evidence": [
+          {
+            "source": "C-016",
+            "quote": "FAIL if the unconscionability argument regarding the shortened limitations period is not raised."
+          },
+          {
+            "source": "datacore-motion-to-dismiss.docx.txt",
+            "quote": "This one-year contractual limitations period is well-recognized and routinely enforced under Texas law."
+          },
+          {
+            "source": "msa-pinnacle-datacore.docx.txt",
+            "quote": "This Agreement shall be governed by and construed in accordance with the laws of the State of Texas, without regard to its conflict-of-laws principles."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Tex. Civ. Prac. & Rem. Code § 16.070(a)-(b)",
+            "proposition": "A contractual limitations period shorter than two years is void in Texas, except for agreements relating to sale or purchase of a business entity with at least $500,000 consideration.",
+            "verified": true
+          },
+          {
+            "citation": "Tex. Bus. & Com. Code § 2.725",
+            "proposition": "UCC Article 2 permits reduction of the limitations period to not less than one year for sales of goods.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the memo raises any supported challenge to § 9.4's enforceability: statutory voidness under § 16.070, unreasonableness or unconscionability, or estoppel based on DataCore's promised fix. Move the concealment point into an estoppel or tolling criterion.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable or qualified concerns: item 2"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-022",
+          "C-023",
+          "C-024",
+          "C-025"
+        ],
+        "title": "Four criteria require severity ratings the instructions never asked for, and some prescribe debatable ratings",
+        "explanation": "The instructions ask only for 'a comprehensive opposition issues memo.' Prioritizing issues is implicit in such a memo; a Critical/Significant label for each issue is not. 'Or equivalent high-severity language' lets a judge credit ordering or 'strongest argument,' so the risk depends on memo style and judge literalism. Some prescribed conclusions are contestable. Under Atlantic Marine the 12(b)(3) error mostly turns dismissal into a likely § 1404(a) transfer, and DataCore already asked for transfer in the alternative, so a memo could fairly rate C-022's payoff as moderate. A damages cap still limits recovery later even though it is not a 12(b)(6) ground (C-025). C-024 labels the issue the 'fraud exception', which assumes C-012's premise. But a memo that sees the disclaimer threat would still rate the issue high, so C-024's only misgrade risk is the label requirement.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "produce a comprehensive opposition issues memo."
+          },
+          {
+            "source": "C-022",
+            "quote": "PASS if the memo rates the procedural defect ... as 'Critical' or 'Significant' (or equivalent high-severity language)."
+          },
+          {
+            "source": "datacore-motion-to-dismiss.docx.txt",
+            "quote": "DataCore respectfully requests that this Court transfer this action to the United States District Court for the Western District of Texas, Austin Division"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Atlantic Marine Constr. Co. v. U.S. Dist. Ct., 571 U.S. 49 (2013)",
+            "proposition": "Forum-selection clauses pointing to a federal forum are enforced through § 1404(a); for state or foreign forums, through forum non conveniens.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept any clear signal of priority (ordering, 'lead argument') in place of labels. Do not prescribe severity conclusions where the practical payoff is debatable.",
+        "origin": "revised",
+        "sol_locators": [
+          "Definite defects: item 3",
+          "Definite defects: item 1"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-014"
+        ],
+        "title": "Three of the four accrual dates C-014 lists still leave the breach claim untimely",
+        "explanation": "The complaint was filed March 22, 2024. Of C-014's listed dates, August 2022, November 2022 and January 12, 2023 are all more than a year earlier. Complaint ¶ 62 also pleads written notice of both defects on December 5, 2022. Only the April 15, 2023 failed patch falls within § 9.4's one-year window. The rubric treats the other dates as 'undermining' DataCore's August 2022 position, but they do not save the claim. A careful memo might say exactly that and rely on April 15, 2023 plus a continuing-breach, failure-to-cure or estoppel theory. It would then offer only one 'undermining' date and could fail C-014's 'at least two' requirement. Most competent memos will still list November 2022 and April 2023, so the risk is limited.",
+        "evidence": [
+          {
+            "source": "C-014",
+            "quote": "identifies at least two alternative accrual dates or events (from among: ADP issue August 2022, latency issue November 2022, Venkatesh acknowledgment January 2023, failed patch April 2023) that undermine DataCore's reliance on August 2022"
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "Even assuming an earlier discovery date, the complaint was filed on March 22, 2024, within one year of the April 15, 2023 patch delivery."
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "On December 5, 2022, Pinnacle, through its CTO Cheryl Nance, sent a formal written notice to DataCore identifying both the ADP integration failure and the latency and concurrent record processing problems"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Require the memo to show the claim is timely under at least one plausible accrual theory, or that accrual cannot be decided on the pleadings. Credit continuing-breach and estoppel theories, and credit explaining that the earlier dates do not change the result.",
+        "origin": "revised",
+        "sol_locators": [
+          "Arguable or qualified concerns: item 3"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-007",
+          "C-008"
+        ],
+        "title": "C-007 and C-008 require advancing a weak argument that the torts fall outside a broad 'relating to' forum clause",
+        "explanation": "MSA § 14.2 covers 'Any dispute, claim, or controversy arising out of or relating to this Agreement, including the determination of the scope or applicability of this Agreement.' Pinnacle's own Count I pleads breach based on the sales-process representations. A clause this broad usually reaches tort claims built on the same facts. A competent memo could raise the scope argument and reject it, or advise against it because it would split the case. C-007 passes only a memo that says the torts 'may fall outside' the clause. C-008 requires tying the SOW document's non-incorporation to forum scope, where it matters less than it does for reliance or choice of law.",
+        "evidence": [
+          {
+            "source": "msa-pinnacle-datacore.docx.txt",
+            "quote": "Any dispute, claim, or controversy arising out of or relating to this Agreement, including the determination of the scope or applicability of this Agreement, shall be resolved exclusively in the state or federal courts located in Travis County, Texas."
+          },
+          {
+            "source": "C-008",
+            "quote": "supporting the argument that tort claims based on it fall outside the forum selection clause"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo analyzes whether § 14.2 reaches the tort and statutory claims, whatever its conclusion. Let C-008 credit non-incorporation in any relevant context.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable or qualified concerns: item 1"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-001"
+        ],
+        "title": "C-001 requires calling concurrent pleading standards 'inconsistent'",
+        "explanation": "Twombly/Iqbal plausibility and Rule 9(b) particularity both apply to fraud claims. Invoking both is not inconsistent. The real weakness is that the 9(b) challenge is a one-sentence footnote that never applies the who/what/when framework. A memo that says the 9(b) argument is perfunctory and that the complaint pleads the specifics captures the substance. A literal judge could still fail it for not naming 'this inconsistency between the Twombly/Iqbal standard and Rule 9(b).' The PASS text also describes the underlying defect, so many judges would pass such a memo.",
+        "evidence": [
+          {
+            "source": "C-001",
+            "quote": "FAIL if this inconsistency between the Twombly/Iqbal standard and Rule 9(b) is not identified."
+          },
+          {
+            "source": "datacore-motion-to-dismiss.docx.txt",
+            "quote": "Moreover, Pinnacle's fraud allegations lack the specificity required under Federal Rule of Civil Procedure 9(b), as they fail to identify the particular statements alleged to be false with the requisite precision."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo notes the Rule 9(b) argument is perfunctory or confined to a footnote, or that it does not apply the 9(b) framework to the pleaded specifics.",
+        "origin": "blind",
+        "sol_locators": [
+          "Definite defects: item 2"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-017"
+        ],
+        "title": "C-017 calls the GUDTPA claim 'independently viable' without noting the statute's remedy is injunction only",
+        "explanation": "Under O.C.G.A. § 10-1-373(a), a Georgia UDTPA violation supports only injunctive relief (Bowden), and the plaintiff must face likely future harm. Pinnacle terminated the MSA on January 15, 2024 and seeks damages under Count IV. That is a serious weakness DataCore did not raise, and a competent memo would flag it. C-017 also calls the statute a 'consumer protection' claim. A memo can pass by rebutting the duplicativeness argument while flagging the remedy gap. But the criterion's premise overstates the claim, and a memo concluding that Count IV should be repleaded or dropped risks failing.",
+        "evidence": [
+          {
+            "source": "C-017",
+            "quote": "FAIL if the memo does not identify the independent viability of the GUDTPA claim."
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "Pinnacle seeks injunctive relief, actual damages, reasonable attorneys' fees, costs of litigation"
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "On January 15, 2024, Pinnacle, through its counsel, sent DataCore a formal written notice of termination of the MSA"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Med. Ctr., Inc. v. Bowden, 348 Ga. App. 165, 820 S.E.2d 289 (2018)",
+            "proposition": "The only remedy available for a UDTPA violation is injunctive relief under OCGA § 10-1-373(a).",
+            "verified": true
+          },
+          {
+            "citation": "Collins v. Athens Orthopedic Clinic, 815 S.E.2d 639 (Ga. App. 2018)",
+            "proposition": "A UDTPA plaintiff must allege likely future harm.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the memo rebuts the duplicativeness and economic-loss arguments. Credit flagging the injunction-only remedy and the future-harm problem, and do not require a conclusion that Count IV is 'independently viable.'",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-031",
+          "C-014"
+        ],
+        "title": "The CTO is named 'Venkatesh' in the email but 'Subramanian' in the pleadings; the rubric uses 'Venkatesh'",
+        "explanation": "The January 12, 2023 email is signed 'Anil Venkatesh' but sent from a.subramanian@datacoresystems.com. The complaint (¶ 63, Exhibit D) and the motion call the CTO 'Anil Subramanian.' C-031's title and text, and C-014's list of dates, say 'Venkatesh.' A memo that follows the pleadings and cites 'Subramanian's January 12, 2023 email' identifies the right document, but a literal judge might treat the name as a mismatch. Neither criterion allows for this record inconsistency, which may also be a planted authentication issue.",
+        "evidence": [
+          {
+            "source": "subramanian-email-jan2023.eml.txt",
+            "quote": "From: Anil Venkatesh <a.subramanian@datacoresystems.com>"
+          },
+          {
+            "source": "pinnacle-complaint.docx.txt",
+            "quote": "On January 12, 2023, DataCore's Chief Technology Officer, Anil Subramanian, sent an email to Cheryl Nance"
+          },
+          {
+            "source": "C-031",
+            "quote": "references the January 12, 2023 email from DataCore CTO Anil Venkatesh"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Identify the email by its date and quoted text, and accept either name.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable or qualified concerns: item 5"
+        ],
+        "blind_ids": [
+          "O8"
+        ]
+      }
+    ],
+    "changes_from_blind": "Dropped blind O9 (C-020). Its 'may be governed by Georgia law' is hedged and correct while the case sits in N.D. Ga., and its FAIL condition turns only on the scope of the choice-of-law clause, so a memo that adds the Atlantic Marine transfer caveat still passes. Narrowed blind O4 to C-014 only: I removed C-015 because the motion (at 287-291) does rest accrual solely on the August 2022 ADP discovery, so distinguishing the latency breach is a sound requirement. I removed C-032 because it asks only for date analysis against the filing date. Revised O3 to cross-reference C-024 and explain why C-024 is arguable, not a consequential problematic finding as Sol has it. I rejected Sol's C-005, C-026 and C-028 findings as not defects. I kept C-016 problematic where Sol says arguable, and C-001 and the severity cluster arguable where Sol says confirmed. No findings were adopted from Sol. Evidence re-checked this session: § 16.070 text, the Italian Cowboy, Novare and Bowden snippets, and the Atlantic Marine forum non conveniens and choice-of-law passages.",
+    "overall": "The rubric tracks the motion's planted flaws well: Atlantic Marine, the missing specific-jurisdiction analysis, the damages cap treated as a failure-to-state-a-claim ground, waiver raised too early, and choice-of-law scope. Most criteria are supported by the record. Two criteria state the law incorrectly in ways that would misgrade competent work. C-012 applies the 'merger clause cannot bar fraud' rule to § 14.7, which also expressly disclaims reliance. C-016 requires an unconscionability attack and ignores Texas's statutory voidness of limitations periods under two years (§ 16.070), under DataCore's own chosen law. Sol and I agree C-012 is problematic and split on C-016's severity. The remaining issues are arguable: unrequested severity labels, accrual-date arithmetic, a weak forum-scope argument the rubric requires, 'inconsistency' phrasing for the 9(b) point, the GUDTPA injunction-only remedy, and the Venkatesh/Subramanian name conflict. Note also that complaint ¶ 62 pleads December 5, 2022 notice of both defects, so the limitations problem appears on the face of the complaint. C-013's 'contested accrual' point is therefore weaker advocacy than § 16.070 or estoppel, but it is a reasonable position, not a defect.",
+    "coverage": "Re-read all 34 criteria and the instructions, and re-checked the record by grepping the motion, complaint, MSA, Whitford declaration and both emails for every fact the findings rely on. Read Sol's full report and index entry, and my prior notes. Primary law read this session by snippet search on CourtListener: Italian Cowboy (both opinion versions, including n.8), Novare, Atlantic Marine (the forum non conveniens and choice-of-law passages) and Bowden. I read Tex. Civ. Prac. & Rem. Code § 16.070 on the texas.public.law mirror, not the official site. Not verified this session: IBM v. Lufkin, Collins, Schlumberger/Forest Oil (seen only as discussed in Italian Cowboy), and Tex. Bus. & Com. Code § 2.725."
+  }
+}

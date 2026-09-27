@@ -1,0 +1,602 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-responses-to-requests-for-production",
+  "title": "Draft Responses and Objections to Requests for Production in Breach of Contract and Fraud Litigation",
+  "criteria_total": 45,
+  "criterion_lines": {
+    "C-001": 21,
+    "C-002": 29,
+    "C-003": 37,
+    "C-004": 45,
+    "C-005": 53,
+    "C-006": 61,
+    "C-007": 69,
+    "C-008": 77,
+    "C-009": 85,
+    "C-010": 93,
+    "C-011": 101,
+    "C-012": 109,
+    "C-013": 117,
+    "C-014": 125,
+    "C-015": 133,
+    "C-016": 141,
+    "C-017": 149,
+    "C-018": 157,
+    "C-019": 165,
+    "C-020": 173,
+    "C-021": 181,
+    "C-022": 189,
+    "C-023": 197,
+    "C-024": 205,
+    "C-025": 213,
+    "C-026": 221,
+    "C-027": 229,
+    "C-028": 237,
+    "C-029": 246,
+    "C-030": 254,
+    "C-031": 263,
+    "C-032": 272,
+    "C-033": 280,
+    "C-034": 288,
+    "C-035": 296,
+    "C-036": 304,
+    "C-037": 312,
+    "C-038": 320,
+    "C-039": 328,
+    "C-040": 336,
+    "C-041": 344,
+    "C-042": 352,
+    "C-043": 360,
+    "C-044": 368,
+    "C-045": 376
+  },
+  "blind": {
+    "task": "draft-responses-to-requests-for-production",
+    "criteria_reviewed": 45,
+    "coverage": "Read in full: task.json (instructions and all 45 criteria), rfp-first-set, kessler-foss-email, collection-summary, objection-playbook, the judge prompt and the solver system prompt, privilege-log sheets 2-3 (Log Key and Detailed Entry Breakdown), and privilege-log entries 1-38 and 148-183. Read by grep or in part: distribution-agreement (definitions, Sections 2-3, Article 7 in full, Article 8), answer-affirmative-defenses (claims, Northpoint allegations, affirmative defenses, filing dates), and privilege-log entries 39-147 (searched for common-interest and hold entries). Law: I read MCR 2.302(A)(1)(d) verbatim as quoted in the Michigan Judicial Institute civil benchbook on courts.michigan.gov. My MCR 2.302(B)(1) proportionality text comes from a search-result summary, not a page I read, so it is marked unverified. Not verified: the subrule number of Michigan's clawback provision (the log cites (B)(6)), and whether MCR 2.310 itself requires a statement of whether documents are being withheld. I did no CourtListener case-law research on contention RFPs or on discoverability of litigation holds.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-025"
+        ],
+        "title": "C-025 requires an 'improper contention request' objection, which is weak under Michigan's initial-disclosure rule",
+        "explanation": "C-025 passes only if the response to RFP 24 objects that it is improper contention discovery and premature. Since 2020, MCR 2.302(A)(1)(d) has required a party, without any request, to disclose documents it 'may use to support its claims or defenses.' Documents supporting Redfield's affirmative defenses are therefore already subject to mandatory disclosure, so calling RFP 24 improper or premature is legally weak. The criterion follows the firm playbook, and it asks only for an objection, not a refusal, so most responses will pass. It could still fail a competent response that cites (A)(1)(d), objects only to the 'refer to or relate to' breadth, and agrees to produce what Redfield may rely on.",
+        "evidence": [
+          {
+            "source": "C-025",
+            "quote": "improperly seeking to compel Redfield to marshal or organize evidence by legal theory, which is the function of contention interrogatories (if at all) and is premature"
+          },
+          {
+            "source": "rfp-first-set.docx.txt",
+            "quote": "Produce all Documents that support, refer to, or relate to each of Your affirmative defenses"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "MCR 2.302(A)(1)(d)",
+            "proposition": "Parties must disclose, without a request, a copy or description by category and location of all documents, ESI, and tangible things in their possession, custody, or control that they may use to support their claims or defenses.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Also pass a response that objects to the breadth of RFP 24 or its timing (for example 'refer to or relate to', or incomplete discovery) and commits to produce documents Redfield may use to support its defenses, consistent with MCR 2.302(A)(1)(d)."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-042",
+          "C-043"
+        ],
+        "title": "C-042 requires one direction of distinction for the April 22 email; the opposite view is reasonable",
+        "explanation": "C-042 requires the memo to recognize that the April 22 Ng email has a 'stronger privilege foundation' than the six vague entries. A competent memo can distinguish that email and reach the opposite risk ranking. The email has already been produced. Its words ('before making any disclosures', 'do not circulate the Elkhorn report') are exactly what Lakeshore would use for an at-issue or crime-fraud argument on the fraudulent-concealment count. Such a memo does distinguish the email, and it satisfies C-043 (the production compounds the vulnerability). A judge reading C-042 literally could still fail it for not calling the email's foundation 'stronger'. C-042 and C-043 pull in different directions.",
+        "evidence": [
+          {
+            "source": "C-042",
+            "quote": "recognizing that the April 22 email has a stronger privilege foundation while the others are vulnerable"
+          },
+          {
+            "source": "collection-summary.docx.txt",
+            "quote": "Please do not circulate the Elkhorn report further until we have had a chance to assess our legal position."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS any memo that treats the April 22 email separately from the six vague entries, for example as better described but more exposed because it was produced, without requiring a conclusion that its foundation is 'stronger'."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-010",
+          "C-009"
+        ],
+        "title": "C-010 requires the narrowed RFP 9 offer to name Northpoint; C-009 relies on a 'many entities' fact not in the record",
+        "explanation": "C-010 passes only if the response to RFP 9 offers a narrowed production that references Northpoint. Lakeshore's exclusivity is defined by product and territory (Agreement Sections 2.1 and 2.2), and RFPs 4, 8 and 15 already cover Northpoint. A competent response could narrow RFP 9 to communications with any distributor about Products in the Territory during the Term and cross-reference 4, 8 and 15. That is arguably better, because it does not assume Northpoint was the only overlap, but it fails C-010 as written. Separately, C-009 asks the objection to note that Redfield 'has distribution relationships with many entities for products unrelated to this litigation'. The record contains no count or description of Redfield's other distributors. The objection stands on the request's own 'any third-party ... any HVAC product' language.",
+        "evidence": [
+          {
+            "source": "C-010",
+            "quote": "FAIL if no narrowed alternative referencing Northpoint is offered."
+          },
+          {
+            "source": "C-009",
+            "quote": "noting that Redfield has distribution relationships with many entities for products unrelated to this litigation"
+          },
+          {
+            "source": "rfp-first-set.docx.txt",
+            "quote": "Produce all Communications between Redfield and any third-party distributor, wholesaler, or reseller regarding any HVAC product"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "C-010: pass any reasonable narrowing tied to the Products, Territory, or Term, or to Northpoint. C-009: make the 'many entities' clause an example rather than a requirement."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-041"
+        ],
+        "title": "C-041 requires a specific Section 7.2 gap analysis in the memo, built on a questionable premise",
+        "explanation": "The instructions ask for an internal discovery-issues memo. Nothing asks for an analysis of the Agreement's confidentiality clause. Playbook IV.F says to reference contractual confidentiality in the response, not to gap-analyze it in a memo. The premise is also shaky. Section 7.2 covers only information 'disclosed by one Party to the other Party', and Section 7.1(b) allows disclosure under a court order. So 7.2 was never a vehicle for shielding Redfield's own internal BOM or manufacturing-cost records from discovery, and missing 'manufacturing specifications' from its list is not really a 'gap'. A correct memo could say 7.2 is irrelevant and that the protective order stands on its own. A judge reading C-041 literally could fail that memo.",
+        "evidence": [
+          {
+            "source": "C-041",
+            "quote": "does not specifically address manufacturing specifications or Bill of Materials, creating a gap in contractual protection that strengthens the need for a court-ordered protective order"
+          },
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "\"Confidential Information\" means any non-public information disclosed by one Party to the other Party"
+          },
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "(b) disclosure as required by applicable law, regulation, subpoena, or court order"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass any memo that explains why a court-ordered protective order is needed for the BOM and cost data, whether it says Section 7.2 falls short or does not apply at all. Or drop C-041."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-039"
+        ],
+        "title": "C-039's parenthetical may be read as requiring clawback and Slack specifically as the urgent items",
+        "explanation": "The PASS condition asks only that at least two issues be flagged as immediate, but the parenthetical names the 'two most critical' as the clawback and the Slack risk. The record supports other urgent items. Kessler's personal phone, which holds texts with Foss, has been neither preserved nor collected. The Slack loss has already happened, and Pinnacle has exhausted standard recovery, so what remains is a disclosure and strategy question. A memo that marks the clawback and the Kessler device as urgent and treats Slack as serious but already fixed in place is defensible. It could fail if a judge treats the parenthetical as mandatory.",
+        "evidence": [
+          {
+            "source": "C-039",
+            "quote": "flags at least two issues as requiring immediate or urgent action (the two most critical being the inadvertent disclosure clawback and the Slack/Teams spoliation risk)"
+          },
+          {
+            "source": "collection-summary.docx.txt",
+            "quote": "Personal device collection for Kessler is pending Counsel's determination of the appropriate scope and any necessary consent or privacy protocols."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "State whether the parenthetical is illustrative. If it is, pass any two record-supported issues flagged as urgent."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-020"
+        ],
+        "title": "C-020 blames the six-week gap for all Slack loss before August 3; the gap caused only about June 18 to August 3",
+        "explanation": "Under a 90-day auto-delete policy, a Slack hold issued on September 16, 2024 would have preserved messages from about June 18, 2024 onward. The six-week delay therefore cost roughly June 18 to August 3, 2024. Anything older was already purged before the initial hold issued, and whether that loss is spoliation depends on when the duty to preserve attached (for example the pre-suit demand or earlier dealings). The criterion repeats the collection summary's loose wording. A precise memo will still say pre-August 3 messages are unrecoverable and will almost certainly pass. The criterion does, though, embed an inaccurate causal account.",
+        "evidence": [
+          {
+            "source": "C-020",
+            "quote": "messages older than approximately August 3, 2024 may have been permanently lost during the preservation gap"
+          },
+          {
+            "source": "collection-summary.docx.txt",
+            "quote": "Slack messages dated prior to approximately August 3, 2024 had already been auto-purged from the system and are not recoverable"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Reword to pass any memo that identifies the 90-day auto-delete and the permanent loss of pre-August 3, 2024 Slack messages as a spoliation risk, whether it attributes the loss to the gap or to the date the duty to preserve attached."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-028"
+        ],
+        "title": "C-028's example factors mix federal Rule 26(b)(1) and a separate subrule into 'MCR 2.302(B)(1)'",
+        "explanation": "C-028's examples include 'importance of discovery to resolving issues', a federal Rule 26(b)(1) factor that, as I understand it, is not in Michigan's (B)(1) list. That list includes 'complexity of the case' instead. 'Reasonable accessibility' belongs to a separate ESI subrule. PASS turns on referencing the rule or proportionality generally, so the risk of misgrading is small. The criterion could, however, reward federal factors mislabeled as Michigan's.",
+        "evidence": [
+          {
+            "source": "C-028",
+            "quote": "importance of issues, amount in controversy, parties' resources, importance of discovery to resolving issues, burden vs. likely benefit, or reasonable accessibility"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "MCR 2.302(B)(1)",
+            "proposition": "Scope is limited to relevant, non-privileged matter proportional to the needs of the case, considering burden or expense versus likely benefit, complexity of the case, importance of the issues, amount in controversy, and the parties' resources and access to information.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Replace the examples with the text of MCR 2.302(B)(1), and cite the not-reasonably-accessible ESI subrule separately."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-014",
+          "C-042"
+        ],
+        "title": "Record inconsistencies on the privilege-log entry number and dates for the April 22 email",
+        "explanation": "The collection summary says the April 22 email was logged as 'Entry No. 003'. The log lists it as Entry 2 (RMI-PRIV-000002), and log entry 178 agrees. Entry 3 is a vague 05/03/2023 entry. The collection summary is dated December 10 and says the log runs through December 5, with final entries confirmed December 8. The log itself is dated January 3, 2025 and runs to December 15, 2024. Log entry 178 cites 'MCR 2.302(B)(6)' for clawback; I did not verify the correct subrule. No criterion depends on these details, but a solver who relies on the summary's entry number would misidentify which entries are vague.",
+        "evidence": [
+          {
+            "source": "collection-summary.docx.txt",
+            "quote": "designated as privileged on the privilege log (Entry No. 003, asserting attorney-client privilege)"
+          },
+          {
+            "source": "privilege-log.xlsx.txt",
+            "quote": "inadvertent disclosure of Ng April 22, 2023 email (RMI-PRIV-000002)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make the entry number and the log dates consistent across the collection summary and the privilege log."
+      }
+    ],
+    "overall": "The rubric is largely sound. Most criteria come straight from facts in the record: the four '2015 to present' requests, the Slack gap and 90-day auto-delete, the November 20 inadvertent production, the Trent-Marsh common-interest entries with no written agreement, and Section 7.2. Most also track the firm playbook addressed to the memo's recipient, and the privilege log's own breakdown sheet flags the key issues. I found nothing I would call problematic. The concerns are arguable. C-025 builds in a contention-RFP objection that is weak under Michigan's initial-disclosure rule. C-042 prescribes one direction of analysis for the April 22 email. C-010 and C-041 demand specific framings that a correct but differently reasoned answer could miss. C-039's parenthetical is ambiguous, and C-020 loosely describes what the gap caused. Under all-pass scoring these narrow requirements create modest risk of failing competent work, and the documents have minor inconsistencies that do not change grading."
+  },
+  "final": {
+    "task": "draft-responses-to-requests-for-production",
+    "sol_verdicts": [
+      {
+        "sol_locator": "F1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-025"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-025",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Sol is right that RFP 24 targets existing documents, which MCR 2.302(A)(1)(d) already requires Redfield to disclose, so calling it improper is legally weak. But the firm playbook the solver received (IV.I) tells associates to make exactly this objection, and some courts do sustain objections to 'all documents supporting' requests. C-025 also asks only for the objection to be raised, not for production to be refused. It misgrades only a response that departs from the playbook, so it is arguable, not confirmed."
+      },
+      {
+        "sol_locator": "F2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-041"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-041",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "Section 7.2 defines Confidential Information as 'any non-public information disclosed by one Party to the other ... including but not limited to' (a)-(e). The list is illustrative, so leaving out BOM or manufacturing specs does not create a gap. Any real limit comes from the disclosed-between-the-parties requirement and from the court-order exception in 7.1(b). C-041 requires the memo to adopt the misreading, and nothing in the instructions asks for this analysis."
+      },
+      {
+        "sol_locator": "F3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-013",
+          "C-014",
+          "C-030",
+          "C-042"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-013",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-014",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-030",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-042",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "C-013: playbook IV.B tells associates to make pre-retention log descriptions detailed enough, and a memo that recommends reviewing the content and then supplementing passes. C-014 only asks the memo to identify the production; calling the email 'potentially privileged' still passes. C-030 limits itself to a hold memo 'reflecting attorney mental impressions', which tracks playbook IV.C. C-042 is arguable for a different reason than Sol's: it prescribes a 'stronger foundation' conclusion, while a reasonable memo could call the email more exposed."
+      },
+      {
+        "sol_locator": "F4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-036",
+          "C-039"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-036",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-039",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "C-036: playbook V makes a withholding statement 'a mandatory element of every individual response' that contains an objection. With 25 requests, all of them overbroad, a floor of 10 is lenient; it is not a hidden quota. C-039: flagging urgent items is implicit, and the playbook says to escalate both the clawback and spoliation immediately. But the PASS threshold is 'at least two' and FAIL is 'no issues', which leaves a memo flagging exactly one issue undecided. The parenthetical may also be read as mandatory."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-041"
+        ],
+        "title": "C-041 requires the memo to treat Section 7.2's illustrative list as a gap; the clause's catch-all covers BOM and specs",
+        "explanation": "C-041 passes only if the memo says Section 7.2 'does not specifically address manufacturing specifications or Bill of Materials, creating a gap in contractual protection'. Section 7.2 covers 'any non-public information disclosed by one Party to the other ... including but not limited to' (a)-(e). The enumeration is illustrative, so BOM data disclosed to Lakeshore would be covered. The clause's real limits lie elsewhere: it reaches only inter-party disclosures, not Redfield's internal records, and 7.1(b) allows disclosure under a court order. A correct memo that reads 7.2 accurately and still recommends a protective order fails C-041. Nothing in the instructions asks for a contract-clause analysis in the memo either. Playbook IV.F says only to reference contractual confidentiality in the response.",
+        "evidence": [
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "\"Confidential Information\" means any non-public information disclosed by one Party to the other Party ... including but not limited to:"
+          },
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "(b) disclosure as required by applicable law, regulation, subpoena, or court order"
+          },
+          {
+            "source": "C-041",
+            "quote": "does not specifically address manufacturing specifications or Bill of Materials, creating a gap in contractual protection"
+          },
+          {
+            "source": "objection-playbook.docx.txt",
+            "quote": "the response should reference those contractual provisions and assert that any production must be consistent with the responding party's obligations under the agreement"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass any memo that explains why a court-ordered protective order is needed for the BOM and cost data. That includes a memo saying 7.2 reaches only inter-party disclosures or yields to court orders. Do not require a finding that the enumerated list leaves a gap. Alternatively, drop C-041.",
+        "origin": "revised",
+        "sol_locators": [
+          "F2"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-025"
+        ],
+        "title": "C-025 requires an 'improper contention request' objection, which is weak given Michigan's mandatory disclosure of supporting documents",
+        "explanation": "RFP 24 asks for existing documents that support Redfield's affirmative defenses. MCR 2.302(A)(1)(d) requires parties, without any request, to disclose documents they 'may use to support its claims or defenses'. That undercuts calling the request improper or premature. The criterion does follow the firm playbook (IV.I), which the solver received and which directs this objection, and some courts accept work-product or marshaling objections to 'all documents supporting' requests. C-025 also requires only that the objection be raised, not that production be refused, so most responses pass. It still fails a competent response that relies on (A)(1)(d), objects only to breadth or timing, and agrees to produce what Redfield may rely on.",
+        "evidence": [
+          {
+            "source": "C-025",
+            "quote": "objects that this is an improper contention request disguised as a document request ... and is premature"
+          },
+          {
+            "source": "objection-playbook.docx.txt",
+            "quote": "is a **contention request disguised as a document request**"
+          },
+          {
+            "source": "rfp-first-set.docx.txt",
+            "quote": "Produce all Documents that support, refer to, or relate to each of Your affirmative defenses"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "MCR 2.302(A)(1)(d)",
+            "proposition": "Parties must disclose, without a request, documents, ESI, and tangible things in their possession, custody, or control that they may use to support their claims or defenses.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Also pass a response that makes a specific breadth, timing, or work-product objection and commits to produce nonprivileged documents Redfield may use to support its defenses, consistent with MCR 2.302(A)(1)(d).",
+        "origin": "revised",
+        "sol_locators": [
+          "F1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-042",
+          "C-043"
+        ],
+        "title": "C-042 requires the memo to say the April 22 email has the 'stronger' privilege foundation; the opposite view is reasonable",
+        "explanation": "C-042 requires the memo to recognize that the April 22 Ng email has a 'stronger privilege foundation' than the six vaguely logged entries. A competent memo can distinguish the email and reach the opposite risk assessment. The email has already been produced (REDFIELD-000847). Its words ('before making any disclosures', 'do not circulate the Elkhorn report') invite at-issue or crime-fraud arguments on the fraudulent-concealment count. Such a memo satisfies C-043 (the production compounds the vulnerability) but could fail C-042 if the judge reads 'stronger' literally. Sol's broader point, that a label like 'Privilege applies' does not by itself establish privilege, supports this concern.",
+        "evidence": [
+          {
+            "source": "C-042",
+            "quote": "recognizing that the April 22 email has a stronger privilege foundation while the others are vulnerable"
+          },
+          {
+            "source": "collection-summary.docx.txt",
+            "quote": "Please do not circulate the Elkhorn report further until we have had a chance to assess our legal position."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass any memo that treats the April 22 email separately from the six vague entries, whatever relative strength or exposure it assigns.",
+        "origin": "blind",
+        "sol_locators": [
+          "F3"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-039"
+        ],
+        "title": "C-039 leaves a memo that flags one urgent issue between PASS and FAIL, and its parenthetical may be read as mandatory",
+        "explanation": "PASS requires 'at least two' issues flagged as urgent. FAIL applies only if 'no issues' are flagged, so a memo flagging exactly one urgent issue is undecided. The parenthetical names the clawback and Slack as the two most critical, and a judge may treat it as required. The record supports other urgent items: Kessler's personal phone, holding texts with Foss, has not been collected. The Slack loss has already occurred and recovery is exhausted, so what remains is a disclosure question. A memo that marks the clawback and the Kessler device as urgent and treats Slack as serious but already fixed in place is defensible.",
+        "evidence": [
+          {
+            "source": "C-039",
+            "quote": "flags at least two issues as requiring immediate or urgent action (the two most critical being the inadvertent disclosure clawback and the Slack/Teams spoliation risk). FAIL if no issues are flagged"
+          },
+          {
+            "source": "collection-summary.docx.txt",
+            "quote": "Personal device collection for Kessler is pending Counsel's determination of the appropriate scope"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Align PASS and FAIL (for example, FAIL if fewer than two issues are flagged), and state whether the parenthetical is illustrative.",
+        "origin": "revised",
+        "sol_locators": [
+          "F4"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-010",
+          "C-009"
+        ],
+        "title": "C-010 requires the RFP 9 narrowing to name Northpoint; C-009 relies on a 'many entities' fact not in the record",
+        "explanation": "C-010 fails any narrowed offer for RFP 9 that does not reference Northpoint. Lakeshore's exclusivity is defined by product and territory (Sections 2.1 and 2.2), and RFPs 4, 8 and 15 already cover Northpoint. A response that narrows RFP 9 to communications with any distributor about the Products in the Territory during the Term, and cross-references those requests, is reasonable and arguably better. It fails C-010 as written. C-009 asks the objection to note that Redfield has distribution relationships with 'many entities', but the record contains no description of Redfield's other distributors.",
+        "evidence": [
+          {
+            "source": "C-010",
+            "quote": "FAIL if no narrowed alternative referencing Northpoint is offered."
+          },
+          {
+            "source": "C-009",
+            "quote": "noting that Redfield has distribution relationships with many entities for products unrelated to this litigation"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "C-010: pass any reasonable narrowing tied to the Products, Territory, or Term, or to Northpoint. C-009: make the 'many entities' clause an example rather than a requirement.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-020"
+        ],
+        "title": "C-020 blames the preservation gap for all Slack loss before August 3; the gap caused only about June 18 to August 3",
+        "explanation": "Under the 90-day auto-delete, a Slack hold on September 16, 2024 would have preserved messages from about June 18 onward. The six-week delay therefore lost roughly June 18 to August 3. Older messages were purged before the initial hold issued, and whether that loss counts as spoliation turns on when the duty to preserve attached. The criterion repeats the summary's loose wording. A precise memo will almost certainly still pass, so the risk of misgrading is low.",
+        "evidence": [
+          {
+            "source": "C-020",
+            "quote": "messages older than approximately August 3, 2024 may have been permanently lost during the preservation gap"
+          },
+          {
+            "source": "collection-summary.docx.txt",
+            "quote": "Slack messages dated prior to approximately **August 3, 2024** had already been auto-purged"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass any memo that identifies the 90-day auto-delete and the loss of pre-August 3 Slack messages as a spoliation risk, without requiring that the loss be attributed to the gap.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-028"
+        ],
+        "title": "C-028's example factors include a federal Rule 26(b)(1) factor not in MCR 2.302(B)(1)",
+        "explanation": "MCR 2.302(B)(1) lists burden versus likely benefit, the complexity of the case, the importance of the issues, the amount in controversy, and the parties' resources and access to information. C-028's examples include 'importance of discovery to resolving issues', which comes from the federal rule and is not in Michigan's text. They omit 'complexity of the case'. PASS turns on referencing proportionality generally, so the risk of misgrading is small. The criterion could, however, reward federal factors mislabeled as Michigan's.",
+        "evidence": [
+          {
+            "source": "C-028",
+            "quote": "importance of issues, amount in controversy, parties' resources, importance of discovery to resolving issues, burden vs. likely benefit, or reasonable accessibility"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "MCR 2.302(B)(1)",
+            "proposition": "Discovery must be proportional to the needs of the case, considering burden or expense versus likely benefit, the complexity of the case, the importance of the issues at stake, the amount in controversy, and the parties' resources and access to relevant information.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Use the MCR 2.302(B)(1) factors verbatim as the examples.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-014",
+          "C-042"
+        ],
+        "title": "The record is inconsistent about the April 22 email's log entry number, the log dates, and the clawback rule cited",
+        "explanation": "The collection summary says the April 22 email was logged as 'Entry No. 003'. The privilege log lists it as RMI-PRIV-000002, and log entry 178 agrees. The summary's log date range (through December 5, final entries confirmed December 8) also conflicts with the log itself (dated January 3, 2025, entries through December 15). Log entry 178 cites MCR 2.302(B)(6) for clawback. Sol and a search-result summary both point to (B)(7), but I did not read the primary rule text. A solver who relies on the summary's entry number could misidentify which entries are vague. No criterion turns on these details.",
+        "evidence": [
+          {
+            "source": "collection-summary.docx.txt",
+            "quote": "designated as privileged on the privilege log (Entry No. 003, asserting attorney-client privilege)"
+          },
+          {
+            "source": "privilege-log.xlsx.txt",
+            "quote": "inadvertent disclosure of Ng April 22, 2023 email (RMI-PRIV-000002)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "MCR 2.302(B)(7)",
+            "proposition": "This is the Michigan subrule on information inadvertently produced in discovery; the log cites (B)(6).",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Make the entry number, the log dates, and the rule citation consistent across the documents.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O8"
+        ]
+      }
+    ],
+    "changes_from_blind": "I raised C-041 from arguable to problematic. Sol's point that Section 7.2 is 'including but not limited to' confirms that the gap C-041 requires comes from misreading an illustrative list, on top of the inter-party-disclosure limit I noted blind. I revised C-025 to cite Sol, but I kept it arguable rather than confirmed. The supplied firm playbook (IV.I) directs exactly this objection, and the criterion requires only raising it. I revised C-039 to add the gap between its PASS and FAIL conditions: a memo flagging exactly one urgent issue satisfies neither. I verified MCR 2.302(B)(1)'s text on the Michigan civil benchbook page, which confirms the federal-factor mix-up in C-028 (O7). I declined Sol's C-013, C-014, C-030 and C-036 findings. The playbook supports each of them, and none would fail competent work. On C-036, playbook V makes a withholding statement mandatory for every response that contains an objection, so the floor of 10 is lenient. I dropped no blind findings.",
+    "overall": "The rubric is mostly sound and closely tracks the supplied firm playbook and the collection summary. One criterion is problematic. C-041 requires the memo to find a 'gap' in Section 7.2 because BOM and manufacturing specs are not listed, but the clause's 'including but not limited to' catch-all makes that list illustrative. The arguable issues follow. C-025 requires a contention objection that is weak given MCR 2.302(A)(1)(d), although the playbook directs it. C-042 prescribes one direction of risk assessment. C-039's PASS and FAIL conditions leave a gap. C-010 and C-009 require narrow framings. C-020 and C-028 have minor imprecisions of fact or law, and the documents have small internal inconsistencies. Under all-pass scoring, C-041 alone could zero out a correct deliverable.",
+    "coverage": "In the blind pass I read task.json (instructions and all 45 criteria), the RFPs, the Kessler-Foss email, the collection summary, the playbook, the judge and system prompts, and the relevant parts of the agreement, the answer, and the privilege log. In this pass I read Sol's index and report and re-checked the record: Section 7.1 and 7.2 in full, playbook IV.B-IV.I and V, collection summary Sections 2 and 6, RFP 22, and criteria C-009-C-014, C-020, C-025, C-028-C-031, C-036, C-039, and C-041-C-044. I verified MCR 2.302(B)(1) on the Michigan civil benchbook page on courts.michigan.gov. The (B)(7) clawback text came only from a search-result summary, so it is unverified. I could not locate MCR 2.310's withholding-statement text."
+  }
+}

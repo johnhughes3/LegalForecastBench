@@ -1,0 +1,537 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands",
+  "title": "Analyze Counterparty Requests for Production for Objectionable and Overbroad Discovery Demands — Issue Identification Memorandum",
+  "criteria_total": 47,
+  "criterion_lines": {
+    "C-001": 19,
+    "C-002": 27,
+    "C-003": 35,
+    "C-004": 43,
+    "C-005": 51,
+    "C-006": 59,
+    "C-007": 67,
+    "C-008": 75,
+    "C-009": 83,
+    "C-010": 91,
+    "C-011": 99,
+    "C-012": 107,
+    "C-013": 115,
+    "C-014": 123,
+    "C-015": 131,
+    "C-016": 139,
+    "C-017": 147,
+    "C-018": 155,
+    "C-019": 163,
+    "C-020": 171,
+    "C-021": 179,
+    "C-022": 187,
+    "C-023": 195,
+    "C-024": 203,
+    "C-025": 211,
+    "C-026": 219,
+    "C-027": 227,
+    "C-028": 235,
+    "C-029": 243,
+    "C-030": 251,
+    "C-031": 259,
+    "C-032": 267,
+    "C-033": 275,
+    "C-034": 283,
+    "C-035": 291,
+    "C-036": 299,
+    "C-037": 307,
+    "C-038": 315,
+    "C-039": 323,
+    "C-040": 331,
+    "C-041": 339,
+    "C-042": 347,
+    "C-043": 355,
+    "C-044": 363,
+    "C-045": 371,
+    "C-046": 379,
+    "C-047": 387
+  },
+  "blind": {
+    "task": "analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands",
+    "criteria_reviewed": 47,
+    "coverage": "Read in full: task.json (instructions and all 47 criteria), plaintiffs-first-rfps (all 46 RFPs, definitions, instructions), kerrigan-discovery-strategy.eml, case-management-order, litigation-hold-memo, stipulated-protective-order. JV Agreement: read the recitals, definitions, Arts. VI–IX, and Arts. XI–XII, and searched the rest. Dissolution Agreement: searched for dates, wind-down, non-compete survival (§6.1), Exhibit B royalty start, Background IP, and competitor names, but did not read it in full. The Sterling Ark credit agreement and the Ridgepoint engagement letter mentioned in the email are not in the record. Legal propositions were checked against my own knowledge of FRCP 26/33/34 and FRE 502. Two CourtListener searches on contention-style RFPs found nothing useful, so no case law was verified. The generic system prompt and judge prompt were not opened.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-030"
+        ],
+        "title": "Non-compete end date cannot narrow any 'to the present' request during discovery; the record shows post-period conduct matters",
+        "explanation": "C-030 requires the memo to treat the §9.1 period (June 30, 2023–June 30, 2025) as a way to narrow requests that run 'to the present'. On this record that narrows nothing. Responses are due September 11, 2024, and fact discovery closes February 28, 2025. Both dates fall inside the covenant window, so every 'to the present' request, and every Rule 26(e) supplement, covers only time within the non-compete period. Post-period conduct is also relevant in its own right: Dissolution Agreement Exhibit B royalties start July 1, 2025, and the misappropriation claims are not limited by the covenant's term. A competent memo that leaves out this point, or correctly says the non-compete makes post-dissolution documents squarely relevant, fails the criterion. C-046 already rewards citing §9.1 without the faulty scoping logic.",
+        "evidence": [
+          {
+            "source": "C-030",
+            "quote": "notes that this period may be relevant to narrowing the scope of forward-looking document requests that seek documents 'to the present' or beyond the non-compete period"
+          },
+          {
+            "source": "case-management-order.docx.txt",
+            "quote": "Fact discovery shall close on February 28, 2025."
+          },
+          {
+            "source": "dissolution-agreement-executed.docx.txt",
+            "quote": "royalty obligations shall commence on July 1, 2025"
+          },
+          {
+            "source": "dissolution-agreement-executed.docx.txt",
+            "quote": "from June 30, 2023, through and including June 30, 2025"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete C-030 or fold it into C-046. Alternatively, rewrite it to reward correctly identifying the §9.1 period as the window of alleged breach, without requiring it to be used as a narrowing cutoff."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-018",
+          "C-019"
+        ],
+        "title": "RFP 41 must be labeled a contention interrogatory and objected to as premature; Rule 33(a)(2) governs interrogatories, not RFPs",
+        "explanation": "Rule 33(a)(2) lets a court defer answers to contention interrogatories. It does not govern Rule 34 document requests. Many federal courts treat requests for 'all documents supporting your defenses' as proper, and Rule 26(a)(1)(A)(ii) already requires disclosure of documents a party may use. The stronger objections to RFP 41 are overbreadth (the 'relate to' and 'contradict' language) and work product in counsel's selection of documents. The usual fix is to agree to produce the documents Greenleaf intends to rely on. A competent memo that takes that approach, without calling RFP 41 a disguised interrogatory or arguing prematurity, fails both criteria. The response date is also about four months into a nine-month fact-discovery period, not 'the outset'.",
+        "evidence": [
+          {
+            "source": "C-019",
+            "quote": "references Fed. R. Civ. P. 33(a)(2) ... or otherwise articulates that contention-type discovery is premature at the outset of fact discovery"
+          },
+          {
+            "source": "C-018",
+            "quote": "effectively a contention interrogatory masquerading as a document request, requiring Greenleaf to marshal its entire case theory prematurely"
+          },
+          {
+            "source": "plaintiffs-first-rfps.docx.txt",
+            "quote": "Produce all Documents that support, contradict, or relate to each of Greenleaf's affirmative defenses and counterclaims"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 33(a)(2)",
+            "proposition": "Court may order that a contention interrogatory need not be answered until designated discovery is complete; the text addresses interrogatories",
+            "verified": false
+          },
+          {
+            "citation": "Fed. R. Civ. P. 26(a)(1)(A)(ii)",
+            "proposition": "Initial disclosures must describe documents the party may use to support its claims or defenses",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "C-018: pass if RFP 41 is flagged as improper on any reasonable ground (overbreadth, contention-style, work product/selection, duplicative of initial disclosures). C-019: accept any legal basis for the objection, not only prematurity."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-024",
+          "C-025"
+        ],
+        "title": "The RFPs' silence on ESI form is required to be flagged as a defect, but Rule 34 makes form optional",
+        "explanation": "The instructions ask for 'objectionable requests'. Under Rule 34(b)(1)(C) a requesting party 'may' specify a form of production. When it does not, Rule 34(b)(2)(D)–(E) lets the responding party choose a reasonably usable form. So the RFPs' silence is not a ground for objection, and it benefits Greenleaf. The strategy email does not raise it. A memo that correctly treats form of production as Greenleaf's choice, or deals with it only through an ESI protocol (which C-026 separately rewards), fails C-024. It then also fails C-025, which requires the Rule 34(b) citation 'in connection with the form-of-production issue'.",
+        "evidence": [
+          {
+            "source": "C-024",
+            "quote": "identifies that the Requests for Production generally fail to specify the form of production for ESI ... creating ambiguity"
+          },
+          {
+            "source": "task.json instructions",
+            "quote": "prepare an internal memo flagging objectionable requests with recommended responses"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 34(b)(1)(C), (b)(2)(D)-(E)",
+            "proposition": "Request may specify form; if none is specified, the responding party states its intended form and produces in a form ordinarily maintained or reasonably usable",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Merge C-024 and C-025 into C-026: pass if the memo addresses form of production or an ESI protocol, citing Rule 34(b) or otherwise, without requiring that the omission be called a defect."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-002"
+        ],
+        "title": "Uniform post-2017 cutoff ignores Greenleaf's need for pre-JV records to prove independent development",
+        "explanation": "C-002 rewards only a narrowing proposal that excludes 2009–2017. RFP 3 (membrane R&D) and RFP 14 (IP portfolio) reach pre-JV Greenleaf material that supports its own defense. JV §11.2(b) requires independent development to be shown 'by contemporaneous written records'. Greenleaf Background IP is defined as what it held as of January 15, 2019 (Exhibit C). The litigation hold preserves Background IP for the independent-development defense even while it excludes pre-2018 material. A careful memo might carve pre-2017 Background IP records out of the narrowing, or warn about sword/shield, and so propose a start earlier than 2017 for RFP 3 or RFP 14. That answer falls between PASS ('no earlier than 2017') and FAIL ('no narrowing proposal').",
+        "evidence": [
+          {
+            "source": "C-002",
+            "quote": "recommends narrowing the temporal scope to a period starting no earlier than 2017 or 2018"
+          },
+          {
+            "source": "litigation-hold-memo.docx.txt",
+            "quote": "All documents related to Greenleaf's background intellectual property in filtration technology, to the extent it may bear on the independent-development defense."
+          },
+          {
+            "source": "jv-agreement-executed.docx.txt",
+            "quote": "was independently developed by the receiving Party without the use of or reference to the disclosing Party's Confidential Information, as evidenced by the receiving Party's contemporaneous written records"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass any narrowing proposal that removes the bulk of the 2009–2017 period, including proposals with a Background IP carve-out. Fail only if no temporal narrowing is proposed."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-032",
+          "C-044"
+        ],
+        "title": "C-032 requires RFP numbers for 'each issue', while C-044 requires cross-cutting issues that have no RFP numbers",
+        "explanation": "C-044 requires the memo to present systemic issues (ESI protocol, FRE 502(d) order, general meet-and-confer) separately from individual RFP objections. Those issues apply to the whole production and have no specific RFP numbers. C-032 passes only if 'for each issue discussed... the specific RFP number(s) affected are identified'. A literal judge could fail C-032 because of the very section C-044 demands.",
+        "evidence": [
+          {
+            "source": "C-032",
+            "quote": "PASS if, for each issue discussed in the memorandum, the specific RFP number(s) affected are identified."
+          },
+          {
+            "source": "C-044",
+            "quote": "as distinct from issues with individual RFPs"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Limit C-032 to RFP-specific issues and exempt the cross-cutting issues rewarded by C-044."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-047"
+        ],
+        "title": "Memo must mention the July–September 2023 wind-down period even though no objectionable request turns on it",
+        "explanation": "The wind-down period is the endpoint of RFPs 10, 17, and 23. Those requests are reasonably scoped and are not among the objectionable requests the memo is asked to catalogue. The strategy email mentions the wind-down only as a category of privileged communications. A competent objections memo can fully analyze temporal overbreadth (2009 start dates) and the other issues without mentioning the wind-down, and would fail on a detail that does not affect any recommended objection.",
+        "evidence": [
+          {
+            "source": "C-047",
+            "quote": "FAIL if the wind-down period is not mentioned."
+          },
+          {
+            "source": "plaintiffs-first-rfps.docx.txt",
+            "quote": "conducted during the wind-down period from July 1, 2023 through September 30, 2023"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop C-047, or make it a non-gating quality consideration."
+      }
+    ],
+    "overall": "The rubric is mostly sound and closely tied to the record. The 2009 start dates in RFPs 3/7/14/22, the 11 product lines, the SAP/Windchill request, the 23 engineers, the 950K-document volume, the June 15, 2024 protective order's express disclaimer of privilege coverage (which supports the 502(d) criteria), the September 11, 2024 deadline, and the formation and dissolution dates all check out against the documents. Most criteria follow the partner's email, which asks for RFP numbers, the nature of each problem, citations, recommendations, and a high/medium/low priority ranking, so those structural requirements are not hidden. The one clearly defective criterion is C-030. It requires using the non-compete end date to narrow 'to the present' requests, but the record puts the whole discovery period inside the covenant window and has royalties starting after it. Smaller risks come from C-018/C-019, which lock in a debatable prematurity theory for RFP 41; C-024/C-025, which treat an optional form-of-production omission as a defect; C-002's rigid cutoff that ignores the independent-development defense; the literal clash between C-032 and C-044; and the peripheral wind-down requirement in C-047. Under all-pass scoring, these could zero out otherwise excellent memos."
+  },
+  "final": {
+    "task": "analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Confirmed grading defect / required questionable advocacy: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-018",
+          "C-019"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-018",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-019",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "RFP 41 asks for documents that 'support, contradict, or relate to' each defense and counterclaim. Calling it contention-style is a natural reading, and prematurity is a common objection that C-019's 'otherwise articulates' clause accepts. But the strategy email never mentions RFP 41, and Rule 33(a)(2) governs interrogatories. A competent memo that objects on overbreadth or work-product grounds and offers to produce the documents Greenleaf relies on fails both criteria. That misgrades some competent answers, not most, so the right label is arguable rather than confirmed."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-024",
+          "C-025"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-024",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-025",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The record supports the factual premise. Instruction 5 and the other instructions set no ESI form, and only RFP 36 demands native format. But under Rule 34(b)(1)(C) a requester 'may' specify form, and (b)(2)(D)-(E) then leave the choice to the responding party. So the omission is not an objection, and the email does not raise it. A memo that handles form only through an ESI protocol (C-026) fails C-024, and C-025 then fails with it."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-002"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-002",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The email supports a start date around 2017 ('pre-JV negotiations don't go back before 2017'). But JV §11.2(b) requires independent development to be shown by 'contemporaneous written records', and the hold memo preserves Background IP for that defense. A memo that carves pre-2017 Background IP records out of RFP 3 or RFP 14 falls between C-002's PASS and FAIL conditions. The risk is low to moderate."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-007",
+          "C-016",
+          "C-023",
+          "C-031"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-007",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-016",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-023",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-031",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The record supports each of these, and each is worded with hedges. The email says the financing information has 'little to no bearing' (C-007) and personnel compensation, benefits, and medical data have 'no apparent relevance' (C-016). The hold memo preserves Helix communications as 'relevant to Greenleaf's counterclaim' (C-023). RFPs 15 and 40 contain the 'agents, representatives, consultants' language, and the email ties it to Ridgepoint and Sterling Ark, with 'may have no legal right' as the criterion's hedge (C-031). None of them requires a categorical conclusion or a section number."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-030"
+        ],
+        "title": "C-030 treats the non-compete end date as a way to narrow 'to the present' requests, but discovery falls inside the covenant",
+        "explanation": "C-030 fails any memo that does not use the §9.1 period (June 30, 2023 to June 30, 2025) to narrow requests that run 'to the present'. On this record that narrowing does almost nothing. Responses are due September 11, 2024, and fact discovery closes February 28, 2025, both inside the covenant window. The only request cut short would be Rule 26(e) supplementation between July and October 2025. Conduct after the period also stays relevant: Exhibit B royalties start July 1, 2025, and the trade-secret claims do not depend on the covenant's term. The strategy email never suggests the non-compete as a scoping tool. A competent memo that leaves it out, or says correctly that the covenant makes post-dissolution documents relevant, is failed on a point that changes no recommended objection. C-046 already rewards citing §9.1.",
+        "evidence": [
+          {
+            "source": "C-030",
+            "quote": "notes that this period may be relevant to narrowing the scope of forward-looking document requests that seek documents 'to the present' or beyond the non-compete period"
+          },
+          {
+            "source": "case-management-order.docx.txt",
+            "quote": "Fact discovery shall close on February 28, 2025."
+          },
+          {
+            "source": "dissolution-agreement-executed.docx.txt",
+            "quote": "royalty obligations shall commence on July 1, 2025"
+          },
+          {
+            "source": "dissolution-agreement-executed.docx.txt",
+            "quote": "from June 30, 2023, through and including June 30, 2025"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete C-030 or fold it into C-046. If it stays, reward identifying the §9.1 period as the window of alleged breach, without requiring it to be used as a narrowing cutoff.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-018",
+          "C-019"
+        ],
+        "title": "RFP 41 must be called a contention interrogatory and objected to as premature, though Rule 33(a)(2) governs interrogatories",
+        "explanation": "Rule 33(a)(2) lets a court defer answers to contention interrogatories. It does not govern Rule 34 requests for existing documents. Many courts allow requests for documents supporting pleaded defenses, and Rule 26(a)(1)(A)(ii) already requires parties to disclose documents they may use. The email is silent on RFP 41. The stronger objections are overbreadth (the 'relate to' and 'contradict' language) and work product in counsel's selection of documents, and the usual fix is to agree to produce the documents Greenleaf relies on. A memo that takes that approach fails C-018, which requires the contention-interrogatory label, and C-019, which requires prematurity. Because contention-style prematurity objections are common in practice and C-019 accepts a general prematurity argument, many memos would still pass, so this is arguable rather than confirmed.",
+        "evidence": [
+          {
+            "source": "C-018",
+            "quote": "effectively a contention interrogatory masquerading as a document request, requiring Greenleaf to marshal its entire case theory prematurely"
+          },
+          {
+            "source": "C-019",
+            "quote": "FAIL if no legal basis related to the prematurity of contention discovery is cited."
+          },
+          {
+            "source": "plaintiffs-first-rfps.docx.txt",
+            "quote": "Produce all Documents that support, contradict, or relate to each of Greenleaf\\'s affirmative defenses and counterclaims"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 33(a)(2)",
+            "proposition": "Contention interrogatories are not objectionable merely for asking for opinions or contentions; the court may order that they need not be answered until designated discovery is complete. The provision addresses interrogatories.",
+            "verified": false
+          },
+          {
+            "citation": "Fed. R. Civ. P. 26(a)(1)(A)(ii)",
+            "proposition": "Initial disclosures must describe or produce documents the party may use to support its claims or defenses",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "C-018: pass if RFP 41 is flagged as improper on any reasonable ground (contention-style, overbreadth, work product in counsel's selection, duplicative of initial disclosures). C-019: accept any supportable legal basis or response strategy, including an offer to produce relied-upon documents with Rule 26(e) supplementation.",
+        "origin": "blind",
+        "sol_locators": [
+          "Confirmed grading defect / required questionable advocacy: item 1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-024",
+          "C-025"
+        ],
+        "title": "The RFPs' silence on ESI form must be flagged as a defect, but Rule 34 makes specifying form optional",
+        "explanation": "It is true that the instructions set no ESI form and only RFP 36 demands native format. But Rule 34(b)(1)(C) says a requester 'may' specify form. If it does not, (b)(2)(D)-(E) let the responding party state its form and produce in a reasonably usable form. The omission is therefore not objectionable, it benefits Greenleaf, and the strategy email does not raise it. A memo that treats form as Greenleaf's choice, or deals with it only through an ESI protocol (rewarded by C-026), fails C-024 for not calling the silence an 'ambiguity'. It then fails C-025, which ties the Rule 34(b) citation to that same issue.",
+        "evidence": [
+          {
+            "source": "C-024",
+            "quote": "identifies that the Requests for Production generally fail to specify the form of production for ESI ... creating ambiguity"
+          },
+          {
+            "source": "plaintiffs-first-rfps.docx.txt",
+            "quote": "Production of Documents in response to these Requests shall include all electronically stored information as defined in Rule 34(a)(1)(A)"
+          },
+          {
+            "source": "task.json instructions",
+            "quote": "prepare an internal memo flagging objectionable requests with recommended responses"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 34(b)(1)(C), (b)(2)(D)-(E)",
+            "proposition": "A request may specify form; if none is specified, the responder states its intended form and produces in a form ordinarily maintained or reasonably usable",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Merge C-024 and C-025 into C-026: pass if the memo addresses form of production or an ESI protocol, with or without a Rule 34(b) citation, without requiring that the omission be called a defect.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable concerns: item 1"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-002"
+        ],
+        "title": "C-002's fixed 2017/2018 start date ignores Greenleaf's need for pre-JV records for its independent-development defense",
+        "explanation": "The email supports a start date around 2017. But JV §11.2(b) requires independent development to be proven 'by contemporaneous written records', Background IP is measured as of January 15, 2019, and the hold memo preserves Background IP material for that defense. A careful memo might narrow RFPs 3, 7, 14, and 22 while carving out pre-2017 Background IP development records, or warn about sword/shield problems. Such a memo proposes narrowing, yet its start date is earlier than 'no earlier than 2017'. That leaves it between C-002's PASS and FAIL conditions.",
+        "evidence": [
+          {
+            "source": "C-002",
+            "quote": "recommends narrowing the temporal scope to a period starting no earlier than 2017 or 2018"
+          },
+          {
+            "source": "litigation-hold-memo.docx.txt",
+            "quote": "All documents related to Greenleaf's background intellectual property in filtration technology, to the extent it may bear on the independent-development defense."
+          },
+          {
+            "source": "kerrigan-discovery-strategy.eml.txt",
+            "quote": "even pre-JV negotiations don't go back before 2017 at the earliest"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass any narrowing proposal that removes most of the 2009–2017 period, including one with a Background IP carve-out. Fail only if no temporal narrowing is proposed.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable concerns: item 2"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-032",
+          "C-044"
+        ],
+        "title": "C-032 requires RFP numbers for 'each issue', while C-044 requires cross-cutting issues that have none",
+        "explanation": "C-044 requires a separate treatment of issues that affect the whole production, such as the ESI protocol, the FRE 502(d) order, and general meet-and-confer topics. Those issues have no specific RFP numbers. C-032 passes only if 'for each issue discussed' the affected RFP numbers are identified. A literal judge could fail C-032 because of the very section C-044 demands.",
+        "evidence": [
+          {
+            "source": "C-032",
+            "quote": "PASS if, for each issue discussed in the memorandum, the specific RFP number(s) affected are identified."
+          },
+          {
+            "source": "C-044",
+            "quote": "as distinct from issues with individual RFPs"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Limit C-032 to RFP-specific issues and exempt the cross-cutting issues rewarded by C-044.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-047"
+        ],
+        "title": "The July–September 2023 wind-down must be mentioned even though no objectionable request turns on it",
+        "explanation": "The wind-down is the endpoint of RFPs 10, 17, and 23. Those requests are reasonably scoped and are not among the objectionable requests the memo is asked to catalogue. The email mentions the wind-down only as one category of privileged communications. A complete objections memo can analyze temporal overbreadth and every other issue without mentioning it, and still fail this gating criterion.",
+        "evidence": [
+          {
+            "source": "C-047",
+            "quote": "FAIL if the wind-down period is not mentioned."
+          },
+          {
+            "source": "kerrigan-discovery-strategy.eml.txt",
+            "quote": "the wind-down period (July 1 through September 30, 2023)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop C-047, or make it a non-gating quality consideration.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O6"
+        ]
+      }
+    ],
+    "changes_from_blind": "No findings were added or dropped. I checked Sol's 'confirmed' label on C-018/C-019 and kept them arguable. RFP 41's wording makes the contention-style label natural, and C-019's 'otherwise articulates' clause accepts the common prematurity objection, so the criteria misgrade only some competent memos. I rejected Sol's arguable cluster on C-007, C-016, C-023, and C-031. The strategy email and hold memo support each of them, and each is worded with hedges ('much of', 'any category', 'may be relevant', 'may have no legal right'). I also rechecked C-030 against the trial and supplementation dates. Rule 26(e) supplementation running from July to October 2025 is the only request the non-compete end date could narrow, and post-period royalties and the trade-secret claims keep that material relevant. So I kept C-030 as problematic. I could not verify any authority in this session because WebFetch hit its spend limit, so every authority stays verified=false.",
+    "overall": "The rubric is mostly sound and closely tied to the record. The strategy email supplies the structure (RFP numbers, nature of the problem, citations, recommendations, high/medium/low priority) and most of the substance: RFP 31, 19, 33, 15/40, 36, and 9, the 2009 start dates, the 11 product lines, and the 950K-document volume. The protective order's express disclaimer of privilege coverage supports the 502(d) criteria. The one clearly defective criterion is C-030. It requires using the non-compete end date to narrow 'to the present' requests, but fact discovery falls entirely inside the covenant window and royalties begin after it. Smaller risks come from C-018/C-019, which lock in a contention/prematurity theory for RFP 41; C-024/C-025, which treat an optional form-of-production omission as a defect; C-002's fixed start date, which ignores the independent-development defense; the literal clash between C-032 and C-044; and the peripheral wind-down requirement in C-047. Under all-pass scoring, any one of these could zero out an otherwise excellent memo.",
+    "coverage": "Reread all 47 criteria and the instructions. Reread the strategy email in full and the RFP instructions and definitions, and grepped the record for RFPs 15, 19, 28, 36, 40, and 41. Checked the facts behind each Sol and blind finding: Helix and the counterclaim in the hold memo, form of production, ESI and 502 provisions in the CMO and protective order, non-compete and royalty dates, and trial and fact-discovery dates. The first pass had read the RFPs, email, CMO, hold memo, and protective order in full, with targeted reading of the JV and Dissolution Agreements. WebFetch of the FRCP text failed on a spend limit, so no authority is verified. The Sterling Ark credit agreement and the Ridgepoint engagement letter are not in the record."
+  }
+}

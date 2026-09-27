@@ -1,0 +1,879 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "research-corporate-veil-piercing-standards-across-target-jurisdictions",
+  "title": "Research Corporate Veil Piercing Standards Across Target Jurisdictions — In-House Legal Memorandum",
+  "criteria_total": 65,
+  "criterion_lines": {
+    "C-001": 20,
+    "C-002": 28,
+    "C-003": 36,
+    "C-004": 44,
+    "C-005": 52,
+    "C-006": 60,
+    "C-007": 68,
+    "C-008": 76,
+    "C-009": 84,
+    "C-010": 92,
+    "C-011": 100,
+    "C-012": 108,
+    "C-013": 116,
+    "C-014": 124,
+    "C-015": 132,
+    "C-016": 140,
+    "C-017": 148,
+    "C-018": 156,
+    "C-019": 164,
+    "C-020": 172,
+    "C-021": 180,
+    "C-022": 188,
+    "C-023": 196,
+    "C-024": 204,
+    "C-025": 212,
+    "C-026": 220,
+    "C-027": 228,
+    "C-028": 236,
+    "C-029": 244,
+    "C-030": 252,
+    "C-031": 260,
+    "C-032": 268,
+    "C-033": 276,
+    "C-034": 284,
+    "C-035": 292,
+    "C-036": 300,
+    "C-037": 308,
+    "C-038": 316,
+    "C-039": 324,
+    "C-040": 332,
+    "C-041": 340,
+    "C-042": 348,
+    "C-043": 356,
+    "C-044": 364,
+    "C-045": 372,
+    "C-046": 380,
+    "C-047": 388,
+    "C-048": 396,
+    "C-049": 404,
+    "C-050": 412,
+    "C-051": 420,
+    "C-052": 428,
+    "C-053": 436,
+    "C-054": 444,
+    "C-055": 452,
+    "C-056": 460,
+    "C-057": 468,
+    "C-058": 476,
+    "C-059": 484,
+    "C-060": 492,
+    "C-061": 500,
+    "C-062": 508,
+    "C-063": 516,
+    "C-064": 524,
+    "C-065": 532
+  },
+  "blind": {
+    "task": "research-corporate-veil-piercing-standards-across-target-jurisdictions",
+    "criteria_reviewed": 65,
+    "coverage": "I read all 65 criteria and the instructions. Six documents were read in full: the corporate structure summary, the Birchfield & Novak preliminary assessment, the IEPA complaint, the insurance summary, the Orvis email chain, and the financial spreadsheet (every sheet). I searched the plaintiffs' petition and the cash management agreement for the facts the criteria rely on (single business enterprise pleading, overruling, damages, fee and sweep clauses, governing law) but did not read them end to end. Primary law I read this session: Tex. Bus. Orgs. Code §§ 1.102, 1.104, 1.105 (official Texas site); Ohio R.C. §§ 1706.26 and 1706.29 (codes.ohio.gov); and the syllabus and ¶¶1-2 of Dombroski v. WellPoint, 2008-Ohio-4827 (text extracted from the Ohio Supreme Court PDF). I did not read primary text for these, and mark them unverified: former R.C. 1705.48 (search summary only), the SSP Partners opinion (decision date from search results only), any Delaware veil-piercing opinion (the Delaware standard is described as the record states it), Bestfoods, and the Illinois law on who assesses penalties. I did not open any other Harvey LAB audit.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-036"
+        ],
+        "title": "C-036 requires advising Cascade to argue for Delaware law, but Texas law points to Ohio law for piercing Pryor's veil",
+        "explanation": "The veil at issue belongs to Pryor, an Ohio LLC. Under TBOC § 1.104, a member's liability for the entity's obligations is governed by the law of the jurisdiction that governs the entity. Under § 1.102, that is the state where the entity filed its formation papers, which here is Ohio. Delaware, Cascade's state of incorporation, has no real claim to govern whether Pryor's veil is pierced. The criterion takes the Birchfield letter's theory at face value: that piercing is an internal affair of Cascade, so Delaware law might apply. A competent memo that corrects outside counsel would conclude that Ohio law governs and that Cascade should argue for Ohio over Texas. That memo fails C-036, because the PASS condition requires advising that Delaware law is the one to advocate. A memo that simply defers to the flawed record passes. So the criterion rewards the wrong legal answer.",
+        "evidence": [
+          {
+            "source": "task.json C-036",
+            "quote": "PASS if the memorandum advises that Delaware law is the most favorable to Cascade for veil piercing purposes ... FAIL if the memo does not identify which jurisdiction's law Cascade should advocate for"
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "For Cascade, a Delaware corporation, the doctrine could point to Delaware law --- particularly where the veil piercing claim targets Cascade's corporate separateness"
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "arguing for application of Delaware or, alternatively, Ohio law to the veil piercing claims"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Tex. Bus. Orgs. Code § 1.104",
+            "proposition": "The law of the jurisdiction that governs an entity applies to the liability of an owner or member, in that capacity, for the entity's obligations.",
+            "verified": true
+          },
+          {
+            "citation": "Tex. Bus. Orgs. Code § 1.102",
+            "proposition": "For an entity formed by filing with a foreign governmental authority, that jurisdiction's law governs its formation and internal affairs.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo identifies which law Cascade should argue for, with reasoning. Accept a memo that says Ohio law (Pryor's state of formation) likely governs under TBOC §§ 1.102/1.104 and that Delaware law is unlikely to apply even though its standard is favorable. Do not require Delaware as the advocated law."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-003"
+        ],
+        "title": "C-003 treats $4.2M of retained earnings as 'equity', but the balance sheet shows total member's equity of $21.7M (D/E 1.90x)",
+        "explanation": "C-003 requires a D/E ratio of about 9.81:1, described as '$41.2M debt / $4.2M equity', and fails any answer that is off by more than 0.5. The spreadsheet shows that 9.81x is intercompany debt divided by retained earnings only. The same balance sheet reports total member's equity of $21.7M and a debt-to-equity ratio of 1.90x on that basis. Even counting only contributed capital plus retained earnings ($7.7M) gives about 5.35x. A competent analyst who reports D/E on total equity (1.90x), and correctly calls 9.81x a retained-earnings metric, fails this criterion. The criterion also rewards an inaccurate label ('$4.2M equity'). The narrative documents repeat the 9.81 figure, but the underlying financial statements contradict how they characterize it.",
+        "evidence": [
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "A37=\"Total Member's Equity\" | ... F37='21,700'"
+          },
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "A43=\"Debt-to-Equity (IC Debt / Total Member's Equity)\" | ... F43='1.90x' | G43='FY2024: $41,200 / $21,700 = 1.90x'"
+          },
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "A42='Debt-to-Equity (IC Debt / Retained Earnings)' | ... F42='9.81x'"
+          },
+          {
+            "source": "task.json C-003",
+            "quote": "FAIL if the ratio is missing or materially incorrect (e.g., wrong by more than 0.5)."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo reports the 9.81:1 debt-to-retained-earnings ratio or the 1.90:1 debt-to-total-member's-equity ratio (or both), as long as the ratio is correctly described. Remove the '$4.2M equity' description."
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-023",
+          "C-052"
+        ],
+        "title": "C-023 states Ohio's second element as a 'wrongful or unjust act', which the Ohio Supreme Court rejected in Dombroski",
+        "explanation": "Belvedere's second prong was fraud or an illegal act. In Dombroski (2008), the Ohio Supreme Court changed it to 'fraud, an illegal act, or a similarly unlawful act' and expressly declined to extend it to unjust or inequitable acts. C-023 describes the element as a 'wrongful or unjust act' and cites only Belvedere. The Birchfield letter in the record makes the same error. So a memo that repeats the record's 'unjust act' formulation passes, even though that states Ohio law incorrectly. A correct memo will probably also pass under the 'substantially equivalent' language, but a judge who takes the criterion's formulation as the benchmark could treat 'fraud/illegal act' as a different element. This error also shapes how strict Ohio looks next to Delaware (see O5).",
+        "evidence": [
+          {
+            "source": "task.json C-023",
+            "quote": "(1) control/domination, (2) wrongful or unjust act, and (3) proximate causation of injury"
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "(2) that the control was used to commit a wrongful or unjust act"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Dombroski v. WellPoint, Inc., 119 Ohio St.3d 506, 2008-Ohio-4827, syllabus and ¶2",
+            "proposition": "The second Belvedere prong requires control exercised to commit fraud, an illegal act, or a similarly unlawful act. The Court answered 'in the negative' the question whether unjust or inequitable acts that fall short of fraud or illegality suffice.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Restate element (2) as 'control exercised to commit fraud, an illegal act, or a similarly unlawful act (Belvedere as modified by Dombroski)'. Treat 'unjust or inequitable act' as a misstatement."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-033"
+        ],
+        "title": "C-033 says recharacterizing the debt as equity would 'worsen' undercapitalization; the record says it would raise equity",
+        "explanation": "Both the GC summary and the spreadsheet's risk note say that treating the $41.2M as equity would raise Pryor's equity to about $45.4M and remove the leverage ratio. The harm to Cascade is that the recharacterization would itself show disregard for Pryor's separate existence. It is treating the amount as debt that produces the 9.81:1 undercapitalization figure. A memo that follows the record precisely (recharacterization improves the ratio arithmetically but is evidence of alter-ego status) does not 'note this would worsen the undercapitalization analysis'. The FAIL clause is lenient, since it fails only if recharacterization is not discussed at all, so whether such a memo fails depends on the judge.",
+        "evidence": [
+          {
+            "source": "cascade-corporate-structure-summary.docx.txt",
+            "quote": "Pryor's equity base would increase to approximately $45.4 million ... However, the recharacterization itself would constitute evidence of disregard for entity separateness"
+          },
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "If recharacterized, the $41.2M would be treated as capital, altering the capitalization analysis but also evidencing disregard for entity formalities. Conversely, treating it as debt creates the extreme 9.81:1 leverage ratio"
+          },
+          {
+            "source": "task.json C-033",
+            "quote": "notes this would worsen the undercapitalization analysis"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo flags recharacterization risk and explains why it hurts Cascade: it is evidence of disregard for separateness, or it shows the funding was de facto equity used to keep stated capital thin. Drop the 'worsen undercapitalization' requirement."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-025",
+          "C-026",
+          "C-049"
+        ],
+        "title": "Three criteria fix Delaware as strictly 'more demanding' than every other state; after Dombroski, Ohio is arguably as strict",
+        "explanation": "C-025 requires calling Delaware more demanding than all three other states. C-026 fails a memo that suggests another jurisdiction is more favorable to Cascade. C-049 fails a memo that rates Delaware equal to any other state. As the record describes it, Delaware requires fraud or an 'overall element of injustice or unfairness'. Ohio, after Dombroski, requires fraud, an illegal act, or a similarly unlawful act and expressly excludes merely unjust acts, so on its face Ohio's test is no looser. A competent memo could rate Delaware and Ohio as comparably strict. Given O1, it could also treat Delaware as unlikely to apply at all, and so decline to call it Cascade's 'strongest defensive jurisdiction' or to give it a separate lowest rating. Delaware's reputation for strictness makes the rubric's view defensible, but a hard FAIL on ties or alternative framings could misgrade sound work.",
+        "evidence": [
+          {
+            "source": "task.json C-026",
+            "quote": "FAIL if the memo does not identify Delaware as the strongest defense or suggests another jurisdiction is more favorable to Cascade for veil piercing defense."
+          },
+          {
+            "source": "task.json C-049",
+            "quote": "FAIL if Delaware is rated equal to or higher risk than Ohio, Texas, or Illinois."
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "generally requiring a showing of fraud or something akin to fraud, coupled with an overall element of injustice or unfairness"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Dombroski v. WellPoint, Inc., 2008-Ohio-4827, syllabus",
+            "proposition": "Ohio requires fraud, an illegal act, or a similarly unlawful act; unjust or inequitable acts are not enough.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo rates Delaware among the least risky standards, ties included (for example, Delaware and Ohio both comparatively strict). Accept a memo that notes Delaware's standard is favorable but unlikely to govern."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-019",
+          "C-021"
+        ],
+        "title": "Citation errors: Ohio's formalities rule is R.C. 1706.26, not 1706.29; SSP Partners was decided in 2008, not 2007",
+        "explanation": "C-019 points to 'O.R.C. § 1706.29 under the revised act'. Section 1706.29 governs distributions. The formalities provision is § 1706.26, which says a failure to observe formalities 'is not a factor to consider in, or a ground for, imposing liability on the members'. That is a current and stronger rule, not something that 'historically did not require' formalities. C-021 dates SSP Partners v. Gladstrong to 2007, but the reported citation is 275 S.W.3d 444 (Tex. 2008), as the Birchfield letter correctly gives it. Neither error is likely to fail a correct memo, since both criteria key on substance. But a judge might treat a correct § 1706.26 citation as a mismatch, and the criteria themselves contain wrong law citations.",
+        "evidence": [
+          {
+            "source": "task.json C-019",
+            "quote": "O.R.C. § 1705.48 or § 1706.29 under the revised act) historically did not require LLCs to observe the same formal corporate formalities"
+          },
+          {
+            "source": "task.json C-021",
+            "quote": "citing SSP Partners v. Gladstrong Investments (2007)"
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "SSP Partners v. Gladstrong Investments (USA) Corp., 275 S.W.3d 444 (Tex. 2008)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ohio R.C. 1706.26",
+            "proposition": "A failure to observe LLC formalities is not a factor in, or a ground for, imposing liability on members.",
+            "verified": true
+          },
+          {
+            "citation": "Ohio R.C. 1706.29",
+            "proposition": "This section governs LLC distributions, not member liability or formalities.",
+            "verified": true
+          },
+          {
+            "citation": "Former Ohio R.C. 1705.48",
+            "proposition": "The former section contained a similar formalities clause; repealed effective 2022.",
+            "verified": false
+          },
+          {
+            "citation": "SSP Partners v. Gladstrong Invs. (USA) Corp., 275 S.W.3d 444 (Tex. 2008)",
+            "proposition": "Rejected single business enterprise as a basis for imposing one entity's liability on another; decided November 2008.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Cite R.C. 1706.26 (and former 1705.48) and describe it as a current statutory rule that formalities failures are not a ground for member liability. Correct the SSP Partners year to 2008."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-059",
+          "C-009",
+          "C-003"
+        ],
+        "title": "Pryor's financial statements don't reconcile: the distribution is deducted before net income and again after it",
+        "explanation": "The P&L deducts the $12.6M 'Management Fee Distribution' as an operating expense, and the note says so, so the $16.8M net income is already net of that distribution. Four documents nonetheless compute '$16.8M − $12.6M = $4.2M retained', which deducts the distribution twice. The balance sheet shows FY2024 'Current Year Net Income — Undistributed' of 14,000 against a note that says 4.2M was retained. Retained earnings fall 17,700 → 4,200 in a year in which retention was supposedly positive. A competent analyst who restates net income before member distributions (about $29.4M, since distributions are not GAAP expenses) or questions the $4.2M figure risks failing C-059 as 'materially incorrect', and the same confusion feeds the flawed equity figure in C-003.",
+        "evidence": [
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "management fee distribution ($12.6M) and corporate services fee ($5.3M) are included as operating expenses above and reduce net income"
+          },
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "A36='Current Year Net Income — Undistributed' | ... F36='14,000' | G36='... FY2024 net income of $16.8M less $12.6M management fee distribution = $4.2M net retention'"
+          },
+          {
+            "source": "task.json C-059",
+            "quote": "FAIL if this figure is materially incorrect or omitted when discussing financial extraction."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Fix the spreadsheet so that the distribution sits below net income and retained earnings roll forward. Otherwise, PASS C-059 for a memo that reports $16.8M as the reported figure even while noting the accounting problem, and do not penalize a correct restatement."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-008"
+        ],
+        "title": "C-008 fixes 'total net extraction' at $31.6M, but the record also supports $34.3M (with interest) or $27.9M net",
+        "explanation": "The key point of C-008 is avoiding the $49.5M double count, and that is well supported. But its PASS language says total net extraction 'is $31.6M'. The Intercompany tab reports total cash transferred of $34.278M (sweeps plus interest) and net cash flow of $27.878M after loan advances. The cash management agreement also conflicts with itself: § 5.1 says the distribution is 'In addition to the Cash Sweeps', while § 5.2 says it is 'included within, and not in addition to' them. A memo that correctly nets out the fees but reports $34.3M or $27.9M as total extraction might be failed by a literal judge.",
+        "evidence": [
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "A11='TOTAL CASH TRANSFERRED FROM PRYOR TO CASCADE' | ... F11='34,278'"
+          },
+          {
+            "source": "intercompany-cash-management-agreement.docx.txt",
+            "quote": "In addition to the Cash Sweeps described in Article II and the Corporate Services Fee described in Article IV, Pryor shall make an annual distribution"
+          },
+          {
+            "source": "intercompany-cash-management-agreement.docx.txt",
+            "quote": "the Management Fee Distribution is included within, and not in addition to, the Cash Sweep amounts"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo recognizes that the $5.3M and $12.6M sit inside the $31.6M sweep and does not present $49.5M. Accept any correctly derived total (for example, $34.3M including interest)."
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-037",
+          "C-055",
+          "C-058"
+        ],
+        "title": "The IEPA record has jurisdiction and timing flaws: an Illinois agency pleads storage violations at an Ohio plant, citing year-end figures",
+        "explanation": "The IEPA complaint is dated October 3, 2024 but pleads figures 'as of December 31, 2024'. It asserts Illinois authority over hazardous-waste storage at a facility in Canton, Ohio, resting only on manifests received in Peoria. The GC summary, insurance memo, and Birchfield letter say the IEPA 'may seek' alter-ego liability, but the complaint already pleads a direct operator claim (Count III) and an alter-ego claim (Count IV). None of this directly misgrades the listed criteria. But a correct IEPA section should challenge Illinois's jurisdiction over the Ohio storage counts, and nothing in the rubric credits that. The record also muddles which facts a memo should treat as operative.",
+        "evidence": [
+          {
+            "source": "iepa-enforcement-complaint.docx.txt",
+            "quote": "Filed: October 3, 2024"
+          },
+          {
+            "source": "iepa-enforcement-complaint.docx.txt",
+            "quote": "As of December 31, 2024, Pryor's debt-to-equity ratio stands at 9.81:1"
+          },
+          {
+            "source": "iepa-enforcement-complaint.docx.txt",
+            "quote": "at its manufacturing facility located in Canton, Ohio (the \"Canton Facility\")"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change the dates and facility location so they are consistent, or add a criterion crediting identification of the Illinois jurisdiction defense over the Ohio storage violations."
+      }
+    ],
+    "overall": "Most of the 65 criteria are sound. They are fact checks and issue-spotting items tied closely to the record, and the record supports them. The main defects come from the rubric adopting the supplied outside-counsel letter's legal errors. The most serious is C-036. It requires advising Cascade to argue for Delaware law, but TBOC §§ 1.102/1.104 point to Ohio law, as Pryor's state of formation, for piercing Pryor's veil. So a memo that correctly overrides outside counsel fails. C-023 repeats the letter's 'unjust act' statement of Ohio's test, which Dombroski rejected. C-003 builds in a mislabeled equity figure that the balance sheet itself contradicts. Several other criteria are debatable: the Delaware-is-strictest cluster (C-025/C-026/C-049), C-033's recharacterization logic, a wrong statute section and case year, and internally inconsistent financials. Under the all-pass metric, C-036 and C-003 alone could zero out a legally correct, careful memo."
+  },
+  "final": {
+    "task": "research-corporate-veil-piercing-standards-across-target-jurisdictions",
+    "sol_verdicts": [
+      {
+        "sol_locator": "F01",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-003"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-003",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "The workbook reports total member's equity of 21,700 (F37) and a D/E of 1.90x (F43). The 9.81x figure is IC debt divided by retained earnings of 4,200 (F42). C-003 calls $4.2M 'equity' and fails any ratio off by more than 0.5. So a memo that reports the balance-sheet D/E of 1.90:1 fails, and the criterion rests on a misstated fact."
+      },
+      {
+        "sol_locator": "F02",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-033"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-033",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The GC summary says recharacterization would raise equity to about $45.4M, and C-045 credits converting the debt to equity as a remedy. That conflicts with 'worsen undercapitalization.' But petition ¶28 frames recharacterization as 'further evidencing ... artificial undercapitalization,' and the FAIL clause triggers only if recharacterization is not discussed. I rate it arguable, not confirmed."
+      },
+      {
+        "sol_locator": "F03",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-023"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-023",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "I read Dombroski (2008-Ohio-4827) this session. At ¶2 and the syllabus, the second prong is limited to 'fraud, an illegal act, or a similarly unlawful act,' and the Court answers the unjust/inequitable question 'in the negative.' C-023 states the element as a 'wrongful or unjust act,' which is superseded law, and it rewards memos that repeat Birchfield's error."
+      },
+      {
+        "sol_locator": "F04",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-020",
+          "C-021"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-020",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-021",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I verified SSP Partners (Tex., delivered Nov. 14, 2008): 'we hold that the single business enterprise liability theory ... will not support the imposition of one corporation's obligations on another.' C-021 misdates the case (it was argued in 2007) and credits mere 'skepticism,' but a correct memo that says 'rejected' still satisfies 'limitation.' C-020 requires only discussing SBE, which the petition pleads. A memo that discusses SBE and calls it rejected passes."
+      },
+      {
+        "sol_locator": "F05",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-019"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-019",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I confirmed that R.C. 1706.29 governs distributions and 1706.26 holds the formalities rule, which is current law. The citation in C-019 is wrong and its 'historically' framing is off. But the operative requirement (discuss the Ohio LLC formalities defense) is correct and the citation sits in a parenthetical, so a correct memo will very likely pass. Arguable, not confirmed."
+      },
+      {
+        "sol_locator": "F06",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-025",
+          "C-026",
+          "C-036",
+          "C-049",
+          "C-050"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-025",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-026",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-036",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-049",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-050",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "C-036 affirmatively rewards advising Cascade to argue for Delaware law. Under TBOC §§ 1.102/1.104 (verified), Ohio law, as Pryor's state of formation, governs member liability, so C-036 is problematic. The Delaware-strictest rankings are debatable after Dombroski, so C-025, C-026 and C-049 are arguable. C-050 (Ohio or Texas rated high) fits the record's control, sweep and override facts."
+      },
+      {
+        "sol_locator": "F07",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-037",
+          "C-038",
+          "C-041",
+          "C-054"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-037",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-038",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-041",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-054",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "IEPA Count III expressly pleads direct operator liability, citing Bestfoods. C-038 accepts discussion of the parent-operator principle and does not require a RCRA holding. C-054 is a generic Illinois-analysis item that Count IV supports. The complaint's weak Illinois nexus to the Ohio storage is a record flaw, but none of these criteria depends on it, and a memo can challenge jurisdiction and still pass."
+      },
+      {
+        "sol_locator": "F08",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-008"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-008",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The core rule (the fees sit inside the $31.6M sweep, so $49.5M double counts) is sound. But C-008 calls $31.6M the 'total net extraction,' while the Intercompany tab shows 34,278 transferred including interest and a lower net flow after loan advances. Cash Management Agreement §5.1 and §5.2 also conflict with each other. A literal judge could fail a correct alternative total."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-036"
+        ],
+        "title": "C-036 requires advocating Delaware law, but TBOC §§ 1.102/1.104 send the question of piercing Pryor's veil to Ohio law",
+        "explanation": "The veil at issue is Pryor's, and Pryor is an Ohio LLC. Under TBOC § 1.104, a member's liability for the entity's obligations is governed by the law that governs the entity. Under § 1.102, that is the law of the jurisdiction where the entity was formed, which here is Ohio. Delaware, where Cascade is incorporated, has no real claim to govern. C-036 takes over Birchfield's theory that the claim 'targets Cascade's corporate separateness,' and its PASS requires advising that Delaware law is the one Cascade should favor. A memo that correctly concludes Ohio law governs, and tells Cascade to push Ohio over Texas, may fail unless it also calls Delaware the preferred law. A memo that repeats outside counsel's weak Delaware theory passes. So the criterion rewards the wrong choice-of-law advice.",
+        "evidence": [
+          {
+            "source": "task.json C-036",
+            "quote": "PASS if the memorandum advises that Delaware law is the most favorable to Cascade for veil piercing purposes"
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "For Cascade, a Delaware corporation, the doctrine could point to Delaware law --- particularly where the veil piercing claim targets Cascade's corporate separateness"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Tex. Bus. Orgs. Code § 1.104",
+            "proposition": "The law of the jurisdiction that governs an entity applies to an owner's or member's liability, in that capacity, for the entity's obligations.",
+            "verified": true
+          },
+          {
+            "citation": "Tex. Bus. Orgs. Code § 1.102",
+            "proposition": "For an entity formed by filing with a foreign governmental authority, that jurisdiction's law governs its formation and internal affairs.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo reasons to a law Cascade should advocate. Accept Ohio (Pryor's state of formation under TBOC §§ 1.102/1.104). Do not require Delaware; noting that Delaware's standard is favorable but unlikely to apply is fine.",
+        "origin": "blind",
+        "sol_locators": [
+          "F06"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-003"
+        ],
+        "title": "C-003 labels $4.2M of retained earnings as 'equity'; the balance sheet shows $21.7M total member's equity (D/E 1.90x)",
+        "explanation": "C-003 requires a ratio of about 9.81:1, described as '$41.2M debt / $4.2M equity,' and fails any answer off by more than 0.5. The workbook shows that 9.81x is IC debt divided by retained earnings. It separately reports total member's equity of $21.7M and a D/E of 1.90x. A careful analyst who reports the true D/E (1.90:1) and treats 9.81 as a debt-to-retained-earnings metric risks failing. The criterion also states a wrong fact, since $4.2M is not Pryor's equity. Many memos will repeat the 9.81 figure that the narrative documents use and pass, but the criterion is built on the mislabel.",
+        "evidence": [
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "A43=\"Debt-to-Equity (IC Debt / Total Member's Equity)\" | ... F43='1.90x'"
+          },
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "A37=\"Total Member's Equity\" | ... F37='21,700'"
+          },
+          {
+            "source": "task.json C-003",
+            "quote": "(or $41.2M debt / $4.2M equity). FAIL if the ratio is missing or materially incorrect (e.g., wrong by more than 0.5)."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS for 9.81:1 described as IC debt to retained earnings, or 1.90:1 as IC debt to total member's equity. Remove the '$4.2M equity' label.",
+        "origin": "blind",
+        "sol_locators": [
+          "F01"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-023"
+        ],
+        "title": "C-023 states Ohio's second prong as a 'wrongful or unjust act,' which Dombroski rejected in 2008",
+        "explanation": "Dombroski modified Belvedere. Piercing now requires control exercised 'to commit fraud, an illegal act, or a similarly unlawful act,' and the Court expressly answered 'in the negative' the question whether unjust or inequitable acts suffice. Dombroski was a tort case, so it applies directly to the Delgado product-liability claims. C-023 uses the superseded 'wrongful or unjust act' wording and cites only Belvedere, adopting Birchfield's error. The result is that it rewards a memo that misstates Ohio law. A correct memo can pass only if the judge treats the narrower Dombroski prong as 'substantially equivalent,' and the criterion's own FAIL clause ('misstates the elements') could be turned against a memo that departs from the criterion's formulation.",
+        "evidence": [
+          {
+            "source": "task.json C-023",
+            "quote": "(1) control/domination, (2) wrongful or unjust act, and (3) proximate causation of injury"
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "(2) that the control was used to commit a wrongful or unjust act"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Dombroski v. WellPoint, Inc., 119 Ohio St.3d 506, 2008-Ohio-4827, syllabus and ¶2",
+            "proposition": "The second Belvedere prong requires control exercised to commit fraud, an illegal act, or a similarly unlawful act; unjust or inequitable acts do not suffice.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "State element (2) as 'fraud, an illegal act, or a similarly unlawful act (Belvedere as modified by Dombroski)'. Treat 'unjust act' wording as a misstatement.",
+        "origin": "blind",
+        "sol_locators": [
+          "F03"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-033"
+        ],
+        "title": "C-033 says recharacterizing the debt as equity 'worsens' undercapitalization; the record and C-045 treat conversion as raising equity",
+        "explanation": "The GC summary and the workbook risk note say that recharacterizing the debt raises Pryor's equity to about $45.4M. The harm is that recharacterization is evidence of disregard for separateness. C-045 credits converting the intercompany debt to equity as a way to restore capitalization, which is also Birchfield's recommendation. A precise memo that says recharacterization improves the ratio but is adverse alter-ego evidence does not literally 'note this would worsen the undercapitalization analysis.' Two things make this arguable rather than problematic: petition ¶28 frames recharacterization as 'further evidencing ... artificial undercapitalization,' and the FAIL clause triggers only if recharacterization is not discussed.",
+        "evidence": [
+          {
+            "source": "cascade-corporate-structure-summary.docx.txt",
+            "quote": "Pryor's equity base would increase to approximately $45.4 million ... However, the recharacterization itself would constitute evidence of disregard for entity separateness"
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "converting some or all of the $41.2 million intercompany debt to equity, which would simultaneously reduce the undercapitalization concern"
+          },
+          {
+            "source": "task.json C-033",
+            "quote": "notes this would worsen the undercapitalization analysis"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo flags recharacterization risk and explains why it hurts Cascade: it is evidence of disregard for separateness, or it shows funding was disguised equity used to keep stated capital thin. Drop the 'worsen' requirement.",
+        "origin": "revised",
+        "sol_locators": [
+          "F02"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-025",
+          "C-026",
+          "C-049"
+        ],
+        "title": "C-025, C-026 and C-049 require Delaware to be strictly the most demanding and lowest-risk state; after Dombroski, Ohio is at least as strict",
+        "explanation": "C-025 requires Delaware's standard to be called more demanding than all three other states. C-026 fails a memo that suggests any other state is more favorable. C-049 fails a memo that rates Delaware equal to any other state. As the record describes it, Delaware requires fraud 'or an overall element of injustice or unfairness.' Ohio after Dombroski requires fraud, an illegal act, or a similarly unlawful act and excludes merely unjust acts, and R.C. 1706.26 bars formalities failures as a ground for member liability. A competent memo could rate Delaware and Ohio as comparably strict, or rank Ohio as more protective for an LLC. And because Delaware likely does not govern (O1), a memo might decline to single it out. Delaware's general reputation makes the rubric's view defensible, which is why this is arguable.",
+        "evidence": [
+          {
+            "source": "task.json C-049",
+            "quote": "FAIL if Delaware is rated equal to or higher risk than Ohio, Texas, or Illinois."
+          },
+          {
+            "source": "task.json C-026",
+            "quote": "suggests another jurisdiction is more favorable to Cascade for veil piercing defense"
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "generally requiring a showing of fraud or something akin to fraud, coupled with an overall element of injustice or unfairness"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Dombroski v. WellPoint, Inc., 2008-Ohio-4827, syllabus",
+            "proposition": "Ohio requires fraud, an illegal act, or a similarly unlawful act; unjust or inequitable acts are not enough.",
+            "verified": true
+          },
+          {
+            "citation": "Ohio R.C. 1706.26",
+            "proposition": "A failure to observe LLC formalities is not a factor in, or ground for, imposing liability on members.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo places Delaware among the least risky standards, ties included. Accept a memo that notes Delaware is favorable but unlikely to govern.",
+        "origin": "blind",
+        "sol_locators": [
+          "F06"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-019"
+        ],
+        "title": "C-019 cites R.C. 1706.29 (distributions) for the LLC formalities rule; the correct section is 1706.26, which is current law",
+        "explanation": "C-019 points to 'O.R.C. § 1705.48 or § 1706.29 under the revised act' and says the statute 'historically did not require' formalities. Section 1706.29 governs distributions. The formalities rule is § 1706.26, which currently provides that a failure to observe formalities 'is not a factor to consider in, or a ground for, imposing liability on the members.' The substantive requirement is correct and the citation is a parenthetical example, so a correct memo will very likely pass. But the criterion states a wrong citation and understates the rule as historical.",
+        "evidence": [
+          {
+            "source": "task.json C-019",
+            "quote": "O.R.C. § 1705.48 or § 1706.29 under the revised act) historically did not require LLCs to observe the same formal corporate formalities"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ohio R.C. 1706.26",
+            "proposition": "A failure to observe formalities is not a factor in, or ground for, imposing liability on members.",
+            "verified": true
+          },
+          {
+            "citation": "Ohio R.C. 1706.29",
+            "proposition": "Governs LLC distributions ('All members shall share equally in any distributions ...').",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Cite R.C. 1706.26 (and former 1705.48) and describe it as a current statutory bar.",
+        "origin": "revised",
+        "sol_locators": [
+          "F05"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-021"
+        ],
+        "title": "C-021 credits mere 'skepticism' of SBE and misdates SSP Partners; the Texas Supreme Court held SBE cannot impose liability (2008)",
+        "explanation": "SSP Partners, delivered November 14, 2008 (argued in 2007), held that 'the single business enterprise liability theory ... will not support the imposition of one corporation's obligations on another.' The Birchfield letter wrongly says the Court 'declined to definitively abolish' the theory. C-021 credits memos that describe only 'skepticism' or 'doubt,' so it rewards the record's understatement, and it gives the year as 2007. A correct memo that says SBE was rejected still satisfies 'limitation' and does not treat SBE as settled, so it would pass. The defect is rewarding incomplete law, not failing correct work.",
+        "evidence": [
+          {
+            "source": "task.json C-021",
+            "quote": "either by citing SSP Partners v. Gladstrong Investments (2007) or by accurately describing that the Texas Supreme Court has cast doubt on SBE"
+          },
+          {
+            "source": "birchfield-novak-preliminary-assessment.docx.txt",
+            "quote": "the Court declined to definitively abolish the SBE theory but expressed pronounced skepticism"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "SSP Partners v. Gladstrong Invs. (USA) Corp., 275 S.W.3d 444 (Tex. 2008)",
+            "proposition": "The single business enterprise liability theory will not support imposing one corporation's obligations on another; decided Nov. 14, 2008.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo states that SSP Partners (2008) rejected SBE as a basis for imposing liability, with any remaining lower-court treatment noted. Correct the year.",
+        "origin": "revised",
+        "sol_locators": [
+          "F04"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-008"
+        ],
+        "title": "C-008 fixes 'total net extraction' at $31.6M; the record also supports $34.3M including interest, or a lower net flow",
+        "explanation": "The core rule, that the $5.3M and $12.6M are inside the $31.6M sweep and $49.5M is a double count, is sound. But C-008 calls $31.6M the 'total net extraction.' The Intercompany tab reports 34,278 transferred including interest and a lower net flow after Cascade's loan advances. Cash Management Agreement §5.1 ('In addition to the Cash Sweeps') and §5.2 ('included within, and not in addition to') also contradict each other. A literal judge could fail a memo that nets out the fees correctly but reports a different, correctly derived total.",
+        "evidence": [
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "A11='TOTAL CASH TRANSFERRED FROM PRYOR TO CASCADE' | ... F11='34,278'"
+          },
+          {
+            "source": "intercompany-cash-management-agreement.docx.txt",
+            "quote": "the Management Fee Distribution is included within, and not in addition to, the Cash Sweep amounts"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Label $31.6M as the gross sweep. PASS any memo that recognizes the overlap and does not present $49.5M.",
+        "origin": "blind",
+        "sol_locators": [
+          "F08"
+        ],
+        "blind_ids": [
+          "O8"
+        ]
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [],
+        "title": "Pryor's workbook deducts the $12.6M distribution both before and after net income, so retained earnings don't roll forward",
+        "explanation": "The P&L note says the management fee distribution is booked as an operating expense and already reduces net income to $16.8M. Yet the workbook and three narrative documents compute '$16.8M − $12.6M = $4.2M retained,' which deducts it a second time. FY2024 shows 'Current Year Net Income — Undistributed' of 14,000 alongside retained earnings that fall from 17,700 to 4,200. This confuses the capitalization figures underlying C-003 and C-009. A careful analyst who restates the figures could appear 'incorrect' to a literal judge, though C-059 ($16.8M) matches the reported P&L and is unlikely to be misgraded.",
+        "evidence": [
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "management fee distribution ($12.6M) and corporate services fee ($5.3M) are included as operating expenses above and reduce net income"
+          },
+          {
+            "source": "pryor-financial-summary-fy2020-fy2024.xlsx.txt",
+            "quote": "A36='Current Year Net Income — Undistributed' | ... F36='14,000' | G36='... FY2024 net income of $16.8M less $12.6M management fee distribution = $4.2M net retention'"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Move the distribution below net income and make retained earnings roll forward. Otherwise accept memos that flag the inconsistency.",
+        "origin": "revised",
+        "sol_locators": [],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [],
+        "title": "The IEPA complaint is anachronistic and has a thin Illinois nexus to storage at an Ohio plant",
+        "explanation": "The complaint is dated October 3, 2024 but pleads figures 'as of December 31, 2024.' It asserts Illinois permit jurisdiction over storage at a Canton, Ohio facility, resting on manifests received in Peoria. No criterion depends on either flaw: operator liability (C-037, C-038, C-041) is expressly pleaded in Count III, and C-058 accepts the action number. So I do not treat these criteria as defective. But a strong memo that challenges Illinois's authority over the Ohio storage counts gets no credit, and the record muddies which facts are operative.",
+        "evidence": [
+          {
+            "source": "iepa-enforcement-complaint.docx.txt",
+            "quote": "Jurisdiction over the storage violations at the Canton Facility is properly invoked under 415 ILCS 5/21(d) and (e)"
+          },
+          {
+            "source": "iepa-enforcement-complaint.docx.txt",
+            "quote": "at its manufacturing facility located in Canton, Ohio (the \"Canton Facility\")"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Fix the date inconsistency and either relocate the storage facility or add a criterion crediting the jurisdictional defense.",
+        "origin": "revised",
+        "sol_locators": [
+          "F07"
+        ],
+        "blind_ids": [
+          "O9"
+        ]
+      }
+    ],
+    "changes_from_blind": "1. Split blind O6: C-019 (the R.C. 1706.29 citation) is now O6, and C-021 (SSP Partners) is now O7. I read SSP Partners this session and confirmed it actually held that SBE cannot impose liability. So C-021's flaw is broader than the year: it credits the record's 'skepticism' understatement. That point comes from Sol F04; I still reject Sol's C-020 flag.\n2. Revised C-033 (O4) to note two things: its tension with C-045, which credits debt-to-equity conversion, and petition ¶28's partial support for the 'worsening' framing. It stays arguable.\n3. Removed C-052 from the Ohio-test finding (O3), because it carries no misstatement. Removed C-059 and C-009 from the financial document-defect finding (O9), which now has criteria [], because those figures match the reported workbook and are unlikely to be misgraded.\n4. Removed C-037, C-055 and C-058 from the IEPA document-defect finding (O10, criteria []). Count III pleads operator liability expressly, and C-058 accepts the action number, so none of these criteria misgrades.\n5. Rejected Sol F07 (C-037, C-038, C-041, C-054) and Sol's C-020 and C-050 flags as not defects.\n6. Kept C-036 as problematic, where Sol has arguable. I re-verified TBOC §§ 1.102/1.104 this session.",
+    "overall": "The rubric is mostly sound, record-tied fact and issue checks. Its main defects come from adopting legal errors in the Birchfield preliminary assessment. The most serious is C-036, which requires advising Cascade to argue for Delaware law even though TBOC §§ 1.102/1.104 point to Ohio law, Pryor's state of formation. C-023 states Ohio's second prong in the form Dombroski rejected. C-003 labels $4.2M of retained earnings as equity, against a balance sheet showing $21.7M. Several criteria are debatable: the Delaware-strictest cluster (C-025, C-026, C-049), C-033's 'worsen' logic, which conflicts with C-045, C-021's understatement and misdating of SSP Partners, C-019's wrong statute section, and C-008's gross-versus-net total. Under the all-pass metric, C-036, C-023 and C-003 alone could zero out a legally correct, careful memo.",
+    "coverage": "I reviewed all 65 criteria and the instructions. I re-checked every criterion Sol flagged against the documents: the SBE passages in the Birchfield letter and the petition; the recharacterization passages in the GC summary, workbook, petition and Birchfield recommendation 5; the IEPA complaint's jurisdiction paragraphs and Counts III-IV; and the workbook balance sheet, ratios, P&L note and retained earnings rows. Primary law I read this session: SSP Partners, 275 S.W.3d 444 (holding and decision date, via CourtListener); Dombroski, 2008-Ohio-4827 (syllabus and ¶2, local text of the Ohio Supreme Court PDF); Ohio R.C. 1706.26 and 1706.29 (codes.ohio.gov); and TBOC §§ 1.102 and 1.104 (statutory text via texas.public.law, because the official site is a JavaScript app). I did not read Delaware veil-piercing opinions, Bestfoods, or the Illinois penalty-assessment provisions, and no finding relies on them as verified."
+  }
+}

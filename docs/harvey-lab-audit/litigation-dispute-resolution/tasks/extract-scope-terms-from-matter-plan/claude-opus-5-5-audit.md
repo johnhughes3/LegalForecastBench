@@ -1,0 +1,77 @@
+# Claude Opus 5.5 audit: Extract Scope Terms from Matter Plan — Structured Extraction Report
+
+> [!WARNING]
+> **AI-generated, unverified analysis — for reference only.** Labels such as “problematic” or “verified” are AI reviewer judgments, not human sign-off or accepted score corrections. Agreement between two AI models is not independent verification. See the [audit overview](../../README.md).
+
+[Task landing page](README.md) · [GPT-6 Sol report](gpt-6-sol-audit.md) · [Pinned rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json) · Harvey commit `1dd81403b2fb`
+
+**Model:** Claude Opus 5.5 (claude-opus-5-5), reasoning effort `high`. **Rubric criteria:** 76. **Workflow run:** `wf_0aa16214-381`.
+
+Method: a blind pass that saw only the task instructions, rubric, and supplied documents, followed by a reconciliation pass that checked every GPT-6 Sol finding against the record and law. The findings below are the final position.
+
+## Overall assessment
+
+The rubric is mostly sound. Its extraction criteria and most of its planted cross-document issues check out against the record: the $780K vs $760K expert budget, the WS-4 addition exceeding the 5% threshold, the missing Of Counsel category required by OCG §3.1, the retroactive-approval conflict with OCG §4.3 (which the OCG hierarchy clause leaves unresolved), the Feb 28 vs Mar 3 mediation date, the EX-6/WS-1 gap, the undefined 'aggregate payments', and the undefined 'affiliates'. One criterion is defective: C-061 requires the report to say the $55 contract reviewer rate is absent from the EL rate schedule, but Exhibit A's note states it. One cluster is arguable: C-055–C-057 and C-066 make the conflicts waiver mandatory content under an instruction limited to 'scope-defining' terms. I considered and rejected four of Sol's five findings. With all-pass grading over 76 granular criteria, the single defective criterion can zero out an otherwise correct report.
+
+## Findings
+
+| ID | Status | Category | Criteria | Finding | Origin |
+|---|---|---|---|---|---|
+| [O1](#o1) | problematic | source_conflict | [C-061](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L499) | C-061 requires saying the $55 contract reviewer rate is absent from the EL rate schedule, but Exhibit A states it in a note | revised |
+| [O2](#o2) | arguable | unrequested_requirement | [C-055](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L451), [C-056](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L459), [C-057](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L467), [C-066](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L539) | Four criteria make the EL §10.2 conflicts waiver mandatory 'scope-defining' content, though it governs the firm's work for other clients | blind |
+
+<a id="o1"></a>
+### O1. C-061 requires saying the $55 contract reviewer rate is absent from the EL rate schedule, but Exhibit A states it in a note
+
+**Status:** problematic · **Category:** source_conflict · **Criteria:** [C-061](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L499)
+
+C-061 requires the report to say the $55/hour rate 'is not listed in the engagement letter's rate schedule.' Exhibit A, the rate schedule, has a note stating that contract reviewers are billed at $55.00 per hour under §3.2. The real compliance gaps are narrower. First, OCG §3.1 requires every reviewer to be named and approved individually, while EL §5.1 only has the Deputy GC approve headcount per wave. Second, Exhibit A says all timekeepers must fall within the four listed categories, and reviewers do not. An accurate report will say the rate appears in Exhibit A and flag those gaps instead. A judge applying the criterion's premise literally can fail that report because it does not make the false statement. I upgraded this from arguable: the criterion requires a factual statement the record contradicts, and both audits independently read the Exhibit A note the same way.
+
+Evidence:
+- `engagement-letter.docx.txt`: “Note: Contract document reviewers are billed separately pursuant to Section 3.2 of this engagement letter at a rate of \$55.00 per hour”
+- `engagement-letter.docx.txt`: “All timekeepers must be classified within one of the four categories listed above.”
+- `C-061`: “identifies that the $55/hour contract reviewer rate is not listed in the engagement letter's rate schedule”
+- `outside-counsel-guidelines.docx.txt`: “This includes, without limitation, staff attorneys, contract attorneys, temporary attorneys, document review personnel”
+
+Suggested fix: PASS a report that flags that contract reviewers sit outside Exhibit A's four mandatory categories, or that they are not individually named and approved as OCG §3.1 requires. Drop the claim that the $55 rate is missing from the schedule.
+
+Related GPT-6 Sol findings: F2.
+
+<a id="o2"></a>
+### O2. Four criteria make the EL §10.2 conflicts waiver mandatory 'scope-defining' content, though it governs the firm's work for other clients
+
+**Status:** arguable · **Category:** unrequested_requirement · **Criteria:** [C-055](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L451), [C-056](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L459), [C-057](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L467), [C-066](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L539)
+
+The instruction asks for 'all scope-defining terms.' The MP describes the scope as work streams, exclusions, staffing, budget, deadlines, reporting and approvals, and it says nothing about conflicts. The limited prospective waiver in EL §10.2 governs the firm's representation of other clients adverse to Pinnacle affiliates, not the work authorized in this engagement. A competent report could stop at the work, budget, staffing, approval and termination terms and still be a full scope extraction. Under all-pass grading, four criteria about this one clause would zero that report out. This stays arguable, not problematic, because OCG §2 requires any waiver to be documented with its 'scope', and many practitioners would include the waiver in a complete engagement abstract.
+
+Evidence:
+- `task.json instructions`: “Extract and cross-check all scope-defining terms from the attached engagement materials”
+- `matter-plan.docx.txt`: “this Matter Plan establishes six (6) scope exclusions, staffing authorizations and restrictions, detailed budget allocations, key deadlines, and reporting and approval requirements”
+- `outside-counsel-guidelines.docx.txt`: “Any prospective conflict waiver must be documented in the engagement letter with specificity, identifying the nature of the conflict, the parties involved, and the scope of the waiver.”
+
+Suggested fix: Either state in the instructions that conflicts and ethics terms count as scope terms, or merge C-055–C-057 and C-066 into one criterion that PASSes a report describing the waiver and its main limits.
+
+## Verdicts on GPT-6 Sol's findings
+
+| GPT-6 Sol finding | Sol status | Criteria | Opus verdict | Reason |
+|---|---|---|---|---|
+| F1 | confirmed | [C-060](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L491) | not_a_defect | The gap is real. OCG §3.1 says the approved rate schedule 'must include a specific rate category... for each classification of timekeeper..., including... of counsel.' Exhibit A lists only four categories and says 'All timekeepers must be classified within one of the four categories.' Revision 1 wrongly says the Exhibit A schedule specifies Marchetti's rate. The EL does not cite OCG §3.1, and OCG says only an express section reference overrides it. The criterion's wording, 'ambiguity or potential billing disputes', is a reasonable way to describe this. |
+| F2 | confirmed | [C-061](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L499) | problematic | The criterion requires the report to say the $55 rate 'is not listed in the engagement letter's rate schedule.' Exhibit A's own note says reviewers are billed 'at a rate of $55.00 per hour.' The real gaps are different: OCG §3.1 requires every individual reviewer to be named and approved, and Exhibit A's own 'four categories' clause leaves reviewers out. An accurate report cannot make the false statement the criterion requires, so a literal judge can fail correct work. |
+| F3 | arguable | [C-063](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L515) | not_a_defect | EL §3.3 allows retroactive approval of a 10% overage. OCG §4.3 says 'No retroactive approvals of fee cap overages are permitted.' Each document claims precedence: EL §11 says the EL controls, while the OCG Hierarchy clause says the EL governs only if it expressly identifies the Guideline provision, and the EL never cites §4.3. The conflict is therefore unresolved. The criterion only asks the report to flag it, and a report can also explain the hierarchy argument and still pass. |
+| F4 | arguable | [C-062](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L507) | not_a_defect | The MP timeline table labels February 28, 2026 as the 'Mediation Completion Deadline'. MP §§3.7 and 5 give the same deadline as 'approximately March 3, 2026'. That is one deadline stated two ways, not an earlier internal target alongside an outer limit. It is exactly the kind of inter-document inconsistency the instruction asks the report to flag, and the criterion only requires identifying it. |
+| F5 | arguable | [C-069](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-scope-terms-from-matter-plan/task.json#L563) | not_a_defect | EL §9 makes the fees payable 'within forty-five (45) calendar days following the Firm's submission of a final invoice.' The criterion only asks the report to state that accrued fees are payable within 45 days. A report that gives the correct trigger satisfies it, and nothing in the criterion requires the wrong trigger or penalizes the right one. The criterion's summary is loose but would not fail a correct answer. |
+
+## Blind pass and what changed
+
+I upgraded C-061 (blind O1, now O1) from arguable to problematic. The criterion requires a factual statement, that the $55 rate is not listed in the EL rate schedule, which Exhibit A's express note contradicts. Sol's F2 reached the same reading independently, and I re-read Exhibit A to confirm it. I also added a supporting point: Exhibit A's clause that 'all timekeepers must be classified within one of the four categories' is the real internal tension. I kept blind O2 (the conflicts waiver) as arguable, since Sol does not address it. I rejected Sol's F1 (C-060), F3 (C-063), F4 (C-062) and F5 (C-069) after checking the text. For C-060, OCG §3.1 expressly requires an 'of counsel' rate category, and the EL does not cite that section. For C-063, OCG's hierarchy clause lets the EL override only by express section reference, so the conflict is genuinely unresolved. For C-062, the MP timeline labels Feb 28 as the 'Mediation Completion Deadline', not as an internal target. For C-069, the criterion only requires the 45-day term and does not penalize stating the correct invoice trigger.
+
+Blind-pass findings (before reading GPT-6 Sol):
+
+- **O1** (arguable; C-061): C-061 assumes the $55 contract reviewer rate is missing from the EL rate schedule, but Exhibit A mentions it in a note
+- **O2** (arguable; C-055, C-056, C-057, C-066): The conflicts-waiver criteria make EL §10.2 mandatory 'scope-defining' content, though it governs the firm's work for other clients
+
+## Coverage and limits
+
+Blind pass: I read the instructions and all 76 criteria. I read these documents in full: engagement-letter.docx.txt, matter-plan.docx.txt, matter-plan-revision-1.docx.txt, budget-summary.xlsx.txt and scope-negotiation-emails.eml.txt. I read Sections 1–4 of outside-counsel-guidelines.docx.txt in full and searched the rest for the provisions the criteria rely on: disbursements, experts, vendors, reporting, termination, file delivery, subsidiaries and affiliates. I checked every numeric and date criterion against the record. The 90-day mediation date works out to March 3, 2026, and the Matter Plan (MP) states the same. The criteria rest on facts and do not depend on outside legal authority, so I did no case-law research. The record contains more inconsistencies than the rubric tests. The MP and the spreadsheet give different sub-budgets for WS-1, WS-2, WS-6 and WS-7, and only the MP shows a $360K contingency. Revision 1 cites the wrong engagement letter (EL) section numbers. Meridian's address differs between documents. The rubric is not required to test these, and they do not make any criterion wrong. I also checked C-064: MP §4.6 already says the EX-6 exception is not an affirmative authorization until a scope amendment is signed, but the EL's EX-6 lifts the exclusion automatically and the EL controls. The gap the criterion describes therefore still exists, so I did not flag it. I did not verify how the judges actually behave.
+
+Reconciliation: In the blind pass I read all 76 criteria and the instructions. I read the engagement letter, matter plan, Revision 1, budget spreadsheet and negotiation emails in full, and read OCG Sections 1–4 in full plus targeted searches of the rest. For this pass I read Sol's index entry and audit markdown, then re-checked the primary text behind each Sol finding: EL Exhibit A, §3.2, §3.3 overage clause, §9 termination payment, §11 OCG incorporation, and the Of Counsel staffing provision; OCG Hierarchy of Documents, §3.1, and §4.3; MP §§3.7, 5 and 5.6 and the timeline table; and Revision 1's Marchetti paragraph. No outside legal authority was needed, and I cite none. I did not observe actual judge behavior.
