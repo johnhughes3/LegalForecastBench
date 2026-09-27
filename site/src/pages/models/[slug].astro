@@ -4,7 +4,9 @@ import ConfidenceChart from "../../components/ConfidenceChart";
 import EligibilityBadge from "../../components/EligibilityBadge";
 import FindingCard from "../../components/FindingCard.astro";
 import ParetoChart from "../../components/ParetoChart";
+import Tip from "../../components/Tip";
 import { comparison } from "../../data/comparison";
+import { EXPLAIN } from "../../data/explanations";
 import { publishedFindings } from "../../data/findings";
 import {
 	formatPercent,
@@ -88,7 +90,7 @@ const facts: [string, string][] = [
 			<a href="/#leaderboard" class="text-sm text-ink-3 hover:text-ink">← Leaderboard</a>
 			<div class="mt-6 flex flex-wrap items-center gap-3">
 				<p class="eyebrow">{model.provider}</p>
-				<EligibilityBadge eligibility={model.eligibility} reason={model.eligibility_reason} />
+				<EligibilityBadge eligibility={model.eligibility} reason={model.eligibility_reason} side="bottom" align="start" />
 			</div>
 			<h1 class="mt-3 font-serif text-4xl font-medium tracking-tight sm:text-5xl">{model.display_name}</h1>
 			<div class="mt-10 grid gap-4 sm:grid-cols-3">
@@ -98,13 +100,13 @@ const facts: [string, string][] = [
 							<p class="text-sm text-ink-3">
 								{c.spec.label}
 								{c.metric === "micro_brier" && (
-									<span class="ml-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-[11px]">Headline</span>
+									<Tip tip={EXPLAIN.headline} className="ml-1.5 align-middle"><span class="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] underline decoration-dotted underline-offset-2">Headline</span></Tip>
 								)}
 							</p>
 							<p class="mt-2 font-serif text-4xl font-medium tabular">{c.spec.format(c.value)}</p>
 							<p class="mt-2 text-sm text-ink-2">
 								{isReference ? "Reference model · not ranked" : `Rank ${c.rank} of ${total}`}
-								{c.frontier && <span class="text-series-1"> · on the cost frontier</span>}
+								{c.frontier && <span class="text-series-1"> · <Tip tip={EXPLAIN.frontier}><span class="underline decoration-dotted underline-offset-2">on the cost frontier</span></Tip></span>}
 							</p>
 						</div>
 					))

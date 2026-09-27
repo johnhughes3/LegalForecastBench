@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { EXPLAIN } from "../data/explanations";
 import {
 	accuracy,
 	formatPercent,
@@ -10,6 +11,7 @@ import {
 } from "../data/metrics";
 import type { ResultsSnapshot, SnapshotModel } from "../data/snapshot";
 import EligibilityBadge from "./EligibilityBadge";
+import Tip from "./Tip";
 
 type SortKey =
 	| "micro_brier"
@@ -174,12 +176,10 @@ export default function Leaderboard({
 					</caption>
 					<thead>
 						<tr className="border-b border-rule text-left text-xs text-ink-3">
-							<th
-								scope="col"
-								className="w-10 py-3 pl-4 font-medium"
-								title="Rank by micro Brier, the headline metric"
-							>
-								#
+							<th scope="col" className="w-10 py-3 pl-4 font-medium">
+								<Tip tip={EXPLAIN.rank} side="bottom" align="start">
+									#
+								</Tip>
 							</th>
 							<th scope="col" className="py-3 pr-4 font-medium">
 								Model
@@ -197,29 +197,45 @@ export default function Leaderboard({
 											: "none"
 									}
 								>
-									<button
-										type="button"
-										onClick={() => onSort(column)}
-										title={column.hint}
-										className={`inline-flex items-center gap-1 underline decoration-dotted decoration-rule-strong underline-offset-4 hover:text-ink ${
-											sort.key === column.key ? "text-ink" : ""
-										}`}
+									<Tip
+										tip={column.hint}
+										side="bottom"
+										align={column.key === "cost" ? "end" : "center"}
+										focusable={false}
 									>
-										{column.label}
-										<span aria-hidden="true" className="text-[10px]">
-											{sort.key === column.key ? (sort.asc ? "▲" : "▼") : ""}
-										</span>
-									</button>
+										<button
+											type="button"
+											onClick={() => onSort(column)}
+											className={`inline-flex items-center gap-1 underline decoration-dotted decoration-rule-strong underline-offset-4 hover:text-ink ${
+												sort.key === column.key ? "text-ink" : ""
+											}`}
+										>
+											{column.label}
+											<span aria-hidden="true" className="text-[10px]">
+												{sort.key === column.key ? (sort.asc ? "▲" : "▼") : ""}
+											</span>
+										</button>
+									</Tip>
 								</th>
 							))}
 							<th scope="col" className="py-3 pr-4 font-medium">
-								Cutoff
+								<Tip
+									tip="Whether the model's documented training cutoff predates every scored decision. Hover a badge for the model's specifics."
+									side="bottom"
+									align="end"
+								>
+									<span className="underline decoration-dotted decoration-rule-strong underline-offset-4">
+										Cutoff
+									</span>
+								</Tip>
 							</th>
 						</tr>
 					</thead>
 					<tbody>
-						{rows.map((model) => {
+						{rows.map((model, index) => {
 							const hc = model.high_confidence;
+							// Early rows open tooltips downward so the scroll container cannot clip them.
+							const side = index < 3 ? "bottom" : "top";
 							const worse = sigWorse.get(model.slug);
 							return (
 								<tr
@@ -239,28 +255,38 @@ export default function Leaderboard({
 										<div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
 											<span>{model.provider}</span>
 											{frontier.has(model.slug) && (
-												<span
-													title={`On the cost–performance Pareto frontier for: ${frontier.get(model.slug)?.join(", ")}. No other model is as cheap and as good with a strict improvement in either.`}
-													className="inline-flex items-center gap-1 text-series-1"
+												<Tip
+													side={side}
+													align="start"
+													tip={`Pareto frontier for: ${frontier.get(model.slug)?.join(", ")}. ${EXPLAIN.frontier}`}
 												>
-													<svg width="9" height="9" aria-hidden="true">
-														<rect
-															x="1.5"
-															y="1.5"
-															width="6"
-															height="6"
-															transform="rotate(45 4.5 4.5)"
-															fill="currentColor"
-														/>
-													</svg>
-													Pareto frontier
-												</span>
+													<span className="inline-flex items-center gap-1 text-series-1 underline decoration-dotted underline-offset-2">
+														<svg width="9" height="9" aria-hidden="true">
+															<rect
+																x="1.5"
+																y="1.5"
+																width="6"
+																height="6"
+																transform="rotate(45 4.5 4.5)"
+																fill="currentColor"
+															/>
+														</svg>
+														Pareto frontier
+													</span>
+												</Tip>
 											)}
 										</div>
 										{worse && (
-											<p className="mt-1 max-w-56 text-xs text-critical">
-												{`Significantly worse than ${worse.join("; ")}`}
-											</p>
+											<Tip
+												tip={EXPLAIN.significance}
+												side={side}
+												align="start"
+												className="mt-1"
+											>
+												<span className="block max-w-56 text-xs text-critical underline decoration-dotted underline-offset-2">
+													{`Significantly worse than ${worse.join("; ")}`}
+												</span>
+											</Tip>
 										)}
 									</td>
 									<td className="py-3.5 pr-4 align-top tabular">
@@ -293,6 +319,8 @@ export default function Leaderboard({
 										<EligibilityBadge
 											eligibility={model.eligibility}
 											reason={model.eligibility_reason}
+											side={side}
+											align="end"
 										/>
 									</td>
 								</tr>

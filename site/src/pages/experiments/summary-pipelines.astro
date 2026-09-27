@@ -2,6 +2,8 @@
 import ReliabilityGrid from "../../components/ReliabilityGrid";
 import Stat from "../../components/Stat.astro";
 import SummaryBrierChart from "../../components/SummaryBrierChart";
+import Tip from "../../components/Tip";
+import { EXPLAIN } from "../../data/explanations";
 import { formatPercent, formatUsd, METRICS } from "../../data/metrics";
 import { snapshot } from "../../data/results";
 import summarySignificance from "../../data/significance/summary/comparison.json";
@@ -103,8 +105,8 @@ const preparation = jev.preparation_usd ?? 0;
 							<th scope="col" class="px-4 py-3 text-right font-medium">Micro Brier</th>
 							<th scope="col" class="px-4 py-3 text-right font-medium">Equal-case</th>
 							<th scope="col" class="px-4 py-3 text-right font-medium">Accuracy</th>
-							<th scope="col" class="px-4 py-3 text-right font-medium">AUC</th>
-							<th scope="col" class="px-4 py-3 text-right font-medium">Mean forecast</th>
+							<th scope="col" class="px-4 py-3 text-right font-medium"><Tip tip={EXPLAIN.auc} side="bottom" align="end"><span class="underline decoration-dotted underline-offset-4">AUC</span></Tip></th>
+							<th scope="col" class="px-4 py-3 text-right font-medium"><Tip tip={EXPLAIN.meanForecast} side="bottom" align="end"><span class="underline decoration-dotted underline-offset-4">Mean forecast</span></Tip></th>
 							<th scope="col" class="px-4 py-3 text-right font-medium">Inference cost</th>
 						</tr>
 					</thead>
