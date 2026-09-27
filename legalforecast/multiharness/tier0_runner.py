@@ -34,18 +34,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.adapter_registry import (
-    CLAUDE_CODE_REGISTRY_NAME,
     HARVEY_LAB_REGISTRY_NAME,
     builtin_adapter_registry,
 )
 from legalforecast.multiharness.auth_profiles import require_auth_profile_id
-from legalforecast.multiharness.claude_code import (
-    CLAUDE_CODE_EXECUTABLE_NAME,
-    ClaudeCodeCliAdapter,
-)
-from legalforecast.multiharness.claude_code_harvey_lab import (
-    run_claude_code_clean_native_harvey_lab,
-)
 from legalforecast.multiharness.evaluation import (
     CostMeasurement,
     EvaluationTokenUsage,
@@ -118,6 +110,13 @@ from legalforecast.multiharness.spend import (
     SpendSettlementError,
     UsageObservation,
 )
+from legalforecast.multiharness.tier0_adapters import (
+    CLEAN_NATIVE_ADAPTERS,
+    Tier0RunnerError,
+    prepare_clean_native_runner,
+    require_supported_paid_solvers,
+    validate_clean_native_arm,
+)
 from legalforecast.multiharness.validation import (
     MultiHarnessValidationError,
     validate_public_record,
@@ -155,7 +154,7 @@ TIER0_ARCHIVE_MANIFEST_SCHEMA_VERSION = (
 )
 
 _ARM_IDS = ("arm-opaque-01", "arm-opaque-02")
-_ARM_ADAPTERS = frozenset({CLAUDE_CODE_REGISTRY_NAME, HARVEY_LAB_REGISTRY_NAME})
+_ARM_ADAPTERS = CLEAN_NATIVE_ADAPTERS | {HARVEY_LAB_REGISTRY_NAME}
 _ALLOWED_COMMAND_TOKENS = frozenset(
     {"{sandbox_root}", "{output_root}", "{max_cost_usd}"}
 )
@@ -184,10 +183,6 @@ TIER0_APPROVAL_ISSUER_POLICY_SCHEMA_VERSION = (
     "legalforecast.tier0_spend_approval_issuer_policy.v1"
 )
 _HARVEY_LAB_JUDGE_CRITERION_COUNT = 23
-
-
-class Tier0RunnerError(ValueError):
-    """A frozen Tier-0 run cannot proceed without violating a boundary."""
 
 
 _PRODUCTION_COST_BASES = frozenset(
@@ -685,13 +680,14 @@ class Tier0ArmSpec:
             raise Tier0RunnerError("timeout_seconds must be positive")
         if not self.command and self.adapter == HARVEY_LAB_REGISTRY_NAME:
             raise Tier0RunnerError("native-thin arm must declare a frozen command")
-        if self.command and self.adapter == CLAUDE_CODE_REGISTRY_NAME:
-            raise Tier0RunnerError("clean-native arm must use its registered adapter")
-        if self.adapter == CLAUDE_CODE_REGISTRY_NAME:
-            if self.solver_executable != CLAUDE_CODE_EXECUTABLE_NAME:
-                raise Tier0RunnerError(
-                    "clean-native arm must pin the Claude Code executable"
-                )
+        if self.adapter in CLEAN_NATIVE_ADAPTERS:
+            validate_clean_native_arm(
+                adapter_name=self.adapter,
+                executable=self.solver_executable,
+                auth_profile=self.auth_profile,
+                command=self.command,
+                settings=self.settings,
+            )
         elif self.command[0] != self.solver_executable:
             raise Tier0RunnerError(
                 "native-thin command must start with its pinned solver executable"
@@ -815,7 +811,10 @@ class Tier0ExecutableSpec:
         if self.spend_policy_sha256 is not None:
             _require_digest(self.spend_policy_sha256, "spend_policy_sha256")
         names = tuple(arm.adapter for arm in self.arms)
-        if names != (CLAUDE_CODE_REGISTRY_NAME, HARVEY_LAB_REGISTRY_NAME):
+        if (
+            names[0] not in CLEAN_NATIVE_ADAPTERS
+            or names[1] != HARVEY_LAB_REGISTRY_NAME
+        ):
             raise Tier0RunnerError(
                 "executable spec must pair clean-native and native-thin"
             )
@@ -1103,6 +1102,7 @@ def load_spend_artifacts(
 ) -> tuple[SpendPolicy, PricingSnapshot]:
     """Load deterministic sibling sidecars bound by the executable spec."""
 
+    require_supported_paid_solvers(tuple(arm.adapter for arm in spec.arms))
     if spec.pricing_snapshot_sha256 is None:
         raise Tier0RunnerError("executable spec must bind the pricing sidecar hash")
     if spec.spend_policy_sha256 is None:
@@ -1311,6 +1311,8 @@ def run_tier0(
     _verify_detached_approval(
         approval, spec_sha256=spec_sha256, authority=approval_authority
     )
+    if approval.status == "approved" or spec.pricing_snapshot_sha256 is not None:
+        require_supported_paid_solvers(tuple(arm.adapter for arm in spec.arms))
     if spec.pricing_snapshot_sha256 is not None:
         if spend_policy is None or pricing_snapshot is None:
             raise Tier0RunnerError(
@@ -1517,27 +1519,22 @@ def run_tier0(
                 lab_root=source_root,
                 timeout_seconds=arm.timeout_seconds,
             )
-            if arm.adapter == CLAUDE_CODE_REGISTRY_NAME:
-                if not isinstance(adapter, ClaudeCodeCliAdapter):
-                    raise Tier0RunnerError(
-                        "registry returned the wrong clean-native adapter"
-                    )
-                adapter = replace(adapter, auth_profile=arm.auth_profile)
-                capability_ref["value"] = {
-                    "manifest": adapter.local_manifest.to_record(),
-                    "executable": {
-                        "name": arm.solver_executable,
-                        "sha256": arm.solver_executable_sha256,
-                        "version": arm.solver_executable_version,
-                    },
-                }
-                if ceiling is None and controller is None:
-                    max_budget = None
-                else:
-                    assert ceiling is not None
-                    max_budget = ceiling.invocation_budget.argument_value_usd
-                result = run_claude_code_clean_native_harvey_lab(
-                    adapter=adapter,
+            if arm.adapter in CLEAN_NATIVE_ADAPTERS:
+                run_clean_native, capability = prepare_clean_native_runner(
+                    adapter,
+                    adapter_name=arm.adapter,
+                    auth_profile=arm.auth_profile,
+                    settings=arm.settings,
+                    executable_pin=_pin_for_arm(arm),
+                    executable_version=arm.solver_executable_version,
+                    max_budget_usd=(
+                        None
+                        if ceiling is None
+                        else ceiling.invocation_budget.argument_value_usd
+                    ),
+                )
+                capability_ref["value"] = capability
+                result = run_clean_native(
                     source_root=source_root,
                     solver_root=paths["solver"],
                     evaluator_private_root=paths["evaluator_private"],
@@ -1552,7 +1549,6 @@ def run_tier0(
                     model=arm.requested_model,
                     timeout_seconds=arm.timeout_seconds,
                     evaluator_command=spec.evaluator_command,
-                    max_budget_usd=max_budget,
                     before_solver=before_solver,
                     after_solver=after_solver,
                     judge_request_boundary=evaluator_boundaries.get(arm.arm_id),

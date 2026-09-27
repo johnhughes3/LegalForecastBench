@@ -262,6 +262,8 @@ Open a pull request that adds only that submission directory. Details, attestati
 
 Paid execution is contributor-funded and does not run through the ordinary `multiharness run` path. It requires the immutable Tier-0 specification, spend sidecars, and detached approval consumed by `multiharness tier0 run`. LegalForecastBench does not pay community API bills.
 
+The paired Tier-0 runner also dispatches the existing Codex LAB composition as its clean-native arm (`codex-cli-offline`), using the frozen model, executable digest, timeout, and optional `settings.reasoning_effort` (`low`, `medium`, or `high`; default `medium`). This path currently accepts only `fixture-none` provider-free execution. Paid Codex is refused because the supported CLI contract has no enforceable monetary cap; contributor-subscription execution is also unavailable. Fake-binary tests are not a live Codex baseline. The credential handshake, frozen live specification, and Claude-first checkpoint remain prerequisites for issue #204.
+
 ## 8. Privacy
 
 Keep private:

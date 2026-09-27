@@ -10,11 +10,16 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from legalforecast.multiharness.auth_binding import (
+    bind_adapter_auth_profile,
+    require_execution_service_profile,
+)
+from legalforecast.multiharness.auth_profiles import AuthProfileError
 from legalforecast.multiharness.codex_cli import (
     CODEX_CLI_EXECUTABLE,
     CODEX_DEFAULT_REASONING_EFFORT,
@@ -30,9 +35,12 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EVALUATOR_COMMAND_NAME,
+    EvaluatorRunner,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
+    HarveyLabEvaluatorProvenance,
     HarveyLabIsolatedEvaluation,
+    HarveyLabJudgeRequestBoundary,
     invoke_isolated_harvey_lab_evaluator,
 )
 from legalforecast.multiharness.harvey_lab_output_discovery import (
@@ -55,7 +63,10 @@ from legalforecast.multiharness.local_cli_contracts import (
     coerce_local_cli_failure_class,
     is_local_cli_sandbox_denial,
 )
-from legalforecast.multiharness.local_cli_identity import sha256_file
+from legalforecast.multiharness.local_cli_identity import (
+    ExecutableIdentityPin,
+    sha256_file,
+)
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.scoring import (
     ScoreArtifact,
@@ -102,6 +113,13 @@ def run_codex_cli_clean_native_harvey_lab(
     evaluation_attempt_id: str | None = None,
     attempt_nonce: str | None = None,
     reasoning_effort: str = CODEX_DEFAULT_REASONING_EFFORT,
+    solver_executable_pin: ExecutableIdentityPin | None = None,
+    before_solver: Callable[[RunSpec], None] | None = None,
+    after_solver: Callable[[RunSpec, ExecutionReceipt], ExecutionReceipt] | None = None,
+    judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
+    evaluator_runner: EvaluatorRunner | None = None,
+    evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
+    require_production_provenance: bool = False,
 ) -> CodexCliHarveyLabPipelineResult:
     """Project a LAB task, run contained Codex CLI, discover, and score."""
 
@@ -110,6 +128,17 @@ def run_codex_cli_clean_native_harvey_lab(
         raise CodexCliAdapterError(
             "clean-native Harvey LAB runs require the contained execution service"
         )
+    try:
+        bound = bind_adapter_auth_profile(
+            adapter.local_cli_manifest, adapter.auth_profile
+        )
+        require_execution_service_profile(
+            service,
+            bound.profile_id,
+            projected_env_vars=bound.profile.projected_env_vars,
+        )
+    except AuthProfileError as exc:
+        raise CodexCliAdapterError(str(exc)) from exc
     projection = project_harvey_lab_suite(
         source_root=source_root,
         solver_root=solver_root,
@@ -168,7 +197,17 @@ def run_codex_cli_clean_native_harvey_lab(
         output_format="json",
         stdin_bytes=plan.stdin.encode("utf-8"),
     )
-    execution = service.execute(spec)
+    if before_solver is not None:
+        before_solver(spec)
+    # Pin only the solver launch; the evaluator has its own executable identity.
+    solver_service = (
+        service
+        if solver_executable_pin is None
+        else replace(service, executable_pin=solver_executable_pin)
+    )
+    execution = solver_service.execute(spec)
+    if after_solver is not None:
+        execution = after_solver(spec, execution)
     _require_solver_success(
         spec,
         execution,
@@ -232,6 +271,10 @@ def run_codex_cli_clean_native_harvey_lab(
         measurement_id=measurement_id,
         evaluation_attempt_id=evaluation_attempt_id,
         attempt_nonce=attempt_nonce,
+        judge_request_boundary=judge_request_boundary,
+        evaluator_runner=evaluator_runner,
+        evaluator_provenance=evaluator_provenance,
+        require_production_provenance=require_production_provenance,
     )
     metric = build_harvey_lab_metric_definition(
         rubric_sha256=evaluation.spec.rubric_sha256,
