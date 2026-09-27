@@ -119,7 +119,7 @@ def issue_paid_gateway_descriptor(
     official workflow must never become a paid gateway launch input.
     """
 
-    if harness_id not in {TERMINAL_HARNESS_ID, GATEWAY_HARNESS_ID}:
+    if harness_id not in {TERMINAL_HARNESS_ID, GATEWAY_HARNESS_ID, "hermes-agent"}:
         raise ProtectedTerminalPaidError("unsupported protected gateway harness")
     if not model_key.strip():
         raise ProtectedTerminalPaidError("model_key must be nonempty")
@@ -253,7 +253,7 @@ def write_paid_gateway_descriptor(
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Derive the protected Claude Code paid gateway descriptor from "
+            "Derive the protected release-harness paid gateway descriptor from "
             "locked release inputs. This command never contacts AWS or a provider."
         )
     )
@@ -267,7 +267,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--harness",
-        choices=("claude-code-terminal", "openclaw"),
+        choices=("claude-code-terminal", "hermes-agent", "openclaw"),
         default="claude-code-terminal",
         help="Bind spend identity to the selected pinned release harness.",
     )
@@ -286,9 +286,7 @@ def main(argv: list[str] | None = None) -> int:
         model_key=args.model_key,
         ceiling_microusd=args.ceiling_microusd,
         account=args.account,
-        harness_id=GATEWAY_HARNESS_ID
-        if args.harness == "openclaw"
-        else TERMINAL_HARNESS_ID,
+        harness_id=GATEWAY_HARNESS_ID if args.harness == "openclaw" else args.harness,
     )
     write_paid_gateway_descriptor(args.output, descriptor)
     return 0

@@ -7,7 +7,6 @@ import os
 import sys
 from pathlib import Path
 
-from legalforecast._json_io import write_json_object
 from legalforecast.multiharness.harvey_tools import HarveyToolExecutor
 from legalforecast.multiharness.openclaw import OpenClawError
 from legalforecast.multiharness.openclaw_runtime import (
@@ -15,6 +14,7 @@ from legalforecast.multiharness.openclaw_runtime import (
     run_openclaw,
 )
 from legalforecast.multiharness.release_harness import read_release_object
+from legalforecast.multiharness.release_runtime import write_release_json_create_only
 from legalforecast.multiharness.spec import RunRequest
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 
@@ -59,7 +59,9 @@ def execute(workspace: Path) -> None:
     result = run_openclaw(
         request, workspace, StagedPromptTransport(workspace), gateway=gateway
     )
-    write_json_object(workspace / "openclaw-result.json", result.to_record())
+    write_release_json_create_only(
+        workspace / "openclaw-result.json", result.to_record()
+    )
     print(json.dumps({"status": result.status, "request_id": result.request_id}))
 
 

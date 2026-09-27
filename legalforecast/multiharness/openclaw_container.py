@@ -11,7 +11,6 @@ import secrets
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from legalforecast._json_io import write_json_object
 from legalforecast.multiharness.adapters import AdapterPreparation
 from legalforecast.multiharness.auth_profiles import PUBLISHED_API_KEY
 from legalforecast.multiharness.command_adapter import CommandAdapter
@@ -55,6 +54,7 @@ from legalforecast.multiharness.release_harness import (
     require_release_metadata_str,
     write_release_create_only,
 )
+from legalforecast.multiharness.release_runtime import write_release_json_create_only
 from legalforecast.multiharness.spec import (
     AdapterCapabilities,
     AdapterManifest,
@@ -163,9 +163,10 @@ class OpenClawContainerAdapter:
         if (
             request.model_key != self.options.model_key
             or request.sandbox_policy.allowed_provider_env_vars
+            or request.sandbox_policy.timeout_seconds != self.options.timeout_seconds
         ):
             raise OpenClawError(
-                "OpenClaw request model/grant differs from its protected route"
+                "OpenClaw request model/grant/timeout differs from its protected route"
             )
         assert self.options.paid_config_path is not None
         assert self.options.model_registry_path is not None
@@ -190,8 +191,10 @@ class OpenClawContainerAdapter:
             raise OpenClawError("OpenClaw staged prompt commitment mismatch")
         workspace.mkdir(mode=0o700, parents=True, exist_ok=True)
         write_release_create_only(workspace / "prompt.txt", prompt, mode=0o400)
-        write_json_object(workspace / "openclaw-request.json", request.to_record())
-        write_json_object(
+        write_release_json_create_only(
+            workspace / "openclaw-request.json", request.to_record()
+        )
+        write_release_json_create_only(
             workspace / "openclaw-model.json",
             {
                 "context_limit": config.registry_entry.context_limit,

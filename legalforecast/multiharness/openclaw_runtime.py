@@ -187,8 +187,12 @@ def run_openclaw(
                 "NODE_DISABLE_COMPILE_CACHE": "1",
             }
         )
+        # Give the managed runtime its declared case budget, reserving five
+        # seconds each for child cleanup and outer-container result collection.
+        child_timeout = max(1, request.sandbox_policy.timeout_seconds - 5)
+        native_timeout = max(1, request.sandbox_policy.timeout_seconds - 10)
         host, child = socket.socketpair()
-        host.settimeout(60)
+        host.settimeout(child_timeout)
         delivery = PromptDelivery()
         failures: list[BaseException] = []
         worker = threading.Thread(
@@ -243,9 +247,7 @@ def run_openclaw(
                         f"{provider}/{model}",
                         "--json",
                         "--timeout",
-                        str(
-                            max(1, min(120, request.sandbox_policy.timeout_seconds - 5))
-                        ),
+                        str(native_timeout),
                     ],
                     env=environment,
                     cwd=work,
@@ -253,7 +255,7 @@ def run_openclaw(
                     stdout=stdout,
                     stderr=stderr,
                     pass_fds=(child.fileno(),),
-                    timeout=min(130, request.sandbox_policy.timeout_seconds),
+                    timeout=child_timeout,
                     check=False,
                 )
             child.close()

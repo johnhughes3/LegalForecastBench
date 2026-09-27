@@ -37,6 +37,8 @@ def _bash(script: str, **environment: str) -> subprocess.CompletedProcess[str]:
         ("native", "anthropic:model", "case-1", False),
         ("claude-code-terminal", "anthropic:model", "case-1", True),
         ("openclaw", "anthropic:model", "case-1", True),
+        ("hermes-agent", "anthropic:model", "case-1", True),
+        ("hermes-agent", "openai:model", "", False),
         ("openclaw", "openai:model", "", False),
         ("arbitrary-runtime", "anthropic:model", "", False),
     ],
@@ -102,7 +104,7 @@ def test_unknown_runtime_never_invokes_docker(tmp_path: Path) -> None:
     assert not (tmp_path / "github-env").exists()
 
 
-@pytest.mark.parametrize("mode", ["claude-code-terminal", "openclaw"])
+@pytest.mark.parametrize("mode", ["claude-code-terminal", "openclaw", "hermes-agent"])
 def test_descriptor_and_execution_receive_same_explicit_harness(mode: str) -> None:
     stub = "uv() { printf '%s\\n' \"$@\"; }\nmkdir() { :; }\n"
     environment = {
@@ -117,6 +119,7 @@ def test_descriptor_and_execution_receive_same_explicit_harness(mode: str) -> No
         "LFB_TERMINAL_RUN_PREFIX": mode,
         "GITHUB_RUN_ID": "123",
         "GITHUB_RUN_ATTEMPT": "1",
+        "GITHUB_WORKSPACE": "/checkout with spaces",
     }
     for step in (
         "Issue protected paid gateway descriptor",
@@ -126,11 +129,23 @@ def test_descriptor_and_execution_receive_same_explicit_harness(mode: str) -> No
         assert result.returncode == 0, result.stderr
         args = result.stdout.splitlines()
         assert args[args.index("--harness") + 1] == mode
+        assert args.count("--harness") == 1
         assert args[args.index("--model-key") + 1] == "anthropic:model"
         if "release-execute" in args:
             assert args[args.index("--case-id") + 1] == "case with spaces"
             assert args[args.index("--image") + 1] == environment["LFB_TERMINAL_IMAGE"]
             assert args[args.index("--auth-profile") + 1] == "published-api-key"
+            if mode == "hermes-agent":
+                assert "--gateway-image" not in args
+                assert (
+                    args[args.index("--hermes-checkout") + 1]
+                    == "/checkout with spaces/hermes-runtime"
+                )
+            else:
+                assert (
+                    args[args.index("--gateway-image") + 1]
+                    == environment["LFB_GATEWAY_IMAGE"]
+                )
 
 
 def test_openclaw_keeps_existing_protected_custody_and_scoreless_contract() -> None:

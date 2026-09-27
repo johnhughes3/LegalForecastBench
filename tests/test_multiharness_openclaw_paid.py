@@ -6,7 +6,6 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
-import legalforecast.multiharness.openclaw_container as openclaw_container
 import pytest
 from legalforecast._json_io import write_json_object
 from legalforecast.evals.provider_spend_control import (
@@ -14,6 +13,7 @@ from legalforecast.evals.provider_spend_control import (
     ProviderCapExceededError,
     SqliteProviderSpendAuthority,
 )
+from legalforecast.multiharness import openclaw_container
 from legalforecast.multiharness.auth_profiles import PUBLISHED_API_KEY
 from legalforecast.multiharness.claude_code_container import (
     ClaudeCodeContainerAdapterError,

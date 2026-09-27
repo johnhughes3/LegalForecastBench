@@ -266,7 +266,10 @@ def _add_release_execution_arguments(
         "--harness",
         choices=("claude-code-terminal", "claude-code", "hermes-agent", "openclaw"),
         default="claude-code-terminal",
-        help="Release runtime; Hermes and OpenClaw require the protected gateway. claude-code is an alias for claude-code-terminal.",
+        help=(
+            "Release runtime; Hermes and OpenClaw require the protected gateway. "
+            "claude-code is an alias for claude-code-terminal."
+        ),
     )
     parser.add_argument(
         "--hermes-checkout",

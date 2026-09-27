@@ -593,17 +593,17 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 2,
+        "fan_in": 3,
         "fan_out": 17,
         "flags": [
           "watch"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "build_claude_code_container_adapter",
-        "largest_symbol_lines": 270,
+        "largest_symbol_lines": 276,
         "layer": "application",
-        "line_count": 539,
-        "nonblank_line_count": 509,
+        "line_count": 545,
+        "nonblank_line_count": 515,
         "top_level_definition_count": 4
       },
       "legalforecast/multiharness/cli.py": {
@@ -704,10 +704,10 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "fenced_argv",
-        "largest_symbol_lines": 46,
+        "largest_symbol_lines": 54,
         "layer": "application",
-        "line_count": 378,
-        "nonblank_line_count": 334,
+        "line_count": 388,
+        "nonblank_line_count": 344,
         "top_level_definition_count": 11
       },
       "legalforecast/multiharness/container_harness/egress_proxy.py": {
@@ -971,13 +971,15 @@
         "disposition_owner": "multiharness",
         "fan_in": 1,
         "fan_out": 13,
-        "flags": ["relative-path"],
+        "flags": [
+          "relative-path"
+        ],
         "lane_owner": "multiharness",
         "largest_symbol": "ProtectedHermesAdapter",
-        "largest_symbol_lines": 186,
+        "largest_symbol_lines": 188,
         "layer": "application",
-        "line_count": 278,
-        "nonblank_line_count": 263,
+        "line_count": 282,
+        "nonblank_line_count": 267,
         "top_level_definition_count": 2
       },
       "legalforecast/multiharness/identity.py": {
@@ -1146,27 +1148,27 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "OpenClawContainerAdapter",
-        "largest_symbol_lines": 246,
+        "largest_symbol_lines": 249,
         "layer": "application",
-        "line_count": 314,
-        "nonblank_line_count": 301,
+        "line_count": 317,
+        "nonblank_line_count": 304,
         "top_level_definition_count": 1
       },
       "legalforecast/multiharness/openclaw_runtime.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",
         "disposition_owner": "multiharness",
-        "fan_in": 1,
+        "fan_in": 2,
         "fan_out": 6,
         "flags": [
           "relative-path"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_openclaw",
-        "largest_symbol_lines": 124,
+        "largest_symbol_lines": 143,
         "layer": "application",
-        "line_count": 251,
-        "nonblank_line_count": 238,
+        "line_count": 283,
+        "nonblank_line_count": 267,
         "top_level_definition_count": 5
       },
       "legalforecast/multiharness/process_containment.py": {

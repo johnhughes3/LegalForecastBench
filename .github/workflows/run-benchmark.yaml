@@ -767,10 +767,9 @@ jobs:
           if [[ "${EXECUTION_MODE}" = "hermes-agent" ]]; then
             case_args+=(--harness hermes-agent --hermes-checkout "${GITHUB_WORKSPACE}/hermes-runtime")
           else
-            case_args+=(--gateway-image "${LFB_GATEWAY_IMAGE}")
+            case_args+=(--harness "${EXECUTION_MODE}" --gateway-image "${LFB_GATEWAY_IMAGE}")
           fi
           uv run legalforecast multiharness release-execute "${case_args[@]}" \
-            --harness "${EXECUTION_MODE}" \
             --forecast-release /tmp/lfb-terminal-inputs/forecast-release.json \
             --artifact-root /tmp/lfb-terminal-inputs/artifacts \
             --output-dir /tmp/lfb-terminal-paid/release \

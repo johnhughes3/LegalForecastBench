@@ -54,7 +54,7 @@ def test_pinned_worker_gateway_and_real_container_isolation(tmp_path: Path) -> N
         original,
         model_key="anthropic:claude-opus-5-5",
         sandbox_policy=replace(
-            original.sandbox_policy, allowed_provider_env_vars=(), timeout_seconds=120
+            original.sandbox_policy, allowed_provider_env_vars=(), timeout_seconds=900
         ),
     )
     prompt = "BEGIN " + "x" * 45000 + " MIDDLE " + "y" * 45000 + " END"
@@ -93,7 +93,7 @@ def test_pinned_worker_gateway_and_real_container_isolation(tmp_path: Path) -> N
             run_capability="only-run-capability",
             upstream_api_key="provider-sentinel-only-gateway",
         ),
-        timeout_seconds=120,
+        timeout_seconds=900,
     )
     _run(backend, ("network", "create", network), environment)
     try:

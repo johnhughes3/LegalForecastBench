@@ -99,6 +99,9 @@ def test_supported_release_cli_builds_protected_hermes_without_gateway_image(
 @pytest.fixture
 def admitted(tmp_path, monkeypatch):
     config_path, registry_path, _ = _files(tmp_path)
+    record = json.loads(config_path.read_text())
+    record["harness_id"] = "hermes-agent"
+    config_path.write_text(json.dumps(record))
     for name, value in _ENVIRONMENT.items():
         monkeypatch.setenv(name, value)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "host-only-real-key-fixture")
