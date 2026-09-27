@@ -1,0 +1,746 @@
+{
+  "task": "review-privilege-log-clawback-review",
+  "prompt": "Review the attached privilege log and sample documents for defensibility of each privilege claim and prepare a categorized assessment. Output: `deficiency-analysis-memo.docx` and `clawback-candidate-list.xlsx`.",
+  "coverage": "Blind targeted audit of every criterion; source text extraction and criterion-linked inspection covered all 55 supplied files. No solver outputs viewed. Source inspection was not a word-for-word audit of every technical environmental passage, and no undisclosed case docket or actual privilege adjudication was assumed. Legal conclusions below distinguish clear rule errors from fact-dependent privilege risks.",
+  "criterion_count": 82,
+  "document_count": 55,
+  "findings": [
+    {
+      "id": "F01",
+      "classification": "confirmed",
+      "criteria": [
+        "C-079"
+      ],
+      "description": "The rubric requires an October 1, 2024 motion-to-compel response deadline absent from the prompt and supplied documents.",
+      "evidence": "Prompt requests categorized assessment and two filenames only. Search of extracted sources and every XML component of all 55 source DOCX/XLSX files found no October 1, 2024, 10/1/2024, or 2024-10-01 date. Sources mention other October dates and a September30 discovery cutoff, but no supplied motion or scheduling order establishes this deadline.",
+      "repair": "Supply the actual order/notice or remove the mandatory deadline; credit identifying the missing deadline rather than inventing it.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F02",
+      "classification": "confirmed",
+      "criteria": [
+        "C-056"
+      ],
+      "description": "The rubric asserts a categorical general exclusion of former employees from corporate privilege, wrongly attributed to Upjohn and Third Circuit law.",
+      "evidence": "sample-doc-210 p4-p14 seeks confidential information solely about plant operations during Brannigan employment. Upjohn 449 U.S.383,394n3 reserved the former-employee issue; Utesch v Lannett (E.D.Pa.2020) pp18-19 discusses circuit district cases protecting employment-era information and distinguishes work product. C055 allows questionable status and is less problematic.",
+      "repair": "Require analysis of employment-era knowledge, confidentiality and legal purpose, plus possible work product; do not require a generally-unprivileged conclusion from termination alone.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F03",
+      "classification": "confirmed",
+      "criteria": [
+        "C-047"
+      ],
+      "description": "C047 embeds two overbroad work-product rules: attorney preparation/direction is not indispensable, and an unpublished draft intended eventually for public dissemination is not categorically ineligible.",
+      "evidence": "FRCP26(b)(3)(A) covers party or representative including consultant/insurer/agent; it does not require counsel. sample-doc-162 p6-p8 and p20-p32 do support a business publicity purpose and weak litigation nexus, so flagging this document can be correct, but the mandated legal rationale is not.",
+      "repair": "Score the actual business-versus-litigation preparation purpose; remove categorical attorney/publication rules and allow distinction between unpublished drafts and released text.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F04",
+      "classification": "confirmed",
+      "criteria": [
+        "C-064",
+        "C-037",
+        "C-038",
+        "C-039",
+        "C-040",
+        "C-041",
+        "C-042",
+        "C-043",
+        "C-044"
+      ],
+      "description": "Several supplied sample identities conflict with privilege-log metadata; C064 prohibits flagging any deficiency for entry25 despite a real date inconsistency.",
+      "evidence": "privilege-log.xlsx sheet1 row26 C26 April10,2020 vs sample-doc-025 p2 April10,2019. Further examples: row153 C153 November12,2021 vs sample152 p2 October14,2022; row169 C169 February8,2022 vs sample168 p5 October14,2021; row246 C246 August14,2023 vs sample245 p1 November17,2023; row268 C268 January22,2024 vs sample267 p4 April18,2023. The samples show legal content, but the identities/dates need reconciliation.",
+      "repair": "Allow metadata deficiency without rejecting underlying privilege. Reconcile samples/log rows; retain legitimate boilerplate-description findings separately.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F05",
+      "classification": "arguable",
+      "criteria": [
+        "C-024",
+        "C-025",
+        "C-027"
+      ],
+      "description": "A written agreement execution date alone is not dispositive of common-interest protection. The packet has meaningful adverse facts, so flagging entries85/91 for review is defensible; requiring a categorical pre-signature waiver is too rigid.",
+      "evidence": "Garfield agreement p33 excludes retroactivity and p55 denies prior formal/informal agreements, supporting concern. But p49 expressly leaves earlier communications to independent law; sample091 p8-p10,p42,p45 describes ongoing joint strategy and confidentiality, creating tension. Common-interest law can recognize unwritten arrangements; sample085 is more exploratory.",
+      "repair": "Credit conditional analysis of actual prior shared legal undertaking/confidentiality, reconcile contradictory evidence, and distinguish statutory/common-law protection from contractual retroactivity.",
+      "category": "arguable"
+    },
+    {
+      "id": "F06",
+      "classification": "arguable",
+      "criteria": [
+        "C-020",
+        "C-021",
+        "C-022",
+        "C-023",
+        "C-072"
+      ],
+      "description": "The rubric fixes High waiver risk for third-party disclosures without separating attorney-client waiver from surviving work product or agency exceptions. ACP waiver concern is strong on these facts; total loss of protection is not automatic.",
+      "evidence": "sample078 p4-p5,p12-p30 contains defense strategy shared with technical consultant; sample102 p2,p7-p10 uses defense assessment for insurance renewal. Both logs claim ACP; samples also expressly label work product. Third Circuit In re Grand Jury Matter #3 (January27,2017) p13 distinguishes ACP waiver from surviving work product after third-party accountant disclosure. NJDEP entry128 is different: actual adversary disclosure supports high risk.",
+      "repair": "Evaluate ACP and WP separately, consultant/broker function, confidentiality, adversary-access risk; allow qualified risk scores and amended protection claims.",
+      "category": "arguable"
+    },
+    {
+      "id": "F07",
+      "classification": "arguable",
+      "criteria": [
+        "C-028",
+        "C-029",
+        "C-030",
+        "C-031",
+        "C-073"
+      ],
+      "description": "Primary-purpose analysis is appropriate, but the rubric turns word percentage into a legal test and fixes Medium scores.",
+      "evidence": "sample044 p24,119 p22,and156 p13 request specific legal input amid business updates. These are strong overbreadth concerns for whole-document withholding, but an isolated legal request may merit redaction and context matters. C031 demands 90%+ business/single-sentence reasoning without authority for arithmetic test; C073 fixes rating.",
+      "repair": "Accept reasoned whole-document versus segregable-portion analysis and calibrated alternative scores. Avoid a numerical legal-purpose threshold.",
+      "category": "arguable"
+    },
+    {
+      "id": "F08",
+      "classification": "arguable",
+      "criteria": [
+        "C-010",
+        "C-011"
+      ],
+      "description": "Molina lack of a law license does not itself defeat a communication sent to actual GC Langford.",
+      "evidence": "sample203 p1 identifies Langford Esq GC as recipient; p4-p8 contains regulator/enforcement information and operational next steps. Business purpose is plausible, but employee-to-lawyer communication can support counsel legal advice without sender being a lawyer. Rubric C010 requires deficiency because Molina is not an attorney.",
+      "repair": "Evaluate purpose/context and possible counsel fact-gathering. Keep nonlawyer-title correction but do not treat the sender credential as dispositive.",
+      "category": "arguable"
+    },
+    {
+      "id": "F09",
+      "classification": "arguable",
+      "criteria": [
+        "C-062",
+        "C-063"
+      ],
+      "description": "The expert disclosure concern is sound for this report, but the general statement that considered materials lose protection omits Rule26 draft and attorney-expert safeguards.",
+      "evidence": "Expert disclosures p19,p36,p43 expressly designate Reese and list the March22,2022 report; sample199 is a completed technical report, not clearly a protected draft. FRCP26(b)(4)(B)-(C) retains protection for drafts and specified attorney-expert communications even after designation.",
+      "repair": "Retain report-specific disclosure finding and require facts/data considered analysis; recognize draft/communication exceptions rather than generalized loss of all work product.",
+      "category": "arguable"
+    },
+    {
+      "id": "F10",
+      "classification": "arguable",
+      "criteria": [
+        "C-046",
+        "C-069",
+        "C-070",
+        "C-080",
+        "C-082"
+      ],
+      "description": "The rubric adds rigid log/output schema and exhaustive cross-document duplication requirements that the prompt did not specify.",
+      "evidence": "Prompt only requests categorized assessment and named DOCX/XLSX outputs. C069 requires ten exact columns, C070 three-tier risk scheme, C082 requires every planted issue appear in both files. Rule26(b)(5)(A) requires sufficient description to assess protection, not an attorney participant for every WP document.",
+      "repair": "Allow equivalent organized assessments, references between outputs, missing/unknown data, and adequate descriptions tailored to the privilege basis; retain substantive completeness and consistency checks.",
+      "category": "arguable"
+    },
+    {
+      "id": "F11",
+      "classification": "arguable",
+      "criteria": [
+        "C-052",
+        "C-053",
+        "C-054",
+        "C-081"
+      ],
+      "description": "Potential crime-fraud escalation is defensible, but the memo must not equate seeking advice about lawful delay with furthering unlawful reporting evasion.",
+      "evidence": "sample072 p6-p9 warns of reporting risk; p21 expressly asks whether a legal basis permits delay, and no subsequent act is shown. The criteria generally say potential and escalation, appropriately leaving uncertainty; this finding is a guardrail against overreading them, not a confirmed wrong inclusion.",
+      "repair": "Keep conditional escalation, demand evidence of furtherance rather than mere discussion of regulatory exposure, and preserve ordinary compliance advice.",
+      "category": "arguable"
+    }
+  ],
+  "source_cross_checks": [
+    "All 82 criteria reviewed. All 55 files extracted; targeted passages inspected across the 49 sample documents, organizational chart, two common-interest agreements, engagement letter, expert disclosures, and privilege workbook. Workbook has 312 numbered entries; audit concentrated on all rubric-named entries and compared sample metadata. This is not a fresh defensibility ruling on every one of the 312 claims.",
+    "C001-C004 nonlawyer emails are operational/budget content; C006-C009 Molina samples are regulatory liaison/lobbying business content. C005 allows attorney direction, so not treated as categorically excluding all internal client communications.",
+    "C012-C014: sample007/011 are marketing and engagement letter p8 explicitly disclaims prior legal advice. C015-C019: orgchart p13-p14 states preGC business-only role, corroborated by samples003/005/009. Those findings are supported by content, not title alone.",
+    "C032-C036: sample033/058/096/134 state routine audits/monitoring under September2018 MSA. Their ordinary-business basis supports challenge; date before filed suit alone would not.",
+    "C037-C045 boilerplate descriptions: log rows148,153,169,176,190,202,246,268 are conclusory. Samples contain apparent genuine legal analysis; appropriate action may be amend log rather than produce privileged substance.",
+    "C049-C051: sample128 p2-p6 proves voluntary direct NJDEP transmission; agreement recitals identify NJDEP co-plaintiff. High ACP/WP waiver concern is supported, subject to any unprovided protective arrangement.",
+    "C057-C059: log rows222/223 contain impossible dates; row289 lists TBD author and blank recipient. C060-C061: sample177 separates legal memo from operational/financial attachment, supporting segregation.",
+    "C065-C068,C071,C074-C078: case caption, useful action items, Third Circuit/FRE502 framework and source dates supported. Common-interest date August3,2021; CLM January6,2020; Langford March15,2019; Brannigan November30,2022; expert January15,2024.",
+    "Clawback filename is explicitly requested, but sources predominantly concern withheld-log deficiencies and do not establish an inadvertent production event. A reasonable spreadsheet may distinguish production/relogging from actual retrieval candidates."
+  ],
+  "legal_sources": [
+    "https://www.govinfo.gov/content/pkg/USCODE-2024-title28/html/USCODE-2024-title28-app-federalru-dup1.htm",
+    "https://supreme.justia.com/cases/federal/us/449/383/",
+    "https://law.justia.com/cases/federal/district-courts/pennsylvania/paedce/2:2016cv05932/524050/135/",
+    "https://www2.ca3.uscourts.gov/opinarch/152475p1.pdf",
+    "https://www.govinfo.gov/content/pkg/USCOURTS-pawd-2_13-cr-00227/pdf/USCOURTS-pawd-2_13-cr-00227-0.pdf",
+    "https://www.govinfo.gov/content/pkg/USCOURTS-paed-2_07-cv-01455/pdf/USCOURTS-paed-2_07-cv-01455-0.pdf"
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Flags Entry #024 as deficient (non-lawyer-only communication)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Flags Entry #067 as deficient (non-lawyer-only communication)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Flags Entry #112 as deficient (non-lawyer-only communication)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Flags Entry #198 as deficient (non-lawyer-only communication)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001: Correct legal reasoning \u2014 ACP requires attorney involvement",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Flags Entry #031 \u2014 Molina misidentified as attorney",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Flags Entry #055 \u2014 Molina misidentified as attorney",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_002: Flags Entry #089 \u2014 Molina misidentified as attorney",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_002: Flags Entry #141 \u2014 Molina misidentified as attorney",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_002: Flags Entry #203 \u2014 Molina misidentified as attorney",
+      "assessment": "arguable",
+      "findings": [
+        "F08"
+      ]
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_002: Explains Molina's informal title does not confer attorney status",
+      "assessment": "arguable",
+      "findings": [
+        "F08"
+      ]
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_003: Flags Entry #007 \u2014 pre-engagement marketing email",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Flags Entry #011 \u2014 pre-engagement marketing email",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_003: Analyzes prospective client vs. marketing distinction",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_004: Flags Entry #003 \u2014 Langford pre-GC role",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Flags Entry #005 \u2014 Langford pre-GC role",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_004: Flags Entry #009 \u2014 Langford pre-GC role",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_004: Legal analysis \u2014 bar license alone insufficient for ACP",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_004: States Langford was in a business role until March 15, 2019",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_005: Flags Entry #078 \u2014 privilege waiver by forwarding to Graystone",
+      "assessment": "arguable",
+      "findings": [
+        "F06"
+      ]
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_005: Identifies Graystone as unprotected third party",
+      "assessment": "arguable",
+      "findings": [
+        "F06"
+      ]
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_006: Flags Entry #102 \u2014 privilege waiver by forwarding to Ridgeline",
+      "assessment": "arguable",
+      "findings": [
+        "F06"
+      ]
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_006: Explains insurance broker not covered by common interest",
+      "assessment": "arguable",
+      "findings": [
+        "F06"
+      ]
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_007: Flags Entry #085 \u2014 pre-common-interest sharing with Whitmore",
+      "assessment": "arguable",
+      "findings": [
+        "F05"
+      ]
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_007: Flags Entry #091 \u2014 pre-common-interest sharing with Whitmore",
+      "assessment": "arguable",
+      "findings": [
+        "F05"
+      ]
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_007: States correct date of Garfield/Whitmore common interest agreement",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_007: Analyzes that JCI cannot retroactively protect pre-agreement communications",
+      "assessment": "arguable",
+      "findings": [
+        "F05"
+      ]
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_008: Flags Entry #044 \u2014 dual-purpose, business dominant",
+      "assessment": "arguable",
+      "findings": [
+        "F07"
+      ]
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_008: Flags Entry #119 \u2014 dual-purpose, business dominant",
+      "assessment": "arguable",
+      "findings": [
+        "F07"
+      ]
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_008: Flags Entry #156 \u2014 dual-purpose, business dominant",
+      "assessment": "arguable",
+      "findings": [
+        "F07"
+      ]
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_008: Applies Third Circuit dominant purpose test",
+      "assessment": "arguable",
+      "findings": [
+        "F07"
+      ]
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_009: Flags Entry #033 \u2014 ordinary course business document",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_009: Flags Entry #058 \u2014 ordinary course business document",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_009: Flags Entry #096 \u2014 ordinary course business document",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_009: Flags Entry #134 \u2014 ordinary course business document",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_009: Legal analysis \u2014 work product requires anticipation of litigation",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_010: Flags Entry #147 \u2014 inadequate privilege log description",
+      "assessment": "confirmed",
+      "findings": [
+        "F04"
+      ]
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_010: Flags Entry #152 \u2014 inadequate privilege log description",
+      "assessment": "confirmed",
+      "findings": [
+        "F04"
+      ]
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_010: Flags Entry #168 \u2014 inadequate privilege log description",
+      "assessment": "confirmed",
+      "findings": [
+        "F04"
+      ]
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_010: Flags Entry #175 \u2014 inadequate privilege log description",
+      "assessment": "confirmed",
+      "findings": [
+        "F04"
+      ]
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_010: Flags Entry #189 \u2014 inadequate privilege log description",
+      "assessment": "confirmed",
+      "findings": [
+        "F04"
+      ]
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_010: Flags Entry #201 \u2014 inadequate privilege log description",
+      "assessment": "confirmed",
+      "findings": [
+        "F04"
+      ]
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_010: Flags Entry #245 \u2014 inadequate privilege log description",
+      "assessment": "confirmed",
+      "findings": [
+        "F04"
+      ]
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_010: Flags Entry #267 \u2014 inadequate privilege log description",
+      "assessment": "confirmed",
+      "findings": [
+        "F04"
+      ]
+    },
+    {
+      "id": "C-045",
+      "title": "ISSUE_010: Cites Fed. R. Civ. P. 26(b)(5)(A)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_010: Describes required privilege log content under Rule 26(b)(5)(A)",
+      "assessment": "arguable",
+      "findings": [
+        "F10"
+      ]
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_011: Flags Entry #162 \u2014 draft press release as improper WP",
+      "assessment": "confirmed",
+      "findings": [
+        "F03"
+      ]
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_011: Identifies Lydia Stanton as non-lawyer/VP Communications",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_012: Flags Entry #128 \u2014 privilege waiver by disclosure to NJDEP",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-050",
+      "title": "ISSUE_012: Identifies NJDEP as adversary/co-plaintiff",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-051",
+      "title": "ISSUE_012: Third Circuit does not recognize selective waiver",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-052",
+      "title": "ISSUE_013: Flags Entry #072 \u2014 potential crime-fraud exception",
+      "assessment": "arguable",
+      "findings": [
+        "F11"
+      ]
+    },
+    {
+      "id": "C-053",
+      "title": "ISSUE_013: Identifies the specific unlawful conduct at issue",
+      "assessment": "arguable",
+      "findings": [
+        "F11"
+      ]
+    },
+    {
+      "id": "C-054",
+      "title": "ISSUE_013: Explains crime-fraud exception legal standard",
+      "assessment": "arguable",
+      "findings": [
+        "F11"
+      ]
+    },
+    {
+      "id": "C-055",
+      "title": "ISSUE_014: Flags Entry #210 \u2014 communication with terminated employee",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-056",
+      "title": "ISSUE_014: Analyzes Upjohn limits for former employees",
+      "assessment": "confirmed",
+      "findings": [
+        "F02"
+      ]
+    },
+    {
+      "id": "C-057",
+      "title": "ISSUE_015: Flags Entry #221 \u2014 impossible date (March 32, 2023)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-058",
+      "title": "ISSUE_015: Flags Entry #222 \u2014 impossible date (February 30, 2022)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-059",
+      "title": "ISSUE_015: Flags Entry #288 \u2014 missing author/recipient metadata",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-060",
+      "title": "ISSUE_016: Flags Entry #177 \u2014 overbroad logging of board package",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-061",
+      "title": "ISSUE_016: Recommends segregation of privileged and non-privileged content",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-062",
+      "title": "ISSUE_017: Flags Entry #199 \u2014 work product claim after testifying expert disclosure",
+      "assessment": "arguable",
+      "findings": [
+        "F09"
+      ]
+    },
+    {
+      "id": "C-063",
+      "title": "ISSUE_017: Cites Rule 26(b)(4) and testifying expert disclosure rules",
+      "assessment": "arguable",
+      "findings": [
+        "F09"
+      ]
+    },
+    {
+      "id": "C-064",
+      "title": "DISTRACTOR_005: Does NOT flag Entries #025, #039, #050 as deficient",
+      "assessment": "confirmed",
+      "findings": [
+        "F04"
+      ]
+    },
+    {
+      "id": "C-065",
+      "title": "Memo includes correct case caption",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-066",
+      "title": "Memo includes recommended next steps",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-067",
+      "title": "Memo references Third Circuit precedent or law",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-068",
+      "title": "Memo references Fed. R. Evid. 502",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-069",
+      "title": "Clawback list includes all required columns",
+      "assessment": "arguable",
+      "findings": [
+        "F10"
+      ]
+    },
+    {
+      "id": "C-070",
+      "title": "Clawback list uses High/Medium/Low risk levels",
+      "assessment": "arguable",
+      "findings": [
+        "F10"
+      ]
+    },
+    {
+      "id": "C-071",
+      "title": "Clawback list distinguishes mandatory production from strategic decisions",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-072",
+      "title": "Waiver entries rated High risk",
+      "assessment": "arguable",
+      "findings": [
+        "F06"
+      ]
+    },
+    {
+      "id": "C-073",
+      "title": "Dual-purpose entries rated Medium or arguable",
+      "assessment": "arguable",
+      "findings": [
+        "F07"
+      ]
+    },
+    {
+      "id": "C-074",
+      "title": "Correct identification of Langford's GC appointment date",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-075",
+      "title": "Correct identification of CLM engagement date",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-076",
+      "title": "Correct identification of Garfield/Whitmore common interest date",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-077",
+      "title": "Correct identification of Brannigan termination date",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-078",
+      "title": "Correct identification of Dr. Reese testifying expert disclosure date",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-079",
+      "title": "Memo mentions October 1, 2024 deadline for response",
+      "assessment": "confirmed",
+      "findings": [
+        "F01"
+      ]
+    },
+    {
+      "id": "C-080",
+      "title": "Clawback list includes all 17 planted issues' entry numbers",
+      "assessment": "arguable",
+      "findings": [
+        "F10"
+      ]
+    },
+    {
+      "id": "C-081",
+      "title": "Crime-fraud entry (#072) flagged for escalation or special handling",
+      "assessment": "arguable",
+      "findings": [
+        "F11"
+      ]
+    },
+    {
+      "id": "C-082",
+      "title": "No internal contradictions between memo and clawback list",
+      "assessment": "arguable",
+      "findings": [
+        "F10"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,369 @@
+{
+  "task": "assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+  "prompt": "Review the attached litigation invoice against the staffing plan, billing guidelines, staffing emails, and case status summary; produce a detailed invoice review memo with reduction calculations. Output: `invoice-review-memo.docx`.",
+  "documents_reviewed": [
+    "barros-staffing-email.eml",
+    "hl-may-2025-invoice.xlsx",
+    "approved-staffing-plan.docx",
+    "pinnacle-billing-guidelines.docx",
+    "case-status-summary.docx"
+  ],
+  "coverage": {
+    "criteria_reviewed": 49,
+    "criteria_total": 49,
+    "documents_reviewed": 5,
+    "documents_total": 5,
+    "method": "All criterion wording reviewed; all five documents extracted and relevant text/table passages compared by criterion-directed reads/search. XLSX row arithmetic independently recalculated. No solver outputs read. Billing contract governs the criteria; external legal research not necessary."
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "status": "confirmed",
+      "criteria": [
+        "C-003",
+        "C-009",
+        "C-012",
+        "C-028",
+        "C-032",
+        "C-045",
+        "C-046",
+        "C-049"
+      ],
+      "issue": "Mandatory figures follow inconsistent invoice summaries without allowing reconciliation to line entries.",
+      "evidence": "hl-may-2025-invoice.xlsx sheet1 A22:B35 versus sheet2 rows 2:118 and stated subtotal row 120. Actual detailed totals: Barros 49h/$23,275, Sengupta 27h/$10,125, Tate 154.5h/$32,445; all detailed entries 483.5h/$215,680, whereas summary claims 422.5h/$193,372.50. Tate cap overcharge from detail is $1,545. Detailed fees plus $8,450 expenses is $224,130. The rubric can legitimately require reporting the face amount, but must accept reconciled alternative calculations instead of marking them materially incorrect.",
+      "severity": "material",
+      "repair": "Require both face totals and reconciliation; permit conditional reductions pending corrected invoice."
+    },
+    {
+      "id": "F2",
+      "status": "confirmed",
+      "criteria": [
+        "C-034"
+      ],
+      "issue": "Calls expected monthly hours a 25-hour cap.",
+      "evidence": "approved-staffing-plan.docx paragraphs 17, 50, 74 describe expected hours and explicitly permit actual hours to fluctuate. Billing guidelines section 4.1(b) calls ranges anticipated. No hard individual 25-hour cap is established. Arithmetic 13.5h/$13,297.50 is valid variance, not necessarily disallowed fees.",
+      "severity": "material",
+      "repair": "Describe variance from expectation; require reasonableness analysis, not cap characterization."
+    },
+    {
+      "id": "F3",
+      "status": "arguable",
+      "criteria": [
+        "C-018",
+        "C-020",
+        "C-021",
+        "C-022",
+        "C-035",
+        "C-036"
+      ],
+      "issue": "Mandatory lower-rate treatment may overstate conclusions from mixed or supervisory work.",
+      "evidence": "Invoice sheet2 row10 includes analyzing key documents and client memorandum; row44 reviews/revises junior cite-check memorandum. Guidelines section 6.2 makes a single supervisory review presumptively reasonable; section 6.1(a) permits junior associates when privilege judgment is needed, whereas row80 expressly includes privilege. C-044 itself allows judgment about strategic partner review.",
+      "repair": "Accept a reasoned request for clarification or conditional reduction and distinguish routine review from strategic/supervisory work."
+    },
+    {
+      "id": "F4",
+      "status": "arguable",
+      "criteria": [
+        "C-006",
+        "C-044"
+      ],
+      "issue": "Barros approval is portrayed as ambiguous despite express no-response rule.",
+      "evidence": "Guidelines section 4.2 paragraph 52 says absence of response shall not constitute approval; May 1 email says before moving forward let me review with Sandra. A pending request supports discretion on remedy, not ambiguity in whether written preapproval exists.",
+      "repair": "Distinguish clear absence of written approval from discretionary reduction decision."
+    },
+    {
+      "id": "F5",
+      "status": "confirmed",
+      "criteria": [
+        "C-040"
+      ],
+      "issue": "Incorrect rubric cross-reference.",
+      "evidence": "C-040 refers to deposition staffing concern per C-034, but C-034 concerns partner monthly hours. Intended reference is C-039.",
+      "severity": "minor",
+      "repair": "Change cross-reference to C-039."
+    }
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-002",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-003",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-004",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-005",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-006",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-007",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-008",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-009",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-010",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-011",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-012",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-013",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-014",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-015",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-016",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-017",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-018",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-019",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-020",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-021",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-022",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-023",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-024",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-025",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-026",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-027",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-028",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-029",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-030",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-031",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-032",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-033",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-034",
+      "status": "confirmed",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-035",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-036",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-037",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-038",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-039",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-040",
+      "status": "confirmed",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-041",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-042",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-043",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-044",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-045",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-046",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-047",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-048",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-049",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    }
+  ]
+}

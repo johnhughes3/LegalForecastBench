@@ -1,0 +1,80 @@
+{
+  "status": "blind_batch_complete_before_solver_review",
+  "tasks": [
+    {
+      "task": "assess-litigation-hold-scope-for-custodian-identification",
+      "criteria_reviewed": 50,
+      "documents_extracted": 8,
+      "confirmed_findings": 1,
+      "arguable_findings": 1,
+      "unverified_findings": 0
+    },
+    {
+      "task": "draft-answer-to-breach-of-contract-complaint",
+      "criteria_reviewed": 40,
+      "documents_extracted": 12,
+      "confirmed_findings": 3,
+      "arguable_findings": 4,
+      "unverified_findings": 1
+    },
+    {
+      "task": "draft-deposition-outline",
+      "criteria_reviewed": 59,
+      "documents_extracted": 12,
+      "confirmed_findings": 2,
+      "arguable_findings": 2,
+      "unverified_findings": 0
+    },
+    {
+      "task": "draft-litigation-hold-notice-for-new-product-liability-matter",
+      "criteria_reviewed": 61,
+      "documents_extracted": 7,
+      "confirmed_findings": 0,
+      "arguable_findings": 3,
+      "unverified_findings": 0
+    },
+    {
+      "task": "draft-opposition-to-motion-for-summary-judgment",
+      "criteria_reviewed": 59,
+      "documents_extracted": 15,
+      "confirmed_findings": 1,
+      "arguable_findings": 3,
+      "unverified_findings": 1
+    },
+    {
+      "task": "draft-witness-examination-outline",
+      "criteria_reviewed": 62,
+      "documents_extracted": 8,
+      "confirmed_findings": 2,
+      "arguable_findings": 3,
+      "unverified_findings": 0
+    },
+    {
+      "task": "identify-excessive-or-duplicative-research-charges-in-litigation-invoice",
+      "criteria_reviewed": 46,
+      "documents_extracted": 6,
+      "confirmed_findings": 3,
+      "arguable_findings": 3,
+      "unverified_findings": 0
+    },
+    {
+      "task": "research-ucc-warranty-disclaimer-requirements-for-new-product-launch",
+      "criteria_reviewed": 45,
+      "documents_extracted": 9,
+      "confirmed_findings": 2,
+      "arguable_findings": 3,
+      "unverified_findings": 0
+    },
+    {
+      "task": "verify-disbursement-charges-against-billing-guidelines",
+      "criteria_reviewed": 57,
+      "documents_extracted": 4,
+      "confirmed_findings": 3,
+      "arguable_findings": 2,
+      "unverified_findings": 0
+    }
+  ],
+  "criteria_reviewed": 479,
+  "documents_extracted": 81,
+  "coverage": "All rubric criteria read and mapped; source text extracted from every supplied document; criterion-bearing passages inspected. Not every paragraph read sequentially; no rendered visual review. External law verified for identified legal concerns, not exhaustive cite-check of every authority in every packet. Solver outputs not read before this summary."
+}

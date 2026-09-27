@@ -1,0 +1,150 @@
+{
+  "tasks": 9,
+  "criteria": 575,
+  "documents": 133,
+  "findings": {
+    "confirmed": 30,
+    "arguable": 29,
+    "unverified": 2
+  },
+  "per_task": [
+    {
+      "task": "analyze-counterpartys-motion-for-summary-judgment",
+      "criteria": 32,
+      "documents": 9,
+      "findings": {
+        "confirmed": 1,
+        "arguable": 1,
+        "unverified": 1
+      },
+      "affected_criteria": {
+        "confirmed": 3,
+        "arguable": 2,
+        "unverified": 1
+      },
+      "audit": "analyze-counterpartys-motion-for-summary-judgment/audit.json"
+    },
+    {
+      "task": "compare-document-production-against-discovery-requests",
+      "criteria": 46,
+      "documents": 8,
+      "findings": {
+        "confirmed": 4,
+        "arguable": 2
+      },
+      "affected_criteria": {
+        "confirmed": 6,
+        "arguable": 4
+      },
+      "audit": "compare-document-production-against-discovery-requests/audit.json"
+    },
+    {
+      "task": "draft-defective-industrial-equipment-product-liability",
+      "criteria": 79,
+      "documents": 9,
+      "findings": {
+        "confirmed": 4,
+        "arguable": 4,
+        "unverified": 1
+      },
+      "affected_criteria": {
+        "confirmed": 6,
+        "arguable": 9,
+        "unverified": 1
+      },
+      "audit": "draft-defective-industrial-equipment-product-liability/audit.json"
+    },
+    {
+      "task": "draft-litigation-discovery-responses",
+      "criteria": 61,
+      "documents": 7,
+      "findings": {
+        "confirmed": 4,
+        "arguable": 2
+      },
+      "affected_criteria": {
+        "confirmed": 8,
+        "arguable": 5
+      },
+      "audit": "draft-litigation-discovery-responses/audit.json"
+    },
+    {
+      "task": "draft-motion-to-dismiss-brief",
+      "criteria": 89,
+      "documents": 24,
+      "findings": {
+        "confirmed": 4,
+        "arguable": 5
+      },
+      "affected_criteria": {
+        "confirmed": 13,
+        "arguable": 19
+      },
+      "audit": "draft-motion-to-dismiss-brief/audit.json"
+    },
+    {
+      "task": "draft-responses-to-requests-for-production",
+      "criteria": 45,
+      "documents": 7,
+      "findings": {
+        "confirmed": 2,
+        "arguable": 2
+      },
+      "affected_criteria": {
+        "confirmed": 2,
+        "arguable": 6
+      },
+      "audit": "draft-responses-to-requests-for-production/audit.json"
+    },
+    {
+      "task": "extract-scope-terms-from-matter-plan",
+      "criteria": 76,
+      "documents": 6,
+      "findings": {
+        "confirmed": 2,
+        "arguable": 3
+      },
+      "affected_criteria": {
+        "confirmed": 2,
+        "arguable": 3
+      },
+      "audit": "extract-scope-terms-from-matter-plan/audit.json"
+    },
+    {
+      "task": "research-corporate-veil-piercing-standards-across-target-jurisdictions",
+      "criteria": 65,
+      "documents": 8,
+      "findings": {
+        "confirmed": 5,
+        "arguable": 3
+      },
+      "affected_criteria": {
+        "confirmed": 6,
+        "arguable": 10
+      },
+      "audit": "research-corporate-veil-piercing-standards-across-target-jurisdictions/audit.json"
+    },
+    {
+      "task": "review-privilege-log-clawback-review",
+      "criteria": 82,
+      "documents": 55,
+      "findings": {
+        "confirmed": 4,
+        "arguable": 7
+      },
+      "affected_criteria": {
+        "confirmed": 12,
+        "arguable": 26
+      },
+      "audit": "review-privilege-log-clawback-review/audit.json"
+    }
+  ],
+  "scope": "Blind rubric/prompt/source audit. All criteria considered; relevant source passages inspected, not a verbatim audit of all documents. No solver outputs read or source repository edits. Findings count groups rather than unique underlying legal doctrines; affected criterion categories may overlap. No confirmed defect identified does not mean independently certified correct.",
+  "highest_priority": [
+    "Texas DTPA exemptions conflated; wrong thresholds and legal tests in MTD packet.",
+    "Discovery-production census requires zero RFP16 despite 36 coded entries and wrong overall counts.",
+    "Ohio veil test superseded; Texas independent single-business-enterprise rejection understated; financial ratio denominator incorrect.",
+    "UCC industrial-goods consequential-damage rule, warranty accrual and LLC citizenship errors.",
+    "Privilege former-employee and work-product rules overbroad; mandatory deadline absent."
+  ]
+}

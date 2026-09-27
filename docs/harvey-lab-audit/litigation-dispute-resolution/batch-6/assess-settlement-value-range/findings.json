@@ -1,0 +1,53 @@
+[
+  {
+    "id": "B6-SV-1",
+    "status": "arguable",
+    "severity": "medium",
+    "criteria": [
+      "C-019"
+    ],
+    "issue": "Employer-fault reduction criterion is legally incomplete if applied to all damages.",
+    "basis": "C-015 expressly contemplates Greenfield at 40\u201360%. C-019 requires stating Apex fault reduces recovery, without distinguishing economic and noneconomic loss. At >50%, R.C. 2307.22(A)(1) makes Greenfield jointly liable for economic loss; (C) apportions noneconomic loss. A correct answer applying this distinction should pass. Qualification: C-019 does not expressly require reducing every category; correct noneconomic reduction may satisfy it. Therefore this is an overbreadth concern, not a categorical false rule.",
+    "source_pointers": [
+      "task.json criteria C-015/C-019",
+      "defense-mediation-brief.docx comparative fault analysis; sources.txt lines 645\u2013801"
+    ],
+    "legal_urls": [
+      "https://codes.ohio.gov/ohio-revised-code/section-2307.22"
+    ],
+    "repair": "Accept conditional allocation distinguishing economic joint liability, noneconomic allocation, and plaintiff fault."
+  },
+  {
+    "id": "B6-SV-2",
+    "status": "arguable",
+    "severity": "medium",
+    "criteria": [
+      "C-033",
+      "C-034"
+    ],
+    "issue": "Required positive contribution/indemnity discussion risks treating an unsupported recovery right as a net-cost credit.",
+    "basis": "Defense brief reserves contribution rights (sources.txt:782), but Apex is the employer paying workers compensation (Aldrich \u00a7IV; sources.txt:64). Employer immunity normally matters; an express immunity waiver or intentional-tort exception would need analysis. Deliberate guard alteration may warrant examining an intentional-tort exception, so potential contribution is not categorically impossible. C-034 permits analysis and is not itself legally false.",
+    "legal_urls": [
+      "https://codes.ohio.gov/ohio-revised-code/section-4123.74",
+      "https://codes.ohio.gov/ohio-revised-code/section-2307.25",
+      "https://law.justia.com/cases/ohio/supreme-court-of-ohio/1998/1998-ohio-194.html"
+    ],
+    "repair": "Award credit for explaining immunity and concluding contribution is unavailable absent an established exception; do not require a net-cost reduction."
+  },
+  {
+    "id": "B6-SV-3",
+    "status": "confirmed",
+    "severity": "low",
+    "criteria": [
+      "C-029",
+      "C-039"
+    ],
+    "issue": "PASS and FAIL valuation boundaries leave materially different acceptance intervals.",
+    "basis": "C-029 PASS calls for a figure between the experts (approximately 1.9\u20132.2M), while FAIL only rejects outside 1.6\u20132.5M. C-039 PASS bounds are 3.5\u20139.5M and midpoint 5\u20137M; FAIL examples use 2\u201312M and midpoint 4\u20138M. This creates undefined middle cases.",
+    "source_pointers": [
+      "task.json criteria C-029 and C-039"
+    ],
+    "legal_urls": [],
+    "repair": "Use one interval or reward explained case-supported estimates without numeric answer anchoring."
+  }
+]

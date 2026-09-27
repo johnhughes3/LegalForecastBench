@@ -1,0 +1,430 @@
+{
+  "task": "draft-opposition-to-motion-to-dismiss",
+  "prompt": "Draft the plaintiff's opposition memorandum responding to the attached motion to dismiss, drawing on the complaint and supporting exhibits. Output: `opposition-memorandum.docx`.",
+  "documents_reviewed": [
+    "restrictive-covenant-agreement.docx",
+    "forensics-report-summary.docx",
+    "defendants-mtd-memorandum.docx",
+    "litigation-strategy-memo.docx",
+    "lodestar-press-release.docx",
+    "client-notification-emails.eml",
+    "verified-complaint.docx"
+  ],
+  "coverage": {
+    "criteria_reviewed": 63,
+    "criteria_total": 63,
+    "documents_reviewed": 7,
+    "documents_total": 7,
+    "method": "All criterion wording reviewed; every supplied document extracted and relevant sections compared by targeted reads/search. This is criterion-directed coverage, not a certification that every unrelated source paragraph is correct. No solver outputs read.",
+    "limitations": "63 criteria examined, all seven documents searched/read in relevant sections. Statutory DTSA nonpreemption and misappropriation definitions confirmed from chapter 90 primary text accessed during this batch. No conclusion that covenant reformation, fiduciary duty, standing, or plaintiff advocacy is categorically unavailable. Standalone constructive-knowledge sufficiency remains unresolved."
+  },
+  "legal_sources": [
+    "https://ecf.ctd.uscourts.gov/cgi-bin/show_public_doc?2021cv0774-34=",
+    "https://www.jud.ct.gov/lawjournal/Docs/Misc/2023/41/CLJ10102023.pdf",
+    "https://www.supremecourt.gov/opinions/20pdf/20-297_4g25.pdf",
+    "https://uscode.house.gov/view.xhtml?edition=prelim&hl=false&num=0&path=%2Fprelim%40title18%2Fpart1%2Fchapter90&req=granuleid%3AUSC-prelim-title18-chapter90"
+  ],
+  "findings": [
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-007"
+      ],
+      "issue": "PASS/FAIL conditions do not cover the same threshold.",
+      "evidence": "PASS requires both Twombly and Iqbal (or their standard); FAIL says neither mentioned. A brief naming one case leaves grader inconsistent instructions.",
+      "repair": "Use one unambiguous requirement, preferably correct plausibility standard rather than case-name count.",
+      "id": "F1"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-009",
+        "C-011"
+      ],
+      "issue": "Mandatory routine reformation formulation overstates Connecticut doctrine and is encouraged by misleading source memo.",
+      "evidence": "litigation-strategy-memo paragraphs 25\u201326 attributes flexible reasonable modification to Deming. D. Conn. Sunbelt Rentals opinion at pp.5\u20137 quotes Deming 279 Conn.745,769 n.21 as narrow severable-undertakings rule; broader rewriting appears in some trial decisions with express modification language. RCA section 8.5 supports a reformation argument here, but not an unqualified assertion that courts routinely reform overbroad covenants.",
+      "repair": "Credit accurate limited doctrine and express-clause argument without requiring overstated routine practice.",
+      "id": "F2"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-029",
+        "C-031"
+      ],
+      "issue": "Compulsory constructive-knowledge and 24-day-gap theories can penalize stronger, more careful advocacy.",
+      "evidence": "Strategy memo paragraphs 81\u201385 infers restrictive-covenant knowledge from industry practice and hiring timing. Complaint supplies those allegations, so these are not invented facts, but hiring 24 days later does not itself show contract knowledge. Connecticut interference law requires knowledge of the relevant relationship; constructive knowledge as stand-alone substitute has not been established by sources reviewed.",
+      "repair": "Accept reasonable actual-knowledge inference, knowledge of client relationships, or qualified argument; do not compel assertion that due-diligence omission proves knowledge.",
+      "id": "F3"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-038",
+        "C-039"
+      ],
+      "issue": "Requires characterizing promotional proprietary-insights language as quasi-admission of misuse.",
+      "evidence": "Lodestar press release paragraph 9 promotes operational expertise and proprietary insights. This is circumstantial material, not an express admission that information was taken or improperly used. Litigation strategy memo expressly requests recurring use, but court briefing can reasonably avoid overstating it.",
+      "repair": "Credit cautious circumstantial inference in either relevant claim section.",
+      "id": "F4"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-041",
+        "C-042",
+        "C-043",
+        "C-044",
+        "C-045",
+        "C-046"
+      ],
+      "issue": "Exact section/heading and citation-placement rules go beyond requested opposition.",
+      "evidence": "Prompt specifies opposition memorandum, not five separately headed argument sections or complaint citations in three sections. A coherent issue-based combined section can answer every dismissal argument.",
+      "repair": "Score substantive responsiveness and source support without fixed heading/citation distribution.",
+      "id": "F5"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-002",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-003",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-004",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-005",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-006",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-007",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-008",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-009",
+      "status": "arguable",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-010",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-011",
+      "status": "arguable",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-012",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-013",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-014",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-015",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-016",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-017",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-018",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-019",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-020",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-021",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-022",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-023",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-024",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-025",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-026",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-027",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-028",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-029",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-030",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-031",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-032",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-033",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-034",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-035",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-036",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-037",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-038",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-039",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-040",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-041",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-042",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-043",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-044",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-045",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-046",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-047",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-048",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-049",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-050",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-051",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-052",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-053",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-054",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-055",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-056",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-057",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-058",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-059",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-060",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-061",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-062",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-063",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    }
+  ]
+}

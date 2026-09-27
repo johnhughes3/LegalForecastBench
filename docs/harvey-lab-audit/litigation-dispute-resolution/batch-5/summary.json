@@ -1,0 +1,103 @@
+{
+  "tasks_reviewed": 8,
+  "criteria_reviewed": 416,
+  "documents_reviewed": 61,
+  "finding_groups": {
+    "confirmed": 18,
+    "arguable": 26,
+    "unverified": 2
+  },
+  "coverage_note": "All criterion wording reviewed. All supplied documents extracted, with criterion-directed reads/searches of relevant passages. Coverage is not a claim that every paragraph was read unabridged or every embedded authority independently verified. No solver outputs accessed. Confirmed includes source conflicts, incorrect legal propositions, and minor rubric inconsistencies; arguable findings are not adjudicated errors.",
+  "tasks": [
+    {
+      "task": "assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+      "criteria_reviewed": 49,
+      "documents_reviewed": 5,
+      "findings": {
+        "confirmed": 3,
+        "arguable": 2
+      },
+      "report": "batch-5/assess-reasonableness-of-staffing-levels-on-litigation-invoice/audit.json",
+      "limitations": "Criterion-directed inspection; arithmetic independently recalculated."
+    },
+    {
+      "task": "draft-case-assessment-memorandum",
+      "criteria_reviewed": 55,
+      "documents_reviewed": 8,
+      "findings": {
+        "confirmed": 1,
+        "arguable": 6
+      },
+      "report": "batch-5/draft-case-assessment-memorandum/audit.json",
+      "limitations": "No blanket finding that Oregon substantive law is wrong. Dates and termination fee arithmetic checked; strong breach conclusion supported by express defective-notice clause. Some source internal chronology errors (March 28 report references April 12 filed complaint; October 20 email uses new employer account before November 1 hire) do not directly negate required issues."
+    },
+    {
+      "task": "draft-discovery-plan-memorandum",
+      "criteria_reviewed": 65,
+      "documents_reviewed": 10,
+      "findings": {
+        "confirmed": 1,
+        "arguable": 3,
+        "unverified": 1
+      },
+      "report": "batch-5/draft-discovery-plan-memorandum/audit.json",
+      "limitations": "65 criterion wordings examined; 10 documents inspected by criterion-directed search/read. Source report supports installation-defense discovery as a possible secondary factor despite primary foundry defect. FRCP preservation, proportionality and subpoena provisions checked; Ohio cap proposition remains unverified."
+    },
+    {
+      "task": "draft-motion-for-preliminary-injunction",
+      "criteria_reviewed": 53,
+      "documents_reviewed": 9,
+      "findings": {
+        "confirmed": 3,
+        "arguable": 2
+      },
+      "report": "batch-5/draft-motion-for-preliminary-injunction/audit.json",
+      "limitations": "53 criteria; all nine supplied documents accessed through relevant portions. Most advocacy requirements are appropriate to plaintiff PI request and were not labeled defective merely because contestable. MNAA consideration, duration, statutory secrecy definitions, whistleblower-remedy limits and DTSA employment limit checked against primary statutory text."
+    },
+    {
+      "task": "draft-opposition-to-motion-to-dismiss",
+      "criteria_reviewed": 63,
+      "documents_reviewed": 7,
+      "findings": {
+        "confirmed": 1,
+        "arguable": 4
+      },
+      "report": "batch-5/draft-opposition-to-motion-to-dismiss/audit.json",
+      "limitations": "63 criteria examined, all seven documents searched/read in relevant sections. Statutory DTSA nonpreemption and misappropriation definitions confirmed from chapter 90 primary text accessed during this batch. No conclusion that covenant reformation, fiduciary duty, standing, or plaintiff advocacy is categorically unavailable. Standalone constructive-knowledge sufficiency remains unresolved."
+    },
+    {
+      "task": "extract-key-admissions-from-deposition-transcript",
+      "criteria_reviewed": 46,
+      "documents_reviewed": 7,
+      "findings": {
+        "confirmed": 2,
+        "arguable": 3
+      },
+      "report": "batch-5/extract-key-admissions-from-deposition-transcript/audit.json",
+      "limitations": "Every criterion and all seven supplied documents inspected through targeted source passages. Later recross and redirect were considered; the interrogatory itself, rather than counsel\u2019s narrower paraphrase on redirect, controls the communication-denial comparison. No adjudication of actual spoliation or enforceability is claimed."
+    },
+    {
+      "task": "identify-government-subpoena-issues",
+      "criteria_reviewed": 52,
+      "documents_reviewed": 9,
+      "findings": {
+        "confirmed": 1,
+        "arguable": 4
+      },
+      "report": "batch-5/identify-government-subpoena-issues/audit.json",
+      "limitations": "52 criteria reviewed against all nine supplied documents using criterion-directed passages. Intake states May15 service of the SEC order and May16 notice to Grayfield, so the preservation-date premise has actual notice support beyond mere order issuance. Client reports support counsel retention and prospective work-product treatment, but no Ridgeline engagement/work product itself is supplied. No actual SEC order or LP confidentiality agreement is supplied. Separate-entity service, SCA/privacy and parallel-proceeding issues were assessed as qualified issue spotting; no exhaustive jurisdictional opinion is claimed."
+    },
+    {
+      "task": "review-counterpartys-proposed-jury-instructions",
+      "criteria_reviewed": 33,
+      "documents_reviewed": 6,
+      "findings": {
+        "confirmed": 6,
+        "arguable": 2,
+        "unverified": 1
+      },
+      "report": "batch-5/review-counterpartys-proposed-jury-instructions/audit.json",
+      "limitations": "All33 criteria reviewed against all six documents through targeted passages. The supplied summary-judgment order is treated as the operative fictional case order, while independently verified legal errors are separately identified as source-law defects. Court-directed exclusion of SignalSift, permissible circumstantial job evidence, mitigation withdrawal, and authorized adverse inference are supported. No complete citation audit of every case embedded in the synthetic orders is claimed. No solver output was accessed."
+    }
+  ]
+}

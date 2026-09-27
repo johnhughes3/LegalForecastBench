@@ -1,0 +1,67 @@
+[
+  {
+    "id": "B6-LH-1",
+    "status": "confirmed",
+    "severity": "high",
+    "criteria": [
+      "C-001",
+      "C-002"
+    ],
+    "issue": "Mandates a nonexistent date-range contradiction.",
+    "basis": "Notice \u00b612 defines 2019 onward unless otherwise specified. \u00b647 expressly says notwithstanding \u00b612 and extends financial records to 2017. This is an explicit exception, not conflicting instructions. Additional burden C-003 remains valid.",
+    "source_pointers": [
+      "doj-preservation-notice.docx \u00b612 and \u00b647, sources.txt:70\u201371,166\u2013167"
+    ],
+    "legal_urls": [],
+    "repair": "Credit extracting the clear financial-record exception; do not require DOJ clarification of a manufactured inconsistency."
+  },
+  {
+    "id": "B6-LH-2",
+    "status": "confirmed",
+    "severity": "high",
+    "criteria": [
+      "C-004",
+      "C-005",
+      "C-006"
+    ],
+    "issue": "Mandates a false contradiction between all-HCP and five-HCP requirements.",
+    "basis": "\u00b623 explicitly covers all HCPs whether named or not. \u00b624 starts Without limiting any other provision and adds duties for Exhibit D contacts. Nothing limits \u00b623 to five. Broader coverage remains required directly, not merely a conservative interim interpretation.",
+    "source_pointers": [
+      "doj-preservation-notice.docx \u00b623\u201324, sources.txt:103\u2013106"
+    ],
+    "legal_urls": [],
+    "repair": "Accept cumulative broad and named-contact obligations; remove required narrow-reading counterfactual and contradiction."
+  },
+  {
+    "id": "B6-LH-3",
+    "status": "confirmed",
+    "severity": "low",
+    "criteria": [
+      "C-007"
+    ],
+    "issue": "Destruction period source is internally inconsistent.",
+    "basis": "Destruction email summary says 4.2M records from 2019\u20132021, but category 2 includes 1.4M sales/field records through December 2022. Rubric repeats the narrower summary as fact without accepting reconciliation.",
+    "source_pointers": [
+      "records-destruction-confirmation.eml Categories and Volume of Records Destroyed, category 2; sources.txt:574\u2013587"
+    ],
+    "legal_urls": [],
+    "repair": "Allow 2019\u20132022, with source-conflict note; retain 4.2M approximate total."
+  },
+  {
+    "id": "B6-LH-4",
+    "status": "arguable",
+    "severity": "low",
+    "criteria": [
+      "C-021",
+      "C-025"
+    ],
+    "issue": "Legal analogies need limits for private-employer imaging and criminal investigation preservation.",
+    "basis": "Privacy/consent analysis is warranted, but Fourth Amendment requires government action and civil-discovery backup cases do not displace notice terms or criminal preservation duties. Criteria offer alternatives, so a careful answer can pass without error.",
+    "source_pointers": [
+      "doj-preservation-notice.docx mobile imaging and backup obligations",
+      "task C-021/C-025"
+    ],
+    "legal_urls": [],
+    "repair": "Preserve criteria as risk spotting while accepting state-action qualification and distinction between preservation and production proportionality."
+  }
+]

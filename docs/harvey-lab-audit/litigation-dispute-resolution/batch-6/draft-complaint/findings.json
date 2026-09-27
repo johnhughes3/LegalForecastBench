@@ -1,0 +1,54 @@
+[
+  {
+    "id": "B6-DC-1",
+    "status": "confirmed",
+    "severity": "high",
+    "criteria": [
+      "C-027"
+    ],
+    "issue": "Requires inventing North Carolina TSPA statutory preemption.",
+    "basis": "C-027 cites \u00a766-157(a) as a preemption provision. Official Article 24 contains no such subsection; \u00a766-157 is solely the three-year limitations provision. No displacement provision appears in this Act. A drafter correctly rejecting this assumed statutory preemption can fail.",
+    "source_pointers": [
+      "task.json C-027; compare C-024 correctly describing \u00a766-157"
+    ],
+    "legal_urls": [
+      "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/ByArticle/Chapter_66/Article_24.html"
+    ],
+    "repair": "Remove mandatory preemption warning or require only supported independent overlap/duplicative-remedy analysis."
+  },
+  {
+    "id": "B6-DC-2",
+    "status": "confirmed",
+    "severity": "medium",
+    "criteria": [
+      "C-023"
+    ],
+    "issue": "Required causal story conflicts with the packet chronology and contract.",
+    "basis": "All identified exfiltration occurred October 27\u2013November 15; notice was November 18. Showalter memo \u00a7IV itself describes compliance as moving departure to January 17, not earlier notice. Contract \u00a77.3 permits access restrictions immediately on notice; seven additional January days cannot prevent pre-notice October/November transfers. The short notice breach is supportable; the required claim it deprived Verdant of an earlier opportunity to restrict access and prevent exfiltration is not.",
+    "source_pointers": [
+      "sentinel-forensics-report.docx chronological context and timeline, sources.txt:285,411",
+      "showalter-memo-to-counsel.docx \u00a7IV, sources.txt:513",
+      "tate-employment-agreement.docx \u00a77.3, sources.txt:779\u2013790"
+    ],
+    "legal_urls": [],
+    "repair": "Credit breach analysis and explicit rejection of unsupported exfiltration causation; permit investigation/detection harm if supported."
+  },
+  {
+    "id": "B6-DC-3",
+    "status": "arguable",
+    "severity": "medium",
+    "criteria": [
+      "C-045",
+      "C-057"
+    ],
+    "issue": "Mandates prospective-interference claim and quantified damages despite estimates rather than identified lost transactions.",
+    "basis": "Showalter memo requests these theories; Heartland reports a presentation, not a lost contract. Employee loss figure expressly assumes losing three scientists; the declarations describe recruitment without established departures. These are theories to investigate, not necessarily viable accrued damages. A companion memo qualifying allegations should receive credit.",
+    "source_pointers": [
+      "showalter-memo-to-counsel.docx \u00a7\u00a7VII\u2013IX, sources.txt:542\u2013562",
+      "damages-analysis-summary.xlsx damages assumptions",
+      "kowalski-declaration.docx; okonkwo-declaration.docx"
+    ],
+    "legal_urls": [],
+    "repair": "Allow well-reasoned omission of premature claim and qualification of projected losses; do not compel unsupported actual-loss allegations."
+  }
+]

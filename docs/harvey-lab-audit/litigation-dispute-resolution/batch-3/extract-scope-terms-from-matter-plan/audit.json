@@ -1,0 +1,540 @@
+{
+  "task": "extract-scope-terms-from-matter-plan",
+  "prompt": "Extract and cross-check all scope-defining terms from the attached engagement materials and produce a structured extraction report flagging any inter-document inconsistencies. Output: `scope-extraction-report.docx`.",
+  "coverage": "All76 criteria read; all6 files extracted and relevant sections/spreadsheet data/negotiation-email text inspected. No external law required to resolve these contract extraction findings; no legal enforceability opinion offered. No solver output accessed.",
+  "criterion_count": 76,
+  "document_count": 6,
+  "findings": [
+    {
+      "id": "F1",
+      "classification": "confirmed false gap",
+      "criteria": [
+        "C-060"
+      ],
+      "description": "Elaine Marchetti rate is expressly assigned in engagement letter itself and repeated in matter plan. Absence of an Of Counsel row does not leave her rate ambiguous; rubric demands artificial uncertainty.",
+      "evidence": "engagement-letter.docx p97 authorizes Marchetti onlyWS4/5,billed Partner rate; matter-plan.docx p227 specifies$685.",
+      "repair": "Extract express named authorization and distinguish individual rate schedule administration from missing rate.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F2",
+      "classification": "confirmed source contradiction",
+      "criteria": [
+        "C-061"
+      ],
+      "description": "Rubric says$55 contract reviewer rate not listed in engagement-letter rate schedule, but ExhibitA has express note listing$55 and cross-reference. Individual reviewer approval may still need verification; categorical rate omission is false.",
+      "evidence": "engagement-letter.docx p47 and ExhibitA p213; OCG p40 permits attached schedule OR subsequent written approval.",
+      "repair": "Replace missing-rate finding with conditional unnamed-timekeeper approval inquiry.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F3",
+      "classification": "arguable resolved conflict",
+      "criteria": [
+        "C-063"
+      ],
+      "description": "There is a literal general-guideline/specific-engagement difference, but engagement expressly controls; compelling unresolved conflict characterization would mislead. Criterion can be satisfied by flagging and resolving the hierarchy.",
+      "evidence": "engagement-letter.docx p144,p150-p151; matter-plan.docx p420; OCG p66-p67.",
+      "repair": "Credit resolved express override; do not require obtaining redundant new approval.",
+      "category": "arguable"
+    },
+    {
+      "id": "F4",
+      "classification": "arguable compatible deadlines",
+      "criteria": [
+        "C-062"
+      ],
+      "description": "Feb28 completion satisfies no later than90days before June1 (Mar3). Different listed dates warrant clarification, but an earlier operational deadline does not inherently conflict with outside limit.",
+      "evidence": "matter-plan.docx p170,p246,p275.",
+      "repair": "Allow explaining earlier target versus latest permissible date; avoid forced contradiction.",
+      "category": "arguable"
+    },
+    {
+      "id": "F5",
+      "classification": "arguable incomplete payment phrasing",
+      "criteria": [
+        "C-069"
+      ],
+      "description": "Criterion says accrued fees payable within45days upon termination; source measures45days from final invoice submission, which may be up to30days after termination.",
+      "evidence": "engagement-letter.docx p127; matter-plan.docx p434.",
+      "repair": "State triggering event explicitly and credit accurate potentially75day timeline.",
+      "category": "arguable"
+    }
+  ],
+  "source_cross_checks": [
+    "C-001-C-013: all sevenWS and sixexclusions checked against matter-plan\u00a7\u00a73-4 and revision1; WS4 allocation/coordinating counsel source-supported.",
+    "C-014-C-038/C-049-C-057/C-067-C-070/C-072/C-074: engagement letter rates,caps,settlement tiers,staffing,termination,waiver and budget workbook inspected. Contract reviewer accounting differs: feeWS6 in spreadsheet vs disbursement in matter-plan p155,p335; additional discrepancy worth flagging.",
+    "C-039-C-048/C-068/C-073/C-075-C-076: matter-plan timeline/reporting and matter number checked; dates are source extraction,not endorsement of actual docket dates.",
+    "C-058-C-059/C-064-C-066/C-071: genuine780K/760K difference; WS4 added320K exceeds212.5K threshold and addendum signed deputy/billing partner; aggregate-payments definition unresolved in negotiation emails; affiliate definition absent. EX6 futureMDL scope ambiguity reasonable.",
+    "Additional source discrepancy: wind-down threshold engagement p129 >$2M versus matter-plan p436 \u2265$2M, with engagement controlling. Criterion054 follows controlling version."
+  ],
+  "legal_sources": [],
+  "criteria": [
+    {
+      "id": "C-001",
+      "title": "Extracts WS-1: Federal MDL Defense with correct case number",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-002",
+      "title": "Extracts WS-2: State Court Defense with correct case number",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-003",
+      "title": "Extracts WS-3: Expert Retention and Management with named experts",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-004",
+      "title": "Extracts WS-4: Regulatory Response (CPSC)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-005",
+      "title": "WS-4 origin noted as Revision 1 addendum (March 28, 2025)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-006",
+      "title": "Extracts WS-4 sub-budget of $320,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-007",
+      "title": "Extracts WS-4 coordinating/primary counsel distinction",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-008",
+      "title": "Extracts WS-5: Insurance Coverage Coordination with $95,000 sub-budget",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-009",
+      "title": "Extracts WS-5 liaison with Graystone Risk Advisors or relevant carriers",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-010",
+      "title": "Extracts WS-6: Document Review and E-Discovery with vendor restriction",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-011",
+      "title": "Extracts WS-7: Settlement Strategy and Mediation with pre-approved mediators",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-012",
+      "title": "Extracts scope exclusions EX-1 through EX-6",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-013",
+      "title": "Extracts EX-6 exception for MDL consolidation",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-014",
+      "title": "Extracts blended hourly rates for rate categories",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-015",
+      "title": "Extracts contract reviewer rate of $55/hour",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-016",
+      "title": "Extracts monthly fee cap of $285,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-017",
+      "title": "Extracts retroactive overage approval up to 10% by Deputy GC",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-018",
+      "title": "Extracts General Counsel approval required for overages exceeding 10%",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-019",
+      "title": "Extracts aggregate fee budget of $4,250,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-020",
+      "title": "Extracts 50% budget checkpoint at $2,125,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-021",
+      "title": "Extracts 75% budget checkpoint at $3,187,500",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-022",
+      "title": "Extracts 10-business-day reconciliation requirement at budget checkpoints",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-023",
+      "title": "Extracts total disbursement budget of $1,350,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-024",
+      "title": "Extracts disbursement sub-allocations (at least 3 of 4 categories)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-025",
+      "title": "Extracts success fee rate of 7.5%",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-026",
+      "title": "Extracts Target Resolution Amount of $8,500,000 and success fee calculation method",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-027",
+      "title": "Extracts settlement authority tier: Deputy GC up to $3,000,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-028",
+      "title": "Extracts settlement authority tier: General Counsel $3,000,001 to $6,000,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-029",
+      "title": "Extracts settlement authority tier: Pinnacle Board above $6,000,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-030",
+      "title": "Extracts staffing for Nathaniel Voss as Lead Trial Partner (40% max)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-031",
+      "title": "Extracts staffing for Katherine Sinclair as Second Chair (75% max)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-032",
+      "title": "Extracts junior associate headcount cap of 3",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-033",
+      "title": "Extracts junior associate monthly billing limit of 160 hours",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-034",
+      "title": "Extracts Elaine Marchetti authorized for WS-4 and WS-5 only",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-035",
+      "title": "Extracts Elaine Marchetti billed at Partner rate ($685/hour)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-036",
+      "title": "Extracts contract reviewer headcount cap of 15",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-037",
+      "title": "Extracts Deputy GC approval for contract reviewer wave sizing",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-038",
+      "title": "Extracts staffing change requirements (15 business days notice, GC consent)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-039",
+      "title": "Extracts key deadline: Initial disclosures April 15, 2025",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-040",
+      "title": "Extracts key deadline: Damages expert by June 30, 2025",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-041",
+      "title": "Extracts key deadline: Fact discovery closes August 1, 2025",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-042",
+      "title": "Extracts key deadline: Expert reports September 15, 2025",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-043",
+      "title": "Extracts key deadline: Trial date June 1, 2026 (estimated)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-044",
+      "title": "Extracts key deadline: Daubert motion December 1, 2025",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-045",
+      "title": "Extracts key deadline: Dispositive motions February 15, 2026",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-046",
+      "title": "Extracts reporting: weekly Tuesday 3 PM ET call",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-047",
+      "title": "Extracts reporting: monthly written status report by 5th business day",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-048",
+      "title": "Extracts reporting: quarterly business review (QBR) in person",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-049",
+      "title": "Extracts $25,000 individual disbursement pre-approval threshold",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-050",
+      "title": "Extracts new expert retention approval requirement",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-051",
+      "title": "Extracts 30-day termination notice period",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-052",
+      "title": "Extracts 15-business-day file delivery upon termination",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-053",
+      "title": "Extracts success fee forfeiture on termination for cause or withdrawal",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-054",
+      "title": "Extracts wind-down fee of 2% after $2,000,000 billed",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-055",
+      "title": "Extracts prospective conflicts waiver: firm may represent clients adverse to Pinnacle affiliates but not Pinnacle Industrial Holdings or Pinnacle Hydraulics Solutions directly",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-056",
+      "title": "Extracts conflicts waiver restriction on hydraulic equipment matters",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-057",
+      "title": "Extracts conflicts waiver prohibition on use of confidential information",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-058",
+      "title": "ISSUE_001: Flags $780,000 vs. $760,000 expert budget discrepancy",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-059",
+      "title": "ISSUE_002: Flags WS-4 $320K sub-budget exceeds 5% threshold ($212,500)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-060",
+      "title": "ISSUE_003: Flags Of Counsel rate not defined in rate schedule",
+      "assessment": "confirmed false gap",
+      "findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-061",
+      "title": "ISSUE_004: Flags contract reviewer rate missing from approved rate schedule",
+      "assessment": "confirmed source contradiction",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-062",
+      "title": "ISSUE_005: Flags mediation deadline inconsistency (March 3 vs. Feb 28, 2026)",
+      "assessment": "arguable compatible deadlines",
+      "findings": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-063",
+      "title": "ISSUE_006: Flags conflict between retroactive overage approval and OCG advance-approval rule",
+      "assessment": "arguable resolved conflict",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-064",
+      "title": "ISSUE_007: Flags scope gap for non-HX-9000 claims consolidated into MDL",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-065",
+      "title": "ISSUE_008: Flags 'aggregate payments' in success fee is undefined",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-066",
+      "title": "ISSUE_010: Flags 'affiliates' undefined in prospective conflicts waiver",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-067",
+      "title": "Extracts rebuttal expert reserve amount of $230,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-068",
+      "title": "Extracts mediation joint approval requirement",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-069",
+      "title": "Extracts accrued fees payment term of 45 days upon termination",
+      "assessment": "arguable incomplete payment phrasing",
+      "findings": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-070",
+      "title": "Extracts 5% threshold for post-engagement work stream additions",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-071",
+      "title": "Report includes document-specific references",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-072",
+      "title": "Extracts Marcus Oduya as lead paralegal",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-073",
+      "title": "Extracts key deadline: Rebuttal expert reports October 31, 2025",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-074",
+      "title": "Extracts insurance coverage details (primary $5M/$10M, excess $15M)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-075",
+      "title": "Extracts mediation deadline (90 days before trial)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-076",
+      "title": "Correct matter number referenced (WC-2025-04381)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    }
+  ]
+}

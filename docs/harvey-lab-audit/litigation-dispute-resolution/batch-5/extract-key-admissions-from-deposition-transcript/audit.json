@@ -1,0 +1,321 @@
+{
+  "task": "extract-key-admissions-from-deposition-transcript",
+  "prompt": "Review the attached deposition transcripts and supporting documents, and prepare an admission summary memo with contradictions and recommended next steps.\n\nOutput: `admission-summary-memo.docx`",
+  "documents_reviewed": [
+    "forensic-report.docx",
+    "yoon-deposition-vol2.docx",
+    "yoon-deposition-vol1.docx",
+    "yoon-employment-agreement.docx",
+    "cms-cease-desist-letter.docx",
+    "yoon-interrogatory-answers.docx",
+    "separation-acknowledgment.docx"
+  ],
+  "coverage": {
+    "criteria_reviewed": 46,
+    "criteria_total": 46,
+    "documents_reviewed": 7,
+    "documents_total": 7,
+    "method": "All criterion wording reviewed; every supplied document extracted and relevant sections compared by targeted reads/search. This is criterion-directed coverage, not a certification that every unrelated source paragraph is correct. No solver outputs read.",
+    "limitations": "Every criterion and all seven supplied documents inspected through targeted source passages. Later recross and redirect were considered; the interrogatory itself, rather than counsel\u2019s narrower paraphrase on redirect, controls the communication-denial comparison. No adjudication of actual spoliation or enforceability is claimed."
+  },
+  "legal_sources": [
+    "https://capitol.legislature.mi.gov/documents/mcl/pdf/mcl-chap445.pdf",
+    "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm?rhtocid=_2"
+  ],
+  "findings": [
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-007",
+        "C-008"
+      ],
+      "issue": "The rubric describes an initial denial that the transcript instead expressly characterizes as failure of recollection. Some pass alternatives remain achievable, but the prescribed shift should not be reported as denial-to-admission.",
+      "evidence": "Vol. 1 pp.132\u2013134, extracted paragraphs 857\u2013874: witness says he does not recall sending the Blue Book; when asked whether he is denying it, he repeats \u201cI\u2019m saying I don\u2019t recall it.\u201d Questioner later describes the shift as not recalling to possibly inadvertently forwarding.",
+      "repair": "Describe nonrecollection followed by qualified acknowledgement; do not require the stronger denial characterization.",
+      "id": "F1"
+    },
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-001"
+      ],
+      "issue": "Criterion title calls June 22 the first contact, despite later testimony identifying earlier June contact. Its operative dinner requirement is supportable.",
+      "evidence": "Vol. 1 pp.64\u201365 recalls June 22 dinner; Vol. 2 p.296 lines 5\u201313 places first contact around June 8 or 9 at an industry event, followed by June 22 dinner.",
+      "repair": "Call June 22 the dinner; distinguish and reconcile the later first-contact testimony.",
+      "id": "F2"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-017"
+      ],
+      "issue": "A categorical admission that the noncompete discussion occurred at the June 22 dinner overstates qualified direct testimony, although a compound recross question offers some support.",
+      "evidence": "Vol. 1 pp.64\u201365, paragraphs 560\u2013565: discussion occurred sometime before starting PAG; June 22 is \u201cpossible\u201d but exact moment not remembered. Vol. 2 p.342 lines 4\u20138 assumes that timing in a compound question answered about the social/formal nature of the discussion.",
+      "repair": "Accept qualified timing and explain the compound-question inference.",
+      "id": "F3"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-014"
+      ],
+      "issue": "Mandatory self-serving characterization of the radius discrepancy imposes an advocacy interpretation on a requested admissions summary.",
+      "evidence": "Prompt asks for key admissions, contradictions and next steps. Employment agreement section 7(a) says 150 miles; testimony discusses 100 miles and PAG is 142 miles away. The discrepancy is real, but motive is inferential.",
+      "repair": "Require accurate discrepancy and significance, permitting neutral description.",
+      "id": "F4"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-032"
+      ],
+      "issue": "A mandatory table is an unrequested presentation constraint.",
+      "evidence": "Prompt requests a DOCX admissions summary without prescribing a table. Criterion requires a table instead of accepting equivalently clear organized prose.",
+      "id": "F5"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "status": "confirmed",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-002",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-003",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-004",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-005",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-006",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-007",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-008",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-009",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-010",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-011",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-012",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-013",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-014",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-015",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-016",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-017",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-018",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-019",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-020",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-021",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-022",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-023",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-024",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-025",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-026",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-027",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-028",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-029",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-030",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-031",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-032",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-033",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-034",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-035",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-036",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-037",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-038",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-039",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-040",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-041",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-042",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-043",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-044",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-045",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-046",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    }
+  ]
+}

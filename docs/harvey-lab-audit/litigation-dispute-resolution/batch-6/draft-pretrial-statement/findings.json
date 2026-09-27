@@ -1,0 +1,75 @@
+[
+  {
+    "id": "B6-PT-1",
+    "status": "confirmed",
+    "severity": "high",
+    "criteria": [
+      "C-017"
+    ],
+    "issue": "Accepts corporate-style LLC citizenship in jurisdictional statement.",
+    "basis": "Formation in Delaware and North Carolina offices do not establish an LLC citizenship or complete diversity. Court-required format specifically calls for citizenship. No member citizenship census supplied. Correct reservation of missing member facts should pass.",
+    "source_pointers": [
+      "pretrial-order-and-rules.docx \u00a7III.A, sources.txt:2052",
+      "task C-017"
+    ],
+    "legal_urls": [
+      "https://www2.ca3.uscourts.gov/opinarch/122561p.pdf"
+    ],
+    "repair": "Require member citizenship analysis or explicit missing-information qualification; do not equate offices with citizenship."
+  },
+  {
+    "id": "B6-PT-2",
+    "status": "confirmed",
+    "severity": "medium",
+    "criteria": [
+      "C-046"
+    ],
+    "issue": "Conflates remaining three-year term with 2.5-year mitigation period.",
+    "basis": "EDA runs March 2021\u2013February 2026. At March 2023 termination, Years 3\u20135 are three years. The 2.5 years starts when replacement distributor begins September 2023. C-046 expressly labels 2.5 years the remainder of contract term; C-035 correctly uses all three future MAPCs. Supplied summary-judgment opinion repeats the mistake.",
+    "source_pointers": [
+      "deposition-excerpts.docx Prescott testimony, sources.txt:678\u2013686",
+      "summary-judgment-ruling.docx sources.txt:2402\u20132404",
+      "task C-035/C-044/C-046"
+    ],
+    "legal_urls": [],
+    "repair": "Allow explicit correction: three-year gross loss horizon and 2.5-year replacement offset; accurately describe Holt argument."
+  },
+  {
+    "id": "B6-PT-3",
+    "status": "arguable",
+    "severity": "medium",
+    "criteria": [
+      "C-032",
+      "C-033",
+      "C-034"
+    ],
+    "issue": "Total-damages benchmark preserves full revenue shortfalls despite source recognizing margin issue.",
+    "basis": "C-033/C-034 correctly state revenue shortfalls, but C-032 target total includes them at 100% and expressly permits only lease correction. Prescott concedes margin-adjusted past losses total $1,363,400, versus $4,010,000 revenue shortfall, pending legal ruling. A corrected past-profit damages figure should not be penalized.",
+    "source_pointers": [
+      "deposition-excerpts.docx Prescott, sources.txt:667\u2013674",
+      "prescott-expert-report.docx damages calculation; task C-032"
+    ],
+    "legal_urls": [
+      "https://www.govinfo.gov/content/pkg/USCOURTS-paed-2_12-cv-01922/pdf/USCOURTS-paed-2_12-cv-01922-4.pdf"
+    ],
+    "repair": "Accept a justified margin adjustment and distinguish purchase shortfall from lost profits or separately supported price recovery."
+  },
+  {
+    "id": "B6-PT-4",
+    "status": "arguable",
+    "severity": "low",
+    "criteria": [
+      "C-005"
+    ],
+    "issue": "Required earliest discovery date excludes record-supported fall 2022 inquiry notice.",
+    "basis": "Hausman says concerns arose in fall 2022, and fraud was added by amendment after late-2023 discovery. C-005 demands discovery no earlier than early 2023. Filing remains plausibly timely even if inquiry notice occurred fall 2022; exact date is a disputed diligence question.",
+    "source_pointers": [
+      "deposition-excerpts.docx Hausman, sources.txt:540\u2013554",
+      "summary-judgment-ruling.docx reserved limitations issue"
+    ],
+    "legal_urls": [
+      "https://www.paed.uscourts.gov/sites/paed/files/opinions/15-1063_opinion.pdf"
+    ],
+    "repair": "Accept supported discovery-rule position without insisting on an unnecessarily late knowledge date."
+  }
+]

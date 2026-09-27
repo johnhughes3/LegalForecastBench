@@ -1,0 +1,388 @@
+{
+  "task": "compare-document-production-against-discovery-requests",
+  "prompt": "Review the document production, privilege log, and discovery responses in the attached breach of contract and fraud case materials and prepare a gap analysis memo. Output: `discovery-gap-analysis.docx`.",
+  "coverage": "All 46 criteria read. All 8 supplied files extracted; entire production-index and privilege-log row data searched/counted and relevant pleading, response, RFP, email and scheduling passages inspected. No underlying 332 produced documents were supplied, so content conclusions are index-based. No solver output accessed.",
+  "criterion_count": 46,
+  "document_count": 8,
+  "findings": [
+    {
+      "id": "F1",
+      "classification": "confirmed source contradiction",
+      "criteria": [
+        "C-032"
+      ],
+      "description": "Rubric requires saying no RFP 16 documents were produced, but the index has 36 rows coded RFP 16, including responsive customer financial analyses. The response refusal conflicts with actual index.",
+      "evidence": "production-index.xlsx sheet1 rows 89-124, especially row119 revenue reconciliation and rows120-124 GL extracts; meridian-rfp-responses.docx p105 says no production.",
+      "repair": "Reward identifying contradictory response/index and assessing remaining gaps, not repeating zero production.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F2",
+      "classification": "confirmed count contradiction",
+      "criteria": [
+        "C-028",
+        "C-029",
+        "C-043"
+      ],
+      "description": "Index lists 332 numbered documents, not 312. RFP27 has 15 coded rows: 8 Greystone rows and 7 Pacific Corridor rows (including two earlier entries), not required 9 of 14 and only 5 relevant. Summary and correspondence repeat incorrect counts. C-043 allows correct pages/range instead, so its scoring harm is narrower.",
+      "evidence": "production-index.xlsx sheet1 A2:A333, rows119,307,310-322 and summary row335.",
+      "repair": "Recompute census from detail rows; accept discrepancy-aware answers.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F3",
+      "classification": "confirmed unsupported mandatory fact",
+      "criteria": [
+        "C-006"
+      ],
+      "description": "Only FY2019-FY2021 audits appear in index and complaint references FY2020. No supplied passage located establishes Crestline actually audited FY2022 and FY2023; rubric requires asserting it performed FY2020-FY2023 audits.",
+      "evidence": "complaint.docx p64; production-index.xlsx sheet1 rows128-130; rfps-first-set.docx p84 requests both versions to extent they exist. All Crestline occurrences inspected.",
+      "repair": "Require seeking confirmation whether later audits exist; add audit engagement evidence if certainty intended.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F4",
+      "classification": "confirmed legal overstatement",
+      "criteria": [
+        "C-033"
+      ],
+      "description": "Asserting a counterclaim does not waive all relevance/proportionality objections to financial discovery. FRCP26(b)(1) continues to limit discovery; at-issue privilege waiver is a different doctrine. Relevant financial records may be discoverable without this categorical sword-and-shield waiver.",
+      "evidence": "C-033 expressly defines doctrine as pleading damages waives objections. FRCP26(b)(1),(b)(2)(C).",
+      "repair": "Require relevance/proportionality analysis tied to counterclaim, allowing justified scope objections.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F5",
+      "classification": "arguable compelled inference",
+      "criteria": [
+        "C-018",
+        "C-025",
+        "C-027"
+      ],
+      "description": "Letters do not prove emails exist; a large contract does not establish board approval records, and a long relationship alone does not prove texts exist. These are useful follow-up questions but rubric mandates suspicion/implausibility.",
+      "evidence": "production-index.xlsx sheet1 rows309,323-326 describe letters/memoranda; original prompt requests gap analysis.",
+      "repair": "Credit requests to confirm search, custodians and existence without mandatory factual inference.",
+      "category": "arguable"
+    },
+    {
+      "id": "F6",
+      "classification": "arguable objection characterization",
+      "criteria": [
+        "C-007"
+      ],
+      "description": "Response15 does assert general and specific breadth/relevance objections, though no FY2022-FY2023-specific ground and promises production. Criterion may be satisfied by precise wording but should not demand saying no objection exists at all.",
+      "evidence": "meridian-rfp-responses.docx p97-p98.",
+      "repair": "Distinguish no year-specific withholding justification from no objections.",
+      "category": "arguable"
+    }
+  ],
+  "source_cross_checks": [
+    "C-001-C-003/C-024/C-045: no RFP5/8 index codes; responses promise production; complaint alleges fleet gap (not adjudicated).",
+    "C-004-C-005/C-011-C-016/C-019-C-021: spreadsheet audited years, policy range, dispatch gap and single capitalized-maintenance schedule support core deficiencies.",
+    "C-008-C-010/C-022-C-023/C-030-C-031/C-044: log entries 12-18,31,33-40 inspected; business descriptions support questions; crime-fraud is conditional rather than established. Zolin requires factual basis before in camera review.",
+    "C-017: RFP23-specific absence supported; emails from Cho elsewhere mean broad claim no Cho emails anywhere would be false.",
+    "C-026/C-034-C-042/C-046: request categories, Bates references, emails, case caption and scheduling-order p47 support reporting and deadline. Numerical citation minima are discretionary but not treated as substantive defects."
+  ],
+  "legal_sources": [
+    "https://www.uscourts.gov/sites/default/files/document/federal-rules-of-civil-procedure.pdf (Rules26(b)(1),(b)(2),(b)(3),34).",
+    "https://www.govinfo.gov/content/pkg/USREPORTS-491/pdf/USREPORTS-491-554.pdf (Zolin, in camera threshold)."
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies complete failure to produce subcontractor agreements (RFP 8)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Connects missing subcontractor agreements to the 158-truck gap / fraud claim",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Notes that Meridian agreed to produce but produced nothing for RFP 8",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002: Identifies that audited financial statements for FY2022 are missing from RFP 15 production",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Identifies that audited financial statements for FY2023 are missing from RFP 15 production",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Notes audited statements should exist (Crestline audited FY2020\u20132023)",
+      "assessment": "confirmed unsupported mandatory fact",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Notes no privilege or objection asserted for FY2022\u20132023 audited financials",
+      "assessment": "arguable objection characterization",
+      "findings": [
+        "F6"
+      ]
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Identifies pre-litigation business emails improperly withheld as privileged (PRIV-000012 through PRIV-000018)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Notes no attorney is listed on privilege log entries PRIV-000012 through PRIV-000018",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Notes descriptions reference business topics, not legal advice",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004: Identifies that the produced insurance policy covers wrong period (2022 only)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_004: Explains 2020\u20132021 policy period is critical to fraud claim",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_004: Notes the 2023 policy period is also missing",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_005: Identifies the 7-month gap in daily dispatch logs (Oct 2021\u2013Apr 2022)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_005: Notes significance of gap period (Q4 2021 performance deterioration)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_005: Notes no explanation provided for the gap",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_006: Identifies emails produced from only 2 of 6 identified custodians (RFP 23)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_006: Notes breach notice correspondence shows Alderton/Cho communicated directly with Pacific Corridor",
+      "assessment": "arguable compelled inference",
+      "findings": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_007: Identifies insufficient production of general ledger entries for capitalized maintenance (RFP 17)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_007: Connects missing ledger entries to $5.1M improper capitalization issue",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_007: Notes Meridian objected to RFP 17 as overly broad but promised production, yet produced only a single 2-page summary",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_008: Identifies PRIV-000031 as potential crime-fraud exception candidate",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_008: Notes PRIV-000031 was 2 days after Fleet Capacity Report and its description suggests advice on concealing fleet discrepancy",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_009: Identifies complete absence of board minutes/resolutions (RFP 5)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_009: Argues board approval documents should exist for a major contract",
+      "assessment": "arguable compelled inference",
+      "findings": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_010: Identifies complete absence of text messages and messaging app communications",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_010: Notes no objection or representation that no texts exist",
+      "assessment": "arguable compelled inference",
+      "findings": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_011: Identifies 9 of 14 documents coded to RFP 27 are actually Greystone documents",
+      "assessment": "confirmed count contradiction",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_011: Notes only 5 documents actually relate to counterclaim damages",
+      "assessment": "confirmed count contradiction",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_012: Identifies Pinnacle Fleet communications improperly withheld as work product (PRIV-000033 through PRIV-000040)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_012: Argues work product doctrine does not apply to pre-litigation insurer communications",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_013: Identifies that Meridian's relevance objection to RFP 16 is inconsistent with its counterclaim",
+      "assessment": "confirmed source contradiction",
+      "findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_013: Articulates the sword-and-shield doctrine argument",
+      "assessment": "confirmed legal overstatement",
+      "findings": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-034",
+      "title": "References specific Bates numbers throughout the analysis",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-035",
+      "title": "References specific privilege log entry numbers throughout the analysis",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-036",
+      "title": "References specific RFP numbers when discussing each gap",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-037",
+      "title": "Issues are prioritized or tiered by significance",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-038",
+      "title": "Recommends motion to compel with at least 3 specific categories of relief",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-039",
+      "title": "Notes the October 1, 2024 deadline for motion to compel",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-040",
+      "title": "References the meet-and-confer efforts already undertaken",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-041",
+      "title": "Correctly identifies the case number as 2:24-cv-01837-PO",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-042",
+      "title": "Correctly identifies the court as C.D. Cal.",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-043",
+      "title": "Correctly identifies the total production scope (312 documents, 4,217 pages, MLC-000001 through MLC-004217)",
+      "assessment": "confirmed count contradiction",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-044",
+      "title": "Recommends in camera review for PRIV-000031 (crime-fraud exception)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-045",
+      "title": "Identifies that Meridian's response to RFP 5 promised production but none materialized and no privilege entries correspond",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-046",
+      "title": "Analysis covers all 27 RFPs or all seven RFP categories",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    }
+  ]
+}
