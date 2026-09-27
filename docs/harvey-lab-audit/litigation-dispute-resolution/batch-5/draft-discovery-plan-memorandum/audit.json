@@ -1,0 +1,429 @@
+{
+  "task": "draft-discovery-plan-memorandum",
+  "prompt": "Review the attached case files and draft a discovery plan memorandum for the upcoming Rule 26(f) conference. Output: `discovery-plan-memorandum.docx`.",
+  "documents_reviewed": [
+    "pre-litigation-correspondence.docx",
+    "case-management-order.docx",
+    "whitmore-testing-report.docx",
+    "pinnacle-hold-notice.eml",
+    "hartwell-answer-counterclaim.docx",
+    "hartwell-litigation-hold-memo.docx",
+    "ostrowski-internal-emails.eml",
+    "aldersgate-ediscovery-assessment.docx",
+    "hartwell-pinnacle-msa.docx",
+    "pinnacle-v-hartwell-complaint.docx"
+  ],
+  "coverage": {
+    "criteria_reviewed": 65,
+    "criteria_total": 65,
+    "documents_reviewed": 10,
+    "documents_total": 10,
+    "method": "All criterion wording reviewed; every supplied document extracted and relevant sections compared by targeted reads/search. This is criterion-directed coverage, not a certification that every unrelated source paragraph is correct. No solver outputs read.",
+    "limitations": "65 criterion wordings examined; 10 documents inspected by criterion-directed search/read. Source report supports installation-defense discovery as a possible secondary factor despite primary foundry defect. FRCP preservation, proportionality and subpoena provisions checked; Ohio cap proposition remains unverified."
+  },
+  "legal_sources": [
+    "https://www.uscourts.gov/sites/default/files/2025-02/federal-rules-of-civil-procedure-dec-1-2024.pdf",
+    "https://www.govinfo.gov/content/pkg/USREPORTS-449/pdf/USREPORTS-449-383.pdf"
+  ],
+  "findings": [
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-031"
+      ],
+      "issue": "Rubric requires finding a hardcopy preservation gap contradicted by actual hold.",
+      "evidence": "hartwell-litigation-hold-memo.docx section 2(b),(e) preserves inspection and QA records; section 5 paragraph 55 expressly prohibits discarding paper files, binders, notebooks or physical materials, and paragraph 59 directs segregation of physical files. Aldersgate assessment paragraphs 22,47 incorrectly says hardcopy materials are outside preservation scope. A specific inventory is prudent but absence of exact binder name does not mean no preservation directive.",
+      "repair": "Accept recognition that existing hold covers binders, with practical inventory/confirmation recommendation.",
+      "id": "F1"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-025",
+        "C-043"
+      ],
+      "issue": "Conflates pleading particularity with evidence-based summary judgment strategy.",
+      "evidence": "C-025 gives Rule 9(b) particularity as an example basis for early partial summary judgment. FRCP 9(b) governs pleading; Rule 56 asks whether genuine material factual dispute exists. Case-management order paragraphs 83\u201384 itself encourages early sufficiency issues, but a correct plan may use Rule 12(c) for pleading and Rule 56 for merits.",
+      "repair": "Explicitly accept correct procedural vehicle and allow assessment that particularity is adequately pleaded.",
+      "id": "F2"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-028",
+        "C-029"
+      ],
+      "issue": "Overstates waiver risk from internal employee consultation or mentioning that consultation.",
+      "evidence": "Pre-litigation letter April 22 says counsel consulted QA; C-028 refers broadly to sharing with non-attorney personnel. Upjohn protects qualifying confidential employee-counsel communications; adversary disclosure is distinct. Mere consultation statement does not necessarily reveal privileged substance or create subject-matter waiver.",
+      "repair": "Require distinguishing internal privileged consultation from disclosure of substance to adversaries; accept reasoned no-waiver conclusion.",
+      "id": "F3"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-023",
+        "C-024",
+        "C-036"
+      ],
+      "issue": "Mandatory phasing and custodian rankings are unrequested strategic choices.",
+      "evidence": "Prompt requests Rule 26(f) discovery plan; case-management order section VII encourages parties to discuss whether phasing helps, but does not order a liability-first plan. A supported integrated schedule could be sound.",
+      "repair": "Allow a reasoned alternative schedule and prioritization expressed without tiers.",
+      "id": "F4"
+    },
+    {
+      "status": "unverified",
+      "criteria": [
+        "C-014"
+      ],
+      "issue": "General Ohio fraud exception not independently resolved to controlling case in this audit.",
+      "evidence": "Complaint paragraph 91 asserts the proposition and the rubric uses qualified generally/potentially language. Primary court search located relevant litigation over willful/wanton limits, but not sufficiently specific controlling authority to mark this broad proposition correct or defective.",
+      "repair": "Validate against controlling Ohio decisions before revising.",
+      "id": "F5"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-002",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-003",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-004",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-005",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-006",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-007",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-008",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-009",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-010",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-011",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-012",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-013",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-014",
+      "status": "unverified",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-015",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-016",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-017",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-018",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-019",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-020",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-021",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-022",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-023",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-024",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-025",
+      "status": "arguable",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-026",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-027",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-028",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-029",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-030",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-031",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-032",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-033",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-034",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-035",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-036",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-037",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-038",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-039",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-040",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-041",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-042",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-043",
+      "status": "arguable",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-044",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-045",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-046",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-047",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-048",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-049",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-050",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-051",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-052",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-053",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-054",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-055",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-056",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-057",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-058",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-059",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-060",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-061",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-062",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-063",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-064",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-065",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    }
+  ]
+}

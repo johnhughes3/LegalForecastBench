@@ -1,0 +1,90 @@
+[
+  {
+    "id": "B6-IC-1",
+    "status": "confirmed",
+    "severity": "medium",
+    "criteria": [
+      "C-008",
+      "C-009"
+    ],
+    "issue": "Requires falsely stating there are no specific facts supporting willful/malicious taking.",
+    "basis": "Complaint \u00b6\u00b693\u2013107 alleges dated unauthorized bulk download, management authorization, secrecy controls, knowing use of exact pricing to undercut plaintiff, and coordinated employee/customer diversion. Their ultimate adequacy is contestable, but rubric requires declaring only labels and no particular acts/knowledge. C-009 then forces a motion based on that premise.",
+    "source_pointers": [
+      "verified-complaint.docx \u00b6\u00b693\u2013107 and 167\u2013178; sources.txt:542\u2013557,640\u2013653"
+    ],
+    "legal_urls": [
+      "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+    ],
+    "repair": "Credit a reasoned decision the alleged facts plausibly support exemplary damages, with evidence weaknesses distinguished from pleading defects."
+  },
+  {
+    "id": "B6-IC-2",
+    "status": "arguable",
+    "severity": "medium",
+    "criteria": [
+      "C-016"
+    ],
+    "issue": "Parallel DTSA/OUTSA theories are not inherently impermissible or grounds for pretrial election.",
+    "basis": "18 USC 1838 expressly preserves other trade-secret remedies. Double recovery is a distinct issue. Criterion permits streamlining, so overlap discussion can be proper; it should not insist that both causes of action cannot proceed.",
+    "source_pointers": [
+      "verified-complaint.docx Counts IV/V",
+      "task C-016"
+    ],
+    "legal_urls": [
+      "https://uscode.house.gov/view.xhtml?edition=prelim&hl=false&num=0&path=%2Fprelim%40title18%2Fpart1%2Fchapter90&req=granuleid%3AUSC-prelim-title18-chapter90"
+    ],
+    "repair": "Credit no-duplicate-recovery analysis while expressly allowing both statutory claims."
+  },
+  {
+    "id": "B6-IC-3",
+    "status": "confirmed",
+    "severity": "low",
+    "criteria": [
+      "C-005"
+    ],
+    "issue": "Rubric arithmetic exemplar is wrong.",
+    "basis": "4,431,500 \u00d7 77/365 = 934,864.38356, not 934,694. The main conclusion that 4.836M is inflated remains correct, and exact number is expressly optional, so impact is limited.",
+    "source_pointers": [
+      "task C-005; verified-complaint \u00b6117"
+    ],
+    "legal_urls": [],
+    "repair": "Correct exemplar to approximately $934,864."
+  },
+  {
+    "id": "B6-IC-4",
+    "status": "confirmed",
+    "severity": "medium",
+    "criteria": [
+      "C-012"
+    ],
+    "issue": "Asserts spouse is LLC member without support.",
+    "basis": "Complaint \u00b68 identifies Vincent as managing member and spouse Lena as domiciled in Pennsylvania. It does not identify Lena as a member or enumerate all members. LLC pleading is defective, but C-012 should not prescribe an unsupported complete membership/citizenship answer.",
+    "source_pointers": [
+      "verified-complaint.docx \u00b6\u00b66\u20139, sources.txt:449\u2013452"
+    ],
+    "legal_urls": [
+      "https://www.ca5.uscourts.gov/opinions/unpub/20/20-50169.0.pdf"
+    ],
+    "repair": "Require verifying all members; accept identifying missing membership facts."
+  },
+  {
+    "id": "B6-IC-5",
+    "status": "arguable",
+    "severity": "low",
+    "criteria": [
+      "C-003",
+      "C-004",
+      "C-019",
+      "C-024"
+    ],
+    "issue": "Required motion count can encourage low-value motions and inaccurate dismissal recommendations.",
+    "basis": "Stay is mandatory if requested after compelling arbitration under Smith; missing exhibits do not inherently make federal pleadings defective. C-003 also allows correct stay and C-019 permits factual weakness analysis, so neither is categorically wrong. Requiring eight named motions/defenses should accept reasoned recommendations against weak motions.",
+    "source_pointers": [
+      "task C-003/C-019/C-024; agreement \u00a710.1; complaint exhibit list"
+    ],
+    "legal_urls": [
+      "https://www.supremecourt.gov/opinions/23pdf/22-1218_5357.pdf"
+    ],
+    "repair": "Reward prioritized defensible actions and preserve distinction between stay, dismissal, pleading sufficiency, and evidentiary gaps."
+  }
+]

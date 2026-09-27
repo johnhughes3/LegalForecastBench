@@ -1,0 +1,360 @@
+{
+  "task": "draft-motion-for-preliminary-injunction",
+  "prompt": "Draft a memorandum of law in support of our preliminary injunction motion based on the attached litigation file. Output: `memorandum-in-support-of-pi-motion.docx`.",
+  "documents_reviewed": [
+    "cease-and-desist-letter.docx",
+    "defense-counsel-letter.docx",
+    "employment-agreement.docx",
+    "canopy-ridge-press-release.docx",
+    "valuation-summary-report.docx",
+    "greenfield-declaration.docx",
+    "forensic-it-report.docx",
+    "chow-declaration.docx",
+    "verified-complaint.docx"
+  ],
+  "coverage": {
+    "criteria_reviewed": 53,
+    "criteria_total": 53,
+    "documents_reviewed": 9,
+    "documents_total": 9,
+    "method": "All criterion wording reviewed; every supplied document extracted and relevant sections compared by targeted reads/search. This is criterion-directed coverage, not a certification that every unrelated source paragraph is correct. No solver outputs read.",
+    "limitations": "53 criteria; all nine supplied documents accessed through relevant portions. Most advocacy requirements are appropriate to plaintiff PI request and were not labeled defective merely because contestable. MNAA consideration, duration, statutory secrecy definitions, whistleblower-remedy limits and DTSA employment limit checked against primary statutory text."
+  },
+  "legal_sources": [
+    "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L",
+    "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42",
+    "https://uscode.house.gov/view.xhtml?edition=prelim&hl=false&num=0&path=%2Fprelim%40title18%2Fpart1%2Fchapter90&req=granuleid%3AUSC-prelim-title18-chapter90"
+  ],
+  "findings": [
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-051"
+      ],
+      "issue": "Expressly accepts fabricated-looking case law as sufficient legal support.",
+      "evidence": "C-051 requires three authorities whether real or plausibly cited. Prompt asks a memorandum of law; plausible fabrication cannot support a legal argument.",
+      "repair": "Require genuine, accurately characterized authorities; remove plausibly cited allowance.",
+      "id": "F1"
+    },
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-012"
+      ],
+      "issue": "Omitted statutory alternative can fail a legally correct 24-month argument.",
+      "evidence": "MNAA section 24L(b)(iv) permits up to two years for breach of fiduciary duty OR unlawful taking of employer property, physically or electronically. Criterion mandates fiduciary-duty argument or 12-month fallback. A brief relying solely on unlawful electronic taking, strongly supported by forensic report section 2, is a correct statutory path but fails literal criterion.",
+      "repair": "Add unlawful taking as independently sufficient statutory exception.",
+      "id": "F2"
+    },
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-045"
+      ],
+      "issue": "Wrong contractual section for confidentiality covenant.",
+      "evidence": "Employment agreement section 8.1 defines confidential information/trade secrets; actual non-disclosure obligation is section 8.2 (also confirmed in 2022 amendment paragraph 121).",
+      "repair": "Refer to section 8.2 or section 8 generally.",
+      "id": "F3"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-038",
+        "C-039"
+      ],
+      "issue": "Compulsory compressed-timeline inference is stronger than necessary.",
+      "evidence": "January 17\u2013February 24 is 38 days and press release couples appointment with pipeline. Defense letter section 2 says development began in 2021 and financing closed October 2024. These are reasonable circumstantial arguments but do not establish pre-December negotiations; a careful brief might rely on proven downloads and similarity instead.",
+      "repair": "Allow clearly labeled inference with defense chronology addressed, without requiring speculation about December negotiations.",
+      "id": "F4"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-043"
+      ],
+      "issue": "Inevitable disclosure offered as acceptable rebuttal without statutory employment limits.",
+      "evidence": "18 USC 1836(b)(3)(A)(i)(I) requires evidence of threatened misappropriation, not merely known information, for employment conditions. Criterion permits invoking inevitable disclosure without qualification. Actual downloads here can support evidence-based relief, so not every satisfying answer is wrong.",
+      "repair": "Require distinction between evidence of actual/threatened misuse and knowledge alone.",
+      "id": "F5"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-002",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-003",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-004",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-005",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-006",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-007",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-008",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-009",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-010",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-011",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-012",
+      "status": "confirmed",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-013",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-014",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-015",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-016",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-017",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-018",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-019",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-020",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-021",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-022",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-023",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-024",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-025",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-026",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-027",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-028",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-029",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-030",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-031",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-032",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-033",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-034",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-035",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-036",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-037",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-038",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-039",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-040",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-041",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-042",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-043",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-044",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-045",
+      "status": "confirmed",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-046",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-047",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-048",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-049",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-050",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-051",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-052",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-053",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    }
+  ]
+}

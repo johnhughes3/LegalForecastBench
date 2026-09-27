@@ -1,0 +1,314 @@
+{
+  "task": "review-counterpartys-proposed-jury-instructions",
+  "prompt": "Review the defense's proposed jury instructions against the court's prior orders and case documents, and prepare an issues memo. Output: `jury-instruction-issues-memo.docx`.",
+  "documents_reviewed": [
+    "voss-employment-agreement.docx",
+    "summary-judgment-order.docx",
+    "pretrial-conference-minutes.docx",
+    "defense-proposed-jury-instructions.docx",
+    "plaintiff-trial-brief-damages.docx",
+    "discovery-sanctions-order.docx"
+  ],
+  "coverage": {
+    "criteria_reviewed": 33,
+    "criteria_total": 33,
+    "documents_reviewed": 6,
+    "documents_total": 6,
+    "method": "All criterion wording reviewed; every supplied document extracted and relevant sections compared by targeted reads/search. This is criterion-directed coverage, not a certification that every unrelated source paragraph is correct. No solver outputs read.",
+    "limitations": "All33 criteria reviewed against all six documents through targeted passages. The supplied summary-judgment order is treated as the operative fictional case order, while independently verified legal errors are separately identified as source-law defects. Court-directed exclusion of SignalSift, permissible circumstantial job evidence, mitigation withdrawal, and authorized adverse inference are supported. No complete citation audit of every case embedded in the synthetic orders is claimed. No solver output was accessed."
+  },
+  "legal_sources": [
+    "https://www.govinfo.gov/content/pkg/USCOURTS-ca11-11-10317/pdf/USCOURTS-ca11-11-10317-0.pdf",
+    "https://www.govinfo.gov/content/pkg/USCOURTS-gand-1_23-cv-01158/pdf/USCOURTS-gand-1_23-cv-01158-0.pdf",
+    "https://www.govinfo.gov/content/pkg/USCOURTS-gand-1_23-cv-04775/pdf/USCOURTS-gand-1_23-cv-04775-0.pdf",
+    "https://www.gasupreme.us/wp-content/uploads/2023/03/s22a1060.pdf",
+    "https://www.ca11.uscourts.gov/sites/default/files/courtdocs/clk/FormCivilPatternJuryInstructionsRevisedAPR2024.pdf",
+    "https://media.ca11.uscourts.gov/opinions/unpub/files/201414943.pdf"
+  ],
+  "findings": [
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-019",
+        "C-020"
+      ],
+      "issue": "The supplied summary-judgment order and rubric use an incorrect categorical Georgia-law distinction: contract interference supposedly needs only knowing inducement, with wrongful conduct reserved for business-relations interference. This is primarily a source-law defect; following the express supplied order is understandable, but the rubric should not demand presenting its rule as independently verified Georgia law.",
+      "evidence": "Summary-judgment-order paragraphs106\u2013108 supplies a four-element rule without improper conduct; proposed Instruction27 paragraph146 adds independently wrongful conduct. Gowen Oil Co. v. Greenberg Traurig, No.11-10317 (11th Cir. Dec13,2011), pp.4\u20136, applying Kirkland v. Tamplin, expressly requires wrongful conduct for contractual interference and rejects inducement alone. https://www.govinfo.gov/content/pkg/USCOURTS-ca11-11-10317/pdf/USCOURTS-ca11-11-10317-0.pdf. N.D.Ga. Sept19,2023 opinion p.8 likewise states common elements across contract and business relations: https://www.govinfo.gov/content/pkg/USCOURTS-gand-1_23-cv-01158/pdf/USCOURTS-gand-1_23-cv-01158-0.pdf",
+      "repair": "Correct the synthetic governing order and rubric together. Pending correction, credit a memo distinguishing adherence to the supplied order from actual Georgia law; do not punish accurate qualification. Confidential-information use can supply wrongful conduct, so a demand for an entirely separate transaction may still warrant tailored objection.",
+      "id": "F1"
+    },
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-023"
+      ],
+      "issue": "The required categorical proposition that comparative fault does not apply to intentional torts under Georgia law is overbroad and incorrect. The actual instruction can still properly be opposed because the mitigation defense was withdrawn.",
+      "evidence": "C-023 expressly requires the categorical legal statement. Pretrial minutes paragraphs32\u201333 unconditionally withdraw mitigation. Couch v. Red Roof Inns,291Ga359(2012), holds statutory apportionment fault includes intentional torts; official N.D.Ga. opinion Feb3,2025 pp.6\u20137 explains that holding: https://www.govinfo.gov/content/pkg/USCOURTS-gand-1_23-cv-04775/pdf/USCOURTS-gand-1_23-cv-04775-0.pdf. Instruction29 instead cites section51-11-7 and focuses on delayed enforcement; the precise applicable doctrine needs separate analysis.",
+      "repair": "Keep the case-specific withdrawal objection; remove the blanket intentional-tort exclusion and distinguish mitigation, common-law negligence defenses and statutory apportionment.",
+      "id": "F2"
+    },
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-016"
+      ],
+      "issue": "The rubric correctly selects willful-and-malicious misappropriation but misstates the general punitive-damages statute as requiring actual fraud AND specific intent to injure.",
+      "evidence": "Proposed Instruction32 paragraph170 contains that conjunction. Plaintiff trial brief paragraphs91\u201395 promotes the distinction, but section51-12-5.1(b) permits several alternative culpability grounds, while specific intent to harm concerns the cap exception in subsection(f). Taylor v. Devereux,316Ga44(2023), describes this structure: https://www.gasupreme.us/wp-content/uploads/2023/03/s22a1060.pdf. This does not undermine use of section10-1-763(b) for the trade-secret claim.",
+      "repair": "Require the correct GTSA standard without attributing the defective conjunctive standard to general Georgia law.",
+      "id": "F3"
+    },
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-027"
+      ],
+      "issue": "The cited expert-witness pattern instruction number is wrong, though the rubric\u2019s neutral-standard alternative allows a correct answer.",
+      "evidence": "Proposed Instruction31 paragraph167 and C-027 cite Eleventh Circuit3.5. The official April2024 edition, contents and PDF pp.43\u201344, labels expert instructions3.6.1 and3.6.2;3.5 concerns impeachment. https://www.ca11.uscourts.gov/sites/default/files/courtdocs/clk/FormCivilPatternJuryInstructionsRevisedAPR2024.pdf",
+      "repair": "Use3.6.1/3.6.2 as applicable. The latter allows caution when court-testimony fees are regular/significant income; avoid portraying every compensation-based caution as inherently forbidden.",
+      "id": "F4"
+    },
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-030"
+      ],
+      "issue": "Source documents inconsistently identify the plaintiff, so strict rejection of Ridgemont as the case name would punish reliance on captions.",
+      "evidence": "Defense proposed instructions paragraph5 and summary-judgment order paragraph2 say RIDGEMONT TECHNOLOGIES, INC.; their bodies say Oakvale. Employment agreement paragraph2 names Oakvale but signature block paragraph106 says RIDGEMONT. Criterion requires Oakvale and fails materially incorrect parties.",
+      "repair": "Normalize supplied names or accept an explicitly disclosed caption/body discrepancy.",
+      "id": "F5"
+    },
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-029"
+      ],
+      "issue": "PASS/FAIL thresholds leave the one-unobjectionable-instruction case unresolved.",
+      "evidence": "PASS requires at least two proper instructions; FAIL says no instructions identified as proper. Exactly one meets neither definition.",
+      "repair": "Use the same threshold in PASS and FAIL.",
+      "id": "F6"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-010",
+        "C-011"
+      ],
+      "issue": "Instruction13\u2019s inadequacy language deserves clarification, but calling the whole instruction an outright substitution of a different legal standard overstates the defect.",
+      "evidence": "Instruction13 paragraph77 expressly imposes reasonable measures; paragraph78 uses inadequate while listing several circumstances. C-010 requires calling adequacy a legal error; C-011 requires totality/perfect-security clarification. These are reasonable improvements but must be read with the full instruction.",
+      "repair": "Credit explanation of potential jury confusion and a clarifying reasonable-under-circumstances formulation, without insisting the existing text wholly omits reasonableness.",
+      "id": "F7"
+    },
+    {
+      "status": "unverified",
+      "criteria": [
+        "C-014"
+      ],
+      "issue": "The absolute no-unanimity-on-damages-theory proposition has not been independently established for every verdict structure.",
+      "evidence": "Plaintiff trial brief paragraphs114\u2013116 asserts it; Instruction30 combines mandatory election with unanimity. The no-double-recovery statutory objection is supported, but Rules48\u201349 alone do not resolve every special-verdict/interrogatory configuration.",
+      "repair": "Tie the objection to the impermissible either/or election; verify a directly applicable unanimity authority before demanding the broader rule.",
+      "id": "F8"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-032",
+        "C-033"
+      ],
+      "issue": "The prompt does not require an eight-issue prejudice quota or explicit severity differentiation; these are rubric presentation preferences.",
+      "evidence": "Prompt asks an issues memo against prior orders and documents. C-032 demands prejudice discussion for eight planted issues; C-033 demands differing severity language. Substantively complete analysis may reasonably organize prejudice and priority collectively.",
+      "repair": "Credit equivalent clear explanation of practical effects and priorities.",
+      "id": "F9"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-002",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-003",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-004",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-005",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-006",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-007",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-008",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-009",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-010",
+      "status": "arguable",
+      "finding_ids": [
+        "F7"
+      ]
+    },
+    {
+      "id": "C-011",
+      "status": "arguable",
+      "finding_ids": [
+        "F7"
+      ]
+    },
+    {
+      "id": "C-012",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-013",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-014",
+      "status": "unverified",
+      "finding_ids": [
+        "F8"
+      ]
+    },
+    {
+      "id": "C-015",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-016",
+      "status": "confirmed",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-017",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-018",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-019",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-020",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-021",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-022",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-023",
+      "status": "confirmed",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-024",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-025",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-026",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-027",
+      "status": "confirmed",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-028",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-029",
+      "status": "confirmed",
+      "finding_ids": [
+        "F6"
+      ]
+    },
+    {
+      "id": "C-030",
+      "status": "confirmed",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-031",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-032",
+      "status": "arguable",
+      "finding_ids": [
+        "F9"
+      ]
+    },
+    {
+      "id": "C-033",
+      "status": "arguable",
+      "finding_ids": [
+        "F9"
+      ]
+    }
+  ]
+}

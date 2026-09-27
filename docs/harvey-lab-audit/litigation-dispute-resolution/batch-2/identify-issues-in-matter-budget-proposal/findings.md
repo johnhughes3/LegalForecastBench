@@ -1,0 +1,23 @@
+# Blind rubric audit: identify-issues-in-matter-budget-proposal
+
+> [!WARNING]
+> **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
+
+Coverage: All 39 criteria read; all five documents extracted and inspected by criterion-directed searches, including spreadsheet values. OCG sections 3–7 and budget staffing/expense/narrative provisions checked. This was not an exhaustive sentence-by-sentence review of all 19,808 extracted source words or a visual spreadsheet audit. No solver outputs accessed. Prompt asks a categorized issue memorandum, not a specified severity scale.
+
+## Confirmed defects
+
+- **C-024 (high, inconsistent remediation):** Accepts reducing Okeke to $566.50 as remediation without a waiver. OCG paragraph 62 (§3.2(c)) expressly states even a permissible percentage increase cannot exceed the $550 absolute category cap. C-005/C-023/C-033 and C-008's term “maximum permissible” compound the inconsistency: $566.50 is only the percentage-based ceiling before applying the absolute cap. Require $550 or express waiver, allow $566.50 solely as an intermediate computation.
+- **C-028–030 (moderate, extra grading constraint):** Prompt requires categorization, which can mean issue type; neither OCG nor prompt mandates a severity scheme or High/Critical ratings. These criteria would fail a clear issue-type memo with complete analysis/remediation or a reasoned alternative ranking. Permit substantive prioritization without a mandatory tier or assigned rank.
+- **C-037 (low, arithmetic / mandatory conclusion):** Requires describing $825→$850 as at/within 3%. Actual increase is 3.030303%; 3% is $849.75. Email paragraph 31 says the firm rounded, but OCG paragraph 60 gives no rounding safe harbor. Do not fail a memo accurately identifying the small percentage-cap breach alongside the absolute-rate breach.
+- **C-012 / C-035 (low, date precision):** Demand “approximately 2 business days” from Friday April 25 to Monday April 28, 2025. There is one elapsed business day (no intervening full business day), though two business dates if counted inclusively. Source dates support short notice, not a unique two-day interval. Accept accurate one-day/no-full-intervening-day wording.
+
+## Arguable / minor source issues
+
+- C-010/012/035 call the paralegal Hsu, while many proposal passages say Hu; email and spreadsheet alternate. Treat as a source name inconsistency, not a grading basis.
+- C-031's compliant areas need careful qualification: absolute rate compliance for Yoon/Novak does not establish compliance with annual increase limits. Prior-year workbook has Novak $360, while rate email says $365; this changes the percentage calculation. Rubric should accept clearly qualified “at category cap” statements, which its literal language permits.
+- C-014/027/039: $175,000/2 = $87,500 is a correct average, but does not prove both experts individually exceed $75,000. At least one necessarily does. A split/approval request is valid and should pass.
+
+## Other criteria
+
+C-001–007, C-009–011 (apart from name), C-013–023, C-025–027, C-031–034, C-036, C-038–039: no separate confirmed defect. The source supports phase/staffing totals and $116,050 difference, rate caps/overages, notice requirements, expert/vendor thresholds, economy travel, nonreimbursable internal copying, separately approved appeal reserve, Whitaker's unbudgeted 60 hours, two-partner allowance, and requested remedies. Sources: matter-budget-proposal paragraphs 13, 49, 56, 62, 72–107, 112, 160–182; colton-ocg-v4.2 §§3.1–3.2, 4.3–4.4, 5, 7.2–7.7; rate/timekeeper notices. No external legal conclusion was needed for these contractual comparisons.

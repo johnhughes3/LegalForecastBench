@@ -1,0 +1,36 @@
+# Blind rubric audit
+
+> [!WARNING]
+> **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
+
+**F1 — confirmed — C-003, C-009, C-012, C-028, C-032, C-045, C-046, C-049**
+
+Mandatory figures follow inconsistent invoice summaries without allowing reconciliation to line entries. hl-may-2025-invoice.xlsx sheet1 A22:B35 versus sheet2 rows 2:118 and stated subtotal row 120. Actual detailed totals: Barros 49h/$23,275, Sengupta 27h/$10,125, Tate 154.5h/$32,445; all detailed entries 483.5h/$215,680, whereas summary claims 422.5h/$193,372.50. Tate cap overcharge from detail is $1,545. Detailed fees plus $8,450 expenses is $224,130. The rubric can legitimately require reporting the face amount, but must accept reconciled alternative calculations instead of marking them materially incorrect.
+
+Repair: Require both face totals and reconciliation; permit conditional reductions pending corrected invoice.
+
+**F2 — confirmed — C-034**
+
+Calls expected monthly hours a 25-hour cap. approved-staffing-plan.docx paragraphs 17, 50, 74 describe expected hours and explicitly permit actual hours to fluctuate. Billing guidelines section 4.1(b) calls ranges anticipated. No hard individual 25-hour cap is established. Arithmetic 13.5h/$13,297.50 is valid variance, not necessarily disallowed fees.
+
+Repair: Describe variance from expectation; require reasonableness analysis, not cap characterization.
+
+**F3 — arguable — C-018, C-020, C-021, C-022, C-035, C-036**
+
+Mandatory lower-rate treatment may overstate conclusions from mixed or supervisory work. Invoice sheet2 row10 includes analyzing key documents and client memorandum; row44 reviews/revises junior cite-check memorandum. Guidelines section 6.2 makes a single supervisory review presumptively reasonable; section 6.1(a) permits junior associates when privilege judgment is needed, whereas row80 expressly includes privilege. C-044 itself allows judgment about strategic partner review.
+
+Repair: Accept a reasoned request for clarification or conditional reduction and distinguish routine review from strategic/supervisory work.
+
+**F4 — arguable — C-006, C-044**
+
+Barros approval is portrayed as ambiguous despite express no-response rule. Guidelines section 4.2 paragraph 52 says absence of response shall not constitute approval; May 1 email says before moving forward let me review with Sandra. A pending request supports discretion on remedy, not ambiguity in whether written preapproval exists.
+
+Repair: Distinguish clear absence of written approval from discretionary reduction decision.
+
+**F5 — confirmed — C-040**
+
+Incorrect rubric cross-reference. C-040 refers to deposition staffing concern per C-034, but C-034 concerns partner monthly hours. Intended reference is C-039.
+
+Repair: Change cross-reference to C-039.
+
+Coverage: 49/49 criteria; 5/5 supplied documents. No solver outputs. External law not implicated by findings.

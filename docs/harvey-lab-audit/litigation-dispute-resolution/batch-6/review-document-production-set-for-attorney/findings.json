@@ -1,0 +1,117 @@
+[
+  {
+    "id": "B6-PR-1",
+    "status": "confirmed",
+    "severity": "medium",
+    "criteria": [
+      "C-014"
+    ],
+    "issue": "Requires unsupported finding regulatory analysts had no need for legal advice.",
+    "basis": "DOC_003 addresses a formulation compliance question to GC and copies the analysts producing stability data and ingredient specifications. Neither their nonlawyer title nor source protocol establishes no need to receive compliance advice. Criterion turns a review question into a required factual conclusion.",
+    "source_pointers": [
+      "emmerich-reformulation-email.eml recipient list and paragraphs on Derek raw data/Leah benchmarking and requested legal input",
+      "privilege-review-protocol.docx internal distribution guidance, sources.txt:1608",
+      "slack-product-reformulation.txt Fontaine/Chu ingredient-spec and regulatory-monitoring tasks"
+    ],
+    "legal_urls": [
+      "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=EVID&sectionNum=952.",
+      "https://supreme.justia.com/cases/federal/us/449/383/"
+    ],
+    "repair": "Credit need-to-know analysis and investigation rather than forcing nonlawyer-recipient waiver."
+  },
+  {
+    "id": "B6-PR-2",
+    "status": "arguable",
+    "severity": "medium",
+    "criteria": [
+      "C-021",
+      "C-022",
+      "C-023"
+    ],
+    "issue": "Mandatory waiver conclusion overstates what internal Slack distribution establishes.",
+    "basis": "All 23 are company personnel involved in product operations. Warehouse/sales/intern access creates a serious need-to-know concern, and one sales response proposes external disclosure, but roster size and junior titles alone do not conclusively establish loss of confidentiality. C-023 excludes a further-review designation for this uncertainty, unlike C-004.",
+    "source_pointers": [
+      "slack-product-reformulation.txt membership roster and February 14 messages",
+      "privilege-review-protocol.docx internal distribution section"
+    ],
+    "legal_urls": [
+      "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=EVID&sectionNum=952.",
+      "https://supreme.justia.com/cases/federal/us/449/383/"
+    ],
+    "repair": "Accept reasoned further review of purpose, confidentiality and actual external disclosure; do not require automatic production solely for broad internal distribution."
+  },
+  {
+    "id": "B6-PR-3",
+    "status": "arguable",
+    "severity": "medium",
+    "criteria": [
+      "C-028",
+      "C-029",
+      "C-047"
+    ],
+    "issue": "Written-agreement rationale is not the governing Ninth Circuit rule.",
+    "basis": "Gonzalez expressly permits implied common-interest agreements. Source protocol acknowledges Ninth Circuit has no strict writing requirement. A writing is useful evidence and future best practice; substantive common legal interest and confidentiality are the real issues, especially potential adverse indemnity claims.",
+    "source_pointers": [
+      "bridger-to-cascade-counsel.eml proposed coordination and potential contribution/indemnity",
+      "privilege-review-protocol.docx \u00a75, sources.txt:1627\u20131633"
+    ],
+    "legal_urls": [
+      "https://cdn.ca9.uscourts.gov/datastore/opinions/2012/01/25/11-15025.pdf"
+    ],
+    "repair": "Accept analysis under applicable law without requiring generalized other-jurisdiction writing risk."
+  },
+  {
+    "id": "B6-PR-4",
+    "status": "arguable",
+    "severity": "medium",
+    "criteria": [
+      "C-013",
+      "C-036",
+      "C-046"
+    ],
+    "issue": "Governing privilege law requires examination before mandatory in-camera recommendation.",
+    "basis": "Supplied claims are California UCL/CLRA/FAL; protocol states federal privilege rules for federal-question cases but supplies no federal claim. FRE501 directs state privilege law for state-law claims. California Costco/Evidence Code915 restricts compelled in-camera inspection to determine attorney-client privilege. Work-product and voluntary review differ. Thus cannot call every in-camera proposal wrong, but compulsory recommendation without choice-of-law qualification is unsafe.",
+    "source_pointers": [
+      "first-rfp-set.docx case description; board-audit-committee-deck.pptx slide7",
+      "privilege-review-protocol.docx sources.txt:1596,1688",
+      "rennick-handwritten-note.docx legal/business fragment content"
+    ],
+    "legal_urls": [
+      "https://www.law.cornell.edu/rules/fre/rule_501",
+      "https://law.justia.com/cases/california/supreme-court/2009/s163335/"
+    ],
+    "repair": "Allow state-law-aware approach to proving privilege without disclosure, and distinguish work product or permitted exception review."
+  },
+  {
+    "id": "B6-PR-5",
+    "status": "confirmed",
+    "severity": "low",
+    "criteria": [
+      "C-043",
+      "C-045"
+    ],
+    "issue": "PASS/FAIL definitions leave incomplete-coverage cases undefined.",
+    "basis": "C-043 PASS requires six fields, FAIL requires two missing, leaving one missing undefined. C-045 PASS requires all18 documents, FAIL requires three omissions, leaving one/two omissions undefined.",
+    "source_pointers": [
+      "task C-043/C-045"
+    ],
+    "legal_urls": [],
+    "repair": "Use matching thresholds or expressly define partial coverage."
+  },
+  {
+    "id": "B6-PR-6",
+    "status": "arguable",
+    "severity": "low",
+    "criteria": [
+      "C-019",
+      "C-020"
+    ],
+    "issue": "Overly restrictive log wording treats general compliance subject as legal conclusion.",
+    "basis": "Saying advice concerned product-label compliance does not necessarily disclose whether counsel found compliance. Criterion C-019 specifically fails use of complied even as a question, although it permits product-label advice. Actual threshold conclusions must remain confidential; general subject alone may be necessary to assess claim.",
+    "source_pointers": [
+      "task C-019/C-020; privilege-review-protocol log-description instructions"
+    ],
+    "legal_urls": [],
+    "repair": "Assess substantive revelation in context rather than banned wording."
+  }
+]

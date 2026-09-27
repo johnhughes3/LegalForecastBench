@@ -1,0 +1,324 @@
+[
+  {
+    "criterion": "C-001",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "greenfield-engineering-emails.eml; vasquez-expert-report.docx; prior reports discussed in both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-002",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "greenfield-engineering-emails.eml; vasquez-expert-report.docx; prior reports discussed in both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-003",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "greenfield-engineering-emails.eml; vasquez-expert-report.docx; prior reports discussed in both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-004",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "greenfield-engineering-emails.eml; vasquez-expert-report.docx; prior reports discussed in both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-005",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "greenfield-engineering-emails.eml; vasquez-expert-report.docx; prior reports discussed in both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-006",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "greenfield-engineering-emails.eml; vasquez-expert-report.docx; prior reports discussed in both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-007",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "plaintiff-mediation-brief.docx damages and punitive sections; Ohio cap statutes require independent law analysis",
+    "findings": []
+  },
+  {
+    "criterion": "C-008",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "plaintiff-mediation-brief.docx damages and punitive sections; Ohio cap statutes require independent law analysis",
+    "findings": []
+  },
+  {
+    "criterion": "C-009",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "plaintiff-mediation-brief.docx damages and punitive sections; Ohio cap statutes require independent law analysis",
+    "findings": []
+  },
+  {
+    "criterion": "C-010",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "plaintiff-mediation-brief.docx damages and punitive sections; Ohio cap statutes require independent law analysis",
+    "findings": []
+  },
+  {
+    "criterion": "C-011",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "aldrich-economic-report.docx \u00a7IV; sources.txt:64 and 138",
+    "findings": []
+  },
+  {
+    "criterion": "C-012",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "aldrich-economic-report.docx \u00a7IV; sources.txt:64 and 138",
+    "findings": []
+  },
+  {
+    "criterion": "C-013",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "briggs-deposition-excerpts.docx; vasquez-expert-report.docx; kwan-expert-report.docx; both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-014",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "briggs-deposition-excerpts.docx; vasquez-expert-report.docx; kwan-expert-report.docx; both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-015",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "briggs-deposition-excerpts.docx; vasquez-expert-report.docx; kwan-expert-report.docx; both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-016",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "briggs-deposition-excerpts.docx; vasquez-expert-report.docx; kwan-expert-report.docx; both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-017",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "briggs-deposition-excerpts.docx; vasquez-expert-report.docx; kwan-expert-report.docx; both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-018",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "briggs-deposition-excerpts.docx; vasquez-expert-report.docx; kwan-expert-report.docx; both mediation briefs",
+    "findings": []
+  },
+  {
+    "criterion": "C-019",
+    "review": "defect or concern identified",
+    "source_pointer": "briggs-deposition-excerpts.docx; vasquez-expert-report.docx; kwan-expert-report.docx; both mediation briefs",
+    "findings": [
+      "B6-SV-1"
+    ]
+  },
+  {
+    "criterion": "C-020",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "insurance-coverage-memo.docx reserve discussion; comparable-outcomes-summary.xlsx implied settlement range",
+    "findings": []
+  },
+  {
+    "criterion": "C-021",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "insurance-coverage-memo.docx reserve discussion; comparable-outcomes-summary.xlsx implied settlement range",
+    "findings": []
+  },
+  {
+    "criterion": "C-022",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "engineering emails; Vasquez and Kwan reports; defense brief expert/admissibility discussion",
+    "findings": []
+  },
+  {
+    "criterion": "C-023",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "engineering emails; Vasquez and Kwan reports; defense brief expert/admissibility discussion",
+    "findings": []
+  },
+  {
+    "criterion": "C-024",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "engineering emails; Vasquez and Kwan reports; defense brief expert/admissibility discussion",
+    "findings": []
+  },
+  {
+    "criterion": "C-025",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "engineering emails; Vasquez and Kwan reports; defense brief expert/admissibility discussion",
+    "findings": []
+  },
+  {
+    "criterion": "C-026",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "aldrich-economic-report.docx; cho-rebuttal-report.docx economic totals and assumptions",
+    "findings": []
+  },
+  {
+    "criterion": "C-027",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "aldrich-economic-report.docx; cho-rebuttal-report.docx economic totals and assumptions",
+    "findings": []
+  },
+  {
+    "criterion": "C-028",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "aldrich-economic-report.docx; cho-rebuttal-report.docx economic totals and assumptions",
+    "findings": []
+  },
+  {
+    "criterion": "C-029",
+    "review": "defect or concern identified",
+    "source_pointer": "aldrich-economic-report.docx; cho-rebuttal-report.docx economic totals and assumptions",
+    "findings": [
+      "B6-SV-3"
+    ]
+  },
+  {
+    "criterion": "C-030",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "insurance-coverage-memo.docx business pressure; mediation briefs consortium, contribution and settlement sections",
+    "findings": []
+  },
+  {
+    "criterion": "C-031",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "insurance-coverage-memo.docx business pressure; mediation briefs consortium, contribution and settlement sections",
+    "findings": []
+  },
+  {
+    "criterion": "C-032",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "insurance-coverage-memo.docx business pressure; mediation briefs consortium, contribution and settlement sections",
+    "findings": []
+  },
+  {
+    "criterion": "C-033",
+    "review": "defect or concern identified",
+    "source_pointer": "insurance-coverage-memo.docx business pressure; mediation briefs consortium, contribution and settlement sections",
+    "findings": [
+      "B6-SV-2"
+    ]
+  },
+  {
+    "criterion": "C-034",
+    "review": "defect or concern identified",
+    "source_pointer": "insurance-coverage-memo.docx business pressure; mediation briefs consortium, contribution and settlement sections",
+    "findings": [
+      "B6-SV-2"
+    ]
+  },
+  {
+    "criterion": "C-035",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "comparable-outcomes-summary.xlsx all sheets; criteria values are supplied analytical guidance, not independently verified real verdicts",
+    "findings": []
+  },
+  {
+    "criterion": "C-036",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "comparable-outcomes-summary.xlsx all sheets; criteria values are supplied analytical guidance, not independently verified real verdicts",
+    "findings": []
+  },
+  {
+    "criterion": "C-037",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "comparable-outcomes-summary.xlsx all sheets; criteria values are supplied analytical guidance, not independently verified real verdicts",
+    "findings": []
+  },
+  {
+    "criterion": "C-038",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "comparable-outcomes-summary.xlsx all sheets; criteria values are supplied analytical guidance, not independently verified real verdicts",
+    "findings": []
+  },
+  {
+    "criterion": "C-039",
+    "review": "defect or concern identified",
+    "source_pointer": "comparable-outcomes-summary.xlsx all sheets; criteria values are supplied analytical guidance, not independently verified real verdicts",
+    "findings": [
+      "B6-SV-3"
+    ]
+  },
+  {
+    "criterion": "C-040",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-041",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-042",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-043",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-044",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-045",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-046",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-047",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-048",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-049",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-050",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-051",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  },
+  {
+    "criterion": "C-052",
+    "review": "no confirmed defect identified in targeted review",
+    "source_pointer": "both mediation briefs; insurance-coverage-memo.docx; Aldrich injury summary; comparable-outcomes-summary.xlsx",
+    "findings": []
+  }
+]

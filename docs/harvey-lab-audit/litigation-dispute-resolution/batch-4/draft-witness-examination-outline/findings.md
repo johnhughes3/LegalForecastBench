@@ -1,0 +1,83 @@
+# Blind rubric audit
+
+> [!WARNING]
+> **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
+
+```json
+{
+  "task": "draft-witness-examination-outline",
+  "status": "audited",
+  "criteria_reviewed": 62,
+  "documents_extracted": 8,
+  "coverage": "All 62 criterion texts read. Eight files extracted including XLSX cells; checked criterion-bearing testimony, emails, contract, expert summary, defense brief and pretrial order. No solver outputs; no full visual document review.",
+  "confirmed_defects": [
+    {
+      "criteria": [
+        "C-060"
+      ],
+      "severity": "low",
+      "finding": "PASS requires at least two email subject lines; FAIL covers none or substantial errors, leaving exactly one correct subject line undefined.",
+      "source": "task.json /criteria/59",
+      "repair": "Make PASS and FAIL complementary."
+    },
+    {
+      "criteria": [
+        "C-037",
+        "C-040",
+        "C-059"
+      ],
+      "severity": "low",
+      "type": "unrequested presentation/severity requirement",
+      "finding": "Prompt requests a complete trial examination outline, but does not require attack-severity ratings or a distinct third strategic-notes section. C-040 expressly fails integrated strategic notes even where their substance is present. No supporting instruction for this exact structure identified in supplied materials.",
+      "source": "task.json instructions and /criteria/36,/criteria/39,/criteria/58",
+      "repair": "Score substantive attack analysis and strategic coverage wherever placed; make rankings optional."
+    }
+  ],
+  "arguable": [
+    {
+      "criteria": [
+        "C-007"
+      ],
+      "finding": "Mandatory reasonable-whistleblower framing is a strategic choice. Testimony supports protective copying, but the outline should retain candor about policy violations and avoid eliciting a scripted legal justification. Neutral truthful exploration could be adequate."
+    },
+    {
+      "criteria": [
+        "C-003",
+        "C-004",
+        "C-005",
+        "C-050"
+      ],
+      "finding": "Approximate 1,100 versus 1,113 is ordinary rounding, and first discrepancy discovery versus later discovery of MidAmerican POs need not be inconsistent. Defense attacks and source commentary make preparation reasonable; rubric should not require conceding a material contradiction."
+    },
+    {
+      "criteria": [
+        "C-025"
+      ],
+      "finding": "For an LLC defendant CEO statements normally fit Rule 801(d)(2)(C)/(D); rubric highlights (A), also used in supplied court ruling. Because representative-capacity language and an actual supplied ruling support admission, this is not a confirmed wrong-admissibility requirement. Accept accurate (D) analysis with the pretrial ruling."
+    }
+  ],
+  "unverified": [],
+  "support_map": {
+    "C-001\u2013C-010": "Severance \u00a78(b); deposition pp72\u201374,145\u2013152,189\u2013195; emails and spreadsheet metadata; defense brief attacks",
+    "C-011\u2013C-030": "Pretrial order authentication, lay-opinion and termination rulings; deposition SAP/hold testimony; email chain; contract royalty deadline",
+    "C-031\u2013C-039": "Prompt; defense trial brief credibility attacks; standard trial preparation (presentation constraints separately flagged)",
+    "C-041\u2013C-056": "EDA \u00a77.3; spreadsheet summary; deposition background and timing; email chain; pretrial caption",
+    "C-057\u2013C-062": "Prompt general outline; email subject lines; SAP creation data; December 8 memo"
+  },
+  "legal_sources": [
+    {
+      "url": "https://www.law.cornell.edu/rules/fre/rule_801",
+      "point": "Text differentiates opposing party, authorized representative, and employee statements."
+    },
+    {
+      "url": "https://www.law.cornell.edu/rules/fre/rule_701",
+      "point": "Lay opinions must be perceptual and not specialized expert opinions; source court imposes case-specific damages limit."
+    },
+    {
+      "url": "https://www.law.cornell.edu/rules/fre/rule_106",
+      "point": "Completeness limited to fairness-required portions generally; supplied order specifically directs entire chains."
+    }
+  ],
+  "notes": "Mandatory pretrial rulings control this fictional exercise; broader evidence-law defaults should not override the order. C-013 consciousness-of-guilt is a supported advocacy inference, not required witness assertion of legal guilt."
+}
+```

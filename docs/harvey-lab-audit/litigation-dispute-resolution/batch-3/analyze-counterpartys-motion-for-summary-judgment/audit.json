@@ -1,0 +1,261 @@
+{
+  "task": "analyze-counterpartys-motion-for-summary-judgment",
+  "prompt": "Review the attached motion for summary judgment and supporting materials and prepare a prioritized memo identifying all weaknesses, errors, and vulnerabilities for our opposition.\n\nOutput: `msj-issue-identification-memo.docx`",
+  "coverage": "All 32 criteria read. All 9 supplied DOCX files extracted and inspected through targeted relevant passages. This is a criterion-directed audit, not a full line-by-line authenticity check of all authorities in the adversary motion. No solver output accessed.",
+  "criterion_count": 32,
+  "document_count": 9,
+  "findings": [
+    {
+      "id": "F1",
+      "classification": "confirmed source inconsistency",
+      "criteria": [
+        "C-015",
+        "C-030",
+        "C-031"
+      ],
+      "description": "The rubric fixes expert identities despite conflicting source identities. Ellington testimony defers to Dr. Ananya Subramanian, not Dr. Anita Venkatesh; the supplied expert summary filename also says Subramanian but its body says Venkatesh. The motion calls defense expert Raymond while the declaration says Marcus. Penalizing an accurately qualified account for not choosing rubric names is unsound.",
+      "evidence": "ellington-depo-excerpts.docx p45, p93, p98-p106; subramanian-expert-summary.docx p116; pinnacle-msj-memorandum.docx p97 versus ellington-declaration.docx p22-p23.",
+      "repair": "Accept either source-supported name with explicit inconsistency flag; repair names across source packet.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F2",
+      "classification": "arguable rubric overprecision",
+      "criteria": [
+        "C-020",
+        "C-021"
+      ],
+      "description": "A useful issue memo should give citations and strategies, but the prompt does not set a 75% threshold or define what counts as a substantive issue. The hard percentage can penalize a sound memo on segmentation alone.",
+      "evidence": "task.json instructions request a prioritized weaknesses memo; C-020/C-021 introduce the numerical thresholds.",
+      "repair": "Assess usable record support and recommended opposition steps holistically, or define issue units.",
+      "category": "arguable"
+    },
+    {
+      "id": "F3",
+      "classification": "unverified legal breadth",
+      "criteria": [
+        "C-017"
+      ],
+      "description": "The basic contract/tort distinction is plausible; the categorical statement that Georgia comparative fault is inapplicable to contract claims was not conclusively verified against a directly controlling modern Georgia decision for this mixed property-damage action. Do not report this criterion as wrong on this audit.",
+      "evidence": "pinnacle-msj-memorandum.docx p170-p177 makes comparative-fault argument; LSA and record support contract and negligence counts.",
+      "repair": "Retain issue but allow a nuanced analysis with controlling authority rather than compel a categorical formulation.",
+      "category": "unverified"
+    }
+  ],
+  "source_cross_checks": [
+    "C-001-C-005/C-023-C-028/C-032: LSA p134 (\u00a711.7), p4.2; Holt testimony p53-p88, p111-p178; expert summary p71-p74 and p91-p92 support mechanical failures, notice, reports and humidity.",
+    "C-006-C-009/C-016/C-018: LSA p77-p83 (\u00a7\u00a77.1-7.3) and p92-p98 (\u00a79.1); motion p141-p160 omits exceptions. Section 7.2 expressly excludes indemnification, supporting criterion C-018.",
+    "C-010-C-014/C-019/C-022/C-025-C-026: SUMF reporting/inspection assertions compared with Holt p137-p157, Okafor p26 and Santos deposition; opposing testimony supports genuine dispute.",
+    "C-029: source declaration and motion both state $7.3M and component figures total $7.3M."
+  ],
+  "legal_sources": [
+    "https://www.govinfo.gov/content/pkg/USREPORTS-477/pdf/USREPORTS-477-242.pdf (Anderson, p255: credibility and inferences are jury functions).",
+    "https://law.justia.com/cases/georgia/court-of-appeals/1998/a98a0179.html (US Fidelity: judicial opinion distinguishes mitigation, contract breach and comparative negligence)."
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001a: Identifies force majeure argument fails \u2014 HVAC failures are mechanical, not external",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001b: Identifies force majeure fails \u2014 weather was only 2-4\u00b0F above average, not unprecedented",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001c: Identifies force majeure fails \u2014 no utility outages per Georgia Power records",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001d: Identifies force majeure fails \u2014 Pinnacle did not provide 72-hour notice",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001e: Identifies force majeure fails \u2014 budget decision, not force majeure response",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002a: Identifies Section 7.1 liability cap has gross negligence exception that Pinnacle's MSJ fails to address",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002b: Cites at least two pieces of record evidence supporting gross negligence",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003a: Identifies Section 7.3 consequential damages waiver has a carve-out for breach of Section 4.2",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003b: Identifies Pinnacle's MSJ ignores or misquotes the Section 7.3 carve-out language",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004a: Identifies SUMF conflates Greenfield's inspection rights with Pinnacle's affirmative reporting obligation",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004b: Identifies Pinnacle deliberately withheld reports for November 2022 through January 2023",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_005: Identifies failure-to-mitigate defense undermined by Pinnacle's concealment",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_006a: Identifies Holt-Okafor credibility dispute that Pinnacle's MSJ improperly resolves",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_006b: Identifies that summary judgment standard prohibits resolving credibility disputes",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_007: Identifies Dr. Ellington's salvageability opinion is unreliable/inadmissible",
+      "assessment": "confirmed source inconsistency",
+      "findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_008: Identifies Pinnacle miscalculates liability cap as $1,860,000 instead of $2,000,000",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_009: Identifies contributory negligence is not a defense to breach of contract under Georgia law",
+      "assessment": "unverified legal breadth",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_010: Identifies MSJ ignores Section 9.1 indemnification obligation",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_011: Identifies mischaracterization of Santos's testimony in SUMF",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-020",
+      "title": "Each identified issue includes specific record citations",
+      "assessment": "arguable rubric overprecision",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-021",
+      "title": "Each identified issue includes recommended response strategy",
+      "assessment": "arguable rubric overprecision",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-022",
+      "title": "Memo identifies issues that independently warrant denial of MSJ",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-023",
+      "title": "Correctly identifies Section 4.2 as the breached storage conditions provision",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-024",
+      "title": "Correctly states the humidity breach \u2014 readings of 72%-85% vs. 60% contractual max",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-025",
+      "title": "Identifies Holt's testimony about being told to withhold reports",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-026",
+      "title": "Identifies the three missing monthly reports (Nov 2022, Dec 2022, Jan 2023)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-027",
+      "title": "References the January 18, 2023 complete HVAC failure and lack of notice to Greenfield",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-028",
+      "title": "Identifies the pattern of repeated HVAC failures (June 2022, Aug 2022, Oct 2022, Jan 2023)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-029",
+      "title": "Total claimed damages correctly stated as $7.3 million (excluding attorneys' fees)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-030",
+      "title": "Correctly identifies Dr. Venkatesh as plaintiff's expert on causation/contamination",
+      "assessment": "confirmed source inconsistency",
+      "findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-031",
+      "title": "Correctly identifies Dr. Ellington as defendant's expert on damages/mitigation",
+      "assessment": "confirmed source inconsistency",
+      "findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-032",
+      "title": "Memo addresses the Okafor email/communication refusing HVAC replacement for budget reasons",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    }
+  ]
+}

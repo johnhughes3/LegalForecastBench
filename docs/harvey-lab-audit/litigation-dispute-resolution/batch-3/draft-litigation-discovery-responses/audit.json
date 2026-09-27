@@ -1,0 +1,484 @@
+{
+  "task": "draft-litigation-discovery-responses",
+  "prompt": "Review the attached case files and precedent responses, then prepare a discovery strategy memo and formal RFA/RFP responses for our client. Output: `discovery-response-plan.docx` and `rfa-and-rfp-responses.docx`.",
+  "coverage": "All61 criteria read. All7 supplied DOCX files extracted and criterion-relevant portions inspected. Underlying MSA, notices, email,CAR and carrier logs are not supplied; no claim of reviewing them. No solver output accessed.",
+  "criterion_count": 61,
+  "document_count": 7,
+  "findings": [
+    {
+      "id": "F1",
+      "classification": "confirmed legal defect",
+      "criteria": [
+        "C-028",
+        "C-029"
+      ],
+      "description": "Merchantability of these identified products is application of law to fact, expressly permitted by Rule36(a)(1)(A). Rubric mandates an objection specifically because it asks a legal conclusion/application of law to fact. Precedent repeats the error.",
+      "evidence": "plaintiff-rfas.docx p81-p82; precedent-discovery-responses.docx p79.",
+      "repair": "Credit substantive admit/deny/qualified answer after reasonable inquiry without an improper legal-conclusion objection.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F2",
+      "classification": "confirmed unsupported required fact",
+      "criteria": [
+        "C-021",
+        "C-022"
+      ],
+      "description": "Packet mentions Oakvale only in request for shipping records; no logs or source establish possession, transit temperature15-25C, or favorable contents. C022 compels an invented factual defense. C021 allows alternative third-party qualification, mitigating scoring harm there.",
+      "evidence": "plaintiff-rfps.docx p65; all Oakvale and temperature occurrences searched across all7 supplied files.",
+      "repair": "Require obtaining/reviewing logs and possession/control inquiry; supply logs if contents are intended facts.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F3",
+      "classification": "confirmed unsupported certainty",
+      "criteria": [
+        "C-014",
+        "C-055",
+        "C-057"
+      ],
+      "description": "Ferris email itself is absent. Its existence/content appears as an information-and-belief complaint allegation; packet does not establish no counsel copied, counsel retention date, or actual context. It is reasonable to flag a likely producible business email, but not conclusively determine no privilege from these pleadings.",
+      "evidence": "complaint.docx p49 (paragraph33); no Ferris .eml or other primary email in documents inventory.",
+      "repair": "Accept conditional business-purpose assessment pending retrieval; do not require categorical nonprivilege or assert predates counsel.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F4",
+      "classification": "arguable improper advocacy framing",
+      "criteria": [
+        "C-027"
+      ],
+      "description": "Mandatory warning against revealing preservation deficiencies can reward concealment and penalize a candid plan recommending investigation and disclosure required by rules. Legitimate privilege protection is narrower.",
+      "evidence": "C027; plaintiff-rfps.docx preservation request22; Rule26(g),34(b)(2)(C).",
+      "repair": "Require truthful preservation assessment and privileged legal-advice protection without coaching concealment.",
+      "category": "arguable"
+    },
+    {
+      "id": "F5",
+      "classification": "confirmed filename contradiction",
+      "criteria": [
+        "C-053"
+      ],
+      "description": "Prompt names rfa-and-rfp-responses.docx; C053 names rfa-rfp-responses.docx.",
+      "evidence": "task.json instructions versus C053.",
+      "repair": "Use prompt filename or accept either equivalent deliverable.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F6",
+      "classification": "arguable admission/defense conflation",
+      "criteria": [
+        "C-016",
+        "C-017",
+        "C-032",
+        "C-051"
+      ],
+      "description": "Actual damages exceeding a cap and timely notice after discovery do not necessarily waive cap or14-day-after-receipt defenses. Responses must answer the facts after inquiry rather than deny solely to preserve defenses. Criterion051 can force preservation of a defense even if inquiry disproves it.",
+      "evidence": "plaintiff-rfas.docx p56,p86,p92; answer.docx p88,p107; complaint.docx p31,p32,p75.",
+      "repair": "Distinguish damages suffered from damages recoverable and discovery notice from receipt/rejection; prioritize accurate Rule36 responses.",
+      "category": "arguable"
+    }
+  ],
+  "source_cross_checks": [
+    "C-001-C-009/C-030-C-033/C-050/C-052: answer admits contract/shipments and asserts mediation notice narrower than complaint. An express disputed-fact qualification is appropriate; original notice and MSA are not supplied.",
+    "C-010-C-013/C-018-C-020/C-023-C-026/C-034-C-038: requests and discovery-stipulation p12-p20,p34-p37 support scope,ESI,subpart,privilege and preservation questions.",
+    "C-039-C-049/C-054/C-056/C-058-C-061: captions,counsel,35-day stipulation,all25RFAs/30RFPs and clawback order supported. CAR/testing facts are allegations/admissions, not supplied underlying lab reports. General-objection style is precedent-based but must remain specific under Rule34."
+  ],
+  "legal_sources": [
+    "https://www.uscourts.gov/sites/default/files/document/federal-rules-of-civil-procedure.pdf (Rules26(g),34(b)(2),36(a)(1),(a)(4),37(c)(2))."
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies that certain RFAs must be admitted outright",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Warns of sanctions risk under FRCP 37(c)(2) for unreasonable denial",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Formal RFA responses admit undisputed facts",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002a: Identifies that RFA No. 18 requires a nuanced response regarding mediation compliance",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002b: Identifies distinction between SB-102 and PS-302 claims in mediation notice",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: RFA No. 18 response qualifies rather than blanket admits or denies",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_003a: Identifies COA accuracy dilemma for RFA No. 9",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003b: Recognizes FRCP 36(a)(4) reasonable inquiry obligation for RFA No. 9",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: RFA No. 9 response addresses COA accuracy carefully",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004: Identifies RFP No. 4 as overbroad",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004: Identifies RFP No. 12 as overbroad",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_004: Overbroad RFP objections reference proportionality under FRCP 26(b)(1)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_004: Offers to produce on narrowed scope for overbroad RFPs",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_005: Recognizes Ferris email is NOT privileged",
+      "assessment": "confirmed unsupported certainty",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_005: RFP No. 8 response does not improperly withhold Ferris email",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_006: Denies RFA No. 22 regarding damages exceeding $10 million",
+      "assessment": "arguable admission/defense conflation",
+      "findings": [
+        "F6"
+      ]
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_006: RFA No. 22 response preserves the contractual damages cap defense",
+      "assessment": "arguable admission/defense conflation",
+      "findings": [
+        "F6"
+      ]
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_007: References ESI protocol from Joint Discovery Stipulation",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_007: Agrees to produce ESI in native format where practicable",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_008: Identifies third-party document issue for RFP No. 11",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_008: RFP No. 11 response addresses what Prismavale possesses vs. third-party records",
+      "assessment": "confirmed unsupported required fact",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_008: Notes that Oakvale shipping records support the defense",
+      "assessment": "confirmed unsupported required fact",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_009: Identifies compound subparts issue in RFAs 14, 15, and 16",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_009: Raises objection to compound RFAs in formal responses",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_009: Still substantively responds despite compound subpart objection",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_010: Identifies litigation hold timing issue for RFP No. 22",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_010: Warns against revealing preservation deficiencies",
+      "assessment": "arguable improper advocacy framing",
+      "findings": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_011: Identifies RFA No. 20 as calling for a legal conclusion",
+      "assessment": "confirmed legal defect",
+      "findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_011: RFA No. 20 formal response objects to legal conclusion",
+      "assessment": "confirmed legal defect",
+      "findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_012a: Identifies 14-day inspection period defense for RFA No. 12",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_012b: Notes linguistic distinction in RFA No. 12 wording vs. contractual period",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_012: RFA No. 12 response preserves the 14-day inspection defense",
+      "assessment": "arguable admission/defense conflation",
+      "findings": [
+        "F6"
+      ]
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_012: Acknowledges latent defect complication",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_013: Identifies RFP No. 26 as seeking privileged communications",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_013: RFP No. 26 formal response objects on privilege grounds",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_013: RFP No. 26 response mentions privilege log",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_014: Identifies that RFP subparts may exceed the 50-request limit",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_014: Raises general objection about RFP numerical limit",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-039",
+      "title": "Correct case name in formal responses caption",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-040",
+      "title": "Correct case number in formal responses caption",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-041",
+      "title": "Correct court in formal responses caption",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-042",
+      "title": "Formal responses include general objections section",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-043",
+      "title": "Formal responses include signature block",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-044",
+      "title": "Formal responses include certificate of service",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-045",
+      "title": "Response deadline correctly stated as June 9, 2025",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-046",
+      "title": "RFA responses cover all 25 RFAs",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-047",
+      "title": "RFP responses cover all 30 RFPs",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-048",
+      "title": "Plan covers analysis of each RFA individually",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-049",
+      "title": "Plan covers analysis of each RFP individually",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-050",
+      "title": "RFA responses consistent with Answer admissions",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-051",
+      "title": "Formal responses preserve affirmative defenses",
+      "assessment": "arguable admission/defense conflation",
+      "findings": [
+        "F6"
+      ]
+    },
+    {
+      "id": "C-052",
+      "title": "Plan identifies coordination between RFA responses and affirmative defenses",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-053",
+      "title": "Both deliverables are produced",
+      "assessment": "confirmed filename contradiction",
+      "findings": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-054",
+      "title": "Formal responses contain both RFA and RFP sections",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-055",
+      "title": "Plan distinguishes between privilege and non-privilege for internal communications",
+      "assessment": "confirmed unsupported certainty",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-056",
+      "title": "RFP No. 22 response does not flatly refuse to produce litigation hold documents",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-057",
+      "title": "Plan flags the Ferris email as damaging but producible",
+      "assessment": "confirmed unsupported certainty",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-058",
+      "title": "Accurate reference to cleaning validation failure details",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-059",
+      "title": "Accurate contamination specifications cited",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-060",
+      "title": "References FRCP 36(a)(4) reasonable inquiry standard for RFA responses",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-061",
+      "title": "FRE 502(d) clawback order referenced where appropriate",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "task": "verify-disbursement-charges-against-billing-guidelines",
+  "status": "audited",
+  "criteria_reviewed": 57,
+  "documents_extracted": 4,
+  "coverage": "All 57 criterion texts read; all three DOCX extracted and relevant guideline, approval and engagement sections inspected. All 47 disbursement rows inspected and summed using Decimal; professional-fee worksheet extracted but outside this disbursement audit. No solver output or visual rendering.",
+  "confirmed_defects": [
+    {
+      "criteria": [
+        "C-041",
+        "C-050"
+      ],
+      "severity": "high",
+      "finding": "Actual 47 disbursement rows total $145,404.30, not required $86,742.30. Stated total $86,742.19 is indeed printed, but discrepancy is $58,662.11, not $0.11. C-041 requires a false sum; C-050 permits true reported total but also labels false arithmetic total valid.",
+      "source": "hwk-invoice-may-2025.xlsx sheet3 G2:G48; printed G50; task.json /criteria/40,/criteria/49",
+      "repair": "Credit separation of stated $86,742.19 and actual $145,404.30; reconcile $58,662.11 before net payable."
+    },
+    {
+      "criteria": [
+        "C-032",
+        "C-034"
+      ],
+      "severity": "high",
+      "finding": "Line38 is entirely firm personnel: Aldridge, Beale, Palermo and two summer associates. Section5.7 expressly rejects meals solely among firm personnel. Required partial reduction $357, leaving $255 for three allegedly eligible people, contradicts policy; correct rejection is full $612. C-032 focuses on summer associates while implying regular firm personnel are eligible.",
+      "source": "billing-guidelines.docx \u00a75.7 Working Meals; hwk-engagement-letter.docx \u00a73 identifies three as firm staff; sheet3 D39/G39; task.json /criteria/31,/criteria/33",
+      "repair": "Accept full $612 rejection; optional $122.40 cap arithmetic cannot override threshold ineligibility."
+    },
+    {
+      "criteria": [
+        "C-045"
+      ],
+      "severity": "medium",
+      "finding": "Mandatory $247/2 assumes only two attendees, but description names Aldridge and Beale WITH plaintiff counsel, hence at least three. At three, $82.33 is below $85 cap. Eligibility may warrant rejection/hold, but $77 cap excess is unsupported.",
+      "source": "hwk-invoice-may-2025.xlsx sheet3 D41: Working dinner, C. Aldridge and M. Beale, with plaintiff counsel settlement discussion; task.json /criteria/44",
+      "repair": "Request actual attendee count and receipt; do not force two-person arithmetic."
+    }
+  ],
+  "unverified": [],
+  "support_map": {
+    "C-001\u2013004,046\u2013047": "\u00a75.2 Tier1 hotel275; SF638 per person =>88 each, DC348=>73. Approval Entry5 expressly retains275 cap.",
+    "C-005\u2013010": "\u00a75.3 copies.10 vs.15=>620; \u00a75.1/5.8 Westlaw overhead3870.",
+    "C-011\u2013017,048\u2013049": "\u00a75.2 localmileage9.80 forbidden; SF dinner214vs150=>64 plus82vs75=>7; DC96vs75=>21.",
+    "C-018\u2013020": "Hartsfield40900 against approved35000=>5900, logEntry2; distinguish existing GC approval.",
+    "C-021\u2013031,055": "Log omits Voss4200,GraphicWorks7850,Brooks6240. Chen cap65 gives1420; Relativity12000 vs14200 gives2200. Individual approvals and large-charge threshold supported.",
+    "C-033\u2013034": "Perperson122.40 arithmetic true but all-firm prohibition controls; full612 rejection.",
+    "C-035\u2013040": "Solo24 and officesupply18.50 overhead; DataScan6800 missing prior approval permits hold under8.6.",
+    "C-042\u2013043": "Fullsize127 vs midsize limit supports documentation/hold, exact difference unknown.",
+    "C-051\u2013054,056\u2013057": "Totals/disposition/sectioncitations are reasonable report completeness requirements, but derived totals must use corrected evidence."
+  },
+  "additional_source_omissions": "Rubric is not exhaustive: line37 working lunch118/2=59 exceeds50 =>18; line43 routine conferencing125 overhead under5.8; these omitted checks can produce false-positive quality assessment without making every existing criterion wrong.",
+  "legal_sources": [],
+  "legal_note": "Defects turn on supplied contract/policy and arithmetic; no external legal rule needed.",
+  "arguable": [
+    {
+      "criteria": [
+        "C-019"
+      ],
+      "finding": "The $25k GC threshold is real, but log Entry2 expressly says GC approval obtained for35k and memorializes Feb11 concurrence. Criterion only asks identification of requirement, so valid if not misgraded as complete absence of GC approval. Missing approval is for5900 overrun."
+    },
+    {
+      "criteria": [
+        "C-044"
+      ],
+      "finding": "Section5.7 includes parties relevant to the matter, making opposing counsel settlement-meal eligibility at least ambiguous. Criterion only requires potential noncompliance, so request clarification rather than assert all such meals are entertainment."
+    }
+  ]
+}

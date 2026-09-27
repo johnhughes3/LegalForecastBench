@@ -1,0 +1,54 @@
+[
+  {
+    "id": "B6-FC-1",
+    "status": "confirmed",
+    "severity": "high",
+    "criteria": [
+      "C-001"
+    ],
+    "issue": "Requires unsupported member citizenship allegations.",
+    "basis": "Packet calls Harwell and Rosario-Vega two managing members and gives LLC Dallas offices, but does not supply either individual domicile/citizenship or establish a complete census of all members. Intake memo erroneously derives Delaware/Texas citizenship from formation and offices. C-001 correctly demands member analysis but invents the answer Texas for both.",
+    "source_pointers": [
+      "client-intake-memo.docx \u00a7\u00a7II and V.A, sources.txt:14\u201315,35",
+      "full packet searches for citizen, domicile, resident, member"
+    ],
+    "legal_urls": [
+      "https://www.ca5.uscourts.gov/opinions/unpub/20/20-50169.0.pdf"
+    ],
+    "repair": "Accept bracketed citizenship allegations and a prefiling request to verify every member and domicile."
+  },
+  {
+    "id": "B6-FC-2",
+    "status": "confirmed",
+    "severity": "medium",
+    "criteria": [
+      "C-022",
+      "C-023"
+    ],
+    "issue": "Personal guarantee referenced by intake memo does not exist in supplied executed-form PAA.",
+    "basis": "Intake \u00a7\u00a7IV/VII references \u00a715.3 personal guaranty. Actual PAA ends at \u00a713.10 and Trevor signs only as CEO. Individual participation has independent support, so naming him is viable; requiring or rewarding an unqualified guaranty allegation is unsupported. C-023 alternatives allow correct tort-based theory.",
+    "source_pointers": [
+      "client-intake-memo.docx sources.txt:31,84",
+      "placement-agent-agreement.docx final \u00a713.10 and signature block, sources.txt:1400\u20131414"
+    ],
+    "legal_urls": [],
+    "repair": "Remove guaranty as established fact and expressly credit identifying the source conflict."
+  },
+  {
+    "id": "B6-FC-3",
+    "status": "arguable",
+    "severity": "medium",
+    "criteria": [
+      "C-010",
+      "C-011"
+    ],
+    "issue": "Overstates necessity of veil-piercing/alter-ego theory where contract expressly covers officers acting for affiliates.",
+    "basis": "PAA \u00a77.4 expressly covers Graydon officers, employees, and agents even acting for affiliates. Response letter denies this. Contract claim can proceed against corporate signatory for its personnel without piercing GCS. C-010 offers agency option, reducing the defect; C-011 should accept direct contractual rebuttal.",
+    "source_pointers": [
+      "placement-agent-agreement.docx \u00a77.4, sources.txt:1345",
+      "graydon-response-letter.docx sources.txt:887\u2013889"
+    ],
+    "legal_urls": [],
+    "repair": "Accept reliance on \u00a77.4 scope and distinguish obtaining judgment against GCS from enforcing Graydon own contractual duty."
+  }
+]

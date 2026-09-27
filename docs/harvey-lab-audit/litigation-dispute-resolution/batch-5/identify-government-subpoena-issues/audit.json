@@ -1,0 +1,388 @@
+{
+  "task": "identify-government-subpoena-issues",
+  "prompt": "Review the attached grand jury subpoena and related client documents and prepare a detailed issues memo to the lead partner. Output: `subpoena-issues-memo.docx`.",
+  "documents_reviewed": [
+    "ic-memo-veridian.docx",
+    "preservation-notice.docx",
+    "trading-blotter-extract.xlsx",
+    "mehta-tsao-phone-email.eml",
+    "code-of-ethics.docx",
+    "grand-jury-subpoena.docx",
+    "clearwater-audit-report.docx",
+    "grayfield-zheng-email-chain.eml",
+    "intake-memo-tsao.docx"
+  ],
+  "coverage": {
+    "criteria_reviewed": 52,
+    "criteria_total": 52,
+    "documents_reviewed": 9,
+    "documents_total": 9,
+    "method": "All criterion wording reviewed; every supplied document extracted and relevant sections compared by targeted reads/search. This is criterion-directed coverage, not a certification that every unrelated source paragraph is correct. No solver outputs read.",
+    "limitations": "52 criteria reviewed against all nine supplied documents using criterion-directed passages. Intake states May15 service of the SEC order and May16 notice to Grayfield, so the preservation-date premise has actual notice support beyond mere order issuance. Client reports support counsel retention and prospective work-product treatment, but no Ridgeline engagement/work product itself is supplied. No actual SEC order or LP confidentiality agreement is supplied. Separate-entity service, SCA/privacy and parallel-proceeding issues were assessed as qualified issue spotting; no exhaustive jurisdictional opinion is claimed."
+  },
+  "legal_sources": [
+    "https://www.govinfo.gov/content/pkg/USREPORTS-498/pdf/USREPORTS-498-292.pdf",
+    "https://www.govinfo.gov/content/pkg/USREPORTS-354/pdf/USREPORTS-354-118.pdf",
+    "https://www.supremecourt.gov/opinions/16pdf/15-628_m6ho.pdf"
+  ],
+  "findings": [
+    {
+      "status": "confirmed",
+      "criteria": [
+        "C-025"
+      ],
+      "issue": "The rubric expressly accepts Nixon\u2019s trial-subpoena relevance/admissibility/specificity test as the standard for challenging this grand jury subpoena.",
+      "evidence": "Subpoena paragraphs 2\u20135 identifies a grand jury subpoena. United States v. R. Enterprises, 498 U.S. 292, 297\u2013301 (1991), expressly holds Nixon\u2019s trial test inapplicable; ordinary grand jury subpoenas are presumed reasonable, with the recipient bearing the burden. https://www.govinfo.gov/content/pkg/USREPORTS-498/pdf/USREPORTS-498-292.pdf",
+      "repair": "Require Rule 17(c)(2) unreasonable/oppressive analysis under R. Enterprises; allow Nixon only to distinguish it.",
+      "id": "F1"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-001",
+        "C-002",
+        "C-003",
+        "C-031",
+        "C-032"
+      ],
+      "issue": "The rubric requires objection/overbreadth conclusions and resistance to investor disclosure that can be sound negotiation positions but are not established legal defects merely because other funds did not trade or investors are third parties.",
+      "evidence": "Subpoena Requests 9,12,15,16 concern entity structure, financial flows, investors and taxes. R. Enterprises pp.300\u2013303 applies broad investigatory relevance; an initial government relevance showing is not ordinarily required. Ownership, proceeds, or tip relationships could make these records relevant. Intake memo says other funds did not trade, not that their records cannot shed light on the investigation.",
+      "repair": "Accept reasoned scope negotiation and confidentiality requests alongside candid recognition of broad relevance and recipient burden; do not require asserting an investor veto absent government proof.",
+      "id": "F2"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-018",
+        "C-019"
+      ],
+      "issue": "Braswell and the collective-entity rule are relevant, but the rubric\u2019s corporate-representative framing risks obscuring the individual privilege for incriminating oral testimony.",
+      "evidence": "Subpoena Attachment B paragraphs 82\u201393 demands substantive oral testimony, including investment decisions and Ashford communications. Curcio v. United States, 354 U.S.118,123\u2013125, distinguishes compelled production of entity records from privileged incriminating oral answers. https://www.govinfo.gov/content/pkg/USREPORTS-354/pdf/USREPORTS-354-118.pdf. C-018 recognizes personal privilege tension, so this is incompleteness rather than an express rule denying it.",
+      "repair": "Explicitly credit Curcio and distinguish personal testimony privilege from the collective entity act-of-production rule.",
+      "id": "F3"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-037"
+      ],
+      "issue": "The family relationship supports a potential personal-benefit inference; relationship alone does not establish the required gift/tipping conduct.",
+      "evidence": "Intake memo paragraphs30\u201334 establishes brother-in-law relationship, confidential SAB access and a call of unknown content. Salman v. United States, slip opinion pp.8\u201310, addresses a gift of confidential information to a trading relative; it does not make kinship alone sufficient. https://www.supremecourt.gov/opinions/16pdf/15-628_m6ho.pdf",
+      "repair": "Accept conditional analysis: a proven gift to a trading relative can establish benefit, but the alleged transfer and requisite knowledge still require proof.",
+      "id": "F4"
+    },
+    {
+      "status": "arguable",
+      "criteria": [
+        "C-023",
+        "C-040",
+        "C-043",
+        "C-044",
+        "C-045",
+        "C-046",
+        "C-047",
+        "C-048"
+      ],
+      "issue": "The generic detailed-memo prompt does not require a particular severity scheme, mandatory top-tier ratings, exact count of dates/request numbers, every-section template, or a categorical conclusion that 33 days is unreasonable.",
+      "evidence": "Prompt only asks review of subpoena/client documents and a detailed issues memo. Subpoena service June5 and returnJuly8 provide a genuine workload issue, and preservation/conflict concerns warrant priority; nonetheless these criteria prescribe nonexclusive presentation and judgment choices.",
+      "repair": "Score substantive prioritization and practical extension advice without fixed labels, location, citation counts, or predetermined burden conclusion.",
+      "id": "F5"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "status": "arguable",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-002",
+      "status": "arguable",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-003",
+      "status": "arguable",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-004",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-005",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-006",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-007",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-008",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-009",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-010",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-011",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-012",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-013",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-014",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-015",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-016",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-017",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-018",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-019",
+      "status": "arguable",
+      "finding_ids": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-020",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-021",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-022",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-023",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-024",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-025",
+      "status": "confirmed",
+      "finding_ids": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-026",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-027",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-028",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-029",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-030",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-031",
+      "status": "arguable",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-032",
+      "status": "arguable",
+      "finding_ids": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-033",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-034",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-035",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-036",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-037",
+      "status": "arguable",
+      "finding_ids": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-038",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-039",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-040",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-041",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-042",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-043",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-044",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-045",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-046",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-047",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-048",
+      "status": "arguable",
+      "finding_ids": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-049",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-050",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-051",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    },
+    {
+      "id": "C-052",
+      "status": "no_defect_identified",
+      "finding_ids": []
+    }
+  ]
+}

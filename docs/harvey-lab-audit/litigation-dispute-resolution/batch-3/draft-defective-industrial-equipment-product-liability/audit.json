@@ -1,0 +1,638 @@
+{
+  "task": "draft-defective-industrial-equipment-product-liability",
+  "prompt": "Review the attached nine documents and draft a case assessment memo covering liability, defenses, damages, insurance, venue strategy, and recommended action plan. Output: `case-assessment-memo.docx`.",
+  "coverage": "All79 criteria read; all9 files extracted and relevant provisions, incidents, financial cells, emails and report findings inspected. External research targeted potentially defective legal/technical propositions, not every ordinary cause-of-action element. No solver output accessed.",
+  "criterion_count": 79,
+  "document_count": 9,
+  "findings": [
+    {
+      "id": "F1",
+      "classification": "confirmed legal defect",
+      "criteria": [
+        "C-063"
+      ],
+      "description": "HydraCore LLC citizenship depends on every member and nested member, not formation state or headquarters. Packet gives Indiana LLC/headquarters but no member citizenship. Requiring affirmative complete diversity is unsupported.",
+      "evidence": "engagement-letter.docx p16(b); no member citizenship located in packet.",
+      "repair": "Require member citizenship investigation and conditional diversity conclusion.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F2",
+      "classification": "confirmed legal overstatement",
+      "criteria": [
+        "C-017"
+      ],
+      "description": "UCC2-719(3) prima-facie personal-injury unconscionability applies to consumer goods. This industrial press is commercial equipment. Defective goods is not an interchangeable statutory category. Non-signatory employees have strong separate grounds against binding them, but criterion invites wrong statutory shortcut.",
+      "evidence": "purchase-order.docx industrial press description; Ohio1302.93(C).",
+      "repair": "Preserve consumer-goods limitation; assess non-signatory status and other applicable public policy separately.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F3",
+      "classification": "confirmed legal/date defect",
+      "criteria": [
+        "C-066"
+      ],
+      "description": "Four-year warranty accrual ordinarily starts at tender of delivery, not acceptance; supplied record states delivery November22,2024 and acceptance December16,2024. Rubric mandates December16,2028 without analyzing tender/installation or explicit future-performance warranty.",
+      "evidence": "forensic-report.docx p67; ironclad-standard-terms.docx \u00a710; Baker v DEC explains tender rather than acceptance.",
+      "repair": "Accept qualified accrual analysis, earliest protective November22,2028 date, contractual shortening and future-performance issues; do not require acceptance date.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F4",
+      "classification": "arguable mandatory conclusion",
+      "criteria": [
+        "C-041"
+      ],
+      "description": "Choice-of-law clause expressly covers all disputes related to products, not only contract. Ohio law may govern non-signatory injury claims, but Dalton tort claims require clause-scope and conflicts analysis. A categorical contract/tort divide is not compelled.",
+      "evidence": "ironclad-standard-terms.docx p89 (\u00a715.1).",
+      "repair": "Distinguish Dalton from non-signatories; accept reasoned application of broad clause.",
+      "category": "arguable"
+    },
+    {
+      "id": "F5",
+      "classification": "confirmed source-law inconsistency",
+      "criteria": [
+        "C-026",
+        "C-027",
+        "C-073"
+      ],
+      "description": "Source purports to issue private-employer OSHA citations and require contest/payment to Ohio Division of Safety & Hygiene. Ohio has no OSHA-approved State Plan; federal OSHA covers this private workplace. Rubric rewards source recitation without acknowledging defective issuing authority.",
+      "evidence": "osha-citations.docx p120,p123,p126; incident/engagement identify private manufacturer.",
+      "repair": "Correct synthetic citation authority and preserve federal contest procedure; accept source qualification.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F6",
+      "classification": "arguable rubric framing",
+      "criteria": [
+        "C-044",
+        "C-045"
+      ],
+      "description": "Aggregated affirmative damages of Dalton and employee claimants are not Dalton covered liability exposure. Comparing them with Dalton CGL/umbrella limits can imply nonexistent coverage. Packet itself correctly warns policies do not fund affirmative recoveries.",
+      "evidence": "damages-summary.xlsx Dalton tab rows38-42; insurance-dec-pages.docx p78,p192,p201.",
+      "repair": "Require explanation of coverage roles before arithmetic limit comparison.",
+      "category": "arguable"
+    },
+    {
+      "id": "F7",
+      "classification": "arguable formatting overconstraint",
+      "criteria": [
+        "C-001",
+        "C-002",
+        "C-003",
+        "C-004",
+        "C-005"
+      ],
+      "description": "Prompt requests case assessment but no Executive Summary; five criteria mandate placement there rather than substantively accurate discussion elsewhere.",
+      "evidence": "task.json instructions.",
+      "repair": "Allow equivalent concise opening or facts section.",
+      "category": "arguable"
+    },
+    {
+      "id": "F8",
+      "classification": "unverified technical standard",
+      "criteria": [
+        "C-071"
+      ],
+      "description": "Expert report supplies quoted redundancy provisions, but official ISO catalog confirms only title/scope; exact clause text and NFPA citation were not verified against licensed standards. Do not call false without source text.",
+      "evidence": "forensic-report.docx p149-p156; ISO4413 official catalog.",
+      "repair": "Accept attributed expert opinion; verify standards before treating exact propositions as binding requirements.",
+      "category": "unverified"
+    },
+    {
+      "id": "F9",
+      "classification": "arguable negligence criterion",
+      "criteria": [
+        "C-009"
+      ],
+      "description": "Discussion of negligence is appropriate, but any demand for a viable separate common-law product negligence cause of action must account for OPLA abrogation. Criterion can be satisfied by explaining nonviability, so not categorically defective.",
+      "evidence": "Ohio2307.71(B); task C009.",
+      "repair": "Explicitly credit OPLA-abrogation analysis.",
+      "category": "arguable"
+    }
+  ],
+  "source_cross_checks": [
+    "C-006-C-008/C-018-C-025/C-068-C-072/C-075/C-079: forensic-report p117,p130,p149-p175 and Ironclad emails support defect/concurrent causation and warning/punitive concerns; actual state of mind remains inference.",
+    "C-010-C-016/C-034-C-037: standard terms \u00a7\u00a710,12,14,15 contain warranty, cap, arbitration and twelve-month clause. March14,2026 is sensible incident-based protection but earlier warranty accrual also needs attention.",
+    "C-028-C-033/C-050-C-053/C-078: engagement limited to Dalton, forensic p89 says isolation did not cause rupture; subrogation/conflicts are reasonable requested assessment issues.",
+    "C-043/C-046/C-076-C-077: insurance declaration and damage-sheet coverage caveats support exclusions and absent first-party coverage.",
+    "C-047-C-049/C-054-C-061/C-064-C-065/C-067/C-073-C-074: preservation facts, claimant/economic figures, manufacturer installation activity and protective deadline/action requests source-supported. Damages spreadsheet contains assertions, not expert report itself; no independent valuation endorsed."
+  ],
+  "legal_sources": [
+    "https://www.govinfo.gov/content/pkg/USCOURTS-mied-2_23-cv-13035/pdf/USCOURTS-mied-2_23-cv-13035-1.pdf (LLC members citizenship).",
+    "https://codes.ohio.gov/ohio-revised-code/section-1302.93 (consumer-goods limitation).",
+    "https://law.justia.com/cases/michigan/supreme-court/1998/107656-6.html (Baker judicial opinion, tender not acceptance).",
+    "https://codes.ohio.gov/ohio-revised-code/section-2307.71 (OPLA abrogation).",
+    "https://www.osha.gov/stateplans (Ohio federal jurisdiction).",
+    "https://www.iso.org/standard/44781.html (catalog only, not full standard)."
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "title": "Executive Summary identifies key parties",
+      "assessment": "arguable formatting overconstraint",
+      "findings": [
+        "F7"
+      ]
+    },
+    {
+      "id": "C-002",
+      "title": "Executive Summary references the March 14, 2025 hydraulic press failure incident",
+      "assessment": "arguable formatting overconstraint",
+      "findings": [
+        "F7"
+      ]
+    },
+    {
+      "id": "C-003",
+      "title": "Executive Summary mentions death of Marco Reyes",
+      "assessment": "arguable formatting overconstraint",
+      "findings": [
+        "F7"
+      ]
+    },
+    {
+      "id": "C-004",
+      "title": "Executive Summary mentions injuries to Trask and Anand",
+      "assessment": "arguable formatting overconstraint",
+      "findings": [
+        "F7"
+      ]
+    },
+    {
+      "id": "C-005",
+      "title": "Executive Summary mentions Dalton's property/business losses",
+      "assessment": "arguable formatting overconstraint",
+      "findings": [
+        "F7"
+      ]
+    },
+    {
+      "id": "C-006",
+      "title": "Liability Analysis discusses manufacturing defect (defective HydraCore bladder)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-007",
+      "title": "Liability Analysis discusses design defect (omission of redundant pressure relief)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-008",
+      "title": "Liability Analysis discusses failure to warn",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-009",
+      "title": "Liability Analysis addresses negligence claims",
+      "assessment": "arguable negligence criterion",
+      "findings": [
+        "F9"
+      ]
+    },
+    {
+      "id": "C-010",
+      "title": "Liability Analysis addresses breach of warranty claims",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-011",
+      "title": "Arbitration clause identified as applying to Dalton's commercial/contract claims",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-012",
+      "title": "Arbitration clause likely unenforceable against non-signatory employees/estate",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_001: Ohio public policy on arbitration of wrongful death/tort claims",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-014",
+      "title": "Limitation of liability cap at $1,287,500 purchase price analyzed",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-015",
+      "title": "Consequential damages exclusion analyzed",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-016",
+      "title": "Liability cap likely unenforceable for personal injury/wrongful death tort claims",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_002: Reference to UCC \u00a7 2-719(3) or equivalent on personal injury limitations",
+      "assessment": "confirmed legal overstatement",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-018",
+      "title": "Dual causation: HydraCore bladder manufacturing defect identified as proximate cause",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-019",
+      "title": "Dual causation: Ironclad's design omission of redundant pressure relief as contributing cause",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-020",
+      "title": "Dual causation analysis: interplay of both causal factors discussed",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-021",
+      "title": "Fault apportionment between Ironclad and HydraCore discussed",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-022",
+      "title": "Ironclad's potential contribution/indemnity claim against HydraCore",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-023",
+      "title": "Brennan-Cutler email chain (February 3-5, 2025) identified as punitive damages evidence",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-024",
+      "title": "Ironclad had pre-incident knowledge of accumulator pressure problems in other HX-9000 units",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_004: Cutler's 'paper trail' language as conscious disregard evidence",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-026",
+      "title": "OSHA LOTO citation identified with specific violation and penalty",
+      "assessment": "confirmed source-law inconsistency",
+      "findings": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-027",
+      "title": "OSHA machine guarding citation identified with specific violation and penalty",
+      "assessment": "confirmed source-law inconsistency",
+      "findings": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-028",
+      "title": "OSHA citations analyzed as comparative fault/contributory negligence defense for Ironclad",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_005: Analysis of OSHA citations as negligence per se vs. evidence of negligence",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_005: LOTO citation relates to accumulator energy isolation",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_006: Workers' comp subrogation rights against third-party tortfeasors",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-032",
+      "title": "Employer intentional tort risk under Ohio R.C. \u00a7 2745.01",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_006: Interaction between Dalton's own claims and WC subrogation liens",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-034",
+      "title": "Contractual 12-month statute of limitations identified",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-035",
+      "title": "March 14, 2026 deadline calculated for contractual limitations period",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_007: Analysis of enforceability of shortened limitations for tort vs. contract claims",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_007: Flagged as critical calendar item regardless of enforceability",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_008: Personal jurisdiction over HydraCore under stream-of-commerce theory",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_008: Reference to J. McIntyre or post-Nicastro stream-of-commerce limitations",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_008: Reference to Ohio long-arm statute",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_009: Choice-of-law clause governs contract but likely not tort claims",
+      "assessment": "arguable mandatory conclusion",
+      "findings": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_009: Ohio choice-of-law methodology referenced",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_010: CGL employer's liability exclusion identified",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-044",
+      "title": "Aggregate exposure exceeds CGL per-occurrence limit",
+      "assessment": "arguable rubric framing",
+      "findings": [
+        "F6"
+      ]
+    },
+    {
+      "id": "C-045",
+      "title": "Umbrella policy adequacy discussed relative to aggregate exposure",
+      "assessment": "arguable rubric framing",
+      "findings": [
+        "F6"
+      ]
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_010: Missing first-party property/business interruption coverage flagged",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_011: Evidence preservation \u2014 litigation hold recommendation",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_011: Preservation of physical evidence (press wreckage, bladder, fluid, logs)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_011: Invite Ironclad/HydraCore to inspect or obtain OSHA records",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-050",
+      "title": "Dalton's claims distinguished from employee/estate claims",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-051",
+      "title": "ISSUE_012: Reyes wrongful death claim must be brought by estate administrator",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-052",
+      "title": "ISSUE_012: Conflict of interest analysis \u2014 representing Dalton and employees",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-053",
+      "title": "ISSUE_012: Engagement letter scope limited to Dalton noted",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-054",
+      "title": "Damages: Reyes wrongful death total range approximately $5.1M\u2013$9.1M",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-055",
+      "title": "Damages: Trask personal injury total range approximately $4.56M\u2013$7.16M",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-056",
+      "title": "Damages: Anand personal injury total range approximately $453K\u2013$903K",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-057",
+      "title": "Dalton direct losses total approximately $1.67M",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-058",
+      "title": "Dalton direct losses broken down into at least three of five components",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-059",
+      "title": "Damages: Aggregate exposure range approximately $11.8M\u2013$18.8M",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-060",
+      "title": "Reyes lost earnings PV approximately $1.89M stated",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-061",
+      "title": "Reyes lost earnings calculation assumptions stated",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-062",
+      "title": "Venue recommendation: Ohio state court or federal court with supporting analysis",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-063",
+      "title": "Federal diversity jurisdiction: complete diversity correctly identified",
+      "assessment": "confirmed legal defect",
+      "findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-064",
+      "title": "Personal jurisdiction over Ironclad in Ohio established",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-065",
+      "title": "Key deadline: Ohio tort/wrongful death SOL \u2014 March 14, 2027",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-066",
+      "title": "Key deadline: UCC warranty claims \u2014 December 16, 2028",
+      "assessment": "confirmed legal/date defect",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-067",
+      "title": "Memo covers all 10 requested topics (threshold: no more than 1 absent)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-068",
+      "title": "Bladder tensile strength finding: approximately 1,450 PSI actual vs. 2,800 PSI specification",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-069",
+      "title": "Bladder defect: excessive plasticizer content identified",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-070",
+      "title": "Design defect: absence of secondary pressure relief valve on HX-9000 accumulator",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-071",
+      "title": "Industry standards (NFPA T2.6.1-2020 and/or ISO 4413:2010) require redundant pressure relief",
+      "assessment": "unverified technical standard",
+      "findings": [
+        "F8"
+      ]
+    },
+    {
+      "id": "C-072",
+      "title": "Dr. Cordero's opinion that secondary relief valve would have prevented fatality",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-073",
+      "title": "Recommendation to contest Dalton's OSHA citations",
+      "assessment": "confirmed source-law inconsistency",
+      "findings": [
+        "F5"
+      ]
+    },
+    {
+      "id": "C-074",
+      "title": "Memo contains at least 5 distinct actionable recommendations",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-075",
+      "title": "Punitive damages claim viability analyzed under Ohio law",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-076",
+      "title": "CGL 'your product' exclusion identified or discussed",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-077",
+      "title": "Umbrella policy details: $15M excess over $5M primary, follow-form",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-078",
+      "title": "Recommendation to coordinate with or refer employees to independent counsel",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-079",
+      "title": "HydraCore identified as a necessary defendant",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    }
+  ]
+}

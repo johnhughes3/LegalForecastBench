@@ -1,0 +1,20 @@
+# Blind rubric audit: analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands
+
+> [!WARNING]
+> **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
+
+Coverage: All 47 criteria read. All seven sources extracted; requests and criterion-relevant order/deal/hold/email provisions inspected. The 37,569 source words were not all read sentence by sentence. No solver output or document visual-layout review.
+
+## Confirmed grading defect / required questionable advocacy
+
+- **C-018 / C-019 (moderate):** Requires calling RFP 41 an improper contention interrogatory and arguing prematurity. Actual RFP 41 (plaintiffs-first-rfps paragraph 142) seeks existing documents supporting or contradicting pleaded defenses/counterclaims; it does not demand that counsel compose an evidentiary narrative. Rule 33(a)(2) expressly allows fact/law-to-fact contentions and permits court-ordered deferral; it does not automatically make such discovery premature, and it governs interrogatories. Rule 34 authorizes relevant existing-document requests. Primary rule texts: https://www.law.cornell.edu/rules/frcp/rule_33 and https://www.law.cornell.edu/rules/frcp/rule_34 . Particular burden, breadth, or opinion-work-product objections might be supportable; this audit does not establish that all objections to RFP 41 would fail. The confirmed defect is forcing this one legal characterization and failing a memo that reasonably proposes producing responsive nonprivileged documents while reserving specific objections. Repair: accept contextual analysis and any supportable response, including a request for phased discovery instead of an automatic prematurity rule.
+
+## Arguable concerns
+
+- **C-024 / C-025:** Non-specification of ESI form is permissible under Rule 34(b)(1)(C), which says a request may specify form; Rule 34(b)(2)(E) supplies defaults. Flagging a practical issue and proposing an ESI protocol is sensible. Do not equate the omission itself with an invalid request. Criterion wording (“creating ambiguity”) is overstrong but can be satisfied without a legal misstatement.
+- **C-002:** Negotiated 2017/2018 scope is supported by strategy email paragraph 71, yet pre-JV development records may matter to Greenleaf's Background IP defense (JV §§7.2/7.4). Permit relevant earlier development records; a categorical exclusion of everything before 2017 is not justified merely by formation date.
+- **C-007 / C-016 / C-023 / C-031:** Broad requests have reasonable narrowing grounds, but categorical irrelevance/no-control conclusions require facts. Rubric largely accommodates qualified language. The actual lender agreement and auditor engagement are not supplied; strategy email paragraphs 37/63 explicitly asks to obtain/verify them. C-008's “may have” language appropriately accommodates this absence. Do not require a definitive section number or control conclusion.
+
+## Criteria without a separate confirmed defect
+
+C-001–017, C-020–047 (subject to qualifications above): factual anchors are traceable to requests, deal instruments, orders, hold memo, and strategy email. C-036/037 are **not** unrequested severity demands: strategy email paragraphs 27 and 87–93 expressly makes privilege top priority and requests high/medium/low ranking. C-027–029 are reasonable because protective order §15.4 expressly disclaims being an inadvertent-production mechanism despite general privilege-preservation language. Formation/dissolution/wind-down/noncompete dates, response deadline, data-volume and single-product scope are supplied. The audit does not certify every legal proposition in all source documents.

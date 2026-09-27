@@ -1,0 +1,354 @@
+{
+  "task": "draft-responses-to-requests-for-production",
+  "prompt": "Draft responses and objections to the attached first set of requests for production, plus an internal discovery issues memo for the supervising partner. Output: `rfp-responses.docx` and `discovery-issues-memo.docx`.",
+  "coverage": "All45 criteria read; all7 files extracted and relevant document paragraphs/spreadsheet entries inspected. No actual litigation hold or full inadvertently produced Ng email supplied beyond log/summary descriptions; those limitations retained. No solver output accessed.",
+  "criterion_count": 45,
+  "document_count": 7,
+  "findings": [
+    {
+      "id": "F1",
+      "classification": "confirmed overbroad legal requirement",
+      "criteria": [
+        "C-025"
+      ],
+      "description": "Request24 seeks existing documents supporting affirmative defenses. Such documents are ordinarily discoverable and even within initial disclosure scope; it is not categorically an improper contention interrogatory. Specific overbreadth,prematurity,or opinion-work-product concerns may exist, but rubric mandates generic objection.",
+      "evidence": "rfp-first-set.docx p87; MCR2.302(A)(1)(d),2.310(A).",
+      "repair": "Credit production of nonprivileged supporting documents with particular supported objections; remove categorical improper-contention requirement.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F2",
+      "classification": "confirmed contract misreading",
+      "criteria": [
+        "C-041"
+      ],
+      "description": "Section7.2 covers any nonpublic information disclosed in connection with agreement, including but not limited to enumerated categories. Absence of express BOM/manufacturing examples does not create the required coverage gap. Court protective order remains useful for other reasons.",
+      "evidence": "distribution-agreement.docx p114-p120.",
+      "repair": "Accept broad catch-all protection and recommend protective order for litigation disclosure without inventing exclusion.",
+      "category": "confirmed"
+    },
+    {
+      "id": "F3",
+      "classification": "arguable privilege certainty",
+      "criteria": [
+        "C-013",
+        "C-014",
+        "C-030",
+        "C-042"
+      ],
+      "description": "Potentially privileged email and vague entries merit prompt assessment, but label Privilege applies or outside-counsel reference alone does not establish privilege. Strengthening descriptions must follow actual content review. Actual hold memo not supplied, so mandatory opinion-work-product characterization rests on summary/log rather than inspection.",
+      "evidence": "collection-summary.docx p131,p144,p147 says potentially privileged and assess clawback; privilege-log.xlsx entries1-7,10.",
+      "repair": "Require content/purpose inquiry and truthful log supplementation; allow conditional claim pending review.",
+      "category": "arguable"
+    },
+    {
+      "id": "F4",
+      "classification": "arguable severity/count thresholds",
+      "criteria": [
+        "C-036",
+        "C-039"
+      ],
+      "description": "Rule-compliant withholding statements should track actual objections; mandatory ten objections/statements can penalize a reasoned response set making fewer objections. Urgent preservation/clawback concern is reasonable, but exact two-issue urgency floor is not requested.",
+      "evidence": "task instructions; C036/C039; source reports require prompt attention.",
+      "repair": "Score accurate response content per applicable request and practical priority rather than numerical objection quota.",
+      "category": "arguable"
+    }
+  ],
+  "source_cross_checks": [
+    "C-001-C-010/C-017-C-018/C-023-C-024/C-026-C-028/C-034-C-035/C-037-C-038/C-040/C-045: requests1-25,agreement dates,case caption and objection playbook cross-checked. Temporal narrowing/trade-secret/privacy objections are plausible strategy, not declared universally mandatory law.",
+    "C-011-C-016/C-032-C-033/C-042-C-044: seven earlyNg/Chen entries and fourTrent/Marsh common-interest entries verified; adverse-interest inquiry sensible; written agreement alone neither necessary nor sufficient.",
+    "C-019-C-022/C-029-C-031: collection-summary p19-p33,p98-p99,p140-p147 supports hold gap,90day Slack deletion,primary users and recovery attempt. Fact versus privileged preservation content distinction appropriate. Kessler-Foss email inspected for Northpoint relevance."
+  ],
+  "legal_sources": [
+    "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf (MCR2.302,2.310).",
+    "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm?rhtocid=_2 (inadvertent-production Rule2.302(B)(7),not(B)(6))."
+  ],
+  "criteria": [
+    {
+      "id": "C-001",
+      "title": "Output includes rfp-responses document",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-002",
+      "title": "Output includes discovery-issues-memo document addressed to Jonathan Trent",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-003",
+      "title": "All 25 Requests receive individual responses",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Temporal overbreadth objection for Request No. 3",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001: Temporal overbreadth objection for Request No. 7",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_001: Temporal overbreadth objection for Request No. 11",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_001: Temporal overbreadth objection for Request No. 18",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_001: Proposes narrowed time period for temporally overbroad requests",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_002: Overbreadth/relevance objection to Request No. 9",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_002: Offers narrowed production for Request No. 9 focused on Northpoint",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_003: Identifies pre-retention Ng-Chen privilege log entries with vague descriptions",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_003: Notes vague privilege log entries risk waiver challenges",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Recommends strengthening privilege log descriptions",
+      "assessment": "arguable privilege certainty",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_004: Identifies inadvertent disclosure of Ng April 22, 2023 email",
+      "assessment": "arguable privilege certainty",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_004: Addresses clawback mechanism for inadvertent disclosure",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Flags inadvertent disclosure as requiring immediate action",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_005: Trade secret/confidential info objection to Request No. 14",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_005: Proposes protective order for Request No. 14 production",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_006: Identifies Slack/Teams preservation gap",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_006: Identifies spoliation risk from Slack auto-delete policy",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_006: Notes David Kessler's team used Slack as primary platform",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_006: Recommends addressing completeness limitations in responses",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_007: Privacy objection to Request No. 21 (personnel files)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_007: Offers narrowed production of relevant personnel file content",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_008: Objection to Request No. 24 as improper contention discovery",
+      "assessment": "confirmed overbroad legal requirement",
+      "findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_009: Proportionality objection to Request No. 6 (all ESI)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_009: Proposes reasonable limitations on ESI production",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_009: References Michigan proportionality factors or MCR 2.302(B)(1)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_010: Work product objection to Request No. 22 (litigation hold memo)",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_010: Distinguishes fact vs. opinion work product for litigation hold",
+      "assessment": "arguable privilege certainty",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_010: Acknowledges fact of litigation hold may be discoverable",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_011: Identifies common interest privilege concern for Trent-Marsh comms",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_011: Recommends executing written joint defense agreement",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_012: Identifies duplicative nature of Requests Nos. 4, 8, and 15",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_012: Offers consolidated production for Northpoint-related requests",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-036",
+      "title": "Responses state whether documents are withheld based on objections",
+      "assessment": "arguable severity/count thresholds",
+      "findings": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-037",
+      "title": "Objections are tailored to individual requests",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-038",
+      "title": "References to Michigan Court Rules in objections",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-039",
+      "title": "Memo identifies issues requiring immediate action",
+      "assessment": "arguable severity/count thresholds",
+      "findings": [
+        "F4"
+      ]
+    },
+    {
+      "id": "C-040",
+      "title": "Correct case caption information",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_005: Memo discusses Section 7.2 confidentiality clause limitations",
+      "assessment": "confirmed contract misreading",
+      "findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_003: Distinguishes Ng April 22 email from other vague entries",
+      "assessment": "arguable privilege certainty",
+      "findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "C-043",
+      "title": "Memo cross-references privilege log deficiency with inadvertent disclosure",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_011: Notes potentially adverse interests between Redfield and Northpoint",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    },
+    {
+      "id": "C-045",
+      "title": "Agreement dates correctly referenced in temporal objections",
+      "assessment": "no confirmed defect identified in targeted audit",
+      "findings": []
+    }
+  ]
+}
