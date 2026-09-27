@@ -1,0 +1,139 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Dark mode follows the data-theme stamp set before first paint in Layout.astro. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+	color-scheme: light;
+	--bg: #faf9f6;
+	--surface: #ffffff;
+	--surface-2: #f3f1ec;
+	--ink: #17150f;
+	--ink-2: #4c483f;
+	--ink-3: #7a7569;
+	--rule: #e3dfd5;
+	--rule-strong: #cbc5b8;
+	--accent: #8a2432;
+	--accent-soft: #f5e9e7;
+	/* Chart roles (validated reference palette, light steps). */
+	--series-1: #2a78d6;
+	--series-1-soft: #cde2fb;
+	--series-2: #eb6834;
+	--chart-grid: #ebe7de;
+	--chart-muted: #9d978a;
+	--good: #0a7d0a;
+	--critical: #c0392b;
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--bg: #121210;
+	--surface: #1a1a19;
+	--surface-2: #232320;
+	--ink: #f3f1ea;
+	--ink-2: #c3c2b7;
+	--ink-3: #8e8c83;
+	--rule: #302f2b;
+	--rule-strong: #46443e;
+	--accent: #e58c95;
+	--accent-soft: #3a2326;
+	--series-1: #3987e5;
+	--series-1-soft: #1c3552;
+	--series-2: #d95926;
+	--chart-grid: #2a2a27;
+	--chart-muted: #77756d;
+	--good: #3cc13c;
+	--critical: #e66767;
+}
+
+@theme {
+	--color-bg: var(--bg);
+	--color-surface: var(--surface);
+	--color-surface-2: var(--surface-2);
+	--color-ink: var(--ink);
+	--color-ink-2: var(--ink-2);
+	--color-ink-3: var(--ink-3);
+	--color-rule: var(--rule);
+	--color-rule-strong: var(--rule-strong);
+	--color-accent: var(--accent);
+	--color-accent-soft: var(--accent-soft);
+	--color-series-1: var(--series-1);
+	--color-series-1-soft: var(--series-1-soft);
+	--color-good: var(--good);
+	--color-critical: var(--critical);
+	--font-serif: "Newsreader Variable", "Iowan Old Style", Georgia, serif;
+	--font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+	html {
+		background: var(--bg);
+		color: var(--ink);
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+	body {
+		font-family: var(--font-sans);
+		font-feature-settings: "cv11", "ss01";
+		background: var(--bg);
+	}
+	::selection {
+		background: var(--accent-soft);
+	}
+	a {
+		text-underline-offset: 3px;
+	}
+}
+
+@utility tabular {
+	font-variant-numeric: tabular-nums;
+	font-feature-settings: "tnum", "cv11";
+}
+
+@utility eyebrow {
+	font-family: var(--font-sans);
+	font-size: 0.72rem;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--accent);
+}
+
+@utility card {
+	background: var(--surface);
+	border: 1px solid var(--rule);
+	border-radius: 14px;
+}
+
+/* Long-form prose (findings and methods). */
+.prose-lfb {
+	--tw-prose-body: var(--ink-2);
+	--tw-prose-headings: var(--ink);
+	--tw-prose-links: var(--accent);
+	--tw-prose-bold: var(--ink);
+	--tw-prose-quotes: var(--ink);
+	--tw-prose-quote-borders: var(--accent);
+	--tw-prose-counters: var(--ink-3);
+	--tw-prose-bullets: var(--rule-strong);
+	--tw-prose-hr: var(--rule);
+	--tw-prose-th-borders: var(--rule-strong);
+	--tw-prose-td-borders: var(--rule);
+	--tw-prose-code: var(--ink);
+	--tw-prose-captions: var(--ink-3);
+	font-family: var(--font-serif);
+	font-size: 1.14rem;
+	line-height: 1.7;
+}
+.prose-lfb :where(h2, h3, h4) {
+	font-family: var(--font-serif);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+.prose-lfb :where(table, figure, .not-serif) {
+	font-family: var(--font-sans);
+	font-size: 0.92rem;
+}
+.prose-lfb :where(td, th) {
+	font-variant-numeric: tabular-nums;
+}

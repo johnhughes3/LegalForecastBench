@@ -43,3 +43,12 @@ There is no automatic withdrawal-update trigger in this change. Regenerate the e
 ## Hosting
 
 The generated site can be hosted independently of benchmark execution and protected artifact storage. It needs the public export, not AWS, corpus, or model-provider credentials. Production deployment should retain the repository's protected deployment boundary. The frontend implementation can add Astro build and browser checks to the existing contract checks without moving the Python package.
+
+## Website
+
+The Astro site in `site/` renders results, model pages, findings, and methods as static pages. Run `pnpm site:dev` for a local server and `pnpm site:build` for the production build in `site/dist/`. React islands handle the sortable leaderboard and the cost/quality chart; every other page is static HTML.
+
+- **Results data.** Pages read `site/src/data/results.ts`. Until beta runs have scored site exports, it presents `site/src/data/snapshots/beta-2026-09-18.json`, a hand-transcribed aggregate snapshot validated against `snapshot.schema.json` at build time. It records its provenance and which runs still have unit-level data. Replace it with validated exports as they become available; do not mix the two for one run.
+- **Methods.** `/methods/` renders `docs/METHODS.md` directly, so edit the methods there.
+- **Findings.** Reports and notes are MDX files in `site/src/content/findings/`. Set `draft: true` to limit a post to `astro dev` and Vercel preview deployments.
+- **Hosting.** Vercel builds the site through its Git integration: Root Directory `site`, production branch `main`, with source files outside the root directory included (the build reads `docs/`). `site/vercel.json` pins the install, build, and output settings. Set `ENABLE_EXPERIMENTAL_COREPACK=1` so Vercel uses the pinned pnpm version. No Vercel token is stored in this repository or in Actions.

@@ -1,16 +1,17 @@
 {
+	"extends": "astro/tsconfigs/strictest",
 	"compilerOptions": {
 		"target": "ES2022",
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
 		"resolveJsonModule": true,
 		"esModuleInterop": true,
-		"strict": true,
-		"noUncheckedIndexedAccess": true,
-		"exactOptionalPropertyTypes": true,
 		"noEmit": true,
 		"skipLibCheck": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "react",
 		"types": ["node"]
 	},
-	"include": ["src/**/*.ts", "scripts/**/*.ts"]
+	"include": [".astro/types.d.ts", "src/**/*", "scripts/**/*.ts"],
+	"exclude": ["dist"]
 }

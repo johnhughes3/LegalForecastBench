@@ -7,6 +7,7 @@ on:
       - 'site/**'
       - 'legalforecast/**'
       - 'docs/schemas/site-export-v1.schema.json'
+      - 'docs/METHODS.md'
       - 'tests/test_site*'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -19,6 +20,7 @@ on:
       - 'site/**'
       - 'legalforecast/**'
       - 'docs/schemas/site-export-v1.schema.json'
+      - 'docs/METHODS.md'
       - 'tests/test_site*'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -75,3 +77,6 @@ jobs:
 
       - name: Validate contract, generated types, and TypeScript
         run: pnpm site:check
+
+      - name: Build the static site
+        run: pnpm site:build

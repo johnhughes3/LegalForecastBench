@@ -76,3 +76,6 @@ local-data/
 
 # Pinned Jev evaluation SDK installation.
 node_modules/
+
+# Astro generated types
+site/.astro/
