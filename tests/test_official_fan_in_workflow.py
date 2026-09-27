@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
@@ -150,7 +151,7 @@ def test_forecast_artifact_is_durable_complete_and_cannot_transport_labels() -> 
     download = WORKFLOW[
         WORKFLOW.index(
             "- name: Download exact durable forecast result artifact"
-        ) : WORKFLOW.index("- name: Configure protected fan-in storage access")
+        ) : WORKFLOW.index("- name: Fetch and bind locked releases")
     ]
     assert "official-forecast-results-{run_id}-{attempt}" in download
     assert "actions/artifacts/{artifact_id}/zip" in download
@@ -225,7 +226,7 @@ cat {str(tmp_path / "f.zip")!r}
     download = WORKFLOW[
         WORKFLOW.index(
             "- name: Download exact durable forecast result artifact"
-        ) : WORKFLOW.index("- name: Configure protected fan-in storage access")
+        ) : WORKFLOW.index("- name: Fetch and bind locked releases")
     ]
     script = textwrap.dedent(
         download.split("python - <<'PY'\n", 1)[1].split("          PY", 1)[0]
@@ -234,6 +235,99 @@ cat {str(tmp_path / "f.zip")!r}
     script = script.replace('Path("/tmp/lfb-forecast")', f"Path({str(output_root)!r})")
     exec(compile(script, "workflow-forecast-download", "exec"), {})
     assert (output_root / "ledger/ledger.sqlite3").read_bytes() == b"ledger"
+
+
+@pytest.mark.parametrize("tampered", [False, True])
+def test_expired_forecast_artifact_is_restored_from_the_s3_archive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tampered: bool
+) -> None:
+    archive_bytes = io.BytesIO()
+    with zipfile.ZipFile(archive_bytes, "w") as archive:
+        for name in (
+            "forecast-run.json",
+            "run-manifest.json",
+            "forecast-release.json",
+            "model-registry.json",
+            "run-summary.json",
+            "receipts/receipt.json",
+        ):
+            archive.writestr(name, b"{}")
+        archive.writestr("ledger/ledger.sqlite3", b"ledger")
+        archive.writestr("artifacts/forecast.json", b"forecast")
+    zip_path = tmp_path / "f.zip"
+    zip_path.write_bytes(archive_bytes.getvalue())
+    prefix = "reports/github-artifacts/multi-ablation/example/benchmark/"
+    digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+    pointer_path = tmp_path / "pointer.json"
+    pointer_path.write_text(
+        json.dumps(
+            {
+                "artifact_id": 456,
+                "digest": "sha256:" + ("0" * 64 if tampered else digest),
+                "key": f"{prefix}artifacts/456.zip",
+                "name": "official-forecast-results-123-1",
+                "repository": "example/benchmark",
+                "source_run_id": 123,
+            }
+        ),
+        encoding="utf-8",
+    )
+    pointer_key = f"{prefix}by-run/123/official-forecast-results-123-1/456.json"
+    zip_key = f"{prefix}artifacts/456.zip"
+    fake_aws = tmp_path / "aws"
+    fake_aws.write_text(
+        f"""#!/bin/sh -e
+test "$1 $3 $4" = "s3api --bucket test-bucket"
+case "$2" in
+  list-objects-v2)
+    test "$6" = {shlex.quote(f"{prefix}by-run/123/official-forecast-results-123-1/")}
+    printf '%s' '{{"Contents": [{{"Key": "{pointer_key}"}}]}}' ;;
+  get-object)
+    case "$6" in
+      {shlex.quote(pointer_key)}) cp {shlex.quote(str(pointer_path))} "$7" ;;
+      {shlex.quote(zip_key)}) cp {shlex.quote(str(zip_path))} "$7" ;;
+      *) exit 9 ;;
+    esac ;;
+  *) exit 8 ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    fake_aws.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
+    monkeypatch.setenv("LFB_RESULTS_BUCKET", "test-bucket")
+    monkeypatch.setenv("GITHUB_API_URL", "https://api.example.invalid")
+    monkeypatch.setenv("GITHUB_REPOSITORY_NAME", "example/benchmark")
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    monkeypatch.setenv("FORECAST_RUN_ID", "123")
+    monkeypatch.setenv("FORECAST_RUN_ATTEMPT", "1")
+
+    # GitHub drops expired artifacts from the run listing entirely.
+    def urlopen(*args: object, **kwargs: object) -> io.BytesIO:
+        return io.BytesIO(b'{"artifacts": []}')
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    download = WORKFLOW[
+        WORKFLOW.index(
+            "- name: Download exact durable forecast result artifact"
+        ) : WORKFLOW.index("- name: Fetch and bind locked releases")
+    ]
+    assert WORKFLOW.index(
+        "- name: Configure protected fan-in storage access"
+    ) < WORKFLOW.index("- name: Download exact durable forecast result artifact")
+    script = textwrap.dedent(
+        download.split("python - <<'PY'\n", 1)[1].split("          PY", 1)[0]
+    )
+    output_root = tmp_path / "restored"
+    script = script.replace('Path("/tmp/lfb-forecast")', f"Path({str(output_root)!r})")
+    code = compile(script, "workflow-forecast-download", "exec")
+    if tampered:
+        with pytest.raises(SystemExit, match="digest mismatch"):
+            exec(code, {})
+        assert not output_root.exists()
+    else:
+        exec(code, {})
+        assert (output_root / "ledger/ledger.sqlite3").read_bytes() == b"ledger"
 
 
 def test_labels_are_fetched_only_after_public_and_source_checks() -> None:

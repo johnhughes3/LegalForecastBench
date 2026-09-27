@@ -2,19 +2,40 @@ name: Archive GitHub artifacts
 
 on:
   workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Archive only this workflow run (blank archives every available artifact)
+        required: false
+        default: ''
+  # Every result-producing run is copied to S3 as soon as it finishes, whatever
+  # its conclusion: failed runs carry recovery checkpoints. GitHub artifacts
+  # expire; the S3 copy does not.
+  workflow_run:
+    workflows:
+      - Run Benchmark
+      - Recover Benchmark
+      - Protected Labels Fan In
+      - Score Terminal Release
+      - Prepare Jev Summaries
+    types: [completed]
 
 permissions:
   actions: read
   contents: read
 
+# One group per source run: a shared group would silently replace pending
+# archives when several benchmark runs finish close together.
 concurrency:
-  group: archive-github-artifacts
+  group: archive-github-artifacts-${{ github.event.workflow_run.id || inputs.source_run_id || 'inventory' }}-${{ github.event.workflow_run.run_attempt || github.run_id }}
   cancel-in-progress: false
 
 jobs:
   archive:
     name: Preserve available artifact ZIPs in S3
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 210
     environment: legalforecastbench-official-eval-fan-in
@@ -25,6 +46,7 @@ jobs:
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      SOURCE_RUN_ID: ${{ github.event.workflow_run.id || inputs.source_run_id }}
     steps:
       - name: Check out trusted main revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,7 +78,8 @@ jobs:
             --bucket "$LFB_RESULTS_BUCKET" \
             --archive-id "$ARCHIVE_ID" \
             --output-dir /tmp/lfb-artifact-archive-results \
-            --workers 4 --download-only
+            --workers 4 --download-only \
+            ${SOURCE_RUN_ID:+--source-run-id "$SOURCE_RUN_ID"}
 
       - name: Assume protected artifact publication role
         uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
@@ -79,7 +102,8 @@ jobs:
             --bucket "$LFB_RESULTS_BUCKET" \
             --archive-id "$ARCHIVE_ID" \
             --output-dir /tmp/lfb-artifact-archive-results \
-            --workers 4 --upload-only
+            --workers 4 --upload-only \
+            ${SOURCE_RUN_ID:+--source-run-id "$SOURCE_RUN_ID"}
 
       - name: Refuse successful completion after an interrupted download
         if: ${{ !cancelled() && steps.download.outcome == 'failure' }}

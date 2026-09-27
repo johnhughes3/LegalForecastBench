@@ -5,12 +5,44 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_artifact_archive_is_manual_protected_and_provider_free() -> None:
-    workflow = (ROOT / ".github/workflows/archive-github-artifacts.yaml").read_text()
+WORKFLOW = (ROOT / ".github/workflows/archive-github-artifacts.yaml").read_text()
+
+
+def test_every_result_producing_workflow_triggers_an_archive() -> None:
+    triggers = WORKFLOW.split("  workflow_run:\n", 1)[1].split("types:", 1)[0]
+    for path in (
+        "run-benchmark.yaml",
+        "recover-benchmark.yaml",
+        "fan-in-publish.yaml",
+        "score-terminal-release.yaml",
+        "prepare-jev-summaries.yaml",
+    ):
+        source = (ROOT / ".github/workflows" / path).read_text()
+        name = source.split("\n", 1)[0].removeprefix("name: ")
+        assert "upload-artifact@" in source
+        assert f"      - {name}\n" in triggers
+    assert "types: [completed]" in WORKFLOW
+    # Per-source-run groups: a shared group would replace pending archives.
+    assert "group: archive-github-artifacts-${{ github.event.workflow_run.id" in (
+        WORKFLOW
+    )
+    assert (
+        "github.event.workflow_run.head_repository.full_name == github.repository"
+        in WORKFLOW
+    )
+    assert (
+        "SOURCE_RUN_ID: ${{ github.event.workflow_run.id || inputs.source_run_id }}"
+        in WORKFLOW
+    )
+    assert WORKFLOW.count('${SOURCE_RUN_ID:+--source-run-id "$SOURCE_RUN_ID"}') == 2
+
+
+def test_artifact_archive_is_protected_and_provider_free() -> None:
+    workflow = WORKFLOW
     assert "  workflow_dispatch:\n" in workflow
     assert "  schedule:" not in workflow
     assert "  push:" not in workflow
-    assert "if: github.ref == 'refs/heads/main'" in workflow
+    assert "github.ref == 'refs/heads/main'" in workflow
     assert "environment: legalforecastbench-official-eval-fan-in" in workflow
     assert "persist-credentials: false" in workflow
     assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in workflow
