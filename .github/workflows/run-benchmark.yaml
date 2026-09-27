@@ -69,7 +69,7 @@ on:
       artifact_retention_days:
         description: Retention for public workflow artifacts.
         required: false
-        default: "14"
+        default: "90"
         type: string
       resume_source_run_id:
         description: Canceled benchmark workflow run ID whose completed cell states may be imported.

@@ -140,7 +140,7 @@ jobs:
           name: protected-recovery-plan-${{ github.run_id }}-${{ github.run_attempt }}
           path: /tmp/lfb-protected-recovery-plan.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
 
       - name: Refuse blocked authority plan
         if: ${{ steps.authority-plan.outcome != 'success' }}
@@ -174,7 +174,7 @@ jobs:
           name: protected-recovery-result-${{ github.run_id }}-${{ github.run_attempt }}
           path: /tmp/lfb-protected-recovery-result.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
 
       - name: Refuse failed authority recovery
         if: ${{ inputs.execute && steps.authority-apply.outcome != 'success' }}
@@ -221,7 +221,10 @@ jobs:
               "account": frozen["account"],
               "repeat_count": str(frozen["repeat_count"]),
               "max_parallel": os.environ["MAX_PARALLEL"],
-              "artifact_retention_days": str(frozen["artifact_retention_days"]),
+              # Retention is not part of the run identity. Recovered results are
+              # the durable copy, so always request GitHub's public-repo maximum
+              # rather than inheriting a shorter source retention.
+              "artifact_retention_days": "90",
               "resume_sources": json.dumps(recovery["resume_sources"], separators=(",", ":")),
           }
           client.dispatch(repo, "run-benchmark.yaml", "main", inputs)

@@ -59,7 +59,7 @@ on:
       artifact_retention_days:
         description: Retention for sanitized score/report workflow artifacts.
         required: true
-        default: "14"
+        default: "90"
         type: string
 
 permissions:
