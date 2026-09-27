@@ -6,6 +6,7 @@ import {
 	METRICS,
 	metricValue,
 	paretoFrontier,
+	ranks,
 } from "../data/metrics";
 import type { ResultsSnapshot, SnapshotModel } from "../data/snapshot";
 import EligibilityBadge from "./EligibilityBadge";
@@ -149,11 +150,7 @@ export default function Leaderboard({
 	const railLo = Math.min(...briers) - 0.02;
 	const railHi =
 		Math.max(snapshot.cohort.constant_forecast_micro_brier, ...briers) + 0.01;
-	const microRank = new Map(
-		[...snapshot.models]
-			.sort((a, b) => a.micro_brier - b.micro_brier)
-			.map((m, i) => [m.slug, i + 1] as const),
-	);
+	const microRank = useMemo(() => ranks(snapshot, "micro_brier"), [snapshot]);
 
 	const onSort = (column: Column) =>
 		setSort((current) =>
@@ -173,7 +170,11 @@ export default function Leaderboard({
 					</caption>
 					<thead>
 						<tr className="border-b border-rule text-left text-xs text-ink-3">
-							<th scope="col" className="w-10 py-3 pl-4 font-medium">
+							<th
+								scope="col"
+								className="w-10 py-3 pl-4 font-medium"
+								title="Rank by micro Brier, the headline metric"
+							>
 								#
 							</th>
 							<th scope="col" className="py-3 pr-4 font-medium">
@@ -299,6 +300,39 @@ export default function Leaderboard({
 					</tbody>
 				</table>
 			</div>
+			<div className="grid gap-4 border-t border-rule px-4 py-4 text-xs leading-relaxed text-ink-2 md:grid-cols-2">
+				<div>
+					<p className="font-semibold text-ink">Cost notes</p>
+					<ul className="mt-1.5 space-y-1">
+						{snapshot.models
+							.filter((m) => m.cost.note)
+							.map((m) => (
+								<li key={m.slug}>
+									<span className="text-accent">*</span>{" "}
+									<span className="font-medium text-ink">
+										{m.display_name}:
+									</span>{" "}
+									{m.cost.note}
+								</li>
+							))}
+					</ul>
+				</div>
+				<div>
+					<p className="font-semibold text-ink">Qualified comparisons</p>
+					<ul className="mt-1.5 space-y-1">
+						{snapshot.models
+							.filter((m) => m.eligibility !== "eligible")
+							.map((m) => (
+								<li key={m.slug}>
+									<span className="font-medium text-ink">
+										{m.display_name}:
+									</span>{" "}
+									{m.eligibility_reason}
+								</li>
+							))}
+					</ul>
+				</div>
+			</div>
 			<div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-rule bg-surface-2/50 px-4 py-3 text-xs text-ink-3">
 				<span>
 					Rail tick: constant base-rate forecast (
@@ -307,6 +341,7 @@ export default function Leaderboard({
 					)}
 					)
 				</span>
+				<span># is the micro Brier rank, whatever the sort</span>
 				<span>Hover a column name for its definition</span>
 				<span>
 					Eligible: documented training cutoff predates every scored decision
