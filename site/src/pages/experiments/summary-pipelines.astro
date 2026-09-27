@@ -46,7 +46,7 @@ const preparation = jev.preparation_usd ?? 0;
 				Given the same case summaries, Jev forecast worse than always guessing 50%. Frontier models did not.
 			</h1>
 			<p class="mt-6 max-w-3xl text-lg leading-relaxed text-ink-2">
-				TypeSafe's Jev accepts about 64,000 tokens per request (<a class="text-accent" href="https://docs.typesafe.ai/models">TypeSafe model reference</a>), and the full motion papers for most cases are longer, so GPT-5.6 Luna first summarized the 482 filings across the {jev.case_count} cases. Jev forecast from those summaries in one shot. As controls, two OpenAI models received the identical summaries.
+				TypeSafe documents a 64,000-token request limit for Jev, with a separate 32,000-token limit for the state plus the longest question (<a class="text-accent" href="https://docs.typesafe.ai/models">TypeSafe model reference</a>). This experiment used GPT-5.6 Luna summaries of the 482 filings across the {jev.case_count} cases. Jev forecast from those summaries in one shot. As controls, two OpenAI models received the identical summaries.
 			</p>
 			<div class="mt-10 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
 				<Stat value={METRICS.micro_brier.format(jev.micro_brier)} label="Jev micro Brier" detail="Always forecasting 50% scores 0.2500" />
