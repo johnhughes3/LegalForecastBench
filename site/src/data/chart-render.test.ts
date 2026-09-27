@@ -37,7 +37,7 @@ test("cost chart includes all priced models and keeps outlier grid readable", ()
 	assert.ok(html.includes("GPT-4.1"));
 });
 
-test("leaderboard Pareto badges use the current cost versus micro-Brier frontier", () => {
+test("leaderboard Pareto badges name the qualifying metrics", () => {
 	const html = renderToStaticMarkup(createElement(Leaderboard, { snapshot }));
 	const rows = html.match(/<tr[\s\S]*?<\/tr>/g) ?? [];
 	const labeled = rows.filter((row) => row.includes("Pareto frontier"));
@@ -47,4 +47,25 @@ test("leaderboard Pareto badges use the current cost versus micro-Brier frontier
 			labeled.some((row) => row.includes(`/models/${slug}/`)),
 			slug,
 		);
+});
+
+test("a model on only the accuracy frontier gets an accuracy-specific tooltip", () => {
+	const data = structuredClone(snapshot);
+	data.models = data.models.slice(0, 2);
+	const [a, b] = data.models;
+	assert.ok(a && b);
+	a.cost.usd = b.cost.usd = 1;
+	a.micro_brier = a.equal_case_brier = 0.1;
+	b.micro_brier = b.equal_case_brier = 0.2;
+	a.correct = 200;
+	b.correct = 300;
+	const html = renderToStaticMarkup(
+		createElement(Leaderboard, { snapshot: data }),
+	);
+	const row = (html.match(/<tr[\s\S]*?<\/tr>/g) ?? []).find((row) =>
+		row.includes(`/models/${b.slug}/`),
+	);
+	assert.ok(row);
+	assert.match(row, /Pareto frontier for: Accuracy\./);
+	assert.ok(!row.includes("Pareto frontier for: Micro Brier"));
 });

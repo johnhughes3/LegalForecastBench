@@ -117,13 +117,21 @@ export default function Leaderboard({
 		key: "micro_brier",
 		asc: true,
 	});
-	const frontier = useMemo(
-		() =>
-			new Set(
-				paretoFrontier(snapshot, "micro_brier").map((model) => model.slug),
-			),
-		[snapshot],
-	);
+	const frontier = useMemo(() => {
+		const metrics = new Map<string, string[]>();
+		for (const metric of [
+			"micro_brier",
+			"equal_case_brier",
+			"accuracy",
+		] as const) {
+			for (const model of paretoFrontier(snapshot, metric)) {
+				const labels = metrics.get(model.slug) ?? [];
+				labels.push(METRICS[metric].label);
+				metrics.set(model.slug, labels);
+			}
+		}
+		return metrics;
+	}, [snapshot]);
 	const sigWorse = useMemo(() => {
 		const map = new Map<string, string[]>();
 		for (const pair of snapshot.significant_pairs) {
@@ -232,7 +240,7 @@ export default function Leaderboard({
 											<span>{model.provider}</span>
 											{frontier.has(model.slug) && (
 												<span
-													title="On the cost versus micro-Brier Pareto frontier, matching the default chart."
+													title={`On the cost–performance Pareto frontier for: ${frontier.get(model.slug)?.join(", ")}. No other model is as cheap and as good with a strict improvement in either.`}
 													className="inline-flex items-center gap-1 text-series-1"
 												>
 													<svg width="9" height="9" aria-hidden="true">
