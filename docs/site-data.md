@@ -48,7 +48,21 @@ The generated site can be hosted independently of benchmark execution and protec
 
 The Astro site in `site/` renders results, model pages, findings, and methods as static pages. Run `pnpm site:dev` for a local server and `pnpm site:build` for the production build in `site/dist/`. React islands handle the sortable leaderboard and the cost/quality chart; every other page is static HTML.
 
-- **Results data.** Pages read `site/src/data/results.ts`. Until beta runs have scored site exports, it presents `site/src/data/snapshots/beta-2026-09-18.json`, a hand-transcribed aggregate snapshot validated against `snapshot.schema.json` at build time. It records its provenance and which runs still have unit-level data. Replace it with validated exports as they become available; do not mix the two for one run.
+- **Results data.** Pages read `site/src/data/results.ts`, which combines the unchanged September 18 aggregate snapshot with six native scored exports in `site/src/data/exports/`. `parseSiteExport` validates each export, and the adapter rejects non-agentic conditions, different release identities, incomplete cohorts, or disagreeing unit identities/outcomes. Brier values come from the Python scorer; accuracy and high-confidence counts derive from exported units. The historical download remains `/data/beta-2026-09-18.json`; `/data/current.json` serves the displayed combined snapshot and `/data/exports/<slug>.json` preserves each native source. Model and data pages link the forecast and scoring runs. Missing costs remain null.
 - **Methods.** `/methods/` renders `docs/METHODS.md` directly, so edit the methods there.
 - **Findings.** Reports and notes are MDX files in `site/src/content/findings/`. Set `draft: true` to render a post only under `astro dev`; no deployed build, including public Vercel previews, includes drafts. Keep unreviewed posts off pushed branches entirely.
 - **Hosting.** Vercel builds the site through its Git integration: Root Directory `site`, production branch `main`, with source files outside the root directory included (the build reads `docs/`). `site/vercel.json` pins the install, build, and output settings. Set `ENABLE_EXPERIMENTAL_COREPACK=1` so Vercel uses the pinned pnpm version. No Vercel token is stored in this repository or in Actions.
+
+The manual `publish-site-data.yaml` workflow builds trusted `main` and publishes every JSON download under `site/dist/data/` to the results bucket at `reports/site-data/multi-ablation/<commit>/data/`. It uses the protected fan-in environment and OIDC, conditionally creates immutable objects, and reads each object back to verify the uploaded bytes. This S3 preservation step is separate from the Vercel site deployment; a successful source merge does not prove either publication completed.
+
+### Updated paired comparisons
+
+The current paired analysis covers nine of the 16 displayed configurations. Seven older configurations retain aggregate scores but lack recoverable unit-level predictions; pairs involving them are untested. The updated analysis uses one million paired case-cluster bootstrap replicates with Bonferroni correction for the entire 16-model family (120 pairs × three metrics). It replaces, rather than combines with, the historical ten-model pair list. The unchanged September 18 download retains the original analysis.
+
+Download `/data/significance/inputs.json` and its nine sibling JSONL files into one directory. `/data/significance/comparison.json` records confidence intervals, source provenance, covered and missing models, seed, and method. Reproduce it from the repository with:
+
+```bash
+OPENBLAS_NUM_THREADS=4 uv run scripts/compare_site_results.py --inputs path/to/downloads/inputs.json --output comparison.json
+```
+
+The script pins its numerical dependency. Public inputs contain only case/unit identifiers, forecast probabilities, and binary outcomes; no court documents or model transcripts are included. The S3 site-data workflow preserves the JSONL inputs alongside the JSON downloads.

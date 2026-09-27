@@ -104,6 +104,20 @@ def test_site_export_consumes_only_successful_published_source() -> None:
     assert "steps.source.outputs.found == 'true'" in workflow
 
 
+def test_selected_site_publication_uses_protected_immutable_readback() -> None:
+    workflow = (ROOT / ".github/workflows/publish-site-data.yaml").read_text()
+    assert "if: github.ref == 'refs/heads/main'" in workflow
+    assert "environment: legalforecastbench-official-eval-fan-in" in workflow
+    assert "ref: ${{ github.sha }}" in workflow
+    assert "reports/site-data/multi-ablation/${GITHUB_SHA}" in workflow
+    assert "reconcile-s3-object.sh" in workflow
+    assert 'cmp "$source" "$readback/object"' in workflow
+    assert workflow.index("pnpm site:check") < workflow.index("role-to-assume:")
+    assert "find site/dist/data -type f" in workflow
+    assert "-name '*.json' -o -name '*.jsonl'" in workflow
+    assert "secrets." not in workflow
+
+
 @pytest.mark.parametrize(
     ("listing", "expected", "succeeds"),
     [
