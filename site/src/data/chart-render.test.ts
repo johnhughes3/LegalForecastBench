@@ -3,6 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ConfidenceChart from "../components/ConfidenceChart";
+import Leaderboard from "../components/Leaderboard";
 import ParetoChart from "../components/ParetoChart";
 import { snapshot } from "./results";
 
@@ -34,4 +35,16 @@ test("cost chart includes all priced models and keeps outlier grid readable", ()
 	assert.ok((html.match(/stroke="var\(--chart-grid\)"/g) ?? []).length <= 16);
 	assert.ok(!html.includes("NaN"));
 	assert.ok(html.includes("GPT-4.1"));
+});
+
+test("leaderboard Pareto badges use the current cost versus micro-Brier frontier", () => {
+	const html = renderToStaticMarkup(createElement(Leaderboard, { snapshot }));
+	const rows = html.match(/<tr[\s\S]*?<\/tr>/g) ?? [];
+	const labeled = rows.filter((row) => row.includes("Pareto frontier"));
+	assert.equal(labeled.length, 3);
+	for (const slug of ["gpt-6-luna", "gpt-5-6-luna", "gpt-6-sol"])
+		assert.ok(
+			labeled.some((row) => row.includes(`/models/${slug}/`)),
+			slug,
+		);
 });

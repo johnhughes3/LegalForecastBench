@@ -117,17 +117,13 @@ export default function Leaderboard({
 		key: "micro_brier",
 		asc: true,
 	});
-	const frontier = useMemo(() => {
-		const all = new Set<string>();
-		for (const metric of [
-			"micro_brier",
-			"equal_case_brier",
-			"accuracy",
-		] as const) {
-			for (const model of paretoFrontier(snapshot, metric)) all.add(model.slug);
-		}
-		return all;
-	}, [snapshot]);
+	const frontier = useMemo(
+		() =>
+			new Set(
+				paretoFrontier(snapshot, "micro_brier").map((model) => model.slug),
+			),
+		[snapshot],
+	);
 	const sigWorse = useMemo(() => {
 		const map = new Map<string, string[]>();
 		for (const pair of snapshot.significant_pairs) {
@@ -236,7 +232,7 @@ export default function Leaderboard({
 											<span>{model.provider}</span>
 											{frontier.has(model.slug) && (
 												<span
-													title="On the observed cost–performance frontier for at least one reported metric."
+													title="On the cost versus micro-Brier Pareto frontier, matching the default chart."
 													className="inline-flex items-center gap-1 text-series-1"
 												>
 													<svg width="9" height="9" aria-hidden="true">
@@ -249,7 +245,7 @@ export default function Leaderboard({
 															fill="currentColor"
 														/>
 													</svg>
-													Cost–performance leader
+													Pareto frontier
 												</span>
 											)}
 										</div>
