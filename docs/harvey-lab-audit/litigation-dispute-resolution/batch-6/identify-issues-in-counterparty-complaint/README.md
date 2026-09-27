@@ -3,6 +3,8 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
 [Read the audit report](findings.md) · [Pinned upstream task and documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint)
 
 **Rubric criteria:** 25. **Audit batch:** 6.
@@ -14,3 +16,15 @@ Supporting report files:
 - [coverage.json](coverage.json)
 - [findings.json](findings.json)
 - [summary.md](summary.md)
+
+## Pinned upstream sources
+
+- [Task instructions and rubric (`task.json`)](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json)
+- [distribution-agreement.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/distribution-agreement.docx)
+- [first-amendment.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/first-amendment.docx)
+- [lis-pendens.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/lis-pendens.docx)
+- [objection-letter.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/objection-letter.docx)
+- [tannick-email.eml](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/tannick-email.eml)
+- [termination-notice-cause.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/termination-notice-cause.docx)
+- [termination-notice-convenience.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/termination-notice-convenience.docx)
+- [verified-complaint.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/verified-complaint.docx)

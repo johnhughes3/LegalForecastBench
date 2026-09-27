@@ -3,7 +3,9 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
-**F1 — confirmed — C-007**
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
+**F1 — confirmed — [C-007](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L70)**
 
 PASS/FAIL conditions do not cover the same threshold.
 
@@ -11,7 +13,7 @@ Evidence: PASS requires both Twombly and Iqbal (or their standard); FAIL says ne
 
 Repair: Use one unambiguous requirement, preferably correct plausibility standard rather than case-name count.
 
-**F2 — arguable — C-009, C-011**
+**F2 — arguable — [C-009](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L86), [C-011](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L102)**
 
 Mandatory routine reformation formulation overstates Connecticut doctrine and is encouraged by misleading source memo.
 
@@ -19,7 +21,7 @@ Evidence: litigation-strategy-memo paragraphs 25–26 attributes flexible reason
 
 Repair: Credit accurate limited doctrine and express-clause argument without requiring overstated routine practice.
 
-**F3 — arguable — C-029, C-031**
+**F3 — arguable — [C-029](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L246), [C-031](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L262)**
 
 Compulsory constructive-knowledge and 24-day-gap theories can penalize stronger, more careful advocacy.
 
@@ -27,7 +29,7 @@ Evidence: Strategy memo paragraphs 81–85 infers restrictive-covenant knowledge
 
 Repair: Accept reasonable actual-knowledge inference, knowledge of client relationships, or qualified argument; do not compel assertion that due-diligence omission proves knowledge.
 
-**F4 — arguable — C-038, C-039**
+**F4 — arguable — [C-038](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L318), [C-039](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L326)**
 
 Requires characterizing promotional proprietary-insights language as quasi-admission of misuse.
 
@@ -35,7 +37,7 @@ Evidence: Lodestar press release paragraph 9 promotes operational expertise and 
 
 Repair: Credit cautious circumstantial inference in either relevant claim section.
 
-**F5 — arguable — C-041, C-042, C-043, C-044, C-045, C-046**
+**F5 — arguable — [C-041](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L342), [C-042](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L350), [C-043](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L358), [C-044](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L366), [C-045](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L374), [C-046](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json#L382)**
 
 Exact section/heading and citation-placement rules go beyond requested opposition.
 

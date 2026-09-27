@@ -3,7 +3,9 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
-**F1 — confirmed — C-053**
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
+**F1 — confirmed — [C-053](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L437)**
 
 Requires an unsupported assertion about an absent separation agreement.
 
@@ -11,7 +13,7 @@ Evidence: No separation agreement is supplied. Complaint paragraph 55 only addre
 
 Repair: Require obtaining and analyzing the missing separation agreement; remove mandatory assertion of silence.
 
-**F2 — arguable — C-024, C-025**
+**F2 — arguable — [C-024](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L205), [C-025](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L213)**
 
 Compels dismissal recommendation despite an expressly alternative unjust-enrichment pleading.
 
@@ -19,7 +21,7 @@ Evidence: Complaint paragraph 127 expressly pleads alternatively if contract doe
 
 Repair: Accept a reasoned decision to preserve the defense while deferring a motion.
 
-**F3 — arguable — C-027, C-028**
+**F3 — arguable — [C-027](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L229), [C-028](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L237)**
 
 Treats low accounting book value as demonstrating damages overstatement.
 
@@ -27,7 +29,7 @@ Evidence: Bridger report section VI.B expressly explains why economic value diff
 
 Repair: Require evaluation of depreciation, remaining useful life, mitigation and methodology, allowing supported disagreement.
 
-**F4 — arguable — C-029**
+**F4 — arguable — [C-029](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L245)**
 
 Potential overlap is sound issue spotting; exclusive either/or framing is too broad.
 
@@ -35,7 +37,7 @@ Evidence: Distribution agreement section 9.2 requires both 12 months continuing 
 
 Repair: Distinguish time periods and recoverable interests before requiring exclusivity.
 
-**F5 — arguable — C-034**
+**F5 — arguable — [C-034](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L285)**
 
 Mandatory Oregon noncompete discussion omits contractual Washington law.
 
@@ -43,7 +45,7 @@ Evidence: Jantzen employment agreement section 12.1 chooses Washington law and s
 
 Repair: Permit analysis under chosen Washington law with appropriate conflicts discussion.
 
-**F6 — arguable — C-015**
+**F6 — arguable — [C-015](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L133)**
 
 Likely waiver is defensible but criterion categorical general rule omits antiwaiver term and unequivocal conduct standard.
 
@@ -51,7 +53,7 @@ Evidence: Distribution agreement section 17.4 requires signed written waiver and
 
 Repair: Accept reasoned alternative analysis.
 
-**F7 — arguable — C-036, C-037, C-042, C-046, C-047**
+**F7 — arguable — [C-036](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L301), [C-037](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L309), [C-042](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L349), [C-046](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L381), [C-047](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-case-assessment-memorandum/task.json#L389)**
 
 Formatting and repeated recommendation requirements exceed broad prompt.
 

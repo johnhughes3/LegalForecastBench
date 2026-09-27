@@ -3,7 +3,9 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
-**F1 — confirmed — C-007, C-008**
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
+**F1 — confirmed — [C-007](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript/task.json#L67), [C-008](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript/task.json#L75)**
 
 The rubric describes an initial denial that the transcript instead expressly characterizes as failure of recollection. Some pass alternatives remain achievable, but the prescribed shift should not be reported as denial-to-admission.
 
@@ -11,7 +13,7 @@ Evidence: Vol. 1 pp.132–134, extracted paragraphs 857–874: witness says he d
 
 Repair: Describe nonrecollection followed by qualified acknowledgement; do not require the stronger denial characterization.
 
-**F2 — confirmed — C-001**
+**F2 — confirmed — [C-001](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript/task.json#L19)**
 
 Criterion title calls June 22 the first contact, despite later testimony identifying earlier June contact. Its operative dinner requirement is supportable.
 
@@ -19,7 +21,7 @@ Evidence: Vol. 1 pp.64–65 recalls June 22 dinner; Vol. 2 p.296 lines 5–13 pl
 
 Repair: Call June 22 the dinner; distinguish and reconcile the later first-contact testimony.
 
-**F3 — arguable — C-017**
+**F3 — arguable — [C-017](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript/task.json#L147)**
 
 A categorical admission that the noncompete discussion occurred at the June 22 dinner overstates qualified direct testimony, although a compound recross question offers some support.
 
@@ -27,7 +29,7 @@ Evidence: Vol. 1 pp.64–65, paragraphs 560–565: discussion occurred sometime 
 
 Repair: Accept qualified timing and explain the compound-question inference.
 
-**F4 — arguable — C-014**
+**F4 — arguable — [C-014](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript/task.json#L123)**
 
 Mandatory self-serving characterization of the radius discrepancy imposes an advocacy interpretation on a requested admissions summary.
 
@@ -35,7 +37,7 @@ Evidence: Prompt asks for key admissions, contradictions and next steps. Employm
 
 Repair: Require accurate discrepancy and significance, permitting neutral description.
 
-**F5 — arguable — C-032**
+**F5 — arguable — [C-032](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript/task.json#L267)**
 
 A mandatory table is an unrequested presentation constraint.
 

@@ -5,6 +5,8 @@
 
 This audit is included for reference. GitHub's rendered Markdown provides the intended reading interface: use the task table below for individual reports, or the detailed index for criterion-level navigation.
 
+**Audited Harvey revision:** [`1dd81403b2fbb60596f7aea3fcecafad7bf73143`](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution). Source links use this commit rather than a moving branch.
+
 ## Contents
 
 - [Purpose and meaning of drift](#purpose-and-meaning-of-drift)
@@ -42,6 +44,8 @@ The audit reports were produced on September 26, 2026 (EDT; some stored timestam
 The initial pass covers **52 tasks, 2,858 criteria, and 520 supplied-file occurrences** in Harvey LAB's litigation-dispute-resolution folder. File occurrences count attachments across tasks, not necessarily unique documents. Workers read the criteria and inspected relevant source passages. That does not imply exhaustive review of every source paragraph, spreadsheet formula, visual layout, privilege claim, or cited legal authority. Individual reports state their coverage and limitations.
 
 The upstream snapshot is [Harvey LAB commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution). Each task page links to its original rubric and documents at that revision. This is an independent project reference; Harvey AI has not verified or endorsed these findings.
+
+Exact filenames and criterion IDs have been linked programmatically where their task context resolves unambiguously. Criterion links point to the corresponding line in the pinned `task.json`; document links point to the original file. Each task page also lists every supplied source file. Narrative aliases such as “the complaint” are not guessed when ambiguous, and local extraction locators are not presented as GitHub document line numbers. These link checks validate navigation, not the legal analysis.
 
 The public copy retains report text, structured findings where available, and source pointers. Navigation, warning banners, and Markdown renderings of JSON reports have been added; machine-local paths have been removed or made portable. Raw document extractions, solver transcripts, native grade files, credentials, and working scripts are not copied into this directory. Quoted passages and native-grade summaries in the follow-up reports remain AI-produced representations of those artifacts. Extraction line numbers and XML paragraph identifiers are local analysis locators, not stable page numbers in the original files; use the named source and quoted passage when checking a finding.
 

@@ -3,6 +3,8 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
 Rendered from [findings.json](findings.json); the original AI classifications and qualifications are retained.
 
 **Id:** B6-DC-1
@@ -13,15 +15,15 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-027
+- [C-027](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json#L228)
 
 **Issue:** Requires inventing North Carolina TSPA statutory preemption.
 
-**Basis:** C-027 cites §66-157(a) as a preemption provision. Official Article 24 contains no such subsection; §66-157 is solely the three-year limitations provision. No displacement provision appears in this Act. A drafter correctly rejecting this assumed statutory preemption can fail.
+**Basis:** [C-027](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json#L228) cites §66-157(a) as a preemption provision. Official Article 24 contains no such subsection; §66-157 is solely the three-year limitations provision. No displacement provision appears in this Act. A drafter correctly rejecting this assumed statutory preemption can fail.
 
 ## Source pointers
 
-- task.json C-027; compare C-024 correctly describing §66-157
+- [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json) [C-027](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json#L228); compare [C-024](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json#L203) correctly describing §66-157
 
 ## Legal urls
 
@@ -38,7 +40,7 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-023
+- [C-023](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json#L194)
 
 **Issue:** Required causal story conflicts with the packet chronology and contract.
 
@@ -46,9 +48,9 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- sentinel-forensics-report.docx chronological context and timeline, sources.txt:285,411
-- showalter-memo-to-counsel.docx §IV, sources.txt:513
-- tate-employment-agreement.docx §7.3, sources.txt:779–790
+- [sentinel-forensics-report.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/documents/sentinel-forensics-report.docx) chronological context and timeline, sources.txt:285,411
+- [showalter-memo-to-counsel.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/documents/showalter-memo-to-counsel.docx) §IV, sources.txt:513
+- [tate-employment-agreement.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/documents/tate-employment-agreement.docx) §7.3, sources.txt:779–790
 
 ## Legal urls
 
@@ -65,8 +67,8 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-045
-- C-057
+- [C-045](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json#L373)
+- [C-057](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json#L469)
 
 **Issue:** Mandates prospective-interference claim and quantified damages despite estimates rather than identified lost transactions.
 
@@ -74,9 +76,9 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- showalter-memo-to-counsel.docx §§VII–IX, sources.txt:542–562
-- damages-analysis-summary.xlsx damages assumptions
-- kowalski-declaration.docx; okonkwo-declaration.docx
+- [showalter-memo-to-counsel.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/documents/showalter-memo-to-counsel.docx) §§VII–IX, sources.txt:542–562
+- [damages-analysis-summary.xlsx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/documents/damages-analysis-summary.xlsx) damages assumptions
+- [kowalski-declaration.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/documents/kowalski-declaration.docx); [okonkwo-declaration.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/documents/okonkwo-declaration.docx)
 
 ## Legal urls
 

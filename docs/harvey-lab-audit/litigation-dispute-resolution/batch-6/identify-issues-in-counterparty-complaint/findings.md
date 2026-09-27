@@ -3,6 +3,8 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
 Rendered from [findings.json](findings.json); the original AI classifications and qualifications are retained.
 
 **Id:** B6-IC-1
@@ -13,16 +15,16 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-008
-- C-009
+- [C-008](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L76)
+- [C-009](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L84)
 
 **Issue:** Requires falsely stating there are no specific facts supporting willful/malicious taking.
 
-**Basis:** Complaint ¶¶93–107 alleges dated unauthorized bulk download, management authorization, secrecy controls, knowing use of exact pricing to undercut plaintiff, and coordinated employee/customer diversion. Their ultimate adequacy is contestable, but rubric requires declaring only labels and no particular acts/knowledge. C-009 then forces a motion based on that premise.
+**Basis:** Complaint ¶¶93–107 alleges dated unauthorized bulk download, management authorization, secrecy controls, knowing use of exact pricing to undercut plaintiff, and coordinated employee/customer diversion. Their ultimate adequacy is contestable, but rubric requires declaring only labels and no particular acts/knowledge. [C-009](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L84) then forces a motion based on that premise.
 
 ## Source pointers
 
-- verified-complaint.docx ¶¶93–107 and 167–178; sources.txt:542–557,640–653
+- [verified-complaint.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/verified-complaint.docx) ¶¶93–107 and 167–178; sources.txt:542–557,640–653
 
 ## Legal urls
 
@@ -39,7 +41,7 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-016
+- [C-016](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L140)
 
 **Issue:** Parallel DTSA/OUTSA theories are not inherently impermissible or grounds for pretrial election.
 
@@ -47,8 +49,8 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- verified-complaint.docx Counts IV/V
-- task C-016
+- [verified-complaint.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/verified-complaint.docx) Counts IV/V
+- task [C-016](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L140)
 
 ## Legal urls
 
@@ -65,7 +67,7 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-005
+- [C-005](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L52)
 
 **Issue:** Rubric arithmetic exemplar is wrong.
 
@@ -73,7 +75,7 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- task C-005; verified-complaint ¶117
+- task [C-005](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L52); verified-complaint ¶117
 
 ## Legal urls
 
@@ -90,15 +92,15 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-012
+- [C-012](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L108)
 
 **Issue:** Asserts spouse is LLC member without support.
 
-**Basis:** Complaint ¶8 identifies Vincent as managing member and spouse Lena as domiciled in Pennsylvania. It does not identify Lena as a member or enumerate all members. LLC pleading is defective, but C-012 should not prescribe an unsupported complete membership/citizenship answer.
+**Basis:** Complaint ¶8 identifies Vincent as managing member and spouse Lena as domiciled in Pennsylvania. It does not identify Lena as a member or enumerate all members. LLC pleading is defective, but [C-012](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L108) should not prescribe an unsupported complete membership/citizenship answer.
 
 ## Source pointers
 
-- verified-complaint.docx ¶¶6–9, sources.txt:449–452
+- [verified-complaint.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/documents/verified-complaint.docx) ¶¶6–9, sources.txt:449–452
 
 ## Legal urls
 
@@ -115,18 +117,18 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-003
-- C-004
-- C-019
-- C-024
+- [C-003](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L36)
+- [C-004](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L44)
+- [C-019](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L164)
+- [C-024](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L204)
 
 **Issue:** Required motion count can encourage low-value motions and inaccurate dismissal recommendations.
 
-**Basis:** Stay is mandatory if requested after compelling arbitration under Smith; missing exhibits do not inherently make federal pleadings defective. C-003 also allows correct stay and C-019 permits factual weakness analysis, so neither is categorically wrong. Requiring eight named motions/defenses should accept reasoned recommendations against weak motions.
+**Basis:** Stay is mandatory if requested after compelling arbitration under Smith; missing exhibits do not inherently make federal pleadings defective. [C-003](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L36) also allows correct stay and [C-019](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L164) permits factual weakness analysis, so neither is categorically wrong. Requiring eight named motions/defenses should accept reasoned recommendations against weak motions.
 
 ## Source pointers
 
-- task C-003/C-019/C-024; agreement §10.1; complaint exhibit list
+- task [C-003](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-complaint/task.json#L36)/C-019/C-024; agreement §10.1; complaint exhibit list
 
 ## Legal urls
 

@@ -3,6 +3,8 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
 Rendered from [findings.json](findings.json); the original AI classifications and qualifications are retained.
 
 **Id:** B6-SV-1
@@ -13,16 +15,16 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-019
+- [C-019](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L163)
 
 **Issue:** Employer-fault reduction criterion is legally incomplete if applied to all damages.
 
-**Basis:** C-015 expressly contemplates Greenfield at 40–60%. C-019 requires stating Apex fault reduces recovery, without distinguishing economic and noneconomic loss. At >50%, R.C. 2307.22(A)(1) makes Greenfield jointly liable for economic loss; (C) apportions noneconomic loss. A correct answer applying this distinction should pass. Qualification: C-019 does not expressly require reducing every category; correct noneconomic reduction may satisfy it. Therefore this is an overbreadth concern, not a categorical false rule.
+**Basis:** [C-015](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L131) expressly contemplates Greenfield at 40–60%. [C-019](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L163) requires stating Apex fault reduces recovery, without distinguishing economic and noneconomic loss. At >50%, R.C. 2307.22(A)(1) makes Greenfield jointly liable for economic loss; (C) apportions noneconomic loss. A correct answer applying this distinction should pass. Qualification: [C-019](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L163) does not expressly require reducing every category; correct noneconomic reduction may satisfy it. Therefore this is an overbreadth concern, not a categorical false rule.
 
 ## Source pointers
 
-- task.json criteria C-015/C-019
-- defense-mediation-brief.docx comparative fault analysis; sources.txt lines 645–801
+- [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json) criteria [C-015](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L131)/C-019
+- [defense-mediation-brief.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/documents/defense-mediation-brief.docx) comparative fault analysis; sources.txt lines 645–801
 
 ## Legal urls
 
@@ -39,12 +41,12 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-033
-- C-034
+- [C-033](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L275)
+- [C-034](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L283)
 
 **Issue:** Required positive contribution/indemnity discussion risks treating an unsupported recovery right as a net-cost credit.
 
-**Basis:** Defense brief reserves contribution rights (sources.txt:782), but Apex is the employer paying workers compensation (Aldrich §IV; sources.txt:64). Employer immunity normally matters; an express immunity waiver or intentional-tort exception would need analysis. Deliberate guard alteration may warrant examining an intentional-tort exception, so potential contribution is not categorically impossible. C-034 permits analysis and is not itself legally false.
+**Basis:** Defense brief reserves contribution rights (sources.txt:782), but Apex is the employer paying workers compensation (Aldrich §IV; sources.txt:64). Employer immunity normally matters; an express immunity waiver or intentional-tort exception would need analysis. Deliberate guard alteration may warrant examining an intentional-tort exception, so potential contribution is not categorically impossible. [C-034](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L283) permits analysis and is not itself legally false.
 
 ## Legal urls
 
@@ -63,16 +65,16 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-029
-- C-039
+- [C-029](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L243)
+- [C-039](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L323)
 
 **Issue:** PASS and FAIL valuation boundaries leave materially different acceptance intervals.
 
-**Basis:** C-029 PASS calls for a figure between the experts (approximately 1.9–2.2M), while FAIL only rejects outside 1.6–2.5M. C-039 PASS bounds are 3.5–9.5M and midpoint 5–7M; FAIL examples use 2–12M and midpoint 4–8M. This creates undefined middle cases.
+**Basis:** [C-029](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L243) PASS calls for a figure between the experts (approximately 1.9–2.2M), while FAIL only rejects outside 1.6–2.5M. [C-039](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L323) PASS bounds are 3.5–9.5M and midpoint 5–7M; FAIL examples use 2–12M and midpoint 4–8M. This creates undefined middle cases.
 
 ## Source pointers
 
-- task.json criteria C-029 and C-039
+- [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json) criteria [C-029](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L243) and [C-039](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json#L323)
 
 ## Legal urls
 

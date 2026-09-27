@@ -3,15 +3,17 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
-**F1 — confirmed — C-051**
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-preliminary-injunction/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-preliminary-injunction/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
+**F1 — confirmed — [C-051](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-preliminary-injunction/task.json#L421)**
 
 Expressly accepts fabricated-looking case law as sufficient legal support.
 
-Evidence: C-051 requires three authorities whether real or plausibly cited. Prompt asks a memorandum of law; plausible fabrication cannot support a legal argument.
+Evidence: [C-051](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-preliminary-injunction/task.json#L421) requires three authorities whether real or plausibly cited. Prompt asks a memorandum of law; plausible fabrication cannot support a legal argument.
 
 Repair: Require genuine, accurately characterized authorities; remove plausibly cited allowance.
 
-**F2 — confirmed — C-012**
+**F2 — confirmed — [C-012](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-preliminary-injunction/task.json#L109)**
 
 Omitted statutory alternative can fail a legally correct 24-month argument.
 
@@ -19,7 +21,7 @@ Evidence: MNAA section 24L(b)(iv) permits up to two years for breach of fiduciar
 
 Repair: Add unlawful taking as independently sufficient statutory exception.
 
-**F3 — confirmed — C-045**
+**F3 — confirmed — [C-045](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-preliminary-injunction/task.json#L373)**
 
 Wrong contractual section for confidentiality covenant.
 
@@ -27,7 +29,7 @@ Evidence: Employment agreement section 8.1 defines confidential information/trad
 
 Repair: Refer to section 8.2 or section 8 generally.
 
-**F4 — arguable — C-038, C-039**
+**F4 — arguable — [C-038](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-preliminary-injunction/task.json#L317), [C-039](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-preliminary-injunction/task.json#L325)**
 
 Compulsory compressed-timeline inference is stronger than necessary.
 
@@ -35,7 +37,7 @@ Evidence: January 17–February 24 is 38 days and press release couples appointm
 
 Repair: Allow clearly labeled inference with defense chronology addressed, without requiring speculation about December negotiations.
 
-**F5 — arguable — C-043**
+**F5 — arguable — [C-043](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-preliminary-injunction/task.json#L357)**
 
 Inevitable disclosure offered as acceptable rebuttal without statutory employment limits.
 

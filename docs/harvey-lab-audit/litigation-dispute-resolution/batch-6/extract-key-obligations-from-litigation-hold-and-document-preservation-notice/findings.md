@@ -3,6 +3,8 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
 Rendered from [findings.json](findings.json); the original AI classifications and qualifications are retained.
 
 **Id:** B6-LH-1
@@ -13,16 +15,16 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-001
-- C-002
+- [C-001](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L22)
+- [C-002](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L30)
 
 **Issue:** Mandates a nonexistent date-range contradiction.
 
-**Basis:** Notice ¶12 defines 2019 onward unless otherwise specified. ¶47 expressly says notwithstanding ¶12 and extends financial records to 2017. This is an explicit exception, not conflicting instructions. Additional burden C-003 remains valid.
+**Basis:** Notice ¶12 defines 2019 onward unless otherwise specified. ¶47 expressly says notwithstanding ¶12 and extends financial records to 2017. This is an explicit exception, not conflicting instructions. Additional burden [C-003](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L38) remains valid.
 
 ## Source pointers
 
-- doj-preservation-notice.docx ¶12 and ¶47, sources.txt:70–71,166–167
+- [doj-preservation-notice.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/documents/doj-preservation-notice.docx) ¶12 and ¶47, sources.txt:70–71,166–167
 
 ## Legal urls
 
@@ -39,9 +41,9 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-004
-- C-005
-- C-006
+- [C-004](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L46)
+- [C-005](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L54)
+- [C-006](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L62)
 
 **Issue:** Mandates a false contradiction between all-HCP and five-HCP requirements.
 
@@ -49,7 +51,7 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- doj-preservation-notice.docx ¶23–24, sources.txt:103–106
+- [doj-preservation-notice.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/documents/doj-preservation-notice.docx) ¶23–24, sources.txt:103–106
 
 ## Legal urls
 
@@ -66,7 +68,7 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-007
+- [C-007](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L70)
 
 **Issue:** Destruction period source is internally inconsistent.
 
@@ -74,7 +76,7 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- records-destruction-confirmation.eml Categories and Volume of Records Destroyed, category 2; sources.txt:574–587
+- [records-destruction-confirmation.eml](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/documents/records-destruction-confirmation.eml) Categories and Volume of Records Destroyed, category 2; sources.txt:574–587
 
 ## Legal urls
 
@@ -91,8 +93,8 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-021
-- C-025
+- [C-021](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L182)
+- [C-025](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L214)
 
 **Issue:** Legal analogies need limits for private-employer imaging and criminal investigation preservation.
 
@@ -100,8 +102,8 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- doj-preservation-notice.docx mobile imaging and backup obligations
-- task C-021/C-025
+- [doj-preservation-notice.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/documents/doj-preservation-notice.docx) mobile imaging and backup obligations
+- task [C-021](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/task.json#L182)/C-025
 
 ## Legal urls
 

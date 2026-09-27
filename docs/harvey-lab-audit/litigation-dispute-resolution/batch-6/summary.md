@@ -9,10 +9,10 @@ Findings: 18 confirmed clusters and 14 arguable clusters. A cluster may cover se
 
 Most consequential confirmed findings:
 
-- draft-complaint C-027 invents NC TSPA preemption under nonexistent §66-157(a); C-023 imposes an unsupported exfiltration causation story.
-- draft-federal-complaint-drafting C-001 requires unsupported member citizenship; source memo cites a personal-guaranty section absent from PAA.
-- draft-motion-for-summary-judgment mixes 11 unrelated employment-case documents into a 17-document contract-case packet; C-008/C-009 ignore an express nonreliance clause; local-rule number is wrong.
-- draft-pretrial-statement C-017 accepts an incorrect LLC citizenship formula; C-046 conflates remaining contract term and mitigation period.
+- draft-complaint [C-027](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json#L228) invents NC TSPA preemption under nonexistent §66-157(a); [C-023](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-complaint/task.json#L194) imposes an unsupported exfiltration causation story.
+- draft-federal-complaint-drafting [C-001](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-federal-complaint-drafting/task.json#L21) requires unsupported member citizenship; source memo cites a personal-guaranty section absent from PAA.
+- draft-motion-for-summary-judgment mixes 11 unrelated employment-case documents into a 17-document contract-case packet; [C-008](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-summary-judgment/task.json#L77)/C-009 ignore an express nonreliance clause; local-rule number is wrong.
+- draft-pretrial-statement [C-017](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-pretrial-statement/task.json#L150) accepts an incorrect LLC citizenship formula; [C-046](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-pretrial-statement/task.json#L382) conflates remaining contract term and mitigation period.
 - preservation task C-001/C-002 and C-004–C-006 demand identifying contradictions expressly resolved by the notice itself.
 - counterparty-complaint C-008 requires denying specific pleaded misappropriation facts; C-012 invents spouse membership; C-005 arithmetic exemplar is slightly wrong.
 - privilege review C-014 requires unsupported no-need-to-know findings for regulatory analysts; C-043/C-045 have unmatched PASS/FAIL thresholds.

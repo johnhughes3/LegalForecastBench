@@ -3,6 +3,8 @@
 > [!WARNING]
 > **AI-generated, unverified analysis — for reference only.** This material reflects some human steering and guidance, but that does not constitute verification. It may contain factual, legal, citation, or grading errors. Labels such as “confirmed,” “definite,” or “verified” are AI reviewer claims, not human sign-off. See the [audit overview and model provenance](../../README.md). Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.
 
+[Pinned task instructions and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json) · [Source documents](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents) · Commit `1dd81403b2fbb60596f7aea3fcecafad7bf73143`.
+
 Rendered from [findings.json](findings.json); the original AI classifications and qualifications are retained.
 
 **Id:** B6-PR-1
@@ -13,7 +15,7 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-014
+- [C-014](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L126)
 
 **Issue:** Requires unsupported finding regulatory analysts had no need for legal advice.
 
@@ -21,9 +23,9 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- emmerich-reformulation-email.eml recipient list and paragraphs on Derek raw data/Leah benchmarking and requested legal input
-- privilege-review-protocol.docx internal distribution guidance, sources.txt:1608
-- slack-product-reformulation.txt Fontaine/Chu ingredient-spec and regulatory-monitoring tasks
+- [emmerich-reformulation-email.eml](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/emmerich-reformulation-email.eml) recipient list and paragraphs on Derek raw data/Leah benchmarking and requested legal input
+- [privilege-review-protocol.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/privilege-review-protocol.docx) internal distribution guidance, sources.txt:1608
+- [slack-product-reformulation.txt](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/slack-product-reformulation.txt) Fontaine/Chu ingredient-spec and regulatory-monitoring tasks
 
 ## Legal urls
 
@@ -41,18 +43,18 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-021
-- C-022
-- C-023
+- [C-021](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L182)
+- [C-022](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L190)
+- [C-023](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L198)
 
 **Issue:** Mandatory waiver conclusion overstates what internal Slack distribution establishes.
 
-**Basis:** All 23 are company personnel involved in product operations. Warehouse/sales/intern access creates a serious need-to-know concern, and one sales response proposes external disclosure, but roster size and junior titles alone do not conclusively establish loss of confidentiality. C-023 excludes a further-review designation for this uncertainty, unlike C-004.
+**Basis:** All 23 are company personnel involved in product operations. Warehouse/sales/intern access creates a serious need-to-know concern, and one sales response proposes external disclosure, but roster size and junior titles alone do not conclusively establish loss of confidentiality. [C-023](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L198) excludes a further-review designation for this uncertainty, unlike [C-004](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L46).
 
 ## Source pointers
 
-- slack-product-reformulation.txt membership roster and February 14 messages
-- privilege-review-protocol.docx internal distribution section
+- [slack-product-reformulation.txt](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/slack-product-reformulation.txt) membership roster and February 14 messages
+- [privilege-review-protocol.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/privilege-review-protocol.docx) internal distribution section
 
 ## Legal urls
 
@@ -70,9 +72,9 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-028
-- C-029
-- C-047
+- [C-028](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L238)
+- [C-029](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L246)
+- [C-047](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L391)
 
 **Issue:** Written-agreement rationale is not the governing Ninth Circuit rule.
 
@@ -80,8 +82,8 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- bridger-to-cascade-counsel.eml proposed coordination and potential contribution/indemnity
-- privilege-review-protocol.docx §5, sources.txt:1627–1633
+- [bridger-to-cascade-counsel.eml](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/bridger-to-cascade-counsel.eml) proposed coordination and potential contribution/indemnity
+- [privilege-review-protocol.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/privilege-review-protocol.docx) §5, sources.txt:1627–1633
 
 ## Legal urls
 
@@ -98,9 +100,9 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-013
-- C-036
-- C-046
+- [C-013](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L118)
+- [C-036](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L302)
+- [C-046](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L383)
 
 **Issue:** Governing privilege law requires examination before mandatory in-camera recommendation.
 
@@ -108,9 +110,9 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Source pointers
 
-- first-rfp-set.docx case description; board-audit-committee-deck.pptx slide7
-- privilege-review-protocol.docx sources.txt:1596,1688
-- rennick-handwritten-note.docx legal/business fragment content
+- [first-rfp-set.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/first-rfp-set.docx) case description; [board-audit-committee-deck.pptx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/board-audit-committee-deck.pptx) slide7
+- [privilege-review-protocol.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/privilege-review-protocol.docx) sources.txt:1596,1688
+- [rennick-handwritten-note.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/documents/rennick-handwritten-note.docx) legal/business fragment content
 
 ## Legal urls
 
@@ -128,16 +130,16 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-043
-- C-045
+- [C-043](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L359)
+- [C-045](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L375)
 
 **Issue:** PASS/FAIL definitions leave incomplete-coverage cases undefined.
 
-**Basis:** C-043 PASS requires six fields, FAIL requires two missing, leaving one missing undefined. C-045 PASS requires all18 documents, FAIL requires three omissions, leaving one/two omissions undefined.
+**Basis:** [C-043](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L359) PASS requires six fields, FAIL requires two missing, leaving one missing undefined. [C-045](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L375) PASS requires all18 documents, FAIL requires three omissions, leaving one/two omissions undefined.
 
 ## Source pointers
 
-- task C-043/C-045
+- task [C-043](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L359)/C-045
 
 ## Legal urls
 
@@ -154,16 +156,16 @@ Rendered from [findings.json](findings.json); the original AI classifications an
 
 ## Criteria
 
-- C-019
-- C-020
+- [C-019](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L166)
+- [C-020](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L174)
 
 **Issue:** Overly restrictive log wording treats general compliance subject as legal conclusion.
 
-**Basis:** Saying advice concerned product-label compliance does not necessarily disclose whether counsel found compliance. Criterion C-019 specifically fails use of complied even as a question, although it permits product-label advice. Actual threshold conclusions must remain confidential; general subject alone may be necessary to assess claim.
+**Basis:** Saying advice concerned product-label compliance does not necessarily disclose whether counsel found compliance. Criterion [C-019](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L166) specifically fails use of complied even as a question, although it permits product-label advice. Actual threshold conclusions must remain confidential; general subject alone may be necessary to assess claim.
 
 ## Source pointers
 
-- task C-019/C-020; privilege-review-protocol log-description instructions
+- task [C-019](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-document-production-set-for-attorney/task.json#L166)/C-020; privilege-review-protocol log-description instructions
 
 ## Legal urls
 
