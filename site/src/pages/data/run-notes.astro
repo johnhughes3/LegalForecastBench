@@ -3,19 +3,19 @@ import { comparison, comparisonScope } from "../../data/comparison";
 import { snapshot } from "../../data/results";
 import Layout from "../../layouts/Layout.astro";
 ---
-<Layout title="Beta Run Mechanics">
+<Layout title="Run notes and cost methodology" description="How results were produced, what the significance analysis covers, and how costs were estimated.">
   <section class="prose-lfb prose mx-auto max-w-4xl px-4 pt-14 sm:px-6">
     <a href="/data/">← Data and downloads</a>
-    <h1>Beta Run Mechanics</h1>
-    <h2>Beta runs</h2>
-    <p>During the beta runs, we encountered code issues in provider integration, run recovery, and cost accounting that had to be worked through and corrected for future runs. Some runs required recovery, and some accounting fields were incomplete. The explanations below document how we reconstructed comparable costs from the retained records and where estimates remain necessary.</p>
+    <h1>Run notes and cost methodology</h1>
+    <h2>How runs were produced</h2>
+    <p>Each configuration ran in GitHub Actions against the same locked release. Some runs needed recovery after provider or accounting issues, and some accounting fields were incomplete. The notes below explain how comparable costs were reconstructed and where estimates remain.</p>
     <h2>Result provenance</h2>
     <p>{snapshot.provenance.method}</p>
     <h2 id="summary-comparisons">Summary comparisons</h2>
     <p>The summary-pipeline comparison, including its method, provenance, costs, and significance analysis, now has its own page: <a href="/experiments/summary-pipelines/#method">Summary pipelines experiment</a>.</p>
     <h2 id="significance">Statistical comparison scope</h2>
     <p>{comparisonScope} {comparison.caveat}</p>
-    <p>The updated analysis replaces the historical ten-model pair list. Untested pairs are not evidence of equivalence. The historical September 18 download preserves the original analysis.</p>
+    <p>Untested pairs are not evidence of equivalence.</p>
     <a href="/data/#significance">Download the analysis and reproducible inputs →</a>
             <h2 id="costs">Cost methodology and explanations</h2>
             <p>Charts compare estimated standard-rate costs for the same successful 91-case workload. They do not represent total experiment spending or provider invoices. Flex discounts are removed for the chart; the successful workload charges and estimates remain available in the download.</p>

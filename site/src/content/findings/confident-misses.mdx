@@ -1,15 +1,15 @@
 ---
 title: "Confident misses: why sharp forecasters lost points"
-summary: "The OpenAI models made far more predictions at 90% confidence or more, but were right only about 89–90% of the time while stating 95–97%. Under Brier scoring, those misses are expensive."
-date: 2026-09-18
+summary: "The GPT-5.6 models and GPT-6 Astra made far more predictions at 90% confidence or more, but were right only about 89–90% of the time while stating 95–97%. Under Brier scoring, those misses are expensive."
+date: 2026-09-27
 kind: note
-models: [gpt-5-6-sol, gpt-5-6-luna, gpt-6-astra, gemini-3-8-flash, claude-fable-5-1, grok-4-6, kimi-k3]
+models: [gpt-5-6-sol, gpt-5-6-luna, gpt-6-astra, gemini-3-8-flash, claude-fable-5-1, grok-4-6, kimi-k3, claude-opus-5-5, gpt-6-sol, gemini-3-1-pro-preview]
 ---
 
 import ConfidenceChart from "../../components/ConfidenceChart";
 import { primarySnapshot as snapshot } from "../../data/results";
 
-*Adapted from the [beta results report](/findings/beta-results/).*
+*Adapted from the [first-release report](/findings/first-release/).*
 
 Brier score is the squared distance between a forecast and the outcome. A 97% forecast that turns out wrong costs 0.94, while a 70% forecast that turns out wrong costs 0.49. A model that is sharp but slightly overconfident can therefore trail a more cautious model even when it gets more calls right.
 
@@ -17,9 +17,9 @@ Brier score is the squared distance between a forecast and the outcome. A 97% fo
 <ConfidenceChart snapshot={snapshot} />
 </figure>
 
-Fable 5.1 was never wrong among its 81 high-confidence predictions, and Grok 4.6 and Kimi K3 missed only one each. By contrast, GPT-5.6 Luna missed 20, GPT-6 Astra missed 21, and GPT-5.6 Sol missed 26, although each made substantially more high-confidence predictions. Gemini 3.8 Flash made the most high-confidence predictions of any model (276 of 387 units) and missed 35.
+Claude Fable 5.1 and Claude Opus 5.5 were never wrong among their high-confidence predictions (81 and 65), and Grok 4.6 and Kimi K3 missed only one each. GPT-6 Sol was confident more often (169 units) and missed 8. By contrast, GPT-5.6 Luna missed 20, GPT-6 Astra missed 21, and GPT-5.6 Sol missed 26. Gemini 3.1 Pro Preview made the most high-confidence predictions of any model (320 of 387 units) and missed 57.
 
-The OpenAI models had thoughtful and perceptive analyses of the underlying cases, but several overly confident predictions cost a lot of points: their mean stated confidence within these subsets was roughly 95–97%, while accuracy was roughly 89–90%.
+The GPT-5.6 models and GPT-6 Astra had thoughtful and perceptive analyses of the underlying cases, but several overly confident predictions cost a lot of points: their mean stated confidence within these subsets was roughly 95–97%, while accuracy was roughly 89–90%.
 
 ## Reading this carefully
 

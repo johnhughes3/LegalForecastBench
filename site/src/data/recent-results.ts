@@ -78,7 +78,7 @@ export const recentResults = [
 			training_cutoff: "May 2026 (knowledge cutoff)",
 			eligibility_reason:
 				"xAI reports a May 2026 knowledge cutoff but has not documented a training-data cutoff, so eligibility cannot be established.",
-			provider: "xAI",
+			provider: "SpaceXAI",
 			release: "cycle-1-91-2026-09-08-luna-r5",
 			release_digest:
 				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
