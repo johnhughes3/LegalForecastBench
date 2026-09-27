@@ -1,7 +1,7 @@
 import type { APIRoute, GetStaticPaths } from "astro";
 import { publishedFindings } from "../../data/findings";
 import { ranks, sortedBy } from "../../data/metrics";
-import { snapshot } from "../../data/results";
+import { primarySnapshot, REFERENCE_SLUGS, snapshot } from "../../data/results";
 import { type CardSpec, renderCard } from "../../og/card";
 import { SECTION_CARDS, type SectionKey } from "../../og/routes";
 
@@ -9,55 +9,48 @@ import { SECTION_CARDS, type SectionKey } from "../../og/routes";
 const { cohort } = snapshot;
 const cohortLine = `${cohort.case_count} federal cases · ${cohort.unit_count} claim-defendant units`;
 const brier = (value: number): string => value.toFixed(4);
-/** "GPT-6 Sol (agentic; high reasoning)" -> ["GPT-6 Sol", "agentic; high reasoning"]. */
-function splitName(display: string): [string, string | null] {
-	const match = /^(.*?)\s*\((.+)\)$/.exec(display);
-	return match?.[1] && match[2] ? [match[1], match[2]] : [display, null];
-}
 const kindLabels = { report: "Report", note: "Note", critique: "Critique" };
 
 function sectionCard(key: SectionKey): CardSpec {
 	const card = SECTION_CARDS[key];
 	if (key !== "home") return { kind: "section", ...card, cohort: cohortLine };
-	// GPT-4.1 is a reference baseline, not a frontier contender, so the home
-	// card's leaderboard omits it (as the site's cost chart does).
-	const microRanks = ranks(snapshot, "micro_brier");
-	const leaders = sortedBy(snapshot, "micro_brier")
-		.filter((m) => m.slug !== "gpt-4-1")
+	// Reference configurations (GPT-4.1) are not ranked with current models.
+	const microRanks = ranks(primarySnapshot, "micro_brier");
+	const leaders = sortedBy(primarySnapshot, "micro_brier")
 		.slice(0, 5)
 		.map((m) => ({
 			rank: microRanks.get(m.slug) ?? 0,
-			name: splitName(m.display_name)[0],
+			name: m.display_name,
 			value: brier(m.micro_brier),
 		}));
 	return { kind: "home", title: card.title, cohort: cohortLine, leaders };
 }
 
 export const getStaticPaths = (async () => {
-	const total = snapshot.models.length;
-	const microRanks = ranks(snapshot, "micro_brier");
+	// Same ranking as the model pages: references are shown but not ranked.
+	const total = primarySnapshot.models.length;
+	const microRanks = ranks(primarySnapshot, "micro_brier");
 	const sections = (Object.keys(SECTION_CARDS) as SectionKey[]).map((key) => ({
 		params: { slug: key },
 		props: { spec: sectionCard(key) },
 	}));
-	const models = snapshot.models.map((m) => {
-		const [name, qualifier] = splitName(m.display_name);
-		return {
-			params: { slug: `models/${m.slug}` },
-			props: {
-				spec: {
-					kind: "model",
-					name,
-					qualifier,
-					provider: m.provider,
-					brier: brier(m.micro_brier),
-					rank: microRanks.get(m.slug) ?? total,
-					total,
-					cohort: cohortLine,
-				} satisfies CardSpec,
-			},
-		};
-	});
+	const models = snapshot.models.map((m) => ({
+		params: { slug: `models/${m.slug}` },
+		props: {
+			spec: {
+				kind: "model",
+				name: m.display_name,
+				provider: m.provider,
+				microBrier: brier(m.micro_brier),
+				equalCaseBrier: brier(m.equal_case_brier),
+				rank: REFERENCE_SLUGS.has(m.slug)
+					? null
+					: (microRanks.get(m.slug) ?? null),
+				total,
+				cohort: cohortLine,
+			} satisfies CardSpec,
+		},
+	}));
 	const findings = (await publishedFindings()).map((entry) => ({
 		params: { slug: `findings/${entry.id}` },
 		props: {

@@ -59,10 +59,11 @@ export type CardSpec =
 	| {
 			kind: "model";
 			name: string;
-			qualifier: string | null;
 			provider: string;
-			brier: string;
-			rank: number;
+			microBrier: string;
+			equalCaseBrier: string;
+			/** Null for reference configurations, which are not ranked. */
+			rank: number | null;
 			total: number;
 			cohort: string;
 	  }
@@ -297,22 +298,23 @@ function Body(spec: CardSpec): ReactNode {
 						justifyContent: "center",
 					}}
 				>
-					<span style={{ fontSize: 28, color: C.ink2 }}>
-						{spec.qualifier
-							? `${spec.provider} · ${spec.qualifier}`
-							: spec.provider}
-					</span>
+					<span style={{ fontSize: 28, color: C.ink2 }}>{spec.provider}</span>
 					<div style={{ display: "flex", marginTop: 6 }}>
 						<Headline size={spec.name.length > 20 ? 68 : 84} lines={2}>
 							{spec.name}
 						</Headline>
 					</div>
-					<div style={{ display: "flex", gap: 64, marginTop: 44 }}>
-						<Stat label="Micro Brier (lower is better)" value={spec.brier} />
-						<Stat
-							label={`Rank of ${spec.total} models`}
-							value={`#${spec.rank}`}
-						/>
+					<div style={{ display: "flex", gap: 48, marginTop: 44 }}>
+						<Stat label="Micro Brier" value={spec.microBrier} />
+						<Stat label="Equal-case Brier" value={spec.equalCaseBrier} />
+						{spec.rank === null ? (
+							<Stat label="Not ranked" value="Reference" />
+						) : (
+							<Stat
+								label={`Micro Brier rank of ${spec.total}`}
+								value={`#${spec.rank}`}
+							/>
+						)}
 					</div>
 				</div>
 			);
