@@ -1,6 +1,7 @@
 // One delegated handler covers static markup and late-hydrated React islands.
 let active: HTMLElement | null = null;
 let leaveTimer: ReturnType<typeof setTimeout> | undefined;
+const nativePopover = typeof HTMLElement.prototype.showPopover === "function";
 
 function wrapper(target: EventTarget | null): HTMLElement | null {
 	return target instanceof Element
@@ -10,7 +11,11 @@ function wrapper(target: EventTarget | null): HTMLElement | null {
 
 function dismiss(): void {
 	clearTimeout(leaveTimer);
-	active?.querySelector<HTMLElement>("[role=tooltip]")?.hidePopover();
+	const tip = active?.querySelector<HTMLElement>("[role=tooltip]");
+	if (tip) {
+		if (nativePopover) tip.hidePopover();
+		else delete tip.dataset.open;
+	}
 	active = null;
 }
 
@@ -22,7 +27,8 @@ function show(container: HTMLElement): void {
 	const trigger = container.querySelector<HTMLElement>("button, a");
 	if (!tip || !trigger) return;
 	active = container;
-	tip.showPopover();
+	if (nativePopover) tip.showPopover();
+	else tip.dataset.open = "";
 	position(container);
 }
 
