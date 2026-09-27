@@ -1,0 +1,761 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "extract-key-obligations-from-litigation-hold-and-document-preservation-notice",
+  "title": "Extract Key Obligations from Litigation Hold and Document Preservation Notice — Obligation Summary Memorandum",
+  "criteria_total": 52,
+  "criterion_lines": {
+    "C-001": 22,
+    "C-002": 30,
+    "C-003": 38,
+    "C-004": 46,
+    "C-005": 54,
+    "C-006": 62,
+    "C-007": 70,
+    "C-008": 78,
+    "C-009": 86,
+    "C-010": 94,
+    "C-011": 102,
+    "C-012": 110,
+    "C-013": 118,
+    "C-014": 126,
+    "C-015": 134,
+    "C-016": 142,
+    "C-017": 150,
+    "C-018": 158,
+    "C-019": 166,
+    "C-020": 174,
+    "C-021": 182,
+    "C-022": 190,
+    "C-023": 198,
+    "C-024": 206,
+    "C-025": 214,
+    "C-026": 222,
+    "C-027": 230,
+    "C-028": 238,
+    "C-029": 246,
+    "C-030": 254,
+    "C-031": 262,
+    "C-032": 270,
+    "C-033": 278,
+    "C-034": 286,
+    "C-035": 294,
+    "C-036": 302,
+    "C-037": 310,
+    "C-038": 318,
+    "C-039": 326,
+    "C-040": 334,
+    "C-041": 342,
+    "C-042": 350,
+    "C-043": 358,
+    "C-044": 366,
+    "C-045": 374,
+    "C-046": 382,
+    "C-047": 390,
+    "C-048": 398,
+    "C-049": 406,
+    "C-050": 414,
+    "C-051": 422,
+    "C-052": 430
+  },
+  "blind": {
+    "task": "extract-key-obligations-from-litigation-hold-and-document-preservation-notice",
+    "criteria_reviewed": 52,
+    "coverage": "I read all 52 criteria and the one-sentence instruction. I read four documents in full: the DOJ preservation notice (cover letter, ¶¶1–52, Exhibits A–D), the IT migration memo, the records-destruction confirmation, and the org chart. For the retention policy (RDG-LGL-007) I read the retention schedule (§3.2), §3.3, and the summary table, and searched the rest for backup tapes, litigation holds, the trigger for the duty to preserve, the BYOD policy, and the section numbers the destruction email cites. I did not read the system prompt or judge prompt beyond what the task summary says about them. On the law, I verified the Zubulake IV backup-tape passage (220 F.R.D. 212) on CourtListener. I did not independently research the Fourth Amendment/state-action point or 18 U.S.C. § 1519 case law. Where I discuss them, I rely on general knowledge and mark them unverified.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-004",
+          "C-005",
+          "C-006"
+        ],
+        "title": "The 'contradiction' in the HCP-communications scope misreads ¶24: that paragraph opens 'Without limiting any other provision'",
+        "explanation": "C-004 says ¶24 'limits the scope' to the 5 Exhibit D HCPs and so contradicts ¶23. The notice says the opposite. ¶24 opens 'Without limiting any other provision of this Preservation Notice', and ¶23 expressly covers all HCPs 'regardless of whether such Healthcare Professionals are identified by name.' Read correctly, ¶24 is an extra affirmative duty covering a subset of ¶23; it does not narrow it. A careful memo would say the broad scope is plainly required and there is no real conflict. Such a memo would fail C-004 for not identifying the 'contradiction.' It could also fail C-005 and C-006, which assume two competing readings and a default adopted only 'pending clarification.' The rubric rewards misreading the text and penalizes reading it correctly.",
+        "evidence": [
+          {
+            "source": "task.json C-004",
+            "quote": "Paragraph 24 limits the scope to communications with the 5 HCPs named in Exhibit D. FAIL if this contradiction is not identified."
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "Without limiting any other provision of this Preservation Notice, Ridgeline shall preserve all communications with the HCPs identified in Exhibit D"
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "This preservation obligation applies to Communications with all Healthcare Professionals, regardless of whether such Healthcare Professionals are identified by name in this Preservation Notice or any exhibit hereto"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-004 to PASS if the memo explains how ¶23 (all HCPs) and ¶24 (the Exhibit D HCPs plus affirmative collection steps) relate and concludes that the broad ¶23 scope governs. Drop the 'contradiction' framing, and make C-005 and C-006 accept a memo that treats the broad scope as plainly required."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-001",
+          "C-002",
+          "C-003"
+        ],
+        "title": "The 2017 vs 2019 dates are a deliberate carve-out, not a conflict, yet C-002 requires asking DOJ to clarify",
+        "explanation": "¶12 defines the Relevant Period 'unless otherwise specified herein.' ¶47 begins 'Notwithstanding the Relevant Period defined in Paragraph 12' and deliberately extends financial records back to January 1, 2017, down to the dates and the steps required. That is internally consistent drafting, not a discrepancy. C-001's 'discrepancy' framing is debatable. C-002 goes further: it fails any memo that correctly treats ¶47 as binding and unambiguous and simply plans to preserve from 2017 without asking DOJ to 'clarify.' The genuine drafting defect in ¶47 is a different one that the rubric misses. ¶47 cites 'Subject-Matter Area 7 (Categories 24–27) of Exhibit B,' but Exhibit B labels Categories 24–27 as Area 6.",
+        "evidence": [
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "the \"Relevant Period\" shall mean the period from January 1, 2019 through the date of this Notice (March 3, 2025), unless otherwise specified herein."
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "Notwithstanding the Relevant Period defined in Paragraph 12 of this Notice, Ridgeline shall preserve all financial records ... from January 1, 2017 to the present date. This extended preservation period applies to the document categories identified in Subject-Matter Area 7 (Categories 24--27) of Exhibit B."
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "**Subject-Matter Area 6: Financial Records and Accounting Entries** **Category 24.**"
+          },
+          {
+            "source": "task.json C-002",
+            "quote": "FAIL if no recommendation to seek clarification is made."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-001 to PASS if the memo identifies ¶47's extension of the financial-records period to Jan 1, 2017. Make C-002 optional, or have it accept either a clarification request or a correct reading of ¶47 as an express override. Optionally, credit spotting the Area 7 / Area 6 cross-reference error."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "Two of the IT memo's '8 affected custodians' are not named custodians in the notice",
+        "explanation": "The IT memo lists 8 affected custodians. Two of them are 'Jennifer Calloway, Regional Sales Manager — Mid-Atlantic' and 'David Yun, Regional Sales Manager — West Coast.' Neither appears in Exhibit C, which lists Tonya M. Bradshaw as the Mid-Atlantic manager and has no West Coast region. Only 6 of the 8 can be matched to the notice's 23 custodians. A careful memo would flag that the IT count does not reconcile and say 6 are confirmed, with 2 more (or 2 misidentified Exhibit C custodians) to check. C-012 rewards repeating '8 of 23' without question and may fail the more accurate memo.",
+        "evidence": [
+          {
+            "source": "it-migration-memo.eml.txt",
+            "quote": "7. Jennifer Calloway, Regional Sales Manager — Mid-Atlantic\n8. David Yun, Regional Sales Manager — West Coast"
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "1              Tonya M. Bradshaw       Regional Sales Manager, Mid-Atlantic Region"
+          },
+          {
+            "source": "task.json C-012",
+            "quote": "FAIL if the number of affected custodians (8 of 23) is not identified."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-012 to PASS if the memo reports the IT memo's figure of 8 affected custodians OR identifies the mismatch with Exhibit C (only 6 match), and credit flagging the discrepancy."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-005",
+          "C-004"
+        ],
+        "title": "The 'millions of additional documents' and 'thousands of HCPs' figures have no support in the record",
+        "explanation": "The record has no count of HCPs communicated with and no estimate of HCP-communication volume. The closest figures are 14,800 speaker events and 22,400 patients. C-005's PASS condition requires explaining that the broad reading 'could encompass potentially millions of additional documents.' Its FAIL condition fails only a memo that does not discuss the difference in volume at all. A memo that says the broad reading is 'vastly larger' without a number meets neither condition, and judges may split on it. Rewarding an invented magnitude is also doubtful.",
+        "evidence": [
+          {
+            "source": "task.json C-005",
+            "quote": "PASS if the memo explains that the broader reading (all HCPs) could encompass potentially millions of additional documents"
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "Approximately 14,800 speaker events were conducted under the KOL Program during calendar years 2019 through 2024."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-005 to PASS if the memo explains that the broad reading is materially larger in volume or scope than the Exhibit D-only reading, with no specific magnitude required."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-026"
+        ],
+        "title": "C-026 ties backup tapes to the migration loss, but the record points to the servers for that loss and to the tapes for the January 2025 deletions",
+        "explanation": "The IT memo says the un-migrated 2019–2021 email exists 'only on the decommissioned on-premises Exchange servers.' It adds that the legacy Exchange tapes were probably recycled, which makes the servers the likely 'sole surviving source.' Current 90-day tapes cover M365. Where the record does make backup tapes a possible sole source is the January 15, 2025 destruction. The destruction email says deleted records may still sit on 90-day rotation tapes, which will be overwritten around mid-April 2025. A memo that makes that link, and treats the servers as the source for the migration loss, would be accurate but could fail C-026.",
+        "evidence": [
+          {
+            "source": "it-migration-memo.eml.txt",
+            "quote": "if the legacy backup tapes were recycled, which I suspect may be the case but cannot confirm without further investigation, the decommissioned servers at Sentinel Records Management may be the **sole surviving source** for the un-migrated email data."
+          },
+          {
+            "source": "records-destruction-confirmation.eml.txt",
+            "quote": "electronic records deleted from primary systems may still exist on backup tapes subject to the company's 90-day backup tape rotation cycle; however, such backup copies ... will be overwritten in the normal course of the rotation cycle."
+          },
+          {
+            "source": "task.json C-026",
+            "quote": "FAIL if the connection between backup tape preservation and the email migration data loss is not made."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-026 to PASS if the memo explains why backup tapes may be the only remaining source for some relevant data, whether that is legacy Exchange tapes for the migration loss or current rotation tapes for the records deleted on January 15, 2025."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-025"
+        ],
+        "title": "C-025 makes a civil-discovery proportionality analysis (Zubulake) mandatory for a grand jury preservation demand",
+        "explanation": "C-025 fails any memo that lacks a proportionality analysis referring to the principle that backup tapes need not be preserved. That principle comes from civil discovery (Zubulake IV; FRCP 26). Here the demand comes from a grand jury investigation backed by an 18 U.S.C. § 1519 threat. Competent white-collar counsel may reasonably advise full compliance with ¶41 and a negotiated narrowing with the AUSA, without relying on civil doctrine. The facts also cut against the principle. Zubulake's exception covers tapes holding key players' data that is 'not otherwise available,' and here the email migration loss and the January 2025 deletion mean the data may not exist elsewhere. As written, the criterion demands a particular civil-law framing rather than sound analysis.",
+        "evidence": [
+          {
+            "source": "task.json C-025",
+            "quote": "including reference to the general principle (or case law such as Zubulake v. UBS Warburg) that preservation of backup tapes is disfavored when the same data exists in accessible form. FAIL if no proportionality analysis of the backup tape preservation obligation is provided."
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "Ridgeline's current ninety (90) day backup tape rotation and recycling cycle must be immediately suspended in its entirety."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Zubulake v. UBS Warburg LLC, 220 F.R.D. 212, 218 (S.D.N.Y. 2003)",
+            "proposition": "As a general rule a litigation hold does not apply to inaccessible disaster-recovery backup tapes, but accessible tapes are likely subject to the hold, and the court carves out an exception for identifiable key-player data (civil discovery context).",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Change C-025 to PASS if the memo assesses the burden or scope of the ¶41 backup-tape obligation (whether to comply fully or negotiate with the AUSA), with a reference to civil proportionality principles optional."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-043",
+          "C-044"
+        ],
+        "title": "A headed, urgency-tiered action list is required even though the instruction asks only for an obligation extraction memo",
+        "explanation": "The instruction asks only for 'a detailed obligation extraction memo.' A deadline chart is implicit in extracting obligations. A separately headed action-item section grouped by urgency tier is a formatting choice, not a standard part of an extraction memo. C-044 then requires that the three deadlines appear in chronological order in that action list specifically. A memo with a chronological deadline table plus action items arranged by workstream or by obligation could fail both criteria while conveying the same content.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "prepare a detailed obligation extraction memo. Output: `obligation-extraction-memo.docx`."
+          },
+          {
+            "source": "task.json C-043",
+            "quote": "FAIL if no such section exists or if action items are listed without any ordering by deadline or urgency."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-043 and C-044 to PASS if the memo presents the key deadlines in chronological order anywhere (a deadline table, timeline, or action list), without requiring a specific headed action section."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-019",
+          "C-020",
+          "C-041"
+        ],
+        "title": "The notice body and Exhibit B number the subject-matter areas differently, which the rubric does not account for",
+        "explanation": "The body treats HCP Communications as Subject-Matter Area 4 (¶¶23–24, with no numbered categories) and numbers Patient Assistance as Area 5 through IT as Area 9B. Exhibit B has no HCP Communications area and shifts everything up one, with Patient Assistance as Area 4 and Financial as Area 6. ¶47 cites Financial as 'Area 7.' This is the likely source of the 36-vs-34 gap: two HCP-communications categories may have been dropped. C-020 allows for that reading, and C-041's list follows Exhibit B's numbering, so the misgrade risk is small. But the rubric does not acknowledge the defect, and a memo that catalogues the areas using the body's numbering could confuse a judge applying C-041.",
+        "evidence": [
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "**25. Subject-Matter Area 5: Patient Assistance Fund Operations (Categories 15--19).**"
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "**Subject-Matter Area 4: Patient Assistance Fund Operations**"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "State in C-041 that either numbering scheme is acceptable, and credit memos that tie the missing 2 categories to the uncategorized HCP Communications area (¶¶23–24)."
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-015"
+        ],
+        "title": "C-015 calls ¶31 a 'massive' expansion to 4 pipeline compounds and ignores its limiting clause",
+        "explanation": "The org chart does confirm 4 pipeline compounds. But ¶31 reaches 'related compounds' only 'to the extent such documents ... also relate to the subject matter of this investigation,' meaning the KOL Program, RPAF, and Velcara marketing. A memo could reasonably conclude that the incremental scope is modest for preclinical and clinical compounds that are not marketed, while still preserving conservatively. If the judge requires the memo to characterize ¶31 as a 'potentially massive' expansion, it could fail that memo.",
+        "evidence": [
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "relating to ridgenostat and all related compounds developed, tested, manufactured, or marketed by Ridgeline, to the extent such documents, records, materials, communications, or ESI also relate to the subject matter of this investigation."
+          },
+          {
+            "source": "ridgeline-org-chart.docx.txt",
+            "quote": "Ridgeline maintains a pipeline of 4 additional oncology compounds in various stages of preclinical and clinical development."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-015 to PASS if the memo identifies that 'related compounds' is ambiguous and could reach the 4 pipeline compounds, whether or not it calls the expansion 'massive'."
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-018",
+          "C-033",
+          "C-040"
+        ],
+        "title": "The rubric lists 3 third-party vendors, but ¶43 names 4 (it omits SAP SE)",
+        "explanation": "¶43 requires preservation notices by March 13 to four named vendors: Veeva, SAP SE, Concur, and IntegriCall. ¶¶41–42 separately require notice to Sentinel Records Management, which holds the backup tapes and the decommissioned servers. C-040 is titled 'three specific third-party vendors,' and C-018 and C-033 list the same three. A memo listing all four still passes, so this does not fail correct answers. But it rewards an incomplete extraction, because a memo that omits SAP passes, and a memo that lists four and says 'three' does not conflict with the rubric.",
+        "evidence": [
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "(a) Veeva Systems (Veeva CRM and Veeva Vault); (b) SAP SE (SAP ERP); (c) Concur Technologies (Concur expense management); and (d) IntegriCall Services (compliance hotline)."
+          },
+          {
+            "source": "task.json C-040",
+            "quote": "identifies all three third-party vendors/platforms requiring preservation notices: Veeva CRM, Concur expense system, and IntegriCall Services"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-040 (and the vendor lists in C-018 and C-033) to require the four ¶43 vendors, including SAP SE, and optionally credit identifying Sentinel Records Management under ¶¶41–42."
+      }
+    ],
+    "overall": "The rubric is thorough and mostly grounded in the record. Deadlines, custodians, platforms, the RPAF entity-separation issue, the Linden & Pruitt conflict, the migration loss, and the January 2025 destruction all check out against the documents. Two of its planted 'inconsistencies' are defective because the notice's own wording resolves them. ¶24's 'Without limiting any other provision' removes the supposed HCP-scope contradiction (C-004–C-006), and ¶47's 'Notwithstanding' with ¶12's 'unless otherwise specified' makes the 2017 extension deliberate, yet C-002 still requires asking DOJ to clarify it. Under an all-pass metric, either one can zero out a careful answer. Several more criteria are arguable because they uncritically adopt record errors (the '8 of 23' custodian count), invent magnitudes ('millions'), point to the wrong data source for backup tapes, import civil proportionality doctrine into a grand jury context, or require a particular action-list format. The rubric also misses an important point, though it does not misgrade anything: under the retention policy's own schedule (Categories L and M, 6 years), the January 2025 destruction of 2019–2021 speaker-event files and RPAF correspondence was premature, and the destruction email cites policy sections that do not match the policy."
+  },
+  "final": {
+    "task": "extract-key-obligations-from-litigation-hold-and-document-preservation-notice",
+    "sol_verdicts": [
+      {
+        "sol_locator": "B6-LH-1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-001",
+          "C-002"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-001",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-002",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "¶12 defines the period 'unless otherwise specified herein.' ¶47 opens 'Notwithstanding the Relevant Period defined in Paragraph 12' and extends financial records to 2017. That is an express carve-out, not a conflict. C-002 fails any memo that correctly treats ¶47 as binding and asks DOJ nothing, so it is problematic. C-001 is only arguable: a memo that names both paragraphs and the two-year extension gives the judge everything the PASS text lists, and the risk is limited to the 'inconsistency' framing."
+      },
+      {
+        "sol_locator": "B6-LH-2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-004",
+          "C-005",
+          "C-006"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-004",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-005",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-006",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "¶23 covers all HCPs 'regardless of whether ... identified by name.' ¶24 opens 'Without limiting any other provision' and adds duties for the Exhibit D HCPs. No narrow reading exists. C-004 requires the memo to identify a false contradiction. C-005 requires comparing volume against a nonexistent narrow reading and invents 'millions.' C-006's FAIL condition asks only for a broad default tied to spoliation, so a memo calling the broad scope mandatory very likely passes; it is arguable."
+      },
+      {
+        "sol_locator": "B6-LH-3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-007"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-007",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "This checks out. The destruction email's summary says 4.2M records 'spanning the date range 2019–2021,' but Category 2 (1.4M sales records) runs 'January 2019 through December 2022.' Its 2-year retention period makes the 2022 dates internally plausible, so this is a mislabeled summary. C-007's FAIL condition is only 'destruction event is not flagged,' so a memo that says 2019–2022 almost certainly passes. The misgrade risk is low; this is a document defect, not a confident misgrade."
+      },
+      {
+        "sol_locator": "B6-LH-4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-021",
+          "C-025"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-021",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-025",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "C-021 lists alternatives (Fourth Amendment, state privacy law, consent, or court order) and fails only a memo that raises no privacy concern. A private employer imaging devices at a DOJ demand also gives a colorable government-agent theory, so C-021 is not a defect. C-025 is mandatory. It requires a proportionality analysis and invokes civil-discovery backup-tape doctrine (Zubulake) in a grand-jury/§1519 setting, where tapes may be the only copy. It is arguable."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-004",
+          "C-005"
+        ],
+        "title": "C-004 and C-005 require a 'contradiction' and a narrow reading that ¶24's opening words ('Without limiting any other provision') rule out",
+        "explanation": "C-004 says ¶24 'limits the scope' to the 5 Exhibit D HCPs and so contradicts ¶23. The notice says the opposite. ¶24 opens 'Without limiting any other provision of this Preservation Notice', and ¶23 expressly covers all HCPs 'regardless of whether such Healthcare Professionals are identified by name.' ¶24 adds affirmative collection duties for a subset of ¶23; it does not narrow it. A careful memo that says there is no conflict fails C-004. C-005 then requires comparing document volume between the two readings. A memo that correctly finds no narrow reading has nothing to compare. C-005 also rewards an invented magnitude ('potentially millions'): the record has no count of HCP communications (the closest figures are 14,800 speaker events and 22,400 patients). The rubric rewards misreading the text.",
+        "evidence": [
+          {
+            "source": "task.json C-004",
+            "quote": "Paragraph 24 limits the scope to communications with the 5 HCPs named in Exhibit D. FAIL if this contradiction is not identified."
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "Without limiting any other provision of this Preservation Notice, Ridgeline shall preserve all communications with the HCPs identified in Exhibit D"
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "This preservation obligation applies to Communications with all Healthcare Professionals, regardless of whether such Healthcare Professionals are identified by name in this Preservation Notice or any exhibit hereto"
+          },
+          {
+            "source": "task.json C-005",
+            "quote": "PASS if the memo explains that the broader reading (all HCPs) could encompass potentially millions of additional documents compared to the narrow reading (5 named HCPs in Exhibit D)."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-004 to PASS if the memo explains how ¶23 (all HCPs) and ¶24 (the Exhibit D HCPs plus affirmative collection steps) relate and concludes that they are cumulative, with the broad scope governing. Change C-005 to PASS if the memo explains that the ¶23 scope is far broader than the Exhibit D names alone, with no specific magnitude required, or delete it.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-LH-2"
+        ],
+        "blind_ids": [
+          "O1",
+          "O4"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-006"
+        ],
+        "title": "C-006 frames the broad HCP scope as a default adopted only 'pending clarification', though the notice makes it mandatory",
+        "explanation": "C-006's PASS condition asks the memo to default to the broad interpretation 'pending clarification from the DOJ.' In fact ¶23 requires the broad scope outright, so no clarification is needed. The FAIL condition, though, asks only whether the memo recommends the broad scope and ties it to spoliation risk. A memo that says the broad scope is mandatory and that anything narrower risks spoliation would very likely pass. The risk is limited to judges who read 'pending clarification' as required, which is why this is arguable.",
+        "evidence": [
+          {
+            "source": "task.json C-006",
+            "quote": "PASS if the memo recommends defaulting to the broader interpretation (all HCPs regarding Velcara) pending clarification from the DOJ to avoid spoliation risk."
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "Without limiting any other provision of this Preservation Notice"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-006 to PASS if the memo concludes that all HCP communications about Velcara must be preserved and connects that to spoliation risk, with DOJ clarification optional.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-LH-2"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-002"
+        ],
+        "title": "C-002 requires asking DOJ to clarify an express carve-out (¶47 'Notwithstanding' ¶12)",
+        "explanation": "¶12 defines the Relevant Period 'unless otherwise specified herein.' ¶47 begins 'Notwithstanding the Relevant Period defined in Paragraph 12' and deliberately extends financial records back to January 1, 2017, down to the dates and the steps required. The drafting is internally consistent. C-002 fails any memo that correctly treats ¶47 as binding and simply plans to preserve from 2017 without asking DOJ to clarify 'conflicting date ranges.' That is a correct answer. The real drafting defect in ¶47 is a different one: it cites 'Subject-Matter Area 7 (Categories 24–27)', but Exhibit B labels Categories 24–27 as Area 6. A clarification request aimed at that would be sensible, but it would not match C-002's stated subject.",
+        "evidence": [
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "the \"Relevant Period\" shall mean the period from January 1, 2019 through the date of this Notice (March 3, 2025), unless otherwise specified herein."
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "Notwithstanding the Relevant Period defined in Paragraph 12 of this Notice, Ridgeline shall preserve all financial records ... from January 1, 2017 to the present date. This extended preservation period applies to the document categories identified in Subject-Matter Area 7 (Categories 24--27) of Exhibit B."
+          },
+          {
+            "source": "task.json C-002",
+            "quote": "FAIL if no recommendation to seek clarification is made."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make C-002 optional, or have it accept either a clarification request or a correct reading of ¶47 as an express override. Optionally, credit spotting the Area 7 / Area 6 cross-reference error.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-LH-1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-001"
+        ],
+        "title": "C-001 calls the ¶47 extension a 'discrepancy'/'inconsistency' rather than a deliberate exception",
+        "explanation": "C-001's PASS condition lists ¶12 (2019), ¶47 (2017), and the two-year difference. A memo that reports all three while correctly calling ¶47 an express exception gives the judge every listed element and will usually pass. But the FAIL condition turns on whether 'this inconsistency' is identified, and a strict judge could fail a memo that says there is no inconsistency. The risk comes from framing rather than a certain misgrade.",
+        "evidence": [
+          {
+            "source": "task.json C-001",
+            "quote": "creating a two-year discrepancy. FAIL if this inconsistency between the two paragraphs is not identified."
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "Notwithstanding the Relevant Period defined in Paragraph 12 of this Notice"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-001 to PASS if the memo identifies that ¶47 extends the financial-records preservation period to January 1, 2017, beyond ¶12's 2019 start date.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-LH-1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "The IT memo's '8 of 23' does not reconcile with the notice: 2 of the 8 are not named custodians, and 5 of the 23 have no Ridgeline mailbox",
+        "explanation": "The IT memo lists 8 affected custodians. Two of them are 'Jennifer Calloway, Regional Sales Manager — Mid-Atlantic' and 'David Yun, Regional Sales Manager — West Coast.' Neither appears in Exhibit C, which lists Tonya M. Bradshaw for Mid-Atlantic and has no West Coast region, or anywhere else in the record. Only 6 of the 8 match. The denominator is also off: under ¶15, 5 of the 23 custodians are external HCPs, yet the IT memo says post-migration email for 'all 23 named custodians' is intact in M365. A careful memo would report that 6 affected custodians are confirmed and 2 more need checking. C-012 rewards repeating '8 of 23' uncritically and could fail the more accurate memo.",
+        "evidence": [
+          {
+            "source": "it-migration-memo.eml.txt",
+            "quote": "7. Jennifer Calloway, Regional Sales Manager — Mid-Atlantic\n8. David Yun, Regional Sales Manager — West Coast"
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "1              Tonya M. Bradshaw       Regional Sales Manager, Mid-Atlantic Region"
+          },
+          {
+            "source": "it-migration-memo.eml.txt",
+            "quote": "Post-migration emails (October 2021 onward) for all 23 named custodians are intact in the Microsoft 365 environment"
+          },
+          {
+            "source": "task.json C-012",
+            "quote": "FAIL if the number of affected custodians (8 of 23) is not identified."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-012 to PASS if the memo reports the IT memo's figure of 8 affected custodians OR identifies the mismatch with the notice's custodian lists, and credit flagging the discrepancy.",
+        "origin": "revised",
+        "sol_locators": [],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-025"
+        ],
+        "title": "C-025 makes a civil-discovery backup-tape proportionality analysis (Zubulake) mandatory for a grand jury preservation demand",
+        "explanation": "C-025 fails any memo that lacks a proportionality analysis referring to the principle that backup tapes are disfavored when the same data is accessible elsewhere. That principle comes from civil discovery (Zubulake IV; FRCP 26). Here the demand comes from a criminal investigation backed by a § 1519 warning. Competent counsel may reasonably advise full compliance with ¶41 and a negotiated narrowing with the AUSA without relying on civil doctrine. The facts also cut against the principle. Zubulake itself makes an exception for key players' data that is not otherwise available, and here the migration loss and the January 2025 deletions mean the data may exist nowhere else. The criterion demands a particular framing rather than sound analysis.",
+        "evidence": [
+          {
+            "source": "task.json C-025",
+            "quote": "including reference to the general principle (or case law such as Zubulake v. UBS Warburg) that preservation of backup tapes is disfavored when the same data exists in accessible form. FAIL if no proportionality analysis of the backup tape preservation obligation is provided."
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "Ridgeline's current ninety (90) day backup tape rotation and recycling cycle must be immediately suspended in its entirety."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Zubulake v. UBS Warburg LLC, 220 F.R.D. 212, 218 (S.D.N.Y. 2003)",
+            "proposition": "As a general rule, a litigation hold does not apply to inaccessible disaster-recovery backup tapes, but there is an exception for identifiable tapes storing key players' documents (civil discovery context).",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Change C-025 to PASS if the memo assesses the burden or scope of the ¶41 backup-tape obligation, whether that means full compliance or negotiating with the AUSA, with a reference to civil proportionality principles optional.",
+        "origin": "blind",
+        "sol_locators": [
+          "B6-LH-4"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-007"
+        ],
+        "title": "The destruction email's summary says '2019–2021', but its own Category 2 runs through December 2022",
+        "explanation": "The email summarizes 4.2M records 'spanning the date range 2019–2021.' But Category 2 (1.4M Salesforce and field records, 2-year retention) covers 'January 2019 through December 2022.' C-007 adopts the summary's date range. A memo that correctly reports 2019–2022, or notes the discrepancy, is more accurate. Because C-007's FAIL condition is only 'destruction event is not flagged', such a memo almost certainly still passes, so the misgrade risk is low.",
+        "evidence": [
+          {
+            "source": "records-destruction-confirmation.eml.txt",
+            "quote": "totaling approximately 4.2 million records spanning the date range 2019–2021"
+          },
+          {
+            "source": "records-destruction-confirmation.eml.txt",
+            "quote": "Approximately 1.4 million records from January 2019 through December 2022"
+          },
+          {
+            "source": "task.json C-007",
+            "quote": "identifies the January 15, 2025 scheduled destruction of approximately 4.2 million records from the 2019–2021 period as a critical issue"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-007 to accept 2019–2022 (or '2019–2021 per the summary') and credit noting the discrepancy.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "B6-LH-3"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-043",
+          "C-044"
+        ],
+        "title": "A headed, urgency-tiered action list is required even though the instruction asks only for an obligation extraction memo",
+        "explanation": "The instruction asks only for 'a detailed obligation extraction memo.' A deadline chart is implicit in extracting obligations. A separately headed action-item section grouped by urgency tier is a formatting choice, not a standard part of an extraction memo. C-044 then requires that the three deadlines appear in chronological order in that action list specifically. A memo with a chronological deadline table plus action items arranged by workstream could fail both criteria while conveying the same content.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "prepare a detailed obligation extraction memo. Output: `obligation-extraction-memo.docx`."
+          },
+          {
+            "source": "task.json C-043",
+            "quote": "FAIL if no such section exists or if action items are listed without any ordering by deadline or urgency."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-043 and C-044 to PASS if the memo presents the key deadlines in chronological order anywhere (a deadline table, timeline, or action list).",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-019",
+          "C-020",
+          "C-041"
+        ],
+        "title": "The notice body and Exhibit B number the subject-matter areas differently, which the rubric does not account for",
+        "explanation": "The body treats HCP Communications as Area 4 (¶¶23–24) and numbers Patient Assistance as Area 5 and Compliance as Area 6. Exhibit B has no HCP Communications area and shifts everything up one (Patient Assistance is Area 4, Financial is Area 6), while ¶47 cites Financial as 'Area 7.' This is the likely source of the category-count gap. C-020 allows for that reading, and C-041 follows Exhibit B's numbering, so the misgrade risk is small. But a memo that catalogues areas using the body's numbering could confuse a judge applying C-041.",
+        "evidence": [
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "**26. Subject-Matter Area 6: Compliance Monitoring and Audit Reports (Categories 20--23).**"
+          },
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "**Subject-Matter Area 4: Patient Assistance Fund Operations**"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "State in C-041 that either numbering scheme is acceptable, and credit memos that flag the numbering mismatch and the uncategorized HCP Communications area.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O8"
+        ]
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-015"
+        ],
+        "title": "C-015 calls ¶31 a 'massive' expansion to 4 pipeline compounds and ignores its subject-matter limiting clause",
+        "explanation": "The org chart does confirm 4 pipeline compounds. But ¶31 reaches 'related compounds' only 'to the extent such documents ... also relate to the subject matter of this investigation' (the KOL Program, RPAF, and Velcara marketing). A memo could reasonably conclude that the incremental scope is modest for unmarketed preclinical and clinical compounds, while still preserving conservatively. If the judge requires the memo to call ¶31 a 'potentially massive' expansion, it could fail that memo.",
+        "evidence": [
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "relating to ridgenostat and all related compounds developed, tested, manufactured, or marketed by Ridgeline, to the extent such documents, records, materials, communications, or ESI also relate to the subject matter of this investigation."
+          },
+          {
+            "source": "ridgeline-org-chart.docx.txt",
+            "quote": "Ridgeline maintains a pipeline of 4 additional oncology compounds in various stages of preclinical and clinical development."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-015 to PASS if the memo identifies that 'related compounds' is ambiguous and could reach the pipeline compounds, whether or not it calls the expansion 'massive'.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O9"
+        ]
+      },
+      {
+        "id": "O11",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-018",
+          "C-033",
+          "C-040"
+        ],
+        "title": "The rubric lists 3 third-party vendors, but ¶43 names 4 (it omits SAP SE)",
+        "explanation": "¶43 requires preservation notices by March 13 to four named vendors: Veeva Systems, SAP SE, Concur, and IntegriCall. C-040 is titled 'three specific third-party vendors,' and C-018 and C-033 follow suit. A memo listing all four still passes, so correct answers are not failed. But the rubric rewards an incomplete extraction, because a memo omitting SAP passes.",
+        "evidence": [
+          {
+            "source": "doj-preservation-notice.docx.txt",
+            "quote": "(a) Veeva Systems (Veeva CRM and Veeva Vault); (b) SAP SE (SAP ERP); (c) Concur Technologies (Concur expense management); and (d) IntegriCall Services (compliance hotline)."
+          },
+          {
+            "source": "task.json C-040",
+            "quote": "identifies all three third-party vendors/platforms requiring preservation notices: Veeva CRM, Concur expense system, and IntegriCall Services"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change C-040 (and the vendor lists in C-018 and C-033) to require the four ¶43 vendors, including SAP SE, and optionally credit identifying Sentinel Records Management under ¶¶41–42.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O10"
+        ]
+      }
+    ],
+    "changes_from_blind": "I split blind O1. C-004 and C-005 stay problematic. C-006 drops to arguable because its FAIL condition asks only for a broad default tied to spoliation, and it is now O2. I folded blind O4 ('millions' is unsupported) into the C-005 finding and retired it, so C-005 carries one status. I split blind O2: C-002 is problematic (O3) and C-001 arguable (O4). I also dropped C-003 there, since Sol and I both consider it valid. I adopted Sol's B6-LH-3 (C-007) as arguable, O7. I checked Category 2's retention period: it is 2 years, so the December 2022 dates are internally plausible and the problem is only a mislabeled summary. I dropped blind O5 (C-026). The IT memo flags the fragility of the powered-off servers and says it will investigate whether the legacy Exchange tapes still exist, which supports the rubric's link between backup tapes and the migration loss, and I could not identify a correct memo that would fail. I strengthened blind O3 (C-012): 5 of the 23 custodians are external HCPs with no Ridgeline mailbox. I found C-021 (Sol B6-LH-4) not to be a defect.",
+    "overall": "The rubric is thorough and mostly grounded in the record. The deadlines, custodians, platforms, migration loss, and January 2025 destruction all check out. Two of its planted 'inconsistencies' are defective because the notice's own wording resolves them. ¶24's 'Without limiting any other provision' removes the supposed HCP-scope contradiction that C-004 and C-005 require. ¶47's 'Notwithstanding' ¶12, read with ¶12's 'unless otherwise specified,' makes the 2017 extension deliberate, yet C-002 still requires asking DOJ to clarify it. Under the all-pass metric, any of these can zero out a careful answer. I rate C-001 and C-006 arguable because of their framing. Several other criteria are also arguable: they adopt record errors uncritically ('8 of 23', the '2019–2021' summary), import civil backup-tape doctrine into a grand jury setting, require a particular action-list format, overstate the 'related compounds' expansion, or undercount the ¶43 vendors.",
+    "coverage": "I read all 52 criteria and the instruction. Across the two passes, I read the full DOJ notice, the IT migration memo, the destruction confirmation, and the org chart. For the retention policy I read the relevant sections and searched the rest. In this pass I re-checked ¶¶12, 13–16, 23–24, 31, 41, 43, and 47, Exhibits C and D, the IT memo's custodian list, and the destruction email's categories, including Category 2's 2-year retention period. I read all of Sol's report files. I verified Zubulake IV (220 F.R.D. 212) on CourtListener in the blind pass. I did not research Fourth Amendment private-search or agent doctrine or § 1519 case law; my C-021 verdict relies on the criterion's lenient FAIL condition, not on that research."
+  }
+}

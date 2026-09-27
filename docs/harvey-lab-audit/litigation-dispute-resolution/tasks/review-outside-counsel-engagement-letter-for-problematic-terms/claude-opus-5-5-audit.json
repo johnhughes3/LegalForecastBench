@@ -1,0 +1,578 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "review-outside-counsel-engagement-letter-for-problematic-terms",
+  "title": "Review Outside Counsel Engagement Letter for Problematic Terms — Issue Identification Memorandum",
+  "criteria_total": 45,
+  "criterion_lines": {
+    "C-001": 18,
+    "C-002": 26,
+    "C-003": 34,
+    "C-004": 42,
+    "C-005": 50,
+    "C-006": 58,
+    "C-007": 66,
+    "C-008": 74,
+    "C-009": 82,
+    "C-010": 90,
+    "C-011": 98,
+    "C-012": 106,
+    "C-013": 114,
+    "C-014": 122,
+    "C-015": 130,
+    "C-016": 138,
+    "C-017": 146,
+    "C-018": 154,
+    "C-019": 162,
+    "C-020": 170,
+    "C-021": 178,
+    "C-022": 186,
+    "C-023": 194,
+    "C-024": 202,
+    "C-025": 210,
+    "C-026": 218,
+    "C-027": 226,
+    "C-028": 234,
+    "C-029": 242,
+    "C-030": 250,
+    "C-031": 258,
+    "C-032": 266,
+    "C-033": 274,
+    "C-034": 282,
+    "C-035": 290,
+    "C-036": 298,
+    "C-037": 306,
+    "C-038": 314,
+    "C-039": 322,
+    "C-040": 330,
+    "C-041": 338,
+    "C-042": 346,
+    "C-043": 354,
+    "C-044": 362,
+    "C-045": 370
+  },
+  "blind": {
+    "task": "review-outside-counsel-engagement-letter-for-problematic-terms",
+    "criteria_reviewed": 45,
+    "coverage": "I read all 45 criteria, the instructions, and all six documents in full: the engagement letter with Exhibits A and B, the Pinnacle OCG (January 2024), the staffing plan, the CrossPoint proposal, and the Morrow and Alcott emails. I checked each factual premise against the record, and recomputed the staffing-plan arithmetic and the success-fee maximum. I did not read the system prompt or judge prompt files beyond what the task text says about them. Legal points (Model Rules 1.5, 1.8(h), 1.16; NC/DC treatment of retainers and liens) come from general knowledge. I read no primary sources this session. WebSearch failed on a spend-limit error, so I could not confirm current market rates for law-firm annual increases. That authority is marked unverified.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-014"
+        ],
+        "title": "C-014 rests on the false premise that the OCG does not address contract attorneys; OCG §6.3 sets approval rules and rate caps",
+        "explanation": "The title ('unaddressed by OCG') and the first PASS route ('because contract attorneys are not addressed in the OCG') both contradict the record. OCG §6.3 requires prior written approval for contract attorneys, caps document-review rates at $225/hr, and caps substantive work at the $425 junior-associate rate. The correct analysis is that $350/hr for document review exceeds the $225 cap by $125 and needs prior approval. As written, the criterion rewards a memo that wrongly says the OCG is silent. A memo that correctly cites the $225 cap probably still passes through the 'separate approval' route, but that depends on the judge mapping 'exceeds §6.3 cap' onto the listed reasons.",
+        "evidence": [
+          {
+            "source": "C-014",
+            "quote": "problematic because contract attorneys are not addressed in the OCG"
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "Pinnacle expects that contract attorney rates for document review and similar non-substantive tasks will not exceed \\$225 per hour."
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "The use of contract attorneys, temporary attorneys, or staff augmentation personnel on Pinnacle matters requires prior written approval"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Rewrite: PASS if the memo flags the contract-attorney provision as noncompliant with OCG §6.3 (prior written approval required; $350/hr exceeds the $225/hr document-review cap). Drop the 'not addressed in the OCG' premise."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-008"
+        ],
+        "title": "C-008 requires a comparison to a 3-4% 'market standard' escalation that is not in the record and is doubtful as fact",
+        "explanation": "No document gives a market escalation benchmark. The OCG's objection is categorical: automatic escalation of any size is void (§3.2). That point is already credited in C-007. A competent reviewer applying the OCG would call the clause unenforceable and not argue about the percentage, and would fail C-008. The premise is also shaky: large-firm annual rate increases in 2023-2025 were widely reported at about 5-9%, so calling 5% 'above-market' may be wrong. The criterion rewards an extra-record, possibly incorrect market claim and penalizes a memo that relies on the controlling OCG ground.",
+        "evidence": [
+          {
+            "source": "C-008",
+            "quote": "above typical market rates (which are generally 3-4% annually) or otherwise characterizes 5% as excessive or above-market. FAIL if no comparison to market-standard escalation rates is made."
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "Pinnacle does not agree to automatic, across-the-board, or formulaic rate increases of any kind."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Industry rate surveys (e.g., Thomson Reuters Law Firm Financial Index; Wells Fargo Legal Specialty Group) reporting 2023-2025 large-firm rate growth of roughly 5-9%",
+            "proposition": "Annual rate increases of 5% are not above current large-firm market practice",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Delete C-008 or fold it into C-007 as an optional point. At minimum, remove the 3-4% benchmark and accept any explanation of why the escalation is objectionable."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-029"
+        ],
+        "title": "C-029 requires calling the appeals scope an 'internal contradiction' although the specific appellate carve-out plausibly controls",
+        "explanation": "Section 1 limits the engagement to work 'through trial' and expressly says appellate work 'shall be scoped separately.' The staffing plan repeats the carve-out. Under the ordinary rule that a specific term controls a general one, many practitioners would read the scope as clear: appeals are excluded. They would raise appeals from other angles, such as the budget's missing appeal phase (OCG §4.1(h)) or interlocutory appeals being left out of the budget. The criterion fails any memo that does not call 'all matters/related proceedings' contradictory. Flagging it is defensible drafting caution, but treating it as mandatory penalizes a reasonable contrary reading.",
+        "evidence": [
+          {
+            "source": "engagement-letter-hbc.docx.txt",
+            "quote": "The Firm's representation shall extend through trial. ... Appellate work, if any, shall be scoped separately pursuant to a supplemental engagement letter."
+          },
+          {
+            "source": "C-029",
+            "quote": "The memo should note that 'all matters' and 'related proceedings' could logically include appeals, creating ambiguity."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Broaden PASS to any memo that addresses appellate or post-trial coverage (scope carve-out, OCG §4.1(h) budget omission, or interlocutory appeals left out of the budget), not only the 'contradiction' framing."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-036"
+        ],
+        "title": "C-036 fails a correct rate analysis unless the memo attributes the rates to the staffing plan, although the letter and Exhibit A list the same rates",
+        "explanation": "The five rates are identical in Engagement Letter §3.1, Exhibit A, and the staffing plan. A memo that compares Exhibit A rates to the OCG caps is substantively the same as one citing the staffing plan. Yet C-036 fails it if the comparison 'appears to be based solely on the engagement letter.' This grades citation provenance, not analysis. The instructions ask for a review of the letter 'and supporting documents' but never require sourcing rates to a particular document. It also double-penalizes work already credited by C-001 to C-005.",
+        "evidence": [
+          {
+            "source": "C-036",
+            "quote": "FAIL if the rate comparison appears to be based solely on the engagement letter without reference to the staffing plan."
+          },
+          {
+            "source": "engagement-letter-hbc.docx.txt",
+            "quote": "Sandra K. Morrow                   Equity Partner / Lead Counsel           24 years                  \\$1,050"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Rewrite to reward a real cross-document insight, e.g. using staffing-plan hours to show the overcharge (1,880 core hours; about $607/hr weighted average, below the $685 blended rate), or drop it."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-026"
+        ],
+        "title": "C-026 calls the success fee 'uncapped' but in the same breath says it maxes out at $1.42M",
+        "explanation": "The formula, 10% × ($14.2M − resolution amount), is mathematically bounded at $1,420,000. What the fee lacks is the express dollar cap OCG §9.2(c) requires. The criterion asks the memo to note it is 'uncapped' and also gives the bounded maximum. A precise memo that says 'formula-bounded at $1.42M but no stated cap as §9.2(c) requires', or that stresses the $7M cliff effect, could be failed by a literal judge for not saying 'uncapped.'",
+        "evidence": [
+          {
+            "source": "C-026",
+            "quote": "notes that the success fee is uncapped and could be very large—up to approximately $1,420,000"
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "(c) A maximum cap on the success fee expressed as a specific dollar amount;"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo notes the fee has no express dollar cap (OCG §9.2(c)) and quantifies its potential size (up to about $1.42M), however the memo describes the formula's bound."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-023",
+          "C-034"
+        ],
+        "title": "C-023 and C-034 both fail a memo that flags the advance waiver (banned by OCG §2.2) without tying it to MedBridge",
+        "explanation": "The OCG bans blanket advance waivers outright ('not acceptable'). So a competent memo can correctly reject §11's waiver on that independent ground and handle the MedBridge 8% stake separately under the §2.2(b) disclosure-and-consent rule. C-023 fails such a memo if the waiver is 'not connected to the conflict concern.' C-034 then fails it again for the same missing link. The link is reasonable, since Morrow's email raises the waiver 'on a related note,' but this analytical choice is penalized twice under the all-pass metric.",
+        "evidence": [
+          {
+            "source": "C-023",
+            "quote": "FAIL if the broad adverse-representation waiver is not flagged or not connected to the conflict concern."
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "Blanket or advance waivers of future conflicts are not acceptable."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Let C-023 pass on flagging the waiver as violating OCG §2.2. Keep the cross-document linkage only in C-034."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-028"
+        ],
+        "title": "C-028's '$2.78M true total' framing may fail a memo that flags the e-discovery exclusion without doing the sum",
+        "explanation": "The central issue is that the $380K e-discovery estimate sits outside the $2.4M budget, contrary to OCG §4.1's all-inclusive budget rule. The PASS text frames this as 'meaning the true estimated total cost is approximately $2,780,000.' A judge may treat the figure as required. The '$2.78M' is also not the true total: the budget also excludes the success fee (up to $1.42M) and extraordinary expenses. A memo that frames total exposure differently could look inconsistent with the stated number.",
+        "evidence": [
+          {
+            "source": "C-028",
+            "quote": "meaning the true estimated total cost is approximately $2,780,000 (or approximately $2.78M)"
+          },
+          {
+            "source": "engagement-letter-hbc.docx.txt",
+            "quote": "The budget does not include: (a) e-discovery costs ... (c) the Success Fee described in Section 10, if earned; or (d) extraordinary or unanticipated expenses"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo identifies that the $380K e-discovery estimate is excluded from the $2.4M budget, contrary to OCG §4.1. Make the $2.78M arithmetic optional and illustrative."
+      }
+    ],
+    "overall": "The rubric is mostly sound and closely tied to the record. The rate caps, invoice timing, expense threshold, travel class, staffing notice, lien, termination, insurance, success-fee procedure, arbitration, marketing, withdrawal-notice and vendor criteria all match the OCG and engagement letter, and the ethics framings are reasonable and hedged ('and/or', 'e.g.'). Two criteria are problematic. C-014 rests on the false claim that the OCG does not address contract attorneys (OCG §6.3 does, with a $225 document-review cap). C-008 requires an extra-record, doubtful '3-4% market' comparison that a memo relying on the OCG's categorical ban would not make. Several others are arguable because they grade framing or provenance rather than substance: C-029's appeals 'contradiction,' C-036's staffing-plan attribution, C-026's 'uncapped' wording, C-023 and C-034's duplicated linkage requirement, and C-028's arithmetic. Under the all-pass metric, C-008 alone could zero out an otherwise excellent memo."
+  },
+  "final": {
+    "task": "review-outside-counsel-engagement-letter-for-problematic-terms",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Confirmed defects: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-008"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-008",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "No document gives a market escalation benchmark. OCG §3.2 bans automatic increases of any size ('formulaic rate increases of any kind'), which C-007 already credits. C-008 fails any memo that relies on that categorical OCG ground without adding an extra-record, doubtful '3-4%' market claim."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-014"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-014",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "OCG §6.3 expressly covers contract attorneys: prior written approval, a $225/hr document-review expectation, and a $425 cap for substantive work. The title and the first PASS route ('not addressed in the OCG') state a false fact and would reward a memo that misreads the OCG. The approval route stays valid, so correct memos probably still pass."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-029"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-029",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Letter §1 says 'shall extend through trial' and expressly carves out appellate work, and the staffing plan repeats this, so the specific term plausibly controls. Some real ambiguity remains, though. 'Related proceedings' is undefined, and the budget treats interlocutory appeals as an excluded extraordinary expense. Flagging it is reasonable drafting caution, but making it mandatory fails reasonable readings. That makes it arguable, not confidently problematic."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 4",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-033"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-033",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "An issues memo normally carries recommendations, so recommendations are implicit. The 75% threshold and the three-distinct-types quota are hidden numeric requirements that a judge cannot count reliably. In practice, competent memos naturally use several remedy types (strike, revise, get GC waiver, request conflicts letter), so misgrading is possible but unlikely."
+      },
+      {
+        "sol_locator": "Arguable concerns, not confirmed legal defects: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-021",
+          "C-022",
+          "C-023",
+          "C-034",
+          "C-037",
+          "C-040"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-021",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-022",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-023",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-034",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-037",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-040",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "Sol's RPC 1.7 point misses the controlling OCG text. OCG §2.2(b) defines a 5%+ equity stake as a 'material financial interest' and bars the engagement without detailed written disclosure and informed written consent. MedBridge's 8% triggers this. Alcott's check ran only against NovaTech, its principals and opposing counsel. So C-021/022/037/040 are well grounded. Only C-023's duplicate linkage FAIL is arguable. C-034 is the proper home for that synthesis."
+      },
+      {
+        "sol_locator": "Arguable concerns, not confirmed legal defects: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-026"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-026",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "10% × ($14.2M − resolution) is bounded at $1.42M. What is missing is the express dollar cap OCG §9.2(c) requires. The criterion calls the fee 'uncapped' and in the same breath gives its maximum. A precise memo ('formula-bounded but lacks §9.2(c) cap') could be failed by a literal judge. The trailing 'similar calculation' route softens this."
+      },
+      {
+        "sol_locator": "Arguable concerns, not confirmed legal defects: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-009"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-009",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "OCG §3.6 rejects non-refundable retainers, requires trust-account deposit and refundability, and expressly invokes professional-conduct rules. The letter puts the $250K in the operating account yet credits it against final invoices, so it is really an advance fee. The FAIL condition triggers only if the non-refundability is not flagged at all. A memo grounded in OCG §3.6 passes."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-014"
+        ],
+        "title": "C-014 rests on the false premise that the OCG does not address contract attorneys; OCG §6.3 sets approval rules and rate caps",
+        "explanation": "The title ('unaddressed by OCG') and the first PASS route ('because contract attorneys are not addressed in the OCG') contradict the record. OCG §6.3 requires prior written approval for contract attorneys, expects document-review rates of no more than $225/hr, and caps substantive work at $425. The correct analysis is that $350/hr for document review exceeds the $225 expectation and needs prior approval. As written, the criterion rewards a memo that wrongly says the OCG is silent. A correct memo probably still passes through the 'require separate approval' route.",
+        "evidence": [
+          {
+            "source": "C-014",
+            "quote": "problematic because contract attorneys are not addressed in the OCG"
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "Pinnacle expects that contract attorney rates for document review and similar non-substantive tasks will not exceed \\$225 per hour."
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "The use of contract attorneys, temporary attorneys, or staff augmentation personnel on Pinnacle matters requires prior written approval"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo flags the contract-attorney provision as noncompliant with OCG §6.3 (prior written approval required; $350/hr exceeds the $225/hr document-review expectation). Delete the 'not addressed in the OCG' premise and fix the title.",
+        "origin": "blind",
+        "sol_locators": [
+          "Confirmed defects: item 2"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-008"
+        ],
+        "title": "C-008 requires a comparison to a 3-4% 'market standard' escalation that is not in the record and is doubtful as fact",
+        "explanation": "No document supplies a market escalation benchmark. The OCG's objection is categorical: automatic or formulaic increases 'of any kind' have no effect (§3.2), and C-007 already credits that. A competent reviewer applying the OCG would call the clause void and not argue about the percentage, and would fail C-008 ('FAIL if no comparison to market-standard escalation rates is made'). The premise is also shaky: large-firm annual rate increases in recent years have been widely reported above 3-4%, though I could not verify current figures this session. Under the all-pass metric, this criterion alone can zero out a memo that is correct on the OCG.",
+        "evidence": [
+          {
+            "source": "C-008",
+            "quote": "above typical market rates (which are generally 3-4% annually) ... FAIL if no comparison to market-standard escalation rates is made."
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "Pinnacle does not agree to automatic, across-the-board, or formulaic rate increases of any kind."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Industry law-firm rate surveys (e.g., Thomson Reuters Law Firm Financial Index), 2023-2025",
+            "proposition": "Large-firm annual rate increases have commonly exceeded 3-4%, so 5% is not clearly above market",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Delete C-008 or fold it into C-007 as optional. At minimum, drop the 3-4% benchmark and accept any explanation of why the escalation is objectionable.",
+        "origin": "blind",
+        "sol_locators": [
+          "Confirmed defects: item 1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-029"
+        ],
+        "title": "C-029 requires calling the appeals scope an 'internal contradiction' although the express appellate carve-out plausibly controls",
+        "explanation": "Section 1 says representation 'shall extend through trial' and that appellate work 'shall be scoped separately.' The staffing plan repeats the carve-out twice. Under the specific-over-general canon, many practitioners would read appeals as clearly excluded. They would address appeals through the budget's missing appeals phase (OCG §4.1(h)) or through interlocutory appeals being treated as an excluded extraordinary expense. The criterion fails any memo that does not frame 'all matters/related proceedings' as ambiguous. Some residual ambiguity (undefined 'related proceedings', interlocutory appeals) makes flagging defensible, so this is arguable, not problematic.",
+        "evidence": [
+          {
+            "source": "engagement-letter-hbc.docx.txt",
+            "quote": "The Firm\\'s representation shall extend through trial. ... Appellate work, if any, shall be scoped separately pursuant to a supplemental engagement letter."
+          },
+          {
+            "source": "C-029",
+            "quote": "The memo should note that 'all matters' and 'related proceedings' could logically include appeals, creating ambiguity."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS on any memo that addresses appellate or post-trial coverage (scope carve-out clarification, OCG §4.1(h) budget omission, or interlocutory appeals). Also permit a reasoned conclusion that appeals are excluded.",
+        "origin": "blind",
+        "sol_locators": [
+          "Confirmed defects: item 3"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-036"
+        ],
+        "title": "C-036 fails a correct rate analysis unless the memo cites the staffing plan, although the letter and Exhibit A list the same rates",
+        "explanation": "The timekeeper rates are identical in Engagement Letter §3.1/Exhibit A and the staffing plan. A memo that compares Exhibit A rates to the OCG §3.1 caps has done the same analysis as one citing the staffing plan. Yet C-036 fails it if the comparison 'appears to be based solely on the engagement letter.' This grades citation provenance rather than substance, and it re-penalizes work already credited by the rate-cap criteria (C-001 to C-005). The instructions never ask for rates to be sourced to a particular document.",
+        "evidence": [
+          {
+            "source": "C-036",
+            "quote": "FAIL if the rate comparison appears to be based solely on the engagement letter without reference to the staffing plan."
+          },
+          {
+            "source": "engagement-letter-hbc.docx.txt",
+            "quote": "Sandra K. Morrow                   Equity Partner / Lead Counsel           24 years                  \\$1,050"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Reward a real cross-document insight (e.g., using staffing-plan hours or contract-attorney rates that appear only in the staffing plan), or accept a comparison citing either document.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-026"
+        ],
+        "title": "C-026 calls the success fee 'uncapped' but in the same breath says it maxes out at $1.42M",
+        "explanation": "The formula, 10% × ($14.2M − resolution amount), is bounded at $1,420,000. What it lacks is the express dollar cap OCG §9.2(c) requires. The criterion asks the memo to note the fee is 'uncapped' while also stating its bounded maximum. A precise memo that says 'formula-bounded at $1.42M but no stated cap as §9.2(c) requires' could be failed by a literal judge. The 'similar calculation' alternative reduces but does not remove that risk.",
+        "evidence": [
+          {
+            "source": "C-026",
+            "quote": "notes that the success fee is uncapped and could be very large—up to approximately $1,420,000"
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "(c) A maximum cap on the success fee expressed as a specific dollar amount;"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo notes the absence of an express dollar cap (OCG §9.2(c)) and quantifies the potential size (up to about $1.42M), however it describes the formula's bound.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable concerns, not confirmed legal defects: item 2"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-023"
+        ],
+        "title": "C-023 fails a memo that rejects the advance waiver under OCG §2.2 unless it also ties the waiver to MedBridge, duplicating C-034",
+        "explanation": "OCG §2.2 independently bans blanket or advance waivers ('not acceptable'). So a competent memo can correctly reject the letter's §11 waiver on that ground and handle the MedBridge 8% stake separately under §2.2(b). C-023's FAIL ('not connected to the conflict concern') fails that memo, and C-034 then fails it again for the same missing cross-reference. The linkage is reasonable, since Morrow raises the waiver 'on a related note,' and it belongs in C-034. Requiring it in C-023 as well double-penalizes one analytical choice under all-pass.",
+        "evidence": [
+          {
+            "source": "C-023",
+            "quote": "FAIL if the broad adverse-representation waiver is not flagged or not connected to the conflict concern."
+          },
+          {
+            "source": "pinnacle-ocg-2024.docx.txt",
+            "quote": "Blanket or advance waivers of future conflicts are not acceptable."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Let C-023 pass whenever the memo flags the advance waiver as noncompliant with OCG §2.2. Keep the cross-document linkage only in C-034.",
+        "origin": "revised",
+        "sol_locators": [
+          "Arguable concerns, not confirmed legal defects: item 1"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-033"
+        ],
+        "title": "C-033 imposes a hidden 75% coverage threshold and a three-recommendation-type quota",
+        "explanation": "Recommendations are implicit in an issues memo, so requiring them is fair. But the instructions set no percentage and no requirement for varied remedy types, and a judge cannot reliably count 'identified issues' against recommendations or classify 'types.' A memo that recommends 'require OCG compliance/GC approval' for most issues could be failed on the diversity quota despite being substantively complete. Most competent memos would satisfy it naturally, so this is arguable, not problematic.",
+        "evidence": [
+          {
+            "source": "C-033",
+            "quote": "PASS if the memo provides a recommended course of action for at least 75% of identified issues, and at least three distinct recommendation types are used"
+          },
+          {
+            "source": "task.json instructions",
+            "quote": "prepare a comprehensive issues memo."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo gives actionable recommendations for the material issues. Drop the percentage and the type-diversity quota.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "Confirmed defects: item 4"
+        ],
+        "blind_ids": []
+      }
+    ],
+    "changes_from_blind": "I adopted C-033 as arguable from Sol: the 75% threshold and three-type quota are hidden and hard to count, though competent memos usually satisfy them. I narrowed blind O6 to C-023 only. C-034 is the proper home for the Morrow-email-to-waiver synthesis, and Morrow's own 'on a related note' invites that link, so C-034 is now not a defect. I dropped blind O7 (C-028): its FAIL condition triggers only if the e-discovery exclusion is not identified at all, and the $2.78M subtotal is trivial and legitimate, as Sol noted, so misgrading is unlikely. I kept C-029 at arguable rather than accepting Sol's 'confirmed': undefined 'related proceedings' and interlocutory appeals leave some real ambiguity. I rejected Sol's concerns on C-021/C-022/C-037/C-040 and C-009 because controlling OCG text supports them. OCG §2.2(b) defines a 5%+ equity stake as a material financial interest requiring disclosure and informed written consent, and OCG §3.6 rejects non-refundable retainers.",
+    "overall": "The rubric is mostly sound and closely tied to the record. The OCG itself supplies concrete bases for the rate caps, escalation ban, retainer, conflicts (the §2.2(b) 5% material-financial-interest rule squarely covers MedBridge's 8% stake), success-fee terms, budget and staffing criteria. Two criteria are problematic. C-014 rests on the false premise that the OCG does not address contract attorneys (§6.3 does, with a $225 document-review expectation). C-008 requires an extra-record, doubtful '3-4% market' comparison that a memo relying on the OCG's categorical ban would not make, and it alone can zero out an excellent memo under all-pass. Five others are arguable because they grade framing, provenance or hidden quotas rather than substance: C-029's appeals 'contradiction', C-036's staffing-plan attribution, C-026's 'uncapped' wording, C-023's duplicated MedBridge linkage, and C-033's 75%/three-type quota.",
+    "coverage": "I read all 45 criteria and the instructions. In the blind pass I read all six documents in full. In this pass I re-read the scope clause, the appellate references, OCG §§2.2, 3.2, 3.6 and 13-14, the retainer and waiver clauses, and both conflict emails to check Sol's findings. I read Sol's index entry and its full audit report. Legal points (RPC 1.5/1.7/1.16) come from general knowledge. I read no primary legal sources this session. The market-rate authority for C-008 is unverified."
+  }
+}

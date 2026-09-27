@@ -73,6 +73,7 @@
     "tests/test_architecture_inventory.py",
     "tests/test_architecture_rules.py",
     "tests/test_artifact_archive_workflow.py",
+    "tests/test_build_harvey_dual_audit.py",
     "tests/test_ci_workflow.py",
     "tests/test_claude_code_managed_policy.py",
     "tests/test_cli_corpus_differential.py",

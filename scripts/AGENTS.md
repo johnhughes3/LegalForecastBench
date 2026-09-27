@@ -5,6 +5,12 @@ from a checkout but do not belong in the installed `legalforecast` CLI.
 
 ## Current Scripts
 
+- `build_harvey_dual_audit.py` (with `harvey_dual_audit_core.py` and `harvey_dual_audit_render.py`): ingests Claude Opus 5.5 audit results for the Harvey LAB litigation tasks and renders the per-task Opus reports plus the GPT-6 Sol / Claude Opus 5.5 comparison under `docs/harvey-lab-audit/litigation-dispute-resolution/`. `render` needs only files already in that directory.
+
+  ```bash
+  uv run python scripts/build_harvey_dual_audit.py render
+  ```
+
 - `release_check.py`: runs the full v0.1 alpha release gate: locked sync, formatting, linting, type checking, scoped public-API docstring coverage, the supported four-worker pytest suite, CLI smokes, fixture E2E, multi-harness no-network smokes, package build, package hashes, and installed wheel/sdist smokes.
 
   ```bash
