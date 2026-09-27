@@ -24,7 +24,7 @@ export default function EligibilityBadge({
 	const tip = (
 		<>
 			<span className="block">
-				{eligible ? EXPLAIN.eligible : EXPLAIN.qualified}
+				{EXPLAIN[eligibility]}
 			</span>
 			<span className="mt-1.5 block font-medium text-ink">{reason}</span>
 		</>

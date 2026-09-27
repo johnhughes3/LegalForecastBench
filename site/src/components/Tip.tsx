@@ -1,4 +1,10 @@
-import { type ReactNode, useId } from "react";
+import {
+	cloneElement,
+	isValidElement,
+	type ReactElement,
+	type ReactNode,
+	useId,
+} from "react";
 
 interface Props {
 	/** Explanation shown on hover, keyboard focus, or tap. */
@@ -45,6 +51,12 @@ export default function Tip({
 				>
 					{children}
 				</button>
+			) : isValidElement(children) ? (
+				// Describe the child itself (e.g. a sort button) so the focused
+				// control announces the explanation.
+				cloneElement(children as ReactElement<{ "aria-describedby"?: string }>, {
+					"aria-describedby": id,
+				})
 			) : (
 				<span aria-describedby={id} className="inline-flex">
 					{children}
@@ -53,7 +65,7 @@ export default function Tip({
 			<span
 				role="tooltip"
 				id={id}
-				className={`pointer-events-none invisible absolute z-40 w-64 max-w-[80vw] rounded-lg border border-rule bg-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-ink-2 opacity-0 shadow-lg transition-opacity duration-150 group-focus-within/tip:visible group-focus-within/tip:opacity-100 group-hover/tip:visible group-hover/tip:opacity-100 ${SIDE[side]} ${ALIGN[align]}`}
+				className={`pointer-events-none invisible absolute z-40 w-64 max-w-[80vw] rounded-lg border border-rule bg-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-ink-2 opacity-0 shadow-lg transition-opacity duration-150 group-focus-within/tip:visible [.tips-dismissed_&]:invisible! [.tips-dismissed_&]:opacity-0! group-focus-within/tip:opacity-100 group-hover/tip:visible group-hover/tip:opacity-100 ${SIDE[side]} ${ALIGN[align]}`}
 			>
 				{tip}
 			</span>

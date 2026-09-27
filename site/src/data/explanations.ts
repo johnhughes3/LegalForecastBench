@@ -4,6 +4,8 @@ export const EXPLAIN = {
 		"Eligible: the provider documents a training-data cutoff before every decision in this cohort, so the outcomes should postdate the model's training data. A stated cutoff is evidence, not proof.",
 	qualified:
 		"Qualified: we cannot confirm that the model's training data predates every decision. The cutoff may be unpublished, reported only as a knowledge cutoff, or overlap the decision window. The score is shown, but read it with that caveat.",
+	unknown:
+		"Unknown: the export does not record enough information to assess whether the model's training data predates the decisions.",
 	frontier:
 		"On the observed cost/quality frontier: no other model is both cheaper and at least as good, with a strict improvement in one. Descriptive only; it is not a significance test.",
 	significance:
