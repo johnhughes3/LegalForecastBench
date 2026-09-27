@@ -44,6 +44,7 @@ def test_sdk_exchanges_refreshes_and_uses_only_bearer(
     monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "secret-other-bearer")
     monkeypatch.setenv("OPENAI_BASE_URL", "https://untrusted.invalid")
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://untrusted.invalid")
+    monkeypatch.delenv("OPENAI_CUSTOM_HEADERS", raising=False)
     monkeypatch.delenv("ANTHROPIC_CUSTOM_HEADERS", raising=False)
     auth = select_provider_authentication(provider, values)
     requests: list[httpx2.Request] = []
@@ -118,6 +119,20 @@ def test_sdk_exchanges_refreshes_and_uses_only_bearer(
     monkeypatch.setattr(httpx.Client, "get", github_get)
     monkeypatch.setattr(httpx2.Client, "post", exchange)
     monkeypatch.setattr(httpx2.AsyncClient, "_send_single_request", send)
+
+    # The SDK reads custom headers during construction, separately from its
+    # credential options. Even an override introduced after selection must be
+    # rejected before it can suppress token exchange and send a static bearer.
+    header_variable = f"{provider.upper()}_CUSTOM_HEADERS"
+    monkeypatch.setenv(header_variable, "Authorization: Bearer secret-header-override")
+    with pytest.raises(RunValidationError) as refused:
+        if provider == "openai":
+            auth.openai_client()
+        else:
+            auth.anthropic_client()
+    assert "secret-" not in "".join(traceback.format_exception(refused.value))
+    assert requests == exchanges == assertions == []
+    monkeypatch.delenv(header_variable)
 
     async def run() -> None:
         if provider == "openai":
@@ -227,12 +242,25 @@ def test_rejects_non_github_identity_endpoint(endpoint: str) -> None:
         select_provider_authentication("openai", values)
 
 
-def test_anthropic_rejects_ambient_custom_auth_headers(
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+@pytest.mark.parametrize("source", ["supplied", "ambient"])
+def test_workload_identity_rejects_custom_auth_headers(
     monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    source: str,
 ) -> None:
-    monkeypatch.setenv("ANTHROPIC_CUSTOM_HEADERS", "x-api-key: secret-shadow")
-    with pytest.raises(RunValidationError, match="custom Anthropic headers"):
-        select_provider_authentication("anthropic", _environment("anthropic"))
+    values = _environment(provider)
+    header_variable = f"{provider.upper()}_CUSTOM_HEADERS"
+    monkeypatch.delenv(header_variable, raising=False)
+    if source == "supplied":
+        values[header_variable] = "Authorization: Bearer secret-header-override"
+    else:
+        monkeypatch.setenv(
+            header_variable, "Authorization: Bearer secret-header-override"
+        )
+    with pytest.raises(RunValidationError, match=r"custom .* headers") as refused:
+        select_provider_authentication(provider, values)
+    assert "secret-" not in "".join(traceback.format_exception(refused.value))
 
 
 @pytest.mark.parametrize(

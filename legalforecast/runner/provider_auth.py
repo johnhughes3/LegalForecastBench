@@ -100,6 +100,7 @@ class ProviderAuthentication:
         """Create a native SDK client whose explicit WIF overrides ambient keys."""
         if self.provider != "openai" or self.mode != "workload_identity":
             raise RunValidationError("OpenAI workload identity mode is required")
+        _reject_custom_headers(self.provider, {})
         return AsyncOpenAI(
             workload_identity={
                 "identity_provider_id": self.identity_provider_id,
@@ -117,6 +118,7 @@ class ProviderAuthentication:
 
         if self.provider != "anthropic" or self.mode != "workload_identity":
             raise RunValidationError("Anthropic workload identity mode is required")
+        _reject_custom_headers(self.provider, {})
 
         class CheckedCredentials(WorkloadIdentityCredentials):
             def __call__(self, *, force_refresh: bool = False) -> AccessToken:
@@ -156,6 +158,14 @@ def _required(values: Mapping[str, str], name: str) -> str:
     return value
 
 
+def _reject_custom_headers(provider: str, environ: Mapping[str, str]) -> None:
+    # Both SDKs merge ambient custom headers independently of their explicit
+    # credentials. An Authorization override can bypass WIF token exchange.
+    variable = f"{provider.upper()}_CUSTOM_HEADERS"
+    if environ.get(variable) or os.environ.get(variable):
+        raise RunValidationError(f"custom {provider} headers are incompatible with WIF")
+
+
 def authentication_provenance(value: object, *, provider: str) -> dict[str, str] | None:
     """Validate persisted provenance against the finite credential-free vocabulary."""
     if value is None:
@@ -188,13 +198,7 @@ def select_provider_authentication(
         )
     if mode != "workload_identity" or provider not in {"openai", "anthropic"}:
         raise RunValidationError("unsupported provider authentication mode")
-    # Anthropic accepts ambient custom headers separately from credentials.
-    # Reject that override rather than permit it to smuggle a static key.
-    if provider == "anthropic" and (
-        environ.get("ANTHROPIC_CUSTOM_HEADERS")
-        or os.environ.get("ANTHROPIC_CUSTOM_HEADERS")
-    ):
-        raise RunValidationError("custom Anthropic headers are incompatible with WIF")
+    _reject_custom_headers(provider, environ)
     request_url = _required(environ, "ACTIONS_ID_TOKEN_REQUEST_URL")
     try:
         parts = urlsplit(request_url)
