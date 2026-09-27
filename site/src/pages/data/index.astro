@@ -1,4 +1,5 @@
 ---
+import CiteBox from "../../components/CiteBox.astro";
 import { comparison } from "../../data/comparison";
 import { recentResults } from "../../data/recent-results";
 import { snapshot } from "../../data/results";
@@ -34,6 +35,8 @@ const { provenance, cohort } = snapshot;
 			</dl>
 			<a class="mt-6 inline-flex text-sm text-accent hover:underline" href="/data/beta-run-mechanics/">Beta Run Mechanics →</a>
 		</div>
+
+		<CiteBox class="mt-6" />
 
 		<div class="prose-lfb prose mt-12 max-w-none">
 			<h2 id="supplementary">Summary-based and minimal-reasoning comparisons</h2>

@@ -28,7 +28,7 @@ const models = snapshot.models.filter((m) =>
 );
 ---
 
-<Layout title={entry.data.title} description={entry.data.summary}>
+<Layout title={entry.data.title} description={entry.data.summary} image={`/og/findings/${entry.id}.png`}>
 	<article class="mx-auto max-w-6xl px-4 pt-12 sm:px-6">
 		<a href="/findings/" class="text-sm text-ink-3 hover:text-ink">← Findings</a>
 		<header class="mt-8 max-w-3xl">
