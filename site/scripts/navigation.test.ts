@@ -4,6 +4,8 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import test from "node:test";
 import { chromium } from "playwright";
+import { formatPercent } from "../src/data/metrics";
+import { snapshot } from "../src/data/results";
 
 test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 	const root = resolve("dist");
@@ -108,6 +110,28 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 					assert.equal(
 						await page.locator("html").getAttribute("data-theme"),
 						colorScheme === "light" ? "dark" : "light",
+					);
+					await page.goto(`http://127.0.0.1:${address.port}/methods/`);
+					const dismissalRate = formatPercent(
+						snapshot.cohort.dismissed_unit_count / snapshot.cohort.unit_count,
+					);
+					const dismissalStat = page
+						.getByText("Units dismissed", { exact: true })
+						.locator("..");
+					assert.equal(
+						await dismissalStat.locator("p").first().textContent(),
+						dismissalRate,
+						`${context}: methods cohort rate matches the shared formatter`,
+					);
+					assert.equal(
+						await page
+							.getByText(
+								`Always forecast the cohort's dismissal rate (${dismissalRate})`,
+								{ exact: true },
+							)
+							.count(),
+						1,
+						`${context}: methods baseline uses the same rate`,
 					);
 					await page.close();
 				}
