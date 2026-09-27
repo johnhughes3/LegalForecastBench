@@ -861,8 +861,7 @@ def test_harvey_lab_git_probes_use_restricted_capability_environment(
     isolated_home = workspace / "private-logs" / "adapter-home"
     for value in git_environments:
         assert isinstance(value, dict)
-        environment = value
-        assert environment["HOME"] == str(isolated_home)
+        assert (environment := value)["HOME"] == str(isolated_home)
         assert "DECLARED_PROVIDER_VALUE" not in environment
         assert "UNDECLARED_HOST_SECRET" not in environment
         assert set(environment).issubset(
@@ -874,6 +873,7 @@ def test_harvey_lab_git_probes_use_restricted_capability_environment(
                 "XDG_CONFIG_HOME",
                 "XDG_DATA_HOME",
                 "XDG_STATE_HOME",
+                "PYTHON_DOTENV_DISABLED",
             }
         )
 

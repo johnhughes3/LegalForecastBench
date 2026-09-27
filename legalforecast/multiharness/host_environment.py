@@ -19,7 +19,11 @@ _MANAGED_RUNTIME_ENV_DIRS: Mapping[str, str] = {
     "XDG_STATE_HOME": "adapter-home/.local/state",
 }
 _RESERVED_RUNTIME_ENV_VARS = frozenset(
-    (*_PASSTHROUGH_RUNTIME_ENV_VARS, *_MANAGED_RUNTIME_ENV_DIRS)
+    (
+        *_PASSTHROUGH_RUNTIME_ENV_VARS,
+        *_MANAGED_RUNTIME_ENV_DIRS,
+        "PYTHON_DOTENV_DISABLED",
+    )
 )
 
 
@@ -137,6 +141,10 @@ def build_host_subprocess_environment(
         if name in os.environ
     }
     environment.update(provider_values)
+    # Magika (imported by the LAB document parser) calls load_dotenv at import
+    # time. An environment allowlist alone does not stop it discovering a
+    # parent's .env and restoring credentials outside the explicit grants.
+    environment["PYTHON_DOTENV_DISABLED"] = "1"
     for name, relative_path in _MANAGED_RUNTIME_ENV_DIRS.items():
         directory = _ensure_private_subdirectory(private_logs, relative_path)
         environment[name] = str(directory)

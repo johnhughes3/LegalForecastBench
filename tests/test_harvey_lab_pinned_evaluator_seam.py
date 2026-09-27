@@ -340,20 +340,20 @@ def test_pinned_harvey_lab_external_deliverable_probe(tmp_path: Path) -> None:
 
     root = Path(raw_root)
     _assert_pinned_checkout(root)
-    home = tmp_path / "home"
-    cache = tmp_path / "cache"
-    config = tmp_path / "config"
-    for path in (home, cache, config):
-        path.mkdir()
-    environment = {
-        "HOME": str(home),
-        "LC_ALL": "C.UTF-8",
-        "PATH": os.environ["PATH"],
-        "UV_CACHE_DIR": str(cache / "uv"),
-        "UV_LINK_MODE": "copy",
-        "XDG_CACHE_HOME": str(cache),
-        "XDG_CONFIG_HOME": str(config),
-    }
+    from legalforecast.multiharness.host_environment import (
+        build_host_subprocess_environment,
+    )
+
+    environment = build_host_subprocess_environment(tmp_path / "private")
+    environment.update(
+        {
+            "LC_ALL": "C.UTF-8",
+            "UV_CACHE_DIR": str(tmp_path / "cache" / "uv"),
+            "UV_LINK_MODE": "copy",
+            "UV_PROJECT_ENVIRONMENT": str(tmp_path / "upstream-venv"),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+    )
 
     result = subprocess.run(
         [
