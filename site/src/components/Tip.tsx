@@ -20,17 +20,9 @@ interface Props {
 	className?: string;
 }
 
-const SIDE = { top: "bottom-full mb-2", bottom: "top-full mt-2" };
-const ALIGN = {
-	center: "left-1/2 -translate-x-1/2",
-	start: "left-0",
-	end: "right-0",
-};
-
 /**
- * CSS-only tooltip: works on static pages and inside hydrated islands, opens
- * on hover and focus (a tap focuses it on touch screens), and is announced to
- * screen readers through aria-describedby.
+ * Shared document handlers serve static Astro roots and hydrated islands.
+ * Native popovers escape table overflow without moving React-owned DOM nodes.
  */
 export default function Tip({
 	tip,
@@ -42,12 +34,17 @@ export default function Tip({
 }: Props) {
 	const id = useId();
 	return (
-		<span className={`group/tip relative inline-flex ${className}`}>
+		<span
+			data-tip
+			data-side={side}
+			data-align={align}
+			className={`inline-flex ${className}`}
+		>
 			{focusable ? (
 				<button
 					type="button"
 					aria-describedby={id}
-					className="inline-flex cursor-help appearance-none rounded-full border-0 bg-transparent p-0 text-left font-[inherit] text-inherit outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+					className="inline-flex cursor-help appearance-none rounded-full border-0 bg-transparent p-0 text-left font-[inherit] text-inherit"
 				>
 					{children}
 				</button>
@@ -68,7 +65,8 @@ export default function Tip({
 			<span
 				role="tooltip"
 				id={id}
-				className={`pointer-events-none invisible absolute z-40 w-64 max-w-[80vw] rounded-lg border border-rule bg-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-ink-2 opacity-0 shadow-lg transition-opacity duration-150 group-focus-within/tip:visible [.tips-dismissed_&]:invisible! [.tips-dismissed_&]:opacity-0! group-focus-within/tip:opacity-100 group-hover/tip:visible group-hover/tip:opacity-100 ${SIDE[side]} ${ALIGN[align]}`}
+				popover="manual"
+				className="tip-content rounded-lg border border-rule bg-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-ink-2 shadow-lg"
 			>
 				{tip}
 			</span>

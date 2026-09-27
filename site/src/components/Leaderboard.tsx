@@ -234,7 +234,7 @@ export default function Leaderboard({
 					<tbody>
 						{rows.map((model, index) => {
 							const hc = model.high_confidence;
-							// Early rows open tooltips downward so the scroll container cannot clip them.
+							// Prefer below early rows; Tip handles viewport collisions.
 							const side = index < 3 ? "bottom" : "top";
 							const worse = sigWorse.get(model.slug);
 							return (

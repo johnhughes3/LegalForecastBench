@@ -137,3 +137,31 @@
 .prose-lfb :where(td, th) {
 	font-variant-numeric: tabular-nums;
 }
+
+/* Top-layer positioning avoids clipping in horizontally scrolling tables.
+ * No animation: reduced-motion readers get the same immediate interaction. */
+.tip-content {
+	position: fixed;
+	inset: auto;
+	margin: 0;
+	width: 16rem;
+	max-width: calc(100vw - 16px);
+	max-height: calc(100dvh - 16px);
+	overflow: auto;
+}
+
+[data-tip] > button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 3px;
+}
+
+@media (forced-colors: active) {
+	.tip-content {
+		background: Canvas;
+		color: CanvasText;
+		border-color: CanvasText;
+	}
+	[data-tip] > button:focus-visible {
+		outline-color: Highlight;
+	}
+}
