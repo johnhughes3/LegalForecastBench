@@ -100,3 +100,9 @@ The Run Benchmark workflow retains these files in its per-case state artifacts a
 
 The public release commands validate already-issued artifacts; private corpus
 construction and source-document acquisition remain in LegalForecastCorpus.
+
+## Retained workflow artifacts
+
+The manually dispatched `archive-github-artifacts.yaml` workflow preserves all GitHub artifact types available in this repository when its inventory is taken, including failed-run checkpoints and scoring reports. It copies original ZIPs without extracting or executing them to the configured results bucket under `reports/github-artifacts/multi-ablation/<owner>/<repository>/artifacts/<artifact-id>.zip`. Artifact IDs distinguish runs and artifacts with identical names. This archive is separate from canonical cycle reports and does not designate a run as a published benchmark result.
+
+Each archive invocation saves the source inventory and a result index under the same prefix's `runs/` directory. Those indexes map original names and source run IDs to durable objects and identify any failed copies. An artifact that expires or becomes unavailable after inventory is reported as a failed copy; artifacts already expired at inventory are counted separately. Artifacts created after inventory require a later invocation. Reruns preserve existing matching objects and refuse conflicting bytes. The workflow uses the existing protected publication environment; it does not make model calls or change provider spending authority.
