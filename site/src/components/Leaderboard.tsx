@@ -167,7 +167,66 @@ export default function Leaderboard({
 
 	return (
 		<div className="not-serif card overflow-hidden">
-			<div className="overflow-x-auto">
+			{/* Phones: one card per model; the full table is available from md up. */}
+			<div className="md:hidden">
+				<div className="flex items-center justify-between gap-3 border-b border-rule px-4 py-3 text-xs text-ink-3">
+					<label htmlFor="lb-sort">Sort by</label>
+					<select
+						id="lb-sort"
+						value={sort.key}
+						onChange={(event) => {
+							const column = COLUMNS.find((c) => c.key === event.target.value);
+							if (column)
+								setSort({ key: column.key, asc: column.lowerIsBetter });
+						}}
+						className="rounded-full border border-rule-strong bg-surface px-3 py-1.5 text-sm text-ink"
+					>
+						{COLUMNS.map((column) => (
+							<option key={column.key} value={column.key}>
+								{column.label}
+							</option>
+						))}
+					</select>
+				</div>
+				<ol className="divide-y divide-rule">
+					{rows.map((model) => (
+						<li key={model.slug} className="flex gap-3 px-4 py-3.5">
+							<span className="w-6 shrink-0 pt-0.5 text-sm text-ink-3 tabular">
+								{microRank.get(model.slug)}
+							</span>
+							<div className="min-w-0 flex-1">
+								<div className="flex items-baseline justify-between gap-3">
+									<a
+										href={`/models/${model.slug}/`}
+										className="truncate font-semibold text-ink hover:underline"
+									>
+										{model.display_name}
+									</a>
+									<span className="font-medium text-ink tabular">
+										{METRICS.micro_brier.format(model.micro_brier)}
+									</span>
+								</div>
+								<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
+									<span>{model.provider}</span>
+									<span className="tabular">
+										{formatPercent(metricValue(model, "accuracy", n))} accurate
+									</span>
+									<span className="tabular">{formatUsd(model.cost.usd)}</span>
+									{frontier.has(model.slug) && (
+										<span className="text-series-1">◆ Frontier</span>
+									)}
+									<EligibilityBadge
+										eligibility={model.eligibility}
+										reason={model.eligibility_reason}
+										align="end"
+									/>
+								</div>
+							</div>
+						</li>
+					))}
+				</ol>
+			</div>
+			<div className="hidden overflow-x-auto md:block">
 				<table className="w-full min-w-[760px] border-collapse text-sm">
 					<caption className="sr-only">
 						{snapshot.title}: {snapshot.models.length} models on{" "}

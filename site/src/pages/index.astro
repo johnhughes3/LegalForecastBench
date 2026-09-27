@@ -74,6 +74,10 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 			<p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink-2">
 				LegalForecastBench gives models the written record a judge received and asks for the probability that each challenged claim will be fully dismissed. Every forecast is scored against what the court actually did.
 			</p>
+			<div class="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium">
+				<a class="text-accent hover:underline" href="#leaderboard">See the leaderboard ↓</a>
+				<a class="text-accent hover:underline" href="/approach/">Why outcomes, not rubrics →</a>
+			</div>
 			<div class="mt-12 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
 				<Stat value={String(cohort.case_count)} label="Federal cases" detail={`Decided ${window}`} />
 				<Stat value={String(cohort.unit_count)} label="Scored units" detail="Claim × defendant predictions" />
@@ -115,7 +119,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 				<p class="eyebrow">Leaderboard</p>
 				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Forecast quality by model</h2>
 			</div>
-			<p class="max-w-md text-sm text-ink-3">Ranked by micro Brier, the headline metric. Lower is better. Click any column to re-sort.</p>
+			<p class="max-w-md text-sm text-ink-3">Ranked by micro Brier, the headline metric. Lower is better. <span class="hidden md:inline">Click any column to re-sort.</span></p>
 		</div>
 		<Leaderboard client:load snapshot={primarySnapshot} />
 	</section>
@@ -192,6 +196,13 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 				</div>
 			))}
 		</div>
-		<a href="/methods/" class="mt-6 inline-flex text-sm font-medium text-accent hover:underline">Full methods →</a>
+		<div class="mt-6 grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+			<a href="/approach/" class="group card flex flex-col gap-1 p-5 transition hover:border-accent/40">
+				<span class="eyebrow">Approach</span>
+				<span class="font-serif text-xl font-semibold tracking-tight group-hover:text-accent">Why grade against what courts decide, not a rubric?</span>
+				<span class="text-sm text-ink-2">Public litigation makes part of law checkable. Read the case for outcome-based evaluation →</span>
+			</a>
+			<a href="/methods/" class="inline-flex text-sm font-medium text-accent hover:underline md:px-4">Full methods →</a>
+		</div>
 	</section>
 </Layout>
