@@ -78,6 +78,8 @@ _ALLOWED_CLAUDE_REQUEST_FIELDS: Final[frozenset[str]] = frozenset(
         "context_management",
         "output_config",
         "stream",
+        "tool_choice",
+        "temperature",
     }
 )
 _PRICED_ROUTING_FIELDS: Final[frozenset[str]] = frozenset(
@@ -98,6 +100,7 @@ _ALLOWED_ANTHROPIC_BETA_VALUES: Final[frozenset[str]] = frozenset(
     {
         "claude-code-20250219",
         "interleaved-thinking-2025-05-14",
+        "fine-grained-tool-streaming-2025-05-14",
         "thinking-token-count-2026-05-13",
         "context-management-2025-06-27",
         "prompt-caching-scope-2026-01-05",
@@ -576,6 +579,17 @@ def _validate_request_fields(payload: Mapping[str, object]) -> None:
     unknown_fields = set(payload) - _ALLOWED_CLAUDE_REQUEST_FIELDS
     if unknown_fields:
         raise ModelGatewayError("request contains unsupported fields")
+    if "tool_choice" in payload and payload["tool_choice"] != {"type": "auto"}:
+        raise ModelGatewayError("only automatic local tool selection is supported")
+    if "temperature" in payload:
+        thinking = payload.get("thinking")
+        if (
+            payload["temperature"] != 1
+            or isinstance(payload["temperature"], bool)
+            or not isinstance(thinking, dict)
+            or cast(dict[str, object], thinking).get("type") != "enabled"
+        ):
+            raise ModelGatewayError("temperature is supported only for manual thinking")
     _validate_nested_request_values(payload)
 
 

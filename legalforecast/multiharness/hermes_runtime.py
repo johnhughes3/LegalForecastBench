@@ -147,11 +147,26 @@ def execute(
         },
         handler=read_task,
     )
+    gateway = config.get("gateway")
+    gateway = cast(dict[str, object], gateway) if isinstance(gateway, dict) else None
+    route: dict[str, object] = (
+        {
+            "provider": "anthropic",
+            "api_key": gateway["capability_token"],
+            "base_url": gateway["base_url"],
+            "max_tokens": gateway["max_output_tokens"],
+            "reasoning_config": gateway["reasoning_config"],
+        }
+        if gateway is not None
+        else {
+            "provider": "openrouter",
+            "api_key": os.environ["OPENROUTER_API_KEY"],
+            "base_url": "https://openrouter.ai/api/v1",
+        }
+    )
     agent = factory(
         model=config["model"],
-        provider="openrouter",
-        api_key=os.environ["OPENROUTER_API_KEY"],
-        base_url="https://openrouter.ai/api/v1",
+        **route,
         enabled_toolsets=["legalforecast"],
         max_iterations=200,
         run_budget_seconds=180,
@@ -203,6 +218,11 @@ def main() -> int:
     sys.path.insert(0, str(config["checkout"]))
     if importlib.metadata.version("hermes-agent") != "0.21.5":
         raise ValueError("installed Hermes version does not match the pin")
+    if config.get("gateway") is not None and (
+        platform.python_version() != "3.13.15"
+        or importlib.metadata.version("anthropic") != "0.87.0"
+    ):
+        raise ValueError("protected Hermes runtime does not match the pin")
     protocol_out = sys.stdout
     with contextlib.redirect_stdout(sys.stderr):
         factory = cast(

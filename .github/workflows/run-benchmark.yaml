@@ -42,8 +42,9 @@ on:
         options:
           - native
           - claude-code-terminal
+          - hermes-agent
       terminal_case_id:
-        description: Optional exact case ID for a scoped Claude Code smoke run; empty runs the full release.
+        description: Optional exact case ID for a scoped release-harness smoke; empty runs the full release.
         required: false
         default: ""
         type: string
@@ -165,8 +166,8 @@ jobs:
           RESUME_SOURCES: ${{ inputs.resume_sources }}
         run: |
           set -euo pipefail
-          if [[ -n "${TERMINAL_CASE_ID}" && "${EXECUTION_MODE}" != "claude-code-terminal" ]]; then
-            echo "terminal_case_id requires claude-code-terminal execution mode" >&2
+          if [[ -n "${TERMINAL_CASE_ID}" && "${EXECUTION_MODE}" != "claude-code-terminal" && "${EXECUTION_MODE}" != "hermes-agent" ]]; then
+            echo "terminal_case_id requires a release-harness execution mode" >&2
             exit 1
           fi
           for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
@@ -596,8 +597,8 @@ jobs:
           retention-days: ${{ inputs.artifact_retention_days }}
 
   run-terminal:
-    name: Claude Code terminal forecast release
-    if: ${{ inputs.execution_mode == 'claude-code-terminal' && startsWith(inputs.model_key, 'anthropic:') && needs.prepare-inputs.result == 'success' }}
+    name: Protected harness forecast release
+    if: ${{ (inputs.execution_mode == 'claude-code-terminal' || inputs.execution_mode == 'hermes-agent') && startsWith(inputs.model_key, 'anthropic:') && needs.prepare-inputs.result == 'success' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 240
@@ -633,6 +634,18 @@ jobs:
           enable-cache: true
       - name: Install locked project environment
         run: uv sync --locked
+      - name: Checkout pinned Hermes runtime
+        if: ${{ inputs.execution_mode == 'hermes-agent' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: NousResearch/hermes-agent
+          ref: f97608f178d1ffeca59860195ab7da295f7c8e5f
+          path: hermes-runtime
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install locked Hermes Anthropic runtime
+        if: ${{ inputs.execution_mode == 'hermes-agent' }}
+        run: uv sync --project hermes-runtime --locked --python 3.13.15 --extra anthropic
       - name: Configure shared provider spend authority access
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -648,6 +661,7 @@ jobs:
         shell: bash
         run: .github/scripts/setup-rootless-docker.sh
       - name: Build pinned Claude Code and gateway images
+        if: ${{ inputs.execution_mode == 'claude-code-terminal' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -659,6 +673,15 @@ jobs:
           [[ "${gateway_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "LFB_CLAUDE_IMAGE=${claude_image_id}" >> "${GITHUB_ENV}"
           echo "LFB_GATEWAY_IMAGE=${gateway_image_id}" >> "${GITHUB_ENV}"
+      - name: Build pinned canonical task worker
+        if: ${{ inputs.execution_mode == 'hermes-agent' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull=false -f infra/task-worker-runtime/Containerfile -t lfb-task-worker:release .
+          task_image_id="$(docker image inspect --format '{{.Id}}' lfb-task-worker:release)"
+          [[ "${task_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "LFB_CLAUDE_IMAGE=${task_image_id}" >> "${GITHUB_ENV}"
       - name: Derive approved provider budget
         shell: bash
         env:
@@ -693,17 +716,23 @@ jobs:
             --ceiling-microusd "${CEILING_MICROUSD}" \
             --account "${ACCOUNT}" \
             --output /tmp/lfb-terminal-paid/paid-gateway.json
-      - name: Execute scoreless Claude Code release
+      - name: Execute scoreless protected harness release
         shell: bash
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MODEL_KEY: ${{ inputs.model_key }}
           TERMINAL_CASE_ID: ${{ inputs.terminal_case_id }}
+          EXECUTION_MODE: ${{ inputs.execution_mode }}
         run: |
           set -euo pipefail
           case_args=()
           if [[ -n "${TERMINAL_CASE_ID}" ]]; then
             case_args+=(--case-id "${TERMINAL_CASE_ID}")
+          fi
+          if [[ "${EXECUTION_MODE}" = "hermes-agent" ]]; then
+            case_args+=(--harness hermes-agent --hermes-checkout "${GITHUB_WORKSPACE}/hermes-runtime")
+          else
+            case_args+=(--gateway-image "${LFB_GATEWAY_IMAGE}")
           fi
           uv run legalforecast multiharness release-execute "${case_args[@]}" \
             --forecast-release /tmp/lfb-terminal-inputs/forecast-release.json \
@@ -716,9 +745,8 @@ jobs:
             --paid-config /tmp/lfb-terminal-paid/paid-gateway.json \
             --model-registry /tmp/lfb-terminal-inputs/model-registry.json \
             --gateway-upstream-base-url https://api.anthropic.com:443 \
-            --gateway-image "${LFB_GATEWAY_IMAGE}" \
             --timeout-seconds 900 \
-            --run-id "claude-code-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            --run-id "${EXECUTION_MODE}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
       - name: Preserve locked scoreless package inputs
         if: ${{ always() }}
         shell: bash

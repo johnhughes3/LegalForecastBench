@@ -4508,6 +4508,28 @@
         },
         {
           "action": "store",
+          "choices": ["claude-code", "hermes-agent"],
+          "default": "claude-code",
+          "dest": "harness",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": ["--harness"],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "hermes_checkout",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": ["--hermes-checkout"],
+          "required": false,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
           "choices": null,
           "default": null,
           "dest": "forecast_release",
@@ -4790,6 +4812,28 @@
           ],
           "required": false,
           "type": null
+        },
+        {
+          "action": "store",
+          "choices": ["claude-code", "hermes-agent"],
+          "default": "claude-code",
+          "dest": "harness",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": ["--harness"],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "hermes_checkout",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": ["--hermes-checkout"],
+          "required": false,
+          "type": "pathlib.Path"
         },
         {
           "action": "store",

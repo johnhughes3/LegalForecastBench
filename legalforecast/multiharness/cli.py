@@ -924,29 +924,11 @@ def _build_terminal_release_adapter(
     *,
     case_count: int,
 ) -> Any:
-    from legalforecast.multiharness.claude_code_container import (
-        OUTER_CONTAINER_ONLY_MODE,
-        build_claude_code_container_adapter,
+    from legalforecast.multiharness.terminal_release import (
+        build_terminal_release_adapter,
     )
 
-    return build_claude_code_container_adapter(
-        image_digest=options.image,
-        auth_profile=options.auth_profile,
-        model_key=options.model_key,
-        max_budget_usd=options.max_budget_usd,
-        approval_reference=options.approval_reference,
-        output_root=options.output_dir.resolve() / "container-runs",
-        backend=options.backend,
-        timeout_seconds=options.timeout_seconds,
-        fixture_base_url=options.fixture_base_url,
-        fixture_egress_network=options.fixture_egress_network,
-        execution_mode=OUTER_CONTAINER_ONLY_MODE,
-        case_count=case_count,
-        paid_config_path=options.paid_config_path,
-        model_registry_path=options.model_registry_path,
-        gateway_upstream_base_url=options.gateway_upstream_base_url,
-        gateway_image_digest=options.gateway_image_digest,
-    )
+    return build_terminal_release_adapter(options, case_count=case_count)
 
 
 def _cmd_run_guarded(args: argparse.Namespace) -> int:

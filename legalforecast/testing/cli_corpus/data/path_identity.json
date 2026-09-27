@@ -26,6 +26,12 @@
     "legalforecast/multiharness/tier0_production_factory.py": [
       "anthropic"
     ],
+    "tests/hermes_anthropic_probe.py": [
+      "httpx",
+      "requests",
+      "run_agent",
+      "tools.registry"
+    ],
     "tests/hermes_upstream_probe.py": [
       "httpx",
       "openai.resources.chat.completions",
@@ -57,6 +63,7 @@
     "legalforecast/multiharness/container_harness/model_gateway.py",
     "legalforecast/multiharness/contributor_boundary.py",
     "legalforecast/multiharness/hermes_agent.py",
+    "legalforecast/multiharness/hermes_paid.py",
     "legalforecast/multiharness/local_cli_runtime.py",
     "legalforecast/multiharness/native_cli_preflight.py",
     "legalforecast/multiharness/openai_responses.py",
@@ -100,6 +107,7 @@
     "tests/test_harvey_lab_output_discovery.py",
     "tests/test_harvey_lab_pinned_evaluator_seam.py",
     "tests/test_harvey_lab_projection.py",
+    "tests/test_hermes_paid.py",
     "tests/test_integrated_fixture_pipeline.py",
     "tests/test_jev_workflow.py",
     "tests/test_jev_workflow_failures.py",
