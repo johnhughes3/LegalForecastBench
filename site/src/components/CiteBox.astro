@@ -1,0 +1,71 @@
+---
+// Citation text is derived from the repository's CITATION.cff at build time.
+import cff from "../../../CITATION.cff?raw";
+import { parseCitation, toApa, toBibtex } from "../data/citation";
+
+interface Props {
+	class?: string;
+}
+
+const { class: className } = Astro.props;
+const citation = parseCitation(cff);
+const formats = [
+	{ id: "bibtex", label: "BibTeX", text: toBibtex(citation), mono: true },
+	{ id: "apa", label: "APA", text: toApa(citation), mono: false },
+];
+---
+
+<section class:list={["card p-6", className]} aria-labelledby="cite-heading" data-cite-box>
+	<h2 id="cite-heading" class="font-serif text-xl font-semibold">Cite this benchmark</h2>
+	<p class="mt-1 text-sm text-ink-3">From the repository's <a class="text-accent hover:underline" href="https://github.com/johnhughes3/LegalForecastBench/blob/main/CITATION.cff">CITATION.cff</a>.</p>
+	<div class="mt-5 space-y-5">
+		{formats.map((f) => (
+			<div>
+				<div class="flex items-center justify-between gap-3">
+					<h3 class="text-sm font-medium text-ink-2" id={`cite-${f.id}-label`}>{f.label}</h3>
+					<button
+						type="button"
+						hidden
+						data-copy-target={`cite-${f.id}`}
+						class="rounded-full border border-rule-strong px-3 py-1 text-xs font-medium text-ink hover:border-ink"
+						aria-describedby={`cite-${f.id}-label`}
+					>
+						Copy
+					</button>
+				</div>
+				{f.mono ? (
+					<pre id={`cite-${f.id}`} class="mt-2 overflow-x-auto rounded-lg bg-surface-2 p-4 font-mono text-[13px] leading-relaxed text-ink" tabindex="0" aria-labelledby={`cite-${f.id}-label`}>{f.text}</pre>
+				) : (
+					<p id={`cite-${f.id}`} class="mt-2 rounded-lg bg-surface-2 p-4 text-sm leading-relaxed break-words text-ink">{f.text}</p>
+				)}
+			</div>
+		))}
+	</div>
+	<p class="sr-only" role="status" aria-live="polite" data-copy-status></p>
+</section>
+
+<script>
+	// Copy buttons stay hidden without JavaScript or clipboard access; the text itself remains selectable.
+	for (const box of document.querySelectorAll<HTMLElement>("[data-cite-box]")) {
+		const status = box.querySelector<HTMLElement>("[data-copy-status]");
+		for (const button of box.querySelectorAll<HTMLButtonElement>("[data-copy-target]")) {
+			if (!navigator.clipboard) continue;
+			button.hidden = false;
+			button.addEventListener("click", async () => {
+				const target = document.getElementById(button.dataset.copyTarget ?? "");
+				if (!target) return;
+				try {
+					await navigator.clipboard.writeText(target.textContent ?? "");
+					button.textContent = "Copied";
+					if (status) status.textContent = "Citation copied to clipboard.";
+				} catch {
+					button.textContent = "Copy failed";
+					if (status) status.textContent = "Copy failed. Select the text to copy it.";
+				}
+				setTimeout(() => {
+					button.textContent = "Copy";
+				}, 2000);
+			});
+		}
+	}
+</script>

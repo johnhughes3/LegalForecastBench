@@ -8,3 +8,5 @@ authors:
   - family-names: "Hughes"
     given-names: "John J."
     name-suffix: "III"
+url: "https://www.legalforecastbench.org"
+repository-code: "https://github.com/johnhughes3/LegalForecastBench"
