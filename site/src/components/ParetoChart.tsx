@@ -145,7 +145,9 @@ export default function ParetoChart({
 				: null;
 
 	const layout = useMemo(() => {
-		const priced = snapshot.models.filter((model) => model.cost.usd !== null);
+		const priced = snapshot.models.filter(
+			(model) => model.cost.usd !== null && model.slug !== "gpt-4-1",
+		);
 		const costs = priced.map((model) => model.cost.usd as number);
 		const x0 = Math.log10(Math.min(...costs) * 0.6);
 		const x1 = Math.log10(Math.max(...costs) * 1.7);
@@ -161,7 +163,9 @@ export default function ParetoChart({
 			spec.direction === "lower"
 				? m.top + ((v - lo) / (hi - lo)) * plotH
 				: m.top + ((hi - v) / (hi - lo)) * plotH;
-		const frontier = paretoFrontier(snapshot, metric);
+		const frontier = paretoFrontier(snapshot, metric).filter(
+			(model) => model.slug !== "gpt-4-1",
+		);
 		const frontierSlugs = new Set(frontier.map((f) => f.slug));
 		const frontierPath = frontier.map((f) => ({
 			x: sx(f.cost.usd as number),
@@ -481,6 +485,9 @@ export default function ParetoChart({
 					Other models
 				</span>
 				{narrow && <span>Tap a point to identify it.</span>}
+				{snapshot.models.some((model) => model.slug === "gpt-4-1") && (
+					<span>GPT-4.1 omitted for scale; see the results table.</span>
+				)}
 				{excluded.length > 0 && (
 					<span>
 						Omitted without cost:{" "}
