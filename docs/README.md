@@ -115,6 +115,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 ### Adapter tracks
 
 - [provider-baselines.md](adapters/provider-baselines.md): provider/runtime reference points and the publication terms they rest on.
+- [hermes-agent.md](adapters/hermes-agent.md): pinned Hermes bridge, isolated state, host-owned task tools, and offline verification.
 - [Local CLI adapter manifest](schemas/local-cli-adapter-manifest-v1.md): the current generic manifest contract for local agentic CLI adapters.
 
 ## Public Release Schema Reference

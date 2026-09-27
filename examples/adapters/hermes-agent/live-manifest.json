@@ -1,0 +1,13 @@
+{
+  "adapter_id": "hermes-agent",
+  "adapter_version": "1.0.0",
+  "command": [
+    "python",
+    "-m",
+    "legalforecast.multiharness.hermes_agent",
+    "--hermes-checkout",
+    "hermes-agent"
+  ],
+  "display_name": "Pinned Hermes Agent Community Bridge",
+  "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
+}
