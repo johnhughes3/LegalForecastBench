@@ -17,7 +17,6 @@ export interface SnapshotModel {
 	eligibility: Eligibility;
 	eligibility_reason: string;
 	github_run_id: string;
-	unit_data_retained: boolean;
 	micro_brier: number;
 	equal_case_brier: number;
 	correct: number;
@@ -42,7 +41,6 @@ export interface ResultsSnapshot {
 		release: string;
 		release_digest: string;
 		method: string;
-		unit_level_note: string;
 	};
 	cohort: {
 		case_count: number;
