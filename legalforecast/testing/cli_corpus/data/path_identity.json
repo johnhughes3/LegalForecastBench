@@ -136,6 +136,7 @@
     "tests/test_readme_landing.py",
     "tests/test_recovery_artifact_loader.py",
     "tests/test_release_check.py",
+    "tests/test_reproduce_summary_comparisons.py",
     "tests/test_scripts_docs.py",
     "tests/test_site_export.py",
     "tests/test_site_workflows.py",
