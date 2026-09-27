@@ -8,6 +8,7 @@ import pytest
 from legalforecast.evals.output_parser import parse_model_output, public_parser_record
 from legalforecast.evals.rationale_audit import build_rationale_audit, main
 from legalforecast.runner.ledger import RunnerLedger
+from legalforecast.runner.managed_execution import ForecastEnvelope, ForecastPrediction
 
 
 def _record() -> dict[str, object]:
@@ -48,9 +49,13 @@ def test_export_retains_rationales_and_blinds_metadata() -> None:
         "with_rationale": 1,
         "missing_rationale": 1,
         "defaulted_predictions": 0,
+        "case_record_count": 1,
+        "with_case_assessment": 0,
+        "missing_case_assessment": 1,
     }
     assert all(
-        set(row) == {"review_id", "case_id", "unit_id", "rationale", "defaulted"}
+        set(row)
+        == {"review_id", "case_id", "unit_id", "scope", "rationale", "defaulted"}
         for row in rows.values()
     )
     assert {row["review_id"] for row in result["private_key"]} == {
@@ -68,6 +73,7 @@ def test_public_receipts_explicitly_report_missing_prose() -> None:
     result = build_rationale_audit([record])
     assert result["coverage"]["missing_rationale"] == 2
     assert all(row["rationale"] is None for row in result["review_rows"])
+    assert result["coverage"]["with_case_assessment"] == 0
 
 
 def test_invalid_predictions_remain_in_denominator() -> None:
@@ -112,7 +118,14 @@ def test_native_ledger_export_uses_completed_saved_responses(tmp_path: Path) -> 
     with RunnerLedger(ledger_path):
         pass
     source = _record()
-    raw = str(source["raw_output"])
+    envelope = ForecastEnvelope(
+        case_assessment="The complaint omits an element only for the first claim.",
+        predictions=(
+            ForecastPrediction(unit_id="unit-a", probability_fully_dismissed=0.7),
+            ForecastPrediction(unit_id="unit-b", probability_fully_dismissed=0.2),
+        ),
+    )
+    raw = envelope.model_dump_json()
     receipt = {
         "case_id": source["case_id"],
         "model_key": source["solver_id"],
@@ -158,9 +171,28 @@ def test_native_ledger_export_uses_completed_saved_responses(tmp_path: Path) -> 
     assert ledger_path.read_bytes() == before
     coverage = json.loads((output / "coverage.json").read_text())
     assert coverage["prediction_count"] == 2
-    assert coverage["with_rationale"] == 1
+    assert coverage["with_rationale"] == 0
+    assert coverage["missing_rationale"] == 2
+    assert coverage["with_case_assessment"] == 1
+    assert coverage["missing_case_assessment"] == 0
     rows = (output / "review.jsonl").read_text()
-    assert "required element" in rows
+    decoded_rows = [json.loads(line) for line in rows.splitlines()]
+    case_rows = [row for row in decoded_rows if row["scope"] == "case"]
+    unit_rows = [row for row in decoded_rows if row["scope"] == "unit"]
+    assert len(case_rows) == 1
+    assert case_rows[0]["unit_id"] is None
+    assert case_rows[0]["rationale"] == envelope.case_assessment
+    assert len(unit_rows) == 2
+    assert all(row["rationale"] is None for row in unit_rows)
+    assert {row["unit_id"] for row in unit_rows} == {"unit-a", "unit-b"}
+    keys = [
+        json.loads(line)
+        for line in (output / "private-key.jsonl").read_text().splitlines()
+    ]
+    case_key = next(row for row in keys if row["scope"] == "case")
+    assert case_key["review_id"] == case_rows[0]["review_id"]
+    assert case_key["unit_id"] is None
+    assert case_key["probability_fully_dismissed"] is None
     assert "synthetic:model-a" not in rows
 
 

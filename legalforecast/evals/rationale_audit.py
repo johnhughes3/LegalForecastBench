@@ -33,7 +33,7 @@ class AuditExport(TypedDict):
 
 
 def build_rationale_audit(records: Sequence[Mapping[str, object]]) -> AuditExport:
-    """Preserve every required unit, including missing and invalid responses.
+    """Preserve unit rationales and separately scoped case assessments.
 
     IDs and order are randomized so input/model ordering is not a blinding cue.
     Prose is untouched: stylistic or explicit self-identification still requires
@@ -44,7 +44,7 @@ def build_rationale_audit(records: Sequence[Mapping[str, object]]) -> AuditExpor
     rows: list[dict[str, object]] = []
     key: list[dict[str, object]] = []
     seen: set[tuple[str, str, str, str, int]] = set()
-    missing = defaulted = 0
+    missing = defaulted = prediction_count = case_assessments = 0
     for source_index, record in enumerate(records, start=1):
         identity = {
             "case_id": _required_text(record, "case_id"),
@@ -94,6 +94,31 @@ def build_rationale_audit(records: Sequence[Mapping[str, object]]) -> AuditExpor
                 raise ValueError("parser_output required_unit_ids do not match")
         else:
             raise ValueError("raw_output or public parser_output is required")
+        if parsed.case_assessment is not None:
+            review_id = str(uuid4())
+            rows.append(
+                {
+                    "review_id": review_id,
+                    "case_id": identity["case_id"],
+                    "unit_id": None,
+                    "scope": "case",
+                    "rationale": parsed.case_assessment,
+                    "defaulted": None,
+                }
+            )
+            key.append(
+                {
+                    "review_id": review_id,
+                    **identity,
+                    "unit_id": None,
+                    "scope": "case",
+                    "repeat_index": repeat,
+                    "source_record": source_index,
+                    "probability_fully_dismissed": None,
+                    "parser_status": parsed.status.value,
+                }
+            )
+            case_assessments += 1
         for prediction in parsed.predictions:
             review_id = str(uuid4())
             rows.append(
@@ -101,6 +126,7 @@ def build_rationale_audit(records: Sequence[Mapping[str, object]]) -> AuditExpor
                     "review_id": review_id,
                     "case_id": identity["case_id"],
                     "unit_id": prediction.unit_id,
+                    "scope": "unit",
                     "rationale": prediction.rationale,
                     "defaulted": prediction.defaulted,
                 }
@@ -110,6 +136,7 @@ def build_rationale_audit(records: Sequence[Mapping[str, object]]) -> AuditExpor
                     "review_id": review_id,
                     **identity,
                     "unit_id": prediction.unit_id,
+                    "scope": "unit",
                     "repeat_index": repeat,
                     "source_record": source_index,
                     "probability_fully_dismissed": (
@@ -120,15 +147,19 @@ def build_rationale_audit(records: Sequence[Mapping[str, object]]) -> AuditExpor
             )
             missing += prediction.rationale is None
             defaulted += prediction.defaulted
+            prediction_count += 1
     random.SystemRandom().shuffle(rows)
     return {
         "review_rows": rows,
         "private_key": key,
         "coverage": {
-            "prediction_count": len(rows),
-            "with_rationale": len(rows) - missing,
+            "prediction_count": prediction_count,
+            "with_rationale": prediction_count - missing,
             "missing_rationale": missing,
             "defaulted_predictions": defaulted,
+            "case_record_count": len(records),
+            "with_case_assessment": case_assessments,
+            "missing_case_assessment": len(records) - case_assessments,
         },
     }
 
