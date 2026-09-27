@@ -16,7 +16,7 @@ jobs:
     name: Preserve available artifact ZIPs in S3
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 210
     environment: legalforecastbench-official-eval-fan-in
     permissions:
       actions: read
@@ -40,15 +40,10 @@ jobs:
       - name: Sync the locked Python environment
         run: uv sync --locked
 
-      - name: Assume protected artifact publication role
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lfb-artifact-archive-${{ github.run_id }}
-          role-to-assume: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
-          role-duration-seconds: 3600
-
-      - name: Archive every available artifact from this repository
+      - name: Download artifacts within the GitHub API quota
+        id: download
+        continue-on-error: true
+        timeout-minutes: 150
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_REPOSITORY: ${{ github.repository }}
@@ -61,7 +56,34 @@ jobs:
             --bucket "$LFB_RESULTS_BUCKET" \
             --archive-id "$ARCHIVE_ID" \
             --output-dir /tmp/lfb-artifact-archive-results \
-            --workers 4
+            --workers 4 --download-only
+
+      - name: Assume protected artifact publication role
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-artifact-archive-${{ github.run_id }}
+          role-to-assume: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+          role-duration-seconds: 3600
+
+      - name: Archive downloaded artifacts with fresh storage credentials
+        timeout-minutes: 45
+        env:
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          ARCHIVE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python -m legalforecast.artifact_archive \
+            --repository "$SOURCE_REPOSITORY" \
+            --bucket "$LFB_RESULTS_BUCKET" \
+            --archive-id "$ARCHIVE_ID" \
+            --output-dir /tmp/lfb-artifact-archive-results \
+            --workers 4 --upload-only
+
+      - name: Refuse successful completion after an interrupted download
+        if: ${{ !cancelled() && steps.download.outcome == 'failure' }}
+        run: exit 1
 
       - name: Retain the archive index for inspection
         if: ${{ always() }}

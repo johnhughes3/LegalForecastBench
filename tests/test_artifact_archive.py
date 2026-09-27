@@ -3,7 +3,7 @@
 import json
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from legalforecast import artifact_archive as archive
@@ -25,6 +25,10 @@ def _transport(
 
     def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         calls.append((argv, kwargs))
+        if "rate_limit" in argv:
+            return subprocess.CompletedProcess(
+                argv, 0, json.dumps({"remaining": 1000, "reset": 9999999999})
+            )
         if "--paginate" in argv:
             return subprocess.CompletedProcess(
                 argv,
@@ -132,6 +136,10 @@ def test_incomplete_or_unstable_census_is_rejected(
     monkeypatch: pytest.MonkeyPatch, pages: list[dict[str, object]], tmp_path: Path
 ) -> None:
     def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if "rate_limit" in argv:
+            return subprocess.CompletedProcess(
+                argv, 0, json.dumps({"remaining": 1000, "reset": 9999999999})
+            )
         return subprocess.CompletedProcess(argv, 0, json.dumps(pages))
 
     monkeypatch.setattr(archive.subprocess, "run", run)
@@ -160,3 +168,106 @@ def test_upload_failure_is_partial_and_snapshot_has_metadata(
     final = uploaded[prefix + "runs/123-3.json"]
     assert b"secret-signed-url" not in final
     assert json.loads(final)["copied_count"] == 1
+
+
+def test_split_phases_have_no_cross_service_calls(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls = _transport(monkeypatch)
+    assert (
+        archive.archive_artifacts(
+            "owner/repo", "test-bucket", "123-4", tmp_path, download_only=True
+        )
+        == 0
+    )
+    assert all(argv[0] == "gh" for argv, _ in calls)
+    calls.clear()
+    assert (
+        archive.archive_artifacts(
+            "owner/repo", "test-bucket", "123-4", tmp_path, upload_only=True
+        )
+        == 0
+    )
+    assert all(argv[0] == "bash" for argv, _ in calls)
+
+
+def test_upload_rejects_different_phase_identity(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls = _transport(monkeypatch)
+    archive.archive_artifacts(
+        "owner/repo", "test-bucket", "123-4", tmp_path, download_only=True
+    )
+    calls.clear()
+    with pytest.raises(ValueError, match="identity mismatch"):
+        archive.archive_artifacts(
+            "owner/other", "test-bucket", "123-4", tmp_path, upload_only=True
+        )
+    assert calls == []
+
+
+def test_quota_waits_until_reset_then_downloads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _transport(monkeypatch)
+    original_run = archive.subprocess.run
+    quotas = iter(
+        [
+            {"remaining": 1000, "reset": 200},
+            {"remaining": 10, "reset": 105},
+            {"remaining": 11, "reset": 200},
+            {"remaining": 100, "reset": 200},
+        ]
+    )
+    sleeps: list[float] = []
+
+    def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if "rate_limit" in argv:
+            return subprocess.CompletedProcess(argv, 0, json.dumps(next(quotas)))
+        return cast(subprocess.CompletedProcess[str], original_run(argv, **kwargs))
+
+    monkeypatch.setattr(archive.subprocess, "run", run)
+    monkeypatch.setattr(archive.time, "time", lambda: 100)
+    monkeypatch.setattr(archive.time, "monotonic", lambda: 100)
+    monkeypatch.setattr(archive.time, "sleep", sleeps.append)
+    assert (
+        archive.archive_artifacts(
+            "owner/repo", "test-bucket", "123-4", tmp_path, download_only=True
+        )
+        == 0
+    )
+    assert sleeps == [6]
+    assert (tmp_path / "1.zip").exists() and (tmp_path / "3.zip").exists()
+
+
+def test_invalid_reset_preserves_partial_state_for_upload(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _transport(monkeypatch)
+    original_run = archive.subprocess.run
+    quotas = iter([1000, 0])
+
+    def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if "rate_limit" in argv:
+            return subprocess.CompletedProcess(
+                argv, 0, json.dumps({"remaining": next(quotas), "reset": 10000})
+            )
+        return cast(subprocess.CompletedProcess[str], original_run(argv, **kwargs))
+
+    monkeypatch.setattr(archive.subprocess, "run", run)
+    monkeypatch.setattr(archive.time, "time", lambda: 100)
+    assert (
+        archive.archive_artifacts(
+            "owner/repo", "test-bucket", "123-4", tmp_path, download_only=True
+        )
+        == 1
+    )
+    assert (
+        archive.archive_artifacts(
+            "owner/repo", "test-bucket", "123-4", tmp_path, upload_only=True
+        )
+        == 1
+    )
+    index = json.loads((tmp_path / "archive-index.json").read_text())
+    assert index["failed_count"] == 2
+    assert index["copied_count"] == 0

@@ -23,5 +23,14 @@ def test_artifact_archive_is_manual_protected_and_provider_free() -> None:
     assert '--bucket "$LFB_RESULTS_BUCKET"' in workflow
     assert "legalforecast.artifact_archive" in workflow
     assert "role-duration-seconds: 3600" in workflow
-    assert "timeout-minutes: 55" in workflow
+    assert "timeout-minutes: 210" in workflow
+    assert "timeout-minutes: 150" in workflow
+    assert "timeout-minutes: 45" in workflow
+    assert workflow.index("--download-only") < workflow.index(
+        "configure-aws-credentials@"
+    )
+    assert workflow.index("configure-aws-credentials@") < workflow.index(
+        "--upload-only"
+    )
+    assert "steps.download.outcome == 'failure'" in workflow
     assert "if: ${{ always() }}" in workflow
