@@ -109,6 +109,22 @@ function BrierRail({
 	);
 }
 
+/** The value a phone card shows for the active sort column. */
+function activeValue(model: SnapshotModel, key: SortKey, n: number): string {
+	switch (key) {
+		case "micro_brier":
+			return METRICS.micro_brier.format(model.micro_brier);
+		case "equal_case_brier":
+			return METRICS.equal_case_brier.format(model.equal_case_brier);
+		case "accuracy":
+			return formatPercent(metricValue(model, "accuracy", n));
+		case "high_confidence":
+			return `${model.high_confidence.wrong} of ${model.high_confidence.count}`;
+		case "cost":
+			return formatUsd(model.cost.usd);
+	}
+}
+
 export default function Leaderboard({
 	snapshot,
 }: {
@@ -189,41 +205,49 @@ export default function Leaderboard({
 					</select>
 				</div>
 				<ol className="divide-y divide-rule">
-					{rows.map((model) => (
-						<li key={model.slug} className="flex gap-3 px-4 py-3.5">
-							<span className="w-6 shrink-0 pt-0.5 text-sm text-ink-3 tabular">
-								{microRank.get(model.slug)}
-							</span>
-							<div className="min-w-0 flex-1">
-								<div className="flex items-baseline justify-between gap-3">
+					{rows.map((model, index) => {
+						const active =
+							COLUMNS.find((c) => c.key === sort.key) ?? COLUMNS[0];
+						return (
+							<li key={model.slug} className="flex gap-3 px-4 py-3.5">
+								<span className="w-6 shrink-0 pt-0.5 text-sm text-ink-3 tabular">
+									{microRank.get(model.slug)}
+								</span>
+								<div className="min-w-0 flex-1">
 									<a
 										href={`/models/${model.slug}/`}
-										className="truncate font-semibold text-ink hover:underline"
+										className="block truncate font-semibold text-ink hover:underline"
 									>
 										{model.display_name}
 									</a>
-									<span className="font-medium text-ink tabular">
-										{METRICS.micro_brier.format(model.micro_brier)}
-									</span>
+									<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
+										<span>{model.provider}</span>
+										<span className="tabular">
+											Micro {METRICS.micro_brier.format(model.micro_brier)}
+										</span>
+										<span className="tabular">{formatUsd(model.cost.usd)}</span>
+										{frontier.has(model.slug) && (
+											<span className="text-series-1">◆ Frontier</span>
+										)}
+									</div>
 								</div>
-								<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
-									<span>{model.provider}</span>
-									<span className="tabular">
-										{formatPercent(metricValue(model, "accuracy", n))} accurate
+								<div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
+									<span className="font-medium text-ink tabular">
+										{activeValue(model, active?.key ?? "micro_brier", n)}
 									</span>
-									<span className="tabular">{formatUsd(model.cost.usd)}</span>
-									{frontier.has(model.slug) && (
-										<span className="text-series-1">◆ Frontier</span>
-									)}
+									<span className="text-[11px] text-ink-3">
+										{active?.label}
+									</span>
 									<EligibilityBadge
 										eligibility={model.eligibility}
 										reason={model.eligibility_reason}
+										side={index < 3 ? "bottom" : "top"}
 										align="end"
 									/>
 								</div>
-							</div>
-						</li>
-					))}
+							</li>
+						);
+					})}
 				</ol>
 			</div>
 			<div className="hidden overflow-x-auto md:block">
