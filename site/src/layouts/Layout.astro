@@ -69,6 +69,15 @@ const isActive = (href: string) =>
 					theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 				}
 				document.documentElement.dataset.theme = theme;
+				// Escape hides any open tooltip without moving focus (WCAG 1.4.13);
+				// the next pointer move or focus change shows tooltips again.
+				const root = document.documentElement;
+				addEventListener("keydown", (event) => {
+					if (event.key === "Escape") root.classList.add("tips-dismissed");
+				});
+				const reset = () => root.classList.remove("tips-dismissed");
+				addEventListener("pointermove", reset, { passive: true });
+				addEventListener("focusin", reset);
 			})();
 		</script>
 	</head>
