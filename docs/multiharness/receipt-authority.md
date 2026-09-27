@@ -38,3 +38,12 @@ provider/auth environment. Persist exact observed versions and byte digests in
 the generated private run metadata; do not commit lane-host observations to
 this reusable public document. Probe results do not authorize a paid solver or
 evaluator run and do not replace the historical characterization fixtures.
+
+The native adapter preflight is repeatable from a source checkout:
+
+```sh
+uv run python -m legalforecast.multiharness.native_cli_preflight --cli claude
+uv run python -m legalforecast.multiharness.native_cli_preflight --cli codex
+```
+
+These commands check the example manifest pins. For an upgraded run, supply both `--version 'EXACT_VENDOR_VERSION'` and `--sha256 EXPECTED_EXECUTABLE_SHA256` from its intended pin; add `--paid` to require Claude's budget option. Preflight runs only `--version` and `--help` (Codex uses `exec --help`) in an empty credential-free home and scratch working directory. It rejects byte/version drift and missing options from the adapter's actual invocation template. The Tier-0 runner uses the same check for native arms whose frozen version command is `--version`; custom JSON identity probes retain their separate strict contract. An advertised option is parser compatibility evidence, not proof of containment, provider enforcement, authentication support, or permission to spend. Paid Codex remains unsupported.

@@ -108,4 +108,6 @@ The optional pinned bridge is `examples/adapters/openclaw-pinned/adapter-manifes
 
 ## Native Harvey LAB bridge
 
+Before adopting a native Claude/Codex binary pin, run `uv run python -m legalforecast.multiharness.native_cli_preflight --cli claude` (or `--cli codex`). Defaults are the adapter example pins; upgraded pins require both `--version` and `--sha256`, and paid Claude also needs `--paid`. This only runs credential-free version/help commands and checks required options. A passed preflight is not a provider, containment, spend, or publication result. The Tier-0 runner uses the same native preflight; do not send ordinary vendor version text to the custom JSON identity-probe contract.
+
 Use `legalforecast harvey-lab probe` for credential-free current lab-core CLI checks, then the explicit `run` command only for an approved contributor-funded solver/judge measurement. Follow `docs/multiharness/harvey-lab-core.md` for pinned package installation, immutable rootless Podman images, credential projection, and public/private output paths. Do not confuse the historical fixture adapter or an offline evaluator stub with a paid native baseline; neither completes issue #48's live smoke/public-package criterion. The upstream runtime owns its agent loop, and its turn limit is not a dollar cap.

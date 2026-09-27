@@ -1077,6 +1077,23 @@
         "nonblank_line_count": 761,
         "top_level_definition_count": 28
       },
+      "legalforecast/multiharness/native_cli_preflight.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 1,
+        "fan_out": 4,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "main",
+        "largest_symbol_lines": 51,
+        "layer": "application",
+        "line_count": 183,
+        "nonblank_line_count": 165,
+        "top_level_definition_count": 4
+      },
       "legalforecast/multiharness/openai_responses.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
