@@ -280,4 +280,12 @@ def run_openclaw(
             raise OpenClawError("OpenClaw managed run timed out") from None
         finally:
             child.close()
+            # makefile() keeps an io-ref after socket.close(). Wake its reader
+            # and allow it to release that ref even on subprocess exceptions.
+            try:
+                host.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass  # The reader may already have closed its socket.
             host.close()
+            if worker.ident is not None:
+                worker.join(timeout=1)
