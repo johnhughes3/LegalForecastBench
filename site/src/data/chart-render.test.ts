@@ -89,3 +89,37 @@ test("a model on only the accuracy frontier gets an accuracy-specific tooltip", 
 	assert.match(row, /Pareto frontier for: Unit accuracy\./);
 	assert.ok(!row.includes("Pareto frontier for: Micro Brier"));
 });
+
+test("the Pareto chart exposes its point links instead of hiding them in an image", () => {
+	const html = renderToStaticMarkup(
+		createElement(ParetoChart, { snapshot: primarySnapshot }),
+	);
+	// role="img" would make the focusable model links presentational children.
+	assert.match(html, /<svg[^>]*role="group"/);
+	assert.doesNotMatch(html, /<svg[^>]*role="img"/);
+	assert.ok(html.includes('aria-label="GPT-6 Sol details"'));
+	// Most points carry a cost note, so the chart no longer promises asterisks.
+	assert.ok(!html.includes("* Estimated or adjusted cost"));
+});
+
+test("a highlighted Pareto chart dims other marks but keeps their labels legible", () => {
+	const html = renderToStaticMarkup(
+		createElement(ParetoChart, {
+			snapshot: primarySnapshot,
+			highlight: "claude-opus-5-5",
+		}),
+	);
+	// Fading applies to marks only; dimmed labels use the muted ink at full opacity.
+	assert.doesNotMatch(html, /opacity="0.35"[^>]*>(?:(?!<\/g>)[\s\S])*<text/);
+	assert.match(html, /fill="var\(--ink-3\)"[^>]*>Kimi K3<\/text>/);
+});
+
+test("phone cards do not repeat the value already shown for the active sort", () => {
+	const html = renderToStaticMarkup(
+		createElement(Leaderboard, { snapshot: primarySnapshot }),
+	);
+	const phone = html.slice(0, html.indexOf("<table"));
+	// Default sort is micro Brier, shown on the right; the meta line omits it.
+	assert.ok(!phone.includes("Micro 0."));
+	assert.match(phone, /Micro Brier<\/span>/);
+});
