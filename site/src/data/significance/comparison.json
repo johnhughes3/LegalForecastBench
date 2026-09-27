@@ -1,0 +1,1233 @@
+{
+	"method": "Paired case-cluster percentile bootstrap",
+	"replicates": 1000000,
+	"seed": 20260514,
+	"rng": "NumPy PCG64 multinomial case multiplicities",
+	"numpy_version": "2.4.2",
+	"family_model_count": 16,
+	"available_models": [
+		"claude-opus-5",
+		"claude-opus-5-5",
+		"claude-sonnet-5",
+		"gemini-3-1-pro-preview",
+		"gpt-4-1",
+		"gpt-5-6-sol",
+		"gpt-6-luna",
+		"gpt-6-sol",
+		"grok-4-7"
+	],
+	"case_count": 91,
+	"unit_count": 387,
+	"familywise_alpha": 0.05,
+	"interval_confidence": 0.9998611111111111,
+	"correction": "Bonferroni across 120 model pairs and three metrics",
+	"metrics": {
+		"claude-opus-5": {
+			"micro_brier": 0.13987105943152456,
+			"equal_case_brier": 0.1354839407417979,
+			"accuracy": 0.8010335917312662
+		},
+		"claude-opus-5-5": {
+			"micro_brier": 0.14540258397932823,
+			"equal_case_brier": 0.1476222901701473,
+			"accuracy": 0.772609819121447
+		},
+		"claude-sonnet-5": {
+			"micro_brier": 0.15848397932816535,
+			"equal_case_brier": 0.15963922014493445,
+			"accuracy": 0.7571059431524548
+		},
+		"gemini-3-1-pro-preview": {
+			"micro_brier": 0.1834496124031007,
+			"equal_case_brier": 0.1807985020931449,
+			"accuracy": 0.7803617571059431
+		},
+		"gpt-4-1": {
+			"micro_brier": 0.6051270671834625,
+			"equal_case_brier": 0.5752195578231293,
+			"accuracy": 0.39018087855297157
+		},
+		"gpt-5-6-sol": {
+			"micro_brier": 0.14009137209302328,
+			"equal_case_brier": 0.13318617016079157,
+			"accuracy": 0.8087855297157622
+		},
+		"gpt-6-luna": {
+			"micro_brier": 0.16367900516795866,
+			"equal_case_brier": 0.17379408853051712,
+			"accuracy": 0.7648578811369509
+		},
+		"gpt-6-sol": {
+			"micro_brier": 0.1176279069767442,
+			"equal_case_brier": 0.12949124213088506,
+			"accuracy": 0.8449612403100775
+		},
+		"grok-4-7": {
+			"micro_brier": 0.15832558139534886,
+			"equal_case_brier": 0.16454140522176236,
+			"accuracy": 0.7700258397932817
+		}
+	},
+	"pairs": [
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "claude-opus-5-5",
+			"metric": "micro_brier",
+			"delta": -0.005531524547803673,
+			"ci_low": -0.04429727333054458,
+			"ci_high": 0.039828725250279064,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "claude-opus-5-5",
+			"metric": "equal_case_brier",
+			"delta": -0.012138349428349404,
+			"ci_low": -0.04538859720022038,
+			"ci_high": 0.02191277878081788,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "claude-opus-5-5",
+			"metric": "accuracy",
+			"delta": 0.02842377260981921,
+			"ci_low": -0.06057062400318975,
+			"ci_high": 0.16090689726300325,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "claude-sonnet-5",
+			"metric": "micro_brier",
+			"delta": -0.018612919896640795,
+			"ci_low": -0.06122674204813515,
+			"ci_high": 0.02745227434117396,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "claude-sonnet-5",
+			"metric": "equal_case_brier",
+			"delta": -0.024155279403136554,
+			"ci_low": -0.07223698563009413,
+			"ci_high": 0.021635277420942182,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "claude-sonnet-5",
+			"metric": "accuracy",
+			"delta": 0.043927648578811374,
+			"ci_low": -0.12714448051948055,
+			"ci_high": 0.18317652394372694,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gemini-3-1-pro-preview",
+			"metric": "micro_brier",
+			"delta": -0.043578552971576145,
+			"ci_low": -0.13027722207084466,
+			"ci_high": 0.015750112892025214,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gemini-3-1-pro-preview",
+			"metric": "equal_case_brier",
+			"delta": -0.04531456135134701,
+			"ci_low": -0.1266960656843157,
+			"ci_high": 0.01791869319274582,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gemini-3-1-pro-preview",
+			"metric": "accuracy",
+			"delta": 0.02067183462532307,
+			"ci_low": -0.09227295717191669,
+			"ci_high": 0.15100674058029265,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-4-1",
+			"metric": "micro_brier",
+			"delta": -0.465256007751938,
+			"ci_low": -0.6745517234657805,
+			"ci_high": -0.24860386916665694,
+			"significant": true
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-4-1",
+			"metric": "equal_case_brier",
+			"delta": -0.43973561708133135,
+			"ci_low": -0.6240552295185964,
+			"ci_high": -0.2537397541650298,
+			"significant": true
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-4-1",
+			"metric": "accuracy",
+			"delta": 0.41085271317829464,
+			"ci_low": 0.1628763410638571,
+			"ci_high": 0.6629245938118972,
+			"significant": true
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-5-6-sol",
+			"metric": "micro_brier",
+			"delta": -0.0002203126614987172,
+			"ci_low": -0.050548624994570364,
+			"ci_high": 0.04694248866805785,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-5-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.002297770581006331,
+			"ci_low": -0.050964621691305716,
+			"ci_high": 0.05219359785436592,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-5-6-sol",
+			"metric": "accuracy",
+			"delta": -0.007751937984496027,
+			"ci_low": -0.11646768465909088,
+			"ci_high": 0.10344827586206895,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-6-luna",
+			"metric": "micro_brier",
+			"delta": -0.023807945736434105,
+			"ci_low": -0.07940152003047701,
+			"ci_high": 0.02133787022387132,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-6-luna",
+			"metric": "equal_case_brier",
+			"delta": -0.03831014778871922,
+			"ci_low": -0.10632909053548138,
+			"ci_high": 0.015902173995573244,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-6-luna",
+			"metric": "accuracy",
+			"delta": 0.03617571059431535,
+			"ci_low": -0.052509127858914297,
+			"ci_high": 0.13413771485177198,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.022243152454780354,
+			"ci_low": -0.03773188773234943,
+			"ci_high": 0.11079415487951928,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.005992698610912839,
+			"ci_low": -0.040982687424182956,
+			"ci_high": 0.05467606747776044,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-6-sol",
+			"metric": "accuracy",
+			"delta": -0.04392764857881126,
+			"ci_low": -0.2417918962856828,
+			"ci_high": 0.09598371563607314,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "grok-4-7",
+			"metric": "micro_brier",
+			"delta": -0.0184545219638243,
+			"ci_low": -0.0758103888055386,
+			"ci_high": 0.028647965572007435,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "grok-4-7",
+			"metric": "equal_case_brier",
+			"delta": -0.029057464479964462,
+			"ci_low": -0.09288170610250365,
+			"ci_high": 0.018990678404387194,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "grok-4-7",
+			"metric": "accuracy",
+			"delta": 0.03100775193798455,
+			"ci_low": -0.08283034067859121,
+			"ci_high": 0.15353496624975915,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "claude-sonnet-5",
+			"metric": "micro_brier",
+			"delta": -0.013081395348837122,
+			"ci_low": -0.0633586239020033,
+			"ci_high": 0.044050524469341774,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "claude-sonnet-5",
+			"metric": "equal_case_brier",
+			"delta": -0.01201692997478715,
+			"ci_low": -0.06088301899848668,
+			"ci_high": 0.036878249181252605,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "claude-sonnet-5",
+			"metric": "accuracy",
+			"delta": 0.015503875968992165,
+			"ci_low": -0.17736500085645773,
+			"ci_high": 0.16888508721979092,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gemini-3-1-pro-preview",
+			"metric": "micro_brier",
+			"delta": -0.03804702842377247,
+			"ci_low": -0.12880880894294594,
+			"ci_high": 0.03484270191643836,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gemini-3-1-pro-preview",
+			"metric": "equal_case_brier",
+			"delta": -0.033176211922997606,
+			"ci_low": -0.1143542236232765,
+			"ci_high": 0.03459152619912611,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gemini-3-1-pro-preview",
+			"metric": "accuracy",
+			"delta": -0.007751937984496138,
+			"ci_low": -0.1524819575364815,
+			"ci_high": 0.14395664634146707,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-4-1",
+			"metric": "micro_brier",
+			"delta": -0.4597244832041343,
+			"ci_low": -0.6630727725420597,
+			"ci_high": -0.242482052741656,
+			"significant": true
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-4-1",
+			"metric": "equal_case_brier",
+			"delta": -0.427597267652982,
+			"ci_low": -0.6072949074709764,
+			"ci_high": -0.24420266439063792,
+			"significant": true
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-4-1",
+			"metric": "accuracy",
+			"delta": 0.38242894056847543,
+			"ci_low": 0.13421131996841554,
+			"ci_high": 0.6341548402255686,
+			"significant": true
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-5-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.005311211886304956,
+			"ci_low": -0.06871591442120623,
+			"ci_high": 0.06565586677810298,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-5-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.014436120009355735,
+			"ci_low": -0.039558202256823605,
+			"ci_high": 0.06427123231582206,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-5-6-sol",
+			"metric": "accuracy",
+			"delta": -0.036175710594315236,
+			"ci_low": -0.1781718386756456,
+			"ci_high": 0.08906296744607295,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-6-luna",
+			"metric": "micro_brier",
+			"delta": -0.018276421188630432,
+			"ci_low": -0.10322699043017297,
+			"ci_high": 0.047286478126171344,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-6-luna",
+			"metric": "equal_case_brier",
+			"delta": -0.026171798360369813,
+			"ci_low": -0.09436794049908426,
+			"ci_high": 0.034826453304338215,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-6-luna",
+			"metric": "accuracy",
+			"delta": 0.007751937984496138,
+			"ci_low": -0.13755171168592573,
+			"ci_high": 0.11815962162837348,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.027774677002584028,
+			"ci_low": -0.0331562627331439,
+			"ci_high": 0.08848260634395205,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.018131048039262243,
+			"ci_low": -0.027141783808973804,
+			"ci_high": 0.05997229530439891,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-6-sol",
+			"metric": "accuracy",
+			"delta": -0.07235142118863047,
+			"ci_low": -0.25975977780665277,
+			"ci_high": 0.059808418106653556,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "grok-4-7",
+			"metric": "micro_brier",
+			"delta": -0.012922997416020626,
+			"ci_low": -0.0710057409762165,
+			"ci_high": 0.035044508877082825,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "grok-4-7",
+			"metric": "equal_case_brier",
+			"delta": -0.016919115051615058,
+			"ci_low": -0.07106220144862571,
+			"ci_high": 0.025023511336804093,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "grok-4-7",
+			"metric": "accuracy",
+			"delta": 0.0025839793281653423,
+			"ci_low": -0.14553916256157634,
+			"ci_high": 0.1304428993947258,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gemini-3-1-pro-preview",
+			"metric": "micro_brier",
+			"delta": -0.02496563307493535,
+			"ci_low": -0.11491977828813638,
+			"ci_high": 0.05234899979286936,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gemini-3-1-pro-preview",
+			"metric": "equal_case_brier",
+			"delta": -0.021159281948210457,
+			"ci_low": -0.11756266731123552,
+			"ci_high": 0.06495890118876674,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gemini-3-1-pro-preview",
+			"metric": "accuracy",
+			"delta": -0.023255813953488302,
+			"ci_low": -0.15769321654773763,
+			"ci_high": 0.10526315789473684,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-4-1",
+			"metric": "micro_brier",
+			"delta": -0.44664308785529716,
+			"ci_low": -0.6613122039789431,
+			"ci_high": -0.22264857205084446,
+			"significant": true
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-4-1",
+			"metric": "equal_case_brier",
+			"delta": -0.4155803376781948,
+			"ci_low": -0.6021269758482588,
+			"ci_high": -0.22521577159456332,
+			"significant": true
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-4-1",
+			"metric": "accuracy",
+			"delta": 0.36692506459948326,
+			"ci_low": 0.09638554216867468,
+			"ci_high": 0.6307642088231742,
+			"significant": true
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-5-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.018392607235142078,
+			"ci_low": -0.040185319123075554,
+			"ci_high": 0.07896881329537805,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-5-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.026453049984142885,
+			"ci_low": -0.040129241458526595,
+			"ci_high": 0.09172462318649963,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-5-6-sol",
+			"metric": "accuracy",
+			"delta": -0.0516795865633074,
+			"ci_low": -0.18362377690802342,
+			"ci_high": 0.07286378992629905,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-6-luna",
+			"metric": "micro_brier",
+			"delta": -0.00519502583979331,
+			"ci_low": -0.06500558393622784,
+			"ci_high": 0.049940533261649316,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-6-luna",
+			"metric": "equal_case_brier",
+			"delta": -0.014154868385582664,
+			"ci_low": -0.0736962015491453,
+			"ci_high": 0.04192402684072008,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-6-luna",
+			"metric": "accuracy",
+			"delta": -0.007751937984496027,
+			"ci_low": -0.14661392040656523,
+			"ci_high": 0.1594594594594595,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.04085607235142115,
+			"ci_low": -0.01809911299849232,
+			"ci_high": 0.12136498989223427,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.030147978014049392,
+			"ci_low": -0.02153346539142903,
+			"ci_high": 0.08512735116173509,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-6-sol",
+			"metric": "accuracy",
+			"delta": -0.08785529715762264,
+			"ci_low": -0.2893851409313726,
+			"ci_high": 0.03542234332425065,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "grok-4-7",
+			"metric": "micro_brier",
+			"delta": 0.00015839793281649528,
+			"ci_low": -0.06266564243368708,
+			"ci_high": 0.05991362078807218,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "grok-4-7",
+			"metric": "equal_case_brier",
+			"delta": -0.0049021850768279085,
+			"ci_low": -0.0755972108049688,
+			"ci_high": 0.05859272304831168,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "grok-4-7",
+			"metric": "accuracy",
+			"delta": -0.012919896640826822,
+			"ci_low": -0.1515151515151515,
+			"ci_high": 0.12466224568632617,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-4-1",
+			"metric": "micro_brier",
+			"delta": -0.42167745478036184,
+			"ci_low": -0.6477552308136412,
+			"ci_high": -0.1866219687957478,
+			"significant": true
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-4-1",
+			"metric": "equal_case_brier",
+			"delta": -0.39442105572998437,
+			"ci_low": -0.595332702232143,
+			"ci_high": -0.186624937715027,
+			"significant": true
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-4-1",
+			"metric": "accuracy",
+			"delta": 0.39018087855297157,
+			"ci_low": 0.14143684236947796,
+			"ci_high": 0.6328842184920221,
+			"significant": true
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-5-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.04335824031007743,
+			"ci_low": -0.01695024381437395,
+			"ci_high": 0.12178588522523652,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-5-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.04761233193235334,
+			"ci_low": -0.017565023348163754,
+			"ci_high": 0.12746908628843087,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-5-6-sol",
+			"metric": "accuracy",
+			"delta": -0.028423772609819098,
+			"ci_low": -0.11212503101480442,
+			"ci_high": 0.04039329699309767,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-6-luna",
+			"metric": "micro_brier",
+			"delta": 0.01977060723514204,
+			"ci_low": -0.05481905280739752,
+			"ci_high": 0.11726493667968968,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-6-luna",
+			"metric": "equal_case_brier",
+			"delta": 0.007004413562627793,
+			"ci_low": -0.07574027873235398,
+			"ci_high": 0.0973078144435192,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-6-luna",
+			"metric": "accuracy",
+			"delta": 0.015503875968992276,
+			"ci_low": -0.13172505048531044,
+			"ci_high": 0.1411220110497914,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.0658217054263565,
+			"ci_low": -0.012030885723458885,
+			"ci_high": 0.1754626369926686,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.05130725996225985,
+			"ci_low": -0.01440633727086408,
+			"ci_high": 0.13318621205887476,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-6-sol",
+			"metric": "accuracy",
+			"delta": -0.06459948320413433,
+			"ci_low": -0.23206312480307062,
+			"ci_high": 0.06092933124288247,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "grok-4-7",
+			"metric": "micro_brier",
+			"delta": 0.025124031007751846,
+			"ci_low": -0.04769569572786929,
+			"ci_high": 0.12242302710874975,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "grok-4-7",
+			"metric": "equal_case_brier",
+			"delta": 0.016257096871382548,
+			"ci_low": -0.05957988699123302,
+			"ci_high": 0.09562986963542434,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "grok-4-7",
+			"metric": "accuracy",
+			"delta": 0.01033591731266148,
+			"ci_low": -0.13183471731636734,
+			"ci_high": 0.12463456584772473,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-5-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.4650356950904393,
+			"ci_low": 0.22965569932807214,
+			"ci_high": 0.6888819583495694,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-5-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.4420333876623377,
+			"ci_low": 0.23848435141457652,
+			"ci_high": 0.6385163299218328,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-5-6-sol",
+			"metric": "accuracy",
+			"delta": -0.41860465116279066,
+			"ci_low": -0.6645755921796577,
+			"ci_high": -0.1659648241709236,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-6-luna",
+			"metric": "micro_brier",
+			"delta": 0.4414480620155039,
+			"ci_low": 0.20280433945894796,
+			"ci_high": 0.6704647383914317,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-6-luna",
+			"metric": "equal_case_brier",
+			"delta": 0.40142546929261214,
+			"ci_low": 0.18877869598593372,
+			"ci_high": 0.6067029992806346,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-6-luna",
+			"metric": "accuracy",
+			"delta": -0.3746770025839793,
+			"ci_low": -0.6405830556108237,
+			"ci_high": -0.10500846926677522,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.48749916020671835,
+			"ci_low": 0.2421012852236309,
+			"ci_high": 0.7062397582387706,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.44572831569224425,
+			"ci_low": 0.24333073607568023,
+			"ci_high": 0.641176617923573,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-6-sol",
+			"metric": "accuracy",
+			"delta": -0.4547803617571059,
+			"ci_low": -0.7076167076167077,
+			"ci_high": -0.17035695100988163,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "grok-4-7",
+			"metric": "micro_brier",
+			"delta": 0.4468014857881137,
+			"ci_low": 0.22345348058845796,
+			"ci_high": 0.6566923590828739,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "grok-4-7",
+			"metric": "equal_case_brier",
+			"delta": 0.4106781526013669,
+			"ci_low": 0.20729084551007027,
+			"ci_high": 0.6060635416260076,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "grok-4-7",
+			"metric": "accuracy",
+			"delta": -0.3798449612403101,
+			"ci_low": -0.6288194363952477,
+			"ci_high": -0.12744823260065866,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-5-6-sol",
+			"model_b": "gpt-6-luna",
+			"metric": "micro_brier",
+			"delta": -0.023587633074935388,
+			"ci_low": -0.06804240658472449,
+			"ci_high": 0.021749854890955395,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-sol",
+			"model_b": "gpt-6-luna",
+			"metric": "equal_case_brier",
+			"delta": -0.04060791836972555,
+			"ci_low": -0.11202019697772164,
+			"ci_high": 0.019307327969637602,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-sol",
+			"model_b": "gpt-6-luna",
+			"metric": "accuracy",
+			"delta": 0.043927648578811374,
+			"ci_low": -0.05937049549549551,
+			"ci_high": 0.1482479784366577,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-sol",
+			"model_b": "gpt-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.02246346511627907,
+			"ci_low": -0.02960251735916179,
+			"ci_high": 0.12785656331098078,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-sol",
+			"model_b": "gpt-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.003694928029906508,
+			"ci_low": -0.0404163454015667,
+			"ci_high": 0.053278156178671494,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-sol",
+			"model_b": "gpt-6-sol",
+			"metric": "accuracy",
+			"delta": -0.036175710594315236,
+			"ci_low": -0.19908571361236807,
+			"ci_high": 0.0830945558739255,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-sol",
+			"model_b": "grok-4-7",
+			"metric": "micro_brier",
+			"delta": -0.018234209302325582,
+			"ci_low": -0.0776922728246675,
+			"ci_high": 0.03884411214906044,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-sol",
+			"model_b": "grok-4-7",
+			"metric": "equal_case_brier",
+			"delta": -0.03135523506097079,
+			"ci_low": -0.09823772293978296,
+			"ci_high": 0.026396974152129302,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-sol",
+			"model_b": "grok-4-7",
+			"metric": "accuracy",
+			"delta": 0.03875968992248058,
+			"ci_low": -0.08169444753378188,
+			"ci_high": 0.15263452138781447,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-6-luna",
+			"model_b": "gpt-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.04605109819121446,
+			"ci_low": -0.010545536500883345,
+			"ci_high": 0.1608234304575152,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-6-luna",
+			"model_b": "gpt-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.044302846399632057,
+			"ci_low": -0.002461408893115868,
+			"ci_high": 0.10102441319536225,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-6-luna",
+			"model_b": "gpt-6-sol",
+			"metric": "accuracy",
+			"delta": -0.08010335917312661,
+			"ci_low": -0.27982215003112426,
+			"ci_high": 0.04761904761904767,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-6-luna",
+			"model_b": "grok-4-7",
+			"metric": "micro_brier",
+			"delta": 0.0053534237726098055,
+			"ci_low": -0.06009940871698776,
+			"ci_high": 0.06490107933159672,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-6-luna",
+			"model_b": "grok-4-7",
+			"metric": "equal_case_brier",
+			"delta": 0.009252683308754756,
+			"ci_low": -0.05556179705160918,
+			"ci_high": 0.06997721264167449,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-6-luna",
+			"model_b": "grok-4-7",
+			"metric": "accuracy",
+			"delta": -0.0051679586563307955,
+			"ci_low": -0.12886460101867572,
+			"ci_high": 0.13333333333333336,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-6-sol",
+			"model_b": "grok-4-7",
+			"metric": "micro_brier",
+			"delta": -0.040697674418604654,
+			"ci_low": -0.1301756855947108,
+			"ci_high": 0.02191653471765191,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-6-sol",
+			"model_b": "grok-4-7",
+			"metric": "equal_case_brier",
+			"delta": -0.0350501630908773,
+			"ci_low": -0.09333479643129673,
+			"ci_high": 0.00998855499901907,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-6-sol",
+			"model_b": "grok-4-7",
+			"metric": "accuracy",
+			"delta": 0.07493540051679581,
+			"ci_low": -0.05241246110090807,
+			"ci_high": 0.2587150436309996,
+			"significant": false
+		}
+	],
+	"significant_pairs": [
+		{
+			"better": "claude-opus-5",
+			"worse": "gpt-4-1",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "claude-opus-5",
+			"worse": "gpt-4-1",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "claude-opus-5",
+			"worse": "gpt-4-1",
+			"metric": "accuracy"
+		},
+		{
+			"better": "claude-opus-5-5",
+			"worse": "gpt-4-1",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "claude-opus-5-5",
+			"worse": "gpt-4-1",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "claude-opus-5-5",
+			"worse": "gpt-4-1",
+			"metric": "accuracy"
+		},
+		{
+			"better": "claude-sonnet-5",
+			"worse": "gpt-4-1",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "claude-sonnet-5",
+			"worse": "gpt-4-1",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "claude-sonnet-5",
+			"worse": "gpt-4-1",
+			"metric": "accuracy"
+		},
+		{
+			"better": "gemini-3-1-pro-preview",
+			"worse": "gpt-4-1",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "gemini-3-1-pro-preview",
+			"worse": "gpt-4-1",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "gemini-3-1-pro-preview",
+			"worse": "gpt-4-1",
+			"metric": "accuracy"
+		},
+		{
+			"better": "gpt-5-6-sol",
+			"worse": "gpt-4-1",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "gpt-5-6-sol",
+			"worse": "gpt-4-1",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "gpt-5-6-sol",
+			"worse": "gpt-4-1",
+			"metric": "accuracy"
+		},
+		{
+			"better": "gpt-6-luna",
+			"worse": "gpt-4-1",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "gpt-6-luna",
+			"worse": "gpt-4-1",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "gpt-6-luna",
+			"worse": "gpt-4-1",
+			"metric": "accuracy"
+		},
+		{
+			"better": "gpt-6-sol",
+			"worse": "gpt-4-1",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "gpt-6-sol",
+			"worse": "gpt-4-1",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "gpt-6-sol",
+			"worse": "gpt-4-1",
+			"metric": "accuracy"
+		},
+		{
+			"better": "grok-4-7",
+			"worse": "gpt-4-1",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "grok-4-7",
+			"worse": "gpt-4-1",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "grok-4-7",
+			"worse": "gpt-4-1",
+			"metric": "accuracy"
+		}
+	],
+	"caveat": "Exploratory. Cross-case dependence has not been verified. Unavailable pairs are not tested.",
+	"sources": {
+		"gpt-6-sol": "gpt-6-sol.jsonl",
+		"grok-4-7": "grok-4-7.jsonl",
+		"gpt-6-luna": "gpt-6-luna.jsonl",
+		"claude-opus-5-5": "claude-opus-5-5.jsonl",
+		"gpt-4-1": "gpt-4-1.jsonl",
+		"gemini-3-1-pro-preview": "gemini-3-1-pro-preview.jsonl",
+		"claude-opus-5": "claude-opus-5.jsonl",
+		"gpt-5-6-sol": "gpt-5-6-sol.jsonl",
+		"claude-sonnet-5": "claude-sonnet-5.jsonl"
+	},
+	"provenance": {
+		"release": "cycle-1-91-2026-09-08-luna-r5",
+		"release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		"models": {
+			"gpt-6-sol": {
+				"score_run": "35885171489",
+				"source": "native_unit_scores"
+			},
+			"grok-4-7": {
+				"score_run": "35885175070",
+				"source": "native_unit_scores"
+			},
+			"gpt-6-luna": {
+				"score_run": "35940612024",
+				"source": "native_unit_scores"
+			},
+			"claude-opus-5-5": {
+				"score_run": "35954306953",
+				"source": "native_unit_scores"
+			},
+			"gpt-4-1": {
+				"score_run": "36073985227",
+				"source": "native_unit_scores"
+			},
+			"gemini-3-1-pro-preview": {
+				"score_run": "36169561374",
+				"source": "native_unit_scores"
+			},
+			"claude-opus-5": {
+				"forecast_run": "34845972981",
+				"source": "validated_receipts_joined_to_native_score_labels"
+			},
+			"gpt-5-6-sol": {
+				"forecast_run": "34428487985",
+				"source": "validated_receipts_joined_to_native_score_labels"
+			},
+			"claude-sonnet-5": {
+				"forecast_run": "34895753581",
+				"source": "validated_receipts_joined_to_native_score_labels"
+			}
+		},
+		"label_source_score_run": "36169561374",
+		"cohort_validation": "All native score sources agree on 387 case/unit/outcome keys across 91 cases. Historical receipts bind to the same release and reproduce their prior published aggregates.",
+		"coverage": "Nine of sixteen model configurations have recoverable unit-level evidence. The other seven models and their pairs are not tested."
+	},
+	"missing_models": [
+		"claude-fable-5-1",
+		"grok-4-6",
+		"kimi-k3",
+		"gpt-5-6-luna",
+		"gpt-6-astra",
+		"gemini-3-8-flash",
+		"muse-spark-1-3"
+	]
+}

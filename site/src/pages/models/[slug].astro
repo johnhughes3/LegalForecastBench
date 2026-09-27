@@ -4,6 +4,7 @@ import ConfidenceChart from "../../components/ConfidenceChart";
 import EligibilityBadge from "../../components/EligibilityBadge";
 import FindingCard from "../../components/FindingCard.astro";
 import ParetoChart from "../../components/ParetoChart";
+import { comparison, comparisonScope } from "../../data/comparison";
 import { publishedFindings } from "../../data/findings";
 import {
 	formatPercent,
@@ -12,6 +13,7 @@ import {
 	paretoFrontier,
 	ranks,
 } from "../../data/metrics";
+import { recentResults } from "../../data/recent-results";
 import { snapshot } from "../../data/results";
 import type { Metric, SnapshotModel } from "../../data/snapshot";
 import Layout from "../../layouts/Layout.astro";
@@ -23,6 +25,9 @@ export const getStaticPaths = (() =>
 	}))) satisfies GetStaticPaths;
 
 const { model } = Astro.props as { model: SnapshotModel };
+const source = recentResults.find(
+	({ source }) => source.slug === model.slug,
+)?.source;
 const n = snapshot.cohort.unit_count;
 const total = snapshot.models.length;
 const metrics: Metric[] = ["micro_brier", "equal_case_brier", "accuracy"];
@@ -39,6 +44,7 @@ const cards = metrics.map((metric) => {
 	};
 });
 const hc = model.high_confidence;
+const includedInComparison = comparison.available_models.includes(model.slug);
 const sig = snapshot.significant_pairs
 	.filter((p) => p.better === model.slug || p.worse === model.slug)
 	.map((p) => {
@@ -64,7 +70,7 @@ const facts: [string, string][] = [
 		}),
 	],
 	["Training cutoff", model.training_cutoff ?? "Not disclosed"],
-	["Harness", "Full-document agentic (document tools, no internet)"],
+	["Harness", "Full-document agentic (controlled document tools)"],
 ];
 ---
 
@@ -121,6 +127,12 @@ const facts: [string, string][] = [
 					<ConfidenceChart snapshot={snapshot} highlight={model.slug} />
 				</div>
 			</div>
+            <div>
+                <h2 class="font-serif text-2xl font-semibold tracking-tight">Statistical comparison coverage</h2>
+                <p class="mt-2 text-ink-2">{includedInComparison ? "This configuration is included in the updated paired analysis. A nonsignificant result is not evidence of equivalence." : "This configuration is not included in the updated paired analysis because its unit-level predictions could not be recovered. Its aggregate score remains available; no new significance claim is made for it."}</p>
+                <p class="mt-2 text-sm text-ink-3">{comparisonScope}</p>
+                <a class="mt-2 inline-flex text-sm text-accent hover:underline" href="/data/#significance">Analysis and reproducible inputs →</a>
+            </div>
 			{
 				sig.length > 0 && (
 					<div>
@@ -184,7 +196,7 @@ const facts: [string, string][] = [
 				<h2 class="font-semibold text-ink">Cost</h2>
 				<p class="mt-2 font-serif text-2xl tabular">{formatUsd(model.cost.usd)}</p>
 				<p class="text-xs text-ink-3">
-					{model.cost.basis === "estimated" ? "Estimated" : "Standard-rate"} cost for {snapshot.cohort.case_count} cases ·{" "}
+					{model.cost.basis === "unavailable" ? "Unavailable" : model.cost.basis === "estimated" ? "Estimated" : "Standard-rate"} cost for {snapshot.cohort.case_count} cases ·{" "}
 					{formatUsd(model.cost.usd === null ? null : model.cost.usd / snapshot.cohort.case_count)} per case
 				</p>
 				{model.cost.note && <p class="mt-2 text-ink-2">{model.cost.note}</p>}
@@ -198,6 +210,8 @@ const facts: [string, string][] = [
 						>GitHub Actions run {model.github_run_id}</a
 					>
 				</p>
+                {source && <p class="mt-2"><a class="text-accent hover:underline" href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${source.scoring_run}`}>Scoring run {source.scoring_run}</a></p>}
+                {source && <p class="mt-2"><a class="text-accent hover:underline" href={`/data/exports/${source.slug}.json`} download>Download scored source export</a></p>}
 			</div>
 		</aside>
 	</section>

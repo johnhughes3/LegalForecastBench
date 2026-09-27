@@ -1,0 +1,85 @@
+name: Publish selected site data
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-site-data-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: legalforecastbench-official-eval-fan-in
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+    steps:
+      - name: Check out selected main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+
+      - name: Validate and build selected public data
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.27.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm site:check
+          pnpm site:build
+
+      - name: Assume protected publication role
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+          role-duration-seconds: 3600
+          role-session-name: lfb-site-data-${{ github.run_id }}
+
+      - name: Publish and read back every displayed dataset
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="reports/site-data/multi-ablation/${GITHUB_SHA}"
+          mapfile -d '' files < <(find site/dist/data -type f \( -name '*.json' -o -name '*.jsonl' \) -print0 | sort -z)
+          (( ${#files[@]} > 0 )) || { echo 'No built site datasets' >&2; exit 1; }
+          readback="$(mktemp -d)"
+          trap 'rm -rf "$readback"' EXIT
+          for source in "${files[@]}"; do
+            relative="${source#site/dist/}"
+            key="${prefix}/${relative}"
+            bash .github/scripts/reconcile-s3-object.sh "$LFB_RESULTS_BUCKET" "$source" "$key"
+            aws s3api get-object --bucket "$LFB_RESULTS_BUCKET" --key "$key" "$readback/object" > /dev/null
+            cmp "$source" "$readback/object"
+            printf '%s\n' "$relative" >> /tmp/published-site-data.txt
+          done
+          {
+            printf 'Published and read back **%s** datasets.\n\n' "${#files[@]}"
+            printf 'Source revision: `%s`\n\n' "$GITHUB_SHA"
+            printf 'Destination: `s3://%s/%s/`\n\n' "$LFB_RESULTS_BUCKET" "$prefix"
+            cat /tmp/published-site-data.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain the published datasets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: published-site-data-${{ github.sha }}
+          path: |
+            site/dist/data/**/*.json
+            site/dist/data/**/*.jsonl
+          if-no-files-found: error
+          retention-days: 90
