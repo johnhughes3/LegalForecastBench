@@ -1,0 +1,535 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "identify-issues-in-counterparty-complaint",
+  "title": "Identify Issues in Counterparty Complaint — Issue Identification Memorandum",
+  "criteria_total": 25,
+  "criterion_lines": {
+    "C-001": 20,
+    "C-002": 28,
+    "C-003": 36,
+    "C-004": 44,
+    "C-005": 52,
+    "C-006": 60,
+    "C-007": 68,
+    "C-008": 76,
+    "C-009": 84,
+    "C-010": 92,
+    "C-011": 100,
+    "C-012": 108,
+    "C-013": 116,
+    "C-014": 124,
+    "C-015": 132,
+    "C-016": 140,
+    "C-017": 148,
+    "C-018": 156,
+    "C-019": 164,
+    "C-020": 172,
+    "C-021": 180,
+    "C-022": 188,
+    "C-023": 196,
+    "C-024": 204,
+    "C-025": 212
+  },
+  "blind": {
+    "task": "identify-issues-in-counterparty-complaint",
+    "criteria_reviewed": 25,
+    "coverage": "I read all 8 supplied documents in full: the verified complaint, the distribution agreement, the first amendment, both termination notices, the objection letter, the lis pendens, and the Tannick email. I also read the judge prompt and the solver system prompt. The judge prompt asks only whether the output \"satisfies the criterion as described,\" so I assumed judges will apply the PASS text literally. I checked the Count I arithmetic by computation, and grepped all documents for LLC membership facts and for any CRM or data-ownership provision. I read the Morgan v. Sundance syllabus on CourtListener. WebFetch hit a spend limit, so I did not read the text of FRCP 8(d), 9(b) or 10(c), 18 U.S.C. § 1838, O.R.C. § 1333.63 or § 2703.26. Those propositions come from general knowledge and are marked unverified.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 names Lena Rosario-Calder as an LLC member, but the record never says she is one",
+        "explanation": "The PASS text says the LLC's members are \"Vince Calder and Lena Rosario-Calder, both Pennsylvania citizens.\" The complaint identifies Calder only as Managing Member and mentions Lena only as his spouse who lives in Pittsburgh. No document names the LLC's members. A correct memo would say the complaint pleads the state of formation and principal place of business instead of the members' citizenship, and that the members are unidentified. That memo cannot truthfully name Lena, and a literal judge may count the omission against it. One more point: ¶15 pleads § 1331 (the DTSA claim) as the main basis for jurisdiction, so the diversity defect is curable and matters only if the DTSA count is dismissed. That is context and does not by itself make the criterion defective.",
+        "evidence": [
+          {
+            "source": "task.json C-012",
+            "quote": "citizenship is determined by the citizenship of all its members (Vince Calder and Lena Rosario-Calder, both Pennsylvania citizens)"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "Crescent Ridge is managed by its Managing Member, Vincent \"Vince\" Calder... Mr. Calder and his spouse, Lena Rosario-Calder, reside in Pittsburgh, Pennsylvania"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "This Court has original subject matter jurisdiction pursuant to 28 U.S.C. § 1331 because this Verified Complaint asserts a claim arising under federal law"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Replace the parenthetical with: \"the complaint does not identify the LLC's members or allege their citizenship.\" Do not assert who the members are."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-016"
+        ],
+        "title": "C-016 calls the UTSA and DTSA counts duplicative and wants an election motion, but Count V is already pleaded in the alternative",
+        "explanation": "The complaint pleads Count V expressly \"in the alternative to Count IV,\" and the prayer seeks Count IV damages \"or, in the alternative\" Count V damages. Federal pleading rules allow alternative claims. The DTSA says it does not displace state trade-secret remedies. A plaintiff elects remedies before judgment, not at the pleading stage, so there is normally no motion to force an election now. A competent memo could note the overlap, observe that the counts are already alternative and double recovery is foreclosed, and advise against spending a motion on it. That memo fails the literal PASS text, which requires noting \"the potential for a motion to require election\" or to narrow the claims.",
+        "evidence": [
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "In the alternative to Count IV, and pursuant to the Defend Trade Secrets Act of 2016"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "Count IV (Misappropriation of Trade Secrets --- Ohio UTSA): \\$12,500,000; or, in the alternative, Count V"
+          },
+          {
+            "source": "task.json C-016",
+            "quote": "notes the potential for a motion to require election between the two theories or to narrow/streamline the claims"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 8(d)(2)-(3)",
+            "proposition": "A party may plead alternative and inconsistent claims.",
+            "verified": false
+          },
+          {
+            "citation": "18 U.S.C. § 1838",
+            "proposition": "The DTSA does not preempt or displace other civil remedies for trade-secret misappropriation.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Pass a memo that addresses the overlap between Counts IV and V, including the alternative pleading and the bar on double recovery, whether or not it recommends a motion."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-008",
+          "C-009"
+        ],
+        "title": "C-008 and C-009 require the memo to say willful-and-malicious conduct is inadequately pleaded and to move against it, which is contestable",
+        "explanation": "C-008 passes only if the memo concludes the complaint lacks specific facts showing willful and malicious conduct. The complaint does plead some supporting facts: the December 22 download of 14,000+ records after the termination notice, a download authorized by senior management, and hiring \"for the express purpose\" of exploiting confidential knowledge. Rule 9(b) also lets intent be alleged generally. A memo that weighs sufficiency and finds willfulness plausibly pleaded falls between C-008's PASS and FAIL conditions. C-009 then requires recommending a motion to strike or partially dismiss a damages demand. Courts often decline such motions because a damages demand is a remedy, not a separate claim. Reasonable counsel could reject that motion.",
+        "evidence": [
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "the December 22, 2023, download was authorized by Gerald R. Tannick or other members of Eastbrook's senior management team"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "Eastbrook hired the Former Employees for the express purpose of exploiting their knowledge of Crescent Ridge's confidential business information"
+          },
+          {
+            "source": "task.json C-008",
+            "quote": "FAIL if the memo does not address whether the complaint's factual allegations are sufficient to support the exemplary damages claim."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 9(b)",
+            "proposition": "Malice, intent, knowledge, and other conditions of mind may be alleged generally.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Make C-008 pass any memo that critically assesses whether the willful-and-malicious allegations are sufficient. Let C-009 accept a reasoned challenge to exemplary damages at any stage, such as a motion, an affirmative defense, or an arbitral motion."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-006",
+          "C-009",
+          "C-011",
+          "C-003",
+          "C-004"
+        ],
+        "title": "The rubric treats arbitration as the threshold issue but also rewards merits motions in court, which risk waiving arbitration",
+        "explanation": "C-003 and C-004 reward moving to compel arbitration first. C-006, C-009 and C-011 reward merits motions: striking damages allegations, striking exemplary damages, dismissing Count VII. Under Morgan v. Sundance, a party that litigates the merits inconsistently with its arbitration right can waive it without any showing of prejudice. A well-sequenced memo might recommend moving to compel and stay, reserving every merits defense for the arbitrator, and not filing Rule 12(b)(6) or 12(f) motions in court. A literal judge could read that memo as recommending no specific action under C-006, C-009 or C-011. The criteria never say which forum, so a memo recommending the same motions before the arbitrator should pass. The risk depends on how the judge reads it.",
+        "evidence": [
+          {
+            "source": "task.json C-011",
+            "quote": "PASS if the memo recommends dismissing Count VII (unjust enrichment) via a motion to dismiss or raising an affirmative defense"
+          },
+          {
+            "source": "task.json C-004",
+            "quote": "a high-priority/threshold issue that should be addressed first"
+          },
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "The arbitrator shall have the authority to award any remedy or relief that a court of competent jurisdiction in the State of Ohio could order or grant"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Morgan v. Sundance, Inc., 596 U.S. 411 (2022)",
+            "proposition": "Prejudice is not a condition of finding that a party waived its right to compel arbitration through litigation conduct.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Say explicitly that recommending a defense for presentation before the arbitrator satisfies C-006, C-009 and C-011."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-022"
+        ],
+        "title": "C-022 uses the Section 4.3(a) cure framework, but the Agreement sends sales-target shortfalls exclusively to Section 4.3(b)(iii)",
+        "explanation": "The January 10 notice rests mainly on a Minimum Sales Target shortfall. Section 6.4 says the consequences of missing that target are governed \"exclusively\" by Section 4.3(b)(iii). That provision requires a calendar-year shortfall, notice within 90 days of year-end stating the actual sales figure, and a 30-day window for a remediation plan. It has nothing to do with the 60-day cure the criterion is built on. The strongest analysis runs through 4.3(b)(iii). The criterion's fallback clause, \"or discusses whether a proper cure opportunity was provided,\" probably saves a memo that takes that route, so misgrading is unlikely. The criterion still anchors the issue to the less relevant provision.",
+        "evidence": [
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "The consequences of failure to meet the Minimum Sales Target in any calendar year shall be governed exclusively by Section 4.3(b)(iii)."
+          },
+          {
+            "source": "task.json C-022",
+            "quote": "PASS if the memo notes that Section 4.3 requires 60 days' written notice and opportunity to cure for termination for material breach"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Also pass a memo that analyzes the notice-and-remediation procedure in Section 4.3(b)(iii), or its violation, as the relevant procedural defect."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-005"
+        ],
+        "title": "C-005 miscomputes the correct prorated figure ($934,694 instead of $934,864)",
+        "explanation": "The correct figure is $4,431,500 × 77/365 = $934,864.38. The criterion states approximately $934,694, which looks like a digit transposition. Because the criterion says \"approximately\" and \"need not state the exact figure,\" misgrading is unlikely. A literal judge comparing a correct $934,864 against the criterion's number could still hesitate.",
+        "evidence": [
+          {
+            "source": "task.json C-005",
+            "quote": "yields approximately $934,694 (i.e., $4,431,500 × 77/365)"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "Total annual compensation was therefore \\$4,431,500. Based on the foregoing, Crescent Ridge is entitled to lost commissions in the amount of \\$4,836,000 for the 77-day remaining term."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change $934,694 to $934,864."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-019"
+        ],
+        "title": "C-019's second PASS branch rewards the incorrect claim that citing exhibits without attaching them is improper",
+        "explanation": "C-019 passes if the memo says the missing exhibits weaken the complaint (a legitimate point, since Exhibit I, the CRM access log, underlies the misappropriation allegation) or if it says referencing exhibits without attaching them is improper. The federal rules permit attaching written instruments but do not require it. The second branch therefore rewards a wrong legal proposition. It cannot fail a correct answer, so the impact is low.",
+        "evidence": [
+          {
+            "source": "task.json C-019",
+            "quote": "or that their reference without attachment is improper"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "EXHIBITS I THROUGH L ARE REFERENCED IN THE BODY OF THIS VERIFIED COMPLAINT BUT ARE NOT ATTACHED TO THIS FILING."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 10(c)",
+            "proposition": "A copy of a written instrument that is an exhibit to a pleading is part of the pleading for all purposes; attachment is not mandated.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Drop the \"improper\" branch. Keep the weakness and evidentiary-gap framing."
+      }
+    ],
+    "overall": "The rubric is mostly sound. Its central issues match the record: the Section 10.1 mediation-then-arbitration clause, the prohibition on extrapolating calendar-year sales, the Section 7.3 definition of \"directly solicit,\" the Section 9.1 exclusions, the Count I arithmetic, the improper lis pendens, and the express-contract bar to unjust enrichment. I found no problematic criteria. The weak points are a fact C-012 asserts that the record does not support (Lena Rosario-Calder as an LLC member), and C-016's call for an election motion when the complaint already pleads the trade-secret counts in the alternative. C-008 and C-009 require a contestable pleading-stage attack on exemplary damages, and the merits-motion criteria sit uneasily with arbitration-first sequencing under Morgan v. Sundance. There are also minor slips: C-005's $934,694 should be $934,864; C-022 builds on Section 4.3(a) instead of the exclusive Section 4.3(b)(iii) route; and one branch of C-019 rewards a wrong proposition. Under the all-pass metric, C-012, C-016 and C-008/C-009 carry the most risk of failing a competent memo."
+  },
+  "final": {
+    "task": "identify-issues-in-counterparty-complaint",
+    "sol_verdicts": [
+      {
+        "sol_locator": "B6-IC-1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-008",
+          "C-009"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-008",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-009",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "¶177 is a bare conclusion, but ¶¶93, 95, 102, 105 and 170-171 plead a dated bulk download after the termination notice, authorization by management (on information and belief), and knowing use of pricing. An accurate memo can still pass by calling ¶177 conclusory and the key facts information-and-belief. A memo that finds willfulness plausibly pleaded fails, and so does one that declines a disfavored motion to strike a remedy. That splits competent answers, so arguable rather than confirmed."
+      },
+      {
+        "sol_locator": "B6-IC-2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-016"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-016",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "18 U.S.C. § 1838, verified, preserves state trade-secret remedies. The complaint already pleads Count V \"in the alternative to Count IV\" (¶196, prayer (b)). There is normally no pleading-stage election motion. The \"narrow/streamline\" alternative softens this, but a memo that treats the overlap as a non-issue apart from double recovery can still fail."
+      },
+      {
+        "sol_locator": "B6-IC-3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-005"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-005",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "I recomputed the figure: $4,431,500 × 77/365 = $934,864.38, not $934,694. The criterion states a wrong number and contradicts its own formula. It says the exact figure is optional, so misgrading is unlikely, but it does state a wrong fact."
+      },
+      {
+        "sol_locator": "B6-IC-4",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-012"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-012",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "Complaint ¶8 names Vincent Calder only as Managing Member and mentions Lena Rosario-Calder only as his spouse and co-domiciliary. No document lists the LLC's members. The criterion states as record fact that both are members, which the record does not support. A correct memo would say the members are unidentified."
+      },
+      {
+        "sol_locator": "B6-IC-5",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-003",
+          "C-004",
+          "C-019",
+          "C-024"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-003",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-004",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-019",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-024",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "C-003 is disjunctive (compel, dismiss, or stay), so a correct stay recommendation passes. C-004 treats arbitration as a threshold issue, which is correct. C-024: with roughly 15 record issues, a competent defense memo easily names 8 actions, and affirmative defenses count; a defense memorandum implicitly recommends actions. C-019's \"reference without attachment is improper\" branch rewards a wrong proposition, since Rule 10(c) permits attachment but does not require it. It cannot fail a correct answer."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 names Lena Rosario-Calder as an LLC member, but no document identifies the LLC's members",
+        "explanation": "The PASS text says the LLC's members are \"Vince Calder and Lena Rosario-Calder, both Pennsylvania citizens.\" The complaint identifies Calder only as Managing Member and mentions Lena only as his spouse and co-domiciliary. No document lists the members. The core point is correct: ¶¶6 and 17 plead state of formation and principal place of business, not members' citizenship. But the criterion asserts a membership fact the record does not contain. A correct memo would say the members are unidentified and cannot truthfully name Lena, and a literal judge may count that against it. Context: ¶15 pleads § 1331 (DTSA) as the primary basis and ¶16 pleads § 1367, so the diversity defect matters mainly if Count V drops out. That does not by itself make the criterion defective.",
+        "evidence": [
+          {
+            "source": "task.json C-012",
+            "quote": "citizenship is determined by the citizenship of all its members (Vince Calder and Lena Rosario-Calder, both Pennsylvania citizens)"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "Crescent Ridge is managed by its Managing Member, Vincent \"Vince\" Calder, a citizen of the Commonwealth of Pennsylvania... Mr. Calder and his spouse, Lena Rosario-Calder, reside in Pittsburgh, Pennsylvania"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "Plaintiff Crescent Ridge Distribution LLC is a citizen of Delaware and Pennsylvania."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Replace the parenthetical with: \"the complaint does not identify the LLC's members or allege their citizenship.\" Credit memos that flag the missing membership facts.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-IC-4"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-005"
+        ],
+        "title": "C-005 states the prorated figure as $934,694, but its own formula yields $934,864",
+        "explanation": "The correct figure is $4,431,500 × 77/365 = $934,864.38. The criterion states approximately $934,694, which contradicts the formula it gives in the same sentence. The \"roughly 5×\" conclusion is still right (5.17×). Because the criterion says the memo \"need not state the exact figure,\" a correct memo will usually pass. A literal judge comparing a correct $934,864 against the criterion's number could still hesitate, and the criterion states a wrong figure.",
+        "evidence": [
+          {
+            "source": "task.json C-005",
+            "quote": "yields approximately $934,694 (i.e., $4,431,500 × 77/365)"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "Total annual compensation was therefore \\$4,431,500. Based on the foregoing, Crescent Ridge is entitled to lost commissions in the amount of \\$4,836,000 for the 77-day remaining term."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Change $934,694 to approximately $934,864 in the title and the PASS text.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-IC-3"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-008",
+          "C-009"
+        ],
+        "title": "C-008 and C-009 require concluding that willful-and-malicious conduct is inadequately pleaded and moving against it",
+        "explanation": "C-008 passes only if the memo concludes the complaint lacks specific facts, such as acts, knowledge, or intent, and relies on labels. ¶177 is conclusory. But ¶¶93, 95, 102, 105 and 170-171 plead a dated bulk download of 14,000+ records after the termination notice, authorization by management, knowledge of impropriety, and use of exact pricing to undercut. Several of these are pleaded on information and belief. A memo that weighs sufficiency and finds willfulness plausibly pleaded falls between C-008's PASS and FAIL conditions. C-009 then requires a motion to strike or dismiss a damages demand. Such motions are often disfavored because exemplary damages are a remedy, not a claim. Section 9.1 also carves out willful misconduct and § 7.1 breaches, which the complaint pleads. Aside, not a criterion defect: the complaint misstates O.R.C. § 1333.63(B) as \"twice\" when the statute says \"three times\"; C-007 does not depend on the multiplier.",
+        "evidence": [
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "the December 22, 2023, download was authorized by Gerald R. Tannick or other members of Eastbrook's senior management team"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "knowing precisely what pricing terms Crescent Ridge had negotiated and what price points would be necessary to induce customers to switch"
+          },
+          {
+            "source": "task.json C-008",
+            "quote": "PASS if the memo identifies that the complaint does not allege specific facts (such as particular acts, knowledge, or intent) to support the willful and malicious misappropriation"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. § 1333.63(B)",
+            "proposition": "If willful and malicious misappropriation exists, the court may award punitive or exemplary damages not exceeding three times the compensatory award.",
+            "verified": true
+          },
+          {
+            "citation": "Fed. R. Civ. P. 9(b)",
+            "proposition": "Malice, intent, knowledge, and other conditions of mind may be alleged generally.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Make C-008 pass any memo that critically assesses the sufficiency of the willful-and-malicious allegations, whatever its conclusion. Let C-009 accept a reasoned challenge to exemplary damages at any stage (a motion, an affirmative defense, or a summary-judgment target), or a reasoned decision not to move.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-IC-1"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-016"
+        ],
+        "title": "C-016 frames the UTSA and DTSA counts as grounds for an election motion, though Count V is already pleaded in the alternative",
+        "explanation": "The complaint pleads Count V expressly \"in the alternative to Count IV.\" The DTSA expressly preserves state trade-secret remedies. Election of remedies happens before judgment, not at the pleading stage, so there is normally no motion to force it now. A competent memo could note the overlap, observe that the counts are already alternative and double recovery is foreclosed, and advise against spending a motion on it. The \"narrow/streamline\" alternative helps, but a literal judge could still fail that memo because it does not note \"the potential for a motion.\"",
+        "evidence": [
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "enter judgment against Eastbrook on Count V (in the alternative to Count IV)"
+          },
+          {
+            "source": "task.json C-016",
+            "quote": "notes the potential for a motion to require election between the two theories or to narrow/streamline the claims"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "18 U.S.C. § 1838",
+            "proposition": "The DTSA shall not be construed to preempt or displace any other civil or criminal remedies provided by state law for trade-secret misappropriation.",
+            "verified": true
+          },
+          {
+            "citation": "Fed. R. Civ. P. 8(d)(2)-(3)",
+            "proposition": "A party may plead alternative and inconsistent claims.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Pass any memo that addresses the Count IV/V overlap, including the alternative pleading and the bar on double recovery, whether or not it recommends a motion.",
+        "origin": "blind",
+        "sol_locators": [
+          "B6-IC-2"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-019"
+        ],
+        "title": "C-019's second PASS branch rewards the incorrect claim that citing exhibits without attaching them is improper",
+        "explanation": "C-019 passes if the memo says the missing exhibits weaken the complaint, which is legitimate: Exhibit I, the CRM access log, underlies the misappropriation allegation. It also passes if the memo says referencing exhibits without attaching them is \"improper.\" The federal rules permit attaching written instruments but do not require it, so the second branch rewards a wrong legal proposition. It cannot fail a correct answer, so the impact is low.",
+        "evidence": [
+          {
+            "source": "task.json C-019",
+            "quote": "or that their reference without attachment is improper"
+          },
+          {
+            "source": "verified-complaint.docx.txt",
+            "quote": "EXHIBITS I THROUGH L ARE REFERENCED IN THE BODY OF THIS VERIFIED COMPLAINT BUT ARE NOT ATTACHED TO THIS FILING."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 10(c)",
+            "proposition": "A copy of a written instrument that is an exhibit to a pleading is part of the pleading for all purposes; attachment is permitted, not mandated.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Drop the \"improper\" branch. Keep the weakness and evidentiary-gap framing.",
+        "origin": "blind",
+        "sol_locators": [
+          "B6-IC-5"
+        ],
+        "blind_ids": [
+          "O7"
+        ]
+      }
+    ],
+    "changes_from_blind": "C-012 (O1) and C-005 (O2) move from arguable to problematic. Each states a fact the record contradicts or does not support: an unlisted LLC member, and a miscomputed figure that contradicts the criterion's own formula. Sol's confirmed status agreed, and my re-check of complaint ¶¶6-8 and the arithmetic ($934,864.38) supports it. I have now verified O.R.C. § 1333.63(B) and 18 U.S.C. § 1838 from primary text. The Ohio statute says three times, not the twice the complaint alleges; Sol pointed this out and I added it to O3 as a note, not as a criterion defect. C-008/C-009 stay arguable against Sol's confirmed: an accurate memo can pass by attacking ¶177 as conclusory, and only some competent memos fail. I dropped blind O4 (Morgan-waiver tension between arbitration-first sequencing and C-006/C-009/C-011). C-006 and C-011 accept responsive-pleading or affirmative-defense routes in any forum, and moving to compel together with alternative defenses rarely causes waiver, so the risk is speculative. I dropped blind O5 (C-022 and § 4.3(b)(iii)): the notice itself invokes the § 4.3(a) cure period and also cites non-sales breaches, and C-022's fallback clause covers a § 4.3(b)(iii) analysis. I found Sol's C-003, C-004 and C-024 concerns to be no defect.",
+    "overall": "The rubric is mostly sound. Its central issues are grounded in the record: the § 10.1 mediation-arbitration clause, the extrapolation pretext against $24.3M in actual FY2023 sales, the customer-versus-employee scope of § 7.3, the § 9.1 exclusions, the improper lis pendens, the express-contract bar to unjust enrichment, and the absence of any CRM data-ownership provision. Two criteria state facts the record contradicts or does not support. C-012 names Lena Rosario-Calder as an LLC member without record support. C-005's $934,694 should be $934,864. Both carry modest misgrading risk because the criteria's core tests are correct. The larger all-pass risks are C-008/C-009, which require concluding that willfulness is inadequately pleaded despite ¶¶93-107 and 170-171 and require a disfavored motion to strike, and C-016, which calls for an election motion against counts already pleaded in the alternative. C-019 has a minor over-inclusive branch.",
+    "coverage": "I read all 25 criteria and the instructions. In the blind pass I read all 8 documents in full. In this pass I re-checked complaint ¶¶6-21, 90-107 and 166-196, the exhibit list, Agreement §§ 4.3, 6.4, 7.1 and 9.1, the for-cause notice, and whether the Agreement or the amendment says anything about CRM or data ownership (neither does). I read all of Sol's report files (audit.md, summary.md) and the index entry. From primary text (WebFetch) I verified O.R.C. § 1333.63(B), which says three times, and 18 U.S.C. § 1838. Morgan v. Sundance was verified in the blind pass. I did not read FRCP 8(d), 9(b) or 10(c), or Smith v. Spizzirri, in this session; those authorities are marked unverified or not relied on."
+  }
+}

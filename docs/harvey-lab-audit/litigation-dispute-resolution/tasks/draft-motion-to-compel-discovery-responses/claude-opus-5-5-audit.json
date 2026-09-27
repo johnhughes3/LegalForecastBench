@@ -1,0 +1,512 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-motion-to-compel-discovery-responses",
+  "title": "Draft Federal Rule 37(a) Motion to Compel Discovery Responses in Commercial Litigation",
+  "criteria_total": 59,
+  "criterion_lines": {
+    "C-001": 20,
+    "C-002": 28,
+    "C-003": 36,
+    "C-004": 44,
+    "C-005": 52,
+    "C-006": 60,
+    "C-007": 68,
+    "C-008": 76,
+    "C-009": 84,
+    "C-010": 92,
+    "C-011": 100,
+    "C-012": 108,
+    "C-013": 116,
+    "C-014": 124,
+    "C-015": 132,
+    "C-016": 140,
+    "C-017": 148,
+    "C-018": 156,
+    "C-019": 164,
+    "C-020": 172,
+    "C-021": 180,
+    "C-022": 188,
+    "C-023": 196,
+    "C-024": 204,
+    "C-025": 212,
+    "C-026": 220,
+    "C-027": 228,
+    "C-028": 236,
+    "C-029": 244,
+    "C-030": 252,
+    "C-031": 260,
+    "C-032": 268,
+    "C-033": 276,
+    "C-034": 284,
+    "C-035": 292,
+    "C-036": 300,
+    "C-037": 308,
+    "C-038": 316,
+    "C-039": 324,
+    "C-040": 332,
+    "C-041": 340,
+    "C-042": 348,
+    "C-043": 356,
+    "C-044": 364,
+    "C-045": 372,
+    "C-046": 380,
+    "C-047": 388,
+    "C-048": 396,
+    "C-049": 404,
+    "C-050": 412,
+    "C-051": 420,
+    "C-052": 428,
+    "C-053": 436,
+    "C-054": 444,
+    "C-055": 452,
+    "C-056": 460,
+    "C-057": 468,
+    "C-058": 476,
+    "C-059": 484
+  },
+  "blind": {
+    "task": "draft-motion-to-compel-discovery-responses",
+    "criteria_reviewed": 59,
+    "coverage": "I read all 59 criteria and the instructions. I read these documents in full: case-management-order, foss-email, meet-and-confer-letters (all three letters plus the compiler's notes), corbin-interrogatory-responses, corbin-rfp-responses and msa-excerpt. For first-set-interrogatories and first-rfps I read the definitions and instructions, then compared every request's text against the numbering in the responses. I searched all eight files for the damages components, the 310-employee figure and the service dates. I also read the judge prompt (neutral wording: pass if \"satisfies the criterion as described\") and the solver system prompt. I could not verify any legal source: WebFetch returned a spend-limit error, so I did not retry it or CourtListener. Legal propositions (FRCP 26(b)(1), 26(b)(5)(A), 26(c), 37(a)(4), 37(a)(5); no absolute trade-secret privilege; confidentiality is not a bar to discovery) were checked only against the record's own Case Management Order (CMO) and general knowledge, so every authority is marked verified=false. I did not confirm the real W.D. Pa. LCvR 37.1 text. The CMO's description of it governs within the record in any case.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-029",
+          "C-049"
+        ],
+        "title": "Served interrogatories/RFPs do not match the requests quoted in Corbin's responses except for the key disputed numbers",
+        "explanation": "The served First Set of Interrogatories and Corbin's responses contain different questions under the same numbers. Served No. 1 asks about persons who negotiated the MSA; Corbin's 'Interrogatory No. 1' asks Corbin to identify itself. Served No. 21 asks for retention policies, but Corbin answers retention under No. 22. Served No. 19 asks about AMT testing, while Corbin's No. 19 asks about AMT communications. The RFPs diverge the same way outside Nos. 1, 2, 5, 14, 15, 22, 31 and 37 (served RFP 38 is AMT deliverables; response 38 is the CoC process). The core criteria survive because Int. 7/12/18 and RFP 5/14/22/31/37 line up. But the chart required by C-029 must quote 'the request at issue', and two texts exist. The '8 substantive answers' in C-049 are answers to questions Vantage never served. A careful solver who notices this and frames it as a deficiency (Corbin answered rewritten questions) produces statistics and chart entries the rubric does not anticipate.",
+        "evidence": [
+          {
+            "source": "first-set-interrogatories.docx.txt",
+            "quote": "INTERROGATORY NO. 1: Identify all Persons who were involved in the negotiation, drafting, review, and execution of the MSA on behalf of Corbin"
+          },
+          {
+            "source": "corbin-interrogatory-responses.docx.txt",
+            "quote": "INTERROGATORY NO. 1: Identify the Defendant, including its form of organization, state of organization, date of organization, principal place of business"
+          },
+          {
+            "source": "first-set-interrogatories.docx.txt",
+            "quote": "INTERROGATORY NO. 21: Describe Corbin's document retention and destruction policies in effect during the Relevant Period"
+          },
+          {
+            "source": "corbin-interrogatory-responses.docx.txt",
+            "quote": "INTERROGATORY NO. 22: Describe Corbin's document retention and destruction policies in effect during the period January 2020 through the present"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Regenerate the responses documents so each request is reproduced verbatim from the served sets, or drop criteria whose accuracy depends on the non-matching numbers."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-049"
+        ],
+        "title": "Interrogatory breakdown 8/14/3 conflicts with the actual responses (8/13/4), and omitting the breakdown falls in the PASS/FAIL gap",
+        "explanation": "C-049 requires 8 substantive / 14 objection-only / 3 partial, which is taken from Vantage's letter. Corbin's responses document shows 8 RESPONSE-only (Nos. 1, 2, 3, 6, 9, 16, 24, 25), 13 OBJECTION-only (Nos. 4, 5, 7, 8, 11, 12, 13, 14, 15, 19, 20, 21, 23) and 4 'OBJECTION AND RESPONSE' (Nos. 10, 17, 18, 22). The letter's count is reachable only by reclassifying No. 17 or No. 22 as a pure objection. That is defensible, but 13/4 is equally so. A solver who counts from the primary document risks a 'materially misstated' FAIL. Separately, PASS requires stating the breakdown while FAIL fires only on misstatement. A motion that argues request by request without aggregate statistics sits in the gap, and under the judge prompt ('satisfies the criterion as described') it likely fails. Aggregate statistics are not a necessary component of a motion to compel. C-050 (29/13) matches the RFP record exactly and is not flagged.",
+        "evidence": [
+          {
+            "source": "meet-and-confer-letters.docx.txt",
+            "quote": "Of the 25 interrogatories served, Corbin provided substantive answers to only 8, asserted objections without any substantive response to 14, and provided only partial or evasive answers to the remaining 3."
+          },
+          {
+            "source": "corbin-interrogatory-responses.docx.txt",
+            "quote": "INTERROGATORY NO. 22: ... OBJECTION AND RESPONSE: ... Subject to and without waiving said objections, Corbin states that it maintains document retention practices consistent with industry standards"
+          },
+          {
+            "source": "task.json C-049",
+            "quote": "FAIL if the interrogatory response breakdown is materially misstated."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Accept either 8/14/3 or 8/13/4 (or any count consistent with the responses), and make clear that omitting aggregate statistics is not a failure."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-007",
+          "C-011"
+        ],
+        "title": "Meet-and-confer letters misdescribe the record (answered interrogatories listed as objection-only; privilege claimed for RFP 5)",
+        "explanation": "Letter 1 lists Interrogatory Nos. 3, 9 and 16 among those with 'boilerplate objections ... and the absence of substantive responses'. Corbin answered all three substantively. Letter 1 §IV also says privilege was asserted over 'RFP Nos. 5, 14', but the RFP 5 response raises only burden, trade secret and overbreadth, with no privilege objection. The letter further describes the 312 pages as mostly public filings and marketing materials, while the Bates summary shows CoCs, PO confirmations, invoices and similar documents. A solver who relies on the letters, as the rubric's statistics criteria implicitly invite, will misstate the record in the privilege and boilerplate arguments. The judges have no record access and cannot catch this, so wrong statements are rewarded or at least not penalized.",
+        "evidence": [
+          {
+            "source": "meet-and-confer-letters.docx.txt",
+            "quote": "Corbin's objections to Interrogatory Nos. 3, 5, 8, 9, 10, 13, 15, 16, 19, 20, and 21 suffer from materially similar deficiencies, including boilerplate objections asserted without factual support and the absence of substantive responses."
+          },
+          {
+            "source": "corbin-interrogatory-responses.docx.txt",
+            "quote": "INTERROGATORY NO. 16: ... RESPONSE: ... The applicable dimensional tolerances for critical machined surfaces of the turbine housing components were ±0.002 inches"
+          },
+          {
+            "source": "meet-and-confer-letters.docx.txt",
+            "quote": "including, without limitation, Interrogatory No. 12 and RFP Nos. 5, 14, and several others"
+          },
+          {
+            "source": "corbin-rfp-responses.docx.txt",
+            "quote": "REQUEST FOR PRODUCTION NO. 5 ... Response: Corbin objects to this Request on the following grounds: (1) The Request is unduly burdensome ... (2) ... trade secret ... (3) The Request is overbroad"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Correct the letters to match the responses (remove Nos. 3, 9 and 16; drop the RFP 5 privilege reference), or add a criterion rewarding accurate record characterization."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-038"
+        ],
+        "title": "Damages criterion says omission FAILs and also that omission alone is not a fail; component figures are not in the record",
+        "explanation": "C-038's FAIL clause includes 'entirely omitted', but its note says 'Omission alone is not a fail if damages are not relevant to a particular section.' A judge grading the whole deliverable may read these either way, so a sound motion that never states the damages figure could fail. The alternative components ($6.3M warranty + $2.8M penalties + $1.9M recall + $3.7M lost business) appear nowhere in the eight documents. The record gives only 'in excess of $14.7 million' in the CMO. Practical impact is limited, since a solver cannot cite the components, but the criterion rests partly on facts outside the record, and its omission rule is self-contradictory.",
+        "evidence": [
+          {
+            "source": "task.json C-038",
+            "quote": "FAIL if the damages figure is materially misstated (e.g., wrong by more than $500,000) or entirely omitted. Note: Omission alone is not a fail if damages are not relevant to a particular section"
+          },
+          {
+            "source": "case-management-order.docx.txt",
+            "quote": "Plaintiff alleges damages in excess of $14.7 million."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make it conditional: PASS if damages are not stated or are stated as $14.7M (in excess of). Delete the unsupported component breakdown."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-016"
+        ],
+        "title": "C-016 PASS demands 'under Rule 37(a)(4)' but FAIL only requires not flagging Int. 18 as evasive",
+        "explanation": "The PASS condition requires identifying the Int. 18 response 'as evasive or incomplete under Rule 37(a)(4)'. The FAIL condition fires only if Int. 18 'is not specifically flagged as evasive.' Consider a competent motion that calls the answer evasive and contradicted by CORBIN-000247 and demands a sworn supplement under Rule 33(b)(3), but never cites 37(a)(4). It falls between the two conditions. Another motion might call the answer 'false' or 'inaccurate' rather than 'evasive' (arguably the more precise characterization, given the Foss email). The two judges could reasonably split on either, and under all-pass scoring a split zeroes the run.",
+        "evidence": [
+          {
+            "source": "task.json C-016",
+            "quote": "PASS if the motion identifies Corbin's response to Interrogatory No. 18 ... as evasive or incomplete under Rule 37(a)(4) ... FAIL if Interrogatory No. 18 is not specifically flagged as evasive."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 37(a)(4)",
+            "proposition": "An evasive or incomplete disclosure, answer, or response must be treated as a failure to disclose, answer, or respond.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the motion characterizes the Int. 18 answer as evasive, incomplete, false or contradicted and seeks to compel a complete answer; treat a 37(a)(4) citation as optional."
+      }
+    ],
+    "overall": "The rubric is largely sound and closely tracks the record. The CMO expressly sets out the Local Rule 37.1 certification contents, the summary-chart standing order, the 26(c) requirement for trade-secret claims and the privilege-log deadline, and the letters supply nearly every fact the criteria check. The legal propositions it rewards (26(b)(5)(A) logs with discretionary waiver, burden on the objecting party, confidentiality is not a privilege, 37(a)(5) fees) are standard and stated permissively. The main weakness is the supplied record. The served discovery sets and Corbin's responses number different questions differently except for the disputed requests, and the letters misdescribe several responses. That makes the letter-derived interrogatory statistics in C-049 contestable against the primary documents. Smaller drafting issues are the self-contradictory omission rule and off-record damages components in C-038, and the PASS/FAIL gap in C-016. None of the findings is a clear misgrade of most competent answers, so all are rated arguable."
+  },
+  "final": {
+    "task": "draft-motion-to-compel-discovery-responses",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Confirmed defects: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-049"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-049",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I agree with the count. The responses document labels 8 answers RESPONSE, 13 OBJECTION and 4 OBJECTION AND RESPONSE (Nos. 10, 17, 18, 22). The rubric's 8/14/3 split comes from Vantage's letter. 'Substantially conveys' may let a judge accept 8/13/4, and the letter itself supports 8/14/3, so the criterion misgrades only some answers. There is also a gap: PASS requires stating the breakdown, while FAIL covers only misstating it. I rate it arguable, not confirmed."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-027",
+          "C-044"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-027",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-044",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I confirmed this against the PAWD Local Rules, which the court site still links as current. LCvR 37.1 is 'Referral of Discovery Motions by Clerk of Court', and LCvR 37.2 governs the form of discovery motions. Neither rule is a meet-and-confer certification rule. C-027 passes any good-faith certification, and the CMO independently requires one, so it grades correctly. C-044 requires citing the misdescribed rule number. In the record the CMO orders compliance with 'Local Rule 37.1', so most solvers will cite it. A solver working from the real rules could reasonably fail."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-038"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-038",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The FAIL clause says 'entirely omitted', but the note then says omission alone is not a failure. The component breakdown ($6.3M/$2.8M/$1.9M/$3.7M) appears nowhere in the record. Most motions will state $14.7M, which the CMO supplies, so misgrading is limited. Arguable."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-014"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-014",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "CMO §4.7 expressly provides that 'Claims of trade secret protection shall comply with Rule 26(c) and require a motion for protective order identifying the specific information claimed as a trade secret.' The letters confirm that Corbin never sought a protective order. The criterion rests on a case-specific order, not a universal rule, so a competent motion would make this argument."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-015"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-015",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "CMO §4.7 requires 'identifying the specific information claimed as a trade secret'. Corbin's RFP 5 objection refers only generically to 'proprietary trade secret manufacturing processes'. The PASS/FAIL wording ('lack of specificity') is broad enough to accept an argument that Corbin named only categories. No misgrade."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-009"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-009",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "CMO: 'Failure to timely provide a privilege log may be deemed a waiver of the asserted privilege. The Court will strictly enforce this requirement.' Corbin missed the 14-day deadline and its promised 30-day log. The criterion accepts 'may constitute' waiver. Any competent motion would make this argument."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-049"
+        ],
+        "title": "Interrogatory breakdown 8/14/3 conflicts with the responses document (8/13/4); omitting statistics falls in the PASS/FAIL gap",
+        "explanation": "C-049 requires 8 substantive / 14 objection-only / 3 partial, figures taken from Vantage's letter. Corbin's responses show 8 RESPONSE (Nos. 1, 2, 3, 6, 9, 16, 24, 25), 13 OBJECTION and 4 'OBJECTION AND RESPONSE' (Nos. 10, 17, 18, 22). No. 22 gives a partial retention answer, so 8/13/4 is the count the instrument supports. A solver who counts from the primary document risks a 'materially misstated' FAIL. Separately, PASS requires stating the breakdown but FAIL fires only on misstatement. Aggregate statistics are not a necessary part of a motion to compel, so a request-by-request motion sits in the gap and likely fails. C-050 (29/13) matches the RFP record and is not flagged.",
+        "evidence": [
+          {
+            "source": "meet-and-confer-letters.docx.txt",
+            "quote": "Corbin provided substantive answers to only 8, asserted objections without any substantive response to 14, and provided only partial or evasive answers to the remaining 3."
+          },
+          {
+            "source": "corbin-interrogatory-responses.docx.txt",
+            "quote": "INTERROGATORY NO. 22: ... OBJECTION AND RESPONSE: ... Subject to and without waiving said objections, Corbin states that it maintains document retention practices consistent with industry standards"
+          },
+          {
+            "source": "task.json C-049",
+            "quote": "FAIL if the interrogatory response breakdown is materially misstated."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Accept 8/14/3, 8/13/4 or any count consistent with the responses, and state that omitting aggregate statistics is not a failure.",
+        "origin": "revised",
+        "sol_locators": [
+          "Confirmed defects: item 1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-044"
+        ],
+        "title": "Rubric requires citing W.D. Pa. Local Rule 37.1 as the meet-and-confer rule; the real LCvR 37.1 governs clerk referral",
+        "explanation": "The CMO (and, following it, the rubric) describes LCvR 37.1 as requiring a written meet-and-confer certification. The current PAWD Local Rules say otherwise. LCvR 37.1 is 'Referral of Discovery Motions by Clerk of Court', and LCvR 37.2 requires a verbatim recitation of disputed requests and responses. The certification duty comes from FRCP 37(a)(1) and, here, the CMO itself. C-044 therefore rewards repeating a misattribution. In the record's world the CMO orders compliance with 'Local Rule 37.1', so most solvers will cite it and pass. A solver who knows the real rules and cites FRCP 37(a)(1), the CMO and LCvR 37.2 fails. C-027 is not affected: it passes any good-faith certification, and 'as required by Local Rule 37.1' is only descriptive.",
+        "evidence": [
+          {
+            "source": "case-management-order.docx.txt",
+            "quote": "Local Rule 37.1 requires that counsel for the moving party certify in writing that counsel have conferred in good faith"
+          },
+          {
+            "source": "task.json C-044",
+            "quote": "PASS if the motion references Local Rule 37.1 of the Western District of Pennsylvania by rule number."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "W.D. Pa. LCvR 37.1 (Local Rules eff. Nov. 1, 2016, manual lrmanual20181101.pdf)",
+            "proposition": "LCvR 37.1 is titled 'Referral of Discovery Motions by Clerk of Court' and provides that discovery motions are referred to the assigned judge; it contains no meet-and-confer certification requirement.",
+            "verified": true
+          },
+          {
+            "citation": "W.D. Pa. LCvR 37.2",
+            "proposition": "Discovery motions must include a verbatim recitation of each interrogatory, request, answer, response, and objection at issue, or a copy of the discovery document.",
+            "verified": true
+          },
+          {
+            "citation": "Fed. R. Civ. P. 37(a)(1)",
+            "proposition": "A motion to compel must include a certification of good-faith conferral.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Accept citation to FRCP 37(a)(1) and/or the CMO's conferral requirement (or LCvR 37.2) as equivalent, or correct the CMO's description of the local rule.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "Confirmed defects: item 2"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-038"
+        ],
+        "title": "C-038 says omitting damages FAILs and also that omission alone is not a failure; the component figures are not in the record",
+        "explanation": "The FAIL clause includes 'entirely omitted', but the note says 'Omission alone is not a fail if damages are not relevant to a particular section.' A judge grading the whole deliverable may apply either rule, so a sound motion that never states damages could fail. The alternative components ($6.3M + $2.8M + $1.9M + $3.7M) appear in none of the eight documents. The record gives only 'in excess of $14.7 million' (CMO). Impact is limited, because most motions will cite $14.7M.",
+        "evidence": [
+          {
+            "source": "task.json C-038",
+            "quote": "FAIL if the damages figure is materially misstated (e.g., wrong by more than $500,000) or entirely omitted. Note: Omission alone is not a fail if damages are not relevant to a particular section"
+          },
+          {
+            "source": "case-management-order.docx.txt",
+            "quote": "Plaintiff alleges damages in excess of $14.7 million."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Grade accuracy only if damages are stated (PASS if omitted or stated as in excess of $14.7M); delete the off-record component breakdown.",
+        "origin": "blind",
+        "sol_locators": [
+          "Confirmed defects: item 3"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-029",
+          "C-049"
+        ],
+        "title": "Served interrogatories and RFPs do not match the requests quoted in Corbin's responses, except for the key disputed numbers",
+        "explanation": "The served First Set of Interrogatories and Corbin's responses put different questions under the same numbers. Served No. 1 asks about the MSA negotiators, while Corbin's 'No. 1' asks Corbin to identify itself. Retention policies are served No. 21 but answered as No. 22. The RFPs diverge outside Nos. 1, 2, 5, 14, 15, 22, 31 and 37. The core disputed items (Int. 7/12/18; RFP 5/14/22/31/37) line up, so most criteria survive. But the C-029 chart must quote 'the request at issue' when two texts exist, and C-049's '8 substantive answers' are answers to questions Vantage never served. A careful solver who flags the mismatch produces statistics and chart entries the rubric does not anticipate.",
+        "evidence": [
+          {
+            "source": "first-set-interrogatories.docx.txt",
+            "quote": "INTERROGATORY NO. 1: Identify all Persons who were involved in the negotiation, drafting, review, and execution of the MSA on behalf of Corbin"
+          },
+          {
+            "source": "corbin-interrogatory-responses.docx.txt",
+            "quote": "INTERROGATORY NO. 1: Identify the Defendant, including its form of organization, state of organization, date of organization, principal place of business"
+          },
+          {
+            "source": "first-set-interrogatories.docx.txt",
+            "quote": "INTERROGATORY NO. 21: Describe Corbin's document retention and destruction policies in effect during the Relevant Period"
+          },
+          {
+            "source": "corbin-interrogatory-responses.docx.txt",
+            "quote": "INTERROGATORY NO. 22: Describe Corbin's document retention and destruction policies in effect during the period January 2020 through the present"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Regenerate the response documents so each request reproduces the served text verbatim, or tolerate chart and statistic variations that stem from the mismatch.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-016"
+        ],
+        "title": "C-016 PASS demands 'evasive ... under Rule 37(a)(4)', while FAIL fires only if Int. 18 is not flagged as evasive",
+        "explanation": "A competent motion might call the Int. 18 answer false and contradicted by CORBIN-000247 and the Foss email, then demand a sworn supplement, without citing Rule 37(a)(4) or using the word 'evasive'. That motion falls between the PASS and FAIL conditions. The two judges could split, and under all-pass scoring a split zeroes the run.",
+        "evidence": [
+          {
+            "source": "task.json C-016",
+            "quote": "PASS if the motion identifies Corbin's response to Interrogatory No. 18 ... as evasive or incomplete under Rule 37(a)(4) ... FAIL if Interrogatory No. 18 is not specifically flagged as evasive."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 37(a)(4)",
+            "proposition": "An evasive or incomplete disclosure, answer, or response must be treated as a failure to disclose, answer, or respond.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the motion characterizes the Int. 18 answer as evasive, incomplete, false or contradicted and seeks to compel a complete answer; make the 37(a)(4) citation optional.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [],
+        "title": "Meet-and-confer letters misdescribe responses (Int. 3, 9 and 16 called unanswered; privilege attributed to RFP 5)",
+        "explanation": "Letter 1 groups Interrogatory Nos. 3, 9 and 16 with responses showing 'the absence of substantive responses', but Corbin answered all three. It also lists RFP 5 among privilege assertions, although the RFP 5 response raises only burden, trade secret and overbreadth. A solver who relies on the letters will misstate the record, and the judges, who have no record access, cannot catch it. No criterion penalizes or rewards this directly, so it is a record defect rather than a criterion misgrade.",
+        "evidence": [
+          {
+            "source": "meet-and-confer-letters.docx.txt",
+            "quote": "Corbin's objections to Interrogatory Nos. 3, 5, 8, 9, 10, 13, 15, 16, 19, 20, and 21 suffer from materially similar deficiencies, including boilerplate objections asserted without factual support and the absence of substantive responses."
+          },
+          {
+            "source": "corbin-interrogatory-responses.docx.txt",
+            "quote": "INTERROGATORY NO. 16: ... RESPONSE: ... The applicable dimensional tolerances for critical machined surfaces of the turbine housing components were ±0.002 inches"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Correct the letters to match the responses, or add a criterion rewarding accurate characterization of the record.",
+        "origin": "revised",
+        "sol_locators": [],
+        "blind_ids": [
+          "O3"
+        ]
+      }
+    ],
+    "changes_from_blind": "I added O2 (C-044), adopted from Sol's item 2. I checked the current PAWD Local Rules PDF, which the court's local-rules page still links. Real LCvR 37.1 governs clerk referral of discovery motions, and LCvR 37.2 governs motion form, so C-044 rewards citing a rule the CMO misdescribes. I did not flag C-027, because its PASS condition accepts any certification. I merged Sol's C-049 and C-038 items into my blind O2 and O4, which are now O1 and O3; I kept them arguable rather than confirmed. I rejected Sol's C-014, C-015 and C-009 concerns. CMO §4.7 expressly requires a Rule 26(c) protective-order motion that identifies the specific trade-secret information, and the CMO says a late privilege log 'may be deemed a waiver', so those criteria track case-specific orders. I narrowed blind O3 (now O6) to a record defect with no criterion attached. RFP 14 and other responses do assert privilege, so C-007 and C-011 are not affected. Blind O1 and O5 are retained as O4 and O5.",
+    "overall": "The rubric is largely sound. The CMO supplies the certification, the summary chart, the Rule 26(c) trade-secret protocol and the privilege-log waiver rule, which answers Sol's C-009, C-014 and C-015 concerns. The main weaknesses are these. C-049 uses letter-derived interrogatory statistics (8/14/3) that differ from the responses document (8/13/4). C-044 requires citing W.D. Pa. LCvR 37.1, which, according to the actual local rules I read, governs clerk referral, not meet-and-confer certification. C-038 has a self-contradictory omission rule and off-record damages components, and C-016 has a gap between its PASS and FAIL conditions. The supplied record also has numbering mismatches between served requests and responses, and letters that misdescribe some responses. All findings are arguable. None would misgrade most competent answers, but each could zero an otherwise correct run under all-pass scoring.",
+    "coverage": "In the blind pass I read all 59 criteria, the instructions and all eight documents; in this pass I re-read the key criteria (C-007 through C-016, C-027, C-029, C-038, C-044, C-049, C-050). I read Sol's index entry and full audit report. I re-checked CMO §§4.4, 4.7 and the Local Rule 37.1 paragraphs, the RFP 5 response, the privilege assertions in both response sets, and the letters' trade-secret passages. I downloaded the current PAWD Local Rules PDF (lrmanual20181101.pdf, the link on the court's local-rules page) and read LCvR 37.1 and 37.2 verbatim. I did not verify any FRCP text in this session, so those authorities are marked unverified."
+  }
+}

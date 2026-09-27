@@ -1,0 +1,710 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-complaint",
+  "title": "Draft Federal Complaint for Trade Secret Misappropriation and Breach of Employment Agreement",
+  "criteria_total": 71,
+  "criterion_lines": {
+    "C-001": 17,
+    "C-002": 25,
+    "C-003": 33,
+    "C-004": 41,
+    "C-005": 49,
+    "C-006": 57,
+    "C-007": 65,
+    "C-008": 73,
+    "C-009": 81,
+    "C-010": 89,
+    "C-011": 97,
+    "C-012": 105,
+    "C-013": 113,
+    "C-014": 121,
+    "C-015": 129,
+    "C-016": 137,
+    "C-017": 145,
+    "C-018": 153,
+    "C-019": 162,
+    "C-020": 170,
+    "C-021": 178,
+    "C-022": 186,
+    "C-023": 194,
+    "C-024": 203,
+    "C-025": 212,
+    "C-026": 220,
+    "C-027": 228,
+    "C-028": 237,
+    "C-029": 245,
+    "C-030": 253,
+    "C-031": 261,
+    "C-032": 269,
+    "C-033": 277,
+    "C-034": 285,
+    "C-035": 293,
+    "C-036": 301,
+    "C-037": 309,
+    "C-038": 317,
+    "C-039": 325,
+    "C-040": 333,
+    "C-041": 341,
+    "C-042": 349,
+    "C-043": 357,
+    "C-044": 365,
+    "C-045": 373,
+    "C-046": 381,
+    "C-047": 389,
+    "C-048": 397,
+    "C-049": 405,
+    "C-050": 413,
+    "C-051": 421,
+    "C-052": 429,
+    "C-053": 437,
+    "C-054": 445,
+    "C-055": 453,
+    "C-056": 461,
+    "C-057": 469,
+    "C-058": 477,
+    "C-059": 485,
+    "C-060": 493,
+    "C-061": 501,
+    "C-062": 509,
+    "C-063": 517,
+    "C-064": 525,
+    "C-065": 533,
+    "C-066": 541,
+    "C-067": 549,
+    "C-068": 557,
+    "C-069": 565,
+    "C-070": 573,
+    "C-071": 581
+  },
+  "blind": {
+    "task": "draft-complaint",
+    "criteria_reviewed": 71,
+    "coverage": "I read all 71 criteria, the instructions, and all 10 documents in full: the Showalter memo, Employment Agreement, CIAA, Sentinel report, trade secret summary, damages workbook, resignation letter, press release, and the Kowalski and Okonkwo declarations. I did not open the generic system prompt or the judge prompt; the task description summarized them. WebFetch and WebSearch returned a spend-limit error, so I fetched statutory text with curl instead. Primary texts I read this session: N.C. Gen. Stat. Ch. 66, Art. 24 (§§ 66-152 to -157), 18 U.S.C. § 1833, and 28 U.S.C. § 113. On CourtListener I read passages of Dalton v. Camp, Booe v. Shadrick, and Sitelink v. Red Nova. I found no NC case law squarely on whether the TSPA displaces other claims, so that finding rests on the statute text alone. I did not check the E.D.N.C. local rules on party addresses. I did not verify NC authority on whether a breach of contract can be the underlying act for civil conspiracy, or on the intracorporate-conspiracy doctrine, so I did not flag them. I checked the record arithmetic and it holds: 53 days' notice, 7 days short; $64.5M + $16.92M + $3.6M = $85.02M; the DCF sums reconcile. Some record oddities change no criterion outcome and are not findings: Sentinel's codenames 'TP-101 through TP-214' vs. the summary's TP-101 to TP-900 list; Heartland called both the 'largest' and a 'top 5' distributor; the terminal value described both as a 4.3x exit multiple and as 2% perpetual growth; the press-release media phone number matching Showalter's; and the patent applications described as 'not yet published' although the first were filed in FY2021.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-027"
+        ],
+        "title": "C-027 rests on an NC TSPA preemption provision that does not exist; § 66-157 is the limitations statute and has no subsection (a)",
+        "explanation": "C-027 fails any submission that never mentions the risk that the NC Trade Secrets Protection Act, 'N.C. Gen. Stat. § 66-157(a)', preempts the unjust enrichment and conspiracy claims. That premise is wrong on two counts. First, § 66-157 is a single-sentence statute of limitations with no subsection (a). Second, Article 24 (§§ 66-152 to 66-157, with 66-158 to 66-162 reserved) has no displacement or preemption clause at all; North Carolina did not adopt UTSA § 7. A competent drafter who correctly omits a preemption doctrine NC lacks fails this criterion. A drafter who repeats the invented doctrine passes. The criterion states wrong law and penalizes the correct answer.",
+        "evidence": [
+          {
+            "source": "C-027",
+            "quote": "address the risk that the NC Trade Secrets Protection Act (N.C. Gen. Stat. § 66-157(a)) may preempt the unjust enrichment and/or civil conspiracy claims ... FAIL if preemption under the NC TSPA is never mentioned."
+          },
+          {
+            "source": "C-024",
+            "quote": "the 3-year statute of limitations under N.C. Gen. Stat. § 66-157"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "N.C. Gen. Stat. § 66-157",
+            "proposition": "The full text is: 'An action for misappropriation of a trade secret must be commenced within three years after the misappropriation complained of is or reasonably should have been discovered.' There is no subsection (a) and no preemption language.",
+            "verified": true
+          },
+          {
+            "citation": "N.C. Gen. Stat. §§ 66-152 to 66-157 (Art. 24)",
+            "proposition": "The Article covers definitions, the cause of action, remedies, burden of proof, preservation of secrecy, and the limitations period. It contains no clause displacing other tort or restitution remedies.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Delete C-027, or rewrite it as optional credit for noting that NC claims resting only on the same misappropriation may be attacked as duplicative or legally deficient (for example, the conferral element of unjust enrichment). Do not cite a TSPA preemption provision."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-045"
+        ],
+        "title": "C-045 requires a prospective-economic-advantage count the record cannot support under NC law, though the task asks only for viable claims",
+        "explanation": "The instructions ask for 'all viable claims'. C-045 copies the GC's claim list and fails any complaint without this count. Under NC law the tort requires inducement of a third party and proof that a specific contract 'would have ensued' but for the interference (Dalton v. Camp). On this record, Kowalski and Okonkwo both ignored the approaches and remain at Verdant. Heartland reported only a presentation, with no lost order or terminated contract. A competent drafter could reasonably leave this count out as not viable and flag it in the memo. C-045 would then fail a sound, judgment-based answer, and the all-pass metric turns that into a zero.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "draft a federal complaint with all viable claims"
+          },
+          {
+            "source": "kowalski-declaration.docx.txt",
+            "quote": "I did not respond to the text message. I did not meet Dr. Tate for coffee"
+          },
+          {
+            "source": "okonkwo-declaration.docx.txt",
+            "quote": "I did not respond to the LinkedIn message. I did not engage in any conversation with the recruiter"
+          },
+          {
+            "source": "C-045",
+            "quote": "FAIL if this count is missing."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Dalton v. Camp, 353 N.C. 647, 548 S.E.2d 704 (2001)",
+            "proposition": "Interference with prospective advantage requires the defendant's inducement of a third party and 'a showing that a contract would have ensued'; missing either element is fatal.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept either a pleaded count or a memo explaining why the count was omitted or is at risk under NC law."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-046"
+        ],
+        "title": "C-046 requires unjust enrichment against both defendants, but NC law bars it against Tate, whose express contracts govern",
+        "explanation": "C-046 fails a complaint unless unjust enrichment is pleaded against both Tate and AgriNova. In NC, an express contract governing the subject bars an implied-in-law claim (Booe v. Shadrick), and Tate's Employment Agreement and CIAA expressly cover confidential information. NC unjust enrichment also requires that the plaintiff conferred the benefit, which fits poorly with misappropriated information. This finding is weaker than O2 because alternative pleading is routine and many competent drafters would include the count anyway. Still, a drafter who deliberately pleads it only against AgriNova, or leaves it out and explains why in the memo, fails.",
+        "evidence": [
+          {
+            "source": "C-046",
+            "quote": "FAIL if the unjust enrichment count is missing or does not name both defendants."
+          },
+          {
+            "source": "tate-ciaa.docx.txt",
+            "quote": "2.2 Non-Use. The Employee shall not use any Confidential Information for any purpose other than the performance of the Employee's authorized duties"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Booe v. Shadrick, 322 N.C. 567, 369 S.E.2d 554 (1988)",
+            "proposition": "'If there is a contract between the parties the contract governs the claim and the law will not imply a contract.'",
+            "verified": true
+          },
+          {
+            "citation": "SiteLink Software, LLC v. Red Nova Labs, Inc. (N.C. Bus. Ct. Aug. 20, 2018)",
+            "proposition": "Unjust enrichment requires proof that the plaintiff 'conferred a benefit on another party' that was consciously accepted (quoting Se. Shelter Corp. v. BTU, Inc.).",
+            "verified": true
+          },
+          {
+            "citation": "Se. Shelter Corp. v. BTU, Inc., 154 N.C. App. 321 (2002)",
+            "proposition": "Elements of unjust enrichment (conferral, acceptance, not gratuitous).",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Pass a complaint that pleads unjust enrichment against AgriNova (or in the alternative), or that explains in the memo why it was not asserted against Tate."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-018"
+        ],
+        "title": "C-018 requires stating that the facts could support ex parte seizure, which fails a memo that raises seizure and reasonably advises against it",
+        "explanation": "PASS requires three things together: mention § 1836(b)(2), note that it applies only in extraordinary circumstances, and note that the wipe and encrypted-email facts 'could support such a motion'. The statute bars seizure unless a Rule 65 order would be inadequate. A competent memo could discuss seizure and conclude that a TRO, backed by an order to turn over the USB drive, is the better course. That memo addresses the remedy but may not say the facts support it. Such an answer falls between PASS and FAIL, and the two judges could split.",
+        "evidence": [
+          {
+            "source": "C-018",
+            "quote": "noting it applies in extraordinary circumstances and that facts such as Tate wiping his laptop and using encrypted communications could support such a motion. FAIL if the ex parte seizure provision is never mentioned"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "18 U.S.C. § 1836(b)(2)(A)(ii)(I)",
+            "proposition": "Seizure is available only if a Rule 65 or other equitable order would be inadequate.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if either document identifies the ex parte seizure remedy and evaluates whether it applies, whatever the recommendation."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-057"
+        ],
+        "title": "C-057 requires pleading specific speculative damages figures, though Rule 8 does not and a careful drafter may deliberately avoid them",
+        "explanation": "C-057 fails a complaint with no dollar figures. Rule 8(a)(3) requires only a demand for relief, and complaints often plead damages 'in an amount to be proven at trial'. The CFO's figures are projections and say so: a 30% erosion of the DCF, a hypothetical first-year diversion that overlaps the DCF revenue base, and losses for '3' scientists when none has left. The workbook itself says it is not an expert report. A competent drafter could reasonably keep these numbers out of the complaint and flag them in the memo.",
+        "evidence": [
+          {
+            "source": "damages-analysis-summary.xlsx.txt",
+            "quote": "This analysis does not constitute an expert damages report. A formal expert report will be prepared for litigation purposes."
+          },
+          {
+            "source": "damages-analysis-summary.xlsx.txt",
+            "quote": "Loss of 3 senior R&D scientists at $1.2M training/institutional knowledge investment each"
+          },
+          {
+            "source": "C-057",
+            "quote": "FAIL if no specific damage figures are alleged."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Allow credit if the damages figures appear in either the complaint or the memo, or drop the criterion."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-004",
+          "C-006",
+          "C-009"
+        ],
+        "title": "Address criteria titles name only the city, but the match criteria demand full street addresses and fail if omitted",
+        "explanation": "The titles say 'Research Triangle Park, NC', 'Chapel Hill, NC' and 'Raleigh, NC'. The match criteria demand the full street address and suite and fail if the address is 'omitted'. A federal complaint does not need party street addresses (Rule 10(a) requires names in the caption). Practitioners commonly give only the city and state, especially for an individual's home in a public filing. A judge could read 'resides in Chapel Hill, North Carolina' as an omitted address and fail an otherwise sound complaint on three criteria.",
+        "evidence": [
+          {
+            "source": "C-006",
+            "quote": "PASS if the complaint identifies Tate as an individual residing at 1822 Foxglove Lane, Chapel Hill, NC 27517. FAIL if his residential address is omitted or materially incorrect."
+          },
+          {
+            "source": "C-004",
+            "quote": "Plaintiff's headquarters address: Research Triangle Park, NC"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS on correct city and state; treat a street address as optional."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-024"
+        ],
+        "title": "C-024 requires addressing an NC TSPA limitations issue that does not exist on these facts",
+        "explanation": "The misconduct ran from October 2024 to January 2025, and filing is set for April 2025, a few months into a three-year period that runs from discovery. Timeliness is not a real strategic concern or defense here. A competent complaint and memo can omit it without error. Requiring it anywhere amounts to a planted checklist item the instructions never asked for.",
+        "evidence": [
+          {
+            "source": "showalter-memo-to-counsel.docx.txt",
+            "quote": "With the target filing date of April 7, 2025, the filing is well within any applicable limitations period."
+          },
+          {
+            "source": "C-024",
+            "quote": "FAIL if the NC TSPA statute of limitations is not addressed at all."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "N.C. Gen. Stat. § 66-157",
+            "proposition": "Three years from when the misappropriation is or reasonably should have been discovered.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Make this optional credit, not a pass/fail gate."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-023"
+        ],
+        "title": "C-023 rewards the GC's causation theory for the notice shortfall, which the record timeline largely undercuts",
+        "explanation": "C-023 requires saying that the short notice deprived Verdant of the chance to restrict access earlier and 'potentially prevent some of the data exfiltration.' The record cuts against this. All exfiltration ended November 15, before the November 18 notice. Verdant then had 53 days to invoke garden leave and did nothing until January 10. On the GC's own counterfactual (departure around January 17), the missing week falls after all the exfiltration. Only the alternative of notice on November 11 could have reached the November 15 download. A memo that critically calls the causation weak may or may not satisfy the judges.",
+        "evidence": [
+          {
+            "source": "showalter-memo-to-counsel.docx.txt",
+            "quote": "had Tate provided the required 60 days' notice (which would have set a departure date of approximately January 17, 2025)"
+          },
+          {
+            "source": "sentinel-forensics-report.docx.txt",
+            "quote": "Tate's last day; laptop returned in wiped state; VaultSci access disabled"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if either document addresses the practical consequence of the shortfall, including a critical assessment of whether it caused harm."
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-060",
+          "C-051"
+        ],
+        "title": "Naming Sentinel is required although its report is marked privileged work product; this is a strategic drafting choice",
+        "explanation": "C-060 fails a complaint that does not name Sentinel Digital Forensics. C-051 requires alleging that 'Sentinel' recovered the deletion logs. The report is labeled work product 'prepared at the direction of counsel.' Some drafters would plead 'a forensic examination revealed' to delay at-issue waiver arguments. This is the lowest-confidence finding: the report says it may be produced as exhibits, and naming the examiner is common and reasonable.",
+        "evidence": [
+          {
+            "source": "sentinel-forensics-report.docx.txt",
+            "quote": "This report has been prepared at the direction of counsel in anticipation of litigation and is protected by the attorney-client privilege and the work-product doctrine."
+          },
+          {
+            "source": "C-060",
+            "quote": "FAIL if the forensic investigation source is not identified."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the complaint attributes the findings to an independent forensic examination, named or not."
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 accepts the venue ground 'defendants reside in the district', but Tate lives in Chapel Hill, which is in the M.D.N.C.",
+        "explanation": "Chapel Hill, zip 27517, lies in Orange County, part of the Middle District, not the Eastern. Venue in the E.D.N.C. is proper under § 1391(b)(1) because all defendants reside in NC and AgriNova resides in Wake County. It is not proper on the theory that both defendants reside in the district. Because of the 'and/or', C-012 never fails a correct answer, but it lets through a factual misstatement about Tate's residence. Low impact.",
+        "evidence": [
+          {
+            "source": "C-012",
+            "quote": "noting that defendants reside in the district and/or a substantial part of the events occurred there"
+          },
+          {
+            "source": "tate-employment-agreement.docx.txt",
+            "quote": "an individual residing at 1822 Foxglove Lane, Chapel Hill, NC 27517"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "28 U.S.C. § 113(a)-(b)",
+            "proposition": "Wake County is in the Eastern District; Orange and Durham (except FCI Butner) are in the Middle District.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept § 1391(b)(1) (all defendants NC residents, with AgriNova in this district), § 1391(b)(2), or the forum clause. Drop 'defendants reside in the district'."
+      }
+    ],
+    "overall": "The rubric is mostly sound. It tracks the record closely, and nearly all of its factual criteria (dates, file counts, parties, agreements, the forensic timeline) match the documents. There is one clear defect. C-027 requires flagging preemption under an NC TSPA provision that does not exist: § 66-157 is the limitations statute, and Article 24 has no displacement clause. Under the all-pass metric, that alone can zero out a correct answer. Most of the other issues come from the rubric copying the GC memo's claim list and level of detail as mandatory, against an instruction to plead only 'viable' claims. C-045 (prospective economic advantage, where no contract has been lost) and C-046 (unjust enrichment against a party bound by express contracts) are the clearest cases, and C-057, C-024 and the street-address criteria add a similar risk. These are debatable rather than outright errors. Together they penalize legitimate professional judgment more than they catch real mistakes."
+  },
+  "final": {
+    "task": "draft-complaint",
+    "sol_verdicts": [
+      {
+        "sol_locator": "B6-DC-1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-027"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-027",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "I re-fetched ncleg Article 24 this session. § 66-157 is a single-sentence three-year limitations statute with no subsection (a), and §§ 66-158 to 66-162 are reserved. The Act has no displacement or preemption clause. C-027's PASS text requires treating a nonexistent statutory preemption risk, and the judge prompt applies the criterion 'as described'. A drafter who correctly omits the risk fails, and one who repeats the invented doctrine passes."
+      },
+      {
+        "sol_locator": "B6-DC-2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-023"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-023",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The record supports Sol's timeline: exfiltration ran Oct 27 to Nov 15, notice came Nov 18, and the memo's counterfactual is a Jan 17 departure. The 'prevent some exfiltration' limb is therefore largely unsupported. But Employment Agreement § 7.3 has Tate acknowledging that short notice 'deprives the Company of the opportunity to exercise these protections'. A complaint that pleads that acknowledgment addresses the harm and likely passes. Only a memo that flatly rejects any harm is at risk. That misgrades some competent answers, not all, so 'confirmed' overstates it."
+      },
+      {
+        "sol_locator": "B6-DC-3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-045",
+          "C-057"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-045",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-057",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "This matches my blind findings. Heartland reported only a BioYield presentation, both scientists ignored the approaches and remain at Verdant, and NC requires proof that a contract 'would have ensued' (Dalton). The workbook disclaims expert status and assumes three departures that have not happened. The instructions ask for 'viable' claims, so a reasoned omission, or a complaint pleading damages to be proven at trial with the figures flagged in the memo, is competent work these criteria would fail."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-027"
+        ],
+        "title": "C-027 requires flagging preemption under an NC TSPA provision that does not exist; § 66-157 is the limitations statute and has no (a)",
+        "explanation": "C-027 fails any submission that never mentions the risk that 'N.C. Gen. Stat. § 66-157(a)' preempts the unjust enrichment and conspiracy claims. That premise is wrong. § 66-157 is a single-sentence three-year limitations period with no subsection (a). Article 24 (§§ 66-152 to 66-157, with 66-158 to 66-162 reserved) has no displacement clause; NC did not adopt UTSA § 7. C-024 itself correctly describes § 66-157 as the limitations statute. A competent drafter who correctly omits a preemption doctrine NC lacks fails, and a drafter who repeats the invented doctrine passes. Under the all-pass metric, this alone can zero out a correct answer.",
+        "evidence": [
+          {
+            "source": "C-027",
+            "quote": "address the risk that the NC Trade Secrets Protection Act (N.C. Gen. Stat. § 66-157(a)) may preempt the unjust enrichment and/or civil conspiracy claims ... FAIL if preemption under the NC TSPA is never mentioned."
+          },
+          {
+            "source": "C-024",
+            "quote": "the 3-year statute of limitations under N.C. Gen. Stat. § 66-157"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "N.C. Gen. Stat. § 66-157",
+            "proposition": "Full text: 'An action for misappropriation of a trade secret must be commenced within three years after the misappropriation complained of is or reasonably should have been discovered.' It has no subsection (a) and no preemption language.",
+            "verified": true
+          },
+          {
+            "citation": "N.C. Gen. Stat. §§ 66-152 to 66-157; §§ 66-158 to 66-162 reserved",
+            "proposition": "Article 24 covers definitions, the action, remedies, burden of proof, preservation of secrecy, and limitations. It has no clause displacing other civil remedies.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Delete C-027, or make it optional credit for noting that common-law claims resting only on the same misappropriation may be attacked as duplicative or deficient on their own elements. Do not cite a TSPA preemption provision.",
+        "origin": "blind",
+        "sol_locators": [
+          "B6-DC-1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-045"
+        ],
+        "title": "C-045 requires a prospective-economic-advantage count that the record may not support under NC law, though the task asks only for viable claims",
+        "explanation": "The instructions ask for 'all viable claims'. C-045 copies the GC's claim list and fails any complaint without this count. NC requires inducement of a third party and proof that a contract 'would have ensued' but for the interference. On this record, Kowalski and Okonkwo ignored the approaches and remain at Verdant, and Heartland reported only a presentation, with no lost order. A competent drafter could reasonably omit the count as not yet viable and explain why in the memo. C-045 would fail that answer.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "draft a federal complaint with all viable claims"
+          },
+          {
+            "source": "kowalski-declaration.docx.txt",
+            "quote": "I did not respond to the text message. I did not meet Dr. Tate for coffee"
+          },
+          {
+            "source": "okonkwo-declaration.docx.txt",
+            "quote": "I did not respond to the LinkedIn message. I did not engage in any conversation with the recruiter"
+          },
+          {
+            "source": "C-045",
+            "quote": "FAIL if this count is missing."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Dalton v. Camp, 353 N.C. 647, 548 S.E.2d 704 (2001)",
+            "proposition": "Interference with prospective advantage requires inducement of a third party and a showing that a contract 'would have ensued' but for the interference.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept either a pleaded count or a memo explaining why the count was omitted or is at risk under NC law.",
+        "origin": "blind",
+        "sol_locators": [
+          "B6-DC-3"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-057"
+        ],
+        "title": "C-057 requires pleading specific projected damages figures, though Rule 8 does not and a careful drafter may deliberately avoid them",
+        "explanation": "C-057 fails a complaint with no dollar figures. Rule 8(a)(3) requires only a demand for relief, and complaints often plead damages 'in an amount to be proven at trial'. The CFO's figures are projections: a 30% DCF erosion, a hypothetical first-year diversion, and losses for '3' scientists when none has left. The workbook disclaims expert status. A competent drafter could keep these numbers out of the complaint and flag them in the memo, and C-057 would fail that answer.",
+        "evidence": [
+          {
+            "source": "damages-analysis-summary.xlsx.txt",
+            "quote": "This analysis does not constitute an expert damages report. A formal expert report will be prepared for litigation purposes."
+          },
+          {
+            "source": "damages-analysis-summary.xlsx.txt",
+            "quote": "Loss of 3 senior R&D scientists at $1.2M training/institutional knowledge investment each"
+          },
+          {
+            "source": "C-057",
+            "quote": "FAIL if no specific damage figures are alleged."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Credit damages figures whether they appear in the complaint or in the memo, or accept a reasoned choice to plead damages 'to be proven at trial'.",
+        "origin": "blind",
+        "sol_locators": [
+          "B6-DC-3"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-023"
+        ],
+        "title": "C-023 rewards the GC's theory that the notice shortfall could have prevented exfiltration, which the record timeline undercuts",
+        "explanation": "PASS requires explaining that the short notice deprived Verdant of the chance to invoke garden leave, restrict access earlier, and 'potentially prevent some of the data exfiltration.' All exfiltration ended Nov 15, before the Nov 18 notice. Verdant then had 53 days of garden-leave rights and did not use them. On the GC's own counterfactual (departure around Jan 17), the missing week falls after all exfiltration. The GC explicitly asks counsel to evaluate consequential-damages causation, and the right answer is largely no. Partly offsetting this, § 7.3 has Tate acknowledging that short notice deprives the Company of these protections, so a complaint pleading that acknowledgment likely passes. The risk is a memo that correctly rejects exfiltration causation, since the judge applies the PASS text 'as described'.",
+        "evidence": [
+          {
+            "source": "showalter-memo-to-counsel.docx.txt",
+            "quote": "had Tate provided the required 60 days' notice (which would have set a departure date of approximately January 17, 2025)"
+          },
+          {
+            "source": "sentinel-forensics-report.docx.txt",
+            "quote": "The data exfiltration activities (October 27 through November 15, 2024) all precede Dr. Tate's resignation (November 18, 2024)"
+          },
+          {
+            "source": "tate-employment-agreement.docx.txt",
+            "quote": "failure to provide the full Notice Period deprives the Company of the opportunity to exercise these protections and constitutes a material breach of this Agreement."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if either document addresses the practical consequence of the shortfall, including a critical assessment that it could not have prevented the pre-notice exfiltration.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-DC-2"
+        ],
+        "blind_ids": [
+          "O8"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-046"
+        ],
+        "title": "C-046 requires unjust enrichment against both defendants, though NC law bars it against Tate, whose express contracts govern",
+        "explanation": "C-046 fails a complaint unless unjust enrichment names both Tate and AgriNova. In NC, an express contract governing the subject bars an implied-in-law claim, and Tate's Employment Agreement and CIAA expressly cover the use of confidential information. NC unjust enrichment also requires that the plaintiff conferred the benefit, which fits misappropriation poorly. Alternative pleading is routine, so many competent drafters would include the count anyway. But a drafter who deliberately pleads it only against AgriNova, or explains the omission in the memo, fails.",
+        "evidence": [
+          {
+            "source": "C-046",
+            "quote": "FAIL if the unjust enrichment count is missing or does not name both defendants."
+          },
+          {
+            "source": "tate-ciaa.docx.txt",
+            "quote": "2.2 Non-Use. The Employee shall not use any Confidential Information for any purpose other than the performance of the Employee's authorized duties"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Booe v. Shadrick, 322 N.C. 567, 369 S.E.2d 554 (1988)",
+            "proposition": "'If there is a contract between the parties the contract governs the claim and the law will not imply a contract.'",
+            "verified": true
+          },
+          {
+            "citation": "SiteLink Software, LLC v. Red Nova Labs, Inc. (N.C. Bus. Ct. 2018)",
+            "proposition": "Unjust enrichment requires that the plaintiff conferred a benefit that was consciously accepted.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS a complaint that pleads unjust enrichment against AgriNova (or against Tate only in the alternative), or that explains in the memo why it was not asserted against Tate.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-018"
+        ],
+        "title": "C-018 requires stating that the facts could support ex parte seizure, which fails a memo that raises seizure and reasonably advises against it",
+        "explanation": "PASS requires three things together: mentioning § 1836(b)(2), noting that it is for extraordinary circumstances, and noting that the wipe and encrypted-email facts 'could support such a motion'. Seizure is unavailable if a Rule 65 order would suffice. A competent memo might discuss seizure and conclude that a TRO with a USB turnover order is the better course. That memo addresses the remedy but may not affirm that the facts support it, so it falls between PASS and FAIL. The judge prompt's 'satisfies the criterion as described' makes a split likely.",
+        "evidence": [
+          {
+            "source": "C-018",
+            "quote": "noting it applies in extraordinary circumstances and that facts such as Tate wiping his laptop and using encrypted communications could support such a motion. FAIL if the ex parte seizure provision is never mentioned"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "18 U.S.C. § 1836(b)(2)(A)(ii)(I)",
+            "proposition": "Seizure is available only if a Rule 65 or other equitable order would be inadequate.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if either document identifies the ex parte seizure remedy and evaluates whether it applies, whatever the recommendation.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-004",
+          "C-006",
+          "C-009"
+        ],
+        "title": "Address criteria titles name only the city, but the match criteria demand full street addresses and fail if they are omitted",
+        "explanation": "The titles say only 'Research Triangle Park, NC', 'Chapel Hill, NC' and 'Raleigh, NC'. The match criteria demand full street addresses, including an individual's home address, and fail if the address is 'omitted'. Rule 10(a) requires names in the caption, not street addresses. Practitioners often plead only city and state, especially for an individual in a public filing. A judge could read 'resides in Chapel Hill, North Carolina' as an omitted address and fail an otherwise sound complaint on three criteria.",
+        "evidence": [
+          {
+            "source": "C-006",
+            "quote": "PASS if the complaint identifies Tate as an individual residing at 1822 Foxglove Lane, Chapel Hill, NC 27517. FAIL if his residential address is omitted or materially incorrect."
+          },
+          {
+            "source": "C-004",
+            "quote": "Plaintiff's headquarters address: Research Triangle Park, NC"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS on correct city and state, and treat a street address as optional.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-012"
+        ],
+        "title": "C-012 accepts the venue ground 'defendants reside in the district', though Tate's Chapel Hill address is in the M.D.N.C.",
+        "explanation": "Chapel Hill (27517) is in Orange County, part of the Middle District, not the Eastern. E.D.N.C. venue is proper under § 1391(b)(1) because AgriNova resides in Wake County and all defendants are NC residents, or under (b)(2). It is not proper on the theory that both defendants reside in the district. The 'and/or' means C-012 never fails a correct complaint, so this is a factual imprecision in the criterion, not a misgrade of competent work. It tolerates a misstatement of Tate's district. Low impact.",
+        "evidence": [
+          {
+            "source": "C-012",
+            "quote": "noting that defendants reside in the district and/or a substantial part of the events occurred there"
+          },
+          {
+            "source": "tate-employment-agreement.docx.txt",
+            "quote": "an individual residing at 1822 Foxglove Lane, Chapel Hill, NC 27517"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "28 U.S.C. § 113(a)-(b)",
+            "proposition": "Wake County is in the Eastern District; Orange County is in the Middle District.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Accept § 1391(b)(1) (all defendants are NC residents, with AgriNova in this district) or § 1391(b)(2). Drop 'defendants reside in the district'.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O10"
+        ]
+      }
+    ],
+    "changes_from_blind": "I dropped blind O7 (C-024, NC TSPA limitations). The instruction asks for a memo on 'potential defenses', limitations is the first affirmative defense any litigator clears, and the GC flagged timeliness. That makes it demanding, not hidden. I dropped blind O9 (C-060/C-051, naming Sentinel). The report contemplates production as exhibits, and naming the forensic firm is ordinary pleading, so this is not a defect. I revised C-023 (blind O8, now O4): it stays arguable despite Sol's 'confirmed'. I added Employment Agreement § 7.3's acknowledgment clause as evidence, because it lets a complaint plead a deprivation of protections and pass. Only a memo that rejects causation outright is at risk. C-012 is kept but reframed as a low-impact factual imprecision, not a grading risk. C-027, C-045 and C-057 are unchanged and now link to Sol's B6-DC-1 and B6-DC-3. Verified flags now reflect only what I re-checked in this session: I re-fetched NC Article 24, and CourtListener exact-phrase searches matched the quoted passages in Booe and Dalton. 28 U.S.C. § 113 and SiteLink are marked unverified this pass.",
+    "overall": "The rubric tracks the record closely: dates, file counts, parties, agreements and the forensic timeline check out. It has one clear defect. C-027 requires flagging preemption under a nonexistent NC TSPA provision (§ 66-157 is the limitations statute, and Article 24 has no displacement clause), and under the all-pass metric that alone can zero out a correct answer. Sol and I agree on that, and also that C-045 and C-057 are arguable overconstraints: they copy the GC's claim list and damages projections as mandatory, even though the instruction asks for 'viable' claims. I rate C-023 arguable rather than confirmed, because § 7.3's acknowledgment clause lets most competent complaints pass even though the exfiltration-prevention theory is weak. The other arguable items, C-046, C-018, the street-address criteria and C-012, penalize legitimate drafting judgment in some answers rather than stating wrong law.",
+    "coverage": "In the blind pass I read all 71 criteria, the instructions, and all 10 documents in full. In this pass I read all of Sol's report files (audit.md, audit.json, summary.md, and the index entry) and the judge prompt (rubric_criterion.txt). I re-checked the record for C-023 (Employment Agreement § 7.3, memo §§ IV and IX, Sentinel timeline), venue and forum, and limitations. I re-fetched NC Gen. Stat. Ch. 66, Art. 24 from ncleg.gov and ran CourtListener exact-phrase searches that matched the quoted passages in Booe v. Shadrick and Dalton v. Camp. I did not re-read 28 U.S.C. § 113, SiteLink, or 18 U.S.C. § 1836(b)(2) this pass, and did not check E.D.N.C. local rules on party addresses."
+  }
+}

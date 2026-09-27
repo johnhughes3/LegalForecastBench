@@ -1,0 +1,1336 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-motion-to-dismiss-brief",
+  "title": "Draft Rule 12(b)(6) Motion to Dismiss Brief — Commercial Software Licensing Dispute",
+  "criteria_total": 89,
+  "criterion_lines": {
+    "C-001": 18,
+    "C-002": 28,
+    "C-003": 38,
+    "C-004": 48,
+    "C-005": 56,
+    "C-006": 64,
+    "C-007": 72,
+    "C-008": 80,
+    "C-009": 88,
+    "C-010": 96,
+    "C-011": 104,
+    "C-012": 112,
+    "C-013": 120,
+    "C-014": 128,
+    "C-015": 137,
+    "C-016": 145,
+    "C-017": 153,
+    "C-018": 161,
+    "C-019": 169,
+    "C-020": 177,
+    "C-021": 185,
+    "C-022": 193,
+    "C-023": 201,
+    "C-024": 209,
+    "C-025": 217,
+    "C-026": 225,
+    "C-027": 233,
+    "C-028": 241,
+    "C-029": 249,
+    "C-030": 257,
+    "C-031": 265,
+    "C-032": 273,
+    "C-033": 281,
+    "C-034": 289,
+    "C-035": 297,
+    "C-036": 305,
+    "C-037": 313,
+    "C-038": 321,
+    "C-039": 329,
+    "C-040": 337,
+    "C-041": 345,
+    "C-042": 353,
+    "C-043": 361,
+    "C-044": 369,
+    "C-045": 377,
+    "C-046": 385,
+    "C-047": 393,
+    "C-048": 401,
+    "C-049": 409,
+    "C-050": 417,
+    "C-051": 425,
+    "C-052": 433,
+    "C-053": 441,
+    "C-054": 449,
+    "C-055": 457,
+    "C-056": 465,
+    "C-057": 473,
+    "C-058": 481,
+    "C-059": 489,
+    "C-060": 497,
+    "C-061": 505,
+    "C-062": 513,
+    "C-063": 521,
+    "C-064": 529,
+    "C-065": 537,
+    "C-066": 545,
+    "C-067": 553,
+    "C-068": 561,
+    "C-069": 569,
+    "C-070": 577,
+    "C-071": 585,
+    "C-072": 593,
+    "C-073": 601,
+    "C-074": 609,
+    "C-075": 617,
+    "C-076": 625,
+    "C-077": 633,
+    "C-078": 641,
+    "C-079": 649,
+    "C-080": 657,
+    "C-081": 665,
+    "C-082": 673,
+    "C-083": 681,
+    "C-084": 689,
+    "C-085": 697,
+    "C-086": 705,
+    "C-087": 713,
+    "C-088": 721,
+    "C-089": 729
+  },
+  "blind": {
+    "task": "draft-motion-to-dismiss-brief",
+    "criteria_reviewed": 89,
+    "coverage": "I read all 89 criteria, the instructions, the judge prompt (rubric_criterion.txt) and the solver system prompt. Read in full: the First Amended Complaint, Judge Alvarez's standing order, the notice of removal, the scheduling order, the March 8, 2023 Okonkwo email, and the key sections of the support-ticket report (summary, SLA, defects, conclusions). Read by targeted section: MSLSA §§5.3, 6.1–6.2, 8.1–8.5, 9.1, 9.4, 12.1, 12.3 and 12.7; and the research memo (outline, DTPA, jurisdiction note). Searched with grep only: operating agreement excerpts (member schedule read), Answer, DTPA letters, damages report, status report, SOW-1, change orders, proposal (disclaimer), Schreiber memo (opening and quote), and the negotiation emails (header and first email). Not read: the sales presentation slides. Law checked: I read the official text of Tex. Bus. & Com. Code §§17.45(4) and 17.49 (tcss.legis.texas.gov). On CourtListener I read Chapman Custom Homes and Kuhn Construction v. Diamond State Port, and ran text searches of SIGA v. PharmAthene (67 A.3d 330), McCamish and Pizza Hut. I saw Brasby v. Morris only as cited in later Delaware Superior Court opinions. Not verified: Formosa Plastics, Eagle Industries, Sloane, Sharyland (seen only as quoted in Chapman), and the Fifth Circuit post-answer 12(c) case law. Minor record defects that change no correct answer: the Answer's paragraph numbers do not track the FAC's, and exhibit letters differ between documents (FAC Exhibit D is the status report; the email chain is also labelled \"Exhibit D\").",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-016"
+        ],
+        "title": "C-016 falsely says the record never names Schreiber or Apex Medical Ventures as members of Arcadia",
+        "explanation": "C-016 says: \"The documents do not mention members named Schreiber or Apex Medical Ventures, LP.\" That is false. Three supplied documents name exactly these members: FAC ¶7, the operating-agreement Exhibit A schedule, and research memo §XV. These are also the facts that settle the citizenship question. Apex's general partner is a Delaware corporation, so Arcadia is a Delaware citizen. Okonkwo, Schreiber and the trust make it a Texas citizen. The judge sees only the deliverable and the criterion, not the record, so this false sentence is the only 'fact' the judge has. A correct memo that traces citizenship through Schreiber and Apex (the right analysis) may be marked down as inventing members. A vaguer memo that names no one passes.",
+        "evidence": [
+          {
+            "source": "task.json C-016",
+            "quote": "The documents do not mention members named Schreiber or Apex Medical Ventures, LP."
+          },
+          {
+            "source": "first-amended-complaint.docx.txt",
+            "quote": "Arcadia's operating agreement identifies three members: (a) Dr. Rachel Okonkwo ... (b) Martin Schreiber ... and (c) Apex Medical Ventures, LP, a Delaware limited partnership."
+          },
+          {
+            "source": "arcadia-operating-agreement-relevant-excerpts.docx.txt",
+            "quote": "General Partner: Apex Medical Ventures GP, Inc., a Delaware corporation with its principal place of business at 1301 Market Street"
+          },
+          {
+            "source": "key-case-law-compilation-defense-research-memo.docx.txt",
+            "quote": "Both parties share citizenship in Delaware and Texas. **Complete diversity does not appear to exist.**"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete the false sentence. Instead require the memo to trace citizenship through Okonkwo (TX), Schreiber (TX) and Apex LP (its partners: a Delaware GP and a Texas trust), as FAC ¶¶7–8 and the operating agreement show."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-025",
+          "C-026",
+          "C-089"
+        ],
+        "title": "The DTPA exemption is misstated: §17.49(f) has no $500K/$25M-asset test; the $500K rule is §17.49(g) and the $25M test is §17.45(4)",
+        "explanation": "C-025 requires the brief to argue a '§ 17.49(f) exemption for transactions exceeding $500,000 where the claiming party has assets of $25 million or more.' No such provision exists. §17.49(f) exempts written contracts over $100,000 where the consumer had independent counsel; that exemption is squarely met here, since Wexford Hale negotiated the MSLSA. §17.49(g) exempts transactions over $500,000 with no asset condition. The $25M asset test appears only in the §17.45(4) definition of 'consumer.' C-026 and C-089 repeat the wrong subsection, and C-089 adds a non-existent 'not an individual' condition. The same conflation appears in the Answer, both DTPA letters and the damages report. So a solver who copies the Answer passes, while one who checks the statute and cites (f) and (g) correctly contradicts the criterion's description and risks failing.",
+        "evidence": [
+          {
+            "source": "task.json C-025",
+            "quote": "§ 17.49(f) exemption for transactions exceeding $500,000 where the claiming party has assets of $25 million or more"
+          },
+          {
+            "source": "task.json C-089",
+            "quote": "§ 17.49(f) exemption for transactions exceeding $500,000 where the consumer is not an individual"
+          },
+          {
+            "source": "meridians-answer-to-first-amended-complaint.docx.txt",
+            "quote": "involving total consideration by the consumer of more than \\$500,000, where the consumer has assets of \\$25 million or more"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Tex. Bus. & Com. Code § 17.49(f)",
+            "proposition": "No DTPA claim arising out of a written contract over $100,000 where the consumer was represented in negotiations by independent legal counsel and the contract does not involve the consumer's residence.",
+            "verified": true
+          },
+          {
+            "citation": "Tex. Bus. & Com. Code § 17.49(g)",
+            "proposition": "No DTPA cause of action arising from a transaction involving total consideration by the consumer of more than $500,000, other than one involving the consumer's residence; there is no asset condition.",
+            "verified": true
+          },
+          {
+            "citation": "Tex. Bus. & Com. Code § 17.45(4)",
+            "proposition": "'Consumer' excludes a business consumer with assets of $25 million or more, or one owned or controlled by an entity with such assets.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Restate as follows. §17.49(g) (over $500K) and §17.49(f) (over $100K plus independent counsel) each independently bar Count V. The $25M asset test belongs to the §17.45(4) consumer definition. Accept any of these grounds."
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-027"
+        ],
+        "title": "C-027 requires an asset argument that is irrelevant to the $500K exemption and draws on figures from outside the pleadings",
+        "explanation": "C-027 fails any brief that does not use the FAC's '$30 million infrastructure investments' or the $23.8M figure 'to support the § 17.49(f) argument.' Assets are irrelevant to either real exemption: §17.49(g) turns only on consideration and §17.49(f) on counsel. They matter only under §17.45(4). Money spent on investments is not a measure of assets, and on a 12(b)(6) motion inferences run in the plaintiff's favour. The $23.8M figure comes from a pre-suit letter outside the pleadings. The record also conflicts internally: Arcadia's damages report (FAC Exhibit F) puts total assets at about $41M. A competent brief would win Count V on §17.49(g)/(f) and skip the disputed asset question entirely, and it would fail this criterion.",
+        "evidence": [
+          {
+            "source": "task.json C-027",
+            "quote": "FAIL if neither the FAC's $30 million allegation nor the inconsistency with the $23.8 million figure is used to support the § 17.49(f) argument."
+          },
+          {
+            "source": "arcadias-damages-report-executive-summary.docx.txt",
+            "quote": "Arcadia's total assets as of its most recent audited financial statements are approximately \\$41 million"
+          },
+          {
+            "source": "judge-alvarezs-standing-order-on-motion-practice.docx.txt",
+            "quote": "The Court will not consider matters outside the pleadings unless the motion is converted to a motion for summary judgment"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Tex. Bus. & Com. Code §§ 17.45(4), 17.49(f)-(g)",
+            "proposition": "The asset threshold appears only in the consumer definition; the transaction exemptions contain no asset test.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Make this an optional alternative argument under §17.45(4), or drop it. Do not make it a required part of the exemption argument."
+      },
+      {
+        "id": "O4",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-084"
+        ],
+        "title": "C-084 rewards arguing deemed acceptance defeats the warranty claim, but the §9.1 warranty runs 90 days from Go-Live and the March 8 notice falls inside it",
+        "explanation": "C-084 fails a brief unless it argues that deemed acceptance under §5.3 means Arcadia 'acknowledged the software performed substantially in accordance with documentation, undermining any warranty breach claim.' Under the MSLSA, the §9.1 warranty expressly covers performance for 90 days after Go-Live (January 15 to April 15, 2023). That is after any acceptance period. Arcadia's March 8 written notice described specific nonconformities and falls within that period, as Meridian's own ticket report concedes. Acceptance therefore does not undercut a timely warranty claim; at most it channels the claim to §9.1's repair/refund remedy. A careful brief that keeps the two provisions separate because the contract does would fail. A brief making the contractually wrong argument would pass.",
+        "evidence": [
+          {
+            "source": "task.json C-084",
+            "quote": "arguing that deemed acceptance means Arcadia acknowledged the software performed substantially in accordance with documentation, undermining any warranty breach claim"
+          },
+          {
+            "source": "master-software-license-and-services-agreement.docx.txt",
+            "quote": "for a period of ninety (90) days following the Go-Live Date (the \"**Warranty Period**\"), the Licensed Software will perform substantially in accordance with the Documentation"
+          },
+          {
+            "source": "support-ticket-summary-report.docx.txt",
+            "quote": "The Section 9.1 limited warranty period ran from Go-Live (January 15, 2023) through April 15, 2023."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete this criterion, or accept an argument that §9.1(b) limits any warranty claim to repair/replace or a pro-rata refund, whether or not acceptance is linked."
+      },
+      {
+        "id": "O5",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-054",
+          "C-075",
+          "C-082"
+        ],
+        "title": "The rubric requires a 12(b)(6) brief to rely on discovery documents outside the pleadings, contrary to Rule 12(d) and the standing order",
+        "explanation": "Standing order §3.4 says the Court will not consider matters outside the pleadings. It limits what can be considered to documents attached to the complaint, documents referenced in it and central to the claims, and judicially noticeable matter. Three criteria still require discovery documents. C-054 requires Schreiber's confidential internal memo, which the FAC never references: ¶31 mentions his reference calls, not a memo. C-082 requires Meridian-produced negotiation emails, even though FAC ¶32 already pleads the same negotiation facts. C-075 rewards ticket figures from a report 'prepared at the request of outside litigation counsel.' A competent practitioner would keep these points in the cover memo, or cite FAC ¶¶31–32, to avoid conversion to summary judgment. C-054 and C-082 fail that brief. C-075 is also unjudgeable if tickets are not cited, because its PASS/FAIL conditions cover only briefs that cite them.",
+        "evidence": [
+          {
+            "source": "judge-alvarezs-standing-order-on-motion-practice.docx.txt",
+            "quote": "(ii) documents attached to the motion to dismiss that are referenced in the complaint and central to the plaintiff's claims"
+          },
+          {
+            "source": "martin-schreiber-internal-memo.docx.txt",
+            "quote": "ARCADIA HEALTH SYSTEMS, LLC** **INTERNAL MEMORANDUM --- CONFIDENTIAL"
+          },
+          {
+            "source": "support-ticket-summary-report.docx.txt",
+            "quote": "This report has been prepared at the request of outside litigation counsel, Stonebridge & Calloway LLP"
+          },
+          {
+            "source": "task.json C-075",
+            "quote": "FAIL if the ticket data is cited but materially misstated."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Allow these facts in the cover memo, or accept citations to FAC ¶¶31–32. Alternatively, credit a brief that expressly flags the conversion risk. Make C-075 pass when tickets are not cited."
+      },
+      {
+        "id": "O6",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-023"
+        ],
+        "title": "C-023's example Delaware economic-loss authorities are wrong: Kuhn is an arbitration case, and 'Brasby v. Morris Dynamics (Del. 2008)' is a misstated citation",
+        "explanation": "C-023 names 'Brasby v. Morris Dynamics or Kuhn Construction v. Diamond State Port Corp.' as model Delaware economic-loss authority. These come from the supplied research memo, which appears to be seeded with bad holdings. Kuhn Construction v. Diamond State Port Corp., 990 A.2d 393 (Del. 2010), decides whether a contract's referee clause compels arbitration; the phrase 'economic loss' never appears in it. The real Brasby is Brasby v. Morris, 2007 WL 949485 (Del. Super. Mar. 29, 2007), an unpublished trial-court opinion, not a 2008 Delaware Supreme Court decision. Because the judge treats the criterion's examples as correct, a brief that repeats the memo's miscitations is rewarded. A careful brief that avoids them still passes, so the defect is that the criterion rewards wrong answers. The 'more robust/defendant-friendly' framing also skips over the fact that Delaware's doctrine is generally applied to negligence-type claims, not intentional fraud.",
+        "evidence": [
+          {
+            "source": "task.json C-023",
+            "quote": "citing relevant authority such as Brasby v. Morris Dynamics or Kuhn Construction v. Diamond State Port Corp."
+          },
+          {
+            "source": "key-case-law-compilation-defense-research-memo.docx.txt",
+            "quote": "extending the economic loss doctrine to pre-contractual misrepresentations where the parties subsequently entered into a written contract"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Kuhn Construction, Inc. v. Diamond State Port Corp., 990 A.2d 393 (Del. 2010)",
+            "proposition": "Decides whether a contract's referee clause requires arbitration; does not address the economic loss doctrine.",
+            "verified": true
+          },
+          {
+            "citation": "Brasby v. Morris, 2007 WL 949485 (Del. Super. Mar. 29, 2007)",
+            "proposition": "Delaware Superior Court opinion on the economic loss doctrine ('no reason to extend tort law into areas that can be adequately governed by contract law').",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Remove Kuhn, correct the Brasby citation, and instruct the judge not to credit authorities cited for propositions they do not support."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-037"
+        ],
+        "title": "C-037 lists SIGA v. PharmAthene as Delaware parol-evidence authority, but that opinion does not address integration or parol evidence",
+        "explanation": "C-037 names SIGA Technologies v. PharmAthene, 67 A.3d 330 (Del. 2013), next to Eagle Industries as Delaware parol-evidence and integration-clause authority. A full-text search of the SIGA opinion finds no occurrence of 'integration' or 'parol'; the case concerns bad-faith negotiation, promissory estoppel and expectation damages. Eagle Industries is a proper alternative, so a correct brief still passes. But a brief that cites only SIGA, repeating the memo's mischaracterization, would be rewarded.",
+        "evidence": [
+          {
+            "source": "task.json C-037",
+            "quote": "such as SIGA Technologies v. PharmAthene or Eagle Industries v. DeVilbiss Health Care"
+          },
+          {
+            "source": "key-case-law-compilation-defense-research-memo.docx.txt",
+            "quote": "The Delaware Supreme Court addressed the enforceability of integration clauses and the scope of the parol evidence rule under Delaware law."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "SIGA Techs., Inc. v. PharmAthene, Inc., 67 A.3d 330 (Del. 2013)",
+            "proposition": "Full text contains no discussion of integration clauses or the parol evidence rule.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Drop SIGA from the example list and keep Eagle Industries or other genuine Delaware integration authority."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-038",
+          "C-039",
+          "C-040"
+        ],
+        "title": "Texas negligent misrepresentation (Restatement §552) needs no fiduciary or special relationship, and McCamish cuts against the rubric's duty theory",
+        "explanation": "C-039 requires the brief to argue that there was no fiduciary or special relationship. C-038 says that in arm's-length transactions between sophisticated parties 'no such duty exists.' Under Texas law, which the FAC pleads for Count III, the §552 duty arises from supplying information in the course of business knowing the recipient will rely on it. McCamish, offered in C-040 as supporting authority, expressly describes that duty as 'independent' of privity; it does not require a special relationship. The stronger Texas arguments are that the claim rests on promises of future performance and seeks benefit-of-bargain damages, which Sloane bars. The special-relationship framing fits Delaware law better. A brief that correctly omits a 'no special relationship' argument under Texas law would fail C-039.",
+        "evidence": [
+          {
+            "source": "task.json C-039",
+            "quote": "PASS if the motion brief argues that no fiduciary or special relationship existed between Meridian and Arcadia"
+          },
+          {
+            "source": "task.json C-038",
+            "quote": "in arm's-length commercial transactions between sophisticated parties, no such duty exists"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "McCamish, Martin, Brown & Loeffler v. F.E. Appling Interests, 991 S.W.2d 787 (Tex. 1999)",
+            "proposition": "Negligent-misrepresentation liability rests 'on an independent duty to the nonclient based on the professional's manifest awareness of the nonclient's reliance', not on privity or a special relationship.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept any sound ground for Count III, such as benefit-of-bargain damages, promises of future performance, the economic loss rule, or the anti-reliance clause. Make the special-relationship argument optional or limit it to Delaware law."
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-046"
+        ],
+        "title": "C-046 treats the quantified '30-40% improvement' statement as puffery, contrary to the Fifth Circuit's 'specific and measurable' test",
+        "explanation": "C-046 requires arguing that both 'industry-leading performance' and 'Our clients typically see 30-40% improvement in reporting efficiency' are puffery. 'Industry-leading' is classic puffery. The 30–40% figure, however, is a quantified statement about other clients' results that can be proved false. Pizza Hut v. Papa John's, which the rubric itself cites, treats 'specific and measurable' claims as actionable statements of fact. A careful brief would call only the general statements puffery and attack the 30–40% claim on other grounds: the 'typically' qualifier, the proposal's disclaimer, and the anti-reliance clause. Such a brief could fail if the judge reads the criterion literally.",
+        "evidence": [
+          {
+            "source": "task.json C-046",
+            "quote": "argues that statements like 'industry-leading performance' and 'Our clients typically see 30-40% improvement in reporting efficiency' are non-actionable puffery"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pizza Hut, Inc. v. Papa John's Int'l, Inc., 227 F.3d 489 (5th Cir. 2000)",
+            "proposition": "An actionable statement must be a 'specific and measurable claim, capable of being proved false or of being reasonably interpreted as a statement of objective fact.'",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Pass a brief that argues puffery for the general statements and non-actionability or non-reliance for the quantified statement."
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-041",
+          "C-045"
+        ],
+        "title": "The causation criteria require a 12(b)(6) brief to adopt the disputed version of a status report the FAC contests",
+        "explanation": "C-045 requires the brief to attribute the Go-Live delay to Arcadia's 45-day project-manager gap and its late API specifications. Those facts come from Meridian's August 25, 2022 status report. The FAC references that report but expressly disputes its account of the causes (¶44). On a Rule 12(b)(6) motion a referenced document can be considered, but not taken as true where the complaint disputes it. Proximate cause is ordinarily a fact question. C-041's 'fails to adequately plead proximate cause' framing therefore asks for a weak pleading-stage argument. The data-migration point is better grounded: SOW-1 §3.2 and CO-004 §5.1, both referenced in the FAC, contain Arcadia's own allocation of responsibility and its acknowledgment about Linden Park. So C-042 to C-044 are sound. A brief that deliberately leaves the delay-causation facts to the cover memo would fail C-045.",
+        "evidence": [
+          {
+            "source": "first-amended-complaint.docx.txt",
+            "quote": "The report identified various purported causes for the delay but failed to acknowledge Meridian's own responsibility"
+          },
+          {
+            "source": "task.json C-045",
+            "quote": "FAIL if Arcadia's own contributory delays are not mentioned."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Allow the Arcadia-delay facts in either the brief or the cover memo, and frame C-041 around the contractual allocation (SOW-1 §3.2 and CO-004) rather than proximate cause."
+      },
+      {
+        "id": "O11",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-034",
+          "C-035"
+        ],
+        "title": "The deemed-acceptance window runs from a Deployment Notice under §5.3, not from Go-Live, and the record has no Deployment Notice date",
+        "explanation": "C-035 fails a brief whose acceptance-window dates differ from 'Go-Live January 15, 2023 … window end approximately February 14.' Under §5.3(a) the 30-day window starts when Meridian delivers a 'Deployment Notice,' and §5.2 contemplates testing in a staging environment before production. §5.3(d) separately makes production use during the window count as acceptance. No Deployment Notice date appears anywhere in the record; the Go-Live keying comes from Meridian's litigation ticket report. A careful brief might key the window to the contractual trigger, or rely on production-use acceptance. It would then be graded against dates the contract does not fix.",
+        "evidence": [
+          {
+            "source": "master-software-license-and-services-agreement.docx.txt",
+            "quote": "Following Licensor's delivery of a Deployment Notice with respect to each module or Deliverable, Licensee shall have thirty (30) calendar days"
+          },
+          {
+            "source": "task.json C-035",
+            "quote": "the acceptance window end as approximately February 14, 2023 (30 days later)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Accept either the Go-Live-keyed dates or an analysis keyed to the Deployment Notice or production-use acceptance, provided the March 8 notice is shown to fall outside the window."
+      },
+      {
+        "id": "O12",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-012",
+          "C-063",
+          "C-076",
+          "C-079"
+        ],
+        "title": "Criteria disagree on relief: C-012/C-063 require every count dismissed with prejudice, while C-076 and C-079 accept partial relief",
+        "explanation": "C-012 fails a brief that does not seek dismissal of 'all five counts with prejudice,' and C-063 requires the proposed order to match. C-076 accepts with-prejudice dismissal 'at minimum for the counts where dismissal with prejudice is appropriate.' C-079 contemplates 'dismissal or narrowing' of Count I. In the Fifth Circuit, dismissals for failure to plead with particularity under Rule 9(b) are commonly without prejudice with leave to amend. A calibrated brief might seek with prejudice for the legally barred counts (IV and V) and alternative relief for Count II, or might seek only to limit Count I's damages. That brief passes C-076 and C-079 but fails C-012 and C-063.",
+        "evidence": [
+          {
+            "source": "task.json C-012",
+            "quote": "FAIL if no conclusion/prayer is present or if it does not request dismissal with prejudice."
+          },
+          {
+            "source": "task.json C-076",
+            "quote": "or at minimum for the counts where dismissal with prejudice is appropriate, such as unjust enrichment and DTPA"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Align C-012 and C-063 with C-076: require with prejudice at least for the counts that are legally barred, and allow alternative relief elsewhere."
+      },
+      {
+        "id": "O13",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-013",
+          "C-017"
+        ],
+        "title": "The diversity defect is framed as contingent on Delaware overlap, though the notice of removal itself shows shared Texas citizenship",
+        "explanation": "C-013 describes diversity as something that 'may be lacking' because the LLC must be traced, and turns on whether 'any member of Arcadia shares citizenship with Meridian in Delaware.' The notice of removal itself concedes that Meridian is a Texas citizen (¶11) and that Arcadia is a Texas citizen (¶14). That alone defeats complete diversity; no tracing is needed. The record's member schedule adds overlap in both Texas and Delaware. As a Texas citizen, Meridian's removal also violated the forum-defendant rule. A memo that correctly calls diversity definitively absent on the Texas overlap could be marked down for not following C-013's contingent, Delaware-focused theory. Most such memos would still pass, so this is arguable.",
+        "evidence": [
+          {
+            "source": "notice-of-removal.docx.txt",
+            "quote": "Because Defendant's Delaware citizenship is not shared by Plaintiff, complete diversity of citizenship exists"
+          },
+          {
+            "source": "task.json C-013",
+            "quote": "The memo should note that if any member of Arcadia shares citizenship with Meridian in Delaware, complete diversity would be destroyed."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass a memo that identifies the absence of complete diversity through shared Texas and/or Delaware citizenship, traced through Arcadia's members. Credit mention of the notice's own concession."
+      },
+      {
+        "id": "O14",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-077",
+          "C-078"
+        ],
+        "title": "The standing order and scheduling order conflict on whether a post-answer motion is treated as 12(b)(6) or 12(c)",
+        "explanation": "Standing order §3.4 says a post-answer motion will be treated as a Rule 12(b)(6) motion, 'not as a motion for judgment on the pleadings under Rule 12(c).' The scheduling order says the Court 'will treat any such motion as a Rule 12(c) motion.' Rule 12(b) itself requires such motions to be made before pleading, which supports the scheduling order. C-078 requires the brief to rely on the standing order's permission; C-077 requires framing under 12(b)(6). A brief that follows the scheduling order, or the Federal Rule, and styles the motion as 12(c) or '12(b)(6)/12(c)' may be graded unevenly. The impact is low because both orders apply the same standard.",
+        "evidence": [
+          {
+            "source": "judge-alvarezs-standing-order-on-motion-practice.docx.txt",
+            "quote": "the Court shall treat such motion as a motion to dismiss, not as a motion for judgment on the pleadings under Rule 12(c)"
+          },
+          {
+            "source": "scheduling-order.docx.txt",
+            "quote": "The Court will treat any such motion as a Rule 12(c) motion for judgment on the pleadings, evaluated under the same standard"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make C-078 pass when the brief addresses post-answer propriety under either order or under Rule 12(c)/(h)(2), with preservation in the Answer."
+      },
+      {
+        "id": "O15",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-058"
+        ],
+        "title": "C-058 requires the no-oral-modification clause for pre-contract statements, but §12.3 governs post-formation amendments",
+        "explanation": "C-058 fails a brief that does not use §12.3 (No Oral Modifications) to argue that pre-sale oral statements cannot modify or supplement the agreement. §12.3 governs later amendments. Statements made before signing are handled by §12.1, which is both an integration clause and an express anti-reliance clause. A disciplined brief under a 25-page limit would rely on §12.1 and could reasonably leave out §12.3. The stakes are low, but it is a hidden checklist item.",
+        "evidence": [
+          {
+            "source": "master-software-license-and-services-agreement.docx.txt",
+            "quote": "This Agreement may not be amended, modified, or supplemented except by a written instrument duly executed"
+          },
+          {
+            "source": "master-software-license-and-services-agreement.docx.txt",
+            "quote": "Each Party acknowledges that, in entering into this Agreement, it has not relied upon any statement, representation, warranty, or agreement of the other Party"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make §12.3 optional, or accept any reliance on §12.1's integration and anti-reliance language."
+      }
+    ],
+    "overall": "The rubric is broad, and most of its caption, count-structure, factual-figure and core-argument criteria (9(b), unjust enrichment, the liability limits, choice of law) are accurate against the record. Several criteria are defective, though, and under the all-pass metric each can zero out a correct answer. C-016 states a false fact: the FAC and the operating agreement do name Schreiber and Apex as members. The DTPA criteria (C-025–C-027, C-089) misstate Tex. Bus. & Com. Code §17.49 by merging §17.49(f), §17.49(g) and the §17.45(4) asset test. C-084 rewards an argument the MSLSA's 90-day post-Go-Live warranty contradicts. C-054, C-075 and C-082 demand discovery documents in a Rule 12(b)(6) brief despite the standing order's bar on matters outside the pleadings. Some example authorities, taken from a planted research memo, are miscited (Kuhn, and to a lesser extent SIGA), so the rubric rewards copying them. Further arguable issues involve negligent-misrepresentation duty, puffery for quantified claims, causation at the pleading stage, the acceptance-window trigger, inconsistent with-prejudice requirements, and conflicting orders on post-answer motions."
+  },
+  "final": {
+    "task": "draft-motion-to-dismiss-brief",
+    "sol_verdicts": [
+      {
+        "sol_locator": "F1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-025",
+          "C-026",
+          "C-027",
+          "C-083",
+          "C-089"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-025",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-026",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-027",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-083",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-089",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "I read the statute. §17.49(f) is the >$100K written-contract exemption, which requires independent counsel. §17.49(g) is the >$500K exemption and has no asset test. The $25M test sits in §17.45(4). C-025, C-026 and C-089 each state wrong law about (f). C-027 ties an asset argument to an exemption that has no asset element. C-083 only demands an extra non-exemption DTPA argument, such as puffery or producing cause. That demand is sound, and the (f) label does not change pass/fail for a competent brief."
+      },
+      {
+        "sol_locator": "F2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-013",
+          "C-016",
+          "C-017"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-013",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-016",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-017",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "C-016 is false: FAC ¶7 and the operating agreement name Schreiber and Apex. C-013 is arguable. It frames diversity as contingent and turning on Delaware, but Notice ¶¶11 and 14 already allege that both parties are Texas citizens. C-017 accurately describes the Notice (¶¶12-14 identify Arcadia only as a Texas LLC with Okonkwo as managing member), and it passes on 'notes or implies'. A competent memo satisfies it."
+      },
+      {
+        "sol_locator": "F3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-077",
+          "C-078"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-077",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-078",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The instructions expressly ask for 'a Rule 12(b)(6) motion', so C-077 cannot misgrade. Standing order §3.4 says post-answer motions are 12(b)(6), not 12(c). The scheduling order says it will treat them as 12(c). C-078 ties propriety to the standing order, so a brief that follows the scheduling order or Rule 12(h)(2)/(c) could be graded unevenly. The impact is low because both orders apply the same standard."
+      },
+      {
+        "sol_locator": "F4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-019"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-019",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The FAC names Poletti as present (¶¶22, 24, 78), but every quoted statement is attributed to 'Meridian's sales team' (¶¶23, 25, 28, 79). C-019 asks the brief to argue that statements are attributed generically rather than to specific speakers. That is an accurate and standard 9(b) argument, and a brief can make it while acknowledging Poletti's presence."
+      },
+      {
+        "sol_locator": "F5",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-022",
+          "C-024",
+          "C-052"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-022",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-024",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-052",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "I read Formosa (960 S.W.2d at 47): fraud-in-the-inducement tort damages are recoverable 'irrespective of whether ... the plaintiff only suffers an economic loss.' C-022's 'and/or' lets a correct brief aim the rule only at Count III, but it also rewards the wrong argument that the rule bars fraud. C-024 only requires Texas economic-loss analysis, which a brief can do accurately, including by noting Formosa. C-052 is a general 'where relevant' alternative-law requirement and is not defective."
+      },
+      {
+        "sol_locator": "F6",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-041",
+          "C-043",
+          "C-045",
+          "C-054",
+          "C-075",
+          "C-082"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-041",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-043",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-045",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-054",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-075",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-082",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "CO-004 is a signed contract document the FAC references (Exhibit C, ¶47(d)), and its §5.1 contains Arcadia's own acknowledgment about Linden Park, so C-043 is proper. C-054 requires an internal Arcadia memo the FAC never references, which a 12(b)(6) brief should not rely on. C-045 and C-041 require adopting disputed status-report causation. C-075 relies on a counsel-commissioned report and is unclear when tickets are omitted. The negotiation facts in C-082 are partly pleaded (FAC ¶32), so it is arguable rather than fatal."
+      },
+      {
+        "sol_locator": "F7",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-027",
+          "C-038",
+          "C-039",
+          "C-046",
+          "C-053",
+          "C-080"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-027",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-038",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-039",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-046",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-053",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-080",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "C-027 is worse than arguable. Assets are legally irrelevant to §17.49(f)/(g), and spending is not assets. The §552 duty in C-038 and C-039 does not require a special relationship under Texas law. The quantified 30–40% claim in C-046 is arguably verifiable fact under Pizza Hut. C-053 and C-080 ask for a reliance challenge. Because MSLSA §12.1 is an express anti-reliance clause, that is a strong standard defense argument, and the listed factors are illustrative."
+      },
+      {
+        "sol_locator": "F8",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-012",
+          "C-030",
+          "C-063",
+          "C-076"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-012",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-030",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-063",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-076",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "C-012 and C-063 require with-prejudice dismissal of every count. 9(b) dismissals are often without prejudice, and C-076 itself accepts partial with-prejudice relief. C-030 only asks the brief to argue that the express contract precludes unjust enrichment. FAC ¶99 pleads unjust enrichment in the alternative while suing on the admittedly valid MSLSA, so this is standard defense advocacy (Fortune Production) and does not misgrade competent work. C-076 is the permissive standard."
+      },
+      {
+        "sol_locator": "F9",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-007",
+          "C-008"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-007",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-008",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "Standing order §3.2 excludes 'table of contents, table of authorities' from the 25-page limit, which assumes they exist. A formal federal motion brief of this kind customarily includes both. They are standard components of the named document, not hidden requirements."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-016"
+        ],
+        "title": "C-016 falsely says the record never names Schreiber or Apex Medical Ventures as members of Arcadia",
+        "explanation": "C-016 says: 'The documents do not mention members named Schreiber or Apex Medical Ventures, LP.' That is false. FAC ¶7, the operating-agreement member schedule and research memo §XV all name exactly these members, and they settle citizenship. Apex's general partner is a Delaware corporation, which makes Arcadia a Delaware citizen. Okonkwo and Schreiber make it a Texas citizen. The judge sees only the deliverable and the criterion, so the false sentence is the only 'fact' the judge has. A correct memo that traces citizenship through Schreiber and Apex may be marked down as inventing members, while a vaguer memo that names no one passes.",
+        "evidence": [
+          {
+            "source": "task.json C-016",
+            "quote": "The documents do not mention members named Schreiber or Apex Medical Ventures, LP."
+          },
+          {
+            "source": "first-amended-complaint.docx.txt",
+            "quote": "Arcadia's operating agreement identifies three members: (a) Dr. Rachel Okonkwo ... (b) Martin Schreiber ... and (c) Apex Medical Ventures, LP, a Delaware limited partnership."
+          },
+          {
+            "source": "arcadia-operating-agreement-relevant-excerpts.docx.txt",
+            "quote": "General Partner: Apex Medical Ventures GP, Inc., a Delaware corporation"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete the false sentence. Instead require the memo to trace citizenship through Okonkwo (TX), Schreiber (TX) and Apex LP (Delaware GP; Texas trust partner), as FAC ¶¶7–8 and the operating agreement show.",
+        "origin": "blind",
+        "sol_locators": [
+          "F2"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-025",
+          "C-026",
+          "C-089"
+        ],
+        "title": "The DTPA exemption is misstated: §17.49(f) has no $500K/$25M-asset test; the $500K rule is §17.49(g) and the $25M test is §17.45(4)",
+        "explanation": "C-025 requires arguing a '§ 17.49(f) exemption for transactions exceeding $500,000 where the claiming party has assets of $25 million or more.' No such provision exists. §17.49(f) covers written contracts over $100K where the consumer had independent counsel; Wexford Hale negotiated the MSLSA, so that exemption is met. §17.49(g) covers transactions over $500K and has no asset condition. The $25M test appears only in the §17.45(4) definition of 'consumer.' C-026 puts the $500K threshold 'under § 17.49(f).' C-089 adds a non-existent 'not an individual' condition. The Answer, both DTPA letters and the research memo repeat the conflation. A brief that copies the Answer matches the rubric, while one that states the statute correctly contradicts the criterion's description and risks failing.",
+        "evidence": [
+          {
+            "source": "task.json C-025",
+            "quote": "§ 17.49(f) exemption for transactions exceeding $500,000 where the claiming party has assets of $25 million or more"
+          },
+          {
+            "source": "task.json C-089",
+            "quote": "§ 17.49(f) exemption for transactions exceeding $500,000 where the consumer is not an individual"
+          },
+          {
+            "source": "meridians-answer-to-first-amended-complaint.docx.txt",
+            "quote": "involving total consideration by the consumer of more than \\$500,000, where the consumer has assets of \\$25 million or more"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Tex. Bus. & Com. Code § 17.49(f)",
+            "proposition": "Exempts claims arising from a written contract over $100,000 where the consumer was represented by independent legal counsel (non-residence).",
+            "verified": true
+          },
+          {
+            "citation": "Tex. Bus. & Com. Code § 17.49(g)",
+            "proposition": "Exempts transactions with total consideration over $500,000 (non-residence); there is no asset condition.",
+            "verified": true
+          },
+          {
+            "citation": "Tex. Bus. & Com. Code § 17.45(4)",
+            "proposition": "'Consumer' excludes a business consumer with assets of $25 million or more.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept §17.49(g) (over $500K) and/or §17.49(f) (over $100K plus counsel) as independent bars, and place the $25M test under §17.45(4).",
+        "origin": "blind",
+        "sol_locators": [
+          "F1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-027"
+        ],
+        "title": "C-027 requires an asset argument that is irrelevant to the $500K exemption and draws on figures from outside the pleadings",
+        "explanation": "C-027 fails any brief that does not use the FAC's '$30 million infrastructure investments' or the $23.8M figure 'to support the § 17.49(f) argument.' Assets are irrelevant to both real exemptions: (g) turns only on consideration and (f) on counsel. They matter only under §17.45(4). Money spent on infrastructure (FAC ¶83, which includes hiring and training) is not a measure of balance-sheet assets, and on a 12(b)(6) motion inferences run in the plaintiff's favour. The $23.8M figure comes from a pre-suit letter outside the pleadings, and Arcadia's damages report puts total assets at about $41M. A competent brief would win Count V on (g)/(f) and skip the disputed asset question, and it would fail this criterion.",
+        "evidence": [
+          {
+            "source": "task.json C-027",
+            "quote": "FAIL if neither the FAC's $30 million allegation nor the inconsistency with the $23.8 million figure is used to support the § 17.49(f) argument."
+          },
+          {
+            "source": "arcadias-damages-report-executive-summary.docx.txt",
+            "quote": "Arcadia's total assets as of its most recent audited financial statements are approximately \\$41 million"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Tex. Bus. & Com. Code §§ 17.45(4), 17.49(f)-(g)",
+            "proposition": "The asset threshold appears only in the consumer definition, not in the transaction exemptions.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Make this an optional alternative argument under §17.45(4), or drop it.",
+        "origin": "blind",
+        "sol_locators": [
+          "F1",
+          "F7"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-084"
+        ],
+        "title": "C-084 rewards arguing deemed acceptance defeats the warranty claim, but the §9.1 warranty runs 90 days from Go-Live and the March 8 notice falls inside it",
+        "explanation": "C-084 requires arguing that deemed acceptance under §5.3 means Arcadia 'acknowledged the software performed substantially in accordance with documentation, undermining any warranty breach claim.' Under the MSLSA, the §9.1 warranty covers performance for 90 days after Go-Live (January 15 to April 15, 2023), which outlasts any acceptance period. Arcadia's March 8 written notice falls within that period, as Meridian's own ticket report and DTPA response concede. Acceptance therefore does not undercut a timely warranty claim; at most §9.1(b) channels the claim to repair or refund. A careful brief that keeps the two provisions separate fails, and a brief making the contractually wrong argument passes.",
+        "evidence": [
+          {
+            "source": "task.json C-084",
+            "quote": "arguing that deemed acceptance means Arcadia acknowledged the software performed substantially in accordance with documentation, undermining any warranty breach claim"
+          },
+          {
+            "source": "master-software-license-and-services-agreement.docx.txt",
+            "quote": "for a period of ninety (90) days following the Go-Live Date (the \"**Warranty Period**\"), the Licensed Software will perform substantially in accordance with the Documentation"
+          },
+          {
+            "source": "support-ticket-summary-report.docx.txt",
+            "quote": "The Section 9.1 limited warranty period ran from Go-Live (January 15, 2023) through April 15, 2023."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete this criterion, or accept an argument that §9.1(b) limits warranty remedies to repair/replace or a pro-rata refund.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-054"
+        ],
+        "title": "C-054 requires a 12(b)(6) brief to rely on Arcadia's confidential internal memo, which the FAC never references",
+        "explanation": "Standing order §3.4 bars matters outside the pleadings. It allows only documents attached to the complaint, documents referenced in it and central to the claims, and judicially noticeable matter. The Schreiber memo is an internal Arcadia document marked 'CONFIDENTIAL.' The FAC does not reference it: ¶31 mentions Schreiber's reference calls, not a memo. Citing it risks conversion to summary judgment. A competent practitioner would keep it for the cover memo or for summary judgment. C-054's FAIL condition ('if the Schreiber memo is not cited') fails exactly that brief.",
+        "evidence": [
+          {
+            "source": "judge-alvarezs-standing-order-on-motion-practice.docx.txt",
+            "quote": "(ii) documents attached to the motion to dismiss that are referenced in the complaint and central to the plaintiff's claims"
+          },
+          {
+            "source": "martin-schreiber-internal-memo.docx.txt",
+            "quote": "ARCADIA HEALTH SYSTEMS, LLC** **INTERNAL MEMORANDUM --- CONFIDENTIAL"
+          },
+          {
+            "source": "task.json C-054",
+            "quote": "FAIL if the Schreiber memo is not cited."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Allow the memo in the cover memo, or credit a brief that flags the conversion risk or relies on the FAC's own due-diligence allegations.",
+        "origin": "revised",
+        "sol_locators": [
+          "F6"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-075",
+          "C-082"
+        ],
+        "title": "C-075 and C-082 draw on material outside the pleadings, and C-075 has no outcome for a brief that omits ticket data",
+        "explanation": "C-082 requires the Meridian-produced negotiation email chain, cited by Bates range. FAC ¶32 pleads the same negotiation facts, so a brief citing ¶32 may still pass under the 'negotiation history is not cited' FAIL condition, but a literal judge may demand the emails. C-075 rewards ticket figures from a report 'prepared at the request of outside litigation counsel.' A disciplined 12(b)(6) brief might omit those figures. C-075's PASS condition requires citing them, while its FAIL condition covers only misstatement, so a brief that omits them falls between the two conditions.",
+        "evidence": [
+          {
+            "source": "support-ticket-summary-report.docx.txt",
+            "quote": "This report has been prepared at the request of outside litigation counsel, Stonebridge & Calloway LLP"
+          },
+          {
+            "source": "first-amended-complaint.docx.txt",
+            "quote": "Arcadia engaged outside counsel to assist in the negotiation process. Despite Arcadia's efforts to negotiate more favorable terms"
+          },
+          {
+            "source": "task.json C-075",
+            "quote": "FAIL if the ticket data is cited but materially misstated."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Accept FAC ¶32 for negotiation history. Make C-075 pass (or not apply) when ticket data is not cited.",
+        "origin": "revised",
+        "sol_locators": [
+          "F6"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-023"
+        ],
+        "title": "C-023's example Delaware economic-loss authorities are wrong: Kuhn is an arbitration case, and 'Brasby v. Morris Dynamics (Del. 2008)' is a misstated citation",
+        "explanation": "C-023 offers 'Brasby v. Morris Dynamics or Kuhn Construction v. Diamond State Port Corp.' as Delaware economic-loss authority. Both come from the seeded research memo. Kuhn, 990 A.2d 393 (Del. 2010), decides whether a referee clause compels arbitration and never mentions economic loss. The real Brasby is Brasby v. Morris, an unpublished 2007 Superior Court opinion. The judge treats the examples as correct, so the criterion rewards briefs that repeat the miscitations. Its 'more robust/defendant-friendly' framing also skips over the fact that Delaware applies the doctrine mainly to negligence-type claims, not intentional fraud.",
+        "evidence": [
+          {
+            "source": "task.json C-023",
+            "quote": "citing relevant authority such as Brasby v. Morris Dynamics or Kuhn Construction v. Diamond State Port Corp."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Kuhn Construction, Inc. v. Diamond State Port Corp., 990 A.2d 393 (Del. 2010)",
+            "proposition": "Decides whether a referee clause requires arbitration; does not address the economic loss doctrine.",
+            "verified": true
+          },
+          {
+            "citation": "Brasby v. Morris, 2007 WL 949485 (Del. Super. Mar. 29, 2007)",
+            "proposition": "Delaware Superior Court opinion applying the economic loss doctrine.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Remove Kuhn, correct the Brasby citation, and tell the judge not to credit authorities cited for propositions they do not support.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-022"
+        ],
+        "title": "C-022's 'purely economic loss' rationale would reward applying the economic loss rule to fraudulent inducement, contrary to Formosa",
+        "explanation": "C-022 passes a brief arguing that the economic loss rule bars Count II (fraud) because 'all alleged damages are purely economic losses arising from the contractual relationship.' Under Texas law, which the FAC pleads for the tort counts, Formosa holds the opposite: fraud-in-the-inducement tort damages are recoverable even when the loss is purely economic and relates to the contract's subject matter. The 'and/or' lets a correct brief aim the rule only at Count III, so correct work is not failed. But the criterion rewards the wrong argument, and a brief that drops the doctrine altogether in favour of stronger grounds fails.",
+        "evidence": [
+          {
+            "source": "task.json C-022",
+            "quote": "bars Counts II (Fraud) and/or III (Negligent Misrepresentation) because all alleged damages are purely economic losses arising from the contractual relationship"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Formosa Plastics Corp. USA v. Presidio Eng'rs & Contractors, Inc., 960 S.W.2d 41, 47 (Tex. 1998)",
+            "proposition": "'tort damages are recoverable for a fraudulent inducement claim irrespective of whether ... the plaintiff only suffers an economic loss related to the subject matter of the contract.'",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Limit C-022 to Count III, or require that any Texas-law application to fraud acknowledge Formosa.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "F5"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-037"
+        ],
+        "title": "C-037 lists SIGA v. PharmAthene as Delaware parol-evidence authority, but that opinion does not address integration or parol evidence",
+        "explanation": "C-037 names SIGA, 67 A.3d 330 (Del. 2013), as Delaware authority on parol evidence and integration clauses. A full-text search finds no occurrence of 'integration' or 'parol'; the case concerns bad-faith negotiation, promissory estoppel and damages. Eagle Industries is a proper alternative, so a correct brief passes. But a brief citing only SIGA, as the memo does, is rewarded.",
+        "evidence": [
+          {
+            "source": "task.json C-037",
+            "quote": "such as SIGA Technologies v. PharmAthene or Eagle Industries v. DeVilbiss Health Care"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "SIGA Techs., Inc. v. PharmAthene, Inc., 67 A.3d 330 (Del. 2013)",
+            "proposition": "Contains no discussion of integration clauses or the parol evidence rule.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Drop SIGA from the example list.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-038",
+          "C-039"
+        ],
+        "title": "Texas negligent misrepresentation (Restatement §552) needs no fiduciary or special relationship",
+        "explanation": "C-039 requires arguing that no fiduciary or special relationship existed. C-038 says that in arm's-length deals between sophisticated parties 'no such duty exists.' Under Texas §552 law, the duty arises from supplying information in the course of business for the guidance of others. McCamish describes that duty as independent of privity, and it does not require a special relationship. The stronger Texas grounds are promissory statements, benefit-of-bargain damages (Sloane) and the anti-reliance clause. A brief that correctly omits the special-relationship argument under Texas law fails C-039.",
+        "evidence": [
+          {
+            "source": "task.json C-039",
+            "quote": "PASS if the motion brief argues that no fiduciary or special relationship existed between Meridian and Arcadia"
+          },
+          {
+            "source": "task.json C-038",
+            "quote": "in arm's-length commercial transactions between sophisticated parties, no such duty exists"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "McCamish, Martin, Brown & Loeffler v. F.E. Appling Interests, 991 S.W.2d 787 (Tex. 1999)",
+            "proposition": "Negligent-misrepresentation liability rests on an independent duty arising from awareness of reliance, not on privity or a special relationship.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Accept any sound Count III ground, and make the special-relationship argument optional or Delaware-specific.",
+        "origin": "blind",
+        "sol_locators": [
+          "F7"
+        ],
+        "blind_ids": [
+          "O8"
+        ]
+      },
+      {
+        "id": "O11",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-046"
+        ],
+        "title": "C-046 treats the quantified '30-40% improvement' statement as puffery, contrary to the Fifth Circuit's 'specific and measurable' test",
+        "explanation": "'Industry-leading' is classic puffery. 'Our clients typically see 30-40% improvement' is a quantified statement about other clients' results that can be proved false. Pizza Hut treats specific, measurable claims as actionable statements of fact. A careful brief would call only the general statements puffery and attack the 30–40% claim through the 'typically' qualifier, the proposal's disclaimer and the anti-reliance clause. A judge reading C-046 literally may fail that brief.",
+        "evidence": [
+          {
+            "source": "task.json C-046",
+            "quote": "argues that statements like 'industry-leading performance' and 'Our clients typically see 30-40% improvement in reporting efficiency' are non-actionable puffery"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Pizza Hut, Inc. v. Papa John's Int'l, Inc., 227 F.3d 489 (5th Cir. 2000)",
+            "proposition": "An actionable statement is a 'specific and measurable claim, capable of being proved false.'",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Pass a brief that argues puffery for the general statements and non-reliance or non-actionability for the quantified one.",
+        "origin": "blind",
+        "sol_locators": [
+          "F7"
+        ],
+        "blind_ids": [
+          "O9"
+        ]
+      },
+      {
+        "id": "O12",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-041",
+          "C-045"
+        ],
+        "title": "The causation criteria require a 12(b)(6) brief to adopt the disputed version of a status report the FAC contests",
+        "explanation": "C-045 requires the brief to attribute the Go-Live delay to Arcadia's 45-day project-manager gap and its late API specifications. Those facts come from Meridian's August 2022 status report, which the FAC expressly disputes (¶44). A referenced document can be considered but not taken as true over the complaint's contrary allegations, and proximate cause is ordinarily a fact question. C-041 frames the point as a failure to plead proximate cause, which is weak at the pleading stage. The contractual points are better grounded and sound: SOW-1 §3.2 and CO-004 §5.1, which is Arcadia's own acknowledgment. A brief that leaves the delay-causation facts to the cover memo fails C-045.",
+        "evidence": [
+          {
+            "source": "first-amended-complaint.docx.txt",
+            "quote": "The report identified various purported causes for the delay but failed to acknowledge Meridian's own responsibility"
+          },
+          {
+            "source": "task.json C-045",
+            "quote": "FAIL if Arcadia's own contributory delays are not mentioned."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Allow the delay facts in either deliverable, and frame C-041 around the SOW-1 §3.2 and CO-004 allocation.",
+        "origin": "blind",
+        "sol_locators": [
+          "F6"
+        ],
+        "blind_ids": [
+          "O10"
+        ]
+      },
+      {
+        "id": "O13",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-034",
+          "C-035"
+        ],
+        "title": "The deemed-acceptance window runs from a Deployment Notice under §5.3, not from Go-Live, and the record has no Deployment Notice date",
+        "explanation": "Under §5.3(a), the 30-day window starts when Meridian delivers a 'Deployment Notice,' after staging testing under §5.2. §5.3(d) separately treats production use as acceptance. No Deployment Notice date appears in the record; the Go-Live keying comes from Meridian's litigation report. A brief that keys the window to the contractual trigger, or relies on production-use acceptance, would be graded against dates the contract does not fix.",
+        "evidence": [
+          {
+            "source": "master-software-license-and-services-agreement.docx.txt",
+            "quote": "Following Licensor's delivery of a Deployment Notice with respect to each module or Deliverable, Licensee shall have thirty (30) calendar days"
+          },
+          {
+            "source": "task.json C-035",
+            "quote": "the acceptance window end as approximately February 14, 2023 (30 days later)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Also accept analysis keyed to the Deployment Notice or production-use acceptance.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O11"
+        ]
+      },
+      {
+        "id": "O14",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-012",
+          "C-063"
+        ],
+        "title": "Criteria disagree on relief: C-012 and C-063 require every count dismissed with prejudice, while C-076 and C-079 accept partial relief",
+        "explanation": "C-012 fails a brief that does not seek dismissal of 'all five counts with prejudice,' and C-063 requires the proposed order to match. C-076 accepts with-prejudice dismissal 'at minimum' for the barred counts, and C-079 contemplates 'narrowing' Count I. 9(b) particularity dismissals are commonly without prejudice with leave to amend. A calibrated brief that seeks with-prejudice dismissal of Counts IV and V and alternative relief on Count II satisfies C-076 but fails C-012 and C-063.",
+        "evidence": [
+          {
+            "source": "task.json C-012",
+            "quote": "FAIL if no conclusion/prayer is present or if it does not request dismissal with prejudice."
+          },
+          {
+            "source": "task.json C-076",
+            "quote": "or at minimum for the counts where dismissal with prejudice is appropriate, such as unjust enrichment and DTPA"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Align C-012 and C-063 with C-076.",
+        "origin": "blind",
+        "sol_locators": [
+          "F8"
+        ],
+        "blind_ids": [
+          "O12"
+        ]
+      },
+      {
+        "id": "O15",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-013"
+        ],
+        "title": "The diversity defect is framed as contingent on Delaware overlap, though the notice of removal itself shows shared Texas citizenship",
+        "explanation": "C-013 frames diversity as something that 'may be lacking' and turns on whether a member 'shares citizenship with Meridian in Delaware.' The Notice itself alleges Meridian is a citizen of 'both Delaware and Texas' (¶11) and Arcadia 'a citizen of the State of Texas' (¶14). That alone defeats complete diversity, and the member schedule adds overlap in both states. A memo that calls diversity definitively absent on the Texas overlap may be marked down by a literal judge for not tracking the Delaware-contingent theory.",
+        "evidence": [
+          {
+            "source": "notice-of-removal.docx.txt",
+            "quote": "Defendant Meridian Cloud Solutions, Inc. is therefore a citizen of both Delaware and Texas for diversity jurisdiction purposes."
+          },
+          {
+            "source": "task.json C-013",
+            "quote": "The memo should note that if any member of Arcadia shares citizenship with Meridian in Delaware, complete diversity would be destroyed."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass a memo that identifies shared Texas and/or Delaware citizenship traced through Arcadia's members.",
+        "origin": "blind",
+        "sol_locators": [
+          "F2"
+        ],
+        "blind_ids": [
+          "O13"
+        ]
+      },
+      {
+        "id": "O16",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-078"
+        ],
+        "title": "The standing order and scheduling order conflict on whether a post-answer motion is treated as 12(b)(6) or 12(c)",
+        "explanation": "Standing order §3.4 treats a post-answer motion as 12(b)(6), 'not as a motion for judgment on the pleadings under Rule 12(c).' The scheduling order says the Court 'will treat any such motion as a Rule 12(c) motion.' Rule 12(b)'s timing requirement supports the scheduling order. C-078 anchors propriety to the standing order, so a brief that relies on the scheduling order or on Rule 12(h)(2)/(c) may be graded unevenly. The impact is low because both orders apply the same standard. C-077 is not affected, since the instructions ask for a Rule 12(b)(6) motion.",
+        "evidence": [
+          {
+            "source": "judge-alvarezs-standing-order-on-motion-practice.docx.txt",
+            "quote": "the Court shall treat such motion as a motion to dismiss, not as a motion for judgment on the pleadings under Rule 12(c)"
+          },
+          {
+            "source": "scheduling-order.docx.txt",
+            "quote": "The Court will treat any such motion as a Rule 12(c) motion for judgment on the pleadings, evaluated under the same standard"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass C-078 when the brief addresses post-answer propriety under either order or under Rule 12(c)/(h)(2).",
+        "origin": "revised",
+        "sol_locators": [
+          "F3"
+        ],
+        "blind_ids": [
+          "O14"
+        ]
+      },
+      {
+        "id": "O17",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-058"
+        ],
+        "title": "C-058 requires the no-oral-modification clause for pre-contract statements, but §12.3 governs post-formation amendments",
+        "explanation": "§12.3 governs later amendments. Pre-signing statements are handled by §12.1's integration and express anti-reliance language. A disciplined brief under the 25-page limit could rely on §12.1 alone and fail this hidden checklist item. The stakes are low.",
+        "evidence": [
+          {
+            "source": "master-software-license-and-services-agreement.docx.txt",
+            "quote": "This Agreement may not be amended, modified, or supplemented except by a written instrument duly executed"
+          },
+          {
+            "source": "task.json C-058",
+            "quote": "FAIL if Section 12.3 is not cited."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make §12.3 optional, or accept reliance on §12.1.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O15"
+        ]
+      }
+    ],
+    "changes_from_blind": "1. Split blind O5. C-054 stays problematic (O5). C-075 and C-082 drop to arguable (O6), because FAC ¶32 pleads the negotiation history and C-082's FAIL condition turns on 'negotiation history' being cited at all.\n2. Adopted from Sol F5 (C-022 only), as arguable O8. After reading Formosa (960 S.W.2d at 47), I agree C-022 rewards applying the economic loss rule to fraud based on 'purely economic' loss. I rejected Sol's C-024 and C-052.\n3. Dropped C-077 from the post-answer finding (now O16). The instructions expressly request a Rule 12(b)(6) motion, so C-077 cannot misgrade.\n4. Dropped C-040 from the negligent-misrepresentation finding (now O10). Any Texas negligent-misrepresentation authority passes it.\n5. Dropped C-076 and C-079 as flagged criteria in the relief finding (now O14). They are the permissive benchmark, not the defect.\n6. C-017 stays unflagged. The Notice ¶¶12–14 does identify Arcadia only through Okonkwo.\n7. Rejected these Sol items after checking the record:\n   - C-019: every quoted statement is attributed to the 'sales team', not to Poletti.\n   - C-043: CO-004 §5.1 is Arcadia's own signed acknowledgment in a referenced document.\n   - C-030: an unjust-enrichment claim pleaded in the alternative alongside an admitted valid contract is standard defense advocacy.\n   - C-053 and C-080: §12.1 is an express anti-reliance clause, and the listed factors are illustrative.\n   - C-083: its substantive demand for an extra non-exemption DTPA ground is sound.\n   - C-007 and C-008: the standing order's page-limit carve-out presupposes a table of contents and a table of authorities.\n8. Renumbered findings O1–O17.",
+    "overall": "Most of the rubric is accurate against the record, but several criteria can zero out a correct answer under the all-pass metric. The confirmed defects are:\n- C-016 states a false fact: the FAC and the operating agreement name Schreiber and Apex.\n- The DTPA criteria (C-025, C-026, C-027, C-089) misstate Tex. Bus. & Com. Code §17.49 by merging §17.49(f), §17.49(g) and the §17.45(4) asset test. C-027 also makes a legally irrelevant asset argument mandatory.\n- C-084 rewards an acceptance-defeats-warranty argument that the MSLSA's 90-day post-Go-Live warranty contradicts.\n- C-054 requires a confidential Arcadia memo, outside the pleadings, in a 12(b)(6) brief.\n- C-023 cites Delaware economic-loss 'authorities' taken from the planted memo, one of which is an arbitration case.\nThe arguable issues are:\n- C-022 rewards applying the economic loss rule to fraud, contrary to Formosa.\n- Negligent-misrepresentation duty (C-038, C-039) and puffery for quantified claims (C-046).\n- Contested causation at the pleading stage (C-041, C-045) and extrinsic-evidence reliance (C-075, C-082).\n- The acceptance-window trigger (C-034, C-035) and with-prejudice relief (C-012, C-063).\n- The contingent diversity framing (C-013), the conflicting orders on post-answer motions (C-078), and the §12.3 checklist item (C-058).\nSol's audit overlaps substantially with mine. I rejected its C-007, C-008, C-019, C-024, C-030, C-043, C-052, C-053, C-077, C-080 and C-083 as not defects.",
+    "coverage": "Read all 89 criteria, the instructions, the judge prompt and the solver prompt, plus Sol's index entry and full report. In the blind pass I read the FAC, standing order, notice of removal, scheduling order and March 8 email in full, and read key sections of the MSLSA, ticket report and research memo. This pass re-checked: FAC speaker attribution (¶¶22–28, 78–84), FAC ¶¶32, 46–47 and 99, Notice ¶¶9–14, standing order §3.2 table-of-contents and table-of-authorities language, and CO-004 §§1.2–1.3 and 5.1. I also grepped Linden Park across all documents. Law verified this session: Tex. Bus. & Com. Code §§17.45(4) and 17.49(f)-(g) (blind pass), Formosa Plastics 960 S.W.2d 41 (text search on CourtListener), and Kuhn, SIGA, McCamish, Pizza Hut and Chapman (blind pass). Not verified: Sloane, Sharyland, Eagle Industries, Brasby (seen only as cited), and Fortune Production. The sales presentation slides were not read."
+  }
+}

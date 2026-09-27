@@ -1,0 +1,742 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-case-assessment-memorandum",
+  "title": "Draft Case Assessment Memorandum — Litigation Risk Analysis for Distribution Agreement Dispute",
+  "criteria_total": 55,
+  "criterion_lines": {
+    "C-001": 21,
+    "C-002": 29,
+    "C-003": 37,
+    "C-004": 45,
+    "C-005": 53,
+    "C-006": 61,
+    "C-007": 69,
+    "C-008": 77,
+    "C-009": 85,
+    "C-010": 93,
+    "C-011": 101,
+    "C-012": 109,
+    "C-013": 117,
+    "C-014": 125,
+    "C-015": 133,
+    "C-016": 141,
+    "C-017": 149,
+    "C-018": 157,
+    "C-019": 165,
+    "C-020": 173,
+    "C-021": 181,
+    "C-022": 189,
+    "C-023": 197,
+    "C-024": 205,
+    "C-025": 213,
+    "C-026": 221,
+    "C-027": 229,
+    "C-028": 237,
+    "C-029": 245,
+    "C-030": 253,
+    "C-031": 261,
+    "C-032": 269,
+    "C-033": 277,
+    "C-034": 285,
+    "C-035": 293,
+    "C-036": 301,
+    "C-037": 309,
+    "C-038": 317,
+    "C-039": 325,
+    "C-040": 333,
+    "C-041": 341,
+    "C-042": 349,
+    "C-043": 357,
+    "C-044": 365,
+    "C-045": 373,
+    "C-046": 381,
+    "C-047": 389,
+    "C-048": 397,
+    "C-049": 405,
+    "C-050": 413,
+    "C-051": 421,
+    "C-052": 429,
+    "C-053": 437,
+    "C-054": 445,
+    "C-055": 453
+  },
+  "blind": {
+    "task": "draft-case-assessment-memorandum",
+    "criteria_reviewed": 55,
+    "coverage": "I read all of task.json (the instructions and all 55 criteria) and all 8 documents in full: the distribution agreement, complaint, Bridger report, employment agreement, termination letter, rejection letter, forensic summary and internal emails. I grepped all documents for the settlement figures, the separation agreement, the litigation hold, privilege, and reservation-of-rights language. I checked the dates myself: September 16, 2023 is exactly 180 days before March 14, 2024; the mediation demand was February 1, 2024, and the 60-day window in Section 15.3 closed before the April 12 filing. I also checked the fee arithmetic. I did not read the harness system prompt or the judge prompt; the task description of grading was enough. One CourtListener search for Oregon law on non-waiver clauses returned nothing useful. As a result, no legal authority was verified against primary text in this session. The legal findings rest on the record text and general doctrine, and none is marked verified. I did not research ORS 653.295 or RCW 49.62 in primary sources.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-052",
+          "C-045"
+        ],
+        "title": "The $2.5M mediation offer and $18M demand appear nowhere in the supplied record",
+        "explanation": "C-052 fails any memo that does not state that Greenleaf offered $2.5M and Cascade demanded $18M at the March 15, 2024 mediation. C-045 requires a settlement range that takes those same figures into account. No document contains them. The complaint says only that the mediation 'concluded without resolution', and grep finds no '2.5', '2,500', '18 million' or '$18' anywhere. A solver working only from the record cannot state these figures without making them up. So C-052 fails every faithful answer, and under all-pass scoring the task cannot be passed. C-045 may also fail a well-reasoned range that does not mention the invented numbers.",
+        "evidence": [
+          {
+            "source": "C-052",
+            "quote": "PASS if the memo states that at the March 15, 2024 mediation, Greenleaf offered $2.5M and Cascade demanded $18M. FAIL if these figures are materially incorrect or omitted."
+          },
+          {
+            "source": "C-045",
+            "quote": "taking into account the $2.5M prior offer by Greenleaf and $18M demand by Cascade"
+          },
+          {
+            "source": "cascade-complaint.docx.txt",
+            "quote": "The parties participated in a full-day mediation session on March 15, 2024 ... the mediation concluded without resolution."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Either add a document (for example a mediation summary or client email) that records the offer and demand, or delete C-052 and remove the figures from C-045 so it asks only for a reasoned range based on realistic exposure."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-053"
+        ],
+        "title": "The separation agreement is not in the record, and nothing says it is 'silent' on Jantzen's personal covenants",
+        "explanation": "C-053 requires the memo to say that the October 28, 2023 separation agreement is silent on whether it supersedes or releases Jantzen's personal restrictive covenants, which creates ambiguity. The separation agreement is not among the documents. Only Cascade describes it. The forensic summary says it did not release confidentiality obligations or authorize keeping Cascade data. The complaint says it does not release or supersede Section 11.3, the company-to-company clause. Nothing says it is silent on the non-compete or non-solicitation clauses in Sections 7 and 8 of the employment agreement. A careful memo might say the covenants survive because the agreement released nothing, or might say the document has to be obtained. Either could fail, because the criterion presents a fact the record does not establish.",
+        "evidence": [
+          {
+            "source": "cascade-forensic-summary.docx.txt",
+            "quote": "Cascade's separation agreement with Jantzen (executed October 28, 2023) did not include a release of confidentiality obligations, nor did it authorize removal or retention of any Cascade data."
+          },
+          {
+            "source": "cascade-complaint.docx.txt",
+            "quote": "The separation agreement between Cascade and Jantzen does not release, modify, or supersede the non-solicitation obligations set forth in Section 11.3 of the Agreement between Cascade and Greenleaf."
+          },
+          {
+            "source": "C-053",
+            "quote": "is silent on whether it supersedes or releases the restrictive covenants in his original employment agreement, creating ambiguity about their continued enforceability"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Rewrite C-053 to pass a memo that notes the separation agreement is not in the file and that its terms (release or integration clauses) must be obtained to confirm whether Jantzen's personal covenants survive. Alternatively, add the separation agreement to the record."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-034"
+        ],
+        "title": "C-034 requires Oregon non-compete law, but Jantzen's employment agreement chooses Washington law and King County venue",
+        "explanation": "C-034 fails any memo that does not discuss Oregon's limits on non-competes (for example ORS 653.295). Section 12.1 of Jantzen's employment agreement selects Washington law, and Section 12.2 sets exclusive venue in King County. Jantzen was based in Portland but also covered Northern California. A competent memo might analyze Washington's non-compete statute (RCW 49.62) as the chosen law, plus California's policy for the California accounts, and never mention Oregon. That memo would fail. Oregon may well apply through a conflict-of-laws override, because the employee worked in Oregon, so mentioning Oregon is reasonable. But the criterion ignores the choice-of-law clause in the record and rewards only one route through a real conflict-of-laws question.",
+        "evidence": [
+          {
+            "source": "jantzen-employment-agreement.docx.txt",
+            "quote": "This Agreement shall be governed by and construed in accordance with the laws of the State of Washington, without regard to its conflict of laws principles."
+          },
+          {
+            "source": "jantzen-employment-agreement.docx.txt",
+            "quote": "Employee's principal work location shall be the Company's Portland, Oregon regional office"
+          },
+          {
+            "source": "C-034",
+            "quote": "PASS if the memo discusses Oregon's restrictions on non-compete enforceability (e.g., ORS 653.295 or general reference to Oregon's restrictive approach to non-competes)."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass a memo that analyzes whether the non-compete is enforceable under the applicable law: Washington law as chosen in the contract, and/or Oregon or California law given where Jantzen worked. Credit recognition of the choice-of-law issue."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-031"
+        ],
+        "title": "C-031 asks for an 'immediate' litigation hold, but the record says one was put in place in January 2024",
+        "explanation": "The general counsel's forwarding email says the emails were pulled 'in response to the litigation hold we implemented in January.' The pass language rewards recommending 'implementing an immediate litigation hold.' A careful memo would say the hold already exists and suggest checking or widening it, for example to Jantzen's personal Gmail account or text messages. The alternative wording ('document preservation protocol ... and/or discusses the risk of spoliation sanctions') will probably save most such memos. But a memo that correctly says a hold is already in place, and so recommends nothing new, could fail. The premise also conflicts with the record.",
+        "evidence": [
+          {
+            "source": "greenleaf-internal-emails.eml.txt",
+            "quote": "These were pulled from our email archive in response to the litigation hold we implemented in January."
+          },
+          {
+            "source": "C-031",
+            "quote": "PASS if the memo recommends implementing an immediate litigation hold or document preservation protocol"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Reword C-031 to credit a memo that confirms, audits or extends the existing January 2024 hold (for example to personal accounts and devices) or that addresses the spoliation risk."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-032"
+        ],
+        "title": "C-032 gives the August 10 email as a likely non-privileged business email, though it asks the GC to review contract issues",
+        "explanation": "C-032 requires the memo to recognize that business-strategy emails, 'e.g., the August 10 plug and play email,' may not be privileged. The August 10 email is from the CEO to the general counsel and expressly asks for legal review: 'can you look into any contract issues with bringing Tyler on board?' Under the primary-purpose test that federal courts apply to dual-purpose communications, a practitioner could reasonably conclude that it is at least partly privileged. The September 5 email is plainly legal advice. The clearly non-privileged emails (Jantzen on October 20, Brennan and Ellison in November) involve no lawyer at all. A memo that calls the August 10 email likely privileged, while flagging the dual-purpose risk, could be marked down for disagreeing with the criterion's example.",
+        "evidence": [
+          {
+            "source": "greenleaf-internal-emails.eml.txt",
+            "quote": "I know we've got the distribution agreement with Cascade still running — can you look into any contract issues with bringing Tyler on board?"
+          },
+          {
+            "source": "C-032",
+            "quote": "recognizes that emails discussing business strategy (e.g., the August 10 'plug and play' email about hiring Jantzen) rather than seeking legal advice may not qualify for privilege protection"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop the August 10 example, or pass any reasoned email-by-email privilege analysis that addresses dual-purpose communications with in-house counsel and notes that the non-attorney emails are not privileged."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-015"
+        ],
+        "title": "C-015 states a flat waiver rule and ignores the Agreement's express non-waiver clause in Section 17.4",
+        "explanation": "C-015 says that under Oregon law, continuing to perform without reservation after learning of a breach 'constitutes waiver'. It never mentions Section 17.4, which requires any waiver to be in writing and says that failing to enforce a provision is not a waiver. The Year 2 shortfall was also arguably excused by force majeure: Section 14.1 lists pandemics. A careful memo would weigh the non-waiver clause (and whether conduct waived it) before concluding. The 'or unavailable' alternative, for example because the cure-and-notice steps in Section 9.1 were never followed, protects most correct answers. The risk is that a judge reads the criterion's legal statement as a required conclusion.",
+        "evidence": [
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "No waiver of any provision of this Agreement shall be effective unless made in writing and signed by the waiving Party. The failure of either Party to enforce any provision of this Agreement at any time shall not constitute a waiver"
+          },
+          {
+            "source": "C-015",
+            "quote": "Under Oregon law (or general contract law principles), continued performance after knowledge of breach without reservation of rights constitutes waiver."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass a memo that concludes the Year 2 shortfall is unlikely to support termination for any sound reason (waiver or election despite Section 17.4, force majeure, or failure to follow the Section 9.1 procedure), and credit discussion of the non-waiver clause."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-029"
+        ],
+        "title": "C-029 says the fee and lost profits are alternatives ('one or the other'), but a proper exit would have paid both",
+        "explanation": "Under Section 9.2, a proper convenience termination would have given Cascade 12 months' notice (and so 12 months of margin) plus the $5.37M fee. Under the least-costly-performance measure, those two items add together; they are not substitutes. The real defect in Cascade's claim is that it mixes two theories. It seeks the fee, which is owed only if the termination was a valid convenience termination, and also 17.5 months of profits through the renewal term, which assumes the termination was void. A memo that says the right measure is the fee plus notice-period profits, and that the renewal-period profits are not recoverable alongside the fee, has identified the overlap correctly. A strict judge could still fail it because it does not say Cascade gets 'one or the other.'",
+        "evidence": [
+          {
+            "source": "C-029",
+            "quote": "The termination fee is designed to compensate for convenience termination and is arguably a substitute for lost profits — Cascade should recover one or the other, but not both."
+          },
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "This Agreement may be terminated for convenience by either Party upon twelve (12) months' advance written notice ... provided that the terminating Party shall pay to the non-terminating Party a termination fee"
+          },
+          {
+            "source": "bridger-damages-report.docx.txt",
+            "quote": "the termination fee reflects the minimum compensation Cascade would have received even had the termination been properly executed"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass any memo that identifies overlapping or inconsistent recovery between the fee and the full-period lost profits, without requiring the conclusion that only one can be recovered."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-037",
+          "C-042",
+          "C-046"
+        ],
+        "title": "Required ratings and placement rules are not in the one-sentence instructions",
+        "explanation": "The instructions say only 'prepare a comprehensive case assessment memo.' A case assessment normally does evaluate claim strength, exposure and strategy, so C-043, C-045 and C-047 are defensible as implicit. Three requirements are more specific than that. C-042 requires a graded high/medium/low likelihood rating for every claim. C-046 requires a separate overall risk rating. C-037 requires the settle-or-litigate recommendation to appear inside the Executive Summary, not just somewhere in the memo. A competent memo that explains each claim's strength in prose, or puts its recommendation in a closing section, could fail these, especially under two independent judges and all-pass scoring.",
+        "evidence": [
+          {
+            "source": "instructions",
+            "quote": "prepare a comprehensive case assessment memo. Output: `case-assessment-memo.docx`."
+          },
+          {
+            "source": "C-042",
+            "quote": "uses a high/medium/low (or equivalent graduated) framework to rate the likelihood of success on the merits for each claim"
+          },
+          {
+            "source": "C-037",
+            "quote": "PASS if the Executive Summary section contains a bottom-line recommendation on whether to settle or litigate."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Either state the rating framework and Executive Summary contents in the instructions, or loosen the criteria to accept any clear assessment of each claim's strength and a bottom-line recommendation anywhere in the memo."
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-048"
+        ],
+        "title": "C-048 has a gap: a memo discussing solicitation but no defense meets neither the PASS nor the FAIL test",
+        "explanation": "PASS needs three things: an analysis of Count II, the post-termination solicitation, and at least one defense. FAIL applies only if the claim is not analyzed, or if 'neither the solicitation conduct nor any defense is discussed.' A memo that analyzes the solicitation but raises no defense, or raises a defense but never mentions solicitation, fits neither test, so the two judges may split. It is also worth noting that a strong Oregon defense, displacement of the tort by the Oregon trade secrets act (OUTSA) to the extent it rests on misappropriation, is not among the examples. The 'at least one defense' wording should accommodate it.",
+        "evidence": [
+          {
+            "source": "C-048",
+            "quote": "FAIL if the tortious interference claim is not analyzed or if neither the solicitation conduct nor any defense is discussed."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make FAIL the exact complement of PASS: fail if the claim is not analyzed, or if either the solicitation conduct or any defense is missing."
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-025",
+          "C-046",
+          "C-047"
+        ],
+        "title": "The instructions never name the client; several criteria assume the memo is written for Greenleaf",
+        "explanation": "The instructions do not say who the memo is for. C-025 (recommend a motion to dismiss), C-046 (Greenleaf's exposure) and C-047 (whether Greenleaf should settle) assume defense counsel. The record strongly suggests Greenleaf: its general counsel forwards privileged emails to Sandra Okafor, who is Greenleaf's outside counsel. But the file also holds Cascade's attorney work product (the forensic memo and the Bridger report), which blurs the picture. Most solvers will infer Greenleaf, so the risk is small. A memo written neutrally or from Cascade's side would fail several criteria.",
+        "evidence": [
+          {
+            "source": "greenleaf-internal-emails.eml.txt",
+            "quote": "From: David Hyun-Park <dhyunpark@greenleaforganics.com> To: Sandra Okafor <sokafor@ridgelinewinters.com>"
+          },
+          {
+            "source": "instructions",
+            "quote": "Review the attached complaint, distribution agreement, correspondence, internal emails, damages report, and related documents and prepare a comprehensive case assessment memo."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Add one line to the instructions saying the memo is for Greenleaf, from its outside counsel."
+      }
+    ],
+    "overall": "Most of this rubric is sound and closely tied to the record. The Section 9.2 defects, the $5.37M fee, the September 16, 2023 non-renewal deadline, the Section 16.2 exceptions, the $288,000 book value versus $1.85M, the forensic evidence, the damaging internal emails and the governing-law checks all match the documents and hold up. The main defect is that C-052, and through it C-045, depend on a $2.5M offer and an $18M demand that appear nowhere in the supplied record. C-052 fails every faithful answer, so the all-pass metric cannot be achieved. C-053 likewise states a fact about a separation agreement that is not in the file. Several other criteria are arguable: C-034 ignores the Washington choice-of-law clause, C-031 ignores the existing January hold, C-032's privilege example is doubtful, C-015 omits the non-waiver clause, and C-029 oversimplifies the damages overlap. There are also rating and placement requirements the instructions never mention. The documents contain minor internal inconsistencies that do not change the correct answers but a memo could use. The Bridger report is dated March 28, 2024 yet lists the April 12, 2024 complaint as reviewed. The complaint says the laptop was reviewed 'prior to its return on October 30', while the forensic memo says it was returned October 31 and reviewed from November 2."
+  },
+  "final": {
+    "task": "draft-case-assessment-memorandum",
+    "sol_verdicts": [
+      {
+        "sol_locator": "F1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-053"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-053",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "The separation agreement is not in the record. Complaint ¶55 says only that it does not release the corporate Section 11.3 obligation. The forensic summary says it did not release confidentiality obligations. Nothing says it is 'silent' on Jantzen's personal covenants, and employment agreement §§2.2 and 11.5 preserve them. The criterion requires the solver to assert a fact the record does not contain."
+      },
+      {
+        "sol_locator": "F2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-024",
+          "C-025"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-024",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-025",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "C-024 only requires spotting the express-contract vulnerability. Its FAIL condition is 'does not identify this vulnerability', which is sound. C-025 requires recommending a dispositive motion. Complaint ¶127 pleads unjust enrichment expressly in the alternative, and Rule 8(d) alternative pleading often survives at the pleading stage. A competent memo could flag the weakness and defer the challenge to summary judgment, or rely on OUTSA displacement instead. I did not verify Sol's case citation."
+      },
+      {
+        "sol_locator": "F3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-027",
+          "C-028"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-027",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-028",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The Bridger report itself sets out the $288,000 straight-line figure and labels it 'rejected'. Any defense memo would use that gap to argue the $1.85M is overstated. Both criteria only require the memo to identify the discrepancy and question the methodology, not to prove legal overstatement. That is ordinary advocacy, and neither criterion is a legal or factual error."
+      },
+      {
+        "sol_locator": "F4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-029"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-029",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Section 9.2 requires 12 months' notice and also the fee. Proper performance would therefore have yielded notice-period margin plus the fee, so the two items add together rather than substitute for each other. The real overlap is between the fee and the 17.5-month renewal-period profits, which assume the termination was void. The criterion's 'one or the other' framing could fail a memo that makes that more precise analysis."
+      },
+      {
+        "sol_locator": "F5",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-034"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-034",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Jantzen's employment agreement §12.1 selects Washington law, and §12.2 sets King County venue. Oregon law can reach him through conflict-of-laws or public-policy analysis because he worked in Portland, so discussing Oregon is reasonable. But a memo that analyzes RCW 49.62 and California policy for the NorCal accounts would fail a criterion that requires Oregon by name."
+      },
+      {
+        "sol_locator": "F6",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-015"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-015",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The conclusion is defensible, and the 'or unavailable' alternative protects most memos. But the criterion states a flat rule that continued performance 'constitutes waiver' and ignores the §17.4 non-waiver clause (written waiver required; failure to enforce is not waiver). It also ignores the pandemic force-majeure excuse in §14.1 and the §9.1 cure procedure. A judge could read the stated rule as a required conclusion."
+      },
+      {
+        "sol_locator": "F7",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-036",
+          "C-037",
+          "C-042",
+          "C-046",
+          "C-047"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-036",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-037",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-042",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-046",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-047",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "An executive summary (C-036) and a bottom-line settle-or-litigate recommendation (C-047) are standard parts of a case assessment memo, so they are implicit requirements. The narrower demands are hidden from the one-line prompt: the recommendation must sit inside the Executive Summary (C-037), each claim must get a graduated rating (C-042), and there must be a separate overall risk rating (C-046). Competent prose-based memos could fail them."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-052"
+        ],
+        "title": "C-052 requires a $2.5M mediation offer and an $18M demand that appear nowhere in the record",
+        "explanation": "C-052 fails any memo that does not state that Greenleaf offered $2.5M and Cascade demanded $18M at the March 15, 2024 mediation. None of the eight documents contains these figures. The complaint says only that the mediation 'concluded without resolution', and grep finds no '2.5', '2,500', '$18' or '18 million' anywhere. A faithful solver cannot pass without inventing numbers. Under all-pass scoring, this one criterion makes the task impossible to pass. Sol did not flag it.",
+        "evidence": [
+          {
+            "source": "C-052",
+            "quote": "PASS if the memo states that at the March 15, 2024 mediation, Greenleaf offered $2.5M and Cascade demanded $18M. FAIL if these figures are materially incorrect or omitted."
+          },
+          {
+            "source": "cascade-complaint.docx.txt",
+            "quote": "Despite Cascade's good-faith participation, the mediation concluded without resolution."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Add a document recording the offer and demand, or delete C-052.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-045"
+        ],
+        "title": "C-045's settlement-range criterion rests on the same unsupported offer and demand figures",
+        "explanation": "C-045 asks for a settlement range 'taking into account the $2.5M prior offer by Greenleaf and $18M demand by Cascade'. These figures are not in the record. The FAIL condition is triggered only if no range is given, so most memos that give a reasoned range should pass. But a judge who reads the PASS language literally could fail a memo that anchors its range on realistic exposure and never mentions the invented figures.",
+        "evidence": [
+          {
+            "source": "C-045",
+            "quote": "taking into account the $2.5M prior offer by Greenleaf and $18M demand by Cascade and the realistic damages exposure"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Remove the offer and demand figures and require a reasoned range based on realistic exposure.",
+        "origin": "revised",
+        "sol_locators": [],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-053"
+        ],
+        "title": "C-053 requires calling an absent separation agreement 'silent' on Jantzen's personal covenants",
+        "explanation": "The October 28, 2023 separation agreement is not supplied. Cascade's documents say only that it did not release confidentiality obligations and did not supersede the corporate §11.3 obligation. Jantzen's employment agreement expressly preserves his covenants. No document says the separation agreement is silent on the non-compete or non-solicitation clauses. A careful memo would say the covenants appear to survive, or that the agreement must be obtained, and either memo could fail.",
+        "evidence": [
+          {
+            "source": "cascade-forensic-summary.docx.txt",
+            "quote": "Cascade's separation agreement with Jantzen (executed October 28, 2023) did not include a release of confidentiality obligations, nor did it authorize removal or retention of any Cascade data."
+          },
+          {
+            "source": "cascade-complaint.docx.txt",
+            "quote": "The separation agreement between Cascade and Jantzen does not release, modify, or supersede the non-solicitation obligations set forth in Section 11.3 of the Agreement"
+          },
+          {
+            "source": "C-053",
+            "quote": "is silent on whether it supersedes or releases the restrictive covenants in his original employment agreement"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass a memo that notes the separation agreement is missing and must be reviewed for release or integration terms, or add the document to the record.",
+        "origin": "blind",
+        "sol_locators": [
+          "F1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-034"
+        ],
+        "title": "C-034 requires Oregon non-compete law despite the employment agreement's Washington choice of law",
+        "explanation": "Jantzen's employment agreement selects Washington law and King County venue. Oregon's ORS 653.295 may still apply through conflict-of-laws analysis because he worked in Portland, so discussing Oregon is reasonable. But a competent memo that analyzes the chosen Washington law (RCW 49.62), plus California policy for the NorCal accounts, would fail a criterion that requires Oregon by name.",
+        "evidence": [
+          {
+            "source": "jantzen-employment-agreement.docx.txt",
+            "quote": "This Agreement shall be governed by and construed in accordance with the laws of the State of Washington, without regard to its conflict of laws principles."
+          },
+          {
+            "source": "C-034",
+            "quote": "FAIL if Oregon's non-compete enforceability rules are not mentioned."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Credit analysis under the applicable law with a choice-of-law discussion, whether that is Washington, Oregon or California law.",
+        "origin": "blind",
+        "sol_locators": [
+          "F5"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-015"
+        ],
+        "title": "C-015 states a flat waiver rule and ignores the §17.4 non-waiver clause and force majeure",
+        "explanation": "C-015 says continued performance without reservation 'constitutes waiver'. It never mentions §17.4, which requires any waiver to be in writing and says failure to enforce is not a waiver. It also ignores the argument that the Year 2 shortfall was excused as pandemic-era force majeure under §14.1. The 'or unavailable' alternative protects most correct memos. The risk is that a judge treats the stated rule as a required conclusion and marks down a memo that weighs the non-waiver clause.",
+        "evidence": [
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "No waiver of any provision of this Agreement shall be effective unless made in writing and signed by the waiving Party."
+          },
+          {
+            "source": "C-015",
+            "quote": "continued performance after knowledge of breach without reservation of rights constitutes waiver."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass any sound reason the Year 2 shortfall cannot support termination: waiver or election despite §17.4, force majeure, or the unfollowed §9.1 cure procedure.",
+        "origin": "blind",
+        "sol_locators": [
+          "F6"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-029"
+        ],
+        "title": "C-029 treats the fee and lost profits as alternatives, but a proper §9.2 exit would have paid both",
+        "explanation": "A proper convenience termination required 12 months' notice and also the $5.37M fee. Notice-period margin plus the fee is therefore a coherent measure, and the Bridger report says so. The real inconsistency is between claiming the fee, which assumes a valid convenience termination, and claiming 17.5 months of renewal-period profits, which assumes the termination was void. A memo that identifies this precisely might not say 'one or the other' and could fail.",
+        "evidence": [
+          {
+            "source": "C-029",
+            "quote": "Cascade should recover one or the other, but not both."
+          },
+          {
+            "source": "distribution-agreement.docx.txt",
+            "quote": "upon twelve (12) months' advance written notice ... provided that the terminating Party shall pay to the non-terminating Party a termination fee"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass any memo that identifies overlapping or inconsistent recovery between the fee and full-period lost profits.",
+        "origin": "blind",
+        "sol_locators": [
+          "F4"
+        ],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-037",
+          "C-042",
+          "C-046"
+        ],
+        "title": "The recommendation placement and graded ratings are not required by the one-line prompt",
+        "explanation": "The prompt asks only for a 'comprehensive case assessment memo.' An executive summary and a final recommendation are implicit parts of that document. Three requirements are narrower and hidden: the settle-or-litigate recommendation must sit inside the Executive Summary (C-037), every claim must get a high/medium/low rating (C-042), and there must be a separate overall risk rating (C-046). A competent memo that assesses claim strength in prose, or puts its recommendation in the conclusion, could fail these under two judges and all-pass scoring.",
+        "evidence": [
+          {
+            "source": "instructions",
+            "quote": "prepare a comprehensive case assessment memo. Output: `case-assessment-memo.docx`."
+          },
+          {
+            "source": "C-042",
+            "quote": "uses a high/medium/low (or equivalent graduated) framework to rate the likelihood of success on the merits for each claim"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "State these format requirements in the instructions, or accept a clear assessment and recommendation anywhere in the memo.",
+        "origin": "blind",
+        "sol_locators": [
+          "F7"
+        ],
+        "blind_ids": [
+          "O8"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-025"
+        ],
+        "title": "C-025 requires recommending a motion to dismiss an unjust-enrichment claim pleaded in the alternative",
+        "explanation": "Cascade pleads unjust enrichment expressly in the alternative, to the extent the Agreement does not cover the dispute or is unenforceable. Federal courts often let alternative unjust-enrichment claims survive the pleading stage under Rule 8(d). The claim also rests partly on trade-secret misappropriation, which raises OUTSA displacement. A competent memo could flag the weakness (which satisfies C-024) but reasonably defer the challenge to summary judgment, and it would fail C-025.",
+        "evidence": [
+          {
+            "source": "cascade-complaint.docx.txt",
+            "quote": "Cascade pleads this claim in the alternative to its breach of contract claim, to the extent the Court determines that the Agreement does not govern the full scope of the parties' dispute or that the Agreement is unenforceable for any reason."
+          },
+          {
+            "source": "C-025",
+            "quote": "FAIL if no such motion recommendation is made regarding the unjust enrichment claim."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Credit a reasoned strategy for disposing of Count IV, whether by motion to dismiss, judgment on the pleadings, summary judgment or displacement.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "F2"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-032"
+        ],
+        "title": "C-032's example of a non-privileged email is the one that expressly asks the GC for contract advice",
+        "explanation": "C-032 cites the August 10 email as a business-strategy email that may not be privileged. But in that email the CEO asks the General Counsel to 'look into any contract issues with bringing Tyler on board.' Under a primary-purpose test, that dual-purpose request is arguably privileged. The clearly non-privileged emails are the ones between non-lawyers. A memo that calls the August 10 email likely privileged, while flagging the risk, could be marked down.",
+        "evidence": [
+          {
+            "source": "greenleaf-internal-emails.eml.txt",
+            "quote": "can you look into any contract issues with bringing Tyler on board?"
+          },
+          {
+            "source": "C-032",
+            "quote": "(e.g., the August 10 'plug and play' email about hiring Jantzen) rather than seeking legal advice may not qualify for privilege protection"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop the August 10 example and credit any reasoned email-by-email privilege analysis.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-031"
+        ],
+        "title": "C-031 asks for an 'immediate' litigation hold, but the record says one was put in place in January",
+        "explanation": "The GC's email says a litigation hold was implemented in January 2024. A careful memo would confirm or extend it, for example to Jantzen's personal Gmail and devices, rather than recommend a new one. The 'document preservation protocol' and 'spoliation' alternatives will probably save most such memos, but the criterion's premise conflicts with the record.",
+        "evidence": [
+          {
+            "source": "greenleaf-internal-emails.eml.txt",
+            "quote": "These were pulled from our email archive in response to the litigation hold we implemented in January."
+          },
+          {
+            "source": "C-031",
+            "quote": "PASS if the memo recommends implementing an immediate litigation hold"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Credit a memo that confirms, audits or extends the existing hold, or that addresses spoliation risk.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O4"
+        ]
+      }
+    ],
+    "changes_from_blind": "I split blind O1. C-052 stays problematic; C-045 moves to its own arguable finding (O2), because its FAIL condition fires only if no range is given at all. I adopted Sol's F2 as arguable for C-025 only. On C-024 I disagree with Sol: it only asks the memo to spot the vulnerability, which is sound. I rejected Sol's F3 on C-027 and C-028: the Bridger report itself discloses the $288K book value, so challenging the gap is ordinary defense advocacy. On Sol's F7, I treat C-036 and C-047 as implicit parts of a case assessment memo, not defects. I dropped blind O9 (the C-048 PASS/FAIL gap) because competent defense memos will raise a defense, so it rarely misgrades. I dropped blind O10 (the client is never named) because the record plainly makes the memo's author Greenleaf's outside counsel. Blind O4 (litigation hold) and O5 (privilege) are kept as arguable, although Sol did not raise them.",
+    "overall": "The rubric is mostly grounded in the record. The Section 9.2 defects, the fee arithmetic, the non-renewal deadline, the Section 16.2 exceptions, the infrastructure valuation dispute, and the forensic and email evidence all check out. The decisive defect is C-052, which Sol missed: it requires mediation figures ($2.5M offer, $18M demand) that appear in no supplied document. Every faithful memo fails it, so the all-pass metric cannot be reached. C-053 likewise asserts a fact about a separation agreement that is not in the record. The remaining issues are arguable: C-034 ignores the Washington choice-of-law clause, C-015 states a flat waiver rule, C-029 frames fee and lost profits as either/or, C-025 compels a motion to dismiss, C-032 uses a doubtful privilege example, and C-031 ignores the existing hold. There are also hidden format requirements in C-037, C-042 and C-046, and C-045 depends partly on the unsupported settlement figures.",
+    "coverage": "In the blind pass I read all 55 criteria and all 8 documents in full. In this pass I re-read the criteria at issue and Sol's index entry and full report. I re-grepped all documents for the mediation figures and confirmed they are absent (no '2.5', '2,500', '$18' or '18 million'). I also checked the unjust-enrichment alternative pleading (complaint ¶127) and the Bridger infrastructure methodology, including the $288K book value it discloses. I verified no legal authority against primary text in this session, including Sol's cited D. Or. case and the ORS provisions. The legal points rest on the record text and general doctrine."
+  }
+}
