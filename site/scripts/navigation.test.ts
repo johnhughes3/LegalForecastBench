@@ -133,6 +133,9 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 						1,
 						`${context}: methods baseline uses the same rate`,
 					);
+					await page
+						.getByText("Show the full technical methods", { exact: true })
+						.click();
 					assert.equal(
 						await page
 							.getByRole("heading", {

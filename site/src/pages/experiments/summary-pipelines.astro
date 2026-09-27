@@ -43,10 +43,10 @@ const preparation = jev.preparation_usd ?? 0;
 			<a href="/experiments/" class="text-sm text-ink-3 hover:text-ink">← Experiments</a>
 			<p class="eyebrow mt-8">Experiment · Summary pipelines</p>
 			<h1 class="mt-3 max-w-4xl font-serif text-4xl font-medium leading-[1.1] tracking-tight sm:text-5xl">
-				Given the same case summaries, Jev forecast worse than a coin flip. Frontier models did not.
+				Given the same case summaries, Jev forecast worse than always guessing 50%. Frontier models did not.
 			</h1>
 			<p class="mt-6 max-w-3xl text-lg leading-relaxed text-ink-2">
-				Typesafe.ai's Jev has too small a context window for the full motion papers, so GPT-5.6 Luna first summarized the 482 filings across the {jev.case_count} cases. Jev forecast from those summaries in one shot. As controls, two OpenAI models received the identical summaries.
+				TypeSafe's Jev accepts about 64,000 tokens per request (<a class="text-accent" href="https://docs.typesafe.ai/models">TypeSafe model reference</a>), and the full motion papers for most cases are longer, so GPT-5.6 Luna first summarized the 482 filings across the {jev.case_count} cases. Jev forecast from those summaries in one shot. As controls, two OpenAI models received the identical summaries.
 			</p>
 			<div class="mt-10 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
 				<Stat value={METRICS.micro_brier.format(jev.micro_brier)} label="Jev micro Brier" detail="Always forecasting 50% scores 0.2500" />
