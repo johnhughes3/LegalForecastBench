@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { extendSnapshot } from "./extend-snapshot.js";
+import { applyReceiptCosts, receiptCosts } from "./receipt-costs.js";
 import { recentResults } from "./recent-results.js";
 import { historicalSnapshot, snapshot } from "./results.js";
 
@@ -19,8 +20,43 @@ test("all six newer agentic models augment the unchanged beta snapshot", () => {
 	for (const { source, data } of recentResults) {
 		const model = snapshot.models.find((m) => m.slug === source.slug);
 		assert.equal(model?.micro_brier, data.results[0]?.micro_brier);
-		assert.equal(model?.cost.usd, data.results[0]?.costs.total_cost);
+		assert.equal(
+			model?.cost.usd,
+			receiptCosts.find((cost) => cost.slug === source.slug)
+				?.standard_rate_estimate_usd,
+		);
 	}
+});
+
+test("cost evidence must belong to the selected complete forecast and scoring run", () => {
+	const costs = structuredClone(receiptCosts);
+	const first = costs[0];
+	assert.ok(first);
+	first.forecast_run_id = "1";
+	assert.throws(
+		() =>
+			applyReceiptCosts(
+				snapshot,
+				recentResults.map(({ source }) => source),
+				costs,
+			),
+		/selected run/,
+	);
+});
+
+test("missing standard-rate costs are not interpreted as zero or workload cost", () => {
+	const costs = structuredClone(receiptCosts);
+	for (const cost of costs) cost.standard_rate_estimate_usd = null;
+	const result = applyReceiptCosts(
+		extendSnapshot(historicalSnapshot, recentResults),
+		recentResults.map(({ source }) => source),
+		costs,
+	);
+	assert.ok(
+		result.models
+			.filter((model) => costs.some((cost) => cost.slug === model.slug))
+			.every((model) => model.cost.usd === null),
+	);
 });
 test("summary conditions cannot enter the full-document leaderboard", () => {
 	const input = structuredClone(recentResults);

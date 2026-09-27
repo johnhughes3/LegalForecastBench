@@ -1,5 +1,5 @@
 ---
-import { comparison, comparisonScope } from "../../data/comparison";
+import { comparison } from "../../data/comparison";
 import { recentResults } from "../../data/recent-results";
 import { snapshot } from "../../data/results";
 import Layout from "../../layouts/Layout.astro";
@@ -25,7 +25,7 @@ const { provenance, cohort } = snapshot;
 				<div><dt class="text-ink-3">Release</dt><dd class="mt-0.5 font-mono text-[13px] text-ink-2">{provenance.release}</dd></div>
 				<div><dt class="text-ink-3">Release digest (SHA-256)</dt><dd class="mt-0.5 break-all font-mono text-[13px] text-ink-2">{provenance.release_digest}</dd></div>
 			</dl>
-			<p class="mt-6 text-sm leading-relaxed text-ink-2">{provenance.method}</p>
+			<a class="mt-6 inline-flex text-sm text-accent hover:underline" href="/data/beta-run-mechanics/">Beta Run Mechanics →</a>
 		</div>
 
 		<div class="prose-lfb prose mt-12 max-w-none">
@@ -34,8 +34,7 @@ const { provenance, cohort } = snapshot;
             <p><a href="/data/beta-2026-09-18.json" download>Historical September 18 beta snapshot</a></p>
             <ul>{recentResults.map(({source, data}) => <li><a href={`/data/exports/${source.slug}.json`} download>{data.results[0]?.metadata.display_name}</a> · <a href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${source.forecast_run}`}>Forecast run</a> · <a href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${source.scoring_run}`}>Scoring run</a></li>)}</ul>
             <h2 id="significance">Updated significance analysis</h2>
-            <p>{comparisonScope} {comparison.caveat}</p>
-            <p>The September 18 snapshot retains its historical ten-model analysis. The current snapshot replaces those pairwise conclusions with this analysis, without combining correction families.</p>
+            <p>Paired comparisons for nine configurations. <a href="/data/beta-run-mechanics/#significance">Scope and methodology →</a></p>
             <ul>
                 <li><a href="/data/significance/comparison.json" download>Comparison results, confidence intervals, method, and provenance</a></li>
                 <li><a href="/data/significance/inputs.json" download>Reproduction input manifest</a></li>
