@@ -1121,6 +1121,19 @@
           "type": "int"
         },
         {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "amend_cap_from_microusd",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--amend-cap-from-microusd"
+          ],
+          "required": false,
+          "type": "int"
+        },
+        {
           "action": "store_true",
           "choices": null,
           "default": false,

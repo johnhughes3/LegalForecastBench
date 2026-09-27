@@ -16,6 +16,11 @@ on:
         description: Positive summary preparation ceiling in millionths of one US dollar.
         required: true
         type: string
+      amend_cap_from_microusd:
+        description: Explicit owner-approved increase from this prior ledger ceiling to ceiling_microusd; preserves all charges and holds.
+        required: false
+        default: ""
+        type: string
       prior_summary_run_id:
         description: Jev summary workflow run containing a resumable cache and ledger, if any.
         required: false
@@ -353,6 +358,7 @@ jobs:
           AI_GATEWAY_API_KEY: ${{ inputs.summary_model == 'grok' && secrets.AI_GATEWAY_API_KEY || '' }}
           RECONCILE_SAVED_OVERRUN: ${{ inputs.reconcile_saved_overrun }}
           RETRY_AMBIGUOUS_ATTEMPT_ID: ${{ inputs.retry_ambiguous_attempt_id }}
+          AMEND_CAP_FROM: ${{ inputs.amend_cap_from_microusd }}
         shell: bash
         run: |
           set -euo pipefail
@@ -366,6 +372,14 @@ jobs:
               exit 1
             }
             recovery_args+=(--retry-ambiguous-attempt-id "$RETRY_AMBIGUOUS_ATTEMPT_ID")
+          fi
+          if [[ -n "$AMEND_CAP_FROM" ]]; then
+            [[ "$AMEND_CAP_FROM" =~ ^[1-9][0-9]*$ ]] || {
+              echo "amend_cap_from_microusd must be a positive integer" >&2
+              exit 1
+            }
+            test -f /tmp/lfb-jev-summary/summary-spend.sqlite3
+            recovery_args+=(--amend-cap-from-microusd "$AMEND_CAP_FROM")
           fi
           uv run legalforecast jev prepare \
             --manifest /tmp/lfb-jev-inputs/run-manifest.json \

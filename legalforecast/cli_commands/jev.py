@@ -177,6 +177,15 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
                 help="Total summary run ceiling in millionths of one US dollar.",
             )
             child.add_argument(
+                "--amend-cap-from-microusd",
+                type=int,
+                help=(
+                    "Explicit owner-approved increase from this saved ledger ceiling "
+                    "to --ceiling-microusd; preserve charges and holds. Requires an "
+                    "existing ledger. Repeating the same amendment is safe."
+                ),
+            )
+            child.add_argument(
                 "--reconcile-saved-overrun",
                 action="store_true",
                 help=(
@@ -267,6 +276,8 @@ def run_inputs(args: argparse.Namespace) -> int:
             "ledger_path": cast(Path, args.ledger),
             "ceiling_microusd": cast(int, args.ceiling_microusd),
         }
+        if getattr(args, "amend_cap_from_microusd", None) is not None:
+            summary_kwargs["amend_cap_from_microusd"] = args.amend_cap_from_microusd
         if getattr(args, "reconcile_saved_overrun", False):
             summary_kwargs["reconcile_saved_overrun"] = True
         if getattr(args, "retry_ambiguous_attempt_id", None):

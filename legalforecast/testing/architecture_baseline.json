@@ -352,9 +352,9 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "SqliteProviderSpendAuthority",
-        "largest_symbol_lines": 961,
+        "largest_symbol_lines": 991,
         "layer": "application",
-        "line_count": 1245,
+        "line_count": 1275,
         "nonblank_line_count": 1138,
         "top_level_definition_count": 21
       },
