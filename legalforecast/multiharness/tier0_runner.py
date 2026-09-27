@@ -25,7 +25,7 @@ import tempfile
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -918,6 +918,60 @@ class Tier0ExecutableSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordedOwnerApproval:
+    """Owner's ordinary recorded words and ceiling, not a signing ceremony."""
+
+    spec_sha256: str
+    owner_approval: str
+    max_cost_usd: str
+
+    @property
+    def status(self) -> str:
+        return "approved"
+
+    @property
+    def approval_id(self) -> str:
+        return "recorded-owner-approval"
+
+    def __post_init__(self) -> None:
+        _require_digest(self.spec_sha256, "spec_sha256")
+        _require_text(self.owner_approval, "owner_approval")
+        try:
+            value = Decimal(self.max_cost_usd)
+            if not value.is_finite() or value <= 0:
+                raise ValueError
+        except (ValueError, InvalidOperation) as exc:
+            raise Tier0RunnerError(
+                "owner approval requires a positive finite ceiling"
+            ) from exc
+
+    def validate_ceiling(self, required_usd: str) -> None:
+        if Decimal(required_usd) > Decimal(self.max_cost_usd):
+            raise Tier0RunnerError("spend policy exceeds the recorded owner ceiling")
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "spec_sha256": self.spec_sha256,
+            "owner_approval": self.owner_approval,
+            "max_cost_usd": self.max_cost_usd,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, object]) -> RecordedOwnerApproval:
+        _closed_record(
+            record,
+            required={"spec_sha256", "owner_approval", "max_cost_usd"},
+            optional=set(),
+            field_name="recorded owner approval",
+        )
+        return cls(
+            _text(record, "spec_sha256"),
+            _text(record, "owner_approval"),
+            _text(record, "max_cost_usd"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class Tier0SpendApproval:
     """Detached approval bound to the exact executable-spec blob."""
 
@@ -1022,7 +1076,7 @@ class Tier0RunResult:
     """Completed provider-free or externally authorized paired run."""
 
     spec_sha256: str
-    approval: Tier0SpendApproval
+    approval: Tier0SpendApproval | RecordedOwnerApproval
     arms: tuple[Tier0ArmResult, Tier0ArmResult]
     archive_manifest: Path
     matched: bool
@@ -1067,8 +1121,8 @@ def load_detached_approval(
     *,
     spec_sha256: str,
     authority: ApprovalAuthority | None = None,
-) -> Tier0SpendApproval:
-    """Load and authenticate an approval against one trusted issuer identity."""
+) -> Tier0SpendApproval | RecordedOwnerApproval:
+    """Load ordinary owner approval, or verify a historical signed approval."""
 
     try:
         record = read_json_object(
@@ -1083,11 +1137,17 @@ def load_detached_approval(
         )
     except json.JSONDecodeError as exc:
         raise Tier0RunnerError("detached approval must be valid JSON") from exc
-    approval = Tier0SpendApproval.from_record(record)
+    approval = (
+        RecordedOwnerApproval.from_record(record)
+        if "owner_approval" in record
+        else Tier0SpendApproval.from_record(record)
+    )
     if _digest(approval.spec_sha256, "approval spec hash") != spec_sha256:
         raise Tier0RunnerError(
             "detached approval is bound to a different executable spec"
         )
+    if isinstance(approval, RecordedOwnerApproval):
+        return approval
     if authority is None:
         raise Tier0RunnerError(
             "detached approval verification requires a trusted issuer authority"
@@ -1269,11 +1329,11 @@ def run_tier0(
     *,
     spec: Tier0ExecutableSpec,
     spec_sha256: str,
-    approval: Tier0SpendApproval,
+    approval: Tier0SpendApproval | RecordedOwnerApproval,
     source_root: Path,
     private_root: Path,
     archive_root: Path,
-    approval_authority: ApprovalAuthority,
+    approval_authority: ApprovalAuthority | None,
     evaluator_authority: IssuerAuthority,
     parent_env: Mapping[str, str] | None = None,
     spend_policy: SpendPolicy | None = None,
@@ -1307,10 +1367,19 @@ def run_tier0(
         )
     if not callable(getattr(evaluator_authority, "sign", None)):
         raise Tier0RunnerError("approved external issuer authority is required")
-    _require_authority_separation(approval_authority, evaluator_authority)
-    _verify_detached_approval(
-        approval, spec_sha256=spec_sha256, authority=approval_authority
-    )
+    if isinstance(approval, Tier0SpendApproval):
+        if approval_authority is None:
+            raise Tier0RunnerError(
+                "signed approval requires its trusted issuer authority"
+            )
+        _require_authority_separation(approval_authority, evaluator_authority)
+        _verify_detached_approval(
+            approval, spec_sha256=spec_sha256, authority=approval_authority
+        )
+    else:
+        if spend_policy is None:
+            raise Tier0RunnerError("recorded owner approval requires a spend policy")
+        approval.validate_ceiling(spend_policy.experiment.max_cost_usd)
     if approval.status == "approved" or spec.pricing_snapshot_sha256 is not None:
         require_supported_paid_solvers(tuple(arm.adapter for arm in spec.arms))
     if spec.pricing_snapshot_sha256 is not None:
@@ -1358,6 +1427,8 @@ def run_tier0(
             )
         for arm in spec.arms:
             _judge_ceilings_for(controller.policy, arm.arm_id)
+            # Every planned arm must be executable before the first paid call.
+            _solver_ceiling(controller, arm)
     try:
         authority_public_key = evaluator_authority.public_key
     except Exception as exc:
@@ -1601,7 +1672,7 @@ def run_tier0(
                     paths=paths,
                     service=service,
                     authority=evaluator_authority,
-                    max_cost_usd=(None if ceiling is None else ceiling.max_cost_usd),
+                    max_cost_usd=None if ceiling is None else ceiling.max_cost_usd,
                     budget_argument_name=(
                         None
                         if ceiling is None
@@ -1770,6 +1841,11 @@ def _solver_ceiling(
 ) -> Any | None:
     if controller is None:
         return None
+    if arm.adapter == HARVEY_LAB_REGISTRY_NAME:
+        raise Tier0RunnerError(
+            "paid native-thin requires verified provider-cap enforcement, "
+            "native usage accounting, and the supported containment bridge"
+        )
     try:
         ceiling = controller.policy.solver_for(arm.arm_id)
     except SpendConfigurationError as exc:
@@ -1780,7 +1856,11 @@ def _solver_ceiling(
         raise Tier0RunnerError(
             f"solver model does not match spend policy for {arm.arm_id}"
         )
-    if ceiling.invocation_budget.mode != "adapter_argument":
+    if ceiling.invocation_budget.mode == "provider_cap":
+        raise Tier0RunnerError(
+            "provider-cap evidence is not a verified paid execution capability"
+        )
+    elif ceiling.invocation_budget.mode != "adapter_argument":
         raise Tier0RunnerError(
             f"solver budget is not mechanically enforced for {arm.arm_id}"
         )
@@ -2048,8 +2128,10 @@ def _start_run_metadata(
 
 
 def _authority_record(
-    authority: IssuerAuthority | ApprovalAuthority,
-) -> Mapping[str, object]:
+    authority: IssuerAuthority | ApprovalAuthority | None,
+) -> Mapping[str, object] | None:
+    if authority is None:
+        return None
     record = getattr(authority, "to_record", None)
     if callable(record):
         value = record()
@@ -2556,7 +2638,7 @@ def _write_archive(
     *,
     spec: Tier0ExecutableSpec,
     spec_sha256: str,
-    approval: Tier0SpendApproval,
+    approval: Tier0SpendApproval | RecordedOwnerApproval,
     results: tuple[Tier0ArmResult, ...],
     archive_root: Path,
     private_root: Path,

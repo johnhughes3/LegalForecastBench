@@ -31,7 +31,8 @@
       "tests/test_site_export.py",
       "tests/test_study_cli.py",
       "tests/test_terminal_release.py",
-      "tests/test_terminal_release_execute_score.py"
+      "tests/test_terminal_release_execute_score.py",
+      "tests/test_tier0_provider_cap.py"
     ],
     "cli_import_occurrences": [
       "tests/test_cli_orchestration.py",
@@ -53,7 +54,8 @@
       "tests/test_site_export.py",
       "tests/test_study_cli.py",
       "tests/test_terminal_release.py",
-      "tests/test_terminal_release_execute_score.py"
+      "tests/test_terminal_release_execute_score.py",
+      "tests/test_tier0_provider_cap.py"
     ],
     "monkeypatch_occurrences": [],
     "monkeypatch_targets": [],
@@ -80,7 +82,8 @@
       "tests/test_site_export.py",
       "tests/test_study_cli.py",
       "tests/test_terminal_release.py",
-      "tests/test_terminal_release_execute_score.py"
+      "tests/test_terminal_release_execute_score.py",
+      "tests/test_tier0_provider_cap.py"
     ],
     "public_cli_occurrences": [
       "tests/test_cli_orchestration.py::legalforecast.cli.build_parser",
@@ -103,7 +106,8 @@
       "tests/test_site_export.py::legalforecast.cli.main",
       "tests/test_study_cli.py::legalforecast.cli.main",
       "tests/test_terminal_release.py::legalforecast.cli.main",
-      "tests/test_terminal_release_execute_score.py::legalforecast.cli.main"
+      "tests/test_terminal_release_execute_score.py::legalforecast.cli.main",
+      "tests/test_tier0_provider_cap.py::legalforecast.cli.main"
     ],
     "public_cli_targets": [
       "legalforecast.cli.build_parser",
@@ -603,17 +607,17 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 2,
-        "fan_out": 30,
+        "fan_out": 33,
         "flags": [
           "cycle",
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "add_multiharness_parser",
-        "largest_symbol_lines": 404,
+        "largest_symbol_lines": 418,
         "layer": "application",
-        "line_count": 1667,
-        "nonblank_line_count": 1527,
+        "line_count": 1708,
+        "nonblank_line_count": 1569,
         "top_level_definition_count": 49
       },
       "legalforecast/multiharness/codex_cli.py": {
@@ -1254,7 +1258,7 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 5,
-        "fan_out": 1,
+        "fan_out": 2,
         "flags": [
           "oversized"
         ],
@@ -1262,8 +1266,8 @@
         "largest_symbol": "SpendController",
         "largest_symbol_lines": 358,
         "layer": "application",
-        "line_count": 1302,
-        "nonblank_line_count": 1162,
+        "line_count": 1336,
+        "nonblank_line_count": 1196,
         "top_level_definition_count": 32
       },
       "legalforecast/multiharness/task_loaders.py": {
@@ -1305,16 +1309,17 @@
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
         "fan_in": 1,
-        "fan_out": 7,
+        "fan_out": 8,
         "flags": [
-          "cycle"
+          "cycle",
+          "watch"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "build_spend_policy",
-        "largest_symbol_lines": 73,
+        "largest_symbol_lines": 80,
         "layer": "application",
-        "line_count": 460,
-        "nonblank_line_count": 405,
+        "line_count": 503,
+        "nonblank_line_count": 448,
         "top_level_definition_count": 14
       },
       "legalforecast/multiharness/tier0_production_factory.py": {
@@ -1347,11 +1352,11 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "run_tier0",
-        "largest_symbol_lines": 414,
+        "largest_symbol_lines": 425,
         "layer": "application",
-        "line_count": 2923,
-        "nonblank_line_count": 2692,
-        "top_level_definition_count": 68
+        "line_count": 3005,
+        "nonblank_line_count": 2765,
+        "top_level_definition_count": 69
       },
       "legalforecast/publication/accounting.py": {
         "cycle_id": "",

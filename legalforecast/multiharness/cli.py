@@ -96,6 +96,7 @@ from legalforecast.multiharness.tier0_operator_contract import (
     infisical_evaluator_issuer_secret_loader,
 )
 from legalforecast.multiharness.tier0_runner import (
+    RecordedOwnerApproval,
     Tier0EvaluatorProvenanceProvider,
     Tier0ExecutableSpec,
     load_approved_issuer_authority,
@@ -403,7 +404,15 @@ def add_multiharness_parser(subparsers: Any) -> None:
     )
     tier0_run.add_argument("--spec", type=Path, required=True)
     tier0_run.add_argument("--spec-sha256", required=True)
-    tier0_run.add_argument("--approval", type=Path, required=True)
+    tier0_run.add_argument(
+        "--approval",
+        type=Path,
+        required=True,
+        help=(
+            "Private JSON with spec_sha256, owner_approval (actual owner words), "
+            "and max_cost_usd; historical signed approvals are also verified."
+        ),
+    )
     tier0_run.set_defaults(handler=_cmd_tier0_run)
     tier0_validate = tier0_commands.add_parser(
         "validate",
@@ -411,7 +420,12 @@ def add_multiharness_parser(subparsers: Any) -> None:
     )
     tier0_validate.add_argument("--spec", type=Path, required=True)
     tier0_validate.add_argument("--spec-sha256", required=True)
-    tier0_validate.add_argument("--approval", type=Path, required=True)
+    tier0_validate.add_argument(
+        "--approval",
+        type=Path,
+        required=True,
+        help="Recorded owner approval and ceiling, or historical signed approval.",
+    )
     tier0_validate.set_defaults(handler=_cmd_tier0_validate)
     tier0_install = tier0_commands.add_parser(
         "install-evaluator-wrapper",
@@ -454,7 +468,8 @@ def add_multiharness_parser(subparsers: Any) -> None:
         required=True,
         help=(
             "JSON identity of the pinned native-thin solver, including the "
-            "budget argument its command genuinely enforces."
+            "budget argument its command genuinely enforces, or provider_cap "
+            "evidence. Evidence alone does not enable paid native-thin execution."
         ),
     )
     tier0_mint.add_argument(
@@ -1028,7 +1043,11 @@ def _cmd_tier0_run(args: argparse.Namespace) -> int:
         cast(Path, args.spec),
         cast(str, args.spec_sha256),
     )
-    approval_authority = load_approved_tier0_approval_authority()
+    approval_authority = (
+        None
+        if "owner_approval" in _read_json(cast(Path, args.approval), "owner approval")
+        else load_approved_tier0_approval_authority()
+    )
     evaluator_authority = load_approved_issuer_authority(
         secret_loader=infisical_evaluator_issuer_secret_loader
     )
@@ -1125,13 +1144,29 @@ def _cmd_tier0_mint(args: argparse.Namespace) -> int:
     )
 
     manifest = _read_json(cast(Path, args.native_thin_manifest), "native-thin manifest")
+    from legalforecast.multiharness.provider_spend_cap import ProviderSpendCap
+
+    cap_record = manifest.get("provider_cap")
+    if cap_record is not None and not isinstance(cap_record, dict):
+        raise ValueError("provider_cap must be an object")
+    if cap_record is not None and "budget_argument" in manifest:
+        raise ValueError("provider_cap and budget_argument are mutually exclusive")
     native_thin = NativeThinArmInput(
         executable=_required_record_str(manifest, "executable"),
         executable_sha256=_required_record_str(manifest, "executable_sha256"),
         executable_version=_required_record_str(manifest, "executable_version"),
         version_probe_args=_record_str_tuple(manifest, "version_probe_args"),
         command=_record_str_tuple(manifest, "command"),
-        budget_argument=_required_record_str(manifest, "budget_argument"),
+        budget_argument=(
+            None
+            if cap_record is not None
+            else _required_record_str(manifest, "budget_argument")
+        ),
+        provider_cap=(
+            ProviderSpendCap.from_record(cast(Mapping[str, object], cap_record))
+            if cap_record is not None
+            else None
+        ),
     )
     minted = mint_tier0_artifacts(
         cast(Path, args.output_dir),
@@ -1155,13 +1190,19 @@ def _cmd_tier0_validate(args: argparse.Namespace) -> int:
     spec, spec_sha256 = load_executable_spec(
         cast(Path, args.spec), cast(str, args.spec_sha256)
     )
-    approval_authority = load_approved_tier0_approval_authority()
-    load_detached_approval(
+    approval_authority = (
+        None
+        if "owner_approval" in _read_json(cast(Path, args.approval), "owner approval")
+        else load_approved_tier0_approval_authority()
+    )
+    approval = load_detached_approval(
         cast(Path, args.approval),
         spec_sha256=spec_sha256,
         authority=approval_authority,
     )
-    load_spend_artifacts(cast(Path, args.spec), spec)
+    policy, _ = load_spend_artifacts(cast(Path, args.spec), spec)
+    if isinstance(approval, RecordedOwnerApproval):
+        approval.validate_ceiling(policy.experiment.max_cost_usd)
     _cli_note(f"Tier-0 executable spec and sidecars validated ({spec_sha256}).")
     return 0
 

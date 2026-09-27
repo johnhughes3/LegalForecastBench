@@ -26,9 +26,10 @@ from enum import StrEnum
 from typing import Any, Literal, Self, cast
 
 from legalforecast._hashing import is_sha256_digest
+from legalforecast.multiharness.provider_spend_cap import ProviderSpendCap
 
 Surface = Literal["solver", "judge"]
-EnforcementMode = Literal["adapter_argument", "controller_reservation"]
+EnforcementMode = Literal["adapter_argument", "controller_reservation", "provider_cap"]
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:/@+-]*\Z")
 _USD_QUANTUM = Decimal("0.000001")
@@ -292,10 +293,19 @@ class InvocationBudget:
     argument_value_usd: str | None = None
     # This is intentionally informational.  It is never used as a ceiling.
     advertised_budget_usd: str | None = None
+    provider_cap: ProviderSpendCap | None = None
 
     def __post_init__(self) -> None:
-        if self.mode not in {"adapter_argument", "controller_reservation"}:
+        if self.mode not in {
+            "adapter_argument",
+            "controller_reservation",
+            "provider_cap",
+        }:
             raise SpendConfigurationError("unsupported invocation budget mode")
+        if (self.mode == "provider_cap") != (self.provider_cap is not None):
+            raise SpendConfigurationError(
+                "provider_cap mode requires exclusive cap evidence"
+            )
         if self.mode == "adapter_argument":
             if not self.argument_name or not self.argument_name.startswith("--"):
                 raise SpendConfigurationError(
@@ -329,6 +339,8 @@ class InvocationBudget:
             record["argument_value_usd"] = self.argument_value_usd
         if self.advertised_budget_usd is not None:
             record["advertised_budget_usd"] = self.advertised_budget_usd
+        if self.provider_cap is not None:
+            record["provider_cap"] = self.provider_cap.to_record()
         return record
 
 
@@ -400,6 +412,16 @@ class SolverCeiling(_CallCeiling):
         self._validate_common()
         if self.surface != "solver":
             raise SpendConfigurationError("solver ceiling has invalid surface")
+        if self.invocation_budget.mode == "provider_cap":
+            cap = self.invocation_budget.provider_cap
+            assert cap is not None
+            if cap.provider != self.provider or Decimal(cap.hard_limit_usd) > Decimal(
+                self.max_cost_usd
+            ):
+                raise SpendConfigurationError(
+                    "provider cap does not fit solver provider/ceiling"
+                )
+            return
         if self.invocation_budget.mode != "adapter_argument":
             raise SpendConfigurationError(
                 "every paid solver arm requires a supported enforced budget argument"
@@ -422,6 +444,10 @@ class JudgeCriterionCeiling(_CallCeiling):
         if self.surface != "judge":
             raise SpendConfigurationError("judge ceiling has invalid surface")
         _require_token(self.criterion_id, "criterion_id")
+        if self.invocation_budget.mode == "provider_cap":
+            raise SpendConfigurationError(
+                "judge calls require per-request budget enforcement"
+            )
         if self.invocation_budget.mode == "adapter_argument":
             if self.invocation_budget.argument_value_usd != self.max_cost_usd:
                 raise SpendConfigurationError(
@@ -555,6 +581,7 @@ class SpendPolicy:
                 "argument_name",
                 "argument_value_usd",
                 "advertised_budget_usd",
+                "provider_cap",
             }
             if set(invocation) - allowed_invocation:
                 raise SpendConfigurationError(
@@ -566,6 +593,13 @@ class SpendPolicy:
                 argument_value_usd=_optional_str(invocation, "argument_value_usd"),
                 advertised_budget_usd=_optional_str(
                     invocation, "advertised_budget_usd"
+                ),
+                provider_cap=(
+                    ProviderSpendCap.from_record(
+                        mapping(invocation["provider_cap"], "provider_cap")
+                    )
+                    if "provider_cap" in invocation
+                    else None
                 ),
             )
             common: dict[str, Any] = {
