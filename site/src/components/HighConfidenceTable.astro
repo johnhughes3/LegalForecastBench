@@ -17,7 +17,7 @@ const rows = [...snapshot.models]
 ---
 
 <figure class="not-serif">
-	<div class="overflow-x-auto rounded-xl border border-rule">
+	<div class="overflow-x-auto rounded-xl border border-rule" role="region" aria-label="High-confidence predictions" tabindex="0">
 		<table class="w-full min-w-[560px] border-collapse text-left text-sm">
 			<caption class="sr-only">Predictions made with at least 90% confidence either way, and how many were wrong.</caption>
 			<thead class="border-b border-rule bg-surface-2/60 text-xs text-ink-3">
@@ -42,5 +42,5 @@ const rows = [...snapshot.models]
 			</tbody>
 		</table>
 	</div>
-	<figcaption class="mt-2 text-xs text-ink-3">"90% confidence" means at least 90% probability of dismissal or at most 10%. These are scored units, not independent cases; several misses can come from one case.</figcaption>
+	<figcaption class="mt-2 text-xs text-ink-2">"90% confidence" means at least 90% probability of dismissal or at most 10%. These are scored units, not independent cases; several misses can come from one case.</figcaption>
 </figure>
