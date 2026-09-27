@@ -14,6 +14,13 @@ export interface ResultSource {
 	provider: string;
 	release: string;
 	release_digest: string;
+	/** Reader-facing name; run settings belong in `reasoning` and `access`. */
+	display_name: string;
+	reasoning: string;
+	/** Provider-reported cutoff as stated, or null when none is published. */
+	training_cutoff: string | null;
+	/** Plain-English explanation of the eligibility the export records. */
+	eligibility_reason: string;
 }
 export interface PublishedResult {
 	source: ResultSource;
@@ -72,18 +79,15 @@ export function extendSnapshot(
 		);
 		return {
 			slug: source.slug,
-			display_name: row.metadata.display_name,
+			display_name: source.display_name,
 			provider: source.provider,
 			model_key: row.model_id,
 			access: source.access,
-			reasoning:
-				row.metadata.reasoning_effort ??
-				row.metadata.thinking_level ??
-				"Not applicable",
+			reasoning: source.reasoning,
 			release_date: source.release_date,
-			training_cutoff: row.metadata.training_cutoff,
+			training_cutoff: row.metadata.training_cutoff ?? source.training_cutoff,
 			eligibility: row.metadata.comparison_eligibility,
-			eligibility_reason: row.metadata.eligibility_reason,
+			eligibility_reason: source.eligibility_reason,
 			github_run_id: source.forecast_run,
 			micro_brier: row.micro_brier,
 			equal_case_brier: row.equal_case_brier,

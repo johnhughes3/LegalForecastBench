@@ -259,9 +259,7 @@ export default function Leaderboard({
 										</div>
 										{worse && (
 											<p className="mt-1 max-w-56 text-xs text-critical">
-												{model.slug === "gpt-4-1"
-													? "This older model is significantly worse than most other tested models."
-													: `Significantly worse than ${worse.join("; ")}`}
+												{`Significantly worse than ${worse.join("; ")}`}
 											</p>
 										)}
 									</td>
