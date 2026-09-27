@@ -309,8 +309,8 @@ def test_mint_refuses_a_criterion_set_the_evaluator_cannot_match(
         )
 
 
-def test_native_thin_arm_requires_a_real_enforced_budget_flag() -> None:
-    """A turn limit is not a dollar ceiling; the mint must not accept one."""
+def test_native_thin_arm_requires_budget_placeholder_after_flag() -> None:
+    """A declared monetary flag must receive the minted dollar amount."""
 
     with pytest.raises(Tier0MintError):
         NativeThinArmInput(
@@ -318,8 +318,8 @@ def test_native_thin_arm_requires_a_real_enforced_budget_flag() -> None:
             executable_sha256="sha256:" + "a" * 64,
             executable_version="harvey-lab-thin 1.0.0",
             version_probe_args=("--version",),
-            command=("harvey-lab-thin", "--max-turns", "8"),
-            budget_argument="--max-turns",
+            command=("harvey-lab-thin", "--max-cost-usd", "8"),
+            budget_argument="--max-cost-usd",
         )
 
 

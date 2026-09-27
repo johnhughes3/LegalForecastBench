@@ -115,8 +115,9 @@ class NativeThinArmInput:
     exposes ``--model``, ``--task``, ``--run-id``, ``--max-turns``,
     ``--temperature``, ``--shell-timeout``, ``--reasoning-effort``,
     ``--skills``, and ``--sandbox-image`` -- none of which is a monetary cap.
-    An operator who cannot name a real one cannot mint a paid policy, which is
-    the intended outcome: a turn limit is not a dollar ceiling.
+    Known nonmonetary flags are rejected here. Other flags receive only syntax
+    validation; the operator must separately establish that the pinned command
+    enforces its declared dollar ceiling before any paid execution.
     """
 
     executable: str
@@ -127,6 +128,20 @@ class NativeThinArmInput:
     budget_argument: str
 
     def __post_init__(self) -> None:
+        if self.budget_argument in {
+            "--model",
+            "--task",
+            "--run-id",
+            "--max-turns",
+            "--temperature",
+            "--shell-timeout",
+            "--reasoning-effort",
+            "--skills",
+            "--sandbox-image",
+        }:
+            raise Tier0MintError(
+                f"native-thin {self.budget_argument} is not a monetary budget flag"
+            )
         if not self.budget_argument.startswith("--"):
             raise Tier0MintError(
                 "native-thin budget argument must be a real command-line flag"
