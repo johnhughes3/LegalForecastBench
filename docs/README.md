@@ -26,6 +26,7 @@ This index covers the current public contracts, operator guides, and reproducibl
 
 ## Research References
 
+- [Rationale review export](rationale-audit.md): prepare private, model-blinded case assessments and unit rationales from saved forecasts for qualitative review.
 - [AI-generated Harvey LAB litigation audit](harvey-lab-audit/litigation-dispute-resolution/README.md): unverified, human-steered reference analysis of rubric and grading drift, with model provenance and reports for 52 tasks. Inclusion is not verification; findings verified for public discussion will be described separately on the public-facing site.
 
 <details>
