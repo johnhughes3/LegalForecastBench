@@ -28,6 +28,9 @@ interface Placed {
 type Label = NonNullable<Placed["label"]>;
 
 const LABEL_CHAR = 6.4;
+// Configuration stays in tooltips and model pages; labels retain the model/version.
+const chartLabel = (model: SnapshotModel) =>
+	model.display_name.replace(/\s*\([^)]*\)/g, "");
 
 function niceTicks(lo: number, hi: number, step: number): number[] {
 	const ticks: number[] = [];
@@ -67,7 +70,7 @@ function placeLabels(
 		.sort((a, b) => Number(labeled(b)) - Number(labeled(a)) || a.y - b.y)
 		.map((p) => {
 			if (!labeled(p)) return { ...p, label: null };
-			const w = p.model.display_name.length * LABEL_CHAR;
+			const w = chartLabel(p.model).length * LABEL_CHAR;
 			const candidates: Label[] = [
 				{ x: p.x + 10, y: p.y + 4, anchor: "start" },
 				{ x: p.x - 10, y: p.y + 4, anchor: "end" },
@@ -122,7 +125,7 @@ export default function ParetoChart({
 	const [ref, width] = useWidth<HTMLDivElement>(760);
 	const spec = METRICS[metric];
 	const n = snapshot.cohort.unit_count;
-	const height = Math.max(320, Math.min(460, width * 0.62));
+	const height = Math.max(360, Math.min(560, width * 0.75));
 	const narrow = width < 560;
 	const m = { top: 34, right: 12, bottom: 46, left: narrow ? 46 : 54 };
 	const plotW = width - m.left - m.right;
@@ -173,13 +176,27 @@ export default function ParetoChart({
 			})),
 			width,
 			lineObstacles(frontierPath),
-			// Phones cannot fit ten labels; label the frontier and focus model, hover for the rest.
-			(p) => !narrow || p.frontier || p.model.slug === highlight,
+			// Label the frontier, focus, and worst score; other names appear on hover or focus.
+			(p) =>
+				p.frontier ||
+				p.model.slug === highlight ||
+				metricValue(p.model, metric, n) ===
+					(spec.direction === "lower"
+						? Math.max(...values)
+						: Math.min(...values)),
 		);
 		const xTicks = [0.5, 1, 2, 5, 10, 20, 50, 100, 200].filter(
 			(t) => Math.log10(t) >= x0 && Math.log10(t) <= x1,
 		);
-		const yTicks = niceTicks(lo, hi, metric === "accuracy" ? 0.02 : 0.01);
+		// Adapt tick density when an outlier expands the range: fixed 0.01 steps
+		// would crowd every grid label after adding the older GPT-4.1 run.
+		const rawStep = (hi - lo) / 6;
+		const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+		const step =
+			[1, 2, 5, 10]
+				.map((factor) => factor * magnitude)
+				.find((candidate) => candidate >= rawStep) ?? magnitude * 10;
+		const yTicks = niceTicks(lo, hi, step);
 		return { sx, sy, points, frontier, xTicks, yTicks };
 	}, [
 		snapshot,
@@ -192,7 +209,6 @@ export default function ParetoChart({
 		plotH,
 		spec.direction,
 		width,
-		narrow,
 		highlight,
 	]);
 
@@ -236,7 +252,7 @@ export default function ParetoChart({
 				<svg
 					viewBox={`0 0 ${width} ${height}`}
 					role="img"
-					aria-label={`Cost versus ${spec.label} for ${snapshot.models.length} models. Frontier: ${layout.frontier.map((f) => f.display_name).join(", ")}.`}
+					aria-label={`Cost versus ${spec.label} for ${layout.points.length} plotted models. Frontier: ${layout.frontier.map((f) => f.display_name).join(", ")}.`}
 					className="block h-auto w-full overflow-visible"
 				>
 					{/* grid */}
@@ -389,7 +405,7 @@ export default function ParetoChart({
 										strokeLinejoin="round"
 										paintOrder="stroke"
 									>
-										{p.model.display_name}
+										{chartLabel(p.model)}
 									</text>
 								)}
 								<a
@@ -400,6 +416,7 @@ export default function ParetoChart({
 									onFocus={() => setHover(p.model.slug)}
 									onBlur={() => setHover(null)}
 								>
+									<title>{`${p.model.display_name}: ${spec.label} ${spec.format(metricValue(p.model, metric, n))}, cost ${formatUsd(p.model.cost.usd)}`}</title>
 									<circle cx={p.x} cy={p.y} r={16} fill="transparent" />
 								</a>
 							</g>
@@ -408,16 +425,18 @@ export default function ParetoChart({
 				</svg>
 				{hovered && (
 					<div
-						className="pointer-events-none absolute z-10 w-60 rounded-xl border border-rule bg-surface p-3 text-sm shadow-lg"
+						className="pointer-events-none absolute z-10 w-60 max-w-full rounded-xl border border-rule bg-surface p-3 text-sm shadow-lg"
 						style={{
-							left: Math.min(Math.max(hovered.x - 120, 0), width - 240),
+							left: Math.max(0, Math.min(hovered.x - 120, width - 240)),
 							top: hovered.y > height / 2 ? hovered.y - 132 : hovered.y + 18,
 						}}
 					>
 						<p className="font-semibold text-ink">
 							{hovered.model.display_name}
 						</p>
-						<p className="text-xs text-ink-3">{hovered.model.provider}</p>
+						<p className="text-xs text-ink-3">
+							{hovered.model.provider} · {hovered.model.reasoning} reasoning
+						</p>
 						<dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 tabular">
 							<dt className="text-ink-3">{spec.label}</dt>
 							<dd className="text-right text-ink">

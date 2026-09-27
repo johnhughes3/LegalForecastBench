@@ -1,9 +1,9 @@
 import type { ResultsSnapshot } from "../data/snapshot";
 
-const LO = 0.85;
+const LO = 0;
 const HI = 1.0;
-const TICKS = [0.85, 0.9, 0.95, 1.0];
-const pos = (v: number) => `${((Math.max(v, LO) - LO) / (HI - LO)) * 100}%`;
+const TICKS = [0, 0.25, 0.5, 0.75, 1.0];
+const pos = (v: number) => `${((v - LO) / (HI - LO)) * 100}%`;
 
 /**
  * Stated versus realized accuracy within each model's high-confidence
@@ -122,7 +122,7 @@ export default function ConfidenceChart({
 					Realized accuracy
 				</span>
 				<span>
-					Sorted by the gap between them. Axis starts at 85%. Units, not
+					Sorted by the gap between them. Full 0–100% axis. Units, not
 					independent cases: several misses can come from one case.
 				</span>
 			</figcaption>
