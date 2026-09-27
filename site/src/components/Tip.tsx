@@ -54,9 +54,12 @@ export default function Tip({
 			) : isValidElement(children) ? (
 				// Describe the child itself (e.g. a sort button) so the focused
 				// control announces the explanation.
-				cloneElement(children as ReactElement<{ "aria-describedby"?: string }>, {
-					"aria-describedby": id,
-				})
+				cloneElement(
+					children as ReactElement<{ "aria-describedby"?: string }>,
+					{
+						"aria-describedby": id,
+					},
+				)
 			) : (
 				<span aria-describedby={id} className="inline-flex">
 					{children}
