@@ -4,6 +4,7 @@ import FindingCard from "../components/FindingCard.astro";
 import Leaderboard from "../components/Leaderboard";
 import ParetoChart from "../components/ParetoChart";
 import Stat from "../components/Stat.astro";
+import { comparison } from "../data/comparison";
 import { publishedFindings } from "../data/findings";
 import { formatPercent, formatUsd, paretoFrontier } from "../data/metrics";
 import { primarySnapshot, snapshot } from "../data/results";
@@ -21,6 +22,9 @@ const perfect = primarySnapshot.models.filter(
 	(m) => m.high_confidence.count > 0 && m.high_confidence.wrong === 0,
 );
 const n = primarySnapshot.cohort.unit_count;
+const comparisonCurrent = comparison.available_models.filter((slug) =>
+	primarySnapshot.models.some((m) => m.slug === slug),
+).length;
 const worstHighConfidenceRate = Math.max(
 	...primarySnapshot.models
 		.filter((m) => m.high_confidence.count > 0)
@@ -38,7 +42,7 @@ const takeaways: [string, string][] = leader
 			],
 			[
 				"The leaders cannot yet be separated.",
-				"No difference among current models reached significance after correcting for multiple comparisons. Every current model in the analysis beat the older GPT-4.1.",
+				`Among the ${comparisonCurrent} current models in the paired analysis, no difference reached significance after correcting for multiple comparisons; each beat the older GPT-4.1. The other models were not tested pairwise.`,
 			],
 			[
 				"Confidence is where models differ most.",
@@ -178,7 +182,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 			{[
 				["The record", "Each model receives the pre-decision docket and filings through a controlled document-tool harness. The judge's ruling is withheld."],
 				["The question", "For each challenged claim against each defendant, what is the probability it is fully dismissed in the motion's first written disposition?"],
-				["The answer key", "The court's actual ruling. Decisions postdate the documented training cutoffs of most evaluated models."],
+				["The answer key", "The court's actual ruling. Decisions postdate the cutoffs providers report for the evaluated models; where eligibility cannot be established, the model is marked qualified."],
 				["The score", "Brier score: the squared gap between forecast and outcome. It rewards calibration and discrimination, and it punishes confident errors."],
 			].map(([title, body], i) => (
 				<div class="card p-5">
