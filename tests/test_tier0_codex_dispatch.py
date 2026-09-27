@@ -5,11 +5,12 @@ Fake executables prove composition and refusal behavior, not live readiness.
 
 from __future__ import annotations
 
+from argparse import ArgumentParser
 from pathlib import Path
 
 import pytest
 from legalforecast._json_io import write_json_object
-from legalforecast.cli import main
+from legalforecast.multiharness.cli import add_multiharness_parser
 from legalforecast.multiharness.codex_cli import CodexCliAdapter, CodexCliAdapterError
 from legalforecast.multiharness.codex_cli_harvey_lab import (
     run_codex_cli_clean_native_harvey_lab,
@@ -82,7 +83,14 @@ def test_canonical_cli_dispatches_codex_lab_and_retains_private_receipts(
     write_json_object(approval_path, _signed_approval_record(spec_digest))
     _patch_fixture_authority(monkeypatch)
     _install_tier0_caller_roots(monkeypatch, tmp_path)
-    assert main(_run_args(spec_path, approval_path, spec_sha256=spec_digest)) == 0
+    # Exercise the canonical command's parser/handler seam without coupling
+    # another test module to the root CLI compatibility facade.
+    parser = ArgumentParser()
+    add_multiharness_parser(parser.add_subparsers())
+    args = parser.parse_args(
+        _run_args(spec_path, approval_path, spec_sha256=spec_digest)
+    )
+    assert args.handler(args) == 0
     archive_root = tmp_path / "archive"
     archive = _read_json(archive_root / "archive-manifest.json")
     assert archive["spec_sha256"] == spec_digest

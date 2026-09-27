@@ -26,7 +26,6 @@ import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
-from functools import partial
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -35,31 +34,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.adapter_registry import (
-    CLAUDE_CODE_REGISTRY_NAME,
-    CODEX_CLI_REGISTRY_NAME,
     HARVEY_LAB_REGISTRY_NAME,
     builtin_adapter_registry,
 )
-from legalforecast.multiharness.auth_profiles import (
-    FIXTURE_NONE,
-    require_auth_profile_id,
-)
-from legalforecast.multiharness.claude_code import (
-    CLAUDE_CODE_EXECUTABLE_NAME,
-    ClaudeCodeCliAdapter,
-)
-from legalforecast.multiharness.claude_code_harvey_lab import (
-    run_claude_code_clean_native_harvey_lab,
-)
-from legalforecast.multiharness.codex_cli import (
-    CODEX_CLI_EXECUTABLE,
-    CODEX_DEFAULT_REASONING_EFFORT,
-    CODEX_REASONING_EFFORTS,
-    CodexCliAdapter,
-)
-from legalforecast.multiharness.codex_cli_harvey_lab import (
-    run_codex_cli_clean_native_harvey_lab,
-)
+from legalforecast.multiharness.auth_profiles import require_auth_profile_id
 from legalforecast.multiharness.evaluation import (
     CostMeasurement,
     EvaluationTokenUsage,
@@ -132,6 +110,13 @@ from legalforecast.multiharness.spend import (
     SpendSettlementError,
     UsageObservation,
 )
+from legalforecast.multiharness.tier0_adapters import (
+    CLEAN_NATIVE_ADAPTERS,
+    Tier0RunnerError,
+    prepare_clean_native_runner,
+    require_supported_paid_solvers,
+    validate_clean_native_arm,
+)
 from legalforecast.multiharness.validation import (
     MultiHarnessValidationError,
     validate_public_record,
@@ -169,8 +154,7 @@ TIER0_ARCHIVE_MANIFEST_SCHEMA_VERSION = (
 )
 
 _ARM_IDS = ("arm-opaque-01", "arm-opaque-02")
-_CLEAN_NATIVE_ADAPTERS = frozenset({CLAUDE_CODE_REGISTRY_NAME, CODEX_CLI_REGISTRY_NAME})
-_ARM_ADAPTERS = _CLEAN_NATIVE_ADAPTERS | {HARVEY_LAB_REGISTRY_NAME}
+_ARM_ADAPTERS = CLEAN_NATIVE_ADAPTERS | {HARVEY_LAB_REGISTRY_NAME}
 _ALLOWED_COMMAND_TOKENS = frozenset(
     {"{sandbox_root}", "{output_root}", "{max_cost_usd}"}
 )
@@ -199,10 +183,6 @@ TIER0_APPROVAL_ISSUER_POLICY_SCHEMA_VERSION = (
     "legalforecast.tier0_spend_approval_issuer_policy.v1"
 )
 _HARVEY_LAB_JUDGE_CRITERION_COUNT = 23
-
-
-class Tier0RunnerError(ValueError):
-    """A frozen Tier-0 run cannot proceed without violating a boundary."""
 
 
 _PRODUCTION_COST_BASES = frozenset(
@@ -700,28 +680,14 @@ class Tier0ArmSpec:
             raise Tier0RunnerError("timeout_seconds must be positive")
         if not self.command and self.adapter == HARVEY_LAB_REGISTRY_NAME:
             raise Tier0RunnerError("native-thin arm must declare a frozen command")
-        if self.command and self.adapter in _CLEAN_NATIVE_ADAPTERS:
-            raise Tier0RunnerError("clean-native arm must use its registered adapter")
-        if self.adapter == CLAUDE_CODE_REGISTRY_NAME:
-            if self.solver_executable != CLAUDE_CODE_EXECUTABLE_NAME:
-                raise Tier0RunnerError(
-                    "clean-native arm must pin the Claude Code executable"
-                )
-        elif self.adapter == CODEX_CLI_REGISTRY_NAME:
-            if self.solver_executable != CODEX_CLI_EXECUTABLE:
-                raise Tier0RunnerError("clean-native arm must pin the Codex executable")
-            if self.auth_profile != FIXTURE_NONE:
-                raise Tier0RunnerError(
-                    "Codex LAB currently requires fixture-none: paid spend enforcement "
-                    "and contributor login support are not available"
-                )
-            effort = self.settings.get(
-                "reasoning_effort", CODEX_DEFAULT_REASONING_EFFORT
+        if self.adapter in CLEAN_NATIVE_ADAPTERS:
+            validate_clean_native_arm(
+                adapter_name=self.adapter,
+                executable=self.solver_executable,
+                auth_profile=self.auth_profile,
+                command=self.command,
+                settings=self.settings,
             )
-            if not isinstance(effort, str) or effort not in CODEX_REASONING_EFFORTS:
-                raise Tier0RunnerError("unsupported Codex reasoning_effort")
-            if set(self.settings) - {"reasoning_effort"}:
-                raise Tier0RunnerError("unsupported Codex arm settings")
         elif self.command[0] != self.solver_executable:
             raise Tier0RunnerError(
                 "native-thin command must start with its pinned solver executable"
@@ -846,7 +812,7 @@ class Tier0ExecutableSpec:
             _require_digest(self.spend_policy_sha256, "spend_policy_sha256")
         names = tuple(arm.adapter for arm in self.arms)
         if (
-            names[0] not in _CLEAN_NATIVE_ADAPTERS
+            names[0] not in CLEAN_NATIVE_ADAPTERS
             or names[1] != HARVEY_LAB_REGISTRY_NAME
         ):
             raise Tier0RunnerError(
@@ -1136,7 +1102,7 @@ def load_spend_artifacts(
 ) -> tuple[SpendPolicy, PricingSnapshot]:
     """Load deterministic sibling sidecars bound by the executable spec."""
 
-    _require_supported_paid_solvers(spec)
+    require_supported_paid_solvers(tuple(arm.adapter for arm in spec.arms))
     if spec.pricing_snapshot_sha256 is None:
         raise Tier0RunnerError("executable spec must bind the pricing sidecar hash")
     if spec.spend_policy_sha256 is None:
@@ -1184,13 +1150,6 @@ def load_spend_artifacts(
     except SpendConfigurationError as exc:
         raise Tier0RunnerError("spend policy is not executable") from exc
     return policy, pricing
-
-
-def _require_supported_paid_solvers(spec: Tier0ExecutableSpec) -> None:
-    if any(arm.adapter == CODEX_CLI_REGISTRY_NAME for arm in spec.arms):
-        # Codex has no supported monetary CLI flag. A reservation alone cannot
-        # bound an agentic invocation; never pretend a token/turn limit can.
-        raise Tier0RunnerError("paid Codex LAB has no supported enforced spend control")
 
 
 def load_approved_issuer_authority(
@@ -1353,7 +1312,7 @@ def run_tier0(
         approval, spec_sha256=spec_sha256, authority=approval_authority
     )
     if approval.status == "approved" or spec.pricing_snapshot_sha256 is not None:
-        _require_supported_paid_solvers(spec)
+        require_supported_paid_solvers(tuple(arm.adapter for arm in spec.arms))
     if spec.pricing_snapshot_sha256 is not None:
         if spend_policy is None or pricing_snapshot is None:
             raise Tier0RunnerError(
@@ -1560,53 +1519,21 @@ def run_tier0(
                 lab_root=source_root,
                 timeout_seconds=arm.timeout_seconds,
             )
-            if arm.adapter in _CLEAN_NATIVE_ADAPTERS:
-                expected_type = (
-                    ClaudeCodeCliAdapter
-                    if arm.adapter == CLAUDE_CODE_REGISTRY_NAME
-                    else CodexCliAdapter
+            if arm.adapter in CLEAN_NATIVE_ADAPTERS:
+                run_clean_native, capability = prepare_clean_native_runner(
+                    adapter,
+                    adapter_name=arm.adapter,
+                    auth_profile=arm.auth_profile,
+                    settings=arm.settings,
+                    executable_pin=_pin_for_arm(arm),
+                    executable_version=arm.solver_executable_version,
+                    max_budget_usd=(
+                        None
+                        if ceiling is None
+                        else ceiling.invocation_budget.argument_value_usd
+                    ),
                 )
-                if not isinstance(adapter, expected_type):
-                    raise Tier0RunnerError(
-                        "registry returned the wrong clean-native adapter"
-                    )
-                adapter = replace(adapter, auth_profile=arm.auth_profile)
-                manifest = (
-                    adapter.local_manifest
-                    if isinstance(adapter, ClaudeCodeCliAdapter)
-                    else adapter.local_cli_manifest
-                )
-                capability_ref["value"] = {
-                    "manifest": manifest.to_record(),
-                    "executable": {
-                        "name": arm.solver_executable,
-                        "sha256": arm.solver_executable_sha256,
-                        "version": arm.solver_executable_version,
-                    },
-                }
-                if ceiling is None and controller is None:
-                    max_budget = None
-                else:
-                    assert ceiling is not None
-                    max_budget = ceiling.invocation_budget.argument_value_usd
-                if isinstance(adapter, ClaudeCodeCliAdapter):
-                    run_clean_native = partial(
-                        run_claude_code_clean_native_harvey_lab,
-                        adapter=adapter,
-                        max_budget_usd=max_budget,
-                    )
-                else:
-                    run_clean_native = partial(
-                        run_codex_cli_clean_native_harvey_lab,
-                        adapter=adapter,
-                        solver_executable_pin=_pin_for_arm(arm),
-                        reasoning_effort=cast(
-                            str,
-                            arm.settings.get(
-                                "reasoning_effort", CODEX_DEFAULT_REASONING_EFFORT
-                            ),
-                        ),
-                    )
+                capability_ref["value"] = capability
                 result = run_clean_native(
                     source_root=source_root,
                     solver_root=paths["solver"],
