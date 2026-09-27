@@ -18,6 +18,7 @@ positional arguments:
     publish       Render official publication artifacts.
     multiharness  Run community multi-harness benchmark tasks and adapter
                   checks.
+    harvey-lab    Use the pinned lab-core 1.1.0 native CLI bridge.
 
 options:
   -h, --help      show this help message and exit

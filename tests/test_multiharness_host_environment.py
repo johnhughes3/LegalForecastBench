@@ -8,6 +8,25 @@ import legalforecast.multiharness.host_environment as host_environment_module
 import pytest
 
 
+def test_host_environment_disables_ambient_dotenv_discovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PYTHON_DOTENV_DISABLED", "0")
+    monkeypatch.setenv("OPENAI_API_KEY", "unrequested-provider-value")
+    environment = host_environment_module.build_host_subprocess_environment(
+        tmp_path / "private"
+    )
+    assert environment["PYTHON_DOTENV_DISABLED"] == "1"
+    assert "OPENAI_API_KEY" not in environment
+    with pytest.raises(
+        host_environment_module.HostEnvironmentError, match="host-managed runtime"
+    ):
+        host_environment_module.build_host_subprocess_environment(
+            tmp_path / "other", ("PYTHON_DOTENV_DISABLED",)
+        )
+
+
 def test_container_backend_environment_omits_provider_and_home_values(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -141,8 +160,10 @@ def test_rootless_backend_preflight_rejects_rootful_daemon(
         )
 
 
+@pytest.mark.parametrize("prefix", ["sha256:", ""])
 def test_local_pinned_image_preflight_checks_exact_image_id(
     monkeypatch: pytest.MonkeyPatch,
+    prefix: str,
 ) -> None:
     expected = "sha256:" + "a" * 64
     monkeypatch.setattr(
@@ -151,7 +172,7 @@ def test_local_pinned_image_preflight_checks_exact_image_id(
         lambda argv, **_kwargs: subprocess.CompletedProcess(
             argv,
             0,
-            stdout=(expected + "\n").encode(),
+            stdout=(prefix + "a" * 64 + "\n").encode(),
             stderr=b"",
         ),
     )

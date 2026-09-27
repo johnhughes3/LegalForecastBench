@@ -54,7 +54,7 @@ const COLUMNS: Column[] = [
 	{
 		key: "cost",
 		label: "Cost",
-		hint: "Standard-rate API cost for the 91-case cohort, retaining cache discounts. Asterisks mark estimates or adjustments.",
+		hint: "Estimated standard-rate API cost for the 91-case cohort. See the Data page for methodology.",
 		lowerIsBetter: true,
 	},
 ];
@@ -118,15 +118,19 @@ export default function Leaderboard({
 		asc: true,
 	});
 	const frontier = useMemo(() => {
-		const all = new Set<string>();
+		const metrics = new Map<string, string[]>();
 		for (const metric of [
 			"micro_brier",
 			"equal_case_brier",
 			"accuracy",
 		] as const) {
-			for (const model of paretoFrontier(snapshot, metric)) all.add(model.slug);
+			for (const model of paretoFrontier(snapshot, metric)) {
+				const labels = metrics.get(model.slug) ?? [];
+				labels.push(METRICS[metric].label);
+				metrics.set(model.slug, labels);
+			}
 		}
-		return all;
+		return metrics;
 	}, [snapshot]);
 	const sigWorse = useMemo(() => {
 		const map = new Map<string, string[]>();
@@ -235,7 +239,10 @@ export default function Leaderboard({
 										<div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
 											<span>{model.provider}</span>
 											{frontier.has(model.slug) && (
-												<span className="inline-flex items-center gap-1 text-series-1">
+												<span
+													title={`On the cost–performance Pareto frontier for: ${frontier.get(model.slug)?.join(", ")}. No other model is as cheap and as good with a strict improvement in either.`}
+													className="inline-flex items-center gap-1 text-series-1"
+												>
 													<svg width="9" height="9" aria-hidden="true">
 														<rect
 															x="1.5"
@@ -246,13 +253,15 @@ export default function Leaderboard({
 															fill="currentColor"
 														/>
 													</svg>
-													Frontier
+													Pareto frontier
 												</span>
 											)}
 										</div>
 										{worse && (
 											<p className="mt-1 max-w-56 text-xs text-critical">
-												Significantly worse than {worse.join("; ")}
+												{model.slug === "gpt-4-1"
+													? "This older model is significantly worse than most other tested models."
+													: `Significantly worse than ${worse.join("; ")}`}
 											</p>
 										)}
 									</td>
@@ -279,14 +288,8 @@ export default function Leaderboard({
 									<td className="py-3.5 pr-4 align-top tabular text-ink-2">
 										{hc.wrong} <span className="text-ink-3">of {hc.count}</span>
 									</td>
-									<td
-										className="py-3.5 pr-4 align-top tabular text-ink-2"
-										title={model.cost.note ?? undefined}
-									>
+									<td className="py-3.5 pr-4 align-top tabular text-ink-2">
 										{formatUsd(model.cost.usd)}
-										{model.cost.note ? (
-											<span className="text-accent">*</span>
-										) : null}
 									</td>
 									<td className="py-3.5 pr-4 align-top">
 										<EligibilityBadge
@@ -302,20 +305,12 @@ export default function Leaderboard({
 			</div>
 			<div className="grid gap-4 border-t border-rule px-4 py-4 text-xs leading-relaxed text-ink-2 md:grid-cols-2">
 				<div>
-					<p className="font-semibold text-ink">Cost notes</p>
-					<ul className="mt-1.5 space-y-1">
-						{snapshot.models
-							.filter((m) => m.cost.note)
-							.map((m) => (
-								<li key={m.slug}>
-									<span className="text-accent">*</span>{" "}
-									<span className="font-medium text-ink">
-										{m.display_name}:
-									</span>{" "}
-									{m.cost.note}
-								</li>
-							))}
-					</ul>
+					<a
+						className="text-accent hover:underline"
+						href="/data/beta-run-mechanics/#costs"
+					>
+						Cost methodology and explanations →
+					</a>
 				</div>
 				<div>
 					<p className="font-semibold text-ink">Qualified comparisons</p>

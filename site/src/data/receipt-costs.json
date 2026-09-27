@@ -1,0 +1,175 @@
+[
+	{
+		"slug": "gpt-6-sol",
+		"forecast_run_id": "35776235829",
+		"score_run_id": "35885171489",
+		"model_key": "openai:gpt-6-sol",
+		"covered_case_count": 91,
+		"missing_case_count": 0,
+		"workload_cost_usd": 5.504933,
+		"workload_cost_basis": "estimated_from_pricing_snapshot",
+		"workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+		"standard_rate_estimate_usd": 11.0097835,
+		"standard_rate_method": "managed_usage_reprice_with_conservative_uncached_fallback",
+		"pricing_reference": "https://developers.openai.com/api/docs/models/gpt-6-sol: Flex is 50% of Standard; rates include cache read (0.1x) and write (1.25x). Above 272000 input tokens, input/cache rates double and output rates multiply by 1.5. Checked 2026-09-22.",
+		"standard_rate_multiplier": 2,
+		"response_count": 771,
+		"missing_cache_dimensions": {
+			"cache_read_tokens": 135,
+			"cache_write_tokens": 44
+		},
+		"cache_read_rate_available": true,
+		"cache_write_rate_available": true,
+		"caveats": [
+			"Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+			"Missing cache dimensions remain missing; the shared pricing helper uses ordinary-input estimates for affected responses, which may overstate or understate cache-adjusted costs.",
+			"Standard rates are twice the frozen Flex rates, as documented in the frozen registry.",
+			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+		],
+		"pricing_url": "https://developers.openai.com/api/docs/models/gpt-6-sol"
+	},
+	{
+		"slug": "gpt-6-luna",
+		"forecast_run_id": "35933696453",
+		"score_run_id": "35940612024",
+		"model_key": "openai:gpt-6-luna",
+		"covered_case_count": 91,
+		"missing_case_count": 0,
+		"workload_cost_usd": 0.312309,
+		"workload_cost_basis": "estimated_from_pricing_snapshot",
+		"workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+		"standard_rate_estimate_usd": 0.62452294,
+		"standard_rate_method": "managed_usage_reprice_with_conservative_uncached_fallback",
+		"pricing_reference": "https://developers.openai.com/api/docs/models/gpt-6-luna: Flex is 50% of Standard; rates include cache read (0.1x) and write (1.25x). Above 272000 input tokens, input/cache rates double and output rates multiply by 1.5. Checked 2026-09-22.",
+		"standard_rate_multiplier": 2,
+		"response_count": 579,
+		"missing_cache_dimensions": {
+			"cache_read_tokens": 128,
+			"cache_write_tokens": 39
+		},
+		"cache_read_rate_available": true,
+		"cache_write_rate_available": true,
+		"caveats": [
+			"Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+			"Missing cache dimensions remain missing; the shared pricing helper uses ordinary-input estimates for affected responses, which may overstate or understate cache-adjusted costs.",
+			"Standard rates are twice the frozen Flex rates, as documented in the frozen registry.",
+			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+		],
+		"pricing_url": "https://developers.openai.com/api/docs/models/gpt-6-luna"
+	},
+	{
+		"slug": "claude-opus-5-5",
+		"forecast_run_id": "35953489581",
+		"score_run_id": "35954306953",
+		"model_key": "anthropic:claude-opus-5-5",
+		"covered_case_count": 91,
+		"missing_case_count": 0,
+		"workload_cost_usd": 20.586702,
+		"workload_cost_basis": "estimated_from_pricing_snapshot",
+		"workload_cost_method": "anthropic_cache_aware_usage_reconstruction",
+		"standard_rate_estimate_usd": 20.5866604,
+		"standard_rate_method": "anthropic_cache_aware_usage_reconstruction",
+		"pricing_reference": "https://platform.claude.com/docs/en/about-claude/pricing: Opus 5.5 standard USD4/M input, USD20/M output, USD0.20/M cache read, USD5/M five-minute cache write; no long-context premium. Checked 2026-09-22.",
+		"standard_rate_multiplier": 1,
+		"response_count": 471,
+		"missing_cache_dimensions": {},
+		"cache_read_rate_available": true,
+		"cache_write_rate_available": true,
+		"caveats": [
+			"Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+		],
+		"pricing_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+	},
+	{
+		"slug": "grok-4-7",
+		"forecast_run_id": "35799524684",
+		"score_run_id": "35885175070",
+		"model_key": "vercel_ai_gateway:spacexai/grok-4.7",
+		"covered_case_count": 91,
+		"missing_case_count": 0,
+		"workload_cost_usd": 11.517165,
+		"workload_cost_basis": "provider_reported",
+		"workload_cost_method": "gateway_reported_charge",
+		"standard_rate_estimate_usd": 32.999826,
+		"standard_rate_method": "managed_usage_reprice_with_conservative_uncached_fallback",
+		"pricing_reference": "https://docs.x.ai/developers/grok-4-7 (USD 2/M input and USD 6/M output standard rates), checked 2026-09-21",
+		"standard_rate_multiplier": 1,
+		"response_count": 629,
+		"missing_cache_dimensions": {
+			"cache_write_tokens": 629,
+			"cache_read_tokens": 3
+		},
+		"cache_read_rate_available": false,
+		"cache_write_rate_available": false,
+		"caveats": [
+			"Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+			"Missing cache dimensions remain missing; the shared pricing helper uses ordinary-input estimates for affected responses, which may overstate or understate cache-adjusted costs.",
+			"Frozen registry has no cache rates; standard estimate uses ordinary input rates despite reported cache reads, so it is not a cache-adjusted provider charge.",
+			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+		],
+		"pricing_url": "https://docs.x.ai/developers/grok-4-7"
+	},
+	{
+		"slug": "gpt-4-1",
+		"forecast_run_id": "35954543028",
+		"score_run_id": "36073985227",
+		"model_key": "openai:gpt-4.1-2025-04-14",
+		"covered_case_count": 91,
+		"missing_case_count": 0,
+		"workload_cost_usd": 38.349434,
+		"workload_cost_basis": "estimated_from_pricing_snapshot",
+		"workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+		"standard_rate_estimate_usd": 38.34943,
+		"standard_rate_method": "managed_usage_reprice_with_conservative_uncached_fallback",
+		"pricing_reference": "https://developers.openai.com/api/docs/models/gpt-4.1: Standard USD 2/M input, 0.50/M cached input, 8/M output; ordinary input pricing for cache creation. Checked 2026-09-24. Flex is not supported.",
+		"standard_rate_multiplier": 1,
+		"response_count": 2100,
+		"missing_cache_dimensions": {
+			"cache_read_tokens": 302,
+			"cache_write_tokens": 2100
+		},
+		"cache_read_rate_available": true,
+		"cache_write_rate_available": true,
+		"caveats": [
+			"Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+			"Missing cache dimensions remain missing; the shared pricing helper uses ordinary-input estimates for affected responses, which may overstate or understate cache-adjusted costs.",
+			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+		],
+		"pricing_url": "https://developers.openai.com/api/docs/models/gpt-4.1"
+	},
+	{
+		"slug": "gemini-3-1-pro-preview",
+		"forecast_run_id": "36075557088",
+		"score_run_id": "36169561374",
+		"model_key": "google:gemini-3.1-pro-preview",
+		"covered_case_count": 91,
+		"missing_case_count": 0,
+		"workload_cost_usd": 59.044034,
+		"workload_cost_basis": "estimated_from_pricing_snapshot",
+		"workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+		"standard_rate_estimate_usd": 59.044026,
+		"standard_rate_method": "managed_usage_reprice_with_conservative_uncached_fallback",
+		"pricing_reference": "https://ai.google.dev/gemini-api/docs/pricing: Standard text input USD 2/M and output USD 12/M up to 200000 input tokens; USD 4/M and 18/M above that threshold. Cached input USD 0.20/M or 0.40/M above 200000 input tokens. Checked 2026-09-24.",
+		"standard_rate_multiplier": 1,
+		"response_count": 1369,
+		"missing_cache_dimensions": {
+			"cache_read_tokens": 529,
+			"cache_write_tokens": 1369
+		},
+		"cache_read_rate_available": true,
+		"cache_write_rate_available": false,
+		"caveats": [
+			"Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+			"Missing cache dimensions remain missing; the shared pricing helper uses ordinary-input estimates for affected responses, which may overstate or understate cache-adjusted costs.",
+			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+		],
+		"pricing_url": "https://ai.google.dev/gemini-api/docs/pricing"
+	}
+]

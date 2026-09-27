@@ -1,0 +1,25 @@
+---
+import { comparison, comparisonScope } from "../../data/comparison";
+import { snapshot } from "../../data/results";
+import Layout from "../../layouts/Layout.astro";
+---
+<Layout title="Beta Run Mechanics">
+  <section class="prose-lfb prose mx-auto max-w-4xl px-4 pt-14 sm:px-6">
+    <a href="/data/">← Data and downloads</a>
+    <h1>Beta Run Mechanics</h1>
+    <h2>Beta runs</h2>
+    <p>During the beta runs, we encountered code issues in provider integration, run recovery, and cost accounting that had to be worked through and corrected for future runs. Some runs required recovery, and some accounting fields were incomplete. The explanations below document how we reconstructed comparable costs from the retained records and where estimates remain necessary.</p>
+    <h2>Result provenance</h2>
+    <p>{snapshot.provenance.method}</p>
+    <h2 id="significance">Statistical comparison scope</h2>
+    <p>{comparisonScope} {comparison.caveat}</p>
+    <p>The updated analysis replaces the historical ten-model pair list. Untested pairs are not evidence of equivalence. The historical September 18 download preserves the original analysis.</p>
+    <a href="/data/#significance">Download the analysis and reproducible inputs →</a>
+            <h2 id="costs">Cost methodology and explanations</h2>
+            <p>Charts compare estimated standard-rate costs for the same successful 91-case workload. They do not represent total experiment spending or provider invoices. Flex discounts are removed for the chart; the successful workload charges and estimates remain available in the download.</p>
+            <p>We retain cache discounts where usage and prices are known. Where cache dimensions or prices are missing, we use ordinary-input estimates. These may overstate or understate cache-adjusted costs. Failed attempts, retries, and unresolved charges are excluded.</p>
+            <p><a href="/data/costs.json" download>Download cost evidence, pricing references, coverage, and run identities</a></p>
+            <dl>{snapshot.models.filter(model=>model.cost.note).map(model=><div><dt>{model.display_name}</dt><dd>{model.cost.note}</dd></div>)}</dl>
+
+  </section>
+</Layout>

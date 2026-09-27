@@ -26,6 +26,7 @@ This index covers the current public contracts, operator guides, and reproducibl
 
 ## Research References
 
+- [Rationale review export](rationale-audit.md): prepare private, model-blinded case assessments and unit rationales from saved forecasts for qualitative review.
 - [AI-generated Harvey LAB litigation audit](harvey-lab-audit/litigation-dispute-resolution/README.md): unverified, human-steered reference analysis of rubric and grading drift, with model provenance and reports for 52 tasks. Inclusion is not verification; findings verified for public discussion will be described separately on the public-facing site.
 
 <details>
@@ -99,6 +100,7 @@ This index covers the current public contracts, operator guides, and reproducibl
 Corpus construction, private source bytes, selection, unitization, and quality control are owned by the companion LegalForecastCorpus repository. This public repository receives only immutable, outcome-blinded release inputs through the documented [public/private release boundary](release-inputs.md).
 
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for retained public release code.
+- [Managed provider authentication](provider-authentication.md): explicit API-key and workload-identity modes, saved-result behavior, and the remaining official migration boundary.
 
 ## Community Multi-Harness (non-official)
 
@@ -109,12 +111,14 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [community-submissions.md](community-submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
 - [harness-efficiency-observations.md](harness-efficiency-observations.md): receipt-backed duration, cost, and token accounting published as peer columns.
 - [Multiharness contracts](multiharness/contracts.md): the current sealed-deliverable, evaluation, scoring, identity, compatibility, and Harvey LAB source boundaries.
+- [Native Harvey LAB bridge](multiharness/harvey-lab-core.md): pinned lab-core 1.1.0 probing, native solver/judge execution, and public-safe results.
 - [multiharness-receipt-authority.md](multiharness/receipt-authority.md): the external Ed25519 evaluator-issuer seam and credential-free executable probe procedure.
 - [Claude Code terminal release run](multiharness/terminal-release.md): provider-free reproduction of the rootless CLI, case-document, gateway, and complete-unit scoring path.
 
 ### Adapter tracks
 
 - [provider-baselines.md](adapters/provider-baselines.md): provider/runtime reference points and the publication terms they rest on.
+- [hermes-agent.md](adapters/hermes-agent.md): pinned Hermes bridge, isolated state, host-owned task tools, and offline verification.
 - [Local CLI adapter manifest](schemas/local-cli-adapter-manifest-v1.md): the current generic manifest contract for local agentic CLI adapters.
 
 ## Public Release Schema Reference

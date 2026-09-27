@@ -363,12 +363,14 @@ def _validate_live_release_adapter_routes(
             for model in model_configs
         )
     }
-    unsupported = sorted(routed_adapter_ids.difference({_OPENAI_RELEASE_ADAPTER_ID}))
+    unsupported = sorted(
+        routed_adapter_ids.difference({_OPENAI_RELEASE_ADAPTER_ID, "hermes-agent"})
+    )
     if unsupported:
         raise ValueError(
             "live forecast-release.v1 execution supports only "
-            f"{_OPENAI_RELEASE_ADAPTER_ID}; unsupported adapter route(s): "
-            + ", ".join(unsupported)
+            f"{_OPENAI_RELEASE_ADAPTER_ID} or hermes-agent; "
+            "unsupported adapter route(s): " + ", ".join(unsupported)
         )
 
 

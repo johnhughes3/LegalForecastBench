@@ -19,7 +19,11 @@ _MANAGED_RUNTIME_ENV_DIRS: Mapping[str, str] = {
     "XDG_STATE_HOME": "adapter-home/.local/state",
 }
 _RESERVED_RUNTIME_ENV_VARS = frozenset(
-    (*_PASSTHROUGH_RUNTIME_ENV_VARS, *_MANAGED_RUNTIME_ENV_DIRS)
+    (
+        *_PASSTHROUGH_RUNTIME_ENV_VARS,
+        *_MANAGED_RUNTIME_ENV_DIRS,
+        "PYTHON_DOTENV_DISABLED",
+    )
 )
 
 
@@ -114,12 +118,13 @@ def require_local_pinned_container_image(
         ),
         environment,
     )
-    image_id = completed.stdout.decode("ascii", errors="strict").strip()
-    if not image_id.startswith("sha256:") or len(image_id) != 71:
+    image_hash = completed.stdout.decode("ascii", errors="strict").strip()
+    image_hash = image_hash.removeprefix("sha256:")
+    if len(image_hash) != 64 or any(c not in "0123456789abcdef" for c in image_hash):
         raise HostEnvironmentError(
             "local pinned container image preflight returned invalid identity"
         )
-    if image.startswith("sha256:") and image_id != image:
+    if image.startswith("sha256:") and "sha256:" + image_hash != image:
         raise HostEnvironmentError("local image ID does not match pinned image")
 
 
@@ -137,6 +142,10 @@ def build_host_subprocess_environment(
         if name in os.environ
     }
     environment.update(provider_values)
+    # Magika (imported by the LAB document parser) calls load_dotenv at import
+    # time. An environment allowlist alone does not stop it discovering a
+    # parent's .env and restoring credentials outside the explicit grants.
+    environment["PYTHON_DOTENV_DISABLED"] = "1"
     for name, relative_path in _MANAGED_RUNTIME_ENV_DIRS.items():
         directory = _ensure_private_subdirectory(private_logs, relative_path)
         environment[name] = str(directory)

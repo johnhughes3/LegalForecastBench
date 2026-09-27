@@ -83,7 +83,7 @@ jobs:
           ref: ${{ inputs.release_sha }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
 
@@ -384,7 +384,7 @@ jobs:
           PY
 
       - name: Configure protected fan-in read access
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-terminal-score-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}

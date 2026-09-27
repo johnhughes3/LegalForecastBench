@@ -1,4 +1,6 @@
 ---
+import { comparison } from "../../data/comparison";
+import { recentResults } from "../../data/recent-results";
 import { snapshot } from "../../data/results";
 import Layout from "../../layouts/Layout.astro";
 
@@ -9,7 +11,7 @@ const { provenance, cohort } = snapshot;
 	<section class="mx-auto max-w-4xl px-4 pt-14 sm:px-6">
 		<p class="eyebrow">Data</p>
 		<h1 class="mt-3 font-serif text-4xl font-medium tracking-tight sm:text-5xl">Data and reproduction</h1>
-		<p class="mt-5 text-lg text-ink-2">Every number on this site comes from one file. Download it, check it, and tell us if something is wrong.</p>
+		<p class="mt-5 text-lg text-ink-2">Download the current combined snapshot and the scored source exports for the six newer agentic configurations. The original beta snapshot remains available.</p>
 
 		<div class="card mt-10 p-6">
 			<div class="flex flex-wrap items-start justify-between gap-4">
@@ -17,18 +19,30 @@ const { provenance, cohort } = snapshot;
 					<h2 class="font-serif text-xl font-semibold">{snapshot.title} · {snapshot.as_of}</h2>
 					<p class="mt-1 text-sm text-ink-3">{snapshot.models.length} models · {cohort.case_count} cases · {cohort.unit_count} units</p>
 				</div>
-				<a href="/data/beta-2026-09-18.json" download class="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-medium text-bg hover:opacity-90">Download JSON</a>
+				<a href="/data/current.json" download class="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-medium text-bg hover:opacity-90">Download JSON</a>
 			</div>
 			<dl class="mt-6 grid gap-4 text-sm sm:grid-cols-2">
 				<div><dt class="text-ink-3">Release</dt><dd class="mt-0.5 font-mono text-[13px] text-ink-2">{provenance.release}</dd></div>
 				<div><dt class="text-ink-3">Release digest (SHA-256)</dt><dd class="mt-0.5 break-all font-mono text-[13px] text-ink-2">{provenance.release_digest}</dd></div>
 			</dl>
-			<p class="mt-6 text-sm leading-relaxed text-ink-2">{provenance.method}</p>
+			<a class="mt-6 inline-flex text-sm text-accent hover:underline" href="/data/beta-run-mechanics/">Beta Run Mechanics →</a>
 		</div>
 
 		<div class="prose-lfb prose mt-12 max-w-none">
-			<h2>Reproducing a score</h2>
-			<p>The benchmark code, prompts, scorer, and model registries are open source. Official runs execute in GitHub Actions; each model page links its run. Scoring and the export this site will consume are documented in the repository:</p>
+			<h2>Source downloads</h2>
+            <p><a href="/data/sources.json" download>Run and release provenance for the newer scored exports</a></p>
+            <p><a href="/data/beta-2026-09-18.json" download>Historical September 18 beta snapshot</a></p>
+            <ul>{recentResults.map(({source, data}) => <li><a href={`/data/exports/${source.slug}.json`} download>{data.results[0]?.metadata.display_name}</a> · <a href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${source.forecast_run}`}>Forecast run</a> · <a href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${source.scoring_run}`}>Scoring run</a></li>)}</ul>
+            <h2 id="significance">Updated significance analysis</h2>
+            <p>Paired comparisons for nine configurations. <a href="/data/beta-run-mechanics/#significance">Scope and methodology →</a></p>
+            <ul>
+                <li><a href="/data/significance/comparison.json" download>Comparison results, confidence intervals, method, and provenance</a></li>
+                <li><a href="/data/significance/inputs.json" download>Reproduction input manifest</a></li>
+                {comparison.available_models.map(slug=><li><a href={`/data/significance/${slug}.jsonl`} download>{snapshot.models.find(model=>model.slug===slug)?.display_name} public prediction units</a></li>)}
+            </ul>
+            <p>Download the manifest and all nine JSONL files into the same directory, then run the repository's <a href="https://github.com/johnhughes3/LegalForecastBench/blob/main/scripts/compare_site_results.py">comparison script</a> using the command in the <a href="https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/site-data.md">data contract guide</a>.</p>
+            <h2>Reproducing a score</h2>
+			<p>The benchmark code, prompts, scorer, and model registries are open source. Official runs execute in GitHub Actions; each model page links its run. Scoring and the exports this site consumes are documented in the repository:</p>
 			<ul>
 				<li><a href="https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/reproduce-or-audit.md">Reproduce or audit a result</a></li>
 				<li><a href="https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/site-data.md">Website data contract</a></li>

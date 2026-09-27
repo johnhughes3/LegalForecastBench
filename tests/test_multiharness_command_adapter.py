@@ -481,12 +481,10 @@ def test_command_adapter_run_uses_declared_provider_environment_allowlist(
         workspace,
     )
 
-    captured = json.loads(
-        (workspace / "private-logs" / "run-environment.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    captured_path = workspace / "private-logs" / "run-environment.json"
+    captured = json.loads(captured_path.read_text(encoding="utf-8"))
     assert captured["DECLARED_PROVIDER_VALUE"] == "allowed-value"
+    assert captured["PYTHON_DOTENV_DISABLED"] == "1"
     assert "FAKE_SECRET" not in captured
     assert captured["PATH"] == os.environ["PATH"]
     isolated_home = workspace / "private-logs" / "adapter-home"
@@ -509,16 +507,15 @@ def test_command_adapter_run_uses_declared_provider_environment_allowlist(
             "XDG_DATA_HOME",
             "XDG_STATE_HOME",
             "DECLARED_PROVIDER_VALUE",
+            "PYTHON_DOTENV_DISABLED",
         }
     )
-    capability_environment = json.loads(
-        (workspace / "private-logs" / "capabilities-environment.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    capability_path = workspace / "private-logs" / "capabilities-environment.json"
+    capability_environment = json.loads(capability_path.read_text(encoding="utf-8"))
     assert "DECLARED_PROVIDER_VALUE" not in capability_environment
     assert "FAKE_SECRET" not in capability_environment
     assert capability_environment["HOME"] == str(isolated_home)
+    assert capability_environment["PYTHON_DOTENV_DISABLED"] == "1"
     assert set(capability_environment).issubset(
         {
             "PATH",
@@ -528,6 +525,7 @@ def test_command_adapter_run_uses_declared_provider_environment_allowlist(
             "XDG_CONFIG_HOME",
             "XDG_DATA_HOME",
             "XDG_STATE_HOME",
+            "PYTHON_DOTENV_DISABLED",
         }
     )
 

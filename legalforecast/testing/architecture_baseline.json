@@ -610,9 +610,9 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "add_multiharness_parser",
-        "largest_symbol_lines": 403,
+        "largest_symbol_lines": 404,
         "layer": "application",
-        "line_count": 1665,
+        "line_count": 1667,
         "nonblank_line_count": 1527,
         "top_level_definition_count": 49
       },
@@ -940,6 +940,23 @@
         "nonblank_line_count": 1236,
         "top_level_definition_count": 59
       },
+      "legalforecast/multiharness/hermes_agent.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 0,
+        "fan_out": 8,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "run",
+        "largest_symbol_lines": 145,
+        "layer": "application",
+        "line_count": 303,
+        "nonblank_line_count": 276,
+        "top_level_definition_count": 7
+      },
       "legalforecast/multiharness/identity.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -1177,8 +1194,8 @@
         "largest_symbol": "_MultiHarnessRunner",
         "largest_symbol_lines": 726,
         "layer": "application",
-        "line_count": 1638,
-        "nonblank_line_count": 1519,
+        "line_count": 1640,
+        "nonblank_line_count": 1521,
         "top_level_definition_count": 40
       },
       "legalforecast/multiharness/scoring.py": {
