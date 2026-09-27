@@ -108,13 +108,24 @@ const isActive = (href: string) =>
 				))}
 			</nav>
 			<script is:inline>
-				// Keep the current section visible when it sits past the fade on phones.
+				// Phones: center the current section, and keep a keyboard-focused
+				// link clear of the trailing fade (native focus scrolling stops at
+				// the edge, which is inside the fade).
 				(() => {
 					const nav = document.getElementById("mobile-nav");
-					const current = nav?.querySelector('[aria-current="page"]');
-					if (!nav || !current || nav.scrollWidth <= nav.clientWidth) return;
-					const offset = current.getBoundingClientRect().left - nav.getBoundingClientRect().left;
-					nav.scrollLeft += offset - (nav.clientWidth - current.clientWidth) / 2;
+					if (!nav) return;
+					const FADE = 48;
+					const offset = (link) => link.getBoundingClientRect().left - nav.getBoundingClientRect().left;
+					const current = nav.querySelector('[aria-current="page"]');
+					if (current && nav.scrollWidth > nav.clientWidth)
+						nav.scrollLeft += offset(current) - (nav.clientWidth - current.clientWidth) / 2;
+					nav.addEventListener("focusin", (event) => {
+						const link = event.target;
+						const left = offset(link);
+						const overflow = left + link.offsetWidth - (nav.clientWidth - FADE);
+						if (overflow > 0) nav.scrollLeft += overflow;
+						else if (left < 0) nav.scrollLeft += left - 12;
+					});
 				})();
 			</script>
 		</header>

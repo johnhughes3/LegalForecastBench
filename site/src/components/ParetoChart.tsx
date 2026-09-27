@@ -483,7 +483,11 @@ export default function ParetoChart({
 						className="pointer-events-none absolute z-10 w-60 max-w-full rounded-xl border border-rule bg-surface p-3 text-sm shadow-lg"
 						style={{
 							left: Math.max(0, Math.min(hovered.x - 120, width - 240)),
-							top: hovered.y > height / 2 ? hovered.y - 132 : hovered.y + 18,
+							// Anchor by the edge nearest the point so the card never covers
+							// it, whatever its height (the cost note adds a wrapped line).
+							...(hovered.y > height / 2
+								? { bottom: height - hovered.y + 18 }
+								: { top: hovered.y + 18 }),
 						}}
 					>
 						<p className="font-semibold text-ink">

@@ -145,6 +145,14 @@
 		--rule-strong: #999;
 		--accent: #000;
 		--accent-soft: #eee;
+		/* Chart and status roles use their light-theme steps on paper. */
+		--series-1: #1f6dcb;
+		--series-1-soft: #cde2fb;
+		--series-2: #eb6834;
+		--chart-grid: #ebe7de;
+		--chart-muted: #9d978a;
+		--good: #0a7d0a;
+		--critical: #c0392b;
 		/* HTML charts draw bars and dots with backgrounds; keep them on paper. */
 		-webkit-print-color-adjust: exact;
 		print-color-adjust: exact;
