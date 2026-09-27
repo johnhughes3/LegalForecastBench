@@ -1,5 +1,5 @@
 ---
-import { METRICS } from "../../data/metrics";
+import { formatPercent, METRICS } from "../../data/metrics";
 import { snapshot } from "../../data/results";
 import Stat from "../Stat.astro";
 
@@ -94,7 +94,7 @@ const limits = [
 	<p class="eyebrow">Methods</p>
 	<h1 class="mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">How the benchmark works</h1>
 	<p class="mt-5 text-lg leading-relaxed text-ink-2">
-		Models read the written record a federal judge had before ruling on a motion to dismiss, then forecast how each challenged claim will come out. We score those probabilities against what the court actually decided.
+		Models read the written pre-decision record of a federal motion to dismiss, then forecast how each challenged claim will come out. We score those probabilities against what the court actually decided.
 	</p>
 	<p class="mt-4 text-sm leading-relaxed text-ink-3">
 		This page summarizes the method for readers. For why outcome-based evaluation is worth doing, see the <a class="text-accent underline" href="/approach/">approach</a>. Separate studies, such as forecasting from summaries, are on the <a class="text-accent underline" href="/experiments/">experiments</a> page.
@@ -115,7 +115,7 @@ const limits = [
 	<Stat value={String(cohort.case_count)} label="Cases" detail="Federal motions to dismiss" />
 	<Stat value={String(cohort.unit_count)} label="Scored units" detail="Claim × defendant pairs" />
 	<Stat value={shortWindow} label={`Decisions, ${decisionYear}`} detail="Written dispositions in the cohort" />
-	<Stat value={`${Math.round(baseRate * 100)}%`} label="Units dismissed" detail={`${cohort.dismissed_unit_count} of ${cohort.unit_count}`} />
+	<Stat value={formatPercent(baseRate)} label="Units dismissed" detail={`${cohort.dismissed_unit_count} of ${cohort.unit_count}`} />
 </div>
 
 <section id="task" class="mt-20 scroll-mt-24">
@@ -183,7 +183,7 @@ const limits = [
 				<dd class="font-medium text-ink tabular">{METRICS.micro_brier.format(0.25)} micro Brier</dd>
 			</div>
 			<div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3">
-				<dt class="text-ink-2">Always forecast the cohort's dismissal rate ({Math.round(baseRate * 100)}%)</dt>
+				<dt class="text-ink-2">Always forecast the cohort's dismissal rate ({formatPercent(baseRate)})</dt>
 				<dd class="font-medium text-ink tabular">{METRICS.micro_brier.format(cohort.constant_forecast_micro_brier)} micro Brier</dd>
 			</div>
 			<div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3">
