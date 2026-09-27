@@ -83,8 +83,10 @@ test("tooltips remain described, dismissible, and visible on static and hydrated
 							.sort();
 						await page.evaluate(() => document.fonts.ready);
 						if (path === "/")
-							await page.locator("table").scrollIntoViewIfNeeded();
-						const triggers = page.locator("button[aria-describedby]");
+							await page
+								.getByRole("heading", { name: "Forecast quality by model" })
+								.scrollIntoViewIfNeeded();
+						const triggers = page.locator("button[aria-describedby]:visible");
 						assert.equal(
 							await page.locator('[role="tooltip"]:visible').count(),
 							0,
@@ -176,7 +178,29 @@ test("tooltips remain described, dismissible, and visible on static and hydrated
 							await page.locator("button button, a button, button a").count(),
 							0,
 						);
-						if (path === "/") {
+						if (path === "/" && width === 390) {
+							const sort = page.getByLabel("Sort by", { exact: true });
+							await sort.selectOption("cost");
+							assert.equal(await sort.inputValue(), "cost");
+							const values = await page
+								.locator(".card ol > li > div:last-child > span:first-child")
+								.allTextContents();
+							const prices = values.map((value) =>
+								value === "Unknown"
+									? Number.POSITIVE_INFINITY
+									: Number(value.replace(/[$,]/g, "")),
+							);
+							assert.ok(
+								prices.length > 0 &&
+									prices.every((value) => !Number.isNaN(value)),
+							);
+							assert.deepEqual(
+								prices,
+								[...prices].sort((a, b) => a - b),
+								"Phone cards follow the selected cost ordering",
+							);
+						}
+						if (path === "/" && width === 1280) {
 							const sort = page.locator("table").getByRole("button", {
 								name: "Micro Brier",
 								exact: true,
