@@ -19,8 +19,20 @@
     "legalforecast/multiharness/claude_agent_sdk_cli.py": [
       "claude_agent_sdk._cli_version"
     ],
+    "legalforecast/multiharness/hermes_runtime.py": [
+      "run_agent",
+      "tools.registry"
+    ],
     "legalforecast/multiharness/tier0_production_factory.py": [
       "anthropic"
+    ],
+    "tests/hermes_upstream_probe.py": [
+      "httpx",
+      "openai.resources.chat.completions",
+      "openai.types.chat",
+      "requests",
+      "run_agent",
+      "tools.registry"
     ],
     "tests/test_harvey_lab_evaluator.py": [
       "hashlib"
@@ -44,6 +56,7 @@
     "legalforecast/multiharness/container_harness/cli_fence.py",
     "legalforecast/multiharness/container_harness/model_gateway.py",
     "legalforecast/multiharness/contributor_boundary.py",
+    "legalforecast/multiharness/hermes_agent.py",
     "legalforecast/multiharness/local_cli_runtime.py",
     "legalforecast/multiharness/openai_responses.py",
     "legalforecast/multiharness/process_containment.py",
@@ -106,6 +119,7 @@
     "tests/test_multiharness_external_adapters.py",
     "tests/test_multiharness_fake_claude_code.py",
     "tests/test_multiharness_harness_lane_packet.py",
+    "tests/test_multiharness_hermes_agent.py",
     "tests/test_multiharness_hostile_mcp_e2e.py",
     "tests/test_multiharness_hostile_native_e2e.py",
     "tests/test_multiharness_local_cli_fake_binary_e2e.py",
