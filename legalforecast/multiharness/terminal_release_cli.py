@@ -46,6 +46,8 @@ class TerminalReleaseOptions:
     model_registry_path: Path | None = None
     gateway_upstream_base_url: str | None = None
     gateway_image_digest: str | None = None
+    harness: str = "claude-code"
+    hermes_checkout: Path | None = None
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> TerminalReleaseOptions:
@@ -57,6 +59,19 @@ class TerminalReleaseOptions:
         if output_dir.exists() or output_dir.is_symlink():
             raise ValueError("--output-dir must be a fresh, absent path")
         profile = str(args.auth_profile)
+        harness = str(getattr(args, "harness", "claude-code"))
+        hermes_checkout_arg = getattr(args, "hermes_checkout", None)
+        if harness not in {"claude-code", "hermes-agent"}:
+            raise ValueError("unsupported release harness")
+        if harness == "hermes-agent":
+            if profile != PUBLISHED_API_KEY or hermes_checkout_arg is None:
+                raise ValueError(
+                    "Hermes release requires published-api-key and --hermes-checkout"
+                )
+            if getattr(args, "gateway_image", None) is not None:
+                raise ValueError("Hermes uses the host gateway, not --gateway-image")
+        elif hermes_checkout_arg is not None:
+            raise ValueError("--hermes-checkout requires --harness hermes-agent")
         amount = args.max_budget_usd
         approval = getattr(args, "approval_reference", None)
         fixture_base_url = getattr(args, "fixture_base_url", None)
@@ -113,9 +128,10 @@ class TerminalReleaseOptions:
                 raise ValueError(
                     "published-api-key requires --paid-config and --model-registry"
                 )
-            if gateway_image_digest is None:
+            if gateway_image_digest is None and harness == "claude-code":
                 raise ValueError("published-api-key requires --gateway-image")
-            require_digest_pinned_image(gateway_image_digest, "gateway-image")
+            if gateway_image_digest is not None:
+                require_digest_pinned_image(gateway_image_digest, "gateway-image")
             if gateway_upstream_base_url is None:
                 gateway_upstream_base_url = MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL
             if not isinstance(gateway_upstream_base_url, str):
@@ -175,6 +191,10 @@ class TerminalReleaseOptions:
             model_registry_path=model_registry_path,
             gateway_upstream_base_url=gateway_upstream_base_url,
             gateway_image_digest=gateway_image_digest,
+            harness=harness,
+            hermes_checkout=Path(hermes_checkout_arg)
+            if hermes_checkout_arg is not None
+            else None,
         )
 
 
@@ -191,7 +211,7 @@ def add_terminal_release_parser(
         "release-run",
         help="Run Claude Code on a blinded release and score every selected unit.",
         description=(
-            "Execute one Claude Code forecast per case with local tools enabled, "
+            "Execute one supported harness forecast per case with tools enabled, "
             "then score the complete selected unit set. The output is a local "
             "experiment, not an official benchmark publication."
         ),
@@ -203,7 +223,7 @@ def add_terminal_release_parser(
         "release-execute",
         help="Execute Claude Code on a blinded release without loading labels.",
         description=(
-            "Execute one Claude Code forecast per case and save the private run "
+            "Execute one supported harness forecast per case and save the private run "
             "package. This command never accepts or reads labels."
         ),
     )
@@ -236,6 +256,18 @@ def _add_release_execution_arguments(
     include_labels: bool,
 ) -> None:
     """Add common execution arguments for release-run and release-execute."""
+
+    parser.add_argument(
+        "--harness",
+        choices=("claude-code", "hermes-agent"),
+        default="claude-code",
+        help="Release harness; Hermes requires the protected paid gateway.",
+    )
+    parser.add_argument(
+        "--hermes-checkout",
+        type=Path,
+        help="Clean pinned Hermes source with its locked Python 3.13 environment.",
+    )
 
     parser.add_argument(
         "--forecast-release",

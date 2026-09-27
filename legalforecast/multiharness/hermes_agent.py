@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
+from urllib.parse import urlsplit
 
 from legalforecast._json_io import read_json_object_safe, write_json_object_safe
 from legalforecast.contracts import (
@@ -104,7 +105,13 @@ def validate_checkout(checkout: Path) -> Path:
     return interpreter
 
 
-def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
+def run(
+    request: RunRequest,
+    workspace: Path,
+    checkout: Path,
+    *,
+    gateway: dict[str, object] | None = None,
+) -> RunResult:
     """Run a fresh managed Hermes conversation using the parent's tool channel."""
 
     if (request.adapter.adapter_id, request.adapter.adapter_version) != (
@@ -115,10 +122,41 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
         "lfb_brier",
     ):
         raise HermesAdapterError("unsupported adapter or task contract")
-    if request.sandbox_policy.allowed_provider_env_vars != (PROVIDER_KEY,):
-        raise HermesAdapterError("only OPENROUTER_API_KEY may be granted")
-    if not request.model_key.startswith("openrouter:") or not request.model_key[11:]:
-        raise HermesAdapterError("model must use openrouter:<model>")
+    provider, _, model = request.model_key.partition(":")
+    if gateway is None:
+        if request.sandbox_policy.allowed_provider_env_vars != (PROVIDER_KEY,):
+            raise HermesAdapterError("only OPENROUTER_API_KEY may be granted")
+        if provider != "openrouter" or not model:
+            raise HermesAdapterError("model must use openrouter:<model>")
+    else:
+        endpoint = urlsplit(str(gateway.get("base_url", "")))
+        if (
+            provider != "anthropic"
+            or not model
+            or request.sandbox_policy.allowed_provider_env_vars
+            or gateway.get("request_sha256") != request.request_sha256
+            or gateway.get("model_key") != request.model_key
+            or endpoint.scheme != "http"
+            or endpoint.hostname != "127.0.0.1"
+            or endpoint.port is None
+            or endpoint.path not in {"", "/"}
+            or endpoint.username
+            or endpoint.password
+            or endpoint.query
+            or endpoint.fragment
+            or not isinstance(gateway.get("capability_token"), str)
+            or not gateway["capability_token"]
+            or type(gateway.get("max_output_tokens")) is not int
+            or cast(int, gateway["max_output_tokens"]) <= 0
+            or gateway.get("reasoning_config")
+            not in (
+                {"effort": "low"},
+                {"effort": "medium"},
+                {"effort": "high"},
+                {"effort": "max"},
+            )
+        ):
+            raise HermesAdapterError("invalid host-owned Anthropic gateway route")
     units = request.task.metadata.get("required_unit_ids")
     if (
         not isinstance(units, list | tuple)
@@ -133,9 +171,21 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
     if len(set(required_units)) != len(required_units):
         raise HermesAdapterError("required_unit_ids must be unique")
     interpreter = validate_checkout(checkout)
+    if gateway is not None:
+        version = subprocess.run(
+            [str(interpreter), "--version"],
+            check=True,
+            stdout=subprocess.PIPE,
+            text=True,
+            timeout=15,
+        )
+        if version.stdout.strip() != "Python 3.13.15":
+            raise HermesAdapterError("protected Hermes requires Python 3.13.15")
     private_logs = ensure_private_directory(workspace.absolute() / "private-logs")
     attempt = Path(tempfile.mkdtemp(prefix="hermes-", dir=private_logs))
-    environment = build_host_subprocess_environment(attempt, (PROVIDER_KEY,))
+    environment = build_host_subprocess_environment(
+        attempt, () if gateway is not None else (PROVIDER_KEY,)
+    )
     hermes_home = attempt / "profile"
     ensure_private_directory(hermes_home)
     environment["HERMES_HOME"] = str(hermes_home)
@@ -160,7 +210,8 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
         {
             "checkout": str(checkout.resolve()),
             "request_id": request.request_id,
-            "model": request.model_key[11:],
+            "model": model,
+            "gateway": gateway,
             "required_unit_ids": required_units,
             "session_id": session_id,
             "working_directory": str(attempt),
@@ -201,16 +252,21 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
     if not isinstance(result, dict):
         raise HermesAdapterError("Hermes result is malformed")
     result = cast(dict[str, object], result)
+    document_calls = execution.get("document_tool_call_count", 0)
+    if type(document_calls) is not int or document_calls < 0:
+        raise HermesAdapterError("Hermes document tool count is malformed")
     if (
         result.get("completed") is not True
         or result.get("failed")
         or result.get("partial")
         or result.get("error")
         or execution.get("session_id") != session_id
-        or execution.get("model") != request.model_key[11:]
-        or execution.get("tool_call_count") != 1
+        or execution.get("model") != model
+        or execution.get("tool_call_count") != 1 + document_calls
+        or (gateway is None and document_calls != 0)
         or execution.get("hermes_version") != HERMES_VERSION
         or not str(execution.get("python_version", "")).startswith("3.13.")
+        or (gateway is not None and execution.get("python_version") != "3.13.15")
     ):
         raise HermesAdapterError("Hermes completion or provenance does not match")
     output = result.get("final_response")
@@ -225,14 +281,15 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
         "hermes_commit": HERMES_COMMIT,
         "runtime_entrypoint": "AIAgent.run_conversation",
         "python_version": execution["python_version"],
-        "auth_mode": "contributor-api-key",
-        "provider": "openrouter",
-        "requested_model": request.model_key[11:],
+        "auth_mode": "host-gateway" if gateway is not None else "contributor-api-key",
+        "provider": provider,
+        "requested_model": model,
         "served_model": result.get("served_model"),
         "served_model_source": "Hermes response header when available",
         "memory_session_policy": "fresh-profile-per-attempt-memory-disabled",
         "enabled_toolsets": ["legalforecast"],
-        "tool_call_count": 1,
+        "tool_call_count": execution["tool_call_count"],
+        "document_tool_call_count": document_calls,
         "task_id": request.task.task_id,
     }
     try:
@@ -271,6 +328,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Clean pinned Hermes checkout with its locked .venv",
     )
     phases = parser.add_subparsers(dest="phase", required=True)
+    parser.add_argument("--gateway-route", type=Path, help=argparse.SUPPRESS)
     caps = phases.add_parser(
         "capabilities", help="Describe supported tasks and tool RPC"
     )
@@ -288,7 +346,14 @@ def main(argv: list[str] | None = None) -> int:
             raise HermesAdapterError("Hermes requires the host-owned live tool channel")
         else:
             request = RunRequest.from_record(_read_record(args.request))
-            result = run(request, args.workspace, args.hermes_checkout)
+            result = run(
+                request,
+                args.workspace,
+                args.hermes_checkout,
+                gateway=_read_record(args.gateway_route)
+                if args.gateway_route
+                else None,
+            )
             write_json_object_safe(args.output, result.to_record())
         return 0
     except (HermesAdapterError, OSError, ValueError, subprocess.SubprocessError):

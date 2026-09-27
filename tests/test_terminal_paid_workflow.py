@@ -73,7 +73,7 @@ def test_terminal_workflow_builds_and_verifies_local_pinned_images() -> None:
         "docker build --pull=false -f infra/model-gateway-runtime/Containerfile"
         in terminal
     )
-    assert terminal.count("=~ ^sha256:[0-9a-f]{64}$") == 2
+    assert terminal.count("=~ ^sha256:[0-9a-f]{64}$") == 3
     assert 'LFB_PROTECTED_TERMINAL_RELEASE: "1"' in terminal
     assert "id-token: write" in terminal
 
@@ -95,6 +95,7 @@ def test_terminal_case_selector_is_quoted_and_rejected_for_native_mode() -> None
         ("native", "case-001", False),
         ("native", "", True),
         ("claude-code-terminal", "case-001", True),
+        ("hermes-agent", "case-001", True),
     ):
         result = subprocess.run(
             ["bash", "-c", guard],
@@ -104,3 +105,25 @@ def test_terminal_case_selector_is_quoted_and_rejected_for_native_mode() -> None
             check=False,
         )
         assert (result.returncode == 0) is accepted
+
+
+def test_hermes_uses_existing_protected_lane_and_exact_runtime() -> None:
+    terminal = _job("run-terminal", "run-openai")
+    assert "inputs.execution_mode == 'hermes-agent'" in terminal
+    assert "environment: legalforecastbench-official-eval" in terminal
+    assert "f97608f178d1ffeca59860195ab7da295f7c8e5f" in terminal
+    assert (
+        "uv sync --project hermes-runtime --locked --python 3.13.15 --extra anthropic"
+        in terminal
+    )
+    assert "infra/task-worker-runtime/Containerfile" in terminal
+    assert (
+        '--harness hermes-agent --hermes-checkout "${GITHUB_WORKSPACE}/hermes-runtime"'
+        in terminal
+    )
+    assert terminal.index("Install locked Hermes Anthropic runtime") < terminal.index(
+        "Configure shared provider spend authority access"
+    )
+    assert terminal.index("Issue protected paid gateway descriptor") < terminal.index(
+        "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}"
+    )

@@ -84,8 +84,12 @@ def build_result(
     summary = {
         **provenance,
         "harness_track": "native",
-        "allowed_tools": ["read_canonical_task"],
-        "tool_policy": "host_read_canonical_task_only",
+        "allowed_tools": ["read_canonical_task", "read_release_document"]
+        if provenance.get("auth_mode") == "host-gateway"
+        else ["read_canonical_task"],
+        "tool_policy": "host_read_staged_release_only"
+        if provenance.get("auth_mode") == "host-gateway"
+        else "host_read_canonical_task_only",
         "transcript_sha256": transcript_digest,
         "forecast_sha256": output_digest,
         "trajectory_sha256": release_bytes_sha256(raw),

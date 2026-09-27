@@ -604,6 +604,14 @@ class ProviderGatewaySpendController(GatewaySpendController):
         repr=False,
     )
     _request_ordinal: int = field(default=0, init=False, repr=False)
+    _settled_requests: int = field(default=0, init=False, repr=False)
+    _settled_microusd: int = field(default=0, init=False, repr=False)
+
+    def settlement_totals(self) -> tuple[int, int]:
+        """Return requests and charges durably accepted by the authority."""
+
+        with self._request_lock:
+            return self._settled_requests, self._settled_microusd
 
     def __post_init__(self) -> None:
         _positive_int(self.reservation_microusd, "reservation_microusd")
@@ -694,6 +702,9 @@ class ProviderGatewaySpendController(GatewaySpendController):
             actual_microusd=actual_microusd,
             response_sha256=response_sha256,
         )
+        with self._request_lock:
+            self._settled_requests += 1
+            self._settled_microusd += actual_microusd
         return True
 
     def mark_transport_started(self, lease: object) -> None:

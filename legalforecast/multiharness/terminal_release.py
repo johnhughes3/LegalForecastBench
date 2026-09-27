@@ -35,6 +35,56 @@ ReleaseScorer = Callable[
 ]
 
 
+def build_terminal_release_adapter(
+    options: TerminalReleaseOptions, *, case_count: int
+) -> HarnessAdapter:
+    """Select the supported release harness after validating the case scope."""
+
+    if options.harness == "hermes-agent":
+        from legalforecast.multiharness.hermes_paid import (
+            build_protected_hermes_adapter,
+        )
+
+        if (
+            options.hermes_checkout is None
+            or options.paid_config_path is None
+            or options.model_registry_path is None
+            or options.max_budget_usd is None
+        ):
+            raise ValueError("protected Hermes release inputs are missing")
+        return build_protected_hermes_adapter(
+            checkout=options.hermes_checkout,
+            paid_config_path=options.paid_config_path,
+            model_registry_path=options.model_registry_path,
+            model_key=options.model_key,
+            max_budget_usd=options.max_budget_usd,
+            timeout_seconds=options.timeout_seconds,
+        )
+    from legalforecast.multiharness.claude_code_container import (
+        OUTER_CONTAINER_ONLY_MODE,
+        build_claude_code_container_adapter,
+    )
+
+    return build_claude_code_container_adapter(
+        image_digest=options.image,
+        auth_profile=options.auth_profile,
+        model_key=options.model_key,
+        max_budget_usd=options.max_budget_usd,
+        approval_reference=options.approval_reference,
+        output_root=options.output_dir.resolve() / "container-runs",
+        backend=options.backend,
+        timeout_seconds=options.timeout_seconds,
+        fixture_base_url=options.fixture_base_url,
+        fixture_egress_network=options.fixture_egress_network,
+        execution_mode=OUTER_CONTAINER_ONLY_MODE,
+        case_count=case_count,
+        paid_config_path=options.paid_config_path,
+        model_registry_path=options.model_registry_path,
+        gateway_upstream_base_url=options.gateway_upstream_base_url,
+        gateway_image_digest=options.gateway_image_digest,
+    )
+
+
 def terminal_case_count(
     options: TerminalReleaseOptions, forecast: ForecastRelease
 ) -> int:
@@ -75,7 +125,7 @@ def _execute_blinded_release(
     )
     inputs = SolverInputStore.load(options.output_dir / "solver-inputs")
     policy = sandbox_policy(
-        policy_id="claude-code-terminal-release",
+        policy_id=f"{options.harness}-terminal-release",
         backend=options.backend,
         image=options.image,
         mounts=(),
@@ -103,7 +153,9 @@ def _execute_blinded_release(
             run_id=options.run_id,
             max_parallelism=1,
             incomplete_run_policy="record_failure",
-            container_execution="headless_cli",
+            container_execution="live_tools"
+            if options.harness == "hermes-agent"
+            else "headless_cli",
             solver_inputs=inputs,
         )
     )
