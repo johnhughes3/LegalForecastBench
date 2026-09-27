@@ -59,3 +59,22 @@ test("summary comparison rejects different outcomes, conditions, and summary pac
 		assert.throws(() => buildSupplementaryRows(rows, reference));
 	}
 });
+
+test("summary diagnostics separate ranking from calibration", () => {
+	const jev = supplementaryRows.find(
+		(row) => row.slug === "jev-luna-summaries",
+	);
+	const lunaOff = supplementaryRows.find(
+		(row) => row.slug === "gpt-6-luna-summaries-none",
+	);
+	const gpt41Row = supplementaryRows.find((row) => row.slug === "gpt-4-1");
+	assert.ok(jev && lunaOff && gpt41Row);
+	// Jev ranks cases nearly as well as Luna but its forecasts sit far below the base rate.
+	assert.ok(Math.abs(jev.auc - 0.698) < 0.001);
+	assert.ok(Math.abs(lunaOff.auc - 0.733) < 0.001);
+	assert.ok(Math.abs(jev.mean_forecast - 0.305) < 0.001);
+	assert.ok(jev.micro_brier > 0.25, "worse than always forecasting 50%");
+	assert.ok(gpt41Row.auc < 0.5);
+	assert.equal(jev.inference_usd, 0.044179);
+	assert.equal(gpt41Row.inference_usd, null);
+});

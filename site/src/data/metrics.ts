@@ -112,3 +112,34 @@ export function formatUsd(value: number | null): string {
 export function formatPercent(value: number, digits = 1): string {
 	return `${(value * 100).toFixed(digits)}%`;
 }
+
+/**
+ * Probability that a randomly chosen dismissed unit received a higher forecast
+ * than a randomly chosen surviving unit (ROC AUC; ties count half). It measures
+ * ranking ability separately from calibration.
+ */
+export function rankAuc(
+	units: { probability_fully_dismissed: number; outcome: 0 | 1 }[],
+): number {
+	const positives = units
+		.filter((u) => u.outcome === 1)
+		.map((u) => u.probability_fully_dismissed);
+	const negatives = units
+		.filter((u) => u.outcome === 0)
+		.map((u) => u.probability_fully_dismissed);
+	if (positives.length === 0 || negatives.length === 0)
+		throw new Error("AUC needs both outcomes");
+	let wins = 0;
+	for (const p of positives)
+		for (const n of negatives) wins += p > n ? 1 : p === n ? 0.5 : 0;
+	return wins / (positives.length * negatives.length);
+}
+
+export function meanForecast(
+	units: { probability_fully_dismissed: number }[],
+): number {
+	return (
+		units.reduce((sum, u) => sum + u.probability_fully_dismissed, 0) /
+		units.length
+	);
+}
