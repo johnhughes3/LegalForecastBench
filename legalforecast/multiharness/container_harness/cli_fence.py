@@ -34,7 +34,9 @@ from pathlib import Path
 from typing import Final
 
 WRAPPER_NAME: Final[str] = "lfb-cli-fence"
-FENCED_CLIS: Final[frozenset[str]] = frozenset({"agy", "claude", "codex", "grok"})
+FENCED_CLIS: Final[frozenset[str]] = frozenset(
+    {"agy", "claude", "codex", "grok", "openclaw"}
+)
 DEFAULT_LIBEXEC_DIR: Final[str] = "/opt/legalforecast/libexec"
 DEFAULT_BIN_DIR: Final[str] = "/opt/legalforecast/bin"
 DEFAULT_CREDENTIALS_ROOT: Final[str] = "/run/legalforecast/credentials"
@@ -134,6 +136,14 @@ def fenced_argv(
     if cli not in FENCED_CLIS:
         raise CliFenceError(f"not a fenced tools-on CLI: {cli!r}")
     args = [str(item) for item in user_argv]
+    if cli == "openclaw":
+        # The image-baked entrypoint is the fixed LFB worker, not the vendor
+        # CLI. It reconstructs native config from host-owned read-only inputs.
+        if args != ["run"]:
+            raise CliFenceError(
+                "OpenClaw container accepts only the fixed run entrypoint"
+            )
+        return []
     if cli == "claude":
         stripped = _strip_flag_and_values(args, CLAUDE_TOOL_FLAGS)
         settings = (

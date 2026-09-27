@@ -326,6 +326,12 @@ def build_claude_code_container_adapter(
             raise ClaudeCodeContainerAdapterError(
                 f"protected paid gateway config is invalid: {exc}"
             ) from exc
+        # Schema-v1 descriptors predating harness selection were Claude-only.
+        # An explicit identity must never borrow a different runtime's budget.
+        if paid_config.harness_id not in {None, "claude-code-terminal"}:
+            raise ClaudeCodeContainerAdapterError(
+                "protected paid gateway harness does not match Claude Code"
+            )
         if paid_config.model_key != model_key:
             raise ClaudeCodeContainerAdapterError(
                 "protected paid gateway model does not match --model-key"

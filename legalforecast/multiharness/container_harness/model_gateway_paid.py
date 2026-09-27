@@ -58,7 +58,7 @@ _REQUIRED_FIELDS: Final[frozenset[str]] = frozenset(
     }
 )
 _OPTIONAL_FIELDS: Final[frozenset[str]] = frozenset(
-    {"stage", "ablation", "repeat_index"}
+    {"stage", "ablation", "repeat_index", "harness_id", "forecast_release_digest"}
 )
 
 
@@ -72,6 +72,8 @@ class ProtectedPaidGatewayConfig:
     registry_entry: ModelRegistryEntry
     max_requests: int
     reservation_microusd: int
+    harness_id: str | None = None
+    forecast_release_digest: str | None = None
 
     @property
     def model_key(self) -> str:
@@ -171,6 +173,12 @@ def load_paid_gateway_config(
         registry_entry=entry,
         max_requests=max_requests,
         reservation_microusd=reservation,
+        harness_id=_required_str(payload, "harness_id")
+        if "harness_id" in payload
+        else None,
+        forecast_release_digest=_required_str(payload, "forecast_release_digest")
+        if "forecast_release_digest" in payload
+        else None,
     )
 
 

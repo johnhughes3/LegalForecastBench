@@ -257,6 +257,8 @@ def build_protected_hermes_adapter(
     config = load_paid_gateway_config(
         paid_config_path, model_registry_path=model_registry_path
     )
+    if config.harness_id != "hermes-agent":
+        raise ValueError("protected paid gateway harness does not match Hermes")
     entry = config.registry_entry
     if (
         entry.tool_policy.value != "controlled_docket_tool_only"

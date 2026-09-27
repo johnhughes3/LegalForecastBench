@@ -7,7 +7,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from legalforecast.multiharness.adapters import AdapterPreparation, HarnessAdapter
+from legalforecast.multiharness.adapters import (
+    AdapterPreparation,
+    HarnessAdapter,
+    SolverInputAdapter,
+)
 from legalforecast.multiharness.release_harness import (
     RELEASE_FORECAST_OUTPUT_ARTIFACT_ID,
     RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID,
@@ -31,6 +35,18 @@ from legalforecast.multiharness.validation import validate_public_record
 
 NEUTRAL_FIXTURE_ADAPTER_ID = "neutral-api-fixture"
 NEUTRAL_FIXTURE_ADAPTER_VERSION = "1.0.0"
+
+
+def supports_headless_release_route(adapter: HarnessAdapter) -> bool:
+    """Admit only contained implementations, not a command claiming their ID."""
+    from legalforecast.multiharness.openclaw_container import OpenClawContainerAdapter
+
+    return isinstance(adapter, OpenClawContainerAdapter) or (
+        adapter.manifest.adapter_id == "claude-code-container"
+        and isinstance(adapter, SolverInputAdapter)
+    )
+
+
 _NATIVE_DELEGATE_SUMMARY_FIELDS = frozenset(
     {
         "adapter_bundle_sha256",

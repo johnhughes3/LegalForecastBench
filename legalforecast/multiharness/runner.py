@@ -58,6 +58,7 @@ from legalforecast.multiharness.release_adapters import (
     NEUTRAL_FIXTURE_ADAPTER_ID,
     NativeReleaseAdapter,
     NeutralApiFixtureAdapter,
+    supports_headless_release_route,
 )
 from legalforecast.multiharness.run_progress import (
     CLAIM_PARTIAL,
@@ -110,7 +111,6 @@ INCOMPLETE_RUN_POLICIES = frozenset({"record_failure", "fail_fast"})
 CONTAINER_EXECUTION_MODES = frozenset({"plan_only", "live_tools", "headless_cli"})
 _FORECAST_RELEASE_SCHEMA_VERSION = str(FORECAST_RELEASE_V1)
 _OPENAI_RELEASE_ADAPTER_ID = "openai-responses-baseline"
-_CLAUDE_RELEASE_ADAPTER_ID = "claude-code-container"
 
 
 @dataclass(frozen=True, slots=True)
@@ -397,13 +397,13 @@ def _validate_headless_release_adapter_routes(
     unsupported = sorted(
         adapter.manifest.adapter_id
         for adapter in routed_adapters
-        if adapter.manifest.adapter_id != _CLAUDE_RELEASE_ADAPTER_ID
-        or not isinstance(adapter, release_harness.SolverInputAdapter)
+        if not supports_headless_release_route(adapter)
     )
     if unsupported:
         raise ValueError(
             "headless CLI forecast-release.v1 execution supports only "
-            f"{_CLAUDE_RELEASE_ADAPTER_ID} via SolverInputAdapter; unsupported "
+            "claude-code-container via SolverInputAdapter or protected "
+            "OpenClaw; unsupported "
             "adapter route(s): " + ", ".join(unsupported)
         )
 

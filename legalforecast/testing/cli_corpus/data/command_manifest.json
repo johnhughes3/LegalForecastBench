@@ -4508,12 +4508,19 @@
         },
         {
           "action": "store",
-          "choices": ["claude-code", "hermes-agent"],
-          "default": "claude-code",
+          "choices": [
+            "claude-code-terminal",
+            "claude-code",
+            "hermes-agent",
+            "openclaw"
+          ],
+          "default": "claude-code-terminal",
           "dest": "harness",
           "metavar": null,
           "nargs": null,
-          "option_strings": ["--harness"],
+          "option_strings": [
+            "--harness"
+          ],
           "required": false,
           "type": null
         },
@@ -4524,7 +4531,9 @@
           "dest": "hermes_checkout",
           "metavar": null,
           "nargs": null,
-          "option_strings": ["--hermes-checkout"],
+          "option_strings": [
+            "--hermes-checkout"
+          ],
           "required": false,
           "type": "pathlib.Path"
         },
@@ -4815,12 +4824,19 @@
         },
         {
           "action": "store",
-          "choices": ["claude-code", "hermes-agent"],
-          "default": "claude-code",
+          "choices": [
+            "claude-code-terminal",
+            "claude-code",
+            "hermes-agent",
+            "openclaw"
+          ],
+          "default": "claude-code-terminal",
           "dest": "harness",
           "metavar": null,
           "nargs": null,
-          "option_strings": ["--harness"],
+          "option_strings": [
+            "--harness"
+          ],
           "required": false,
           "type": null
         },
@@ -4831,7 +4847,9 @@
           "dest": "hermes_checkout",
           "metavar": null,
           "nargs": null,
-          "option_strings": ["--hermes-checkout"],
+          "option_strings": [
+            "--hermes-checkout"
+          ],
           "required": false,
           "type": "pathlib.Path"
         },
