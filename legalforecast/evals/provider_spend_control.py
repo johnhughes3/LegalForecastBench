@@ -270,8 +270,17 @@ class SqliteProviderSpendAuthority:
         cap_microusd: int,
         policy: FrozenAttemptPolicy,
         clock: Callable[[], float] | None = None,
+        amend_cap_from_microusd: int | None = None,
     ) -> None:
+        if amend_cap_from_microusd is not None:
+            _positive_int(amend_cap_from_microusd, "amend_cap_from_microusd")
+            if amend_cap_from_microusd >= cap_microusd:
+                raise ValueError("cap amendment must increase the prior cap")
         self.path = Path(path)
+        if amend_cap_from_microusd is not None and not self.path.is_file():
+            raise AuthorityIdentityMismatchError(
+                "cap amendment requires an existing ledger"
+            )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.authority_identity_sha256 = _sha256(
             authority_identity_sha256,
@@ -284,16 +293,22 @@ class SqliteProviderSpendAuthority:
         self.policy = policy
         self._clock = clock or time.time
         self._connection = sqlite3.connect(
-            self.path,
+            (
+                self.path.resolve().as_uri() + "?mode=rw"
+                if amend_cap_from_microusd is not None
+                else self.path
+            ),
+            uri=amend_cap_from_microusd is not None,
             isolation_level=None,
             timeout=30.0,
         )
         try:
             self._connection.row_factory = sqlite3.Row
-            self._connection.execute("PRAGMA journal_mode = WAL")
+            if amend_cap_from_microusd is None:
+                self._connection.execute("PRAGMA journal_mode = WAL")
+                self._create_schema()
             self._connection.execute("PRAGMA synchronous = FULL")
-            self._create_schema()
-            self._ensure_identity()
+            self._ensure_identity(amend_cap_from_microusd)
         except BaseException:
             self._connection.close()
             raise
@@ -1052,7 +1067,7 @@ class SqliteProviderSpendAuthority:
             """
         )
 
-    def _ensure_identity(self) -> None:
+    def _ensure_identity(self, amend_cap_from_microusd: int | None = None) -> None:
         expected: tuple[object, ...] = (
             PROVIDER_SPEND_CONTROL_SCHEMA_VERSION,
             self.authority_identity_sha256,
@@ -1066,11 +1081,16 @@ class SqliteProviderSpendAuthority:
             self.policy.failure_threshold,
             self.policy.failure_window_seconds,
         )
+        self._connection.execute("BEGIN IMMEDIATE")
         with self._connection:
             row = self._connection.execute(
                 "SELECT * FROM provider_spend_metadata WHERE singleton = 1"
             ).fetchone()
             if row is None:
+                if amend_cap_from_microusd is not None:
+                    raise AuthorityIdentityMismatchError(
+                        "cap amendment requires an existing ledger identity"
+                    )
                 self._connection.execute(
                     """
                     INSERT INTO provider_spend_metadata(
@@ -1099,7 +1119,17 @@ class SqliteProviderSpendAuthority:
                     "failure_window_seconds",
                 )
             )
-            if actual != expected:
+            if amend_cap_from_microusd is not None and actual == (
+                *expected[:6],
+                amend_cap_from_microusd,
+                *expected[7:],
+            ):
+                self._connection.execute(
+                    "UPDATE provider_spend_metadata SET cap_microusd = ? "
+                    "WHERE singleton = 1",
+                    (self.cap_microusd,),
+                )
+            elif actual != expected:
                 raise AuthorityIdentityMismatchError(
                     "provider spend authority identity or frozen policy differs"
                 )

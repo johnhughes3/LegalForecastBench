@@ -156,6 +156,7 @@ def prepare_summaries(
     reconcile_saved_overrun: bool = False,
     summary_profile: str = "standard",
     retry_ambiguous_attempt_id: str | None = None,
+    amend_cap_from_microusd: int | None = None,
 ) -> dict[str, int]:
     """Summarize each whole document once, persisting progress and spend."""
 
@@ -216,6 +217,7 @@ def prepare_summaries(
         provider=entry.provider,
         account="jev-summaries",
         cap_microusd=ceiling_microusd,
+        amend_cap_from_microusd=amend_cap_from_microusd,
         policy=FrozenAttemptPolicy(
             reservation_ledger_sha256=identity,
             max_billable_attempts=1,
@@ -403,14 +405,12 @@ def prepare_summaries(
                 def call(
                     agent: Agent[None, str] = agent, prompt: str = prompt
                 ) -> dict[str, object]:
-                    # Receive response events while long reasoning requests run;
-                    # a buffered response can lose its idle gateway connection.
+                    # Stream events to avoid idle gateway disconnects.
                     with agent.run_stream_sync(
                         prompt, usage_limits=UsageLimits(request_limit=1)
                     ) as result:
                         summary_text = result.get_output()
-                        # EOF alone is not a successful Responses API completion.
-                        # Never save partial text or settle missing final usage.
+                        # EOF alone must not admit partial text or missing usage.
                         details = result.response.provider_details or {}
                         if (
                             result.response.finish_reason != "stop"
