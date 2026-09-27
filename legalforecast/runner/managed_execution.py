@@ -18,14 +18,12 @@ from pydantic_ai import (
     AgentRunResult,
     ModelAPIError,
     ModelHTTPError,
-    ModelMessagesTypeAdapter,
     ModelResponse,
     ModelSettings,
     NativeOutput,
     RunContext,
     capture_run_messages,
 )
-from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model, ModelRequestParameters
 from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
 from pydantic_ai.models.openai import (
@@ -51,7 +49,6 @@ from legalforecast.evals.response_verification import (
     require_publishable_response_metadata,
     verify_provider_response,
 )
-from legalforecast.immutable_io import write_file_replace_safe
 from legalforecast.multiharness.adapters import ToolExecutor
 from legalforecast.multiharness.tool_protocol import ToolRequest
 from legalforecast.release import ForecastExecution, ForecastPredictionUnit
@@ -88,6 +85,9 @@ from legalforecast.runner.managed_cost import (
 from legalforecast.runner.managed_prompt import (
     managed_initial_prompt as _managed_initial_prompt,
 )
+from legalforecast.runner.managed_transcript import (
+    write_managed_transcript as _write_managed_transcript,
+)
 from legalforecast.runner.managed_usage import (
     managed_anthropic_cache_usages as _managed_anthropic_cache_usages,
 )
@@ -114,6 +114,11 @@ from legalforecast.runner.managed_usage import (
 )
 from legalforecast.runner.managed_usage import (
     response_thoughts_tokens as _response_thoughts_tokens,
+)
+from legalforecast.runner.provider_auth import (
+    ProviderAuthentication,
+    authentication_provenance,
+    select_provider_authentication,
 )
 
 # Preserve private module attributes used by older recovery integrations.
@@ -303,6 +308,7 @@ class ManagedToolAgentResult:
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
     response_usage_details: tuple[ManagedResponseUsage, ...] = ()
     response_cache_usages: tuple[tuple[int, int], ...] = ()
+    authentication: Mapping[str, str] | None = None
 
 
 def run_managed_tool_agent(
@@ -314,6 +320,7 @@ def run_managed_tool_agent(
     workspace: Path,
     request_id: str,
     api_key: str | None = None,
+    authentication: ProviderAuthentication | None = None,
     model: Model | None = None,
     transcript_path: Path | None = None,
 ) -> ManagedToolAgentResult:
@@ -329,7 +336,12 @@ def run_managed_tool_agent(
     elif provider == "openai":
         resolved_model = _ObservedTierOpenAIResponsesModel(
             cast(Any, entry.model_id),
-            provider=OpenAIProvider(api_key=api_key),
+            provider=(
+                OpenAIProvider(openai_client=authentication.openai_client())
+                if authentication is not None
+                and authentication.mode == "workload_identity"
+                else OpenAIProvider(api_key=api_key)
+            ),
         )
     elif provider == "vercel_ai_gateway":
         gateway_provider = OpenAIProvider(
@@ -343,7 +355,11 @@ def run_managed_tool_agent(
             profile=gateway_profile,
         )
     elif provider == "anthropic":
-        resolved_model = _anthropic_model(entry, api_key=api_key)
+        resolved_model = (
+            _anthropic_model(entry, api_key=api_key, authentication=authentication)
+            if authentication is not None and authentication.mode == "workload_identity"
+            else _anthropic_model(entry, api_key=api_key)
+        )
     else:
         resolved_model = GoogleModel(
             entry.model_id,
@@ -453,6 +469,7 @@ def run_managed_tool_agent(
                 cell=request_id,
                 status="failed",
                 messages=messages,
+                authentication=authentication,
             )
             raise
     _write_managed_transcript(
@@ -461,8 +478,12 @@ def run_managed_tool_agent(
         cell=request_id,
         status="succeeded",
         messages=messages,
+        authentication=authentication,
     )
-    return managed_result
+    return replace(
+        managed_result,
+        authentication=authentication.provenance() if authentication else None,
+    )
 
 
 def _managed_result_from_run(
@@ -588,41 +609,6 @@ def _managed_result_from_run(
             if provider == "anthropic"
             else ()
         ),
-    )
-
-
-def _write_managed_transcript(
-    transcript_path: Path | None,
-    *,
-    model: str,
-    cell: str,
-    status: str,
-    messages: Sequence[ModelMessage],
-) -> None:
-    """Persist SDK-native message history without serializing exception state."""
-
-    if transcript_path is None or not messages:
-        return
-    encoded_messages = ModelMessagesTypeAdapter.dump_json(list(messages))
-    envelope = {
-        "model": model,
-        "cell": cell,
-        "agent_status": status,
-        "messages": json.loads(encoded_messages),
-    }
-    transcript_path.parent.mkdir(parents=True, exist_ok=True)
-    write_file_replace_safe(
-        transcript_path,
-        (
-            json.dumps(
-                envelope,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-            )
-            + "\n"
-        ).encode("utf-8"),
-        mode=0o600,
     )
 
 
@@ -803,50 +789,49 @@ def complete_managed_tool_cell(
     )
     values = environ if environ is not None else os.environ
     provider = entry.provider.strip().lower()
-    api_key_name = {
-        "openai": "OPENAI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-        "vercel_ai_gateway": "AI_GATEWAY_API_KEY",
-    }.get(provider, "GEMINI_API_KEY")
-    api_key = values.get(api_key_name)
-    if api_key is None or not api_key.strip():
-        raise RunValidationError(f"{api_key_name} is required")
+    authentication = (
+        select_provider_authentication(provider, values)
+        if handler.replayable_response is None
+        else None
+    )
 
     def call(executor: ToolExecutor, workspace: Path) -> Mapping[str, object]:
+        assert authentication is not None
         request_body_observer(commitment)
         try:
-            if transcript_path is None:
-                result = run_managed_tool_agent(
-                    entry,
-                    initial_prompt=initial_prompt,
-                    required_unit_ids=managed_case.required_unit_ids,
-                    executor=executor,
-                    workspace=workspace,
-                    request_id=managed_case.cell_id,
-                    api_key=api_key.strip(),
-                )
-            else:
-                result = run_managed_tool_agent(
-                    entry,
-                    initial_prompt=initial_prompt,
-                    required_unit_ids=managed_case.required_unit_ids,
-                    executor=executor,
-                    workspace=workspace,
-                    request_id=managed_case.cell_id,
-                    api_key=api_key.strip(),
-                    transcript_path=transcript_path,
-                )
+            result = run_managed_tool_agent(
+                entry,
+                initial_prompt=initial_prompt,
+                required_unit_ids=managed_case.required_unit_ids,
+                executor=executor,
+                workspace=workspace,
+                request_id=managed_case.cell_id,
+                api_key=(
+                    authentication.api_key.get_secret_value()
+                    if authentication.api_key is not None
+                    else None
+                ),
+                authentication=authentication,
+                transcript_path=transcript_path,
+            )
         except ModelHTTPError as exc:
             raise LiveModelProviderError(
                 f"managed {provider} agent request failed",
                 status_code=exc.status_code,
                 retryable=False,
-            ) from exc
-        except ModelAPIError as exc:
+            ) from None
+        except ModelAPIError:
             raise LiveModelProviderError(
                 f"managed {provider} agent request failed",
                 retryable=False,
-            ) from exc
+            ) from None
+        except Exception:
+            if authentication.mode != "workload_identity":
+                raise
+            raise LiveModelProviderError(
+                f"managed {provider} workload identity request failed",
+                retryable=False,
+            ) from None
         if not result.called_tools:
             raise ManagedToolAgentError(
                 "managed official agent returned without reading case documents"
@@ -868,6 +853,7 @@ def complete_managed_tool_cell(
                 }
             )
         return {
+            "authentication": authentication.provenance(),
             **({"anthropic_cache_evidence": cache_evidence} if cache_evidence else {}),
             "raw_output": result.raw_output,
             "request_count": result.request_count,
@@ -1001,6 +987,11 @@ def complete_managed_tool_cell(
             "thoughts_tokens": str(thoughts_tokens),
             **verification.to_metadata(),
         }
+        saved_authentication = authentication_provenance(
+            payload.get("authentication"), provider=provider
+        )
+        if saved_authentication is not None:
+            metadata.update(saved_authentication)
         if provider == "openai" or requests_flex_service_tier(provider, entry.model_id):
             metadata.update(
                 {

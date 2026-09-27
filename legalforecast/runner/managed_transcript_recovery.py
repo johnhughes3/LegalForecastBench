@@ -167,7 +167,10 @@ def managed_result_from_transcript(
     if not isinstance(record_value, Mapping):
         raise RunValidationError("managed transcript must be an object")
     record = cast(Mapping[str, object], record_value)
-    if frozenset(record) != _TRANSCRIPT_KEYS:
+    if frozenset(record) not in (
+        _TRANSCRIPT_KEYS,
+        _TRANSCRIPT_KEYS | {"authentication"},
+    ):
         raise RunValidationError("managed transcript has an unexpected shape")
     if record.get("model") != entry.registry_key:
         raise RunValidationError("managed transcript model differs from registry")
@@ -318,6 +321,9 @@ def managed_result_from_transcript(
         gateway_response_metadata=gateway_response_metadata,
         response_usage_details=tuple(response_usage_details),
         response_cache_usages=response_cache_usages,
+        authentication=managed_execution.authentication_provenance(
+            record.get("authentication"), provider=provider
+        ),
     )
     try:
         estimated_cost = managed_execution._managed_result_cost_evidence(
@@ -366,6 +372,11 @@ def managed_replay_payload(
             }
         )
     payload: dict[str, object] = {
+        **(
+            {"authentication": dict(result.authentication)}
+            if result.authentication
+            else {}
+        ),
         **({"anthropic_cache_evidence": cache_evidence} if cache_evidence else {}),
         "raw_output": result.raw_output,
         "request_count": result.request_count,

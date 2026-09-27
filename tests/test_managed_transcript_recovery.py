@@ -274,6 +274,7 @@ def _reserve_cell(ledger: RunnerLedger, entry: ModelRegistryEntry, prompt: str) 
 
 
 @pytest.mark.parametrize("provider", ["google", "openai"])
+@pytest.mark.parametrize("with_authentication", [False, True])
 @pytest.mark.parametrize(
     "mutation", ["none", "wrong-units", "wrong-units-and-served-model"]
 )
@@ -281,7 +282,10 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
     tmp_path: Path,
     provider: str,
     mutation: str,
+    with_authentication: bool,
 ) -> None:
+    from legalforecast.runner.provider_auth import ProviderAuthentication
+
     entry = _entry()
     if provider == "openai":
         record = entry.to_record()
@@ -345,6 +349,13 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         request_id="cell-1",
         model=FunctionModel(scripted),
         transcript_path=transcript_path,
+        authentication=(
+            ProviderAuthentication(
+                provider, "workload_identity" if provider == "openai" else "api_key"
+            )
+            if with_authentication
+            else None
+        ),
     )
     # FunctionModel labels its responses ``function``.  Normalize the
     # provider-owned fields in this synthetic transcript to exercise the same
@@ -434,6 +445,13 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         assert record.provider_attempt_status == "reserved"
         assert record.response_payload is not None
         payload = json.loads(record.response_payload)
+        assert payload.get("authentication") == (
+            ProviderAuthentication(
+                provider, "workload_identity" if provider == "openai" else "api_key"
+            ).provenance()
+            if with_authentication
+            else None
+        )
         assert record.response_payload == ARTIFACT_CANONICAL_JSON_V1.encode(
             transcript_recovery.managed_replay_payload(recovered.result, entry=entry)
         )

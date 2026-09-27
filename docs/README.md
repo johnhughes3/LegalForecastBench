@@ -100,6 +100,7 @@ This index covers the current public contracts, operator guides, and reproducibl
 Corpus construction, private source bytes, selection, unitization, and quality control are owned by the companion LegalForecastCorpus repository. This public repository receives only immutable, outcome-blinded release inputs through the documented [public/private release boundary](release-inputs.md).
 
 - [Commitment contracts](commitment-contracts.md): named canonical-byte, digest-representation, and schema-domain APIs for retained public release code.
+- [Managed provider authentication](provider-authentication.md): explicit API-key and workload-identity modes, saved-result behavior, and the remaining official migration boundary.
 
 ## Community Multi-Harness (non-official)
 
