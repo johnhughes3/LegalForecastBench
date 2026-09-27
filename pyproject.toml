@@ -71,6 +71,11 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["legalforecast"]
 
+[tool.hatch.build.targets.sdist]
+# Optional adapter installations are reproducible from their lockfiles.
+# Never bundle their dependency trees (including upstream pyproject files).
+exclude = ["**/node_modules/**"]
+
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 log_level = "INFO"

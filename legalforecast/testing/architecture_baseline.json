@@ -1095,6 +1095,23 @@
         "nonblank_line_count": 636,
         "top_level_definition_count": 29
       },
+      "legalforecast/multiharness/openclaw_runtime.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 1,
+        "fan_out": 6,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "run_openclaw",
+        "largest_symbol_lines": 124,
+        "layer": "application",
+        "line_count": 251,
+        "nonblank_line_count": 238,
+        "top_level_definition_count": 5
+      },
       "legalforecast/multiharness/process_containment.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
