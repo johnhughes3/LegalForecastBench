@@ -1,0 +1,108 @@
+{
+  "tasks": [
+    {
+      "task": "assess-settlement-value-range",
+      "criteria_read": 52,
+      "source_files_extracted": 10,
+      "finding_counts": {
+        "arguable": 2,
+        "confirmed": 1
+      },
+      "findings_file": "batch-6/assess-settlement-value-range/findings.json",
+      "coverage_file": "batch-6/assess-settlement-value-range/coverage.json",
+      "limitations": "All rubric criteria read. Sources text-extracted and searched with targeted passage review, not exhaustive line-by-line reading or visual inspection. Unflagged criteria are not certified correct; complete external case-law verification was not performed."
+    },
+    {
+      "task": "draft-complaint",
+      "criteria_read": 71,
+      "source_files_extracted": 10,
+      "finding_counts": {
+        "confirmed": 2,
+        "arguable": 1
+      },
+      "findings_file": "batch-6/draft-complaint/findings.json",
+      "coverage_file": "batch-6/draft-complaint/coverage.json",
+      "limitations": "All rubric criteria read. Sources text-extracted and searched with targeted passage review, not exhaustive line-by-line reading or visual inspection. Unflagged criteria are not certified correct; complete external case-law verification was not performed."
+    },
+    {
+      "task": "draft-federal-complaint-drafting",
+      "criteria_read": 50,
+      "source_files_extracted": 8,
+      "finding_counts": {
+        "confirmed": 2,
+        "arguable": 1
+      },
+      "findings_file": "batch-6/draft-federal-complaint-drafting/findings.json",
+      "coverage_file": "batch-6/draft-federal-complaint-drafting/coverage.json",
+      "limitations": "All rubric criteria read. Sources text-extracted and searched with targeted passage review, not exhaustive line-by-line reading or visual inspection. Unflagged criteria are not certified correct; complete external case-law verification was not performed."
+    },
+    {
+      "task": "draft-motion-for-summary-judgment",
+      "criteria_read": 69,
+      "source_files_extracted": 17,
+      "finding_counts": {
+        "confirmed": 3,
+        "arguable": 1
+      },
+      "findings_file": "batch-6/draft-motion-for-summary-judgment/findings.json",
+      "coverage_file": "batch-6/draft-motion-for-summary-judgment/coverage.json",
+      "limitations": "All rubric criteria read. Sources text-extracted and searched with targeted passage review, not exhaustive line-by-line reading or visual inspection. Unflagged criteria are not certified correct; complete external case-law verification was not performed."
+    },
+    {
+      "task": "draft-pretrial-statement",
+      "criteria_read": 46,
+      "source_files_extracted": 11,
+      "finding_counts": {
+        "confirmed": 2,
+        "arguable": 2
+      },
+      "findings_file": "batch-6/draft-pretrial-statement/findings.json",
+      "coverage_file": "batch-6/draft-pretrial-statement/coverage.json",
+      "limitations": "All rubric criteria read. Sources text-extracted and searched with targeted passage review, not exhaustive line-by-line reading or visual inspection. Unflagged criteria are not certified correct; complete external case-law verification was not performed."
+    },
+    {
+      "task": "extract-key-obligations-from-litigation-hold-and-document-preservation-notice",
+      "criteria_read": 52,
+      "source_files_extracted": 5,
+      "finding_counts": {
+        "confirmed": 3,
+        "arguable": 1
+      },
+      "findings_file": "batch-6/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/findings.json",
+      "coverage_file": "batch-6/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/coverage.json",
+      "limitations": "All rubric criteria read. Sources text-extracted and searched with targeted passage review, not exhaustive line-by-line reading or visual inspection. Unflagged criteria are not certified correct; complete external case-law verification was not performed."
+    },
+    {
+      "task": "identify-issues-in-counterparty-complaint",
+      "criteria_read": 25,
+      "source_files_extracted": 8,
+      "finding_counts": {
+        "confirmed": 3,
+        "arguable": 2
+      },
+      "findings_file": "batch-6/identify-issues-in-counterparty-complaint/findings.json",
+      "coverage_file": "batch-6/identify-issues-in-counterparty-complaint/coverage.json",
+      "limitations": "All rubric criteria read. Sources text-extracted and searched with targeted passage review, not exhaustive line-by-line reading or visual inspection. Unflagged criteria are not certified correct; complete external case-law verification was not performed."
+    },
+    {
+      "task": "review-document-production-set-for-attorney",
+      "criteria_read": 48,
+      "source_files_extracted": 18,
+      "finding_counts": {
+        "confirmed": 2,
+        "arguable": 4
+      },
+      "findings_file": "batch-6/review-document-production-set-for-attorney/findings.json",
+      "coverage_file": "batch-6/review-document-production-set-for-attorney/coverage.json",
+      "limitations": "All rubric criteria read. Sources text-extracted and searched with targeted passage review, not exhaustive line-by-line reading or visual inspection. Unflagged criteria are not certified correct; complete external case-law verification was not performed."
+    }
+  ],
+  "total_criteria_read": 413,
+  "total_source_files_extracted": 87,
+  "finding_counts": {
+    "arguable": 14,
+    "confirmed": 18
+  },
+  "scope": "Blind audit. No solver outputs read; original supplied documents only. Wrote only audit/batch-6. No task/repo/runtime edits, paid APIs, tracker mutation or publication.",
+  "unverified": "Most routine unflagged legal propositions were not individually researched. Document visual layout, native spreadsheet formulas, embedded images, and fidelity of synthetic case-law narratives were not comprehensively verified. Confirmed findings concern exact source conflicts, rubric defects or cited primary law; arguable findings must not be promoted to confirmed without further analysis."
+}
