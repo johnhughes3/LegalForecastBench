@@ -33,16 +33,16 @@ const worstHighConfidenceRate = Math.max(
 const takeaways: [string, string][] = leader
 	? [
 			[
-				`${leader.display_name} leads on every metric.`,
-				`Micro Brier ${leader.micro_brier.toFixed(4)}, equal-case Brier ${leader.equal_case_brier.toFixed(4)}, and ${formatPercent(leader.correct / n)} accuracy, at an estimated ${formatUsd(leader.cost.usd)} for all ${primarySnapshot.cohort.case_count} cases.`,
+				`${leader.display_name} has the best observed scores.`,
+				`Micro Brier ${leader.micro_brier.toFixed(4)}, equal-case Brier ${leader.equal_case_brier.toFixed(4)}, and ${formatPercent(leader.correct / n)} accuracy, at an estimated ${formatUsd(leader.cost.usd)} for all ${primarySnapshot.cohort.case_count} cases. It is not statistically separated from the other tested models, and its training cutoff is qualified.`,
 			],
 			[
 				"Cheap models hold the cost frontier.",
 				`${frontierModels.map((m) => `${m.display_name} (${formatUsd(m.cost.usd)})`).join(", ")}: no other model is both cheaper and better.`,
 			],
 			[
-				"The leaders cannot yet be separated.",
-				`Among the ${comparisonCurrent} current models in the paired analysis, no difference reached significance after correcting for multiple comparisons; each beat the older GPT-4.1. The other models were not tested pairwise.`,
+				"No tested pair of current models differed significantly.",
+				`Among the ${comparisonCurrent} current models in the paired analysis, no difference reached significance after correcting for multiple comparisons. The other models were not tested pairwise, so their order is descriptive.`,
 			],
 			[
 				"Confidence is where models differ most.",
@@ -100,7 +100,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 					))}
 					<li class="flex gap-3">
 						<span class="mt-0.5 font-serif text-accent">{takeaways.length + 1}</span>
-						<span><strong class="font-semibold text-ink">A summary pipeline fell below chance.</strong> Typesafe.ai's Jev, forecasting from case summaries, scored worse than always answering 50%, while OpenAI models given the same summaries beat the base rate. <a class="text-accent hover:underline" href="/experiments/summary-pipelines/">See the experiment →</a></span>
+						<span><strong class="font-semibold text-ink">A summary pipeline scored worse than guessing 50%.</strong> TypeSafe's Jev, forecasting from case summaries, scored worse than always answering 50%, while OpenAI models given the same summaries beat the base rate. <a class="text-accent hover:underline" href="/experiments/summary-pipelines/">See the experiment →</a></span>
 					</li>
 				</ol>
 			</div>
@@ -157,8 +157,8 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 		<a href="/experiments/summary-pipelines/" class="group grid gap-6 overflow-hidden rounded-2xl border border-rule-strong bg-surface-2 p-6 transition hover:border-accent/40 sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
 			<div>
 				<p class="eyebrow">Experiment · Summary pipelines</p>
-				<h2 class="mt-2 font-serif text-2xl font-semibold tracking-tight group-hover:text-accent sm:text-3xl">Given the same case summaries, Jev forecast worse than a coin flip</h2>
-				<p class="mt-3 max-w-2xl text-sm leading-relaxed text-ink-2">Typesafe.ai's Jev forecast from GPT-5.6 Luna summaries and scored below every naive baseline. OpenAI models reading the same summaries beat the base rate, even with reasoning off.</p>
+				<h2 class="mt-2 font-serif text-2xl font-semibold tracking-tight group-hover:text-accent sm:text-3xl">Given the same case summaries, Jev forecast worse than always guessing 50%</h2>
+				<p class="mt-3 max-w-2xl text-sm leading-relaxed text-ink-2">TypeSafe's Jev forecast from GPT-5.6 Luna summaries and scored below every naive baseline. OpenAI models reading the same summaries beat the base rate, even with reasoning off.</p>
 			</div>
 			<div class="flex gap-6 md:text-right">
 				{jevRow && <div><p class="font-serif text-3xl tabular text-ink">{jevRow.micro_brier.toFixed(3)}</p><p class="text-xs text-ink-3">Jev micro Brier</p></div>}

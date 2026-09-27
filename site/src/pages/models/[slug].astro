@@ -59,6 +59,38 @@ const sig = snapshot.significant_pairs
 		);
 		return { ...p, other, won: p.better === model.slug };
 	});
+// Group pairs that share a direction and metric set into one sentence.
+const listMetrics = (labels: string[]) =>
+	labels.length <= 2
+		? labels.join(" and ")
+		: `${labels.slice(0, -1).join(", ")}, and ${labels.at(-1)}`;
+const byOther = new Map<
+	string,
+	{ won: boolean; other: SnapshotModel; metrics: string[] }
+>();
+for (const pair of sig) {
+	if (!pair.other) continue;
+	const key = `${pair.won}:${pair.other.slug}`;
+	const entry = byOther.get(key) ?? {
+		won: pair.won,
+		other: pair.other,
+		metrics: [],
+	};
+	entry.metrics.push(METRICS[pair.metric].label);
+	byOther.set(key, entry);
+}
+const sigGroupMap = new Map<
+	string,
+	{ won: boolean; metrics: string; others: SnapshotModel[] }
+>();
+for (const entry of byOther.values()) {
+	const metrics = listMetrics(entry.metrics);
+	const key = `${entry.won}:${metrics}`;
+	const group = sigGroupMap.get(key) ?? { won: entry.won, metrics, others: [] };
+	group.others.push(entry.other);
+	sigGroupMap.set(key, group);
+}
+const sigGroups = [...sigGroupMap.values()];
 const related = (await publishedFindings()).filter((f) =>
 	f.data.models.includes(model.slug),
 );
@@ -148,7 +180,7 @@ const facts: [string, string][] = [
 			)}
             <div>
                 <h2 class="font-serif text-2xl font-semibold tracking-tight">Statistical comparison coverage</h2>
-                <p class="mt-2 text-ink-2">{includedInComparison ? "Included in the nine-model paired analysis." : "Not included in the updated paired analysis."}</p>
+                <p class="mt-2 text-ink-2">{includedInComparison ? "Included in the paired significance analysis." : "Not included in the paired significance analysis, so its differences from other models were not tested."}</p>
                 <a class="mt-2 inline-flex text-sm text-accent hover:underline" href="/data/#significance">Analysis and reproducible inputs →</a>
             </div>
 			{
@@ -156,13 +188,16 @@ const facts: [string, string][] = [
 					<div>
 						<h2 class="font-serif text-2xl font-semibold tracking-tight">Statistically distinguishable differences</h2>
 						<ul class="mt-3 space-y-2 text-ink-2">
-							{sig.map((s) => (
+							{sigGroups.map((g) => (
 								<li>
-									{s.won ? "Better" : "Worse"} than{" "}
-									<a class="text-accent hover:underline" href={`/models/${s.other?.slug}/`}>
-										{s.other?.display_name}
-									</a>{" "}
-									on {METRICS[s.metric].label}.
+									{g.won ? "Better" : "Worse"} than{" "}
+									{g.others.map((o, i) => (
+										<Fragment>
+											{i > 0 && (i === g.others.length - 1 ? (g.others.length > 2 ? ", and " : " and ") : ", ")}
+											<a class="text-accent hover:underline" href={`/models/${o.slug}/`}>{o.display_name}</a>
+										</Fragment>
+									))}{" "}
+									on {g.metrics}.
 								</li>
 							))}
 						</ul>

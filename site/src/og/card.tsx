@@ -60,6 +60,8 @@ export type CardSpec =
 			kind: "model";
 			name: string;
 			provider: string;
+			/** "Eligible" or "Qualified" training-cutoff status. */
+			eligibility: string;
 			microBrier: string;
 			equalCaseBrier: string;
 			/** Null for reference configurations, which are not ranked. */
@@ -298,7 +300,9 @@ function Body(spec: CardSpec): ReactNode {
 						justifyContent: "center",
 					}}
 				>
-					<span style={{ fontSize: 28, color: C.ink2 }}>{spec.provider}</span>
+					<span
+						style={{ fontSize: 28, color: C.ink2 }}
+					>{`${spec.provider} · ${spec.eligibility} comparison`}</span>
 					<div style={{ display: "flex", marginTop: 6 }}>
 						<Headline size={spec.name.length > 20 ? 68 : 84} lines={2}>
 							{spec.name}

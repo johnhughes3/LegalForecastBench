@@ -26,9 +26,24 @@ const toc = headings.filter((h) => h.depth === 2);
 const models = snapshot.models.filter((m) =>
 	entry.data.models.includes(m.slug),
 );
+const articleLd = {
+	"@context": "https://schema.org",
+	"@type": "ScholarlyArticle",
+	headline: entry.data.title,
+	description: entry.data.summary,
+	datePublished: entry.data.date.toISOString().slice(0, 10),
+	author: { "@type": "Person", name: entry.data.author },
+	url: new URL(`/findings/${entry.id}/`, Astro.site).toString(),
+	isPartOf: {
+		"@type": "WebSite",
+		name: "LegalForecastBench",
+		url: Astro.site?.toString(),
+	},
+};
 ---
 
 <Layout title={entry.data.title} description={entry.data.summary} image={`/og/findings/${entry.id}.png`}>
+	<script type="application/ld+json" set:html={JSON.stringify(articleLd)} />
 	<article class="mx-auto max-w-6xl px-4 pt-12 sm:px-6">
 		<a href="/findings/" class="text-sm text-ink-3 hover:text-ink">← Findings</a>
 		<header class="mt-8 max-w-3xl">

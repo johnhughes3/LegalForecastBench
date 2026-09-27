@@ -12,10 +12,21 @@ if (!methods.rendered?.html)
 	throw new Error("docs/METHODS.md has no rendered content");
 // Embed the source document beneath the appendix heading without changing its
 // text or anchor IDs. Escaped code examples are not heading tags.
-const technicalHtml = methods.rendered.html.replace(
-	/<(\/?)h([1-5])(?=[\s>])/g,
-	(_tag, closing: string, level: string) => `<${closing}h${Number(level) + 1}`,
-);
+const repoDocs =
+	"https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/";
+const technicalHtml = methods.rendered.html
+	.replace(
+		/<(\/?)h([1-5])(?=[\s>])/g,
+		(_tag, closing: string, level: string) =>
+			`<${closing}h${Number(level) + 1}`,
+	)
+	// Relative links in METHODS.md point at sibling docs in the repository,
+	// which do not exist on the site; send them to GitHub instead.
+	.replace(
+		/href="(?!https?:|#|\/|mailto:)([^"]+)"/g,
+		(_match, target: string) =>
+			`href="${new URL(target, repoDocs).toString()}"`,
+	);
 ---
 
 <Layout title="Methods" description="How LegalForecastBench builds its cases, runs models, and scores forecasts.">
@@ -31,6 +42,11 @@ const technicalHtml = methods.rendered.html.replace(
 				The complete methods document, written for maintainers and auditors. It covers run inputs, spending controls, inference, and published artifacts in more depth than the summary above. It renders <a class="text-accent underline" href="https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/METHODS.md">docs/METHODS.md</a> from the repository, so it always matches the code. If the summary and this document ever differ, this document governs.
 			</p>
 		</div>
+		<details class="group mt-8">
+			<summary class="inline-flex cursor-pointer list-none items-center gap-2 rounded-full border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:border-ink">
+				<span class="group-open:hidden">Show the full technical methods</span>
+				<span class="hidden group-open:inline">Hide the full technical methods</span>
+			</summary>
 		<div class="mt-10 grid gap-12 lg:grid-cols-[minmax(0,1fr)_15rem]">
 			<div class="prose-lfb prose min-w-0 max-w-[46rem] break-words prose-headings:scroll-mt-24 [&>h2:first-child]:hidden" set:html={technicalHtml} />
 			<aside class="hidden lg:block">
@@ -42,5 +58,20 @@ const technicalHtml = methods.rendered.html.replace(
 				</nav>
 			</aside>
 		</div>
+		</details>
 	</section>
+	<script>
+		// Open the appendix when a link targets a heading inside it.
+		const openFor = () => {
+			if (!location.hash) return;
+			const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+			const details = target?.closest("details");
+			if (target && details && !details.open) {
+				details.open = true;
+				target.scrollIntoView();
+			}
+		};
+		addEventListener("hashchange", openFor);
+		openFor();
+	</script>
 </Layout>

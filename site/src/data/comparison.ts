@@ -2,7 +2,7 @@ import analysis from "./significance/comparison.json" with { type: "json" };
 import { parseSnapshot, type ResultsSnapshot } from "./snapshot.js";
 
 export const comparison = analysis;
-export const comparisonScope = `${analysis.available_models.length} of ${analysis.family_model_count} configurations have unit-level data for the updated analysis. The remaining ${analysis.missing_models.length} configurations were not tested. The correction retains all 120 pairs in the 16-model family across three metrics.`;
+export const comparisonScope = `${analysis.available_models.length} of ${analysis.family_model_count} configurations are included in the paired analysis. The remaining ${analysis.missing_models.length} configurations were not tested. The correction retains all 120 pairs in the 16-model family across three metrics.`;
 
 /** Replace the historical family, rather than mixing conclusions from two tests. */
 export function applyComparison(snapshot: ResultsSnapshot): ResultsSnapshot {

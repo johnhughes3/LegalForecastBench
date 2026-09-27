@@ -41,6 +41,7 @@ export const getStaticPaths = (async () => {
 				kind: "model",
 				name: m.display_name,
 				provider: m.provider,
+				eligibility: m.eligibility === "eligible" ? "Eligible" : "Qualified",
 				microBrier: brier(m.micro_brier),
 				equalCaseBrier: brier(m.equal_case_brier),
 				rank: REFERENCE_SLUGS.has(m.slug)

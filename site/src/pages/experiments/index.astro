@@ -16,9 +16,9 @@ const jev = supplementaryRows.find((r) => r.slug === "jev-luna-summaries");
 		<div class="mt-12 grid gap-4 md:grid-cols-2">
 			<a href="/experiments/summary-pipelines/" class="card group flex flex-col p-6 transition hover:-translate-y-0.5 hover:border-rule-strong hover:shadow-sm">
 				<p class="eyebrow">Summary pipelines</p>
-				<h2 class="mt-3 font-serif text-2xl font-semibold leading-snug tracking-tight group-hover:text-accent">Jev on case summaries forecast worse than a coin flip</h2>
+				<h2 class="mt-3 font-serif text-2xl font-semibold leading-snug tracking-tight group-hover:text-accent">Jev on case summaries forecast worse than always guessing 50%</h2>
 				<p class="mt-3 text-sm leading-relaxed text-ink-2">
-					Typesafe.ai's Jev scored a micro Brier of {jev ? METRICS.micro_brier.format(jev.micro_brier) : "n/a"} from GPT-5.6 Luna summaries. OpenAI models given the same summaries beat the base rate, even with reasoning off.
+					TypeSafe's Jev scored a micro Brier of {jev ? METRICS.micro_brier.format(jev.micro_brier) : "n/a"} from GPT-5.6 Luna summaries. OpenAI models given the same summaries beat the base rate, even with reasoning off.
 				</p>
 				<span class="mt-5 text-sm font-medium text-accent">Read the experiment →</span>
 			</a>
