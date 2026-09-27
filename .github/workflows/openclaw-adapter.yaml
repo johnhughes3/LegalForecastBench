@@ -1,0 +1,52 @@
+name: OpenClaw adapter
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/openclaw-adapter.yaml'
+      - 'examples/adapters/openclaw-pinned/**'
+      - 'legalforecast/multiharness/**'
+      - 'tests/test_multiharness_openclaw.py'
+      - 'uv.lock'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/openclaw-adapter.yaml'
+      - 'examples/adapters/openclaw-pinned/**'
+      - 'legalforecast/multiharness/**'
+      - 'tests/test_multiharness_openclaw.py'
+      - 'uv.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-runtime:
+    name: Pinned OpenClaw offline integration
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.21.0'
+      - name: Install pinned runtimes
+        run: |
+          uv sync --locked
+          corepack enable
+          corepack prepare pnpm@11.27.0 --activate
+          pnpm --dir examples/adapters/openclaw-pinned install --frozen-lockfile
+      - name: Exercise installed OpenClaw with a local provider double
+        env:
+          LEGALFORECAST_OPENCLAW_E2E: '1'
+        run: uv run pytest tests/test_multiharness_openclaw.py -q

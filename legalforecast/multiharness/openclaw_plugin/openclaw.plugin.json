@@ -1,0 +1,12 @@
+{
+  "id": "lfb-container-tool",
+  "name": "LegalForecastBench container tool",
+  "contracts": {"tools": ["lfb_read_task"]},
+  "activation": {"onStartup": true},
+  "configSchema": {
+    "type": "object",
+    "properties": {"descriptor": {"type": "integer", "minimum": 3}},
+    "required": ["descriptor"],
+    "additionalProperties": false
+  }
+}

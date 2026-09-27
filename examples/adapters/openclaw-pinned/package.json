@@ -1,0 +1,8 @@
+{
+  "name": "legalforecast-openclaw-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "openclaw": "2026.9.6"
+  }
+}

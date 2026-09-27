@@ -1,0 +1,8 @@
+{
+  "adapter_id": "openclaw-pinned-bridge",
+  "adapter_version": "1.0.0",
+  "command": ["python", "-m", "legalforecast.multiharness.openclaw_cli"],
+  "contributors": [{"identifiers": {}, "name": "LegalForecastBench maintainers", "role": "adapter_author"}],
+  "display_name": "Pinned OpenClaw Community Bridge",
+  "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
+}
