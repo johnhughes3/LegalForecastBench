@@ -7,7 +7,7 @@
 		"release": "cycle-1-91-2026-09-08-luna-r5",
 		"release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
 		"method": "Aggregate figures transcribed from the September 18, 2026 beta analysis. Receipts for all ten runs were re-downloaded on September 18 and confirmed 91 case receipts and the same 387 scoreable prediction IDs per configuration. Brier, accuracy, and significance values are the prior verified analysis; they were not recomputed from labels for this page.",
-		"unit_level_note": "Unit-level predictions are retained for three of the ten runs. The other seven survive only as the aggregate figures shown here."
+		"unit_level_note": "The site shows the same aggregate information for every model. Unit-level predictions survive for only four of the ten runs, so unit-level views will be added once every model in the comparison has them."
 	},
 	"cohort": {
 		"case_count": 91,
@@ -191,7 +191,7 @@
 			"eligibility": "eligible",
 			"eligibility_reason": "A February 16, 2026 cutoff predates every scored decision.",
 			"github_run_id": "34222142006",
-			"unit_data_retained": false,
+			"unit_data_retained": true,
 			"micro_brier": 0.1432169250645995,
 			"equal_case_brier": 0.15083510810617953,
 			"correct": 313,

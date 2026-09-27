@@ -198,13 +198,6 @@ const facts: [string, string][] = [
 						>GitHub Actions run {model.github_run_id}</a
 					>
 				</p>
-				<p class="mt-2 text-xs text-ink-3">
-					{
-						model.unit_data_retained
-							? "Unit-level predictions for this run are retained."
-							: "Only the aggregate figures for this run survive; its unit-level artifacts expired."
-					}
-				</p>
 			</div>
 		</aside>
 	</section>
