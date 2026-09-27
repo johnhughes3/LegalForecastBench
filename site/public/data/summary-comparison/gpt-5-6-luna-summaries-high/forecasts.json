@@ -1,0 +1,2184 @@
+[
+	{
+		"case_id": "71721468",
+		"raw_output_sha256": "sha256:292fb291c37e8453879a979a0ab3ad601618c6168ffe6ebb7de134ff2d9d57af",
+		"predictions": [
+			{
+				"unit_id": "71721468_count_1_42_u_s_c_1983_first_amendment_retaliation_all_defendants",
+				"probability_fully_dismissed": 0.22
+			},
+			{
+				"unit_id": "71721468_count_2_42_u_s_c_1983_as_applied_first_amendment_challenge_to_policy_kfa_all_defendants",
+				"probability_fully_dismissed": 0.18
+			},
+			{
+				"unit_id": "71721468_count_3_42_u_s_c_1983_no_trespass_order_procedural_due_process_all_defendants",
+				"probability_fully_dismissed": 0.62
+			}
+		]
+	},
+	{
+		"case_id": "66996622",
+		"raw_output_sha256": "sha256:c98ec470e7a74bb583bad1a31301e30b3f7a4d895042acb73f8e30b49bd5f8ac",
+		"predictions": [
+			{
+				"unit_id": "66996622_unnumbered_claim_fair_debt_collection_practices_act_failure_to_validate_debt_harassing_billing_errors_lakeview_loan_care_llc_dba_dave_worrall",
+				"probability_fully_dismissed": 0.97
+			}
+		]
+	},
+	{
+		"case_id": "71939934",
+		"raw_output_sha256": "sha256:7a065e679a4cfdb38d1650a5a547535f821a9bcc02c1fd2b933a0d2bbe2d19d9",
+		"predictions": [
+			{
+				"unit_id": "71939934_count_ii_rico_conspiracy_18_u_s_c_1962_d_all_defendants",
+				"probability_fully_dismissed": 0.45
+			},
+			{
+				"unit_id": "71939934_count_iii_breach_of_contract_more_commerce_inc",
+				"probability_fully_dismissed": 0.55
+			},
+			{
+				"unit_id": "71939934_count_iv_fraud_all_defendants",
+				"probability_fully_dismissed": 0.35
+			}
+		]
+	},
+	{
+		"case_id": "71985792",
+		"raw_output_sha256": "sha256:e2a91429a22f8846f654c12ca4f8bfd3c6aeeaddd64fc1ca7f9355ad10bec8a7",
+		"predictions": [
+			{
+				"unit_id": "71985792_fifth_cause_of_action_contributory_copyright_infringement_sound_recordings_meta_platforms_inc",
+				"probability_fully_dismissed": 0.8
+			},
+			{
+				"unit_id": "71985792_first_cause_of_action_direct_copyright_infringement_sound_recordings_meta_platforms_inc",
+				"probability_fully_dismissed": 0.2
+			},
+			{
+				"unit_id": "71985792_fourth_cause_of_action_inducement_of_copyright_infringement_musical_compositions_meta_platforms_inc",
+				"probability_fully_dismissed": 0.43
+			},
+			{
+				"unit_id": "71985792_second_cause_of_action_direct_copyright_infringement_musical_compositions_meta_platforms_inc",
+				"probability_fully_dismissed": 0.23
+			},
+			{
+				"unit_id": "71985792_sixth_cause_of_action_contributory_copyright_infringement_musical_compositions_meta_platforms_inc",
+				"probability_fully_dismissed": 0.8
+			},
+			{
+				"unit_id": "71985792_third_cause_of_action_inducement_of_copyright_infringement_sound_recordings_meta_platforms_inc",
+				"probability_fully_dismissed": 0.43
+			}
+		]
+	},
+	{
+		"case_id": "70670037",
+		"raw_output_sha256": "sha256:d107bcc7bbe0b4896578c4421709cec4b5ea5d27656d8a208771ceba190c1c7d",
+		"predictions": [
+			{
+				"unit_id": "70670037_unnumbered_claim_constructive_discharge_under_the_ada_wake_county_public_school_system",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70670037_unnumbered_claim_disability_discrimination_under_the_ada_wake_county_public_school_system",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "70670037_unnumbered_claim_failure_to_accommodate_under_the_ada_wake_county_public_school_system",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "70670037_unnumbered_claim_retaliation_under_the_ada_wake_county_public_school_system",
+				"probability_fully_dismissed": 0.9
+			}
+		]
+	},
+	{
+		"case_id": "73215717",
+		"raw_output_sha256": "sha256:1cf4df3b328bcb8f41659d2fa5918006c93308ecf9f630af8e7d4f9a194c1ac4",
+		"predictions": [
+			{
+				"unit_id": "73215717_count_i_trademark_infringement_and_counterfeiting_finduat",
+				"probability_fully_dismissed": 0.28
+			},
+			{
+				"unit_id": "73215717_count_ii_false_designation_of_origin_finduat",
+				"probability_fully_dismissed": 0.16
+			},
+			{
+				"unit_id": "73215717_count_iii_copyright_infringement_finduat",
+				"probability_fully_dismissed": 0.09
+			}
+		]
+	},
+	{
+		"case_id": "71648352",
+		"raw_output_sha256": "sha256:71f0ead044f50308a734e48859891d4418172be722f47372ea97dc191837b092",
+		"predictions": [
+			{
+				"unit_id": "71648352_count_i_partial_pre_suit_contributory_infringement_of_u_s_patent_no_7_366_818_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.83
+			},
+			{
+				"unit_id": "71648352_count_i_partial_pre_suit_induced_infringement_of_u_s_patent_no_7_366_818_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.74
+			},
+			{
+				"unit_id": "71648352_count_iv_partial_pre_suit_contributory_infringement_of_u_s_patent_no_7_613_849_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.92
+			},
+			{
+				"unit_id": "71648352_count_iv_partial_pre_suit_induced_infringement_of_u_s_patent_no_7_613_849_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "71648352_count_v_partial_pre_suit_contributory_infringement_of_u_s_patent_no_7_769_893_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.83
+			},
+			{
+				"unit_id": "71648352_count_v_partial_pre_suit_induced_infringement_of_u_s_patent_no_7_769_893_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.74
+			},
+			{
+				"unit_id": "71648352_count_vi_partial_pre_suit_contributory_infringement_of_u_s_patent_no_8_072_893_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.84
+			},
+			{
+				"unit_id": "71648352_count_vi_partial_pre_suit_induced_infringement_of_u_s_patent_no_8_072_893_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.75
+			},
+			{
+				"unit_id": "71648352_count_vii_partial_pre_suit_contributory_infringement_of_u_s_patent_no_8_086_800_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.83
+			},
+			{
+				"unit_id": "71648352_count_vii_partial_pre_suit_induced_infringement_of_u_s_patent_no_8_086_800_sk_hynix_defendants",
+				"probability_fully_dismissed": 0.74
+			}
+		]
+	},
+	{
+		"case_id": "71581615",
+		"raw_output_sha256": "sha256:aed1e946c10c0846cb7fd795d9b0c8f2ac194ffcf8518870b34abe1457d55d87",
+		"predictions": [
+			{
+				"unit_id": "71581615_count_i_procedural_due_process_officer_shane_johnson",
+				"probability_fully_dismissed": 0.82
+			},
+			{
+				"unit_id": "71581615_count_ii_unreasonable_seizure_and_detention_fourth_amendment_article_i_8_officer_shane_johnson",
+				"probability_fully_dismissed": 0.62
+			}
+		]
+	},
+	{
+		"case_id": "71924713",
+		"raw_output_sha256": "sha256:e8b3ec112b1f28c18d73baa86006ceb2dfb5b3a033d117d68e32cba73b2bc7d9",
+		"predictions": [
+			{
+				"unit_id": "71924713_count_one_violation_of_nvra_section_8_public_inspection_provision_52_u_s_c_20507_i_dale_g_caldwell",
+				"probability_fully_dismissed": 0.42
+			}
+		]
+	},
+	{
+		"case_id": "71843630",
+		"raw_output_sha256": "sha256:dd12bf3cbf2f5b224f67813578c3354ff7a062b95000992189994fd83bdea22e",
+		"predictions": [
+			{
+				"unit_id": "71843630_count_iv_violation_of_the_arizona_civil_rights_act_age_discrimination_and_retaliation_maricopa_consolidated_domestic_water_improvement_district",
+				"probability_fully_dismissed": 0.04
+			},
+			{
+				"unit_id": "71843630_count_v_violation_of_the_arizona_civil_rights_act_sex_gender_discrimination_and_retaliation_maricopa_consolidated_domestic_water_improvement_district",
+				"probability_fully_dismissed": 0.04
+			},
+			{
+				"unit_id": "71843630_count_x_violation_of_the_arizona_employment_protection_act_wrongful_termination_maricopa_consolidated_domestic_water_improvement_district",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "71843630_count_xi_violation_of_the_arizona_public_employee_whistleblower_law_retaliation_maricopa_consolidated_domestic_water_improvement_district",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "71843630_count_xii_negligent_hiring_retention_and_supervision_maricopa_consolidated_domestic_water_improvement_district",
+				"probability_fully_dismissed": 0.84
+			}
+		]
+	},
+	{
+		"case_id": "70274894",
+		"raw_output_sha256": "sha256:1071d34c065cc864dafbe64a0468b15d1ca2c050b9a66d60d39de7444175cf04",
+		"predictions": [
+			{
+				"unit_id": "70274894_unnumbered_claim_fifth_fourteenth_amendment_due_process_monroe_police_department",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "70274894_unnumbered_claim_fifth_fourteenth_amendment_due_process_violation_ross_lambert",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "70274894_unnumbered_claim_fifth_fourteenth_amendment_due_process_violation_victor_zordan",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "70274894_unnumbered_claim_fourth_amendment_violation_wrongful_pretrial_detention_ross_lambert",
+				"probability_fully_dismissed": 0.91
+			},
+			{
+				"unit_id": "70274894_unnumbered_claim_fourth_amendment_violation_wrongful_pretrial_detention_victor_zordan",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "70274894_unnumbered_claim_fourth_amendment_wrongful_pretrial_detention_monroe_police_department",
+				"probability_fully_dismissed": 0.99
+			}
+		]
+	},
+	{
+		"case_id": "71994417",
+		"raw_output_sha256": "sha256:e2ef8940769bd3cd7003e318b831ff5234d1670bc3e8718a32d011eabc691fe7",
+		"predictions": [
+			{
+				"unit_id": "71994417_claim_i_dormant_commerce_clause_dormant_foreign_commerce_clause_ken_paxton",
+				"probability_fully_dismissed": 0.25
+			},
+			{
+				"unit_id": "71994417_claim_ii_supremacy_clause_federal_preemption_field_and_conflict_ken_paxton",
+				"probability_fully_dismissed": 0.28
+			},
+			{
+				"unit_id": "71994417_claim_iii_procedural_due_process_procedural_due_process_ken_paxton",
+				"probability_fully_dismissed": 0.55
+			},
+			{
+				"unit_id": "71994417_claim_iii_substantive_due_process_property_deprivation_substantive_due_process_deprivation_of_property_interests_ken_paxton",
+				"probability_fully_dismissed": 0.32
+			}
+		]
+	},
+	{
+		"case_id": "71193182",
+		"raw_output_sha256": "sha256:2c3bb063264274c2e28a1be14ab8b4e17272966945d1d0421319f3c3f8758a77",
+		"predictions": [
+			{
+				"unit_id": "71193182_unnumbered_claim_42_u_s_c_1983_fifteenth_amendment_voting_rights_voter_suppression_janet_cowell",
+				"probability_fully_dismissed": 0.92
+			},
+			{
+				"unit_id": "71193182_unnumbered_claim_42_u_s_c_1983_fourteenth_amendment_due_process_property_rights_dynamiting_construction_damage_janet_cowell",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "71193182_unnumbered_claim_42_u_s_c_1983_fourteenth_amendment_equal_protection_racial_discrimination_janet_cowell",
+				"probability_fully_dismissed": 0.93
+			}
+		]
+	},
+	{
+		"case_id": "71528266",
+		"raw_output_sha256": "sha256:b47e09b6d77f9b2f6bc5dda215630eb217419774e7cda195594d2eddbe6a9fe1",
+		"predictions": [
+			{
+				"unit_id": "71528266_first_claim_for_relief_contributory_infringement_subclaim_contributory_infringement_of_u_s_patent_no_11_674_999_35_u_s_c_271_c_and_or_f_aem_defendants",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "71528266_first_claim_for_relief_direct_infringement_of_u_s_patent_no_11_674_999_aem_defendants",
+				"probability_fully_dismissed": 0.42
+			},
+			{
+				"unit_id": "71528266_first_claim_for_relief_induced_infringement_subclaim_induced_infringement_of_u_s_patent_no_11_674_999_35_u_s_c_271_b_aem_defendants",
+				"probability_fully_dismissed": 0.55
+			},
+			{
+				"unit_id": "71528266_second_claim_for_relief_contributory_infringement_subclaim_contributory_infringement_of_u_s_patent_no_12_320_841_35_u_s_c_271_c_and_or_f_aem_defendants",
+				"probability_fully_dismissed": 0.6
+			},
+			{
+				"unit_id": "71528266_second_claim_for_relief_direct_infringement_of_u_s_patent_no_12_320_841_aem_defendants",
+				"probability_fully_dismissed": 0.44
+			},
+			{
+				"unit_id": "71528266_second_claim_for_relief_induced_infringement_subclaim_induced_infringement_of_u_s_patent_no_12_320_841_35_u_s_c_271_b_aem_defendants",
+				"probability_fully_dismissed": 0.57
+			}
+		]
+	},
+	{
+		"case_id": "71099966",
+		"raw_output_sha256": "sha256:98841f19e0e07548030df637bffb1b1dbdeeb7b6231edaac0dec77ab4548b730",
+		"predictions": [
+			{
+				"unit_id": "71099966_count_i_fraud_and_pecuniary_loss_under_indiana_code_34_24_3_1_jon_and_tyler_rickey",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "71099966_count_ii_constructive_fraud_and_fraudulent_concealment_jon_and_tyler_rickey",
+				"probability_fully_dismissed": 0.84
+			},
+			{
+				"unit_id": "71099966_count_iii_conversion_theft_and_pecuniary_loss_under_indiana_code_34_24_3_1_jon_and_tyler_rickey",
+				"probability_fully_dismissed": 0.8
+			},
+			{
+				"unit_id": "71099966_count_iv_criminal_gang_control_and_pecuniary_loss_under_indiana_code_34_24_3_1_jon_and_tyler_rickey",
+				"probability_fully_dismissed": 0.82
+			},
+			{
+				"unit_id": "71099966_count_v_civil_remedy_for_violation_of_18_u_s_c_1962_c_federal_rico_jon_and_tyler_rickey",
+				"probability_fully_dismissed": 0.62
+			},
+			{
+				"unit_id": "71099966_count_v_civil_remedy_for_violation_of_18_u_s_c_1962_d_federal_rico_conspiracy_jon_and_tyler_rickey",
+				"probability_fully_dismissed": 0.68
+			},
+			{
+				"unit_id": "71099966_count_vi_civil_remedy_for_violation_of_indiana_code_35_45_6_2_indiana_rico_jon_and_tyler_rickey",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "71099966_count_vii_violation_of_indiana_home_loan_practices_act_jon_and_tyler_rickey",
+				"probability_fully_dismissed": 0.88
+			}
+		]
+	},
+	{
+		"case_id": "70671768",
+		"raw_output_sha256": "sha256:527bf832f9601e2563cab046ba834239c4d90909f189fc9e47717815ee054c35",
+		"predictions": [
+			{
+				"unit_id": "70671768_eighth_cause_of_action_negligent_infliction_of_emotional_distress_county_of_san_joaquin",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70671768_fifth_cause_of_action_fourth_amendment_violation_unreasonable_seizure_through_forced_medical_treatment_42_u_s_c_1983_county_of_san_joaquin",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70671768_first_cause_of_action_deprivation_of_constitutional_rights_fourteenth_amendment_deliberate_indifference_to_serious_medical_needs_42_u_s_c_1983_county_of_san_joaquin",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70671768_fourth_cause_of_action_substantive_due_process_violation_state_created_danger_42_u_s_c_1983_fourteenth_amendment_county_of_san_joaquin",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70671768_second_cause_of_action_federal_tort_claims_act_negligence_of_a_federal_employee_county_of_san_joaquin",
+				"probability_fully_dismissed": 0.91
+			},
+			{
+				"unit_id": "70671768_seventh_cause_of_action_intentional_infliction_of_emotional_distress_county_of_san_joaquin",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70671768_sixth_cause_of_action_medical_battery_lack_of_consent_county_of_san_joaquin",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70671768_third_cause_of_action_supervisory_liability_failure_to_intervene_train_or_supervise_42_u_s_c_1983_county_of_san_joaquin",
+				"probability_fully_dismissed": 0.9
+			}
+		]
+	},
+	{
+		"case_id": "73150723",
+		"raw_output_sha256": "sha256:90d473493573c72948a48af55e0de92f2cce8a449652a2ffecb27e70a2916610",
+		"predictions": [
+			{
+				"unit_id": "73150723_count_i_race_discrimination_under_title_vi_of_the_civil_rights_act_of_1964_university_of_cincinnati",
+				"probability_fully_dismissed": 0.8
+			},
+			{
+				"unit_id": "73150723_count_ii_sex_discrimination_under_title_ix_of_the_education_amendments_of_1972_university_of_cincinnati",
+				"probability_fully_dismissed": 0.87
+			}
+		]
+	},
+	{
+		"case_id": "71221919",
+		"raw_output_sha256": "sha256:180678f2141c73fd8fbc1958d666dcf9e0add33e10cd9fe057d036dd1e4b5a01",
+		"predictions": [
+			{
+				"unit_id": "71221919_count_vi_negligence_risk_placement_services_inc",
+				"probability_fully_dismissed": 0.42
+			},
+			{
+				"unit_id": "71221919_count_vii_breach_of_fiduciary_duty_risk_placement_services_inc",
+				"probability_fully_dismissed": 0.68
+			}
+		]
+	},
+	{
+		"case_id": "71421175",
+		"raw_output_sha256": "sha256:c0ebbf6126c92961849ee64d250844b3632c0aeb7b386384a6bdf755f847be03",
+		"predictions": [
+			{
+				"unit_id": "71421175_count_i_fourth_amendment_unlawful_seizure_and_retention_42_u_s_c_1983_fulton_county_district_attorney_s_office",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "71421175_count_ii_fourteenth_amendment_procedural_due_process_42_u_s_c_1983_fulton_county_district_attorney_s_office",
+				"probability_fully_dismissed": 0.89
+			},
+			{
+				"unit_id": "71421175_count_iii_fourteenth_amendment_substantive_due_process_42_u_s_c_1983_fulton_county_district_attorney_s_office",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "71421175_count_iv_conversion_georgia_common_law_fulton_county_district_attorney_s_office",
+				"probability_fully_dismissed": 0.94
+			}
+		]
+	},
+	{
+		"case_id": "71491497",
+		"raw_output_sha256": "sha256:76a95224bbaf24c84489d729f266c64ca048d54acd39a2aa5c4a88fbdc13413c",
+		"predictions": [
+			{
+				"unit_id": "71491497_count_vii_second_unlawful_discrimination_in_violation_of_fourteenth_amendment_42_u_s_c_1983_defendant_officers_facey_tavares_and_wagoner",
+				"probability_fully_dismissed": 0.83
+			},
+			{
+				"unit_id": "71491497_count_vii_violation_of_fourth_amendment_unreasonable_seizure_and_false_arrest_42_u_s_c_1983_defendant_officers_facey_tavares_and_wagoner",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "71491497_count_viii_violation_of_first_amendment_retaliation_for_speech_and_filming_42_u_s_c_1983_defendant_officers_facey_tavares_and_wagoner",
+				"probability_fully_dismissed": 0.65
+			},
+			{
+				"unit_id": "71491497_count_xi_civil_liability_for_racial_discrimination_in_right_to_contract_r_i_gen_laws_42_112_2_defendant_officers_facey_tavares_and_wagoner",
+				"probability_fully_dismissed": 0.79
+			}
+		]
+	},
+	{
+		"case_id": "72261437",
+		"raw_output_sha256": "sha256:70f5c7bcc59cc3663548b28d9f1d285033cb439349478d6d9bde4ef39204065f",
+		"predictions": [
+			{
+				"unit_id": "72261437_first_claim_declaratory_no_duty_to_defend_blue_note",
+				"probability_fully_dismissed": 0.15
+			},
+			{
+				"unit_id": "72261437_first_claim_declaratory_no_duty_to_indemnify_blue_note",
+				"probability_fully_dismissed": 0.15
+			}
+		]
+	},
+	{
+		"case_id": "72313974",
+		"raw_output_sha256": "sha256:59c886982c1a8f54827d055cf9b857ddedeae5636b5d60df63ce044c444ebb0f",
+		"predictions": [
+			{
+				"unit_id": "72313974_title_vii_sex_disparate_treatment_home_depot",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "72313974_title_vii_sex_hostile_work_environment_home_depot",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_18_u_s_c_1512_witness_tampering_civil_claim_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_18_u_s_c_1513_retaliation_against_witnesses_civil_claim_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_18_u_s_c_241_conspiracy_against_civil_rights_civil_claim_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_americans_with_disabilities_act_disability_discrimination_failure_to_accommodate_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.8
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_lanham_act_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_mahsa_act_uncat_r2p_civil_claim_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_title_vii_national_origin_discrimination_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.86
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_title_vii_retaliation_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.73
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_washington_anti_slapp_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "72313974_unnumbered_claim_washington_silenced_no_more_act_home_depot_u_s_a_inc",
+				"probability_fully_dismissed": 0.88
+			}
+		]
+	},
+	{
+		"case_id": "71033614",
+		"raw_output_sha256": "sha256:4e121807ba86b9d6282f962c8084297d5f7995bcee9d76a91598de3748067e46",
+		"predictions": [
+			{
+				"unit_id": "71033614_count_10_americans_with_disabilities_act_rehabilitation_act_and_tchra_disability_discrimination_phillip_gage",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "71033614_count_1_texas_whistleblower_act_retaliation_green_valley_special_utility_district",
+				"probability_fully_dismissed": 0.35
+			},
+			{
+				"unit_id": "71033614_count_2_fmla_interference_42_u_s_c_1983_phillip_gage",
+				"probability_fully_dismissed": 0.23
+			},
+			{
+				"unit_id": "71033614_count_3_fmla_retaliation_42_u_s_c_1983_phillip_gage",
+				"probability_fully_dismissed": 0.22
+			},
+			{
+				"unit_id": "71033614_count_4_title_vii_sex_discrimination_phillip_gage",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "71033614_count_5_texas_commission_on_human_rights_act_sex_discrimination_phillip_gage",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "71033614_count_6_title_vii_retaliation_phillip_gage",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "71033614_count_7_texas_commission_on_human_rights_act_retaliation_phillip_gage",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "71033614_count_8_age_discrimination_in_employment_act_age_discrimination_phillip_gage",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "71033614_count_9_texas_commission_on_human_rights_act_age_discrimination_phillip_gage",
+				"probability_fully_dismissed": 0.97
+			}
+		]
+	},
+	{
+		"case_id": "72045293",
+		"raw_output_sha256": "sha256:98c5cf60b73aa6f52dfea78ed6d18651cd1950a0902d99e11f168d6733dc1858",
+		"predictions": [
+			{
+				"unit_id": "72045293_count_1_wtamu_official_capacity",
+				"probability_fully_dismissed": 0.65
+			},
+			{
+				"unit_id": "72045293_count_2_am_system_official_capacity",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "72045293_count_2_wtamu_official_capacity",
+				"probability_fully_dismissed": 0.74
+			},
+			{
+				"unit_id": "72045293_count_3_am_system_official_capacity",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "72045293_count_3_wtamu_official_capacity",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "72045293_count_4_am_system_official_capacity",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "72045293_count_4_wtamu_official_capacity",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "72045293_count_5_am_system_official_capacity",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72045293_count_5_wtamu_official_capacity",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72045293_count_five_equal_protection_fourteenth_amendment_42_u_s_c_1983_individual_capacity_defendants_equal_protection",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72045293_count_four_procedural_due_process_fourteenth_amendment_42_u_s_c_1983_individual_capacity_defendants_procedural_due_process",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "72045293_count_one_first_amendment_retaliation_42_u_s_c_1983_a_m_system_defendants_first_amendment_retaliation_standing_official_capacity",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "72045293_count_one_first_amendment_retaliation_42_u_s_c_1983_individual_capacity_defendants_first_amendment_retaliation",
+				"probability_fully_dismissed": 0.85
+			},
+			{
+				"unit_id": "72045293_count_seven_harassment_under_title_vii_all_defendants_title_vii_harassment",
+				"probability_fully_dismissed": 0.995
+			},
+			{
+				"unit_id": "72045293_count_seven_religious_discrimination_under_title_vii_all_defendants_title_vii_religious_discrimination",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "72045293_count_seven_retaliation_under_title_vii_all_defendants_title_vii_retaliation",
+				"probability_fully_dismissed": 0.995
+			},
+			{
+				"unit_id": "72045293_count_six_breach_of_contract_all_defendants_breach_of_contract",
+				"probability_fully_dismissed": 0.85
+			},
+			{
+				"unit_id": "72045293_count_three_substantive_due_process_fourteenth_amendment_42_u_s_c_1983_individual_capacity_defendants_substantive_due_process",
+				"probability_fully_dismissed": 0.95
+			},
+			{
+				"unit_id": "72045293_count_two_right_to_be_free_from_unconstitutional_conditions_first_amendment_individual_capacity_defendants_unconstitutional_conditions",
+				"probability_fully_dismissed": 0.82
+			}
+		]
+	},
+	{
+		"case_id": "72116161",
+		"raw_output_sha256": "sha256:8740f2448bba842f5ffa305b58d9fa19bf491d0335cbdf8de149849de740942e",
+		"predictions": [
+			{
+				"unit_id": "72116161_count_i_breach_of_contract_standard_flood_insurance_policy_wright_national_flood_insurance_company",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "72116161_count_ii_negligent_misrepresentation_wright_national_flood_insurance_company",
+				"probability_fully_dismissed": 0.84
+			},
+			{
+				"unit_id": "72116161_count_iii_unjust_enrichment_wright_national_flood_insurance_company",
+				"probability_fully_dismissed": 0.87
+			}
+		]
+	},
+	{
+		"case_id": "69617129",
+		"raw_output_sha256": "sha256:c9df6f908528c9fa6098362bca99983eb8489776435688a226dc4fcb8193814a",
+		"predictions": [
+			{
+				"unit_id": "69617129_count_ii_first_amendment_retaliation_under_42_u_s_c_1983_elizabeth_k_swanson",
+				"probability_fully_dismissed": 0.58
+			}
+		]
+	},
+	{
+		"case_id": "71933397",
+		"raw_output_sha256": "sha256:fa5c0ed369adae5d180996bf5bfa241c3ae5b1a18568078d363271622d1bed49",
+		"predictions": [
+			{
+				"unit_id": "71933397_first_claim_for_relief_unlawful_seizure_of_person_in_violation_of_the_fourth_amendment_pacheco_lackey",
+				"probability_fully_dismissed": 0.86
+			},
+			{
+				"unit_id": "71933397_second_claim_for_relief_unlawful_search_and_seizure_of_property_in_violation_of_the_fourth_amendment_pacheco_lackey",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "71933397_third_claim_for_relief_unlawful_search_of_wallet_and_seizure_of_id_in_violation_of_the_fourth_amendment_matthew_lackey",
+				"probability_fully_dismissed": 0.91
+			}
+		]
+	},
+	{
+		"case_id": "73183894",
+		"raw_output_sha256": "sha256:4d798cad60cd2236bc30545c05e9560fb4419b6b98f2266cab12be1f791f0c37",
+		"predictions": [
+			{
+				"unit_id": "73183894_unnumbered_claim_constructive_trust_celsius_network_llc",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "73183894_unnumbered_claim_determination_of_non_estate_property_under_11_u_s_c_541_d_celsius_network_llc",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "73183894_unnumbered_claim_fraudulent_inducement_and_rescission_celsius_network_llc",
+				"probability_fully_dismissed": 0.84
+			},
+			{
+				"unit_id": "73183894_unnumbered_claim_turnover_under_11_u_s_c_542_celsius_network_llc",
+				"probability_fully_dismissed": 0.87
+			}
+		]
+	},
+	{
+		"case_id": "70310251",
+		"raw_output_sha256": "sha256:79dc26e30880c212e08f6f3d2d5e41dbec00fe364e42569521bba23dc95d912f",
+		"predictions": [
+			{
+				"unit_id": "70310251_count_i_copyright_infringement_crafted_by_joanna_llc",
+				"probability_fully_dismissed": 0.55
+			}
+		]
+	},
+	{
+		"case_id": "72064904",
+		"raw_output_sha256": "sha256:27c582e124635b5836d7e614a68def21ff5402c9c86d55f3d06038fa47ad883e",
+		"predictions": [
+			{
+				"unit_id": "72064904_count_i_breach_of_contract_indiana_harbor_belt_railroad_company",
+				"probability_fully_dismissed": 0.24
+			},
+			{
+				"unit_id": "72064904_count_ii_equitable_estoppel_indiana_harbor_belt_railroad_company",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "72064904_count_iii_unjust_enrichment_indiana_harbor_belt_railroad_company",
+				"probability_fully_dismissed": 0.34
+			},
+			{
+				"unit_id": "72064904_count_iv_intentional_misrepresentation_indiana_harbor_belt_railroad_company",
+				"probability_fully_dismissed": 0.38
+			},
+			{
+				"unit_id": "72064904_count_v_breach_of_statutory_duties_under_article_2a_of_the_uniform_commercial_code_indiana_harbor_belt_railroad_company",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "72064904_count_vi_conversion_indiana_harbor_belt_railroad_company",
+				"probability_fully_dismissed": 0.32
+			}
+		]
+	},
+	{
+		"case_id": "72516208",
+		"raw_output_sha256": "sha256:4bc48b8737b8c49d645c475ae19ddf1e1cea6aed781967d824d1a49379b8388a",
+		"predictions": [
+			{
+				"unit_id": "72516208_first_cause_of_action_violation_of_unruh_civil_rights_act_southwest_airlines_co",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72516208_second_cause_of_action_violation_of_california_disabled_persons_act_southwest_airlines_co",
+				"probability_fully_dismissed": 0.9
+			}
+		]
+	},
+	{
+		"case_id": "68016573",
+		"raw_output_sha256": "sha256:c2b8b5d2cfbe0d335c7b3efda8927f72996c7acb1e3846b184b39686fa48472d",
+		"predictions": [
+			{
+				"unit_id": "68016573_count_one_flsa_minimum_wage_violations_non_tipped_duties_theory_hard_rock_cafe_international_stp_inc",
+				"probability_fully_dismissed": 0.03
+			},
+			{
+				"unit_id": "68016573_count_two_ohio_constitution_minimum_wage_violations_non_tipped_duties_theory_hard_rock_cafe_international_stp_inc",
+				"probability_fully_dismissed": 0.03
+			}
+		]
+	},
+	{
+		"case_id": "71148626",
+		"raw_output_sha256": "sha256:a7ba18af6a59e805b17f1bf9d52bf3986cf8ed5c75e378c9a0015afc57c1e358",
+		"predictions": [
+			{
+				"unit_id": "71148626_count_i_breach_of_contract_bentley_university",
+				"probability_fully_dismissed": 0.68
+			},
+			{
+				"unit_id": "71148626_count_ii_breach_of_the_covenant_of_good_faith_and_fair_dealing_bentley_university",
+				"probability_fully_dismissed": 0.72
+			}
+		]
+	},
+	{
+		"case_id": "69466572",
+		"raw_output_sha256": "sha256:ef7d8a934ea115d978b87af986e70184f3f99f5820c968f402c7af57e4ce6860",
+		"predictions": [
+			{
+				"unit_id": "69466572_count_i_breach_of_contract_duty_to_defend_clear_blue_specialty_insurance_company",
+				"probability_fully_dismissed": 0.68
+			},
+			{
+				"unit_id": "69466572_count_i_breach_of_contract_duty_to_indemnify_clear_blue_specialty_insurance_company",
+				"probability_fully_dismissed": 0.57
+			},
+			{
+				"unit_id": "69466572_count_ii_declaratory_judgment_duty_to_defend_clear_blue_specialty_insurance_company",
+				"probability_fully_dismissed": 0.68
+			},
+			{
+				"unit_id": "69466572_count_ii_declaratory_judgment_duty_to_indemnify_clear_blue_specialty_insurance_company",
+				"probability_fully_dismissed": 0.55
+			},
+			{
+				"unit_id": "69466572_count_iii_connecticut_unfair_trade_practices_act_cutpa_clear_blue_specialty_insurance_company",
+				"probability_fully_dismissed": 0.47
+			},
+			{
+				"unit_id": "69466572_count_iv_connecticut_unfair_insurance_practices_act_cuipa_clear_blue_specialty_insurance_company",
+				"probability_fully_dismissed": 0.53
+			}
+		]
+	},
+	{
+		"case_id": "72116574",
+		"raw_output_sha256": "sha256:95e801414b26da07c01f7ea39fb94aace295f8019a414adeef5ff195be0de8b8",
+		"predictions": [
+			{
+				"unit_id": "72116574_count_iii_fcra_impermissible_furnishing_and_access_midland_credit_management_inc",
+				"probability_fully_dismissed": 0.86
+			},
+			{
+				"unit_id": "72116574_count_iv_fcra_furnisher_duties_midland_credit_management_inc",
+				"probability_fully_dismissed": 0.76
+			},
+			{
+				"unit_id": "72116574_count_v_fdcpa_violations_midland_credit_management_inc",
+				"probability_fully_dismissed": 0.82
+			}
+		]
+	},
+	{
+		"case_id": "70142291",
+		"raw_output_sha256": "sha256:471421a2f174a8d46de243c36fbf0740e4cd91307f352bc36ffab6583fcfe136",
+		"predictions": [
+			{
+				"unit_id": "70142291_federal_cause_of_action_1_first_amendment_42_u_s_c_1983_first_amendment_retaliation_all_city_defendants",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "70142291_federal_cause_of_action_1_fourteenth_amendment_equal_protection_42_u_s_c_1983_fourteenth_amendment_equal_protection_impd",
+				"probability_fully_dismissed": 0.95
+			},
+			{
+				"unit_id": "70142291_federal_cause_of_action_1_fourteenth_amendment_equal_protection_42_u_s_c_1983_fourteenth_amendment_equal_protection_named_city_officer_defendants",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "70142291_federal_cause_of_action_1_fourteenth_amendment_procedural_due_process_42_u_s_c_1983_fourteenth_amendment_procedural_due_process_all_city_defendants",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70142291_federal_cause_of_action_1_fourteenth_amendment_substantive_due_process_42_u_s_c_1983_fourteenth_amendment_substantive_due_process_all_city_defendants",
+				"probability_fully_dismissed": 0.82
+			},
+			{
+				"unit_id": "70142291_federal_cause_of_action_1_fourth_amendment_42_u_s_c_1983_fourth_amendment_unreasonable_seizure_and_search_all_city_defendants",
+				"probability_fully_dismissed": 0.48
+			},
+			{
+				"unit_id": "70142291_federal_cause_of_action_1_monell_42_u_s_c_1983_monell_municipal_liability_indianapolis_metropolitan_police_department_impd",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "70142291_federal_cause_of_action_2_civil_rico_18_u_s_c_1961_1964_all_city_defendants",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "70142291_state_law_claim_i_battery_ind_code_35_42_2_1_level_5_felony_all_city_defendants",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "70142291_state_law_claim_ii_kidnapping_ind_code_35_42_3_2_level_3_felony_all_city_defendants",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "70142291_state_law_claim_iii_false_imprisonment_criminal_confinement_ind_code_35_42_3_3_level_3_felony_all_city_defendants",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "70142291_state_law_claim_iv_conspiracy_to_commit_sexual_battery_ind_code_35_42_4_8_35_41_5_2_level_4_felony_all_city_defendants",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "70142291_state_law_claim_v_official_misconduct_ind_code_35_44_1_1_1_level_6_felony_all_city_defendants",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "70142291_state_law_claim_vi_harassment_ind_code_35_45_2_2_level_6_felony_all_city_defendants",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "70142291_state_law_claim_vii_obstruction_of_justice_18_u_s_c_1512_and_or_ind_code_35_44_1_2_2_level_6_felony_all_city_defendants",
+				"probability_fully_dismissed": 0.99
+			}
+		]
+	},
+	{
+		"case_id": "69581167",
+		"raw_output_sha256": "sha256:d68049f8b5f382795eb69c7eb354646776f1b087aeb4cce4ca869bcb0bb374cd",
+		"predictions": [
+			{
+				"unit_id": "69581167_count_i_first_amendment_retaliation_statement_on_behalf_of_juan_turner_officer_merten",
+				"probability_fully_dismissed": 0.32
+			},
+			{
+				"unit_id": "69581167_count_ii_first_amendment_freedom_of_speech_expression_political_speech_silencing_officer_merten",
+				"probability_fully_dismissed": 0.38
+			},
+			{
+				"unit_id": "69581167_count_iii_equal_protection_racial_discrimination_officer_merten",
+				"probability_fully_dismissed": 0.985
+			},
+			{
+				"unit_id": "69581167_count_iv_first_amendment_retaliation_media_speech_and_complaint_filing_derrick_bodtmann",
+				"probability_fully_dismissed": 0.27
+			},
+			{
+				"unit_id": "69581167_count_v_first_and_fourteenth_amendment_grievance_interference_derrick_bodtmann",
+				"probability_fully_dismissed": 0.99
+			}
+		]
+	},
+	{
+		"case_id": "71212701",
+		"raw_output_sha256": "sha256:4ce9f6ebcd3aff9650ee5f24e939ac24fd127a12bcf2a0518d6e21e317ba3375",
+		"predictions": [
+			{
+				"unit_id": "71212701_count_i_failure_to_reasonably_reinvestigate_under_fcra_1681i_a_experian_information_solutions_inc",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "71212701_count_ii_failure_to_follow_reasonable_procedures_to_ensure_maximum_possible_accuracy_under_fcra_1681e_b_experian_information_solutions_inc",
+				"probability_fully_dismissed": 0.78
+			}
+		]
+	},
+	{
+		"case_id": "70571896",
+		"raw_output_sha256": "sha256:da3f20aa2f7a3c9187a6a5dace89d7f1b081933c8058d2a6d91d88e5ce677bea",
+		"predictions": [
+			{
+				"unit_id": "70571896_count_i_federal_tort_claims_act_professional_negligence_united_states_of_america",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "70571896_count_iii_federal_tort_claims_act_negligent_infliction_of_emotional_distress_united_states_of_america",
+				"probability_fully_dismissed": 0.99
+			}
+		]
+	},
+	{
+		"case_id": "70945218",
+		"raw_output_sha256": "sha256:ac5fc813dd791f50a330a3d7c31594b6c16778eb710af3958458effed7f41914",
+		"predictions": [
+			{
+				"unit_id": "70945218_count_i_42_u_s_c_1983_false_arrest_unlawful_seizure_all_defendants_count_i",
+				"probability_fully_dismissed": 0.3
+			},
+			{
+				"unit_id": "70945218_count_ii_42_u_s_c_1983_excessive_force_all_defendants_count_ii",
+				"probability_fully_dismissed": 0.12
+			}
+		]
+	},
+	{
+		"case_id": "71203930",
+		"raw_output_sha256": "sha256:2d215112a6c1f45946b2ee1f24dd0688d92fa6394918ecaf9f557b35fbbe427b",
+		"predictions": [
+			{
+				"unit_id": "71203930_unnumbered_claim_fair_housing_amendments_act_design_and_construction_violation_trivers_associates_inc",
+				"probability_fully_dismissed": 0.62
+			}
+		]
+	},
+	{
+		"case_id": "72270301",
+		"raw_output_sha256": "sha256:65c67ccfa51af455778291ceac14be08a6e396b9c3f3933a23ad0fbd58283159",
+		"predictions": [
+			{
+				"unit_id": "72270301_count_eight_retaliation_first_amendment_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "72270301_count_eight_retaliation_title_vii_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "72270301_count_five_fourteenth_amendment_due_process_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.92
+			},
+			{
+				"unit_id": "72270301_count_four_fourteenth_amendment_equal_protection_equality_of_opportunity_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "72270301_count_nine_promissory_estoppel_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "72270301_count_one_first_amendment_freedom_of_assembly_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.87
+			},
+			{
+				"unit_id": "72270301_count_seven_title_vii_disparate_impact_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "72270301_count_six_fourteenth_amendment_void_for_vagueness_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "72270301_count_three_first_amendment_viewpoint_neutrality_in_funding_decisions_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "72270301_count_two_first_amendment_freedom_of_speech_individual_defendants_board_of_trustees",
+				"probability_fully_dismissed": 0.84
+			}
+		]
+	},
+	{
+		"case_id": "70965642",
+		"raw_output_sha256": "sha256:3a4d143efc7995a5a9d7101d027e96d754dd1af6d01e4f0ece512369e8393bfc",
+		"predictions": [
+			{
+				"unit_id": "70965642_first_cause_of_action_violation_of_real_estate_settlement_procedures_act_respa_12_u_s_c_2607_crosscountry_and_raleigh_realty",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "70965642_second_cause_of_action_violation_of_north_carolina_unfair_and_deceptive_trade_practices_act_udtpa_n_c_gen_stat_75_1_1_crosscountry_and_raleigh_realty",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "70965642_third_cause_of_action_civil_conspiracy_crosscountry_and_raleigh_realty",
+				"probability_fully_dismissed": 0.68
+			}
+		]
+	},
+	{
+		"case_id": "72213663",
+		"raw_output_sha256": "sha256:3bea19c0e22172df39b29c0af6dcdcc36365ba844f968f420d0ccdb2f042ea3a",
+		"predictions": [
+			{
+				"unit_id": "72213663_claim_i_defamation_per_se_united_airlines_inc",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "72213663_claim_ii_tortious_interference_with_employment_united_airlines_inc",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "72213663_claim_iii_fraudulent_misrepresentation_united_airlines_inc",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "72213663_claim_iv_civil_extortion_united_airlines_inc",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "72213663_claim_v_intentional_infliction_of_emotional_distress_united_airlines_inc",
+				"probability_fully_dismissed": 0.95
+			},
+			{
+				"unit_id": "72213663_claim_vi_civil_assault_united_airlines_inc",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72213663_claim_vii_tortious_interference_with_federal_duties_united_airlines_inc",
+				"probability_fully_dismissed": 0.99
+			}
+		]
+	},
+	{
+		"case_id": "69945573",
+		"raw_output_sha256": "sha256:c0777ed5f24655a2330834174cb65b86fad2cb734e39af52cce20a4dcd796371",
+		"predictions": [
+			{
+				"unit_id": "69945573_unnumbered_claim_failure_to_accommodate_under_section_504_of_the_rehabilitation_act_state_of_new_york_and_dmv",
+				"probability_fully_dismissed": 0.38
+			}
+		]
+	},
+	{
+		"case_id": "69437817",
+		"raw_output_sha256": "sha256:c1bb52ca627b2021cbf31e051eebbb8a271ce3db56e6703a7ba36e6c43e12e59",
+		"predictions": [
+			{
+				"unit_id": "69437817_count_i_patent_infringement_of_u_s_reissue_patent_no_re50_016_under_35_u_s_c_101_invalidity_carbyne_inc_and_carbyne_ltd",
+				"probability_fully_dismissed": 0.46
+			}
+		]
+	},
+	{
+		"case_id": "70754103",
+		"raw_output_sha256": "sha256:7c7d1bc12781852110042d515efe74824b8cac5784588eda43b57ba782a56c3a",
+		"predictions": [
+			{
+				"unit_id": "70754103_count_i_42_u_s_c_1983_fourteenth_amendment_due_process_individual_school_district_employee_defendants",
+				"probability_fully_dismissed": 0.76
+			},
+			{
+				"unit_id": "70754103_count_ii_42_u_s_c_1983_fourteenth_amendment_municipal_liability_paradise_valley_unified_school_district",
+				"probability_fully_dismissed": 0.84
+			},
+			{
+				"unit_id": "70754103_count_iii_title_ix_hostile_educational_environment_paradise_valley_unified_school_district",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "70754103_count_iv_42_u_s_c_1983_fourteenth_amendment_conspiracy_individual_school_district_employee_defendants",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "70754103_count_vii_loss_of_consortium_district_and_nine_school_employees",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "70754103_count_x_failure_to_report_nine_school_employees",
+				"probability_fully_dismissed": 0.7
+			}
+		]
+	},
+	{
+		"case_id": "72025962",
+		"raw_output_sha256": "sha256:d1ceed076a08aee75d6cb0fcfae44656672294decd0b3d04773c3f1c27b0aeec",
+		"predictions": [
+			{
+				"unit_id": "72025962_count_eight_joint_enterprise_all_defendants",
+				"probability_fully_dismissed": 0.86
+			},
+			{
+				"unit_id": "72025962_count_five_conspiracy_to_evade_and_or_violate_export_restrictions_all_defendants",
+				"probability_fully_dismissed": 0.99
+			},
+			{
+				"unit_id": "72025962_count_four_gross_negligence_all_defendants",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "72025962_count_nine_wrongful_death_all_defendants",
+				"probability_fully_dismissed": 0.75
+			},
+			{
+				"unit_id": "72025962_count_one_negligence_manufacturers_manufacturing_defendants",
+				"probability_fully_dismissed": 0.73
+			},
+			{
+				"unit_id": "72025962_count_seven_fraudulent_concealment_by_nondisclosure_all_defendants",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "72025962_count_six_assisting_and_encouraging_tortious_conduct_all_defendants",
+				"probability_fully_dismissed": 0.92
+			},
+			{
+				"unit_id": "72025962_count_ten_survival_action_all_defendants",
+				"probability_fully_dismissed": 0.82
+			},
+			{
+				"unit_id": "72025962_count_three_negligence_per_se_all_defendants",
+				"probability_fully_dismissed": 0.95
+			},
+			{
+				"unit_id": "72025962_count_two_negligence_distributor_mouser_electronics_inc",
+				"probability_fully_dismissed": 0.78
+			}
+		]
+	},
+	{
+		"case_id": "72329372",
+		"raw_output_sha256": "sha256:96726a90c1da04c90697bf1f2254dc3d37e2d16fb6b061210c712af8472069ad",
+		"predictions": [
+			{
+				"unit_id": "72329372_count_i_copyright_infringement_alexy_metals_ltd",
+				"probability_fully_dismissed": 0.4
+			}
+		]
+	},
+	{
+		"case_id": "68966872",
+		"raw_output_sha256": "sha256:8552a7cf890a71c53fc791399002ee39c2c5f92b30457dee918ec038f9f0d0db",
+		"predictions": [
+			{
+				"unit_id": "68966872_count_1_legal_malpractice_negligence_dante_pride_and_the_pride_law_firm",
+				"probability_fully_dismissed": 0.63
+			},
+			{
+				"unit_id": "68966872_count_2_breach_of_fiduciary_duty_dante_pride_and_the_pride_law_firm",
+				"probability_fully_dismissed": 0.67
+			}
+		]
+	},
+	{
+		"case_id": "72502147",
+		"raw_output_sha256": "sha256:fa07a2dac4e8e85c88a2551c26a53337340d3429460b03ee061c0f7061775ce6",
+		"predictions": [
+			{
+				"unit_id": "72502147_claim_5_disability_discrimination_jacobus_energy_llc",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "72502147_claim_6_failure_to_accommodate_jacobus_energy_llc",
+				"probability_fully_dismissed": 0.86
+			},
+			{
+				"unit_id": "72502147_claim_7_failure_to_engage_in_the_interactive_process_jacobus_energy_llc",
+				"probability_fully_dismissed": 0.84
+			}
+		]
+	},
+	{
+		"case_id": "71954764",
+		"raw_output_sha256": "sha256:6a7a394bd32a50785dbe5bba2d08260bb33af8035212deb9ddc2f8883105cf30",
+		"predictions": [
+			{
+				"unit_id": "71954764_fifth_count_individual_liability_alter_ego_veil_piercing_joseph_garcia",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "71954764_first_count_false_advertising_and_commercial_disparagement_under_the_lanham_act_jersey_drive_services_llc_and_joseph_garcia",
+				"probability_fully_dismissed": 0.38
+			},
+			{
+				"unit_id": "71954764_fourth_count_unjust_enrichment_jersey_drive_services_llc_and_joseph_garcia",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "71954764_second_count_defamation_libel_and_slander_jersey_drive_services_llc_and_joseph_garcia",
+				"probability_fully_dismissed": 0.28
+			},
+			{
+				"unit_id": "71954764_third_count_tortious_interference_with_prospective_economic_advantage_jersey_drive_services_llc_and_joseph_garcia",
+				"probability_fully_dismissed": 0.4
+			},
+			{
+				"unit_id": "71954764_third_count_unfair_competition_jersey_drive_services_llc_and_joseph_garcia",
+				"probability_fully_dismissed": 0.5
+			}
+		]
+	},
+	{
+		"case_id": "72505500",
+		"raw_output_sha256": "sha256:be2a6218c9d515bfa7948b57a523c7885bf049ff36e1c7ec18cd4d553c9837ad",
+		"predictions": [
+			{
+				"unit_id": "72505500_count_i_race_discrimination_under_r_c_4112_samsung_electronics_america_inc",
+				"probability_fully_dismissed": 0.95
+			},
+			{
+				"unit_id": "72505500_count_i_race_discrimination_under_r_c_4112_smartthings_inc",
+				"probability_fully_dismissed": 0.68
+			},
+			{
+				"unit_id": "72505500_count_ii_retaliation_under_r_c_4112_samsung_electronics_america_inc",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "72505500_count_ii_retaliation_under_r_c_4112_smartthings_inc",
+				"probability_fully_dismissed": 0.69
+			}
+		]
+	},
+	{
+		"case_id": "72016262",
+		"raw_output_sha256": "sha256:0e9a096b3501b85bc089b17200cd1e344e395c06a9e723b6f4cc0c19c26c0de6",
+		"predictions": [
+			{
+				"unit_id": "72016262_count_i_deprivation_of_civil_rights_due_process_violation_under_42_u_s_c_1983_pape_machinery",
+				"probability_fully_dismissed": 0.87
+			},
+			{
+				"unit_id": "72016262_count_ii_fraud_pape_machinery",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "72016262_count_iii_civil_rico_racketeer_influenced_and_corrupt_organizations_act_18_u_s_c_1961_1964_pape_machinery",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "72016262_count_vi_conspiracy_to_deprive_civil_rights_under_42_u_s_c_1985_3_pape_machinery",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "72016262_count_vii_abuse_of_official_process_pape_machinery",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "72016262_count_vii_constructive_fraud_pape_machinery",
+				"probability_fully_dismissed": 0.95
+			}
+		]
+	},
+	{
+		"case_id": "72242510",
+		"raw_output_sha256": "sha256:e4d18168f393cb8fecc226f9af1c4e135b39a800592a7ccd76cb36da1701e374",
+		"predictions": [
+			{
+				"unit_id": "72242510_fifth_cause_of_action_violation_of_the_fourteenth_amendment_s_due_process_clause_vagueness_mdcr_and_mcrc_defendants",
+				"probability_fully_dismissed": 0.79
+			},
+			{
+				"unit_id": "72242510_first_cause_of_action_violation_of_the_first_amendment_rights_to_expressive_association_and_assembly_mdcr_and_mcrc_defendants",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "72242510_fourth_cause_of_action_violation_of_the_first_amendment_s_rights_to_religious_autonomy_the_ministerial_exception_and_the_co_religionist_doctrine_mdcr_and_mcrc_defendants",
+				"probability_fully_dismissed": 0.75
+			},
+			{
+				"unit_id": "72242510_second_cause_of_action_violation_of_the_first_amendment_rights_to_freedom_of_speech_and_press_mdcr_and_mcrc_defendants",
+				"probability_fully_dismissed": 0.7
+			},
+			{
+				"unit_id": "72242510_seventh_cause_of_action_violation_of_the_fourteenth_amendment_s_procedural_due_process_clause_mdcr_and_mcrc_defendants",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "72242510_sixth_cause_of_action_violation_of_the_fourteenth_amendment_s_due_process_and_privileges_and_immunities_rights_to_refrain_from_taking_human_life_mdcr_and_mcrc_defendants",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "72242510_third_cause_of_action_violation_of_the_first_amendment_s_right_to_free_exercise_mdcr_and_mcrc_defendants",
+				"probability_fully_dismissed": 0.76
+			}
+		]
+	},
+	{
+		"case_id": "69066691",
+		"raw_output_sha256": "sha256:7ed72dc3a6c101b4a106d8a6717baf5299a0d2ccedd0843f5e412294239bd03a",
+		"predictions": [
+			{
+				"unit_id": "69066691_unnumbered_claim_breach_of_contract_failure_to_honor_administrative_leave_promise_and_back_pay_frank_bisignano",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_constructive_discharge_discriminatory_forced_resignation_frank_bisignano",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_denial_of_union_representation_weingarten_rights_violation_frank_bisignano",
+				"probability_fully_dismissed": 0.89
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_destruction_spoliation_of_evidence_and_obstruction_of_justice_frank_bisignano",
+				"probability_fully_dismissed": 0.91
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_failure_to_pay_overtime_unpaid_wages_frank_bisignano",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_family_and_medical_leave_act_denial_of_leave_frank_bisignano",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_freedom_of_information_act_denial_of_requested_evidence_frank_bisignano",
+				"probability_fully_dismissed": 0.95
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_hostile_work_environment_harassment_based_on_disability_frank_bisignano",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_rehabilitation_act_failure_to_provide_reasonable_accommodation_disability_discrimination_frank_bisignano",
+				"probability_fully_dismissed": 0.92
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_retaliation_for_whistleblowing_protected_activity_frank_bisignano",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "69066691_unnumbered_claim_wrongful_suspension_adverse_employment_action_frank_bisignano",
+				"probability_fully_dismissed": 0.92
+			}
+		]
+	},
+	{
+		"case_id": "73157701",
+		"raw_output_sha256": "sha256:f1cf9a40283a52d8a4009c0d172ed76365e12fbb0852ec223bac824cb74d0b9e",
+		"predictions": [
+			{
+				"unit_id": "73157701_count_iv_defamation_per_se_meta_platforms_inc",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "73157701_count_v_false_light_invasion_of_privacy_meta_platforms_inc",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "73157701_count_vi_intentional_infliction_of_emotional_distress_meta_platforms_inc",
+				"probability_fully_dismissed": 0.97
+			},
+			{
+				"unit_id": "73157701_count_vii_algorithmic_amplification_liability_meta_platforms_inc",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "73157701_count_viii_tortious_interference_with_contract_and_prospective_economic_advantage_meta_platforms_inc",
+				"probability_fully_dismissed": 0.96
+			}
+		]
+	},
+	{
+		"case_id": "72059948",
+		"raw_output_sha256": "sha256:4a63f92efa8d541d32eb229ffa16568a77a24f32d2e7424a585db38697eff899",
+		"predictions": [
+			{
+				"unit_id": "72059948_count_i_circumvention_of_technological_measures_serpapi_llc",
+				"probability_fully_dismissed": 0.24
+			},
+			{
+				"unit_id": "72059948_count_ii_trafficking_in_technology_designed_for_circumvention_of_technological_measures_serpapi_llc",
+				"probability_fully_dismissed": 0.28
+			}
+		]
+	},
+	{
+		"case_id": "71169233",
+		"raw_output_sha256": "sha256:20a29ec24ac325e274c7c489766339f9cc7a9e7aa2495c115669c91fbece0f44",
+		"predictions": [
+			{
+				"unit_id": "71169233_count_i_failure_to_pay_overtime_wages_in_violation_of_the_flsa_the_city_of_new_york",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "71169233_count_ii_failure_to_pay_minimum_wages_in_violation_of_the_flsa_the_city_of_new_york",
+				"probability_fully_dismissed": 0.93
+			},
+			{
+				"unit_id": "71169233_count_iii_failure_to_pay_overtime_wages_in_a_timely_manner_in_violation_of_the_flsa_the_city_of_new_york",
+				"probability_fully_dismissed": 0.94
+			}
+		]
+	},
+	{
+		"case_id": "71899546",
+		"raw_output_sha256": "sha256:f9e84564c378f61e12cfeff939f140c055d557203837cb7c8c8a781eb4f62480",
+		"predictions": [
+			{
+				"unit_id": "71899546_count_i_unreasonable_search_and_seizure_42_u_s_c_1983_hennepin_county_deputies_count_i",
+				"probability_fully_dismissed": 0.48
+			},
+			{
+				"unit_id": "71899546_count_ii_first_amendment_retaliation_42_u_s_c_1983_hennepin_county_deputies_count_ii",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "71899546_count_iii_excessive_force_42_u_s_c_1983_hennepin_county_deputies_count_iii",
+				"probability_fully_dismissed": 0.56
+			},
+			{
+				"unit_id": "71899546_count_iv_civil_conspiracy_42_u_s_c_1983_hennepin_county_deputies_count_iv",
+				"probability_fully_dismissed": 0.84
+			},
+			{
+				"unit_id": "71899546_count_v_respondeat_superior_hennepin_county",
+				"probability_fully_dismissed": 0.999
+			},
+			{
+				"unit_id": "71899546_count_vi_monell_municipal_liability_42_u_s_c_1983_hennepin_county",
+				"probability_fully_dismissed": 0.91
+			}
+		]
+	},
+	{
+		"case_id": "71396055",
+		"raw_output_sha256": "sha256:c057b43aa7720521abee8a3f1cc40c17d76d09ab89d9129870425e19cc11dc0d",
+		"predictions": [
+			{
+				"unit_id": "71396055_first_cause_of_action_violation_of_washington_consumer_protection_act_cpa_sps_and_u_s_bank_cpa",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "71396055_second_cause_of_action_declaratory_relief_to_set_aside_void_trustee_s_sale_and_quiet_title_sps_and_u_s_bank_declaratory_relief_quiet_title",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "71396055_third_cause_of_action_violation_of_real_estate_settlement_procedures_act_respa_select_portfolio_servicing_inc",
+				"probability_fully_dismissed": 0.88
+			}
+		]
+	},
+	{
+		"case_id": "70308595",
+		"raw_output_sha256": "sha256:10e0d86781eb842f8c901304adbd147a55558de1135ba3b492dd433066046a6d",
+		"predictions": [
+			{
+				"unit_id": "70308595_count_i_failure_to_accommodate_earthlink_llc",
+				"probability_fully_dismissed": 0.4
+			},
+			{
+				"unit_id": "70308595_count_ii_retaliation_earthlink_llc",
+				"probability_fully_dismissed": 0.7
+			},
+			{
+				"unit_id": "70308595_count_iii_disability_discrimination_disparate_treatment_earthlink_llc",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "70308595_count_iv_unlawful_medical_disclosure_earthlink_llc",
+				"probability_fully_dismissed": 0.62
+			},
+			{
+				"unit_id": "70308595_count_v_intentional_infliction_of_emotional_distress_earthlink_llc",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70308595_count_vi_hostile_work_environment_earthlink_llc",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "70308595_count_vii_pattern_of_unequal_treatment_and_retaliation_earthlink_llc",
+				"probability_fully_dismissed": 0.88
+			}
+		]
+	},
+	{
+		"case_id": "72449171",
+		"raw_output_sha256": "sha256:77a9abc815d2737de0e67a3837e4c57374ec0d2a4b126ce2de1b6f163094d8ab",
+		"predictions": [
+			{
+				"unit_id": "72449171_unnumbered_claim_bivens_fifth_amendment_due_process_wrongful_appellate_classification_and_denial_of_access_to_courts_kelly_l_stephens",
+				"probability_fully_dismissed": 0.88
+			}
+		]
+	},
+	{
+		"case_id": "71280017",
+		"raw_output_sha256": "sha256:dc571621226702604dd69e8976a1f7c82dd71740d3dd35c5b5ddb9a4072f712d",
+		"predictions": [
+			{
+				"unit_id": "71280017_count_1_42_u_s_c_1983_fourth_and_fourteenth_amendment_excessive_force_officer_stephen_d_buice",
+				"probability_fully_dismissed": 0.3
+			},
+			{
+				"unit_id": "71280017_count_1_georgia_constitution_officer_stephen_d_buice",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "71280017_count_3_state_law_wrongful_death_officer_stephen_d_buice",
+				"probability_fully_dismissed": 0.3
+			}
+		]
+	},
+	{
+		"case_id": "68468414",
+		"raw_output_sha256": "sha256:74d7da6e6d9ddaeb5175e7f7438bddcdc34203a2b8d825b8c757cdb4272a5d1d",
+		"predictions": [
+			{
+				"unit_id": "68468414_unnumbered_claim_equal_pay_act_retaliation_shelby_county_government",
+				"probability_fully_dismissed": 0.56
+			},
+			{
+				"unit_id": "68468414_unnumbered_claim_equal_pay_act_sex_based_wage_discrimination_shelby_county_government",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "68468414_unnumbered_claim_equal_pay_act_sex_based_wage_discrimination_shelby_county_government_support_services_fleet_services_department",
+				"probability_fully_dismissed": 0.74
+			}
+		]
+	},
+	{
+		"case_id": "72089650",
+		"raw_output_sha256": "sha256:f651310a77af1a5120e6af1d1d5b30c182f17f85f28ffc8eac2b2406f1f09acd",
+		"predictions": [
+			{
+				"unit_id": "72089650_unnumbered_claim_violation_of_18_u_s_c_1595_tvpra_beneficiary_liability_esa_defendants",
+				"probability_fully_dismissed": 0.32
+			}
+		]
+	},
+	{
+		"case_id": "72197684",
+		"raw_output_sha256": "sha256:6993d73b0736b74f9e36ff8b92a17f8b59243b5ab69c19b9a42bb9d1319911f8",
+		"predictions": [
+			{
+				"unit_id": "72197684_count_10_vicarious_liability_for_violations_of_the_computer_fraud_and_abuse_act_the_northern_trust_company",
+				"probability_fully_dismissed": 0.83
+			},
+			{
+				"unit_id": "72197684_count_1_civil_exploitation_of_a_vulnerable_adult_the_northern_trust_company",
+				"probability_fully_dismissed": 0.62
+			},
+			{
+				"unit_id": "72197684_count_2_vicarious_liability_for_civil_exploitation_of_a_vulnerable_adult_the_northern_trust_company",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "72197684_count_3_fraud_the_northern_trust_company",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "72197684_count_4_vicarious_liability_for_fraud_the_northern_trust_company",
+				"probability_fully_dismissed": 0.75
+			},
+			{
+				"unit_id": "72197684_count_6_vicarious_liability_for_breach_of_fiduciary_duty_the_northern_trust_company",
+				"probability_fully_dismissed": 0.48
+			},
+			{
+				"unit_id": "72197684_count_9_violation_of_the_computer_fraud_and_abuse_act_the_northern_trust_company",
+				"probability_fully_dismissed": 0.86
+			}
+		]
+	},
+	{
+		"case_id": "69040771",
+		"raw_output_sha256": "sha256:34ac085dc6b219d7c726c76d2aa55fa268d4bd80c897d9ee286f0b588fe5d10a",
+		"predictions": [
+			{
+				"unit_id": "69040771_count_i_violation_of_connecticut_unfair_trade_practices_act_lesserevil_llc",
+				"probability_fully_dismissed": 0.995
+			},
+			{
+				"unit_id": "69040771_count_ii_illinois_consumer_fraud_and_deceptive_business_practices_act_lesserevil_llc",
+				"probability_fully_dismissed": 0.3
+			},
+			{
+				"unit_id": "69040771_count_iii_violation_of_magnuson_moss_warranty_act_lesserevil_llc",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "69040771_count_iv_breach_of_implied_warranty_lesserevil_llc",
+				"probability_fully_dismissed": 0.6
+			},
+			{
+				"unit_id": "69040771_count_v_breach_of_express_warranty_lesserevil_llc",
+				"probability_fully_dismissed": 0.65
+			},
+			{
+				"unit_id": "69040771_count_vi_quasi_contract_unjust_enrichment_lesserevil_llc",
+				"probability_fully_dismissed": 0.35
+			}
+		]
+	},
+	{
+		"case_id": "72038409",
+		"raw_output_sha256": "sha256:15e4800e4f8695b3f2e179a91391c3aeebeb59c51fc29591fabba9980cb357ca",
+		"predictions": [
+			{
+				"unit_id": "72038409_unnumbered_claim_title_vii_hostile_work_environment_brotherhood_mutual_insurance_company",
+				"probability_fully_dismissed": 0.86
+			},
+			{
+				"unit_id": "72038409_unnumbered_claim_title_vii_race_and_national_origin_discrimination_brotherhood_mutual_insurance_company",
+				"probability_fully_dismissed": 0.86
+			},
+			{
+				"unit_id": "72038409_unnumbered_claim_title_vii_retaliation_brotherhood_mutual_insurance_company",
+				"probability_fully_dismissed": 0.86
+			}
+		]
+	},
+	{
+		"case_id": "71929529",
+		"raw_output_sha256": "sha256:43a2d669164cddd144e58c0a9ec0c88191f70f96af5daf97a06f5c70c7ad640a",
+		"predictions": [
+			{
+				"unit_id": "71929529_count_1_violation_of_the_credit_repair_organizations_act_croa_oquirrh_mountain_law_group_p_c",
+				"probability_fully_dismissed": 0.64
+			},
+			{
+				"unit_id": "71929529_count_2_breach_of_contract_and_breach_of_the_implied_covenant_of_good_faith_and_fair_dealing_oquirrh_mountain_law_group_p_c",
+				"probability_fully_dismissed": 0.67
+			},
+			{
+				"unit_id": "71929529_count_3_fraud_oquirrh_mountain_law_group_p_c",
+				"probability_fully_dismissed": 0.66
+			},
+			{
+				"unit_id": "71929529_count_4_negligent_misrepresentation_oquirrh_mountain_law_group_p_c",
+				"probability_fully_dismissed": 0.66
+			},
+			{
+				"unit_id": "71929529_count_5_unjust_enrichment_oquirrh_mountain_law_group_p_c",
+				"probability_fully_dismissed": 0.7
+			}
+		]
+	},
+	{
+		"case_id": "70751199",
+		"raw_output_sha256": "sha256:06b0c639209cd87f89fc260fdba11936b3508ebb1dc4835c095525f4ce9a4f98",
+		"predictions": [
+			{
+				"unit_id": "70751199_count_i_violation_of_15_u_s_c_1681e_b_failure_to_follow_reasonable_procedures_to_assure_maximum_possible_accuracy_mib_llc",
+				"probability_fully_dismissed": 0.28
+			},
+			{
+				"unit_id": "70751199_count_ii_violation_of_15_u_s_c_1681i_failure_to_conduct_reasonable_reinvestigation_mib_llc",
+				"probability_fully_dismissed": 0.22
+			}
+		]
+	},
+	{
+		"case_id": "71212565",
+		"raw_output_sha256": "sha256:39203033f317210aee2bd510a9bd7fd4c0a2d3bc9fe8fd9d65f022c1c215f317",
+		"predictions": [
+			{
+				"unit_id": "71212565_count_i_fraud_barbara_and_valerie_mansilla_ortiz",
+				"probability_fully_dismissed": 0.62
+			},
+			{
+				"unit_id": "71212565_count_ii_intentional_interference_with_inheritance_barbara_and_valerie_mansilla_ortiz",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "71212565_count_iii_declaratory_judgment_barbara_and_valerie_mansilla_ortiz",
+				"probability_fully_dismissed": 0.46
+			}
+		]
+	},
+	{
+		"case_id": "73000896",
+		"raw_output_sha256": "sha256:47294f7ff835d33b4998e9e89eeb985a8037e5a24699e730582921fb19cfd99b",
+		"predictions": [
+			{
+				"unit_id": "73000896_unnumbered_claim_violation_of_15_u_s_c_1692e_8_failure_to_communicate_disputed_status_of_debt_hodosh_lyon_hammer_ltd",
+				"probability_fully_dismissed": 0.82
+			},
+			{
+				"unit_id": "73000896_unnumbered_claim_violation_of_15_u_s_c_1692e_false_deceptive_or_misleading_representations_hodosh_lyon_hammer_ltd",
+				"probability_fully_dismissed": 0.58
+			},
+			{
+				"unit_id": "73000896_unnumbered_claim_violation_of_15_u_s_c_1692f_unfair_or_unconscionable_means_to_collect_a_debt_hodosh_lyon_hammer_ltd",
+				"probability_fully_dismissed": 0.83
+			},
+			{
+				"unit_id": "73000896_unnumbered_claim_violation_of_15_u_s_c_1692g_b_continued_collection_activity_after_timely_written_dispute_without_providing_validation_hodosh_lyon_hammer_ltd",
+				"probability_fully_dismissed": 0.68
+			}
+		]
+	},
+	{
+		"case_id": "72045680",
+		"raw_output_sha256": "sha256:cf2b2604c5622fa67118dacf81742c76bae072b11027177d6e9e5a351578bb92",
+		"predictions": [
+			{
+				"unit_id": "72045680_count_i_violation_of_the_computer_fraud_and_abuse_act_18_u_s_c_1030_individual_defendants",
+				"probability_fully_dismissed": 0.63
+			},
+			{
+				"unit_id": "72045680_count_i_violation_of_the_computer_fraud_and_abuse_act_18_u_s_c_1030_the_carol_jeanette_christian_revocable_trust",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "72045680_count_ii_computer_trespass_n_c_g_s_14_458_individual_defendants",
+				"probability_fully_dismissed": 0.64
+			},
+			{
+				"unit_id": "72045680_count_ii_computer_trespass_n_c_g_s_14_458_the_carol_jeanette_christian_revocable_trust",
+				"probability_fully_dismissed": 0.74
+			},
+			{
+				"unit_id": "72045680_count_iii_intentional_intrusion_upon_seclusion_individual_defendants",
+				"probability_fully_dismissed": 0.6
+			},
+			{
+				"unit_id": "72045680_count_iii_intentional_intrusion_upon_seclusion_the_carol_jeanette_christian_revocable_trust",
+				"probability_fully_dismissed": 0.7
+			},
+			{
+				"unit_id": "72045680_count_iv_conversion_individual_defendants",
+				"probability_fully_dismissed": 0.6
+			},
+			{
+				"unit_id": "72045680_count_iv_conversion_the_carol_jeanette_christian_revocable_trust",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "72045680_count_vii_civil_conspiracy_individual_defendants",
+				"probability_fully_dismissed": 0.55
+			},
+			{
+				"unit_id": "72045680_count_vii_civil_conspiracy_the_carol_jeanette_christian_revocable_trust",
+				"probability_fully_dismissed": 0.78
+			}
+		]
+	},
+	{
+		"case_id": "71946889",
+		"raw_output_sha256": "sha256:bba509a21f4cbb7128ea975484267129c8e0004e646187e890b89d22c79bad4e",
+		"predictions": [
+			{
+				"unit_id": "71946889_count_i_breach_of_contract_swank_llc",
+				"probability_fully_dismissed": 0.12
+			},
+			{
+				"unit_id": "71946889_count_ii_account_stated_swank_llc",
+				"probability_fully_dismissed": 0.17
+			},
+			{
+				"unit_id": "71946889_count_iii_unjust_enrichment_quantum_meruit_swank_llc",
+				"probability_fully_dismissed": 0.1
+			}
+		]
+	},
+	{
+		"case_id": "70350490",
+		"raw_output_sha256": "sha256:d0a67fce222b03ec6967d9ade47e70ba0de7b302f1f40776129d331b5f68cf06",
+		"predictions": [
+			{
+				"unit_id": "70350490_count_i_race_discrimination_in_violation_of_title_vii_transdev_services_inc_direct_termination_2023_02_02",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "70350490_count_i_race_discrimination_in_violation_of_title_vii_transdev_services_inc_postemployment_interference_2023_11_27",
+				"probability_fully_dismissed": 0.82
+			},
+			{
+				"unit_id": "70350490_count_ii_retaliation_in_violation_of_title_vii_transdev_services_inc_direct_termination_2023_02_02",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "70350490_count_ii_retaliation_in_violation_of_title_vii_transdev_services_inc_postemployment_interference_2023_11_27",
+				"probability_fully_dismissed": 0.62
+			}
+		]
+	},
+	{
+		"case_id": "72370778",
+		"raw_output_sha256": "sha256:c435bd21e544f2e8d66c33e015c52f8ceb4e7147b9c4f58a8af7dce4865a034a",
+		"predictions": [
+			{
+				"unit_id": "72370778_count_i_failure_to_conduct_a_reasonable_reinvestigation_experian_information_solutions_inc",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "72370778_count_ii_failure_to_follow_reasonable_procedures_to_assure_maximum_possible_accuracy_experian_information_solutions_inc",
+				"probability_fully_dismissed": 0.84
+			}
+		]
+	},
+	{
+		"case_id": "69657935",
+		"raw_output_sha256": "sha256:72f9959b6592e3c4973df3ecfa04cc1e65f1a31da57e483093dcbb6bea9df347",
+		"predictions": [
+			{
+				"unit_id": "69657935_unnumbered_claim_title_vii_hostile_work_environment_cassie_darnell",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "69657935_unnumbered_claim_title_vii_hostile_work_environment_douglas_a_collins",
+				"probability_fully_dismissed": 0.91
+			},
+			{
+				"unit_id": "69657935_unnumbered_claim_title_vii_hostile_work_environment_james_leahy",
+				"probability_fully_dismissed": 0.98
+			}
+		]
+	},
+	{
+		"case_id": "70561752",
+		"raw_output_sha256": "sha256:153e9b1bfbb040d63b23da45b574b183d7544b98e7a213b01323841718322f51",
+		"predictions": [
+			{
+				"unit_id": "70561752_first_cause_of_action_failure_to_accommodate_religious_beliefs_in_violation_of_the_new_york_city_human_rights_law_the_city_of_new_york",
+				"probability_fully_dismissed": 0.74
+			},
+			{
+				"unit_id": "70561752_first_cause_of_action_nychrl_accommodation_new_york_city_police_department",
+				"probability_fully_dismissed": 0.985
+			}
+		]
+	},
+	{
+		"case_id": "71194192",
+		"raw_output_sha256": "sha256:b5522c74ed36cae2a6cf89b348ef528d36c87fca31ab220a4ee7a1222dd5fd9e",
+		"predictions": [
+			{
+				"unit_id": "71194192_count_i_breach_of_contract_all_defendants",
+				"probability_fully_dismissed": 0.82
+			},
+			{
+				"unit_id": "71194192_count_ii_defamation_per_se_all_defendants",
+				"probability_fully_dismissed": 0.62
+			},
+			{
+				"unit_id": "71194192_count_iii_specific_performance_all_defendants",
+				"probability_fully_dismissed": 0.83
+			},
+			{
+				"unit_id": "71194192_count_iv_injunctive_relief_all_defendants",
+				"probability_fully_dismissed": 0.81
+			},
+			{
+				"unit_id": "71194192_count_v_tortious_interference_with_business_relations_all_defendants",
+				"probability_fully_dismissed": 0.63
+			},
+			{
+				"unit_id": "71194192_count_vi_fraud_in_the_inducement_all_defendants",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "71194192_count_vii_declaratory_judgment_all_defendants",
+				"probability_fully_dismissed": 0.8
+			}
+		]
+	},
+	{
+		"case_id": "72001561",
+		"raw_output_sha256": "sha256:8e086dd40933251f830f62347f5b53fa0aee0c92ac6b8f59f4ee91d90a5a81d1",
+		"predictions": [
+			{
+				"unit_id": "72001561_count_f_strict_liability_products_liability_breach_of_express_warranty_failure_to_conform_to_express_factual_representations_globus_defendants",
+				"probability_fully_dismissed": 0.62
+			},
+			{
+				"unit_id": "72001561_count_f_strict_liability_products_liability_design_defect_globus_defendants",
+				"probability_fully_dismissed": 0.65
+			},
+			{
+				"unit_id": "72001561_count_f_strict_liability_products_liability_failure_to_warn_globus_defendants",
+				"probability_fully_dismissed": 0.7
+			},
+			{
+				"unit_id": "72001561_count_f_strict_liability_products_liability_manufacturing_defect_globus_defendants",
+				"probability_fully_dismissed": 0.48
+			},
+			{
+				"unit_id": "72001561_count_g_breach_of_implied_warranty_globus_defendants",
+				"probability_fully_dismissed": 0.92
+			}
+		]
+	},
+	{
+		"case_id": "72332229",
+		"raw_output_sha256": "sha256:f0def858e001ca924ff4301aaae6f1dd63645d66146ef5b78b990b0f1a755e77",
+		"predictions": [
+			{
+				"unit_id": "72332229_count_five_first_amendment_violations_u_s_const_amend_i_carroll_county_civic_center",
+				"probability_fully_dismissed": 0.95
+			},
+			{
+				"unit_id": "72332229_count_five_first_amendment_violations_u_s_const_amend_i_carroll_county_tennessee",
+				"probability_fully_dismissed": 0.84
+			},
+			{
+				"unit_id": "72332229_count_four_violation_of_privileges_and_immunities_u_s_const_amend_xiv_1_carroll_county_civic_center",
+				"probability_fully_dismissed": 0.95
+			},
+			{
+				"unit_id": "72332229_count_four_violation_of_privileges_and_immunities_u_s_const_amend_xiv_1_carroll_county_tennessee",
+				"probability_fully_dismissed": 0.86
+			},
+			{
+				"unit_id": "72332229_count_one_discrimination_in_federally_assisted_programs_title_vi_carroll_county_civic_center",
+				"probability_fully_dismissed": 0.92
+			},
+			{
+				"unit_id": "72332229_count_one_discrimination_in_federally_assisted_programs_title_vi_carroll_county_tennessee",
+				"probability_fully_dismissed": 0.8
+			},
+			{
+				"unit_id": "72332229_count_three_civil_action_for_deprivation_of_rights_42_u_s_c_1983_carroll_county_civic_center",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "72332229_count_three_civil_action_for_deprivation_of_rights_42_u_s_c_1983_carroll_county_tennessee",
+				"probability_fully_dismissed": 0.88
+			},
+			{
+				"unit_id": "72332229_count_two_equal_rights_under_the_law_42_u_s_c_1981_carroll_county_civic_center",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "72332229_count_two_equal_rights_under_the_law_42_u_s_c_1981_carroll_county_tennessee",
+				"probability_fully_dismissed": 0.87
+			},
+			{
+				"unit_id": "72332229_unnumbered_claim_negligent_infliction_of_emotional_distress_carroll_county_civic_center",
+				"probability_fully_dismissed": 0.94
+			},
+			{
+				"unit_id": "72332229_unnumbered_claim_negligent_infliction_of_emotional_distress_carroll_county_tennessee",
+				"probability_fully_dismissed": 0.9
+			}
+		]
+	},
+	{
+		"case_id": "70573340",
+		"raw_output_sha256": "sha256:c37cfe9af8b951c65b8b78dbe31c25928820cf6a69a1f00e86807725465f4d08",
+		"predictions": [
+			{
+				"unit_id": "70573340_count_i_contributory_secondary_copyright_infringement_hachette_book_group_inc",
+				"probability_fully_dismissed": 0.96
+			},
+			{
+				"unit_id": "70573340_count_i_copyright_infringement_under_international_copyright_law_universal_copyright_convention_and_berne_convention_hachette_book_group_inc",
+				"probability_fully_dismissed": 0.98
+			},
+			{
+				"unit_id": "70573340_count_i_direct_copyright_infringement_creation_and_distribution_of_derivative_works_hachette_book_group_inc",
+				"probability_fully_dismissed": 0.9
+			},
+			{
+				"unit_id": "70573340_count_i_direct_copyright_infringement_reproduction_of_cover_art_slow_heat_in_heaven_hachette_book_group_inc",
+				"probability_fully_dismissed": 0.995
+			}
+		]
+	},
+	{
+		"case_id": "69570756",
+		"raw_output_sha256": "sha256:2c357fd469e2b92e7eb0b9b0233c5e921c529fcf32e082374be05667cc62c80b",
+		"predictions": [
+			{
+				"unit_id": "69570756_count_i_breach_of_contract_nile",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "69570756_count_ii_unjust_enrichment_nile",
+				"probability_fully_dismissed": 0.66
+			}
+		]
+	},
+	{
+		"case_id": "71677178",
+		"raw_output_sha256": "sha256:43a5862ea56d112547ef26e3ede58b4090845914e8745c8eb1099dd555977c44",
+		"predictions": [
+			{
+				"unit_id": "71677178_count_i_violation_of_first_amendment_right_to_free_exercise_of_religion_42_u_s_c_1983_all_defendants_count_i",
+				"probability_fully_dismissed": 0.08
+			},
+			{
+				"unit_id": "71677178_count_ii_violation_of_fourteenth_amendment_right_to_substantive_due_process_42_u_s_c_1983_all_defendants_count_ii",
+				"probability_fully_dismissed": 0.8
+			},
+			{
+				"unit_id": "71677178_count_iii_violation_of_fourteenth_amendment_right_to_procedural_due_process_42_u_s_c_1983_all_defendants_count_iii",
+				"probability_fully_dismissed": 0.55
+			},
+			{
+				"unit_id": "71677178_count_iv_violation_of_right_to_free_exercise_of_religion_mass_const_amend_art_46_1_all_defendants_count_iv",
+				"probability_fully_dismissed": 0.15
+			},
+			{
+				"unit_id": "71677178_count_v_violation_of_right_to_direct_the_upbringing_and_religious_education_of_his_child_mass_decl_of_rights_art_12_all_defendants_count_v",
+				"probability_fully_dismissed": 0.25
+			},
+			{
+				"unit_id": "71677178_count_vi_violation_of_the_massachusetts_civil_rights_act_m_g_l_c_12_11i_individual_defendants_count_vi",
+				"probability_fully_dismissed": 0.65
+			}
+		]
+	},
+	{
+		"case_id": "73149878",
+		"raw_output_sha256": "sha256:0bd7df28963f4df8623f8224cb688cbf41d03967ae6ff025a98fd6ee66559e75",
+		"predictions": [
+			{
+				"unit_id": "73149878_count_two_42_u_s_c_1983_excessive_force_civil_rights_violations_metropolis_police_department",
+				"probability_fully_dismissed": 0.9
+			}
+		]
+	},
+	{
+		"case_id": "72239064",
+		"raw_output_sha256": "sha256:6bffb7e55c835d8de42d7639c8477b75c2d1a5eabac4827dc950df02af9b878d",
+		"predictions": [
+			{
+				"unit_id": "72239064_count_i_aiding_and_abetting_fraud_meta_platforms_inc",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "72239064_count_ii_breach_of_contract_meta_platforms_inc",
+				"probability_fully_dismissed": 0.7
+			},
+			{
+				"unit_id": "72239064_count_iii_breach_of_the_implied_covenant_of_good_faith_and_fair_dealing_meta_platforms_inc",
+				"probability_fully_dismissed": 0.79
+			},
+			{
+				"unit_id": "72239064_count_iv_promissory_estoppel_meta_platforms_inc",
+				"probability_fully_dismissed": 0.83
+			},
+			{
+				"unit_id": "72239064_count_v_negligence_meta_platforms_inc",
+				"probability_fully_dismissed": 0.78
+			},
+			{
+				"unit_id": "72239064_count_vii_unjust_enrichment_meta_platforms_inc",
+				"probability_fully_dismissed": 0.84
+			}
+		]
+	},
+	{
+		"case_id": "70499417",
+		"raw_output_sha256": "sha256:fe78869da268ddf5a1464571d8e1d027314a63b8dfb28d649cf17f3d20566fc6",
+		"predictions": [
+			{
+				"unit_id": "70499417_unnumbered_claim_appeal_of_merit_systems_protection_board_decision_5_cfr_part_7703_brooke_rollins_secretary_u_s_department_of_agriculture",
+				"probability_fully_dismissed": 0.35
+			},
+			{
+				"unit_id": "70499417_unnumbered_claim_title_vii_race_and_sex_discrimination_non_selection_brooke_rollins_secretary_u_s_department_of_agriculture",
+				"probability_fully_dismissed": 0.85
+			}
+		]
+	},
+	{
+		"case_id": "69300671",
+		"raw_output_sha256": "sha256:0c3423bea8422ea8c68cf5f5210913b24eaaf6eb7d20a8eefda603fd3461cb21",
+		"predictions": [
+			{
+				"unit_id": "69300671_count_1_agency_action_unlawfully_withheld_or_unreasonably_delayed_under_apa_706_1_all_defendants",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "69300671_count_2_agency_action_not_in_accordance_with_law_and_in_excess_of_statutory_authority_under_apa_706_2_a_c_all_defendants",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "69300671_count_3_declaratory_judgment_that_defendants_owe_nondiscretionary_duties_under_28_u_s_c_2201_a_all_defendants",
+				"probability_fully_dismissed": 0.75
+			},
+			{
+				"unit_id": "69300671_count_4_mandamus_relief_compelling_performance_of_nondiscretionary_duties_under_28_u_s_c_1361_all_defendants",
+				"probability_fully_dismissed": 0.76
+			}
+		]
+	},
+	{
+		"case_id": "72493808",
+		"raw_output_sha256": "sha256:393b2466c37fa4e563fcc18f3f959527b449eaca5dccd5f9b1f009225f4fb5ca",
+		"predictions": [
+			{
+				"unit_id": "72493808_count_i_violation_of_fdcpa_1692e_2_and_1692f_false_representation_of_debt_jcap_and_burton_count_i",
+				"probability_fully_dismissed": 0.42
+			},
+			{
+				"unit_id": "72493808_count_ii_violation_of_fdcpa_1692e_10_and_1692f_false_or_deceptive_means_to_collect_debt_jcap_and_burton_count_ii",
+				"probability_fully_dismissed": 0.45
+			},
+			{
+				"unit_id": "72493808_count_iii_violation_of_fdcpa_1692e_5_threatening_action_that_cannot_legally_be_taken_all_defendants_count_iii",
+				"probability_fully_dismissed": 0.84
+			}
+		]
+	},
+	{
+		"case_id": "72192698",
+		"raw_output_sha256": "sha256:c30c0d793cf31de1aad04e96ff25a9fba80668bdb282bb04e5e796706358c866",
+		"predictions": [
+			{
+				"unit_id": "72192698_count_one_apa_unreasonable_delay_unlawfully_withheld_agency_action_all_defendants",
+				"probability_fully_dismissed": 0.72
+			},
+			{
+				"unit_id": "72192698_count_three_mandamus_act_compel_adjudication_of_pending_applications_all_defendants",
+				"probability_fully_dismissed": 0.76
+			},
+			{
+				"unit_id": "72192698_count_two_apa_arbitrary_capricious_and_unlawful_final_agency_action_policy_challenge_all_defendants",
+				"probability_fully_dismissed": 0.28
+			}
+		]
+	}
+]

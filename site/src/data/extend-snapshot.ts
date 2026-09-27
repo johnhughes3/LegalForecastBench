@@ -20,7 +20,7 @@ export interface PublishedResult {
 	data: SiteExport;
 }
 
-const census = (units: SiteUnit[]) =>
+export const publicUnitCensus = (units: SiteUnit[]) =>
 	JSON.stringify(
 		units
 			.map((u) => [u.case_id, u.unit_id, u.outcome])
@@ -59,7 +59,7 @@ export function extendSnapshot(
 				original.cohort.dismissed_unit_count
 		)
 			throw new Error("Incompatible cohort counts");
-		const current = census(units);
+		const current = publicUnitCensus(units);
 		if (reference !== undefined && current !== reference)
 			throw new Error("Incompatible cohort unit identities or outcomes");
 		reference = current;

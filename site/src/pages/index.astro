@@ -4,12 +4,18 @@ import FindingCard from "../components/FindingCard.astro";
 import Leaderboard from "../components/Leaderboard";
 import ParetoChart from "../components/ParetoChart";
 import Stat from "../components/Stat.astro";
+import SupplementaryResults from "../components/SupplementaryResults.astro";
 import { publishedFindings } from "../data/findings";
 import { formatPercent } from "../data/metrics";
 import { snapshot } from "../data/results";
+import { supplementaryRows } from "../data/supplementary-results";
 import Layout from "../layouts/Layout.astro";
 
 const { cohort } = snapshot;
+const primarySnapshot = {
+	...snapshot,
+	models: snapshot.models.filter((model) => model.slug !== "gpt-4-1"),
+};
 const findings = (await publishedFindings()).slice(0, 3);
 const fmtDate = (iso: string) =>
 	new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -34,7 +40,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 			<div class="mt-12 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
 				<Stat value={String(cohort.case_count)} label="Federal cases" detail={`Decided ${window}`} />
 				<Stat value={String(cohort.unit_count)} label="Scored units" detail="Claim × defendant predictions" />
-				<Stat value={String(snapshot.models.length)} label="Model configurations" detail={`${new Set(snapshot.models.map((m) => m.provider)).size} providers`} />
+				<Stat value={String(snapshot.models.length)} label="Full-record configurations" detail={`${new Set(snapshot.models.map((m) => m.provider)).size} providers`} />
 				<Stat value={formatPercent(cohort.dismissed_unit_count / cohort.unit_count)} label="Dismissal base rate" detail="Units fully dismissed" />
 			</div>
 		</div>
@@ -68,7 +74,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 			</div>
 			<p class="max-w-md text-sm text-ink-3">Ranked by micro Brier, the headline metric. Lower is better. Click any column to re-sort.</p>
 		</div>
-		<Leaderboard client:load snapshot={snapshot} />
+		<Leaderboard client:load snapshot={primarySnapshot} />
 	</section>
 
 	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
@@ -95,10 +101,12 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 				<a class="mt-4 inline-flex text-sm font-medium text-accent hover:underline" href="/findings/confident-misses/">Why confident misses cost so much →</a>
 			</div>
 			<div class="card min-w-0 p-4 sm:p-6">
-				<ConfidenceChart snapshot={snapshot} />
+				<ConfidenceChart snapshot={primarySnapshot} />
 			</div>
 		</div>
 	</section>
+
+	<SupplementaryResults rows={supplementaryRows} />
 
 	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
 		<div class="mb-6 flex items-end justify-between gap-4">

@@ -6,7 +6,8 @@
 			"!src/generated",
 			"!src/data/fixtures",
 			"!dist",
-			"!.astro"
+			"!.astro",
+			"!public/data/summary-comparison/**/registry.json"
 		]
 	},
 	"css": {
