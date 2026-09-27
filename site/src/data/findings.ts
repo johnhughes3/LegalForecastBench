@@ -11,5 +11,11 @@ export async function publishedFindings(): Promise<
 		"findings",
 		(entry) => showDrafts || !entry.data.draft,
 	);
-	return entries.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+	const kindOrder = { report: 0, note: 1, critique: 2 } as const;
+	return entries.sort(
+		(a, b) =>
+			b.data.date.valueOf() - a.data.date.valueOf() ||
+			kindOrder[a.data.kind] - kindOrder[b.data.kind] ||
+			a.data.title.localeCompare(b.data.title),
+	);
 }

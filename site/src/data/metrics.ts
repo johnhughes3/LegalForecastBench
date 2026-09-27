@@ -106,7 +106,7 @@ export function sortedBy(
 
 export function formatUsd(value: number | null): string {
 	if (value === null) return "Unknown";
-	return value < 10 ? `$${value.toFixed(2)}` : `$${value.toFixed(2)}`;
+	return `$${value.toFixed(2)}`;
 }
 
 export function formatPercent(value: number, digits = 1): string {

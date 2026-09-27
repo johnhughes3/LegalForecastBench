@@ -7,7 +7,6 @@ models: [claude-fable-5-1, grok-4-6, claude-opus-5, gpt-5-6-sol, kimi-k3, gpt-5-
 ---
 
 import ConfidenceChart from "../../components/ConfidenceChart";
-import Leaderboard from "../../components/Leaderboard";
 import ParetoChart from "../../components/ParetoChart";
 import { snapshot } from "../../data/results";
 
@@ -31,7 +30,20 @@ The completed beta covers 91 cases and 387 scored claim-defendant units (for exa
 
 Models received the pre-decision docket and documents through a common tool-enabled harness, in a sandbox with Internet access disabled. The official runs were done in GitHub Actions, with each run outputting a package with the raw results. Each configuration produced one retained successful prediction per unit; this beta did not measure run-to-run variance. We estimated uncertainty using a paired cluster bootstrap (one million resamples of the 91 cases, units clustered by case), and applied a Bonferroni correction across 45 model pairs and three metrics. The analysis is exploratory; cross-case dependence (e.g., related cases in the same MDL) has not yet been verified.
 
-<Leaderboard client:visible snapshot={snapshot} />
+| Model | Micro Brier ↓ | Equal-case Brier ↓ | Unit accuracy ↑ | Standard-rate cost |
+| --- | ---: | ---: | ---: | ---: |
+| Claude Fable 5.1 | 0.12877 | 0.13653 | 82.17% | $83.18 |
+| Grok 4.6 | 0.13368 | 0.13480 | 80.62% | $15.72 |
+| Claude Opus 5 | 0.13987 | 0.13548 | 80.10% | $45.89 |
+| GPT-5.6 Sol | 0.14009 | 0.13319 | 80.88% | $24.91 |
+| Kimi K3 | 0.14130 | 0.15367 | 78.29% | $16.87 |
+| GPT-5.6 Luna | 0.14322 | 0.15084 | 80.88% | $1.48 |
+| GPT-6 Astra | 0.15221 | 0.14275 | 78.81% | $59.74 |
+| Gemini 3.8 Flash | 0.15331 | 0.13900 | 80.10% | $35.61 |
+| Claude Sonnet 5 | 0.15848 | 0.15964 | 75.71% | $24.68 |
+| Muse Spark 1.3 | 0.18121 | 0.17845 | 72.09% | $8.78 |
+
+The [interactive leaderboard](/#leaderboard) adds high-confidence misses, cutoff eligibility, and cost notes.
 
 Actual costs differed from the reported figures, which we normalized to Standard API rates while retaining cache discounts. We accessed Luna and Astra through OpenAI's API, the Claude models through Anthropic's API, and Gemini through Google's API. Sol, Kimi, Muse, and Grok ran through Vercel AI Gateway, served by OpenAI, DeepInfra, Meta, and xAI, respectively. Fable was inadvertently run without caching, so we estimated its cost with caching from its saved per-turn token usage, using the other Anthropic runs to validate the reconstruction. Actual OpenAI costs were lower because of Flex pricing and, for GPT-5.6 Sol, an additional Vercel discount; together, these reduced Sol's cost by approximately 75% relative to the reported Standard-rate equivalent.
 

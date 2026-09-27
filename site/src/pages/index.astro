@@ -34,7 +34,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 			<div class="mt-12 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
 				<Stat value={String(cohort.case_count)} label="Federal cases" detail={`Decided ${window}`} />
 				<Stat value={String(cohort.unit_count)} label="Scored units" detail="Claim × defendant predictions" />
-				<Stat value={String(snapshot.models.length)} label="Model configurations" detail="Six providers" />
+				<Stat value={String(snapshot.models.length)} label="Model configurations" detail={`${new Set(snapshot.models.map((m) => m.provider)).size} providers`} />
 				<Stat value={formatPercent(cohort.dismissed_unit_count / cohort.unit_count)} label="Dismissal base rate" detail="Units fully dismissed" />
 			</div>
 		</div>
