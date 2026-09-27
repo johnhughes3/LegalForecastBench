@@ -11,13 +11,15 @@
 	--surface-2: #f3f1ec;
 	--ink: #17150f;
 	--ink-2: #4c483f;
-	--ink-3: #7a7569;
+	/* Darkest step of the muted ink: >=5:1 on bg, surface, and surface-2. */
+	--ink-3: #6b665b;
 	--rule: #e3dfd5;
 	--rule-strong: #cbc5b8;
 	--accent: #8a2432;
 	--accent-soft: #f5e9e7;
 	/* Chart roles (validated reference palette, light steps). */
-	--series-1: #2a78d6;
+	/* Also used as small text ("Pareto frontier"), so >=4.5:1 on every surface. */
+	--series-1: #1f6dcb;
 	--series-1-soft: #cde2fb;
 	--series-2: #eb6834;
 	--chart-grid: #ebe7de;
@@ -38,7 +40,7 @@
 	--rule-strong: #46443e;
 	--accent: #e58c95;
 	--accent-soft: #3a2326;
-	--series-1: #3987e5;
+	--series-1: #4a8fe8;
 	--series-1-soft: #1c3552;
 	--series-2: #d95926;
 	--chart-grid: #2a2a27;
@@ -83,6 +85,94 @@
 	}
 	a {
 		text-underline-offset: 3px;
+	}
+	/*
+	 * Text links are underlined by default: the accent alone is too close to
+	 * body ink to identify a link (WCAG 1.4.1). Card, pill, and call-to-action
+	 * links (inline-flex / block / inline-block) keep their own affordances.
+	 */
+	a.text-accent:not(.inline-flex, .inline-block, .block, .flex),
+	.prose-lfb a {
+		text-decoration-line: underline;
+		text-decoration-thickness: 1px;
+		text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+	}
+	a.text-accent:not(.inline-flex, .inline-block, .block, .flex):hover,
+	.prose-lfb a:hover {
+		text-decoration-color: currentColor;
+	}
+}
+
+/* Phone navigation scrolls sideways; fade the trailing edge so the hidden items read as "more". */
+.nav-scroll {
+	scrollbar-width: none;
+	mask-image: linear-gradient(to right, #000 calc(100% - 3rem), transparent);
+}
+.nav-scroll::-webkit-scrollbar {
+	display: none;
+}
+
+/* !important is required to beat inline transition styles on chart marks. */
+/* biome-ignore-start lint/complexity/noImportantStyles: user motion preference overrides component styles. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	::before,
+	::after {
+		animation-duration: 0s !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0s !important;
+		scroll-behavior: auto !important;
+	}
+	/* Hover lifts on cards are decorative motion. */
+	.hover\:-translate-y-0\.5:hover {
+		translate: none !important;
+	}
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: user motion preference overrides component styles. */
+
+@media print {
+	/* Print the light palette regardless of the on-screen theme. */
+	:root,
+	:root[data-theme="dark"] {
+		color-scheme: light;
+		--bg: #fff;
+		--surface: #fff;
+		--surface-2: #f4f4f4;
+		--ink: #000;
+		--ink-2: #111;
+		--ink-3: #333;
+		--rule: #ccc;
+		--rule-strong: #999;
+		--accent: #000;
+		--accent-soft: #eee;
+		/* Chart and status roles use their light-theme steps on paper. */
+		--series-1: #1f6dcb;
+		--series-1-soft: #cde2fb;
+		--series-2: #eb6834;
+		--chart-grid: #ebe7de;
+		--chart-muted: #9d978a;
+		--good: #0a7d0a;
+		--critical: #c0392b;
+		/* HTML charts draw bars and dots with backgrounds; keep them on paper. */
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+	body > header,
+	body > footer {
+		display: none;
+	}
+	main#main {
+		margin: 0;
+	}
+	.card,
+	figure,
+	tr {
+		break-inside: avoid;
+	}
+	main :is(p, li, dd, td, figcaption) a[href^="http"]::after {
+		content: " (" attr(href) ")";
+		font-size: 0.85em;
+		word-break: break-all;
 	}
 }
 

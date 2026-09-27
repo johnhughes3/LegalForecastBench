@@ -2,6 +2,10 @@
 import "@fontsource-variable/inter";
 import "@fontsource-variable/newsreader";
 import "../styles/global.css";
+// Preload the Latin faces every page renders with, so text does not reflow
+// when the web fonts arrive (the hero stats shifted by CLS 0.11 without it).
+import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
+import newsreaderLatin from "@fontsource-variable/newsreader/files/newsreader-latin-wght-normal.woff2?url";
 import ThemeToggle from "../components/ThemeToggle.astro";
 import { defaultOgImage, OG_HEIGHT, OG_WIDTH } from "../og/routes";
 
@@ -59,6 +63,8 @@ const isActive = (href: string) =>
 		<meta name="twitter:image" content={ogImage} />
 		{!isNotFound && <link rel="canonical" href={canonical} />}
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href={newsreaderLatin} as="font" type="font/woff2" crossorigin />
 		<script is:inline>
 			(() => {
 				let theme = null;
@@ -96,11 +102,32 @@ const isActive = (href: string) =>
 				</nav>
 				<div class="ml-auto lg:ml-0"><ThemeToggle /></div>
 			</div>
-			<nav class="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-2 text-sm lg:hidden" aria-label="Primary (mobile)">
+			<nav id="mobile-nav" class="nav-scroll mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pr-12 pb-2 text-sm lg:hidden" aria-label="Primary (mobile)">
 				{nav.map((item) => (
 					<a href={item.href} aria-current={isActive(item.href) ? "page" : undefined} class:list={["shrink-0 rounded-full px-3 py-1", isActive(item.href) ? "bg-surface-2 font-medium text-ink" : "text-ink-2"]}>{item.label}</a>
 				))}
 			</nav>
+			<script is:inline>
+				// Phones: center the current section, and keep a keyboard-focused
+				// link clear of the trailing fade (native focus scrolling stops at
+				// the edge, which is inside the fade).
+				(() => {
+					const nav = document.getElementById("mobile-nav");
+					if (!nav) return;
+					const FADE = 48;
+					const offset = (link) => link.getBoundingClientRect().left - nav.getBoundingClientRect().left;
+					const current = nav.querySelector('[aria-current="page"]');
+					if (current && nav.scrollWidth > nav.clientWidth)
+						nav.scrollLeft += offset(current) - (nav.clientWidth - current.clientWidth) / 2;
+					nav.addEventListener("focusin", (event) => {
+						const link = event.target;
+						const left = offset(link);
+						const overflow = left + link.offsetWidth - (nav.clientWidth - FADE);
+						if (overflow > 0) nav.scrollLeft += overflow;
+						else if (left < 0) nav.scrollLeft += left - 12;
+					});
+				})();
+			</script>
 		</header>
 		<main id="main">
 			<slot />

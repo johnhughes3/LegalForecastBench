@@ -34,15 +34,17 @@ export default function SummaryBrierChart({ rows, baseRateBrier }: Props) {
 				className="relative mb-2 ml-[9.25rem] h-9 text-[11px] leading-tight text-ink-3 sm:ml-[12.75rem]"
 				aria-hidden="true"
 			>
+				{/* Two rows, and each row's dashed rule runs down through the row
+				    below it. A constant forecast's Brier p(1-p) never exceeds 0.25,
+				    so the base-rate line is always left of "Always 50%". Phones
+				    anchor text left of its line, so "Always 50%" takes the top row;
+				    wider screens anchor text right of its line, so the base-rate
+				    label takes the top row. Either way no rule crosses a label. */}
 				{references.map((ref, i) => (
 					<span
 						key={ref.label}
-						className="absolute -translate-x-full whitespace-nowrap border-r border-dashed border-ink-3 pr-1.5 text-right sm:translate-x-0 sm:border-r-0 sm:border-l sm:pr-0 sm:pl-1.5 sm:text-left"
-						style={{
-							left: pos(ref.value),
-							top: i === 0 ? "1.1rem" : 0,
-							bottom: 0,
-						}}
+						className={`absolute bottom-0 -translate-x-full whitespace-nowrap border-r border-dashed border-ink-3 pr-1.5 text-right sm:translate-x-0 sm:border-r-0 sm:border-l sm:pr-0 sm:pl-1.5 sm:text-left ${i === 0 ? "top-[1.1rem] sm:top-0" : "top-0 sm:top-[1.1rem]"}`}
+						style={{ left: pos(ref.value) }}
 					>
 						{ref.label} ({ref.value.toFixed(3)})
 					</span>

@@ -6,7 +6,8 @@ interface Props {
 }
 
 const S = 220;
-const PAD = { l: 34, r: 10, t: 10, b: 30 };
+// Right padding clears half the width of the centered "100%" tick label.
+const PAD = { l: 34, r: 16, t: 10, b: 30 };
 const W = S - PAD.l - PAD.r;
 const H = S - PAD.t - PAD.b;
 const sx = (v: number) => PAD.l + v * W;

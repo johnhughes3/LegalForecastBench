@@ -222,10 +222,17 @@ export default function Leaderboard({
 									</a>
 									<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
 										<span>{model.provider}</span>
-										<span className="tabular">
-											Micro {METRICS.micro_brier.format(model.micro_brier)}
-										</span>
-										<span className="tabular">{formatUsd(model.cost.usd)}</span>
+										{/* The right column already shows micro Brier when it is the sort. */}
+										{sort.key !== "micro_brier" && (
+											<span className="tabular">
+												Micro {METRICS.micro_brier.format(model.micro_brier)}
+											</span>
+										)}
+										{sort.key !== "cost" && (
+											<span className="tabular">
+												{formatUsd(model.cost.usd)}
+											</span>
+										)}
 										{frontier.has(model.slug) && (
 											<span className="text-series-1">◆ Frontier</span>
 										)}
@@ -412,30 +419,23 @@ export default function Leaderboard({
 					</tbody>
 				</table>
 			</div>
-			<div className="grid gap-4 border-t border-rule px-4 py-4 text-xs leading-relaxed text-ink-2 md:grid-cols-2">
-				<div>
-					<a
-						className="text-accent hover:underline"
-						href="/data/run-notes/#costs"
-					>
+			<div className="border-t border-rule px-4 py-4 text-xs leading-relaxed text-ink-2">
+				<div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+					<p className="font-semibold text-ink">Qualified comparisons</p>
+					<a className="text-accent" href="/data/run-notes/#costs">
 						Cost methodology and explanations →
 					</a>
 				</div>
-				<div>
-					<p className="font-semibold text-ink">Qualified comparisons</p>
-					<ul className="mt-1.5 space-y-1">
-						{snapshot.models
-							.filter((m) => m.eligibility !== "eligible")
-							.map((m) => (
-								<li key={m.slug}>
-									<span className="font-medium text-ink">
-										{m.display_name}:
-									</span>{" "}
-									{m.eligibility_reason}
-								</li>
-							))}
-					</ul>
-				</div>
+				<ul className="mt-2 gap-x-8 md:columns-2">
+					{snapshot.models
+						.filter((m) => m.eligibility !== "eligible")
+						.map((m) => (
+							<li key={m.slug} className="mb-1 break-inside-avoid">
+								<span className="font-medium text-ink">{m.display_name}:</span>{" "}
+								{m.eligibility_reason}
+							</li>
+						))}
+				</ul>
 			</div>
 			<div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-rule bg-surface-2/50 px-4 py-3 text-xs text-ink-3">
 				<span>
