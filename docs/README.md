@@ -109,6 +109,7 @@ The multi-harness layer is a separate, non-official track. Its results never ran
 - [community-submissions.md](community-submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
 - [harness-efficiency-observations.md](harness-efficiency-observations.md): receipt-backed duration, cost, and token accounting published as peer columns.
 - [Multiharness contracts](multiharness/contracts.md): the current sealed-deliverable, evaluation, scoring, identity, compatibility, and Harvey LAB source boundaries.
+- [Native Harvey LAB bridge](multiharness/harvey-lab-core.md): pinned lab-core 1.1.0 probing, native solver/judge execution, and public-safe results.
 - [multiharness-receipt-authority.md](multiharness/receipt-authority.md): the external Ed25519 evaluator-issuer seam and credential-free executable probe procedure.
 - [Claude Code terminal release run](multiharness/terminal-release.md): provider-free reproduction of the rootless CLI, case-document, gateway, and complete-unit scoring path.
 

@@ -160,8 +160,10 @@ def test_rootless_backend_preflight_rejects_rootful_daemon(
         )
 
 
+@pytest.mark.parametrize("prefix", ["sha256:", ""])
 def test_local_pinned_image_preflight_checks_exact_image_id(
     monkeypatch: pytest.MonkeyPatch,
+    prefix: str,
 ) -> None:
     expected = "sha256:" + "a" * 64
     monkeypatch.setattr(
@@ -170,7 +172,7 @@ def test_local_pinned_image_preflight_checks_exact_image_id(
         lambda argv, **_kwargs: subprocess.CompletedProcess(
             argv,
             0,
-            stdout=(expected + "\n").encode(),
+            stdout=(prefix + "a" * 64 + "\n").encode(),
             stderr=b"",
         ),
     )

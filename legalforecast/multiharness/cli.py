@@ -38,6 +38,7 @@ from legalforecast.multiharness.folder_selection import (
     FolderSelectionError,
     select_tasks_from_folder,
 )
+from legalforecast.multiharness.harvey_lab import core_cli
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorRunner,
 )
@@ -534,6 +535,7 @@ def add_multiharness_parser(subparsers: Any) -> None:
         execute_handler=_cmd_terminal_release_execute,
         score_handler=_cmd_terminal_release_score,
     )
+    core_cli.register(subparsers)
 
 
 def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
