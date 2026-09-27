@@ -1,0 +1,194 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const pipeline = [
+	{
+		step: "Public record",
+		body: "Complaints, motions, oppositions, replies, and the docket, filed publicly in federal court.",
+	},
+	{
+		step: "Curation",
+		body: "Select usable motions, repair mislabeled dockets, confirm the record the judge saw, and define each claim-defendant unit.",
+	},
+	{
+		step: "Two signals",
+		body: "The outcome of each unit, which can be checked, and the judge's written reasoning, which explains why.",
+	},
+	{
+		step: "Uses",
+		body: "Contamination-resistant evaluation today. Possibly verifiable training signal for legal judgment tomorrow.",
+	},
+];
+
+const comparison = [
+	[
+		"What is graded",
+		"Whether the forecast matched what the court actually did",
+		"Whether a deliverable satisfies criteria an expert wrote in advance",
+	],
+	[
+		"Who writes the answer key",
+		"The court, in its written ruling",
+		"The benchmark's authors",
+	],
+	[
+		"How it is scored",
+		"A proper scoring rule (Brier) over probabilities",
+		"Model judges applying pass/fail criteria",
+	],
+	[
+		"Main failure mode",
+		"Noisy or mislabeled outcomes; a narrow task",
+		"Criteria that are wrong, inconsistent, or unrequested",
+	],
+	[
+		"What it measures best",
+		"Calibrated judgment about how a real decision-maker will act",
+		"Quality and completeness of legal work product",
+	],
+	[
+		"Contamination",
+		"New decisions after model training cutoffs form a fresh holdout",
+		"Tasks can be held out, but grow stale once public",
+	],
+];
+---
+
+<Layout
+	title="Approach"
+	description="Why public litigation makes parts of law a verifiable domain, and how outcome-based evaluation compares with rubric-based grading."
+>
+	<article class="mx-auto max-w-6xl px-4 pt-12 sm:px-6">
+		<header class="max-w-3xl">
+			<p class="eyebrow">Approach</p>
+			<h1 class="mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">Law can be a verifiable domain</h1>
+			<p class="mt-5 text-lg leading-relaxed text-ink-2">
+				AI has improved fastest where answers can be checked: code that compiles and passes tests, math with a known result. Law has seemed different, because good legal work is judged by other lawyers and much of it is confidential. Public litigation changes that for an important slice of legal reasoning.
+			</p>
+			<p class="mt-5 text-sm text-ink-3">John J. Hughes, III</p>
+		</header>
+
+		<div class="mt-12 grid gap-3 md:grid-cols-4" aria-label="From public filings to evaluation signal">
+			{pipeline.map((item, i) => (
+				<div class="card relative p-5">
+					<p class="font-serif text-sm text-accent">0{i + 1}</p>
+					<h2 class="mt-2 font-serif text-lg font-semibold">{item.step}</h2>
+					<p class="mt-2 text-sm leading-relaxed text-ink-2">{item.body}</p>
+					{i < pipeline.length - 1 && <span class="absolute -right-2.5 top-1/2 hidden -translate-y-1/2 text-rule-strong md:block" aria-hidden="true">→</span>}
+				</div>
+			))}
+		</div>
+
+		<div class="prose-lfb prose mt-14 max-w-[46rem] prose-headings:scroll-mt-24">
+			<h2 id="private-data">The private-data problem</h2>
+			<p>
+				Most legal work product never becomes public. Memos, deal documents, and client advice are privileged or confidential, so there is no large, open corpus of expert legal work with known-good answers. Evaluations have filled the gap with rubrics: experts write criteria for what a good answer contains, and model judges grade responses against them. That approach is useful, but the answer key is only as good as the people who wrote it, and it cannot tell you whether the advice would have held up in the real world.
+			</p>
+
+			<h2 id="public-litigation">What public litigation exposes</h2>
+			<p>
+				Federal litigation is different. When a defendant moves to dismiss, the complaint, the motion, the opposition, and the reply are filed on the public docket. Then a judge decides, and in most cases explains the decision in a written opinion. That gives us three things that are rare elsewhere in law:
+			</p>
+			<ul>
+				<li><strong>The full inputs.</strong> We know exactly what arguments and record the decision-maker had in front of them.</li>
+				<li><strong>An objective outcome.</strong> Whether each challenged claim against each defendant was dismissed is a matter of record, not opinion.</li>
+				<li><strong>The reasoning.</strong> The judge's opinion states which arguments mattered and why, in the judge's own words.</li>
+			</ul>
+			<p>
+				Together, these turn a high-level legal judgment task into one that can be checked. Predicting how a judge will rule is the kind of call senior litigators are paid to make, and here the answer eventually arrives. Because new decisions keep coming, each benchmark version can also use rulings issued after a model's training cutoff, which guards against models having memorized the answers.
+			</p>
+
+			<h2 id="curation">Raw data is not enough</h2>
+			<p>
+				Public does not mean ready. Building this benchmark showed how much careful work it takes to turn court records into a reliable answer key:
+			</p>
+			<ul>
+				<li>Case data must be purchased, and many cases turn out to be unsuitable once examined.</li>
+				<li>Docket entries are frequently mislabeled, so confirming that the test record contains everything the judge saw takes several quality-control steps.</li>
+				<li>Even frontier models often disagree about how to read a ruling, or about which claims and defendants a motion actually challenged. Specifying the task and translating the judge's decision into an answer key requires legal judgment.</li>
+				<li>Definitions matter. A dismissal with leave to amend counts as dismissal; a motion mooted because the plaintiff amended first does not. Models that blur that line lose points for the wrong reason.</li>
+			</ul>
+			<p>
+				The signal is real, but it has to be derived. The research contribution is less the raw data than the curation that makes it trustworthy.
+			</p>
+
+			<h2 id="training">From evaluation to training</h2>
+			<p>
+				If outcomes can be checked, prediction might also serve as a reinforcement-learning environment with verifiable rewards. My hypothesis is that teaching models to forecast real rulings could improve something current models lack: a sense of which issues actually decide a case. Today's models are excellent at research and summarizing doctrine, but when asked for strategic advice they tend to dwell on minor, technical points. Judges' written reasoning offers a second signal beyond the bare outcome: which arguments moved the court.
+			</p>
+			<p>
+				This is a hypothesis, not a result. The public benchmark will use an AI labeling pipeline with quality controls; a separate, hand-labeled training set is being built to test whether properly labeled litigation data provides a training signal that generalizes beyond prediction.
+			</p>
+
+			<h2 id="outcomes-vs-rubrics">Outcome grading and rubric grading</h2>
+			<p>
+				The two approaches measure different things and are complementary. Rubrics can assess the quality of a deliverable, which an outcome cannot. Outcomes can assess whether judgment tracks reality, which a rubric cannot. They also fail in different ways.
+			</p>
+		</div>
+
+		<div class="card mt-6 max-w-4xl overflow-hidden">
+			<div class="overflow-x-auto">
+				<table class="w-full min-w-[640px] border-collapse text-left text-sm">
+					<caption class="sr-only">Comparison of outcome-based and rubric-based evaluation</caption>
+					<thead class="border-b border-rule text-xs text-ink-3">
+						<tr>
+							<th scope="col" class="px-4 py-3 font-medium"><span class="sr-only">Dimension</span></th>
+							<th scope="col" class="px-4 py-3 font-medium">Outcome grading</th>
+							<th scope="col" class="px-4 py-3 font-medium">Rubric grading</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-rule">
+						{comparison.map(([dimension, outcome, rubric]) => (
+							<tr>
+								<th scope="row" class="w-44 px-4 py-3 align-top font-medium text-ink">{dimension}</th>
+								<td class="px-4 py-3 align-top text-ink-2">{outcome}</td>
+								<td class="px-4 py-3 align-top text-ink-2">{rubric}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<div class="prose-lfb prose mt-10 max-w-[46rem] prose-headings:scroll-mt-24">
+			<h2 id="rubric-failures">How rubric answer keys fail</h2>
+			<p>
+				I read two tasks from a published legal-agent benchmark closely, checking each grading criterion against the task's record and the governing law. Most issue-spotting criteria were sound. But a meaningful share had one of five problems. The examples below are paraphrased so they illustrate the pattern rather than any one task.
+			</p>
+			<ol>
+				<li>
+					<strong>The key contradicts itself.</strong> One criterion assumed one state's law governed the tort claims; another assumed the plaintiff could avoid a merger clause under that same law. Under Georgia law, a party that affirms a contract containing a merger clause is generally barred from claiming reliance on outside representations (<em>Ekeledo v. Amporful</em>, 281 Ga. 817 (2007); <em>Novare Grp., Inc. v. Sarif</em>, 290 Ga. 186 (2011)). Both criteria cannot be right, and a memo that notices this can fail one of them.
+				</li>
+				<li>
+					<strong>The key rewards the weaker argument.</strong> A criterion required attacking a one-year contractual limitations period as unconscionable. Georgia courts routinely enforce one-year periods between commercial parties (<em>Cobra Tactical, Inc. v. Payment Alliance Int'l, Inc.</em>, 315 F. Supp. 3d 1342 (N.D. Ga. 2018)), while Texas makes a contractual period shorter than two years void by statute outside large business sales (Tex. Civ. Prac. &amp; Rem. Code § 16.070). The statutory argument was the strong one, and nothing rewarded it.
+				</li>
+				<li>
+					<strong>The key requires facts that are not in the record.</strong> One criterion required a specific court deadline that appears nowhere in the task's documents. It can be satisfied only by inventing the date.
+				</li>
+				<li>
+					<strong>The key grades what was never requested.</strong> Several criteria required severity ratings, spreadsheet layouts, or risk labels that the prompt never asked for. A memo that answered the question as posed fails them.
+				</li>
+				<li>
+					<strong>Strict scoring amplifies every error.</strong> When a response scores only if every criterion passes, and two model judges must agree on each, a single defective criterion turns a correct answer into a zero.
+				</li>
+			</ol>
+			<p>
+				There is also a subtler issue. Rubrics built from long checklists reward recall: flag every issue the authors listed. Practicing lawyers often value the opposite, a short list of dispositive points without the technically accurate but minor ones. A model can learn to satisfy the checklist without getting better at that judgment.
+			</p>
+			<p>
+				None of this makes rubric benchmarks worthless. They measure things outcomes cannot, and their authors are doing hard work. But an answer key deserves the review we would give a brief, and grading against what courts actually decided avoids this particular failure mode entirely.
+			</p>
+
+			<h2 id="limits">What outcome grading does not solve</h2>
+			<ul>
+				<li><strong>Prediction is not the same as reasoning.</strong> A model could forecast well by modeling a particular judge's tendencies rather than the law. I expect legal analysis to dominate for ordinary motions, but that is a hypothesis this benchmark does not yet test.</li>
+				<li><strong>Outcomes are noisy.</strong> Reasonable judges disagree, and one ruling is a single draw. That is why the benchmark scores probabilities rather than right-or-wrong calls.</li>
+				<li><strong>The task is narrow.</strong> Motions to dismiss are one decision point in one court system. Other verifiable slices of law will need their own careful definitions.</li>
+				<li><strong>Versions are not directly comparable.</strong> Each version uses new cases, which keeps it fresh but means scores measure a point in time.</li>
+			</ul>
+			<p>
+				For how the benchmark handles these limits in practice, see the <a href="/methods/">methods</a>. For the current results, see the <a href="/">leaderboard</a>.
+			</p>
+		</div>
+	</article>
+</Layout>

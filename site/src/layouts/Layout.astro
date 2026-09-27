@@ -19,6 +19,7 @@ const pageTitle = title
 const path = Astro.url.pathname;
 const nav = [
 	{ href: "/", label: "Results" },
+	{ href: "/approach/", label: "Approach" },
 	{ href: "/experiments/", label: "Experiments" },
 	{ href: "/findings/", label: "Findings" },
 	{ href: "/methods/", label: "Methods" },
@@ -96,6 +97,7 @@ const isActive = (href: string) =>
 					<p class="font-medium text-ink-2">Explore</p>
 					<ul class="space-y-1.5">
 						<li><a class="hover:text-ink" href="/">Results</a></li>
+						<li><a class="hover:text-ink" href="/approach/">Approach</a></li>
 						<li><a class="hover:text-ink" href="/experiments/">Experiments</a></li>
 						<li><a class="hover:text-ink" href="/findings/">Findings</a></li>
 						<li><a class="hover:text-ink" href="/methods/">Methods</a></li>
