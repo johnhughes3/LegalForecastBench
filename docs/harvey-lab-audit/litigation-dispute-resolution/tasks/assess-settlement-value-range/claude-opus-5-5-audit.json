@@ -1,0 +1,734 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "assess-settlement-value-range",
+  "title": "Assess Settlement Value Range for Product Liability Crush Injury Case — Litigation Settlement Memorandum",
+  "criteria_total": 52,
+  "criterion_lines": {
+    "C-001": 19,
+    "C-002": 27,
+    "C-003": 35,
+    "C-004": 43,
+    "C-005": 51,
+    "C-006": 59,
+    "C-007": 67,
+    "C-008": 75,
+    "C-009": 83,
+    "C-010": 91,
+    "C-011": 99,
+    "C-012": 107,
+    "C-013": 115,
+    "C-014": 123,
+    "C-015": 131,
+    "C-016": 139,
+    "C-017": 147,
+    "C-018": 155,
+    "C-019": 163,
+    "C-020": 171,
+    "C-021": 179,
+    "C-022": 187,
+    "C-023": 195,
+    "C-024": 203,
+    "C-025": 211,
+    "C-026": 219,
+    "C-027": 227,
+    "C-028": 235,
+    "C-029": 243,
+    "C-030": 251,
+    "C-031": 259,
+    "C-032": 267,
+    "C-033": 275,
+    "C-034": 283,
+    "C-035": 291,
+    "C-036": 299,
+    "C-037": 307,
+    "C-038": 315,
+    "C-039": 323,
+    "C-040": 331,
+    "C-041": 339,
+    "C-042": 347,
+    "C-043": 355,
+    "C-044": 363,
+    "C-045": 371,
+    "C-046": 379,
+    "C-047": 387,
+    "C-048": 395,
+    "C-049": 403,
+    "C-050": 411,
+    "C-051": 419,
+    "C-052": 427
+  },
+  "blind": {
+    "task": "assess-settlement-value-range",
+    "criteria_reviewed": 52,
+    "coverage": "Read in full: task.json (instructions + all 52 criteria), insurance-coverage-memo, comparable-outcomes-summary.xlsx, defense-mediation-brief, plaintiff-mediation-brief, greenfield-engineering-emails, kwan-expert-report (Sections II-XI). Searched with grep for the facts each criterion relies on: vasquez-expert-report (causation opinions, Opinion 7 on Kwan), cho-rebuttal-report and aldrich-economic-report (totals, four disputed assumptions, component figures), briggs-deposition-excerpts (training, awareness, guard facts). Did not open the solver system prompt or the judge prompt beyond what the task text says about them. Legal verification: I read verbatim quotes of O.R.C. 2307.80, 2307.25, 2307.22, 2315.18, 2315.21 and 3937.182 fetched from codes.ohio.gov. I read the primary text of McPherson v. Cleveland Punch & Shear Co., 816 F.2d 249 (6th Cir. 1987) on CourtListener, including its quotation of the Kendall syllabus. Not verified: Kendall v. U.S. Dismantling primary opinion (known only through McPherson's quotation), O.R.C. 2745.01 and 2307.23 (not fetched), and AMA Guides 6th Ed. impairment tables (no access). I checked the plaintiff brief's misquotation of the emails and chose not to flag it, because inconsistencies inside an adversarial filing are not defects in themselves.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-033",
+          "C-019"
+        ],
+        "title": "C-033 rewards a contribution/indemnity claim against the immune complying employer and double-counts Apex's share with C-019",
+        "explanation": "Apex is Holt's employer and pays into workers' compensation (Buckeye paid $481,800). In Ohio a complying employer is immune from tort liability, and third parties cannot get contribution from it for negligence. McPherson says this is 'settled' and, applying Kendall, extended the bar even to employer intentional torts. That forecloses the one possible route, the R.C. 2745.01(C) guard-removal presumption. Contribution under 2307.25(A) requires joint or several tort liability. No express indemnity appears anywhere in the record. Separately, C-019 already reduces Greenfield's liability by Apex's share, and under 2307.22(A)(2)/(C) a defendant at or below 50% pays only its proportionate share, so there is nothing to seek contribution for. A competent memo that says contribution is barred and should not reduce net cost falls between PASS ('should be factored into the net cost analysis') and FAIL ('does not mention'), and a judge will likely fail it.",
+        "evidence": [
+          {
+            "source": "task.json C-033",
+            "quote": "Greenfield may have a right of contribution or indemnity against Apex Structural Contractors for the percentage of fault attributable to Apex's guard modification, and that this right should be factored into the net cost analysis"
+          },
+          {
+            "source": "insurance-coverage-memo.docx.txt",
+            "quote": "Buckeye Mutual Workers' Compensation Fund, Apex's workers' compensation carrier, has asserted a statutory subrogation lien of $481,800"
+          },
+          {
+            "source": "defense-mediation-brief.docx.txt",
+            "quote": "its right to seek contribution and indemnification from Apex Structural Contractors, LLC, pursuant to O.R.C. § 2307.25, for any portion of a settlement amount that reflects Apex's comparative fault"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "McPherson v. Cleveland Punch & Shear Co., 816 F.2d 249 (6th Cir. 1987)",
+            "proposition": "'in the case of negligent conduct it is settled that the third party may not obtain contribution from the employer'; Ohio courts would not extend employer liability to third-party contribution even for intentional torts",
+            "verified": true
+          },
+          {
+            "citation": "Kendall v. U.S. Dismantling Co., 20 Ohio St.3d 61 (1985), syllabus para. 2 (as quoted in McPherson)",
+            "proposition": "A complying employer does not surrender its statutory and constitutional immunity absent an express and specific waiver; third-party indemnity cross-claim dismissed",
+            "verified": false
+          },
+          {
+            "citation": "O.R.C. 2307.25(A)",
+            "proposition": "Contribution exists only where persons are 'jointly and severally liable in tort for the same injury'",
+            "verified": true
+          },
+          {
+            "citation": "O.R.C. 2307.22(A)(2), (C)",
+            "proposition": "A defendant at 50% or less of fault is liable only for its proportionate share of economic loss; every defendant is liable only for its proportionate share of noneconomic loss",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Rewrite C-033: PASS if the memo addresses any contribution or indemnity claim against Apex and recognizes that workers' compensation immunity likely bars it (absent express contractual indemnity), so the net cost analysis should not count on it. Alternatively, delete C-033 and C-034."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-034"
+        ],
+        "title": "C-034 inverts O.R.C. 2307.25(B): a settling tortfeasor keeps contribution only if the settlement extinguishes the other's liability",
+        "explanation": "Under 2307.25(B), a tortfeasor who settles gets no contribution from another tortfeasor whose liability the settlement does not extinguish, or for any amount beyond what is reasonable. The criterion instead asks the memo to say that settlement 'does not necessarily extinguish' Greenfield's contribution claim, and FAILs a memo that 'incorrectly states settlement extinguishes them.' A correct memo might say that a release covering only Greenfield forfeits contribution under 2307.25(B), or that immunity makes the question moot (see O1). A judge could read either as stating that settlement extinguishes the rights. The 'otherwise analyzes' savings clause keeps this arguable rather than problematic.",
+        "evidence": [
+          {
+            "source": "task.json C-034",
+            "quote": "PASS if the memo discusses or acknowledges that settling with the plaintiff does not necessarily extinguish Greenfield's potential contribution claim against Apex ... FAIL if the memo discusses contribution rights but incorrectly states settlement extinguishes them"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. 2307.25(B)",
+            "proposition": "A settling tortfeasor is not entitled to contribution from another tortfeasor whose liability is not extinguished by the settlement, or for amounts exceeding what is reasonable",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo correctly analyzes how settlement affects any contribution right: 2307.25(B) requires the settlement to extinguish Apex's liability and to be reasonable, and workers' compensation immunity may bar the claim entirely. Remove the 'does not necessarily extinguish' framing."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-005"
+        ],
+        "title": "C-005 makes 'conscious disregard' under 2315.21 mandatory, but punitives on a product claim turn on 2307.80(A) 'flagrant disregard'",
+        "explanation": "For a product liability claim against a manufacturer, O.R.C. 2307.80(A) bars punitive damages unless clear and convincing evidence shows misconduct that 'manifested a flagrant disregard of the safety of persons who might be harmed by the product.' Section 2307.80(E) borrows 2315.21's bifurcation and cap provisions, but the liability standard itself comes from 2307.80. C-005 requires the memo to be 'specifically referencing' a 'conscious disregard' finding under 2315.21. A more precise memo that ties the emails to the 2307.80 flagrant-disregard standard could fail on literal grading. The record (plaintiff brief, spreadsheet) uses the 2315.21 framing, so many memos will pass anyway.",
+        "evidence": [
+          {
+            "source": "task.json C-005",
+            "quote": "specifically referencing that this evidence supports a 'conscious disregard' finding under Ohio law (O.R.C. § 2315.21)"
+          },
+          {
+            "source": "plaintiff-mediation-brief.docx.txt",
+            "quote": "Under Ohio Revised Code § 2315.21, punitive or exemplary damages are available where the defendant's actions demonstrate \"malice\" or \"conscious disregard\""
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. 2307.80(A)",
+            "proposition": "Punitive damages against a manufacturer on a product liability claim require clear and convincing evidence of misconduct manifesting 'flagrant disregard of the safety of persons who might be harmed by the product'",
+            "verified": true
+          },
+          {
+            "citation": "O.R.C. 2315.21(C)(1), (D)(2)(a)",
+            "proposition": "General punitive standard (malice or aggravated or egregious fraud) and the 2x compensatory cap",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo links the emails to punitive exposure under Ohio's punitive damages standard, whether it cites 2315.21 malice/conscious disregard or 2307.80 flagrant disregard."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-039",
+          "C-021",
+          "C-029"
+        ],
+        "title": "Numeric bands leave gaps between PASS and FAIL and are narrower than the record's own comparative-fault method supports",
+        "explanation": "C-039 PASSes a range with a low end of at least about $3.5M and a midpoint of $5-7M. It FAILs only a low end below $2M or a midpoint below $4M. A range of $3M-$6.5M falls in neither bucket. C-029 has the same problem: it PASSes $1.9-2.2M but FAILs only outside $1.6-2.5M. The bands also rest on the counsel spreadsheet's figures, which are stated before comparative-fault adjustment. The Garza row itself says the $5.0-6.5M indication comes before adjusting for Apex's 25-45% share, versus 20% in Garza. A defense memo that completes that adjustment on the record's own method (scaling Garza's 80% manufacturer share down to 40-60%), or that probability-weights a Brewer-type defense verdict, can reasonably land a midpoint around $4-5M. C-021's reserve band inherits the same issue.",
+        "evidence": [
+          {
+            "source": "task.json C-039",
+            "quote": "PASS if the recommended settlement range has a low end no lower than approximately $3.5M ... FAIL if the settlement range is dramatically outside these bounds (e.g., low end below $2M ... or midpoint below $4M"
+          },
+          {
+            "source": "task.json C-029",
+            "quote": "(i.e., approximately $1,900,000–$2,200,000) ... FAIL if the memo ... provides a figure outside the range of $1,600,000–$2,500,000"
+          },
+          {
+            "source": "comparable-outcomes-summary.xlsx.txt",
+            "quote": "Adjusted indication: $5.0M–$6.5M before adjusting for higher Apex fault allocation in Holt (25%–45% vs. 20% in Garza)."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make PASS and FAIL complementary: FAIL only outside the wide bounds, PASS for any reasoned range inside them. Widen C-039 to accept a well-reasoned comparative-fault-adjusted midpoint of about $4M or more, and align C-021 with it."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-019"
+        ],
+        "title": "C-019 ignores Ohio's >50% joint-and-several rule for economic loss, which the 40-60% Greenfield range straddles",
+        "explanation": "Under 2307.22(A)(1), a defendant found more than 50% at fault is jointly and severally liable for all economic loss, so Apex's share would not reduce the economic damages Greenfield owes. Only noneconomic loss is always several (2307.22(C)). With Greenfield at 40-60%, a careful memo might say that Apex's allocated fault may not reduce economic recovery if Greenfield exceeds 50%. That accurate caveat risks the FAIL clause ('incorrectly states that Apex's fault does not reduce plaintiff's recovery'). Most memos will still pass on the noneconomic point, so this is arguable.",
+        "evidence": [
+          {
+            "source": "task.json C-019",
+            "quote": "FAIL if the memo does not apply comparative fault reduction for Apex's share or incorrectly states that Apex's fault does not reduce plaintiff's recovery."
+          },
+          {
+            "source": "comparable-outcomes-summary.xlsx.txt",
+            "quote": "Estimated Comparative Fault Range' | B14='Greenfield: 40%–60%; Apex: 25%–45%; Holt: 5%–15%'"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. 2307.22(A)(1), (C)",
+            "proposition": "Defendant with >50% of tortious conduct is jointly and severally liable for all economic loss; noneconomic loss is several only",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Add: 'A memo that correctly notes joint-and-several liability for economic loss if Greenfield exceeds 50% fault also passes.'"
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-031"
+        ],
+        "title": "C-031's '$200,000–$500,000 based on comparable outcomes' consortium band has no source in the record",
+        "explanation": "The comparable-outcomes spreadsheet has no consortium data; its noneconomic column reads 'Not specified' or 'Not separately stated'. The only consortium figures in the record are the defense's $50,000-$100,000 and the plaintiff's $500,000-$750,000, and both fall outside the criterion's band. A memo that adopts or adjusts either party's figure is left to the judge's sense of a 'reasonable range', so outcomes may differ between the two judges.",
+        "evidence": [
+          {
+            "source": "task.json C-031",
+            "quote": "(approximately $200,000–$500,000 based on comparable outcomes, or any specific quantification within a reasonable range)"
+          },
+          {
+            "source": "defense-mediation-brief.docx.txt",
+            "quote": "a reasonable valuation for the loss of consortium claim is \\$50,000 to \\$100,000"
+          },
+          {
+            "source": "plaintiff-mediation-brief.docx.txt",
+            "quote": "Plaintiff values the loss of consortium claim at \\$500,000 to \\$750,000"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop the unsupported band. PASS if the memo treats consortium as a separate derivative claim with a reasoned quantification, for example between the parties' positions."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-007",
+          "C-041",
+          "C-042"
+        ],
+        "title": "GC memo calls punitive insurability 'contested and unsettled' and says excess covers punitive awards, contrary to R.C. 3937.182(B)",
+        "explanation": "R.C. 3937.182(B) bars Ohio-licensed casualty or liability policies from covering punitive damages. The insurance memo nonetheless calls insurability 'unsettled' and says the Beacon layer protects against 'a punitive damages award'. The same memo also says Beacon follows form, including the punitive exclusion. The correct answer therefore turns on an issue the record misstates: punitive exposure is very likely uninsured, which is a major reason for the company to settle within its compensatory limits. No criterion rewards the error, but a solver who relies on the memo could overstate what the $35M tower covers. Choice of law and the insurer's licensure are not in the record, so this is hedged.",
+        "evidence": [
+          {
+            "source": "insurance-coverage-memo.docx.txt",
+            "quote": "The insurability of punitive damages under Ohio law remains a contested and unsettled area of jurisprudence."
+          },
+          {
+            "source": "insurance-coverage-memo.docx.txt",
+            "quote": "The $25,000,000 Beacon excess layer provides an important additional layer of protection in the unlikely event of an adverse trial outcome, an unanticipated verdict in excess of $10,000,000, or a punitive damages award."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. 3937.182(B)",
+            "proposition": "No casualty or liability policy covered by R.C. 3937.01-.17 issued by an Ohio-licensed insurer shall provide coverage for punitive or exemplary damages",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Correct the memo to reflect R.C. 3937.182(B), or add a criterion crediting recognition that punitive exposure is likely uninsured."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-052"
+        ],
+        "title": "C-052 attributes the 78% WPI rating to Dr. Okonkwo, which the record never does; the rating is facially implausible",
+        "explanation": "Every document states the 78% whole-person rating without saying who assigned it; nothing attributes it to Dr. Okonkwo. The figure also looks implausible for a single below-elbow amputation. Under the AMA Guides, loss of an entire upper extremity is generally around 60% WPI (I could not verify this against the Guides in this session). A careful memo might treat the rating as vulnerable rather than as support for severity, and the criterion requires citing it 'as a factor supporting the severity.' Most memos will cite it uncritically and pass.",
+        "evidence": [
+          {
+            "source": "task.json C-052",
+            "quote": "references Holt's 78% whole-person permanent impairment rating (AMA Guides, 6th Edition, per Dr. Okonkwo) as a factor supporting the severity"
+          },
+          {
+            "source": "vasquez-expert-report.docx.txt",
+            "quote": "Mr. Holt has been assessed at seventy-eight percent (78%) whole-person permanent impairment under the AMA Guides"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "AMA Guides to the Evaluation of Permanent Impairment, 6th ed. (upper limb amputation tables)",
+            "proposition": "Total loss of one upper extremity is about 60% whole-person impairment, below 78%",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Remove 'per Dr. Okonkwo'. PASS if the memo references the 78% rating in assessing noneconomic severity, whether it credits the rating or questions it."
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-024"
+        ],
+        "title": "Record inconsistencies in names, dates, and which Daubert motions are pending",
+        "explanation": "The assigned judge is named three different ways: Eleanor Vasquez in the GC memo, Sarah R. Pemberton in the defense brief, and Elaine R. Matsuda in the plaintiff brief. Plaintiff's engineer appears as Anita Vasquez and as Marguerite Vasquez, and the spreadsheet names 'Dr. Randall Fiske'. Aldrich appears as Steven and as Howard. The Briggs deposition is dated Sept 12, 2024 in the defense brief and Oct 17, 2024 in the transcript. Workers' comp medical paid ($418,600) exceeds documented past medicals ($363,700). The only inconsistency that matters for grading is the Daubert posture behind C-024. The GC memo says both sides challenged the opposing engineer. The spreadsheet lists only the defense motion plus a plaintiff motion in limine, and the defense brief mentions only its own motion. Overall grading impact is low.",
+        "evidence": [
+          {
+            "source": "insurance-coverage-memo.docx.txt",
+            "quote": "Daubert motions are currently pending, with both parties having filed challenges to the opposing party's engineering expert."
+          },
+          {
+            "source": "comparable-outcomes-summary.xlsx.txt",
+            "quote": "Defendant's Daubert motion to exclude plaintiff's liability expert (Dr. Randall Fiske, P.E.); Plaintiff's motion in limine re: subsequent remedial measure"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Harmonize names and dates across the documents and state the pending Daubert motions consistently."
+      }
+    ],
+    "overall": "Most of the rubric holds up. Nearly every factual criterion traces to the record, and the spreadsheet's 'Holt Case Summary' and 'Comparability Analysis' sheets supply many of the expected figures directly (fault ranges, the 78% rating, comparables, reserve, tower). The most serious defect is C-033. It asks the memo to count a contribution or indemnity claim against Apex toward net cost, even though Ohio workers' compensation immunity for a complying employer bars that claim. It also double-counts Apex's share, which C-019 already applies to reduce Greenfield's liability. C-034 and C-005 state Ohio law incompletely (2307.25(B); 2307.80's flagrant-disregard standard). C-039, C-029 and C-021 leave gaps between PASS and FAIL and pin numbers narrower than the record's own method supports. The document issues are a GC memo that misstates whether punitive damages are insurable, an unsupported attribution of the impairment rating, and assorted name and date inconsistencies. Most of these would misgrade only some competent answers, but under all-pass scoring, C-033 alone can zero out a legally correct memo."
+  },
+  "final": {
+    "task": "assess-settlement-value-range",
+    "sol_verdicts": [
+      {
+        "sol_locator": "B6-SV-1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-019"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-019",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I agree. Under R.C. 2307.22(A)(1), a defendant more than 50% at fault is jointly and severally liable for all economic loss, and the criteria's own 40-60% Greenfield range straddles that line. Only noneconomic loss is always several (2307.22(C)). A memo that accurately says Apex's share may not reduce economic recovery if Greenfield exceeds 50% risks the FAIL clause. Most memos will still pass on the noneconomic reduction, so this is arguable rather than problematic."
+      },
+      {
+        "sol_locator": "B6-SV-2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-033",
+          "C-034"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-033",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-034",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "C-033 goes further than 'omitting' immunity. It requires treating a contribution right as something 'factored into the net cost analysis.' R.C. 4123.74 immunizes Apex as a complying employer. McPherson calls the bar on third-party contribution from the employer 'settled'. The criterion also double-counts: C-019 already cuts Greenfield's share by Apex's fault. C-034 allows 'otherwise analyzes', but its 'does not necessarily extinguish' framing sits badly with 2307.25(B)."
+      },
+      {
+        "sol_locator": "B6-SV-3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-029",
+          "C-039"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-029",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-039",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The gaps between PASS and FAIL are real. For example, an economic figure of about $1.78M (Cho's earnings plus half the medical dispute), or a $3M-$6.5M range, satisfies neither clause. However, the counsel spreadsheet's summary row itself states a 'Midpoint range $5.0M–$7.0M (Garza/Novak adjusted for comparative fault)', and $1.9-2.2M brackets the midpoint between the two experts. The bands are anchored in the record, and only answers that land in a gap are misgraded, so I rate this arguable rather than confirmed."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-033"
+        ],
+        "title": "C-033 requires counting a contribution/indemnity right against the immune complying employer as a net-cost credit",
+        "explanation": "Apex is Holt's employer and a complying workers' compensation employer; Buckeye has paid benefits. R.C. 4123.74 says it 'shall not be liable to respond in damages.' McPherson says third-party contribution from the employer is 'settled' as barred for negligence, and it predicted the same bar for employer intentional torts. The R.C. 2745.01(C) guard-removal presumption gives Holt a possible intentional-tort claim against Apex, but it does not give Greenfield contribution. No express indemnity appears in the record. C-033 is also internally inconsistent with C-019, which already reduces Greenfield's liability by Apex's share. Under 2307.22, a defendant pays only its proportionate share of noneconomic loss (and of economic loss at 50% or less), so there is little left to seek contribution for. A competent memo that says the claim is barred and should not reduce net cost falls between PASS ('should be factored into the net cost analysis') and FAIL ('does not mention'), and a judge will likely fail it. The 'general concept is sufficient' sentence softens this only partly.",
+        "evidence": [
+          {
+            "source": "task.json C-033",
+            "quote": "Greenfield may have a right of contribution or indemnity against Apex Structural Contractors for the percentage of fault attributable to Apex's guard modification, and that this right should be factored into the net cost analysis"
+          },
+          {
+            "source": "task.json C-019",
+            "quote": "PASS if the memo applies or states that fault allocated to non-party Apex reduces plaintiff's recovery from Greenfield."
+          },
+          {
+            "source": "aldrich-economic-report.docx.txt",
+            "quote": "Under Ohio Revised Code § 4123.93, a workers\\' compensation carrier that has paid benefits to an injured worker holds a right of subrogation against any recovery"
+          },
+          {
+            "source": "defense-mediation-brief.docx.txt",
+            "quote": "Apex removed the Greenfield factory-installed fixed barrier guard"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. 4123.74",
+            "proposition": "Complying employers 'shall not be liable to respond in damages at common law or by statute' for employee injuries",
+            "verified": true
+          },
+          {
+            "citation": "McPherson v. Cleveland Punch & Shear Co., 816 F.2d 249 (6th Cir. 1987)",
+            "proposition": "'in the case of negligent conduct it is settled that the third party may not obtain contribution from the employer'; comparative negligence means the third party is liable only for its share",
+            "verified": true
+          },
+          {
+            "citation": "O.R.C. 2745.01(C)",
+            "proposition": "Deliberate removal of an equipment safety guard creates a rebuttable presumption of intent to injure (employee's claim against employer)",
+            "verified": true
+          },
+          {
+            "citation": "O.R.C. 2307.25(A)",
+            "proposition": "Contribution arises only where persons are 'jointly and severally liable in tort for the same injury'",
+            "verified": true
+          },
+          {
+            "citation": "O.R.C. 2307.22(A)(2), (C)",
+            "proposition": "A defendant is liable only for its proportionate share of noneconomic loss, and of economic loss when at 50% or less",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo addresses any contribution or indemnity claim against Apex and recognizes that workers' compensation immunity likely bars it (absent express indemnity or an established exception), so the net cost analysis should not rely on it. Do not require a net-cost credit.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-SV-2"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-034"
+        ],
+        "title": "C-034's 'settlement does not necessarily extinguish contribution' framing inverts R.C. 2307.25(B)",
+        "explanation": "Under 2307.25(B), a settling tortfeasor gets no contribution from another tortfeasor 'whose liability ... is not extinguished by the settlement,' or for any amount beyond what is reasonable. The criterion rewards saying that settlement 'does not necessarily extinguish' Greenfield's contribution claim, and FAILs a memo that says settlement extinguishes it. A correct memo might say that a release limited to Greenfield forfeits contribution, or that immunity makes the question moot (see O1). A judge could read either as the forbidden statement. The 'otherwise analyzes how settlement affects contribution rights' clause gives some protection, so this is arguable.",
+        "evidence": [
+          {
+            "source": "task.json C-034",
+            "quote": "PASS if the memo discusses or acknowledges that settling with the plaintiff does not necessarily extinguish Greenfield's potential contribution claim against Apex ... FAIL if the memo discusses contribution rights but incorrectly states settlement extinguishes them"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. 2307.25(B)",
+            "proposition": "A settling tortfeasor is not entitled to contribution from a tortfeasor whose liability is not extinguished by the settlement, or for unreasonable amounts",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "PASS if the memo correctly analyzes how settlement affects any contribution right, whether under 2307.25(B)'s extinguishment and reasonableness requirements or because immunity bars the claim altogether.",
+        "origin": "blind",
+        "sol_locators": [
+          "B6-SV-2"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-005"
+        ],
+        "title": "C-005 mandates 'conscious disregard' under 2315.21, but product-claim punitives turn on 2307.80(A) 'flagrant disregard'",
+        "explanation": "For a product liability claim against a manufacturer, R.C. 2307.80(A) requires clear and convincing evidence of misconduct that 'manifested a flagrant disregard of the safety of persons who might be harmed by the product.' Section 2315.21 supplies the cap and bifurcation rules. C-005 requires the memo to be 'specifically referencing' a conscious-disregard finding under 2315.21. A more precise memo that ties the emails to 2307.80 flagrant disregard could fail on a literal reading. The record's briefs use the 2315.21 framing, so most memos will pass.",
+        "evidence": [
+          {
+            "source": "task.json C-005",
+            "quote": "specifically referencing that this evidence supports a 'conscious disregard' finding under Ohio law (O.R.C. § 2315.21)"
+          },
+          {
+            "source": "plaintiff-mediation-brief.docx.txt",
+            "quote": "Under Ohio Revised Code § 2315.21, punitive or exemplary damages are available where the defendant's actions demonstrate \"malice\" or \"conscious disregard\""
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. 2307.80(A)",
+            "proposition": "Punitive damages on a product liability claim against a manufacturer require clear and convincing evidence of flagrant disregard of safety",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "PASS if the memo links the emails to punitive exposure under Ohio's punitive standard, citing either 2315.21 malice/conscious disregard or 2307.80 flagrant disregard.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-039",
+          "C-029",
+          "C-021"
+        ],
+        "title": "Numeric bands leave gaps between PASS and FAIL; reasoned answers in the gaps fail",
+        "explanation": "C-039 PASSes a low end of at least about $3.5M with a midpoint of $5-7M. It FAILs only a low end below $2M or a midpoint below $4M. A range of $3M-$6.5M falls in neither. C-029 PASSes about $1.9-2.2M but FAILs only outside $1.6-2.5M. Adopting Cho's earnings assumptions (a $525,300 swing) and splitting the $192,900 medical dispute gives about $1.78M, which is reasoned but falls in the gap. The spreadsheet is internally inconsistent: the Garza row gives $5.0-6.5M 'before adjusting for higher Apex fault', while the summary row calls $5-7M 'adjusted for comparative fault.' A defense memo that completes the adjustment, or weights the Brewer defense verdict, can reasonably reach a midpoint of about $4.5M. C-021's reserve band inherits the issue. Because the summary row anchors the bands in the record, only some competent answers are misgraded.",
+        "evidence": [
+          {
+            "source": "task.json C-039",
+            "quote": "FAIL if the settlement range is dramatically outside these bounds (e.g., low end below $2M or high end above $12M, or midpoint below $4M or above $8M)"
+          },
+          {
+            "source": "task.json C-029",
+            "quote": "(i.e., approximately $1,900,000–$2,200,000) ... FAIL if the memo ... provides a figure outside the range of $1,600,000–$2,500,000"
+          },
+          {
+            "source": "comparable-outcomes-summary.xlsx.txt",
+            "quote": "Adjusted indication: $5.0M–$6.5M before adjusting for higher Apex fault allocation in Holt (25%–45% vs. 20% in Garza)."
+          },
+          {
+            "source": "comparable-outcomes-summary.xlsx.txt",
+            "quote": "Midpoint range $5.0M–$7.0M (Garza/Novak adjusted for comparative fault)"
+          },
+          {
+            "source": "cho-rebuttal-report.docx.txt",
+            "quote": "Future Lost Earning Capacity incl. Fringe Benefits (PV)   \\$1,089,000       \\$563,700         (\\$525,300)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make PASS and FAIL complementary: FAIL only outside the wide bounds, and PASS any reasoned figure inside them. Align C-021 with C-039.",
+        "origin": "revised",
+        "sol_locators": [
+          "B6-SV-3"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-019"
+        ],
+        "title": "C-019 ignores Ohio's >50% joint-and-several rule for economic loss, which the 40-60% range straddles",
+        "explanation": "Under 2307.22(A)(1), a defendant found more than 50% at fault is jointly and severally liable for all economic loss, so Apex's share would not reduce the economic damages Greenfield owes. Only noneconomic loss is always several (2307.22(C)). A careful memo that notes this conditional exception risks the FAIL clause ('incorrectly states that Apex's fault does not reduce plaintiff's recovery'). Most memos will still pass on the noneconomic reduction.",
+        "evidence": [
+          {
+            "source": "task.json C-019",
+            "quote": "FAIL if the memo does not apply comparative fault reduction for Apex's share or incorrectly states that Apex's fault does not reduce plaintiff's recovery."
+          },
+          {
+            "source": "comparable-outcomes-summary.xlsx.txt",
+            "quote": "Greenfield: 40%–60%; Apex: 25%–45%; Holt: 5%–15%"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. 2307.22(A)(1), (C)",
+            "proposition": "Defendant with >50% of tortious conduct is jointly and severally liable for all economic loss; noneconomic loss is proportionate only",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Add: 'A memo that correctly notes joint-and-several liability for economic loss if Greenfield exceeds 50% fault also passes.'",
+        "origin": "blind",
+        "sol_locators": [
+          "B6-SV-1"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-031"
+        ],
+        "title": "C-031's '$200,000–$500,000 based on comparable outcomes' consortium band has no source in the record",
+        "explanation": "The comparables spreadsheet gives no consortium data; its noneconomic entries read 'Not specified' or 'Not separately stated'. The only consortium figures in the record are the defense's $50,000-$100,000 and the plaintiff's $500,000-$750,000, and both fall outside the stated band. A memo that adopts or adjusts either party's figure depends on each judge's sense of a 'reasonable range'.",
+        "evidence": [
+          {
+            "source": "task.json C-031",
+            "quote": "(approximately $200,000–$500,000 based on comparable outcomes, or any specific quantification within a reasonable range)"
+          },
+          {
+            "source": "defense-mediation-brief.docx.txt",
+            "quote": "a reasonable valuation for the loss of consortium claim is \\$50,000 to \\$100,000"
+          },
+          {
+            "source": "plaintiff-mediation-brief.docx.txt",
+            "quote": "Plaintiff values the loss of consortium claim at \\$500,000 to \\$750,000"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop the unsourced band. PASS if the memo treats consortium as a separate derivative claim with a reasoned quantification.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-007",
+          "C-041",
+          "C-042"
+        ],
+        "title": "GC memo calls punitive insurability 'unsettled' and says the excess layer covers punitive awards, contrary to R.C. 3937.182(B)",
+        "explanation": "R.C. 3937.182(B) bars covered casualty and liability policies issued by Ohio-licensed insurers from covering punitive damages. The insurance memo nonetheless calls insurability 'contested and unsettled' and says the Beacon layer protects against 'a punitive damages award', even though it elsewhere notes that Beacon follows form, including the punitive exclusion. A solver who relies on the memo could overstate what the $35M tower covers when it discusses C-007, C-041 and C-042. No criterion rewards the error directly. Choice of law and the insurer's licensure are not in the record, so this is hedged.",
+        "evidence": [
+          {
+            "source": "insurance-coverage-memo.docx.txt",
+            "quote": "The insurability of punitive damages under Ohio law remains a contested and unsettled area of jurisprudence."
+          },
+          {
+            "source": "insurance-coverage-memo.docx.txt",
+            "quote": "The $25,000,000 Beacon excess layer provides an important additional layer of protection in the unlikely event of an adverse trial outcome, an unanticipated verdict in excess of $10,000,000, or a punitive damages award."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "O.R.C. 3937.182(B)",
+            "proposition": "Covered casualty/liability policies issued by Ohio-licensed insurers shall not provide coverage for punitive or exemplary damages",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Correct the memo to reflect R.C. 3937.182(B), or credit recognition that punitive exposure is likely uninsured.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-052"
+        ],
+        "title": "C-052 attributes the 78% WPI rating to Dr. Okonkwo, which no document does; the rating also looks implausible",
+        "explanation": "Every document states the 78% whole-person rating in the passive ('has been assessed', 'assigned to Mr. Holt'). Okonkwo appears only as the treating surgeon and the author of the life-care plan. Under AMA 6th Edition conventions, loss of an entire upper extremity is about 60% WPI (not verified this session), so a careful memo might question the rating rather than cite it 'as a factor supporting' severity. Misgrading risk is low because FAIL requires only that the rating go unmentioned.",
+        "evidence": [
+          {
+            "source": "task.json C-052",
+            "quote": "references Holt's 78% whole-person permanent impairment rating (AMA Guides, 6th Edition, per Dr. Okonkwo)"
+          },
+          {
+            "source": "aldrich-economic-report.docx.txt",
+            "quote": "referenced for the permanent impairment rating of 78% whole-person assigned to Mr. Holt"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "AMA Guides to the Evaluation of Permanent Impairment, 6th ed.",
+            "proposition": "Total loss of one upper extremity is about 60% WPI",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Remove 'per Dr. Okonkwo'. PASS if the memo references the 78% rating in assessing noneconomic severity, whether it credits the rating or questions it.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O8"
+        ]
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-024"
+        ],
+        "title": "Record conflicts on which Daubert motions are pending; names and dates are inconsistent across documents",
+        "explanation": "The GC memo says both sides challenged the opposing engineer. The spreadsheet lists only the defense Daubert motion plus a plaintiff motion in limine, and the defense brief mentions only its own motion. That conflict bears on C-024, which asks about Daubert risk to Kwan. Other inconsistencies have low grading impact: the judge is named three ways, the plaintiff's engineer appears as Anita Vasquez, Marguerite Vasquez and 'Dr. Randall Fiske', Aldrich appears as Steven and as Howard, and the Briggs deposition carries two different dates.",
+        "evidence": [
+          {
+            "source": "insurance-coverage-memo.docx.txt",
+            "quote": "Daubert motions are currently pending, with both parties having filed challenges to the opposing party's engineering expert."
+          },
+          {
+            "source": "comparable-outcomes-summary.xlsx.txt",
+            "quote": "Defendant's Daubert motion to exclude plaintiff's liability expert (Dr. Randall Fiske, P.E.); Plaintiff's motion in limine re: subsequent remedial measure"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Harmonize names and dates, and state the pending Daubert motions consistently.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O9"
+        ]
+      }
+    ],
+    "changes_from_blind": "Sol's three findings are all subsets of my blind findings, so I adopted nothing new. Changes: (1) O1 now lists only C-033. I moved C-019 out of it because C-019's own issue is O5, and I kept the double-counting point in O1's explanation. In this session I re-verified McPherson on CourtListener and read R.C. 4123.74 and 2745.01(C) for the first time. I note Sol's point that the 2745.01(C) guard-removal presumption keeps an intentional-tort route open, but that route runs from Holt against Apex, not from Greenfield for contribution. I kept O1 problematic because the criterion demands a net-cost credit. (2) O4 now acknowledges that the spreadsheet's summary row describes the $5-7M midpoint as already 'adjusted for comparative fault', which contradicts the Garza row and partly anchors C-039 in the record. I added a worked example (about $1.78M) showing a reasoned figure that falls in C-029's gap. I rejected Sol's 'confirmed' status and kept arguable. (3) I relabeled O8 from document_defect to unsupported_fact and noted that its misgrading risk is low. (4) I marked 2307.80 and 3937.182 as unverified because I did not re-read them in this session. I dropped no blind findings.",
+    "overall": "The rubric is mostly anchored in the record: the counsel spreadsheet directly supplies the fault ranges, comparables, reserve, tower and impairment rating. The one problematic criterion is C-033. It requires treating a contribution or indemnity right against Apex, the complying employer, as a net-cost credit. R.C. 4123.74 and settled Ohio law bar third-party contribution from such an employer, and C-019 already reduces Greenfield's share by Apex's fault, so C-033 can fail a legally correct memo under all-pass scoring. C-034, C-005 and C-019 state Ohio law incompletely (2307.25(B), 2307.80, and the 2307.22(A)(1) economic-loss rule). C-039, C-029 and C-021 leave gaps between PASS and FAIL, but the spreadsheet's own summary anchors their centers. The document defects (punitive insurability in the GC memo, the Daubert posture, and the attribution of the 78% rating) are real but have modest grading impact.",
+    "coverage": "Second pass. I re-read all 14 relevant criteria verbatim from task.json (C-005, 007, 015, 019, 021, 024, 029, 031, 033, 034, 039, 041, 042, 052) and read every Sol file (audit.md, summary.md, index entry). I re-checked record facts by grep and script: the immunity, subrogation and indemnity references, the guard removal in the defense brief, Cho's component figures, the spreadsheet's Garza and summary rows, and every Okonkwo and 78% mention across all 10 documents. Law read this session: O.R.C. 4123.74, 2745.01(C), 2307.25(A)-(B), and 2307.22(A)(1), (A)(2) and (C) from codes.ohio.gov, plus the key passage of McPherson, 816 F.2d 249, on CourtListener. I could not open the Justia 1998 Ohio Supreme Court case Sol cited (HTTP 403). I did not re-verify 2307.80, 2315.21, 3937.182 or the AMA Guides in this session. The advisor tool was rate-limited."
+  }
+}
