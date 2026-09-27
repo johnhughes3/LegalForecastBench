@@ -12,12 +12,29 @@ from types import SimpleNamespace
 
 import pytest
 from legalforecast.multiharness import hermes_agent, hermes_runtime
+from legalforecast.multiharness import runner as runner_module
+from legalforecast.multiharness.adapters import AdapterPreparation
+from legalforecast.multiharness.release_harness import score_multiharness_release
+from legalforecast.multiharness.run_progress import ResumeRefusedError
+from legalforecast.multiharness.runner import (
+    ModelConfig,
+    MultiHarnessRunConfig,
+    run_multi_harness,
+)
+from legalforecast.multiharness.sandbox import PROVIDER_EGRESS_HOST_ONLY
+from legalforecast.multiharness.selection import TaskSelection
+from legalforecast.multiharness.solver_inputs import SolverInputStore
 from legalforecast.multiharness.spec import (
+    TOOL_REQUEST_SCHEMA_VERSION,
+    TOOL_RESPONSE_SCHEMA_VERSION,
     AdapterManifest,
     CanonicalTask,
     RunRequest,
     SandboxPolicy,
 )
+from legalforecast.multiharness.task_loaders import ReleaseLfbTaskLoader
+from legalforecast.release import validate_release
+from legalforecast.release.synthetic import issue_synthetic_release
 
 
 def request() -> RunRequest:
@@ -43,8 +60,10 @@ def request() -> RunRequest:
             policy_id="test",
             backend="podman",
             image="test@sha256:" + "2" * 64,
-            network_policy="provider-egress-host-only",
+            network_policy=PROVIDER_EGRESS_HOST_ONLY,
             timeout_seconds=60,
+            memory_limit="512m",
+            cpu_limit="1",
             allowed_provider_env_vars=("OPENROUTER_API_KEY",),
         ),
         request_sha256="sha256:" + "3" * 64,
@@ -77,10 +96,15 @@ def runtime(monkeypatch: pytest.MonkeyPatch):
     def invoke(argv, **kwargs):
         config = json.loads(Path(argv[-2]).read_text())
         invocations.append((config, kwargs))
+        normalized = forecast()
+        normalized["predictions"] = [
+            {"unit_id": unit, "probability_fully_dismissed": 0.7}
+            for unit in config["required_unit_ids"]
+        ]
         result = {
             "result": {
                 "completed": True,
-                "final_response": json.dumps(forecast()),
+                "final_response": json.dumps(normalized),
                 "served_model": None,
             },
             "model": config["model"],
@@ -89,7 +113,7 @@ def runtime(monkeypatch: pytest.MonkeyPatch):
             "hermes_version": hermes_agent.HERMES_VERSION,
             "python_version": "3.13.15",
         }
-        Path(argv[-1]).write_text(json.dumps(result))
+        os.write(int(argv[-1]), json.dumps(result).encode())
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(hermes_agent.subprocess, "run", invoke)
@@ -156,10 +180,11 @@ def test_wrong_provenance_and_malformed_outputs_fail(
 
     def altered(argv, **kwargs):
         completed = original(argv, **kwargs)
-        output = Path(argv[-1])
-        record = json.loads(output.read_text())
+        output = int(argv[-1])
+        record = json.loads(os.pread(output, 16_777_216, 0))
         record[field] = value
-        output.write_text(json.dumps(record))
+        os.ftruncate(output, 0)
+        os.pwrite(output, json.dumps(record).encode(), 0)
         return completed
 
     monkeypatch.setattr(hermes_agent.subprocess, "run", altered)
@@ -210,11 +235,118 @@ def test_checkout_rejects_wrong_pin_before_import(tmp_path):
         hermes_agent.validate_checkout(tmp_path)
 
 
+def test_workspace_symlinks_fail_before_runtime(tmp_path, runtime):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / "private-logs").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(OSError):
+        hermes_agent.run(request(), tmp_path, tmp_path)
+    assert runtime == []
+    assert list(outside.iterdir()) == []
+
+
+def test_release_runner_scores_and_resumes_hermes_evidence(
+    tmp_path, runtime, monkeypatch
+):
+    # Runtime and container receipts are fixtures here; real Hermes tool dispatch
+    # is independently exercised by the pinned-source tests below.
+    class Adapter:
+        manifest = request().adapter
+
+        def capabilities(self, workspace):
+            return hermes_agent.capabilities()
+
+        def prepare(self, req, workspace):
+            return AdapterPreparation(
+                self.manifest, self.capabilities(workspace), workspace
+            )
+
+        def run(self, req, workspace):
+            raise AssertionError("must use host tools")
+
+        def run_with_tools(self, req, workspace, tools):
+            return hermes_agent.run(req, workspace, tmp_path)
+
+    receipt_digest = "sha256:" + "c" * 64
+
+    class Session:
+        def __init__(self, **kwargs):
+            assert kwargs["solver_input_root"].is_dir()
+
+        def finalize(self, result):
+            assert result.status == "succeeded"
+            return SimpleNamespace(receipt_sha256=receipt_digest)
+
+        def abort(self):
+            pass
+
+    monkeypatch.setattr(runner_module, "_preflight_live_container", lambda _: None)
+    monkeypatch.setattr(runner_module, "ContainerToolSession", Session)
+    monkeypatch.setattr(
+        runner_module, "validate_container_resume", lambda *a, **kw: receipt_digest
+    )
+    release = tmp_path / "release"
+    issue_synthetic_release(release)
+    solver = tmp_path / "solver"
+    index = ReleaseLfbTaskLoader().load_forecast_release(
+        release / "forecast-release.json",
+        artifact_root=release,
+        solver_input_root=solver,
+    )
+    config = MultiHarnessRunConfig(
+        task_index=index,
+        adapters=(Adapter(),),
+        model_configs=(
+            ModelConfig(model_key=request().model_key, adapter_id="hermes-agent"),
+        ),
+        sandbox_policy=replace(request().sandbox_policy, uid_gid="65532:65532"),
+        output_dir=tmp_path / "run",
+        selection=TaskSelection(task_ids=(index.tasks[0].task_id,)),
+        solver_inputs=SolverInputStore.load(solver),
+        container_execution="live_tools",
+    )
+    first = run_multi_harness(config)
+    row = first.rows[0]
+    release_forecast, labels = validate_release(
+        release / "forecast-release.json",
+        release / "labels-release.json",
+        artifact_root=release,
+    )
+    score = score_multiharness_release(first, release_forecast, labels)["models"][0]
+    assert score["unit_count"] == score["completed_unit_count"] == 1
+    assert score["failed_unit_count"] == 0
+    assert score["micro_brier"] == pytest.approx(0.7**2)
+    assert row.lfb_record["parser_output"]["is_valid"] is True
+    assert len(runtime) == 1
+    artifacts = {artifact.artifact_id: artifact for artifact in row.result.artifacts}
+    output = artifacts["release-forecast-output-private"]
+    transcript = artifacts["release-harness-transcript-private"]
+    bound = json.loads((row.workspace / transcript.path).read_bytes())
+    assert bound["request_sha256"] == row.request.request_sha256
+    assert bound["packet_sha256"] == row.task.metadata["packet_sha256"]
+    assert bound["prompt_sha256"] == row.task.metadata["prompt_sha256"]
+    assert bound["response_sha256"] == output.sha256
+    assert "PRIVATE" not in json.dumps(row.to_record())
+    second = run_multi_harness(replace(config, resume=True))
+    assert second.rows[0].resumed is True
+    assert second.rows[0].lfb_record == row.lfb_record
+    assert (
+        score_multiharness_release(second, release_forecast, labels)["models"][0]
+        == score
+    )
+    assert len(runtime) == 1
+    (row.workspace / transcript.path).write_text("{}")
+    with pytest.raises(ResumeRefusedError):
+        run_multi_harness(replace(config, resume=True))
+    assert len(runtime) == 1
+
+
 @pytest.mark.skipif(
     not os.environ.get("LEGALFORECAST_HERMES_CHECKOUT"),
     reason="set LEGALFORECAST_HERMES_CHECKOUT to installed pinned source",
 )
-def test_pinned_upstream_managed_conversation_with_sdk_fixtures(tmp_path):
+@pytest.mark.parametrize("mode", ["sequential", "batched"])
+def test_pinned_upstream_managed_conversation_with_sdk_fixtures(tmp_path, mode):
     checkout = Path(os.environ["LEGALFORECAST_HERMES_CHECKOUT"])
     interpreter = hermes_agent.validate_checkout(checkout)
     subprocess.run(
@@ -224,6 +356,7 @@ def test_pinned_upstream_managed_conversation_with_sdk_fixtures(tmp_path):
             str(checkout),
             str(Path(hermes_runtime.__file__)),
             str(tmp_path),
+            mode,
         ],
         check=True,
         timeout=60,
@@ -283,6 +416,8 @@ def test_managed_runtime_tool_callback_uses_host_protocol(
         "required_unit_ids": ["count_i"],
         "working_directory": "/private",
         "solver_input_path": "solver-input/prompt.txt",
+        "tool_request_schema": TOOL_REQUEST_SCHEMA_VERSION,
+        "tool_response_schema": TOOL_RESPONSE_SCHEMA_VERSION,
     }
     if wrong_response or extra_tool:
         with pytest.raises(ValueError):
@@ -324,12 +459,14 @@ def test_large_canonical_task_requires_every_bounded_chunk(monkeypatch, consume_
     class Agent:
         model = "test"
 
-        def __init__(self, **_kwargs):
+        def __init__(self, **kwargs):
             self.tools = [{"function": {"name": "read_canonical_task"}}]
+            self.start_turn = kwargs["step_callback"]
 
         def run_conversation(self, _prompt):
             offset = 0
             while True:
+                self.start_turn()
                 encoded = registry.registration["handler"]({"offset": offset})
                 assert len(encoded) <= 7500
                 chunk = json.loads(encoded)
@@ -349,6 +486,8 @@ def test_large_canonical_task_requires_every_bounded_chunk(monkeypatch, consume_
         "required_unit_ids": ["count_i"],
         "working_directory": "/private",
         "solver_input_path": "prompt.txt",
+        "tool_request_schema": TOOL_REQUEST_SCHEMA_VERSION,
+        "tool_response_schema": TOOL_RESPONSE_SCHEMA_VERSION,
     }
     if consume_all:
         result = hermes_runtime.execute(config, Agent, registry, incoming, outgoing)

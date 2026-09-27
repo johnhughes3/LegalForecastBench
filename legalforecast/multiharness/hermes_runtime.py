@@ -13,6 +13,7 @@ import json
 import os
 import platform
 import sys
+import threading
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Protocol, TextIO, cast
@@ -51,8 +52,22 @@ def execute(
     successful_reads = [0]
     task_text = [""]
     offset = [0]
+    turn_read = [False]
+    batched_read = [False]
+    read_lock = threading.Lock()
+
+    def start_turn(*_args: object) -> None:
+        with read_lock:
+            turn_read[0] = False
 
     def read_task(arguments: Mapping[str, object], **_kwargs: object) -> str:
+        # Hermes also enforces an aggregate per-turn output budget. Never accept
+        # a batched read: its individually bounded pages could still be spilled.
+        with read_lock:
+            if turn_read[0]:
+                batched_read[0] = True
+                raise ValueError("only one canonical task chunk per model turn")
+            turn_read[0] = True
         calls[0] += 1
         requested_offset = arguments.get("offset", 0)
         if (
@@ -67,7 +82,7 @@ def execute(
         outgoing.write(
             json.dumps(
                 {
-                    "schema_version": "legalforecast.multiharness.tool_request.v1",
+                    "schema_version": config["tool_request_schema"],
                     "request_id": request_id,
                     "operation": "read_text",
                     "arguments": {"encoding": "utf-8"},
@@ -82,8 +97,7 @@ def execute(
             raise ValueError("invalid host tool response size")
         response = cast(dict[str, object], json.loads(line))
         if (
-            response.get("schema_version")
-            != "legalforecast.multiharness.tool_response.v1"
+            response.get("schema_version") != config["tool_response_schema"]
             or response.get("request_id") != request_id
             or response.get("status") != "succeeded"
         ):
@@ -141,6 +155,7 @@ def execute(
         enabled_toolsets=["legalforecast"],
         max_iterations=200,
         run_budget_seconds=180,
+        step_callback=start_turn,
         skip_context_files=True,
         skip_memory=True,
         skip_background_review=True,
@@ -159,11 +174,14 @@ def execute(
             raise ValueError("Hermes exposed unexpected tools")
         result = agent.run_conversation(
             "Call read_canonical_task with offset 0, then each returned next_offset "
-            "until complete is true. Read every chunk before forecasting using only "
+            "until complete is true. Call it only once per model turn, never in "
+            "parallel or in a batch. Read every chunk before forecasting using only "
             "that complete prompt. Return JSON with case_assessment and predictions; "
             "each prediction has unit_id, probability_fully_dismissed and rationale. "
             f"Required units: {json.dumps(config['required_unit_ids'])}."
         )
+        if batched_read[0]:
+            raise ValueError("Hermes batched canonical task chunks in one model turn")
         if successful_reads[0] != 1 or offset[0] != len(task_text[0]):
             raise ValueError("Hermes did not read the complete canonical task")
         return {
@@ -194,7 +212,10 @@ def main() -> int:
         result = execute(config, factory, registry, sys.stdin, protocol_out)
         result["python_version"] = platform.python_version()
         result["hermes_version"] = importlib.metadata.version("hermes-agent")
-    Path(sys.argv[2]).write_text(json.dumps(result, ensure_ascii=False))
+    # The parent owns this anonymous file descriptor; the child never resolves
+    # a workspace output path or follows a planted result symlink.
+    with os.fdopen(int(sys.argv[2]), "w", encoding="utf-8") as stream:
+        json.dump(result, stream, ensure_ascii=False)
     return 0
 
 

@@ -13,7 +13,8 @@ from pathlib import Path
 
 
 def main() -> None:
-    checkout, runtime_path, private_home = map(Path, sys.argv[1:])
+    checkout, runtime_path, private_home = map(Path, sys.argv[1:4])
+    batched = sys.argv[4:] == ["batched"]
     os.environ.clear()
     os.environ.update(
         {
@@ -52,7 +53,7 @@ def main() -> None:
     bridge = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bridge)
     calls = []
-    canonical_task = "Forecast the public test motion " + "x" * 12000 + " END-OF-TASK"
+    canonical_task = "Forecast the public test motion " + "x" * 210000 + " END-OF-TASK"
 
     def complete(_self, **kwargs):
         # Hermes puts bulk fields in extra_body; the SDK merges these before
@@ -62,7 +63,13 @@ def main() -> None:
         tool_messages = [
             message for message in wire["messages"] if message.get("role") == "tool"
         ]
-        previous = json.loads(tool_messages[-1]["content"]) if tool_messages else None
+        previous = (
+            {"complete": True}
+            if batched and tool_messages
+            else json.loads(tool_messages[-1]["content"])
+            if tool_messages
+            else None
+        )
         if previous is None or not previous["complete"]:
             message = {
                 "role": "assistant",
@@ -81,8 +88,19 @@ def main() -> None:
                 ],
             }
             finish = "tool_calls"
+            if batched:
+                message["tool_calls"].append(
+                    {
+                        "id": "call_batched",
+                        "type": "function",
+                        "function": {
+                            "name": "read_canonical_task",
+                            "arguments": json.dumps({"offset": 6000}),
+                        },
+                    }
+                )
         else:
-            assert (
+            assert batched or (
                 "".join(
                     json.loads(message["content"])["text"] for message in tool_messages
                 )
@@ -126,24 +144,33 @@ def main() -> None:
         + "\n"
     )
     outgoing = io.StringIO()
-    result = bridge.execute(
-        {
-            "request_id": "case",
-            "model": "openai/gpt-4o-mini",
-            "session_id": "offline-conformance",
-            "required_unit_ids": ["count_i"],
-            "working_directory": str(private_home),
-            "solver_input_path": "prompt.txt",
-        },
-        agent_class,
-        registry,
-        incoming,
-        outgoing,
-    )
+    try:
+        result = bridge.execute(
+            {
+                "request_id": "case",
+                "model": "openai/gpt-4o-mini",
+                "session_id": "offline-conformance",
+                "required_unit_ids": ["count_i"],
+                "working_directory": str(private_home),
+                "solver_input_path": "prompt.txt",
+                "tool_request_schema": "legalforecast.multiharness.tool_request.v1",
+                "tool_response_schema": "legalforecast.multiharness.tool_response.v1",
+            },
+            agent_class,
+            registry,
+            incoming,
+            outgoing,
+        )
+    except ValueError as exc:
+        assert batched and "batched canonical task" in str(exc)
+        print("Pinned Hermes batched tool output correctly rejected")
+        return
+    assert not batched, "batched task reads must never be accepted"
     assert result["result"]["completed"] is True
     assert result["tool_call_count"] == 1
-    assert len(calls) == 4
-    assert result["task_chunk_count"] == 3
+    expected_chunks = (len(canonical_task) + 5999) // 6000
+    assert len(calls) == expected_chunks + 1
+    assert result["task_chunk_count"] == expected_chunks
     assert json.loads(outgoing.getvalue())["operation"] == "read_text"
     print("Pinned Hermes conversation and host tool passed (SDK fixtures)")
 

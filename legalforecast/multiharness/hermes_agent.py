@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import subprocess
 import sys
@@ -13,20 +12,25 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
-from legalforecast._json_io import read_json_object_safe, write_json_object
-from legalforecast.evals.output_parser import ParserStatus, parse_model_output
+from legalforecast._json_io import read_json_object_safe, write_json_object_safe
+from legalforecast.contracts import (
+    MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1,
+    RAW_BYTES_PREFIXED_SHA256_V1,
+)
+from legalforecast.immutable_io import ensure_private_directory
+from legalforecast.multiharness.hermes_artifacts import build_result
 from legalforecast.multiharness.host_environment import (
     build_host_subprocess_environment,
 )
+from legalforecast.multiharness.release_runtime import write_release_create_only
 from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
 from legalforecast.multiharness.spec import (
     TOOL_REQUEST_SCHEMA_VERSION,
+    TOOL_RESPONSE_SCHEMA_VERSION,
     AdapterCapabilities,
-    ArtifactRecord,
     RunRequest,
     RunResult,
 )
-from legalforecast.multiharness.validation import validate_public_record
 
 ADAPTER_ID = "hermes-agent"
 ADAPTER_VERSION = "1.0.0"
@@ -41,13 +45,17 @@ class HermesAdapterError(RuntimeError):
 
 
 def adapter_bundle_sha256() -> str:
-    """Bind resume and public provenance to both halves of this adapter."""
+    """Bind resume and public provenance to all three bridge modules."""
 
-    digest = hashlib.sha256()
-    for name in ("hermes_agent.py", "hermes_runtime.py"):
-        digest.update(name.encode() + b"\0")
-        digest.update(Path(__file__).with_name(name).read_bytes())
-    return "sha256:" + digest.hexdigest()
+    payload = b"".join(
+        name.encode() + b"\0" + Path(__file__).with_name(name).read_bytes()
+        for name in ("hermes_agent.py", "hermes_runtime.py", "hermes_artifacts.py")
+    )
+    return str(
+        RAW_BYTES_PREFIXED_SHA256_V1.commit(
+            payload, domain=MULTIHARNESS_SYSTEM_BUNDLE_LABEL_V1
+        ).digest
+    )
 
 
 def capabilities() -> AdapterCapabilities:
@@ -125,18 +133,17 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
     if len(set(required_units)) != len(required_units):
         raise HermesAdapterError("required_unit_ids must be unique")
     interpreter = validate_checkout(checkout)
-    private_logs = workspace.resolve() / "private-logs"
-    private_logs.mkdir(mode=0o700, parents=True, exist_ok=True)
+    private_logs = ensure_private_directory(workspace.absolute() / "private-logs")
     attempt = Path(tempfile.mkdtemp(prefix="hermes-", dir=private_logs))
     environment = build_host_subprocess_environment(attempt, (PROVIDER_KEY,))
     hermes_home = attempt / "profile"
-    hermes_home.mkdir(mode=0o700)
+    ensure_private_directory(hermes_home)
     environment["HERMES_HOME"] = str(hermes_home)
     environment["HERMES_GUEST_ONBOARDING"] = "0"
     environment["HERMES_IGNORE_RULES"] = "1"
     environment["HERMES_SAFE_MODE"] = "1"
     # JSON is valid YAML. A fresh profile has no plugins, MCP, or saved auth.
-    write_json_object(
+    write_json_object_safe(
         hermes_home / "config.yaml",
         {
             "memory": {"memory_enabled": False, "user_profile_enabled": False},
@@ -148,7 +155,7 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
     )
     session_id = str(uuid.uuid4())
     config_path = attempt / "request.json"
-    write_json_object(
+    write_json_object_safe(
         config_path,
         {
             "checkout": str(checkout.resolve()),
@@ -158,29 +165,38 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
             "session_id": session_id,
             "working_directory": str(attempt),
             "solver_input_path": SOLVER_INPUT_ENTRY_PATH,
+            "tool_request_schema": TOOL_REQUEST_SCHEMA_VERSION,
+            "tool_response_schema": TOOL_RESPONSE_SCHEMA_VERSION,
         },
     )
     trajectory = attempt / "trajectory.json"
     # Inherit the command adapter's JSONL channel. Hermes' tool handler is the
     # sole writer; runtime diagnostics go to the parent's private stderr log.
-    process = subprocess.run(
-        [
-            str(interpreter),
-            str(Path(__file__).with_name("hermes_runtime.py")),
-            str(config_path),
-            str(trajectory),
-        ],
-        cwd=attempt,
-        env=environment,
-        check=False,
-        timeout=min(240, request.sandbox_policy.timeout_seconds),
-    )
-    if process.returncode:
-        raise HermesAdapterError("Hermes managed runtime failed")
-    if not trajectory.is_file() or trajectory.stat().st_size > 16_777_216:
+    with tempfile.TemporaryFile(dir=attempt) as output_file:
+        process = subprocess.run(
+            [
+                str(interpreter),
+                str(Path(__file__).with_name("hermes_runtime.py")),
+                str(config_path),
+                str(output_file.fileno()),
+            ],
+            cwd=attempt,
+            env=environment,
+            pass_fds=(output_file.fileno(),),
+            check=False,
+            timeout=min(240, request.sandbox_policy.timeout_seconds),
+        )
+        if process.returncode:
+            raise HermesAdapterError("Hermes managed runtime failed")
+        output_file.seek(0)
+        raw = output_file.read(16_777_217)
+    if not raw or len(raw) > 16_777_216:
         raise HermesAdapterError("missing or oversized Hermes trajectory")
-    raw = trajectory.read_bytes()
-    execution = _read_record(trajectory)
+    write_release_create_only(trajectory, raw, mode=0o600)
+    decoded: object = json.loads(raw)
+    if not isinstance(decoded, dict):
+        raise HermesAdapterError("Hermes trajectory is malformed")
+    execution = cast(dict[str, object], decoded)
     result = execution.get("result")
     if not isinstance(result, dict):
         raise HermesAdapterError("Hermes result is malformed")
@@ -200,11 +216,7 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
     output = result.get("final_response")
     if not isinstance(output, str):
         raise HermesAdapterError("Hermes did not return forecast text")
-    parsed = parse_model_output(output, required_unit_ids=required_units)
-    if parsed.status != ParserStatus.VALID:
-        raise HermesAdapterError("Hermes returned an invalid forecast")
-    digest = "sha256:" + hashlib.sha256(raw).hexdigest()
-    summary: dict[str, object] = {
+    provenance: dict[str, object] = {
         "adapter_id": ADAPTER_ID,
         "adapter_version": ADAPTER_VERSION,
         "adapter_bundle_sha256": adapter_bundle_sha256(),
@@ -221,36 +233,22 @@ def run(request: RunRequest, workspace: Path, checkout: Path) -> RunResult:
         "memory_session_policy": "fresh-profile-per-attempt-memory-disabled",
         "enabled_toolsets": ["legalforecast"],
         "tool_call_count": 1,
-        "trajectory_sha256": digest,
-        "session_sha256": "sha256:" + hashlib.sha256(session_id.encode()).hexdigest(),
         "task_id": request.task.task_id,
     }
-    validate_public_record(summary, "hermes.public_summary")
-    commitment = json.dumps(
-        {
-            "request": request.request_sha256,
-            "parsed": parsed.to_record(),
-            "summary": summary,
-        },
-        sort_keys=True,
-    ).encode()
-    return RunResult(
-        result_id=f"{request.request_id}:hermes",
-        request_id=request.request_id,
-        status="succeeded",
-        result_sha256="sha256:" + hashlib.sha256(commitment).hexdigest(),
-        public_summary=summary,
-        artifacts=(
-            ArtifactRecord(
-                artifact_id="hermes-private-trajectory",
-                path=trajectory.relative_to(workspace.resolve()).as_posix(),
-                sha256=digest,
-                media_type="application/json",
-                public=False,
-                size_bytes=len(raw),
-            ),
-        ),
-    )
+    try:
+        return build_result(
+            request,
+            workspace,
+            trajectory,
+            raw,
+            execution,
+            output,
+            required_units,
+            session_id,
+            provenance,
+        )
+    except ValueError as exc:
+        raise HermesAdapterError("Hermes forecast evidence is invalid") from exc
 
 
 def _read_record(path: Path) -> dict[str, object]:
@@ -285,13 +283,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.phase == "capabilities":
-            write_json_object(args.output, capabilities().to_record())
+            write_json_object_safe(args.output, capabilities().to_record())
         elif args.phase == "run":
             raise HermesAdapterError("Hermes requires the host-owned live tool channel")
         else:
             request = RunRequest.from_record(_read_record(args.request))
             result = run(request, args.workspace, args.hermes_checkout)
-            write_json_object(args.output, result.to_record())
+            write_json_object_safe(args.output, result.to_record())
         return 0
     except (HermesAdapterError, OSError, ValueError, subprocess.SubprocessError):
         print(
