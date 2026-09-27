@@ -50,15 +50,17 @@ export default function ConfidenceChart({
 					return (
 						<li
 							key={m.slug}
-							className={`grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 py-2.5 transition-opacity sm:grid-cols-[9.5rem_1fr_10rem] sm:py-1.5 ${dim ? "opacity-35" : ""}`}
+							className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 py-2.5 sm:grid-cols-[9.5rem_1fr_10rem] sm:py-1.5"
 						>
+							{/* Other models recede: marks fade, text drops to the muted ink
+							    (which keeps 4.5:1) rather than fading below legibility. */}
 							<span
-								className={`col-start-1 row-start-1 text-sm text-ink sm:text-right ${highlight === m.slug ? "font-semibold" : "font-medium"}`}
+								className={`col-start-1 row-start-1 text-sm sm:text-right ${highlight === m.slug ? "font-semibold text-ink" : dim ? "font-normal text-ink-3" : "font-medium text-ink"}`}
 							>
 								{m.display_name}
 							</span>
 							<div
-								className="relative col-span-2 col-start-1 row-start-2 mx-2 h-5 sm:mx-0 sm:col-span-1 sm:col-start-2 sm:row-start-1"
+								className={`relative col-span-2 col-start-1 row-start-2 mx-2 h-5 sm:mx-0 sm:col-span-1 sm:col-start-2 sm:row-start-1 ${dim ? "opacity-35" : ""}`}
 								title={summary}
 							>
 								{TICKS.map((t) => (
@@ -85,7 +87,9 @@ export default function ConfidenceChart({
 								/>
 								<span className="sr-only">{summary}</span>
 							</div>
-							<span className="col-start-2 row-start-1 text-right text-xs text-ink-2 tabular sm:col-start-3 sm:text-left sm:text-sm">
+							<span
+								className={`col-start-2 row-start-1 text-right text-xs tabular sm:col-start-3 sm:text-left sm:text-sm ${dim ? "text-ink-3" : "text-ink-2"}`}
+							>
 								{m.high_confidence.wrong} / {m.high_confidence.count}
 								<span className="text-ink-3">
 									{" "}

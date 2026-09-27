@@ -22,12 +22,13 @@ interface Placed {
 	x: number;
 	y: number;
 	frontier: boolean;
-	label: { x: number; y: number; anchor: "start" | "end" } | null;
+	label: { x: number; y: number; anchor: "start" | "middle" | "end" } | null;
 }
 
 type Label = NonNullable<Placed["label"]>;
 
-const LABEL_CHAR = 6.4;
+// Measured mean glyph advance of 12px Inter labels at weights 450 and 600.
+const LABEL_CHAR = { regular: 6.4, bold: 7 };
 // Configuration stays in tooltips and model pages; labels retain the model/version.
 const chartLabel = (model: SnapshotModel) =>
 	model.display_name.replace(/\s*\([^)]*\)/g, "");
@@ -44,33 +45,36 @@ type Box = { x0: number; x1: number; y0: number; y1: number };
 /**
  * Greedy label placement: score candidate positions by overlap with points,
  * the frontier line, and earlier labels; stay inside the plot when possible.
+ * Covering a point hides data, so point overlap costs more than label overlap.
  */
 function placeLabels(
 	points: Omit<Placed, "label">[],
 	width: number,
 	obstacles: Box[],
 	labeled: (p: Omit<Placed, "label">) => boolean,
+	bold: (p: Omit<Placed, "label">) => boolean,
 ): Placed[] {
-	const boxes: Box[] = [
-		...points.map((p) => ({
-			x0: p.x - 7,
-			x1: p.x + 7,
-			y0: p.y - 7,
-			y1: p.y + 7,
-		})),
-		...obstacles,
-	];
-	const overlap = (b: Box) =>
-		boxes.reduce((sum, o) => {
+	const marks: Box[] = points.map((p) => ({
+		x0: p.x - 8,
+		x1: p.x + 8,
+		y0: p.y - 8,
+		y1: p.y + 8,
+	}));
+	const boxes: Box[] = [...obstacles];
+	const area = (b: Box, list: Box[]) =>
+		list.reduce((sum, o) => {
 			const w = Math.min(b.x1, o.x1) - Math.max(b.x0, o.x0);
 			const h = Math.min(b.y1, o.y1) - Math.max(b.y0, o.y0);
 			return w > 0 && h > 0 ? sum + w * h : sum;
 		}, 0);
+	const overlap = (b: Box) => area(b, boxes) + 4 * area(b, marks);
 	return [...points]
 		.sort((a, b) => Number(labeled(b)) - Number(labeled(a)) || a.y - b.y)
 		.map((p) => {
 			if (!labeled(p)) return { ...p, label: null };
-			const w = chartLabel(p.model).length * LABEL_CHAR;
+			const w =
+				chartLabel(p.model).length *
+				(bold(p) ? LABEL_CHAR.bold : LABEL_CHAR.regular);
 			const candidates: Label[] = [
 				{ x: p.x + 10, y: p.y + 4, anchor: "start" },
 				{ x: p.x - 10, y: p.y + 4, anchor: "end" },
@@ -78,11 +82,18 @@ function placeLabels(
 				{ x: p.x - 4, y: p.y + 19, anchor: "end" },
 				{ x: p.x + 4, y: p.y - 11, anchor: "start" },
 				{ x: p.x - 4, y: p.y - 11, anchor: "end" },
+				{ x: p.x, y: p.y - 13, anchor: "middle" },
+				{ x: p.x, y: p.y + 22, anchor: "middle" },
+				{ x: p.x + 10, y: p.y - 6, anchor: "start" },
+				{ x: p.x - 10, y: p.y - 6, anchor: "end" },
+				{ x: p.x + 10, y: p.y + 14, anchor: "start" },
+				{ x: p.x - 10, y: p.y + 14, anchor: "end" },
 			];
+			const lead = { start: 0, middle: w / 2, end: w };
 			const box = (c: Label): Box => ({
-				x0: c.anchor === "start" ? c.x : c.x - w,
-				x1: c.anchor === "start" ? c.x + w : c.x,
-				y0: c.y - 10,
+				x0: c.x - lead[c.anchor],
+				x1: c.x - lead[c.anchor] + w,
+				y0: c.y - 11,
 				y1: c.y + 3,
 			});
 			const score = (c: Label) => {
@@ -167,6 +178,21 @@ export default function ParetoChart({
 			x: sx(f.cost.usd as number),
 			y: sy(metricValue(f, metric, n)),
 		}));
+		// The baseline's own caption (right-aligned above its line) is an obstacle too.
+		const baselineCaption: Box[] = baseline
+			? [
+					{
+						x1: width - m.right - 4,
+						x0:
+							width -
+							m.right -
+							4 -
+							`${baseline.label} (${spec.format(baseline.value)})`.length * 6,
+						y0: sy(baseline.value) - 17,
+						y1: sy(baseline.value) - 3,
+					},
+				]
+			: [];
 		const points = placeLabels(
 			priced.map((model) => ({
 				model,
@@ -175,7 +201,7 @@ export default function ParetoChart({
 				frontier: frontierSlugs.has(model.slug),
 			})),
 			width,
-			lineObstacles(frontierPath),
+			[...lineObstacles(frontierPath), ...baselineCaption],
 			// Desktop labels every point; phones label the frontier, focus, and
 			// worst score, and other names appear on tap.
 			(p) =>
@@ -186,6 +212,7 @@ export default function ParetoChart({
 					(spec.direction === "lower"
 						? Math.max(...values)
 						: Math.min(...values)),
+			(p) => p.frontier || p.model.slug === highlight,
 		);
 		const xTicks = [0.5, 1, 2, 5, 10, 20, 50, 100, 200].filter(
 			(t) => Math.log10(t) >= x0 && Math.log10(t) <= x1,
@@ -213,6 +240,8 @@ export default function ParetoChart({
 		width,
 		narrow,
 		highlight,
+		spec.format,
+		m.right,
 	]);
 
 	const rankMap = useMemo(() => ranks(snapshot, metric), [snapshot, metric]);
@@ -251,114 +280,122 @@ export default function ParetoChart({
 					</span>
 				</div>
 			)}
-			<div ref={ref} className="relative w-full">
+			{/* The CSS height repeats the `height` formula in container units, so the
+			    server-rendered chart reserves the same box it has after hydration. */}
+			<div ref={ref} className="@container relative w-full">
+				{/* biome-ignore lint/a11y/useSemanticElements: an SVG cannot be a fieldset; role="group" lets the point links stay reachable (role="img" would hide them). */}
 				<svg
 					viewBox={`0 0 ${width} ${height}`}
-					role="img"
-					aria-label={`Cost versus ${spec.label} for ${layout.points.length} plotted models. Frontier: ${layout.frontier.map((f) => f.display_name).join(", ")}.`}
-					className="block h-auto w-full overflow-visible"
+					role="group"
+					aria-label={`Cost versus ${spec.label} for ${layout.points.length} plotted models. Frontier: ${layout.frontier.map((f) => f.display_name).join(", ")}. Each point links to its model page.`}
+					className="block h-[clamp(360px,75cqw,560px)] w-full overflow-visible"
 				>
-					{/* grid */}
-					{layout.yTicks.map((t) => (
-						<g key={`y${t}`}>
-							<line
-								x1={m.left}
-								x2={width - m.right}
-								y1={layout.sy(t)}
-								y2={layout.sy(t)}
-								stroke="var(--chart-grid)"
-							/>
-							<text
-								x={m.left - 8}
-								y={layout.sy(t) + 4}
-								textAnchor="end"
-								fontSize={11}
-								fill="var(--ink-3)"
-								className="tabular"
-							>
-								{spec.format(t)}
-							</text>
-						</g>
-					))}
-					{layout.xTicks.map((t) => (
-						<g key={`x${t}`}>
-							<line
-								x1={layout.sx(t)}
-								x2={layout.sx(t)}
-								y1={m.top}
-								y2={height - m.bottom}
-								stroke="var(--chart-grid)"
-							/>
-							<text
-								x={layout.sx(t)}
-								y={height - m.bottom + 18}
-								textAnchor="middle"
-								fontSize={11}
-								fill="var(--ink-3)"
-								className="tabular"
-							>
-								{formatUsd(t).replace(".00", "")}
-							</text>
-						</g>
-					))}
-					<text
-						x={m.left + plotW / 2}
-						y={height - 6}
-						textAnchor="middle"
-						fontSize={11.5}
-						fill="var(--ink-2)"
-					>
-						{narrow
-							? "Cohort cost, log scale · cheaper ←"
-							: `Standard-rate cost for the ${snapshot.cohort.case_count}-case cohort (log scale) · cheaper ←`}
-					</text>
-					<text
-						x={m.left - 8}
-						y={14}
-						textAnchor="start"
-						fontSize={11.5}
-						fontWeight={500}
-						fill="var(--ink-2)"
-					>
-						{spec.label} · better ↑
-					</text>
+					{/* Axes and reference lines are visual; the group label and the
+					    point links carry the content for assistive technology. */}
+					{/* biome-ignore lint/a11y/noAriaHiddenOnFocusable: decorative SVG group with no focusable content. */}
+					<g aria-hidden="true">
+						{/* grid */}
+						{layout.yTicks.map((t) => (
+							<g key={`y${t}`}>
+								<line
+									x1={m.left}
+									x2={width - m.right}
+									y1={layout.sy(t)}
+									y2={layout.sy(t)}
+									stroke="var(--chart-grid)"
+								/>
+								<text
+									x={m.left - 8}
+									y={layout.sy(t) + 4}
+									textAnchor="end"
+									fontSize={11}
+									fill="var(--ink-3)"
+									className="tabular"
+								>
+									{spec.format(t)}
+								</text>
+							</g>
+						))}
+						{layout.xTicks.map((t) => (
+							<g key={`x${t}`}>
+								<line
+									x1={layout.sx(t)}
+									x2={layout.sx(t)}
+									y1={m.top}
+									y2={height - m.bottom}
+									stroke="var(--chart-grid)"
+								/>
+								<text
+									x={layout.sx(t)}
+									y={height - m.bottom + 18}
+									textAnchor="middle"
+									fontSize={11}
+									fill="var(--ink-3)"
+									className="tabular"
+								>
+									{formatUsd(t).replace(".00", "")}
+								</text>
+							</g>
+						))}
+						<text
+							x={m.left + plotW / 2}
+							y={height - 6}
+							textAnchor="middle"
+							fontSize={11.5}
+							fill="var(--ink-2)"
+						>
+							{narrow
+								? "Cohort cost, log scale · cheaper ←"
+								: `Standard-rate cost for the ${snapshot.cohort.case_count}-case cohort (log scale) · cheaper ←`}
+						</text>
+						<text
+							x={m.left - 8}
+							y={14}
+							textAnchor="start"
+							fontSize={11.5}
+							fontWeight={500}
+							fill="var(--ink-2)"
+						>
+							{spec.label} · better ↑
+						</text>
 
-					{baseline && (
-						<g>
-							<line
-								x1={m.left}
-								x2={width - m.right}
-								y1={layout.sy(baseline.value)}
-								y2={layout.sy(baseline.value)}
-								stroke="var(--chart-muted)"
-								strokeDasharray="2 4"
-								strokeWidth={1.5}
-							/>
-							<text
-								x={width - m.right - 4}
-								y={layout.sy(baseline.value) - 6}
-								textAnchor="end"
-								fontSize={11}
-								fill="var(--ink-3)"
-							>
-								{baseline.label} ({spec.format(baseline.value)})
-							</text>
-						</g>
-					)}
+						{baseline && (
+							<g>
+								<line
+									x1={m.left}
+									x2={width - m.right}
+									y1={layout.sy(baseline.value)}
+									y2={layout.sy(baseline.value)}
+									stroke="var(--chart-muted)"
+									strokeDasharray="2 4"
+									strokeWidth={1.5}
+								/>
+								<text
+									x={width - m.right - 4}
+									y={layout.sy(baseline.value) - 6}
+									textAnchor="end"
+									fontSize={11}
+									fill="var(--ink-3)"
+								>
+									{baseline.label} ({spec.format(baseline.value)})
+								</text>
+							</g>
+						)}
 
-					<polyline
-						points={layout.frontier
-							.map(
-								(f) =>
-									`${layout.sx(f.cost.usd as number)},${layout.sy(metricValue(f, metric, n))}`,
-							)
-							.join(" ")}
-						fill="none"
-						stroke="var(--series-1)"
-						strokeWidth={2}
-						strokeDasharray="6 5"
-						strokeLinecap="round"
-					/>
+						<polyline
+							points={layout.frontier
+								.map(
+									(f) =>
+										`${layout.sx(f.cost.usd as number)},${layout.sy(metricValue(f, metric, n))}`,
+								)
+								.join(" ")}
+							fill="none"
+							stroke="var(--series-1)"
+							strokeWidth={2}
+							strokeDasharray="6 5"
+							strokeLinecap="round"
+						/>
+					</g>
 
 					{layout.points.map((p) => {
 						const dim =
@@ -366,43 +403,58 @@ export default function ParetoChart({
 							(hover && hover !== p.model.slug);
 						const color = p.frontier ? "var(--series-1)" : "var(--ink-2)";
 						return (
-							<g
-								key={p.model.slug}
-								opacity={dim ? 0.35 : 1}
-								style={{ transition: "opacity 150ms" }}
-							>
-								{p.frontier ? (
-									<rect
-										x={p.x - 6.5}
-										y={p.y - 6.5}
-										width={13}
-										height={13}
-										transform={`rotate(45 ${p.x} ${p.y})`}
-										fill={color}
-										stroke="var(--surface)"
-										strokeWidth={2}
-										rx={2}
-									/>
-								) : (
-									<circle
-										cx={p.x}
-										cy={p.y}
-										r={5.5}
-										fill={color}
-										stroke="var(--surface)"
-										strokeWidth={2}
-									/>
-								)}
+							<g key={p.model.slug}>
+								{/* Dimming fades the mark only; the label switches to the
+								    muted ink so it stays legible (4.5:1) in both themes. */}
+								{/* biome-ignore lint/a11y/noAriaHiddenOnFocusable: the mark is decorative; the sibling link names the point. */}
+								<g
+									aria-hidden="true"
+									opacity={dim ? 0.35 : 1}
+									style={{ transition: "opacity 150ms" }}
+								>
+									{p.frontier ? (
+										<rect
+											x={p.x - 6.5}
+											y={p.y - 6.5}
+											width={13}
+											height={13}
+											transform={`rotate(45 ${p.x} ${p.y})`}
+											fill={color}
+											stroke="var(--surface)"
+											strokeWidth={2}
+											rx={2}
+										/>
+									) : (
+										<circle
+											cx={p.x}
+											cy={p.y}
+											r={5.5}
+											fill={color}
+											stroke="var(--surface)"
+											strokeWidth={2}
+										/>
+									)}
+								</g>
 								{p.label && (
+									// biome-ignore lint/a11y/noAriaHiddenOnFocusable: the visible label duplicates the link's accessible name.
 									<text
+										aria-hidden="true"
 										x={p.label.x}
 										y={p.label.y}
 										textAnchor={p.label.anchor}
 										fontSize={12}
 										fontWeight={
-											p.frontier || highlight === p.model.slug ? 600 : 450
+											!dim && (p.frontier || highlight === p.model.slug)
+												? 600
+												: 450
 										}
-										fill={p.frontier ? "var(--ink)" : "var(--ink-2)"}
+										fill={
+											dim
+												? "var(--ink-3)"
+												: p.frontier
+													? "var(--ink)"
+													: "var(--ink-2)"
+										}
 										stroke="var(--surface)"
 										strokeWidth={4}
 										strokeLinejoin="round"
@@ -452,9 +504,13 @@ export default function ParetoChart({
 							<dt className="text-ink-3">Cost</dt>
 							<dd className="text-right text-ink">
 								{formatUsd(hovered.model.cost.usd)}
-								{hovered.model.cost.note ? "*" : ""}
 							</dd>
 						</dl>
+						{hovered.model.cost.note && (
+							<p className="mt-1 text-xs text-ink-3">
+								Estimated or adjusted cost; see the model page.
+							</p>
+						)}
 						{hovered.frontier && (
 							<p className="mt-2 text-xs font-medium text-series-1">
 								On the observed frontier
@@ -490,7 +546,6 @@ export default function ParetoChart({
 						{excluded.map((e) => e.display_name).join(", ")}
 					</span>
 				)}
-				<span>* Estimated or adjusted cost; see the model page.</span>
 			</figcaption>
 		</figure>
 	);
