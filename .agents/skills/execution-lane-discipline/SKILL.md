@@ -41,7 +41,7 @@ Per iteration, run gates in ascending cost and stop at the first failure:
 1. **Structural gates (seconds to ~30s)** — architecture, module map, and contract ratchet. Currently:
    ```bash
    uv run pytest tests/test_architecture.py tests/test_architecture_rules.py \
-     tests/test_architecture_inventory.py tests/test_ingestion_module_map.py \
+     tests/test_architecture_inventory.py \
      tests/test_contract_ratchet.py -q
    ```
 2. **Focused tests** for the modules you touched, serial.
@@ -109,3 +109,5 @@ The optional pinned bridge is `examples/adapters/openclaw-pinned/adapter-manifes
 ## Native Harvey LAB bridge
 
 Use `legalforecast harvey-lab probe` for credential-free current lab-core CLI checks, then the explicit `run` command only for an approved contributor-funded solver/judge measurement. Follow `docs/multiharness/harvey-lab-core.md` for pinned package installation, immutable rootless Podman images, credential projection, and public/private output paths. Do not confuse the historical fixture adapter or an offline evaluator stub with a paid native baseline; neither completes issue #48's live smoke/public-package criterion. The upstream runtime owns its agent loop, and its turn limit is not a dollar cap.
+
+For the historical paired `multiharness tier0` lane, `--approval` accepts the owner's recorded words and ceiling without a human signing key; see [receipt-authority.md](../../../docs/multiharness/receipt-authority.md). Evaluator receipt authority remains required. A `provider_cap` declaration binds evidence to a credential but is not itself provider verification: paid native-thin execution still refuses pending verified cap enforcement, native usage accounting, and the supported containment bridge. Never turn a synthetic cap test or successful artifact mint into a live readiness claim.

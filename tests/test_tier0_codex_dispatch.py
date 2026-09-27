@@ -19,6 +19,7 @@ from legalforecast.multiharness.harvey_lab_projection import ISSUE_196_LAB_TASK_
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.tier0_runner import (
+    RecordedOwnerApproval,
     Tier0ExecutableSpec,
     Tier0RunnerError,
     Tier0SpendApproval,
@@ -231,6 +232,38 @@ def test_paid_codex_cannot_omit_spend_bindings(
     with pytest.raises(Tier0RunnerError, match="no supported enforced spend control"):
         _run(tmp_path, spec, digest, env, approval=approval)
     assert calls == []
+
+
+def test_recorded_owner_approval_does_not_bypass_paid_codex_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.test_multiharness_spend import _policy
+
+    record, env = _codex_fixture(tmp_path, monkeypatch)
+    spec, digest = _load_spec(tmp_path, record)
+    calls = _capture_launches(monkeypatch)
+    policy = _policy()
+    approval = RecordedOwnerApproval(
+        spec_sha256=digest,
+        owner_approval="Proceed with this bounded run",
+        max_cost_usd=policy.experiment.max_cost_usd,
+    )
+    with pytest.raises(Tier0RunnerError, match="no supported enforced spend control"):
+        run_tier0(
+            spec=spec,
+            spec_sha256=digest,
+            approval=approval,
+            source_root=tmp_path / "lab",
+            private_root=tmp_path / "private",
+            archive_root=tmp_path / "archive",
+            parent_env=env,
+            approval_authority=None,
+            evaluator_authority=_FixtureEvaluatorAuthority(),
+            spend_policy=policy,
+        )
+    assert calls == []
+    assert not (tmp_path / "private").exists()
+    assert not (tmp_path / "archive").exists()
 
 
 @pytest.mark.parametrize("outcome", ["refusal", "timeout", "crash"])

@@ -11,8 +11,9 @@ Two inputs are deliberately not committed to this public repository:
 * the 23 upstream criterion IDs, which the pinned characterization classifies
   as evaluator-private, and which the per-criterion judge ceilings must carry
   verbatim so the runner can match each reservation to its pinned ordinal; and
-* the enforced budget argument for the native-thin arm, which the operator
-  must name from the command their pinned solver actually honors.
+* the native-thin budget declaration or provider-cap evidence. A declaration
+  alone does not enable paid native-thin execution; runtime refusal remains
+  until provider verification, usage accounting, and containment are wired.
 
 Everything else -- the dated pricing snapshot, the ceiling arithmetic, the
 model and issuer identities, the arm shapes -- is a committed constant here.
@@ -37,6 +38,7 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
 )
 from legalforecast.multiharness.harvey_lab_evaluator import EVALUATOR_COMMAND_NAME
 from legalforecast.multiharness.harvey_lab_projection import HarveyLabPin
+from legalforecast.multiharness.provider_spend_cap import ProviderSpendCap
 from legalforecast.multiharness.spend import (
     ExperimentCeiling,
     InvocationBudget,
@@ -96,9 +98,9 @@ PINNED_TASK_SHA256 = "c117cc3faf49b879f3c475b097bd67293ca79fa5b9e3d9cd91782b0f70
 PINNED_TASK_ID = "employment-labor/identify-issues-in-counterparty-motion-brief"
 REQUESTED_MODEL = JUDGE_REQUESTED_MODEL
 
-CLAUDE_EXECUTABLE_VERSION = "2.1.233 (Claude Code)"
+CLAUDE_EXECUTABLE_VERSION = "2.1.283 (Claude Code)"
 CLAUDE_EXECUTABLE_SHA256 = (
-    "sha256:55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9"
+    "sha256:1859583ce32920595c61ef868bee52e1b1594f7486db209935e01f1e5e804ae2"
 )
 
 
@@ -125,9 +127,26 @@ class NativeThinArmInput:
     executable_version: str
     version_probe_args: tuple[str, ...]
     command: tuple[str, ...]
-    budget_argument: str
+    budget_argument: str | None = None
+    provider_cap: ProviderSpendCap | None = None
 
     def __post_init__(self) -> None:
+        if self.provider_cap is not None:
+            if self.budget_argument is not None or "{max_cost_usd}" in self.command:
+                raise Tier0MintError(
+                    "provider cap must not invent a solver budget argument"
+                )
+            self.provider_cap.validate_for_run(
+                provider=JUDGE_PROVIDER,
+                auth_profile="published-api-key",
+                max_cost_usd=SOLVER_MAX_COST_USD,
+                timeout_seconds=300,
+            )
+            return
+        if self.budget_argument is None:
+            raise Tier0MintError(
+                "native-thin requires an enforced budget argument or provider cap"
+            )
         if self.budget_argument in {
             "--model",
             "--task",
@@ -229,8 +248,9 @@ def build_spend_policy(
     *,
     criterion_ids: Sequence[str],
     pricing: PricingSnapshot,
-    native_thin_budget_argument: str,
+    native_thin_budget_argument: str | None,
     executable_spec_sha256: str,
+    native_thin_provider_cap: ProviderSpendCap | None = None,
 ) -> SpendPolicy:
     """Build the per-arm, per-criterion policy for one minted spec."""
 
@@ -258,10 +278,16 @@ def build_spend_policy(
             max_parallelism=1,
             max_input_tokens=SOLVER_MAX_INPUT_TOKENS,
             max_output_tokens=SOLVER_MAX_OUTPUT_TOKENS,
-            invocation_budget=InvocationBudget(
-                mode="adapter_argument",
-                argument_name=solver_arguments[arm_id],
-                argument_value_usd=SOLVER_MAX_COST_USD,
+            invocation_budget=(
+                InvocationBudget(
+                    mode="provider_cap", provider_cap=native_thin_provider_cap
+                )
+                if arm_id == ARM_IDS[1] and native_thin_provider_cap is not None
+                else InvocationBudget(
+                    mode="adapter_argument",
+                    argument_name=solver_arguments[arm_id],
+                    argument_value_usd=SOLVER_MAX_COST_USD,
+                )
             ),
         )
         for arm_id in ARM_IDS
@@ -369,6 +395,7 @@ def mint_tier0_artifacts(
         criterion_ids=criterion_ids,
         pricing=pricing,
         native_thin_budget_argument=native_thin.budget_argument,
+        native_thin_provider_cap=native_thin.provider_cap,
         executable_spec_sha256="sha256:" + "0" * 64,
     )
     spec = build_executable_spec(
@@ -390,6 +417,7 @@ def mint_tier0_artifacts(
         criterion_ids=criterion_ids,
         pricing=pricing,
         native_thin_budget_argument=native_thin.budget_argument,
+        native_thin_provider_cap=native_thin.provider_cap,
         executable_spec_sha256=spec_sha256,
     )
     if final.policy_sha256 != provisional.policy_sha256:
