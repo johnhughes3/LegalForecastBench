@@ -610,9 +610,9 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "add_multiharness_parser",
-        "largest_symbol_lines": 403,
+        "largest_symbol_lines": 404,
         "layer": "application",
-        "line_count": 1665,
+        "line_count": 1667,
         "nonblank_line_count": 1527,
         "top_level_definition_count": 49
       },

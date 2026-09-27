@@ -5134,6 +5134,295 @@
         "release-score"
       ],
       "registration_index": 46
+    },
+    {
+      "aliases": [],
+      "group_dest": "command",
+      "handler": null,
+      "logical_handler_id": "harvey-lab",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        }
+      ],
+      "path": [
+        "harvey-lab"
+      ],
+      "registration_index": 47
+    },
+    {
+      "aliases": [],
+      "group_dest": "lab_command",
+      "handler": {
+        "module": "legalforecast.multiharness.harvey_lab.core_cli",
+        "name": "_probe",
+        "qualname": "_probe"
+      },
+      "logical_handler_id": "harvey-lab.probe",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "python",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--python"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "output_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--output-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        }
+      ],
+      "path": [
+        "harvey-lab",
+        "probe"
+      ],
+      "registration_index": 48
+    },
+    {
+      "aliases": [],
+      "group_dest": "lab_command",
+      "handler": {
+        "module": "legalforecast.multiharness.harvey_lab.core_cli",
+        "name": "_run",
+        "qualname": "_run"
+      },
+      "logical_handler_id": "harvey-lab.run",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "python",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--python"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "output_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--output-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "task_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--task-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "model",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "judge_model",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--judge-model"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "run_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--run-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "max_turns",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--max-turns"
+          ],
+          "required": true,
+          "type": "int"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "sandbox_image",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--sandbox-image"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "append",
+          "choices": null,
+          "default": [],
+          "dest": "provider_env",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--provider-env"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "reasoning_effort",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--reasoning-effort"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": 3600,
+          "dest": "timeout_seconds",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--timeout-seconds"
+          ],
+          "required": false,
+          "type": "float"
+        }
+      ],
+      "path": [
+        "harvey-lab",
+        "run"
+      ],
+      "registration_index": 49
     }
   ],
   "prog": "legalforecast",
