@@ -1,0 +1,594 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-conflict-check-memorandum",
+  "title": "Draft Conflict Check Memorandum for Litigation Engagement Clearance",
+  "criteria_total": 56,
+  "criterion_lines": {
+    "C-001": 18,
+    "C-002": 26,
+    "C-003": 34,
+    "C-004": 42,
+    "C-005": 50,
+    "C-006": 58,
+    "C-007": 66,
+    "C-008": 74,
+    "C-009": 82,
+    "C-010": 90,
+    "C-011": 98,
+    "C-012": 106,
+    "C-013": 114,
+    "C-014": 122,
+    "C-015": 130,
+    "C-016": 138,
+    "C-017": 146,
+    "C-018": 154,
+    "C-019": 162,
+    "C-020": 170,
+    "C-021": 178,
+    "C-022": 186,
+    "C-023": 194,
+    "C-024": 202,
+    "C-025": 210,
+    "C-026": 218,
+    "C-027": 226,
+    "C-028": 234,
+    "C-029": 242,
+    "C-030": 250,
+    "C-031": 258,
+    "C-032": 266,
+    "C-033": 274,
+    "C-034": 282,
+    "C-035": 290,
+    "C-036": 298,
+    "C-037": 306,
+    "C-038": 314,
+    "C-039": 322,
+    "C-040": 330,
+    "C-041": 338,
+    "C-042": 346,
+    "C-043": 354,
+    "C-044": 362,
+    "C-045": 370,
+    "C-046": 378,
+    "C-047": 386,
+    "C-048": 394,
+    "C-049": 402,
+    "C-050": 410,
+    "C-051": 418,
+    "C-052": 426,
+    "C-053": 434,
+    "C-054": 442,
+    "C-055": 450,
+    "C-056": 458
+  },
+  "blind": {
+    "task": "draft-conflict-check-memorandum",
+    "criteria_reviewed": 56,
+    "coverage": "I read the instructions and all 56 criteria. I read all 8 supplied documents in full: engagement-request email, intake form, ConflictTracker report, Ridgeline engagement letter, Reilly lateral disclosure, Chow annual disclosure, Strand hiring questionnaire and Voss annual disclosure. I did not open the solver system prompt or the judge prompt; the task description summarized how grading works. Every factual predicate in the criteria (dates, matter numbers, the 72% stake, the $387,500 figure, the shared address, the blank ConflictTracker entry fields, the Section 7 waiver text) checks out against the record. I could not verify the Illinois rule texts in this session: web search and fetch failed on a spend limit, and CourtListener returned no Illinois opinion quoting current Ill. RPC 1.10(e) or 1.8(i). So the Illinois-specific citation points below rest on my own knowledge of the 2010 Illinois Rules and are marked verified=false. One gap: the checkbox choices on the Yes/No administrative fields did not survive text extraction, but the surrounding text supports the non-entry inferences.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-043",
+          "C-044"
+        ],
+        "title": "Two criteria require auditing another client's billing ($1,250 Ridgeline discrepancy), which is outside a conflict check",
+        "explanation": "The instructions ask for a conflict check memorandum on the proposed Verano engagement. Whether the firm's fees to a different client, Ridgeline, add up is a billing matter. It has no bearing on whether a conflict exists, and a competent conflicts reviewer would not treat reconciling another client's invoices as part of the job. Under all-pass grading, two criteria on this point can zero out an otherwise complete memo. The record also does not support the word 'overcharge' in C-043: Section 3 of the engagement letter lets the firm raise rates annually from January 1. The engagement began in January 2023 and the figure is from November 2024, so a 2024 rate increase could fully explain a total above 618 x $625. The arithmetic is correct, but the matter is at most a curiosity, not a required element of the memo.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "draft a comprehensive conflict check memorandum for the proposed engagement"
+          },
+          {
+            "source": "C-043",
+            "quote": "618 hours × $625/hour = $386,250, but the database shows $387,500, resulting in a $1,250 discrepancy (or overcharge)"
+          },
+          {
+            "source": "ridgeline-engagement-letter.docx.txt",
+            "quote": "The Firm reserves the right to adjust its billing rates annually, effective as of the first day of each calendar year"
+          },
+          {
+            "source": "conflict-tracker-results.docx.txt",
+            "quote": "**Total Fees Billed to Date:**      \\$387,500"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete C-043 and C-044, or merge them into one optional observation that does not count toward all-pass and that acknowledges the rate-adjustment clause."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-049",
+          "C-050",
+          "C-051"
+        ],
+        "title": "Three criteria require specific firm-wide process-reform recommendations beyond clearing this engagement",
+        "explanation": "Flagging that ConflictTracker missed the Chow and Strand disclosures matters for this engagement, and C-025, C-031 and C-048 already cover that. C-049, C-050 and C-051 go further. Each separately requires a particular firm-wide systems fix: integrating the annual questionnaires, integrating HR hiring records, and documenting reasons for declined engagements. A memo asked to clear 'the proposed engagement' could reasonably handle the gaps by requiring a manual review of those records for this matter and leave process reform to a separate note to the Ethics Committee. Many strong memos will include these recommendations, but three hidden, independently scored ones raise the chance of failing competent work under all-pass.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "draft a comprehensive conflict check memorandum for the proposed engagement"
+          },
+          {
+            "source": "C-050",
+            "quote": "PASS if the memo recommends that HR hiring records ... be integrated into or cross-referenced with the ConflictTracker system."
+          },
+          {
+            "source": "C-051",
+            "quote": "PASS if the memo recommends that the firm document the specific reasons for declining prospective engagements in the conflict database"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Collapse C-049 to C-051 into one criterion that passes if the memo recommends any remedial step, for this matter or firm-wide, for the records ConflictTracker does not cross-reference."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-037",
+          "C-038"
+        ],
+        "title": "Screening criterion cites a nonexistent 'Illinois Rule 1.10(a)(2)' and lists ABA-only former-client notice",
+        "explanation": "Illinois did not adopt ABA Model Rule 1.10(a)(2). In the 2010 Illinois Rules, lateral screening sits in Rule 1.10(e): the disqualified lawyer must be timely screened and apportioned no part of the fee. It does not require the ABA's written notice to the former client. A memo that correctly cites Ill. RPC 1.10(e) should pass C-037 under 'or equivalent', but a literal-minded judge could penalize it for not citing '1.10(a)(2)'. The label also pushes solvers toward the ABA structure. In C-038, listing 'written notice to the former client' as a screening requirement misstates Illinois law, though needing only two of four items limits the harm.",
+        "evidence": [
+          {
+            "source": "C-037",
+            "quote": "PASS if the memo discusses that Illinois Rule 1.10(a)(2) (or equivalent) permits screening of lawyers whose conflict arises from prior-firm representation"
+          },
+          {
+            "source": "C-038",
+            "quote": "(3) written notice to the former client"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ill. R. Prof'l Conduct 1.10(e) (2010)",
+            "proposition": "Screening a lateral lawyer disqualified under Rule 1.9 avoids imputation if the lawyer is timely screened and apportioned no part of the fee; there is no written-notice requirement as in ABA MR 1.10(a)(2)",
+            "verified": false
+          },
+          {
+            "citation": "ABA Model Rule 1.10(a)(2)",
+            "proposition": "The ABA screening exception requires timely screening, no part of the fee, and written notice to the former client",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Refer to 'Illinois Rule 1.10(e) (cf. ABA Model Rule 1.10(a)(2))', and in C-038 mark the notice item as an ABA or best-practice element rather than an Illinois requirement."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-022"
+        ],
+        "title": "C-022 describes 'Illinois Rule 1.8(i)' as the related-persons rule, which it is not under current rules",
+        "explanation": "Under the 2010 Illinois Rules, which track the 2002 ABA revision, Rule 1.8(i) bars acquiring a proprietary interest in the cause of action. The old related-lawyers provision was removed, and its substance now sits in the comments to Rule 1.7. It also covered lawyer-relatives representing adverse clients, which does not fit Dr. Brian Chow, a non-lawyer consultant. Because the criterion reads 'and/or', a correct memo citing Rule 1.7(a)(2) passes. But the criterion also rewards a memo that relies on 1.8(i) for a proposition it does not support.",
+        "evidence": [
+          {
+            "source": "C-022",
+            "quote": "cites Illinois Rule 1.7(a)(2) (personal interest conflict) and/or Illinois Rule 1.8(i) (related persons)"
+          },
+          {
+            "source": "chow-annual-disclosure.docx.txt",
+            "quote": "Materials-science consultant (independent / self-employed)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ill. R. Prof'l Conduct 1.8(i) (2010)",
+            "proposition": "Prohibits acquiring a proprietary interest in the cause of action or subject matter of litigation, with limited exceptions; it is not a related-persons rule",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Require Rule 1.7(a)(2), optionally with its comment on family relationships, and drop the '1.8(i) (related persons)' alternative."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-017"
+        ],
+        "title": "ConflictTracker Hit 1 header names 'Greylock Sensor Technologies, Inc.' while every field names Hollcroft Ventures",
+        "explanation": "The Hit 1 heading appears to be left over from renaming the entity. It names a company found nowhere else in the record, while the matched term, the client field and the summary table all say Hollcroft Ventures Sensor Technologies, Inc. A careful solver may flag the mismatch or be confused by it, and a memo that repeats the header name could be marked down on C-017. The effect on grading is probably small, but the error sits in the key record for one of the graded issues.",
+        "evidence": [
+          {
+            "source": "conflict-tracker-results.docx.txt",
+            "quote": "**[HIT 1 OF 5 --- GREYLOCK SENSOR TECHNOLOGIES, INC.]{.underline}**"
+          },
+          {
+            "source": "conflict-tracker-results.docx.txt",
+            "quote": "**Client:**                         Hollcroft Ventures Sensor Technologies, Inc."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Correct the Hit 1 header to read Hollcroft Ventures Sensor Technologies, Inc."
+      }
+    ],
+    "overall": "Most of this rubric is sound. The factual criteria (parties, Reilly/Trident, the Ridgeline 72% stake and advance waiver, Hollcroft, Chow, Strand, Kowalczyk, the 2022 declination, Voss/MSIA) follow the record closely and are loosely enough worded ('and/or', 'or equivalent') that competent memos should pass. The most serious defect is C-043/C-044. They make a billing reconciliation on another client's account a pass/fail element of a conflict memo, and they call the difference an 'overcharge' even though the engagement letter allows annual rate increases that could explain it. C-049 to C-051 add three hidden requirements for firm-wide process reform, which raises the all-pass risk for memos focused on clearing this engagement. The Illinois citations in C-037/C-038 and C-022 follow ABA or outdated numbering: the alternatives mostly protect correct answers, but the criteria also reward incorrect ones. A leftover entity name in the ConflictTracker report is a minor defect in the record."
+  },
+  "final": {
+    "task": "draft-conflict-check-memorandum",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Definite defects: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-022"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-022",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "I read the official Illinois Rule 1.8 PDF in this session. Rule 1.8(i) bars acquiring a proprietary interest in litigation; it is not a 'related persons' rule. The 'related persons' wording in Illinois 1.8 appears only in 1.8(c), the gift provision. The 'and/or' lets a correct 1.7(a)(2) memo pass, but the criterion states wrong law and rewards a memo that cites 1.8(i) for Chow's spousal conflict."
+      },
+      {
+        "sol_locator": "Definite defects: item 2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-037",
+          "C-038"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-037",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-038",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "I read the official Illinois Rule 1.10 PDF. Rule 1.10(a) has no subparagraph (2). Lateral screening sits in 1.10(e): timely screening and no part of the fee, with no written-notice requirement anywhere in the rule or comments. C-037 cites a nonexistent provision; 'or equivalent' limits the harm. C-038 counts ABA-style notice as an Illinois screening requirement, but because it needs only two of four items, correct memos still pass. That makes it arguable, not problematic."
+      },
+      {
+        "sol_locator": "Definite defects: item 3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-055",
+          "C-056"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-055",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-056",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "There is a gap between PASS (three or more) and FAIL (none), but judges will treat the gap as not meeting PASS. The record raises about ten issues (Reilly, Ridgeline, Chow, Strand, Kowalczyk, Hollcroft, the 2022 declination, Voss), several of which turn on consent (Ridgeline, Chow, Strand, TriPoint for Reilly). A comprehensive memo will assess risk and waivability for at least three. Only memos that are already incomplete fall in the gap. This is a drafting slip that would not misgrade competent work."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-015",
+          "C-016"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-015",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-016",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "Section 7.2 expressly reaches adversity to Ridgeline 'or its affiliates', and a 72%-controlled company is plausibly an affiliate, so C-015's premise that the waiver does 'NOT specifically cover' portfolio companies is shaky. Its PASS text ('limitation or ambiguity') is broad, and §7.3(b) plus §4's inclusion of portfolio-company information give any careful memo a limitation to note. C-016 accepts consent from Ridgeline or Verano; a 1.7(a)(2) material-limitation analysis makes Verano's consent standard, so this is not a defect."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-030"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-030",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Caleb is a staffed associate. His sister is an IP paralegal at the adverse party in a trade-secret case, and they share an apartment with separate workspaces. Screening or removing him is the prudent call, but clearing him with a home-confidentiality protocol and Verano's informed consent is a defensible minority position. C-024, the Chow criterion, expressly accepts 'clearance with conditions', and C-030 does not. That asymmetry could fail a reasoned conditional clearance."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-043",
+          "C-044"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-043",
+            "verdict": "problematic"
+          },
+          {
+            "criterion": "C-044",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "The arithmetic is right (618 x $625 = $386,250, against $387,500 recorded). But reconciling another client's billing does not bear on whether the Verano engagement can be cleared, and competent conflict memos will routinely leave it out. That fails them under all-pass twice over. 'Overcharge' also overstates the record: Section 3 permits annual rate adjustments. I rate this problematic rather than arguable because it will predictably fail competent work."
+      },
+      {
+        "sol_locator": "Arguable concerns: item 4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-020"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-020",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The record supports treating Hollcroft as low risk. The intake form says it is 'not believed to create an adverse conflict', Hollcroft is not a party, and Verano offers waivers. The FAIL branch applies only when a memo calls it high risk 'without adequate justification' or reaches no conclusion, so a well-reasoned contrary view still passes."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-043",
+          "C-044"
+        ],
+        "title": "Two criteria require auditing another client's billing (the $1,250 Ridgeline discrepancy), which is outside a conflict check",
+        "explanation": "The instructions ask for a conflict check memo on the proposed Verano engagement. Whether Ridgeline's fees add up has no bearing on whether a conflict exists or can be cured, and a competent conflicts reviewer would not treat reconciling another client's billing as part of the job. Under all-pass grading, two separately scored criteria on this point can zero out an otherwise complete memo. The record also does not show an 'overcharge': Section 3 lets the firm adjust rates annually, and the tracker figure dates from November 2024, almost two years into the engagement. The arithmetic is correct, but the point is at most an incidental observation.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "draft a comprehensive conflict check memorandum for the proposed engagement"
+          },
+          {
+            "source": "C-043",
+            "quote": "resulting in a $1,250 discrepancy (or overcharge)"
+          },
+          {
+            "source": "ridgeline-engagement-letter.docx.txt",
+            "quote": "The Firm reserves the right to adjust its billing rates annually, effective as of the first day of each calendar year"
+          },
+          {
+            "source": "conflict-tracker-results.docx.txt",
+            "quote": "**Total Fees Billed to Date:**      \\$387,500"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Delete C-043 and C-044, or fold them into one optional observation that does not count toward all-pass and acknowledges the rate-adjustment clause.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable concerns: item 3"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-037"
+        ],
+        "title": "C-037 cites a nonexistent 'Illinois Rule 1.10(a)(2)'; Illinois lateral screening is in Rule 1.10(e)",
+        "explanation": "Illinois Rule 1.10(a) has no subparagraph (2). The screening exception for a lateral lawyer disqualified under Rule 1.9 is Rule 1.10(e): the lawyer must be timely screened and apportioned no part of the fee. C-037 states the law wrongly and steers solvers toward the ABA Model Rule structure. 'Or equivalent' should let a memo citing 1.10(e) pass, but a literal judge could mark down a correct Illinois citation that does not match the label.",
+        "evidence": [
+          {
+            "source": "C-037",
+            "quote": "Illinois Rule 1.10(a)(2) (or equivalent) permits screening of lawyers whose conflict arises from prior-firm representation"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ill. R. Prof'l Conduct 1.10(a), (e) (eff. Jan. 1, 2010)",
+            "proposition": "1.10(a) has no (a)(2) screening clause; 1.10(e) permits representation if the personally disqualified lateral lawyer 'is timely screened from any participation in the matter and is apportioned no part of the fee therefrom'",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Cite 'Illinois Rule 1.10(e) (cf. ABA Model Rule 1.10(a)(2))'.",
+        "origin": "revised",
+        "sol_locators": [
+          "Definite defects: item 2"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-038"
+        ],
+        "title": "C-038 lists written notice to the former client as a screening requirement, which is an ABA element, not Illinois law",
+        "explanation": "Illinois Rule 1.10(e) requires only timely screening and no part of the fee, and neither the rule nor its comments requires notice to the former client. C-038 lets 'written notice to the former client' count as one of two required 'specific procedural requirements for a valid ethical screen', so it rewards a memo that imports the ABA notice requirement as Illinois law. Correct memos still pass, since timely screening, no fee and restricted access are all available, so the harm is limited.",
+        "evidence": [
+          {
+            "source": "C-038",
+            "quote": "(3) written notice to the former client"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ill. R. Prof'l Conduct 1.10(e) (eff. Jan. 1, 2010)",
+            "proposition": "Screening conditions are timely screening and no apportionment of the fee; no notice requirement appears in the rule or comments",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Label the notice item as best practice or an ABA Model Rule element, not an Illinois requirement.",
+        "origin": "revised",
+        "sol_locators": [
+          "Definite defects: item 2"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-022"
+        ],
+        "title": "C-022 calls Illinois Rule 1.8(i) the 'related persons' rule; it actually bars acquiring a proprietary interest in litigation",
+        "explanation": "Illinois Rule 1.8(i) bars a lawyer from acquiring a proprietary interest in the cause of action. It has nothing to do with spouses or relatives, and the only 'related persons' language in Illinois 1.8 is the gift provision in 1.8(c). The 'and/or' means a correct memo citing 1.7(a)(2) passes, but the criterion states wrong law and rewards a memo that cites 1.8(i) for Lisa Chow's spousal conflict.",
+        "evidence": [
+          {
+            "source": "C-022",
+            "quote": "and/or Illinois Rule 1.8(i) (related persons)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Ill. R. Prof'l Conduct 1.8(i) (eff. Jan. 1, 2010)",
+            "proposition": "'A lawyer shall not acquire a proprietary interest in the cause of action or subject matter of litigation the lawyer is conducting for a client', with lien and contingent-fee exceptions",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Require Rule 1.7(a)(2) (personal-interest material limitation) and drop the 1.8(i) alternative.",
+        "origin": "revised",
+        "sol_locators": [
+          "Definite defects: item 1"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-049",
+          "C-050",
+          "C-051"
+        ],
+        "title": "Three criteria each require a specific firm-wide process reform beyond clearing this engagement",
+        "explanation": "C-048 already rewards flagging the ConflictTracker gaps, and C-025 and C-031 cover the specific missed disclosures. C-049, C-050 and C-051 each separately require a particular systems fix: integrating the annual questionnaires, integrating HR records, and documenting declination reasons. A memo clearing 'the proposed engagement' could reasonably handle the gaps by requiring a manual review of those records for this matter and leave process reform to a separate note. Three hidden, independently scored requirements raise the chance of failing competent work under all-pass.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "draft a comprehensive conflict check memorandum for the proposed engagement"
+          },
+          {
+            "source": "C-051",
+            "quote": "PASS if the memo recommends that the firm document the specific reasons for declining prospective engagements in the conflict database"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Merge C-049 to C-051 into one criterion that passes on any remedial step, matter-specific or firm-wide, for records ConflictTracker does not cross-reference.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-030"
+        ],
+        "title": "C-030 accepts only screening or removal for Caleb Strand, while C-024 accepts clearance with conditions for Chow",
+        "explanation": "Screening or removing a junior associate whose sister is an IP paralegal at the adverse party, and who lives with her, is the prudent recommendation. Still, Rule 1.7(a)(2) turns on material limitation. A reasoned memo could clear Caleb with a home-confidentiality protocol and Verano's informed consent, noting that they keep separate workspaces. C-024 expressly accepts 'clearance with conditions (such as obtaining informed consent)' for Chow, but C-030 would fail the parallel answer for Strand. Most competent memos will pass; a minority conditional clearance would not.",
+        "evidence": [
+          {
+            "source": "C-030",
+            "quote": "PASS if the memo recommends that Caleb Strand be screened from the engagement or removed from the proposed staffing."
+          },
+          {
+            "source": "C-024",
+            "quote": "whether screening, removal from staffing, or clearance with conditions (such as obtaining informed consent)"
+          },
+          {
+            "source": "strand-hiring-questionnaire.docx.txt",
+            "quote": "We maintain separate home offices and workspaces within the apartment."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Also accept a reasoned conditional clearance with specific safeguards and informed consent.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "Arguable concerns: item 2"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-015"
+        ],
+        "title": "C-015's premise that the advance waiver does not cover portfolio companies conflicts with §7.2's express 'affiliates' language",
+        "explanation": "Section 7.2 waives adversity to Ridgeline 'or its affiliates', and a 72%-controlled portfolio company is plausibly an affiliate, so the title's assertion that the waiver does 'NOT specifically cover' this litigation overstates the gap. The PASS text rescues most memos: 'affiliates' is undefined, §7.3(b) carves out matters where material Confidential Information was received, and §4 defines that information to include portfolio-company information. But a memo that concludes the waiver does reach TriPoint could be marked down by a judge reading the title literally.",
+        "evidence": [
+          {
+            "source": "ridgeline-engagement-letter.docx.txt",
+            "quote": "Client agrees that the Firm may represent other clients in matters adverse to Client or its affiliates"
+          },
+          {
+            "source": "C-015",
+            "quote": "Notes the advance waiver does NOT specifically cover litigation against portfolio companies"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Reframe it as requiring analysis of whether 'affiliates' reaches TriPoint and of the §7.3 limitations and §7.4 notice duty, without presupposing the waiver fails.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "Arguable concerns: item 1"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-017"
+        ],
+        "title": "The ConflictTracker Hit 1 heading names 'Greylock Sensor Technologies, Inc.', but every field names Hollcroft Ventures",
+        "explanation": "The Hit 1 heading appears to be left over from renaming the entity. It names a company that appears nowhere else in the record, while the matched term, the client field and the summary all say Hollcroft Ventures Sensor Technologies, Inc. A solver may flag the mismatch or be confused by it, and a memo that repeats the heading name risks C-017. The effect on grading is probably small.",
+        "evidence": [
+          {
+            "source": "conflict-tracker-results.docx.txt",
+            "quote": "**[HIT 1 OF 5 --- GREYLOCK SENSOR TECHNOLOGIES, INC.]{.underline}**"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Correct the Hit 1 heading to read Hollcroft Ventures Sensor Technologies, Inc.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O5"
+        ]
+      }
+    ],
+    "changes_from_blind": "I read the official Illinois Rule 1.10 and 1.8 PDFs this session; the blind pass could not verify them. With the rule text confirmed, I moved C-037 (nonexistent 1.10(a)(2)) and C-022 (1.8(i) mislabeled as 'related persons') from arguable to problematic, because each states wrong law, although 'or equivalent' and 'and/or' limit the misgrading. I split C-038 into its own arguable finding (notice counted as an Illinois screening requirement). After reading Sol, I adopted two new arguable findings: C-030 (only screening or removal accepted for Strand, unlike C-024 for Chow) and C-015 (its premise conflicts with §7.2's 'affiliates' language). I rejected Sol's C-055/C-056 finding (the gap does not bite competent memos), and I did not adopt C-016 or C-020 (not defects). C-043/C-044 stay problematic, above Sol's 'arguable'. C-049–C-051 and the Greylock heading defect carry over unchanged.",
+    "overall": "Most of this rubric is sound: the factual criteria track the record closely, and the 'and/or' and 'or equivalent' wording protects most correct memos. The clearest defect is C-043/C-044. They make a billing reconciliation on a different client's account a pass/fail element of a conflict memo and call the difference an 'overcharge' even though the engagement letter allows annual rate adjustments. Two Illinois citations are wrong, verified against the official rule texts: C-037 cites a nonexistent Rule 1.10(a)(2) instead of 1.10(e), and C-022 calls 1.8(i), the proprietary-interest rule, a 'related persons' rule. C-038 counts ABA-style notice as an Illinois screening requirement. Lesser all-pass risks come from three separately scored process-reform recommendations (C-049–C-051), the screen-or-remove-only rule for Strand (C-030), and C-015's premise about the waiver, which the §7.2 'affiliates' language undercuts. A leftover 'Greylock' heading in the ConflictTracker report is a minor record defect.",
+    "coverage": "I reviewed all 56 criteria and the instructions, relying on the blind pass's full reading of all 8 documents, and re-checked the key record passages here: Ridgeline §§1, 3, 4 and 7; ConflictTracker Hit 1 and the Ridgeline billing fields; intake-form staffing and notes; the Strand questionnaire. I read Sol's index entry and full audit report. I retrieved and read the official Illinois Rule 1.10 and Rule 1.8 PDFs (the illinoiscourts.gov links resolve to blob storage) and extracted the text locally, which confirmed 1.10(a) has no (a)(2), 1.10(e)'s two conditions with no notice requirement, and the text of 1.8(i). I gave a verdict on every one of Sol's seven findings."
+  }
+}

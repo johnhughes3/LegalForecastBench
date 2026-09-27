@@ -1,0 +1,695 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "identify-issues-in-matter-budget-proposal",
+  "title": "Identify Issues in Litigation Matter Budget Proposal",
+  "criteria_total": 39,
+  "criterion_lines": {
+    "C-001": 18,
+    "C-002": 26,
+    "C-003": 34,
+    "C-004": 42,
+    "C-005": 50,
+    "C-006": 58,
+    "C-007": 66,
+    "C-008": 74,
+    "C-009": 82,
+    "C-010": 90,
+    "C-011": 98,
+    "C-012": 106,
+    "C-013": 114,
+    "C-014": 122,
+    "C-015": 130,
+    "C-016": 138,
+    "C-017": 146,
+    "C-018": 154,
+    "C-019": 162,
+    "C-020": 170,
+    "C-021": 178,
+    "C-022": 186,
+    "C-023": 194,
+    "C-024": 202,
+    "C-025": 210,
+    "C-026": 218,
+    "C-027": 226,
+    "C-028": 234,
+    "C-029": 242,
+    "C-030": 250,
+    "C-031": 258,
+    "C-032": 266,
+    "C-033": 274,
+    "C-034": 282,
+    "C-035": 290,
+    "C-036": 298,
+    "C-037": 306,
+    "C-038": 314,
+    "C-039": 322
+  },
+  "blind": {
+    "task": "identify-issues-in-matter-budget-proposal",
+    "criteria_reviewed": 39,
+    "coverage": "I read all 39 criteria and the instructions. I read all five documents in full: the budget proposal, the OCG v4.2, the rate-increase email, the timekeeper-addition email, and the prior-year actuals XLSX, including its Notes cells. I re-added both fee totals and the per-timekeeper overage totals, recomputed the rate-increase percentages, and checked the weekdays for Apr 25 and Apr 28, 2025. No external legal authority was needed, since every rule at issue is a contractual OCG provision in the record. I did not read the system prompt or judge prompt files beyond the description given in the task. I could not consult the advisor because it was rate-limited.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-008",
+          "C-024"
+        ],
+        "title": "$566.50 treated as Okeke's 'OCG-compliant max rate' although OCG 3.2(c) caps her at $550",
+        "explanation": "Okeke's approved 2024 rate was already at the $550 Senior Associate cap. OCG 3.2(c) says no increase, even one within 3%, may take a rate above the cap; if it would, the rate is set at the cap. The prior-year workbook says the same thing expressly: $566.50 'exceeds the $550 cap.' So the maximum compliant rate is $550. C-008 fails a correct memo that says the maximum is $550 without doing the 3% arithmetic, because it FAILs if 'only the $550 cap is cited without addressing the 3% increase calculation.' It also calls $566.50 the compliant rate. C-024 passes a memo that recommends cutting Okeke to $566.50, a rate that would still break the absolute cap. That rewards a wrong remediation.",
+        "evidence": [
+          {
+            "source": "C-008",
+            "quote": "States correct OCG-compliant max rate for Okeke ($566.50)"
+          },
+          {
+            "source": "C-024",
+            "quote": "recommends reducing Samara Okeke's rate to $550/hr (the OCG senior associate cap) or $566.50 (the 3% increase maximum)"
+          },
+          {
+            "source": "colton-ocg-v4.2.docx.txt",
+            "quote": "No rate increase, even if within the 3% annual cap described in subsection (a) above, may cause a timekeeper's rate to exceed the applicable maximum rate set forth in Section 3.1."
+          },
+          {
+            "source": "prior-year-budget-actuals.xlsx.txt",
+            "quote": "A 3% increase would yield $566.50/hr, which exceeds the $550 cap."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "C-008: PASS if the memo concludes Okeke's maximum permissible 2025 rate is $550 (under 3.2(c) even a 3% increase to $566.50 is capped at $550). C-024: accept only $550 or a GC written exception; drop $566.50 as an acceptable remedy."
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-039",
+          "C-014"
+        ],
+        "title": "Requires an $87,500 per-expert average when the budget states each expert's actual estimate ($90,000 and $85,000)",
+        "explanation": "OCG 7.3(a) applies the $75,000 threshold per expert. Budget §5.2 gives each expert's estimate: $90,000 for damages and $85,000 for forensics. A careful memo will say both experts individually exceed $75,000 and cite those figures; it has no reason to average them. C-039 FAILs 'if the per-expert amount is not calculated or is stated incorrectly' and requires 'approximately $87,500.' A memo using the correct individual figures can therefore fail, and one that averages (which could hide a single expert under the threshold) is rewarded. C-014's 'averaging $87,500' framing is less harmful but has the same blind spot.",
+        "evidence": [
+          {
+            "source": "C-039",
+            "quote": "PASS if the memorandum calculates or states the per-expert average cost as approximately $87,500 ($175,000 divided by 2 experts)"
+          },
+          {
+            "source": "matter-budget-proposal.docx.txt",
+            "quote": "estimated at \\$90,000 for the engagement through trial testimony; and (2) a data forensics and trade secrets expert ... estimated at \\$85,000"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo shows that each expert's estimate (damages $90,000; forensics $85,000), or alternatively the ~$87,500 average, exceeds the $75,000 per-expert threshold."
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-035",
+          "C-012"
+        ],
+        "title": "'Approximately 2 business days' notice' is wrong: notice came Friday afternoon for a Monday start (1 business day)",
+        "explanation": "The addition request was sent Fri, Apr 25, 2025 at 3:47 pm, for a start on 'Monday, April 28, 2025.' That is 1 business day of notice (or 3 calendar days), not ~2. C-035 requires the memo to note that 'the actual notice was approximately 2 business days.' An accurate memo saying one business day, or three calendar days, can be failed for not matching. C-012 builds the same wrong count into its PASS condition, though a judge is more likely to accept the flag there as long as the violation is found.",
+        "evidence": [
+          {
+            "source": "timekeeper-addition-notice.eml.txt",
+            "quote": "Date: Fri, 25 Apr 2025 15:47:00 -0400"
+          },
+          {
+            "source": "timekeeper-addition-notice.eml.txt",
+            "quote": "We would like to add Ms. Hu to the matter team effective Monday, April 28, 2025."
+          },
+          {
+            "source": "C-035",
+            "quote": "notes the actual notice was approximately 2 business days"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Rephrase as 'notes that notice was given only about one business day (Friday to Monday; roughly 1-3 days) before the start, far short of 10 business days'; accept any short-count description."
+      },
+      {
+        "id": "O4",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-031"
+        ],
+        "title": "Credits Yoon's and Novak's rates as 'compliant' even though their approved-rate increases exceed the 3% cap",
+        "explanation": "The prior-year workbook records approved 2024 rates of $410 for Yoon and $360 for Novak ('All 2024 rates were approved under OCG v4.1'). Moving to $425 and $375 is a 3.66% and a 4.17% increase. Both exceed the 3% per-timekeeper cap in OCG 3.2(a), and no GC approval is on record. The workbook notes flag these percentages itself. C-031 lists 'Yoon's rate matching the $425/hr ... cap' and 'Novak's rate matching the $375/hr ... cap' as compliant areas that count toward a pass. A memo that wrongly calls those rates compliant is rewarded. The criterion also requires affirmative findings of compliance, which the instructions ('categorized issue memorandum') never ask for, so an issues-only memo fails.",
+        "evidence": [
+          {
+            "source": "C-031",
+            "quote": "(c) Yoon's rate matching the $425/hr mid-level associate cap, (d) Novak's rate matching the $375/hr junior associate cap"
+          },
+          {
+            "source": "prior-year-budget-actuals.xlsx.txt",
+            "quote": "Derrick Yoon 2024 rate ($410/hr) → proposed 2025 rate $425/hr = 3.66% increase"
+          },
+          {
+            "source": "prior-year-budget-actuals.xlsx.txt",
+            "quote": "Tara Novak 2024 rate ($360/hr) → proposed 2025 rate $375/hr = 4.17% increase"
+          },
+          {
+            "source": "colton-ocg-v4.2.docx.txt",
+            "quote": "Annual rate increases shall not exceed three percent (3%) of the prior year's approved rate for any individual timekeeper."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Remove items (c) and (d). Either drop C-031 or make it lenient (e.g., PASS if the memo notes the staffing-ratio or diversity compliance, or does not wrongly flag them as violations)."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-031",
+          "C-007"
+        ],
+        "title": "Documents disagree on 2024 rates (Yoon $410 vs $415; Novak $360 vs $365) and on the paralegal's name (Hu vs Hsu)",
+        "explanation": "Budget Appendix A shows Yoon's 2024 rate as $415 (2.4%). The rate email and workbook show $410. For Novak, the email and Appendix show $365, while the workbook's approved rate is $360. Appendix A also gives Hu a 2024 rate of $215 and a 4.7% increase, but the December email says no paralegal was assigned then, and she replaced Ferrante ($195). The paralegal appears as both 'Hsu' and 'Hu'. These look like deliberate traps, but they change what a correct answer on the associate rate increases is, and the rubric does not resolve them (see O4). Criteria that mix 'Hsu' and 'Hu' are probably harmless.",
+        "evidence": [
+          {
+            "source": "matter-budget-proposal.docx.txt",
+            "quote": "Derrick Yoon      Mid-Level Associate (4th Year)   \\$415/hr        \\$425/hr        2.4%"
+          },
+          {
+            "source": "rate-increase-notice.eml.txt",
+            "quote": "Derrick Yoon's adjustment from $410 to $425 per hour and Tara Novak's from $365 to $375 per hour"
+          },
+          {
+            "source": "prior-year-budget-actuals.xlsx.txt",
+            "quote": "Tara Novak' | B7='Junior Associate' | C7='2nd year (1st year in 2024)' | D7='$360/hr'"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Either reconcile the documents or add a criterion that rewards spotting the inconsistent 2024 baselines and the resulting over-3% increases for Yoon and Novak."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-028",
+          "C-029",
+          "C-030"
+        ],
+        "title": "Requires severity ratings although the instructions ask only for a 'categorized' issue memo",
+        "explanation": "The instructions say 'produce a categorized issue memorandum.' Read naturally, that means grouping issues by category (rates, staffing, expenses, budget structure), not rating severity. Severity tiers are common in issue lists but are not an inherent part of this document type. A competent memo organized by category, with recommendations and no priority labels, fails C-028 and so C-029 and C-030 as well: one unstated format choice costs three criteria under all-pass grading. The substance of C-029 and C-030 (reconciliation and rate caps are serious) is reasonable once severity is in play.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "produce a categorized issue memorandum"
+          },
+          {
+            "source": "C-028",
+            "quote": "FAIL if no severity or priority classification is provided for the issues."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Add 'with severity ratings' to the instructions, or have C-029/C-030 accept any clear signal of seriousness (e.g., 'must be resolved before approval')."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-037"
+        ],
+        "title": "C-037's title says Croft has a 'percentage issue' but its PASS text says his increase is within 3%; $850 is 3.03%",
+        "explanation": "The title says Croft's notice 'also has percentage issue.' The PASS text requires the memo to say the increase 'is at or within the 3% annual cap.' $825 × 1.03 = $849.75, so rounding up to $850 is a 3.03% increase, technically over the cap. A careful memo that says the rounding pushes the increase slightly past 3%, and that the rate also breaks the $825 cap, contradicts the premise the PASS text requires. A judge could fail it. A memo that just applies 3.2(c) (the rate must be set at the cap) without talking about percentages also risks failing.",
+        "evidence": [
+          {
+            "source": "C-037",
+            "quote": "Identifies Croft's rate increase notice also has percentage issue"
+          },
+          {
+            "source": "C-037",
+            "quote": "while Croft's 3% increase from $825 to $850 (rounded from $849.75) is at or within the 3% annual cap percentage-wise"
+          },
+          {
+            "source": "rate-increase-notice.eml.txt",
+            "quote": "calculated as $849.75, rounded to $850"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo explains that whatever the percentage (about 3%, or 3.03% after rounding), OCG 3.2(c) caps Croft's rate at $825 because his 2024 rate was already at the cap."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-026"
+        ],
+        "title": "Remedy criterion names only competitive bidding, though OCG 7.2(a) also allows a justified sole-source approval",
+        "explanation": "OCG 7.2(a) lets a sole-source engagement over $200,000 go ahead with 'express written GC approval' supported by a documented justification. Clearpoint has served since the matter began, and incumbency is a plausible basis for that. A competent memo might recommend either rebidding or a written sole-source justification submitted for GC approval. C-026's PASS condition names only bidding among 3+ vendors, while its FAIL condition applies only when no remedy is recommended. A memo recommending the sole-source route falls between the two.",
+        "evidence": [
+          {
+            "source": "colton-ocg-v4.2.docx.txt",
+            "quote": "Sole-source engagements for e-discovery services exceeding the \\$200,000 threshold are not permitted without express written GC approval, which must be supported by documented justification"
+          },
+          {
+            "source": "C-026",
+            "quote": "PASS if the memorandum recommends conducting competitive bidding among at least 3 e-discovery vendors and submitting documentation to the GC"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo recommends either competitive bidding (3+ vendors, documentation to the GC) or a documented sole-source justification submitted for express written GC approval."
+      }
+    ],
+    "overall": "The rubric mostly tracks the record: the fee-total mismatch ($1,708,950 vs $1,825,000, a $116,050 gap), the three rate-cap breaches, the 17-day rate notice, the e-discovery bidding threshold, business-class travel, internal copying, the L700 reserve, Whitaker's unbudgeted hours, the mock-trial pre-approval, and the two-partner distractor are all correct against the OCG and the arithmetic. Four criteria are defective in ways that can zero out a correct answer under all-pass grading. C-008 and C-024 treat $566.50 as a compliant rate for Okeke, which OCG 3.2(c) and the workbook itself contradict. C-039 insists on an averaged per-expert figure when the budget gives each expert's actual estimate. C-035 states the wrong business-day count for the paralegal notice. C-031 credits Yoon's and Novak's rates as compliant even though their increases from the approved 2024 rates exceed 3%. Softer problems: the severity ratings required by C-028 to C-030 are not asked for, C-037's title contradicts its own text on Croft's percentage, and C-026 leaves out the sole-source route the OCG allows. The record's inconsistent 2024 rate baselines are a trap the rubric does not account for."
+  },
+  "final": {
+    "task": "identify-issues-in-matter-budget-proposal",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Confirmed defects: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-024"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-024",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "OCG 3.2(c): no increase, even within 3%, may take a rate above the 3.1 cap; if it would, the rate is set at the cap. The workbook's Note 9 says $566.50 'exceeds the $550 cap.' C-024 therefore rewards recommending $566.50, which would still breach the absolute cap. C-008 has the same error (see O1)."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-028",
+          "C-029",
+          "C-030"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-028",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-029",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-030",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The instructions ask only for a 'categorized issue memorandum.' That most naturally means grouping by issue type, but reading it as severity tiers is plausible, and priority ratings are common in issue memos. Omitting ratings fails three criteria at once, but the instructions really are ambiguous, so arguable rather than confirmed."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-037"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-037",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "$825 x 1.03 = $849.75, so $850 is a 3.03% increase, and OCG 3.2(a) has no rounding allowance. The PASS text requires saying the increase is 'at or within' 3%, while the title calls it a 'percentage issue.' A memo that flags the 3.03% breach may be failed. Most memos just say '3%' and pass, so only some answers are misgraded."
+      },
+      {
+        "sol_locator": "Confirmed defects: item 4",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-012",
+          "C-035"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-012",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-035",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Notice was sent Fri Apr 25, 2025 at 3:47 pm for a start on Monday Apr 28. That is one business day, or two business dates if counted inclusively. 'Approximately 2' is imprecise. However, both FAIL conditions turn only on identifying the violation or citing the 10-day rule, and 'approximately' gives some room. The risk is real but hits only some answers."
+      },
+      {
+        "sol_locator": "Arguable / minor source issues: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-010",
+          "C-012",
+          "C-035"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-010",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-012",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-035",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The name inconsistency is real: the email reads 'Margaret Hsu ... add Ms. Hu' and the budget uses 'Hu.' But judges will recognize the same paralegal under either spelling, so the name does not misgrade anything. C-012/C-035 are still arguable, but for the business-day count (O3), not the name. The source inconsistency is recorded in O5."
+      },
+      {
+        "sol_locator": "Arguable / minor source issues: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-031"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-031",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Items (c) and (d) are literally true, since the rates equal the absolute caps. But the approved 2024 rates in the workbook ($410, $360) make the increases 3.66% and 4.17%, above the 3% limit in 3.2(a). A competent memo can pass through items (a), (b), or (e), so C-031 rarely fails correct work. The main risk is that it requires affirmative compliance findings the instructions never ask for, and item (c)/(d) could reward calling non-compliant increases compliant."
+      },
+      {
+        "sol_locator": "Arguable / minor source issues: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-014",
+          "C-027",
+          "C-039"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-014",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-027",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-039",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "Budget 5.2 gives each expert's estimate ($90,000 and $85,000), and OCG 7.3(a) applies the threshold per expert. C-014's '$87,500 average' is only descriptive, and C-027 fails only when no remedy is given, so neither misgrades. C-039, however, requires the ~$87,500 average and fails a memo that uses the correct individual figures instead."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-008",
+          "C-024"
+        ],
+        "title": "$566.50 treated as Okeke's 'OCG-compliant max rate' although OCG 3.2(c) caps her at $550",
+        "explanation": "Okeke's approved 2024 rate of $550 was already at the Senior Associate cap. OCG 3.2(c) bars any increase, even one within 3%, from taking a rate above the cap. The workbook says expressly that $566.50 'exceeds the $550 cap.' So the maximum compliant rate is $550. C-008 calls $566.50 the 'correct OCG-compliant max rate.' It also FAILs a memo that correctly states $550 by applying 3.2(c) without computing $566.50. C-024 accepts cutting Okeke to $566.50 as adequate remediation, which rewards a recommendation that would still breach the absolute cap.",
+        "evidence": [
+          {
+            "source": "C-008",
+            "quote": "States correct OCG-compliant max rate for Okeke ($566.50)"
+          },
+          {
+            "source": "C-008",
+            "quote": "FAIL if no correct maximum compliant rate is computed or if only the $550 cap is cited without addressing the 3% increase calculation."
+          },
+          {
+            "source": "C-024",
+            "quote": "recommends reducing Samara Okeke's rate to $550/hr (the OCG senior associate cap) or $566.50 (the 3% increase maximum)"
+          },
+          {
+            "source": "colton-ocg-v4.2.docx.txt",
+            "quote": "No rate increase, even if within the 3% annual cap described in subsection (a) above, may cause a timekeeper's rate to exceed the applicable maximum rate set forth in Section 3.1."
+          },
+          {
+            "source": "prior-year-budget-actuals.xlsx.txt",
+            "quote": "A 3% increase would yield $566.50/hr, which exceeds the $550 cap."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "C-008: PASS if the memo concludes Okeke's maximum permissible 2025 rate is $550 (a 3% increase to $566.50 is capped at $550 under 3.2(c)). C-024: accept only $550 or a written GC exception, and allow $566.50 only as an intermediate calculation.",
+        "origin": "revised",
+        "sol_locators": [
+          "Confirmed defects: item 1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "problematic",
+        "category": "source_conflict",
+        "criteria": [
+          "C-039"
+        ],
+        "title": "Requires an $87,500 per-expert average when the budget states each expert's actual estimate ($90,000 and $85,000)",
+        "explanation": "OCG 7.3(a) applies the $75,000 threshold per expert. Budget 5.2 gives individual estimates: $90,000 for the damages expert and $85,000 for the forensics expert. A careful memo will cite those figures and show that each exceeds $75,000. It has no reason to average them, and averaging could hide an expert who falls below the threshold. C-039 PASSes only on the ~$87,500 average and FAILs if 'the per-expert amount is not calculated,' so a memo using the precise individual figures risks failing.",
+        "evidence": [
+          {
+            "source": "C-039",
+            "quote": "PASS if the memorandum calculates or states the per-expert average cost as approximately $87,500 ($175,000 divided by 2 experts)"
+          },
+          {
+            "source": "matter-budget-proposal.docx.txt",
+            "quote": "estimated at \\$90,000 for the engagement through trial testimony; and (2) a data forensics and trade secrets expert ... estimated at \\$85,000"
+          },
+          {
+            "source": "colton-ocg-v4.2.docx.txt",
+            "quote": "estimated to exceed Seventy-Five Thousand Dollars (\\$75,000) per expert or consultant over the life of the matter require the GC's pre-approval"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo shows that each expert's estimate ($90,000; $85,000), or alternatively the ~$87,500 average, exceeds the $75,000 per-expert threshold.",
+        "origin": "revised",
+        "sol_locators": [
+          "Arguable / minor source issues: item 3"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "unsupported_fact",
+        "criteria": [
+          "C-035",
+          "C-012"
+        ],
+        "title": "'Approximately 2 business days' notice' misstates Friday-afternoon-for-Monday notice (about 1 business day)",
+        "explanation": "The addition request was sent Fri, Apr 25, 2025 at 3:47 pm, for a start on Monday, Apr 28. That is one business day of notice, or two business dates only if counted inclusively. C-035's PASS text requires the memo to note that notice was 'approximately 2 business days,' and C-012 builds in the same count. A precise memo saying one business day could be failed for contradicting the criterion. Both FAIL conditions turn on the core violation or on citing the 10-day rule, and 'approximately' gives some room, so the misgrading risk applies only to some answers.",
+        "evidence": [
+          {
+            "source": "timekeeper-addition-notice.eml.txt",
+            "quote": "Date: Fri, 25 Apr 2025 15:47:00 -0400"
+          },
+          {
+            "source": "timekeeper-addition-notice.eml.txt",
+            "quote": "We would like to add Ms. Hu to the matter team effective Monday, April 28, 2025."
+          },
+          {
+            "source": "C-035",
+            "quote": "notes the actual notice was approximately 2 business days"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Accept any accurate description of the short notice (e.g., Friday-to-Monday, one business day, three calendar days) that falls far short of 10 business days.",
+        "origin": "revised",
+        "sol_locators": [
+          "Confirmed defects: item 4"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "source_conflict",
+        "criteria": [
+          "C-031"
+        ],
+        "title": "C-031 counts Yoon's and Novak's rates as 'compliant' although their increases over approved 2024 rates exceed 3%, and it requires findings the instructions never ask for",
+        "explanation": "The workbook records approved 2024 rates of $410 (Yoon) and $360 (Novak) under OCG v4.1. Moving to $425 and $375 means increases of 3.66% and 4.17%, above the 3% limit in 3.2(a), and there is no GC approval on record. The workbook's own notes compute those percentages. Items (c) and (d) credit these rates as compliant because they equal the absolute caps. That is literally true, but it can reward a memo that misses the percentage breach. C-031 also requires affirmative compliance findings, which an issues-focused 'categorized issue memorandum' need not include. Items (a), (b) and (e) are genuinely compliant, so many competent memos will pass, which is why this is arguable rather than problematic.",
+        "evidence": [
+          {
+            "source": "C-031",
+            "quote": "(c) Yoon's rate matching the $425/hr mid-level associate cap, (d) Novak's rate matching the $375/hr junior associate cap"
+          },
+          {
+            "source": "prior-year-budget-actuals.xlsx.txt",
+            "quote": "Derrick Yoon 2024 rate ($410/hr) → proposed 2025 rate $425/hr = 3.66% increase"
+          },
+          {
+            "source": "prior-year-budget-actuals.xlsx.txt",
+            "quote": "Tara Novak 2024 rate ($360/hr) → proposed 2025 rate $375/hr = 4.17% increase"
+          },
+          {
+            "source": "colton-ocg-v4.2.docx.txt",
+            "quote": "Annual rate increases shall not exceed three percent (3%) of the prior year's approved rate for any individual timekeeper."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Remove items (c) and (d), or credit them only when qualified as absolute-cap compliance. Consider making C-031 lenient (e.g., PASS if the memo does not wrongly flag the staffing ratio or diversity staffing as violations).",
+        "origin": "revised",
+        "sol_locators": [
+          "Arguable / minor source issues: item 2"
+        ],
+        "blind_ids": [
+          "O4",
+          "O5"
+        ]
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [],
+        "title": "Documents disagree on 2024 rate baselines (Yoon $410/$415; Novak $360/$365) and on the paralegal's name (Hu/Hsu)",
+        "explanation": "Budget Appendix A gives Yoon's 2024 rate as $415 (a 2.4% increase). The rate email and the workbook say $410 (3.66%). For Novak, the email and Appendix say $365 (2.7%), while the workbook's approved rate is $360 (4.17%). Appendix A also shows Hu at a $215 2024 rate. The paralegal appears as both 'Hsu' and 'Hu', even within one email. These may be intentional traps, but the correct answer on the Yoon/Novak increases depends on which baseline controls, and no criterion addresses it (see O4). The name variance is unlikely to affect grading.",
+        "evidence": [
+          {
+            "source": "matter-budget-proposal.docx.txt",
+            "quote": "Derrick Yoon      Mid-Level Associate (4th Year)   \\$415/hr        \\$425/hr        2.4%"
+          },
+          {
+            "source": "rate-increase-notice.eml.txt",
+            "quote": "Derrick Yoon's adjustment from $410 to $425 per hour and Tara Novak's from $365 to $375 per hour"
+          },
+          {
+            "source": "prior-year-budget-actuals.xlsx.txt",
+            "quote": "A7='Tara Novak' | B7='Junior Associate' | C7='2nd year (1st year in 2024)' | D7='$360/hr'"
+          },
+          {
+            "source": "timekeeper-addition-notice.eml.txt",
+            "quote": "Margaret Hsu is an experienced litigation paralegal ... We would like to add Ms. Hu to the matter team"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Reconcile the baselines, or add a criterion that rewards spotting the inconsistent 2024 rates and the resulting over-3% increases for Yoon and Novak.",
+        "origin": "revised",
+        "sol_locators": [
+          "Arguable / minor source issues: item 1"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-028",
+          "C-029",
+          "C-030"
+        ],
+        "title": "Requires severity ratings although the instructions ask only for a 'categorized' issue memo",
+        "explanation": "'Categorized issue memorandum' most naturally means grouping issues by type (rates, staffing, expenses, budget structure). Severity tiers are common but not inherent to this document type. A memo organized by category with full analysis and remedies but no priority labels fails C-028, and C-029 and C-030 fail with it: one format choice costs three criteria under all-pass grading. Reading 'categorized' as covering severity is plausible, and the substance of C-029/C-030 is reasonable once severity is used, so this is arguable.",
+        "evidence": [
+          {
+            "source": "task.json instructions",
+            "quote": "produce a categorized issue memorandum"
+          },
+          {
+            "source": "C-028",
+            "quote": "FAIL if no severity or priority classification is provided for the issues."
+          },
+          {
+            "source": "C-029",
+            "quote": "FAIL if it is assigned a lower severity level or no severity level."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Add 'with severity ratings' to the instructions, or have C-029/C-030 accept any clear signal of seriousness (e.g., 'must be resolved before approval').",
+        "origin": "blind",
+        "sol_locators": [
+          "Confirmed defects: item 2"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "internal_inconsistency",
+        "criteria": [
+          "C-037"
+        ],
+        "title": "C-037 requires calling Croft's $825-to-$850 increase 'within 3%' although it is 3.03%, and its title says 'percentage issue'",
+        "explanation": "$825 x 1.03 = $849.75, and rounding up to $850 is a 3.03% increase. OCG 3.2(a) allows no rounding. The PASS text requires the memo to describe the increase as 'at or within the 3% annual cap percentage-wise,' while the title calls it a 'percentage issue.' A careful memo that flags the small percentage breach alongside the absolute-cap breach contradicts the PASS premise and could be failed. Most memos just say '3%' and pass, so only some are misgraded.",
+        "evidence": [
+          {
+            "source": "C-037",
+            "quote": "Identifies Croft's rate increase notice also has percentage issue"
+          },
+          {
+            "source": "C-037",
+            "quote": "while Croft's 3% increase from $825 to $850 (rounded from $849.75) is at or within the 3% annual cap percentage-wise"
+          },
+          {
+            "source": "rate-increase-notice.eml.txt",
+            "quote": "calculated as $849.75, rounded to $850"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo explains that, whatever the percentage (about 3%, or 3.03% after rounding), OCG 3.2(c) caps Croft at $825 because his 2024 rate was already at the cap.",
+        "origin": "blind",
+        "sol_locators": [
+          "Confirmed defects: item 3"
+        ],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-026"
+        ],
+        "title": "Remedy criterion names only competitive bidding, though OCG 7.2(a) also allows a justified sole-source approval",
+        "explanation": "OCG 7.2(a) lets a sole-source e-discovery engagement over $200,000 go ahead with express written GC approval supported by documented justification. Clearpoint's incumbency since the matter began is a plausible basis for that. C-026's PASS names only bidding among 3+ vendors, while its FAIL applies only when no remedy is recommended. A memo recommending a documented sole-source request falls between the two.",
+        "evidence": [
+          {
+            "source": "colton-ocg-v4.2.docx.txt",
+            "quote": "Sole-source engagements for e-discovery services exceeding the \\$200,000 threshold are not permitted without express written GC approval, which must be supported by documented justification"
+          },
+          {
+            "source": "C-026",
+            "quote": "PASS if the memorandum recommends conducting competitive bidding among at least 3 e-discovery vendors and submitting documentation to the GC"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if the memo recommends either competitive bidding (3+ vendors, documentation to the GC) or a documented sole-source justification submitted for express written GC approval.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O8"
+        ]
+      }
+    ],
+    "changes_from_blind": "O1: added the Sol locator; substance unchanged (C-008 and C-024 problematic). O2: dropped C-014, because its '$87,500 average' is only a descriptive parenthetical and its PASS condition turns on identifying the exceedance; C-039 alone stays problematic. O3: downgraded C-035 from problematic to arguable. Both FAIL conditions turn on the core violation or the 10-day citation, 'approximately' gives some room, and inclusive counting gives two business dates, so only some answers are at risk. O4: downgraded C-031 from problematic to arguable, agreeing with Sol that items (c) and (d) are literally true (rate equals cap) and that items (a), (b) and (e) give competent memos a genuine path to pass. O5: removed C-007, which is sound because Okeke's $550-to-$575 figures are consistent across all documents; O5 is now a document defect not tied to a criterion, and I folded the baseline point into O4. O6 (C-028 to C-030) and O7 (C-037): stayed arguable rather than adopting Sol's 'confirmed', because 'categorized' could reasonably mean severity and C-037 misgrades only memos that flag the 3.03% figure. O8: unchanged. Sol raised no criterion I had missed. C-005, C-023 and C-033, which Sol mentioned in passing, are sound.",
+    "overall": "The rubric largely tracks the record. The $116,050 fee-total gap, the three absolute rate-cap breaches, Okeke's 4.5% increase, the late rate notice, the e-discovery bidding threshold, travel, copying, the appeal reserve and the staffing checks are all correct against the OCG. Two defects can zero out correct work under all-pass grading. C-008 and C-024 treat $566.50 as a compliant rate for Okeke, which OCG 3.2(c) and the workbook contradict. C-039 insists on an averaged per-expert figure when the budget gives each expert's actual estimate. The softer problems are: the business-day count for the paralegal notice (C-012 and C-035), severity ratings the instructions never ask for (C-028 to C-030), C-037's claim that a 3.03% increase is 'within 3%', C-031's crediting of Yoon's and Novak's rates while their increases exceed 3%, and C-026 leaving out the sole-source route. The record's inconsistent 2024 rate baselines are an unaddressed trap. Sol and I agree on nearly every affected criterion. We differ mainly on severity: I rate C-028 to C-030 and C-037 arguable rather than confirmed, and I treat C-008 as problematic alongside C-024.",
+    "coverage": "Second pass. I re-read the instructions and the text of all criteria at issue (C-004 to C-008, C-010, C-012, C-014, C-023, C-024, C-026 to C-031, C-033, C-035, C-037, C-039). I re-checked the record for each: OCG 3.2(a) and (c), the 10-business-day addition rule, 7.2(a) and 7.3(a); budget Appendix A, the rate narrative and 5.2 expert estimates; both emails' dates and figures; and the workbook's 2024 rates and Notes 2, 3 and 9 to 11. I read Sol's full report and index entry. No external legal authority was needed, since every rule at issue is a contractual OCG provision in the record. I did not consult the advisor."
+  }
+}

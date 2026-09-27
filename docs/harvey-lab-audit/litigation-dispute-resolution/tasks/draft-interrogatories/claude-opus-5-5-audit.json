@@ -1,0 +1,459 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "draft-interrogatories",
+  "title": "Draft First Set of Interrogatories to Defendant Veridian Health Systems in Trade Secret Misappropriation Case",
+  "criteria_total": 50,
+  "criterion_lines": {
+    "C-001": 19,
+    "C-002": 27,
+    "C-003": 35,
+    "C-004": 43,
+    "C-005": 51,
+    "C-006": 59,
+    "C-007": 67,
+    "C-008": 75,
+    "C-009": 83,
+    "C-010": 91,
+    "C-011": 99,
+    "C-012": 107,
+    "C-013": 115,
+    "C-014": 123,
+    "C-015": 131,
+    "C-016": 139,
+    "C-017": 147,
+    "C-018": 155,
+    "C-019": 163,
+    "C-020": 171,
+    "C-021": 179,
+    "C-022": 187,
+    "C-023": 195,
+    "C-024": 203,
+    "C-025": 211,
+    "C-026": 219,
+    "C-027": 227,
+    "C-028": 235,
+    "C-029": 243,
+    "C-030": 251,
+    "C-031": 259,
+    "C-032": 267,
+    "C-033": 275,
+    "C-034": 283,
+    "C-035": 291,
+    "C-036": 299,
+    "C-037": 307,
+    "C-038": 315,
+    "C-039": 323,
+    "C-040": 331,
+    "C-041": 339,
+    "C-042": 347,
+    "C-043": 355,
+    "C-044": 363,
+    "C-045": 371,
+    "C-046": 379,
+    "C-047": 387,
+    "C-048": 395,
+    "C-049": 403,
+    "C-050": 411
+  },
+  "blind": {
+    "task": "draft-interrogatories",
+    "criteria_reviewed": 50,
+    "coverage": "Read in full: task.json (instructions and all 50 criteria), first-amended-complaint, scheduling-order, tro-order, litigation-hold-letter, cmt-internal-emails, veridian-press-release, and the judge prompt. Searched with grep only (not read in full): oshiro-nda-agreement (non-solicitation §3.1 is 18 months post-employment; non-disclosure §2.3 is 24 months; governed by Texas law), ashcroft-forensics-report (serial CX-8827491 is consistent), yilmaz-preliminary-report. Checked the record facts every criterion relies on: court and division, case number, party names, NeuralPath/PrecisionDrive/PathPlanner, SynapticEdge, Trent's LinkedIn message of Dec. 3, 2023, the Feb. 14 and Mar. 1, 2024 dates, the 18-month non-solicit, the USB serial, and counsel names. All are supported. Verified from primary text: FRCP 33(a)(1) and 33(a)(2) (Cornell LII). No case law was verified. Record noise that no criterion depends on, so not flagged: the TRO gives Furukawa, Briggs and Moreno different job titles than the complaint and emails; the TRO puts Oshiro's residence in Alexandria while the complaint says Reston; the litigation hold letter says Moreno was 'expected to join'; and the emails show approaches to the three engineers while Oshiro was still employed, before the post-employment non-solicit window.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-032",
+          "C-031"
+        ],
+        "title": "C-032 penalizes proper contention interrogatories and conflicts with C-031, which requires one",
+        "explanation": "Rule 33(a)(2) says a contention interrogatory 'is not objectionable.' Deferral is something the court may order on objection. The party serving the interrogatories does not plead it. C-032 fails any 'state all facts supporting [defense/contention]' interrogatory unless the drafter cites 33(a)(2) or says the court may defer. Practitioners do not put that text in their own requests, so the rule penalizes standard, permitted practice. C-031 then requires an interrogatory asking Veridian to 'describe or identify all facts, evidence, or bases supporting any claim that SynapticEdge was independently developed.' That is the classic contention form C-032 names. Veridian raised independent development at the TRO hearing. A solver who writes 'State all facts supporting your contention that SynapticEdge was independently developed' clearly passes C-031 and may fail C-032. Escape hatch (c), 'factual framing,' is undefined, so the two judges can split on the same text. Under all-pass scoring, that split zeroes out a correct answer.",
+        "evidence": [
+          {
+            "source": "C-032",
+            "quote": "FAIL if the document includes one or more interrogatories in the form 'State all facts supporting [affirmative defense/legal contention]' with no reference to FRCP 33(a)(2) deferral and no factual framing."
+          },
+          {
+            "source": "C-031",
+            "quote": "PASS if at least one interrogatory asks Veridian to describe or identify all facts, evidence, or bases supporting any claim that SynapticEdge was independently developed without use of CMT's trade secrets."
+          },
+          {
+            "source": "tro-order.docx.txt",
+            "quote": "Veridian's counsel represented at the hearing that SynapticEdge was \"in development prior to Mr. Oshiro's hiring,\""
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 33(a)(2)",
+            "proposition": "An interrogatory is not objectionable merely because it asks for an opinion or contention relating to fact or application of law to fact; the court may order that it need not be answered until later.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Delete C-032. Or narrow it to penalize only one omnibus interrogatory demanding all facts for every affirmative defense, and state expressly that a targeted contention interrogatory like the one C-031 requires passes."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-019",
+          "C-020",
+          "C-024",
+          "C-027",
+          "C-028",
+          "C-045"
+        ],
+        "title": "Subpart-count criterion has no counting method and conflicts with many multi-element topic mandates",
+        "explanation": "C-019 asks the judge to count 'discrete subparts' using a 'different categories of information' test. That is looser than the scheduling order's 'logically or factually related' standard, and the judges never see the scheduling order. The rubric also requires about 18 topical interrogatories, several of which must contain multi-element 'including' lists: timeline plus circumstances plus first contact (C-020); start date, milestones, and before or after Oshiro (C-024); whether and when a hold issued, its scope, and ESI steps (C-027); three named hires (C-028); salary, bonus, equity and benefits (C-045). A compact set of 18 to 20 interrogatories built to satisfy these can reasonably be counted as more than 25 by one judge and as 25 or fewer by the other. The criteria push toward the very drafting C-019 may penalize, and there is no reference count to anchor the judgment.",
+        "evidence": [
+          {
+            "source": "C-019",
+            "quote": "counting discrete subparts as separate interrogatories where they ask for different categories of information (consistent with FRCP 33(a)(1)), does not exceed 25"
+          },
+          {
+            "source": "scheduling-order.docx.txt",
+            "quote": "A subpart is logically or factually related to the primary interrogatory only if it seeks information on the same subject matter and could reasonably be considered a natural component of a single, unified inquiry."
+          },
+          {
+            "source": "C-024",
+            "quote": "including when development began, key milestones, and whether development commenced before or after Oshiro joined Veridian"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 33(a)(1)",
+            "proposition": "A party may serve no more than 25 written interrogatories, including all discrete subparts, unless stipulated or ordered otherwise.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Give the judge the scheduling order's related-subpart test and tell it that subparts elaborating a single subject count as one interrogatory. Or replace C-019 with 'no more than 25 numbered interrogatories and no obviously unrelated compound questions.'"
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-015"
+        ],
+        "title": "Requires a standalone 'Describe' definition, which is optional boilerplate",
+        "explanation": "The instructions ask only for a first set of interrogatories. Definitions of Identify, Document, Communication, and You are close to universal and implicit in the document type. A separate 'Describe' definition is common but optional. Many competent sets instead spell out what is required inside each interrogatory, or fold narrative requirements into the instructions. C-015 fails such a set even when every interrogatory demands a detailed narrative. The requirement is a hidden format choice, not something the work product needs.",
+        "evidence": [
+          {
+            "source": "C-015",
+            "quote": "FAIL if 'Describe' is not defined in the Definitions section."
+          },
+          {
+            "source": "task.json instructions",
+            "quote": "Draft first set of interrogatories from plaintiff to defendant based on the attached case files."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if 'Describe' is defined, or if the interrogatories or instructions otherwise require a detailed factual narrative."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-046"
+        ],
+        "title": "'Specifically targets pre-resignation communications' may fail a broad date-range interrogatory that covers them",
+        "explanation": "A standard, competent interrogatory asks for all communications between Veridian and Oshiro from November 1, 2023 (the litigation hold letter's start date) through his start date or the present. That fully covers the pre-resignation period. A literal judge could still find it does not 'specifically target' communications before Feb. 14 or Mar. 1, 2024, and fail it, while another judge passes it. Misgrading risk is moderate.",
+        "evidence": [
+          {
+            "source": "C-046",
+            "quote": "FAIL if no interrogatory specifically targets pre-resignation communications between Veridian and Oshiro."
+          },
+          {
+            "source": "litigation-hold-letter.docx.txt",
+            "quote": "between any Veridian officer, director, employee, or agent and Ryan Oshiro, from November 1, 2023 to the present."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if any interrogatory seeks Veridian–Oshiro communications for a period that includes the time before Feb. 14, 2024 or Mar. 1, 2024."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-037"
+        ],
+        "title": "Record conflicts on who represents Oshiro, which affects the correct certificate of service",
+        "explanation": "Rule 5 requires serving discovery on every party, so a correct certificate of service should list Oshiro's counsel as well as Veridian's. The record disagrees on who that is. The scheduling order says Stephen Osei of Drummond & Wakefield appeared for both defendants. The TRO says Patricia Dominguez of Barlow & Crane appeared for Oshiro. The complaint's certificate of service says Oshiro's counsel is pending. C-037 accepts 'Drummond & Wakefield LLP and/or Stephen Osei,' so an answer that includes Osei will not be misgraded. The defect affects what a fully correct answer looks like, but the scoring risk is low.",
+        "evidence": [
+          {
+            "source": "scheduling-order.docx.txt",
+            "quote": "Defendants Veridian Health Systems, LLC (\"Veridian\") and Ryan Oshiro (\"Oshiro\") (collectively, \"Defendants\") were represented by Stephen Osei of Drummond & Wakefield LLP"
+          },
+          {
+            "source": "tro-order.docx.txt",
+            "quote": "Patricia Dominguez of Barlow & Crane PLLC appeared on behalf of Defendant Oshiro."
+          },
+          {
+            "source": "first-amended-complaint.docx.txt",
+            "quote": "Counsel for Defendant Ryan Oshiro --- to be served separately; identification of counsel pending."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make the counsel-of-record facts consistent across the documents. Or have C-037 accept service on Osei with or without Oshiro's counsel, and say so explicitly."
+      }
+    ],
+    "overall": "The rubric's factual criteria are sound. The caption, parties, trade-secret names, SynapticEdge, the Trent LinkedIn date, the resignation and last-day dates, the 18-month non-solicit, the USB serial, and counsel names are all supported by the record. The topical interrogatory criteria are reasonable, well grounded in the complaint, TRO and litigation hold letter, and mostly worded broadly enough to accept varied competent drafting. The main defect is C-032. It rests on a mistaken premise, since Rule 33(a)(2) expressly permits contention interrogatories. It also sits in tension with C-031, which requires a contention-style interrogatory on independent development, so a correct answer can fail under all-pass scoring. Second-order risks: C-019's subpart counting has no anchor while the rubric requires about 18 multi-element topics, C-015 requires an optional 'Describe' definition, and C-046's wording is somewhat literal. The documents contain some inconsistencies (engineers' titles, Oshiro's residence, Oshiro's counsel), but they mostly do not affect grading."
+  },
+  "final": {
+    "task": "draft-interrogatories",
+    "sol_verdicts": [
+      {
+        "sol_locator": "Definite defect: item 1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-032"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-032",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "Rule 33(a)(2) says contention interrogatories are 'not objectionable'. Deferral is a remedy the court may grant; the serving party does not recite it. The scheduling order (B.1–B.3) imposes no disclaimer. C-032 fails a targeted 'state all facts supporting your contention' interrogatory unless it cites 33(a)(2) or uses undefined 'factual framing'. C-031 requires exactly that form for independent development, so the two conflict and a correct answer can fail."
+      },
+      {
+        "sol_locator": "Arguable/format concerns: item 1",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-007",
+          "C-008",
+          "C-009",
+          "C-010",
+          "C-015"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-007",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-008",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-009",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-010",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-015",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Definitions of Identify (name, position, employer, contact), Document (including ESI), Communication, and You/Your are standard components of a federal interrogatory set. They are implicit in the requested work product, not hidden requirements. A standalone 'Describe' definition is common but optional, and C-015 fails a set that puts narrative requirements elsewhere. So only C-015 is arguable."
+      },
+      {
+        "sol_locator": "Arguable/format concerns: item 2",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-019"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-019",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The scheduling order counts a subpart separately only if it is not 'logically or factually related'. C-019's 'different categories of information' gloss is looser, and the judges do not see the order. Other criteria (C-020, C-024, C-027, C-045) require multi-element 'including' questions, so the same compact 20-question set could be counted above 25 by one judge and at or below 25 by the other."
+      },
+      {
+        "sol_locator": "Arguable/format concerns: item 3",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-026",
+          "C-048"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-026",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-048",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The two criteria do not conflict. C-026 tests topic coverage; C-048 tests precision, and one interrogatory can meet both. Serial CX-8827491 appears consistently in the complaint, TRO, hold letter, Ashcroft report and Yilmaz report. Using the record identifier to prevent evasive answers is ordinary good drafting. The criterion is demanding but reasonable."
+      },
+      {
+        "sol_locator": "Arguable/format concerns: item 4",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-016"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-016",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "C-016 passes any instruction that 'references or describes the... continuing duty to supplement responses under FRCP 26(e)'. An accurate, qualified Rule 26(e) instruction therefore passes. The broader 'if additional information becomes available' wording is an extra way to pass, not a requirement, so the criterion cannot fail a correct answer. A supplementation instruction is standard in the document type."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-032",
+          "C-031"
+        ],
+        "title": "C-032 penalizes proper contention interrogatories and conflicts with C-031, which requires one",
+        "explanation": "Rule 33(a)(2) says a contention interrogatory 'is not objectionable'. Deferral is something the court may order on objection; the serving party does not plead it. The scheduling order adds no disclaimer requirement. C-032 fails any 'state all facts supporting [defense/contention]' interrogatory unless the drafter cites 33(a)(2), mentions deferral, or satisfies an undefined 'factual framing' exception. Practitioners do not put that text in their own requests. C-031 requires an interrogatory asking Veridian to 'describe or identify all facts, evidence, or bases supporting any claim that SynapticEdge was independently developed'. That is the contention form C-032 targets, and Veridian raised independent development at the TRO hearing. A solver who writes 'State all facts supporting your contention that SynapticEdge was independently developed' clearly passes C-031 and may fail C-032, depending on how each judge reads 'factual framing'. Under all-pass scoring, that split zeroes out a correct answer.",
+        "evidence": [
+          {
+            "source": "C-032",
+            "quote": "FAIL if the document includes one or more interrogatories in the form 'State all facts supporting [affirmative defense/legal contention]' with no reference to FRCP 33(a)(2) deferral and no factual framing."
+          },
+          {
+            "source": "C-031",
+            "quote": "PASS if at least one interrogatory asks Veridian to describe or identify all facts, evidence, or bases supporting any claim that SynapticEdge was independently developed without use of CMT's trade secrets."
+          },
+          {
+            "source": "tro-order.docx.txt",
+            "quote": "Veridian's counsel represented at the hearing that SynapticEdge was \"in development prior to Mr. Oshiro's hiring,\""
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 33(a)(2)",
+            "proposition": "An interrogatory is not objectionable merely because it asks for an opinion or contention relating to fact or application of law to fact; the court may order that it need not be answered until later.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Delete C-032. Or narrow it to penalize only an omnibus interrogatory demanding all facts for every affirmative defense, and state expressly that a targeted contention interrogatory like the one C-031 requires passes.",
+        "origin": "blind",
+        "sol_locators": [
+          "Definite defect: item 1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-019",
+          "C-020",
+          "C-024",
+          "C-027",
+          "C-028",
+          "C-045"
+        ],
+        "title": "Subpart-count criterion uses a looser test than the scheduling order while other criteria require multi-element questions",
+        "explanation": "C-019 asks the judge to count 'discrete subparts' using a 'different categories of information' test. The scheduling order counts a subpart separately only if it is not logically or factually related to the primary question, and the judges never see the order. The rubric also requires about 18 topical interrogatories, several with multi-element 'including' lists: timeline, circumstances and first contact (C-020); start date, milestones, and before or after Oshiro (C-024); hold issuance, scope, and ESI steps (C-027); three named hires (C-028); salary, bonus, equity and benefits (C-045). A compact 18–20 interrogatory set built to satisfy these could be counted above 25 by one judge and at or below 25 by the other. The criteria push toward the very drafting C-019 may penalize, and there is no reference count to anchor the judgment.",
+        "evidence": [
+          {
+            "source": "C-019",
+            "quote": "counting discrete subparts as separate interrogatories where they ask for different categories of information (consistent with FRCP 33(a)(1)), does not exceed 25"
+          },
+          {
+            "source": "scheduling-order.docx.txt",
+            "quote": "A subpart is logically or factually related to the primary interrogatory only if it seeks information on the same subject matter and could reasonably be considered a natural component of a single, unified inquiry."
+          },
+          {
+            "source": "C-024",
+            "quote": "including when development began, key milestones, and whether development commenced before or after Oshiro joined Veridian"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fed. R. Civ. P. 33(a)(1)",
+            "proposition": "A party may serve no more than 25 written interrogatories, including all discrete subparts, unless stipulated or ordered otherwise.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Give the judge the scheduling order's related-subpart test and state that subparts elaborating a single subject count as one interrogatory. Or replace C-019 with 'no more than 25 numbered interrogatories and no obviously unrelated compound questions.'",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable/format concerns: item 2"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-015"
+        ],
+        "title": "Requires a standalone 'Describe' definition in the Definitions section, which is optional boilerplate",
+        "explanation": "The instructions ask only for a first set of interrogatories. Definitions of Identify, Document, Communication, and You (C-007 to C-010) are near-universal and implicit in the document type, so they are not defects. A separate 'Describe' definition is common but optional. Many competent sets instead spell out the required detail inside each interrogatory or in the Instructions. C-015 fails such a set, even when every interrogatory demands a detailed narrative, solely because the word is not defined in a particular section.",
+        "evidence": [
+          {
+            "source": "C-015",
+            "quote": "FAIL if 'Describe' is not defined in the Definitions section."
+          },
+          {
+            "source": "task.json instructions",
+            "quote": "Draft first set of interrogatories from plaintiff to defendant based on the attached case files."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if 'Describe' is defined anywhere, or if the interrogatories or instructions otherwise require a detailed factual narrative.",
+        "origin": "blind",
+        "sol_locators": [
+          "Arguable/format concerns: item 1"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-046"
+        ],
+        "title": "'Specifically targets pre-resignation communications' may fail a broad date-range interrogatory that covers them",
+        "explanation": "A standard, competent interrogatory asks for all Veridian–Oshiro communications from November 1, 2023 (the litigation hold letter's start date) to the present. That fully covers the pre-resignation period. A literal judge could still find it does not 'specifically target' communications before Feb. 14 or Mar. 1, 2024, and fail it, while the other judge passes it. The misgrading risk is moderate.",
+        "evidence": [
+          {
+            "source": "C-046",
+            "quote": "FAIL if no interrogatory specifically targets pre-resignation communications between Veridian and Oshiro."
+          },
+          {
+            "source": "litigation-hold-letter.docx.txt",
+            "quote": "between any Veridian officer, director, employee, or agent and Ryan Oshiro, from November 1, 2023 to the present."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "PASS if any interrogatory seeks Veridian–Oshiro communications for a period that includes the time before Feb. 14, 2024 or Mar. 1, 2024.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O4"
+        ]
+      }
+    ],
+    "changes_from_blind": "I dropped blind O5 (C-037, conflicting counsel for Oshiro). The August 30 scheduling order postdates the August 1 TRO and says Stephen Osei of Drummond & Wakefield represents both defendants. C-037 passes any certificate that names Osei or Drummond & Wakefield, whether or not Dominguez is added, so the conflict cannot misgrade an answer. After reading Sol, I kept C-015 as arguable. I rejected Sol's extension of that concern to C-007 through C-010, because those definitions are standard, implicit parts of an interrogatory set. I rejected Sol's C-026/C-048 tension: coverage and precision are compatible, and the serial number is consistent across five record documents. I rejected Sol's C-016 concern because an accurate Rule 26(e) instruction satisfies the criterion's first pass condition. Sol's C-032 and C-019 findings match my blind O1 and O2, which are unchanged.",
+    "overall": "The rubric's factual criteria are well grounded. The caption, parties, counsel, trade-secret names, SynapticEdge, Trent's outreach, the resignation and last-day dates, the non-solicit, and the USB serial CX-8827491 are all supported by the record. The one confident defect is C-032. It treats a proper contention interrogatory as defective unless it recites Rule 33(a)(2) deferral, which misreads a rule that expressly permits such interrogatories. It also conflicts with C-031, which requires a contention-style interrogatory on independent development. Secondary risks: C-019's subpart test is looser than the scheduling order's relatedness standard while other criteria require multi-element questions; C-015 requires an optional 'Describe' definition in a specific section; and C-046's 'specifically targets' wording could fail a broad date-range interrogatory. Sol's other concerns (C-007 to C-010 boilerplate, C-026/C-048, C-016) do not survive review.",
+    "coverage": "Reviewed all 50 criteria and the instructions. Read the Sol index entry and Sol's full audit report. In the blind pass, read the complaint, scheduling order, TRO, hold letter, emails and press release in full. In this pass, re-checked by grep: the scheduling order's subpart-counting, deadline and proportionality provisions (no contention-interrogatory disclaimer); counsel of record across the scheduling order, TRO and complaint; and the USB device identification across the complaint, TRO, hold letter, Ashcroft report and Yilmaz report (one device, consistent serial). Rule 33(a)(1) and (a)(2) were verified from primary text in the blind pass. Rule 26(e) was not re-read this session; C-016 is judged on its own pass conditions. No case law was relied on."
+  }
+}

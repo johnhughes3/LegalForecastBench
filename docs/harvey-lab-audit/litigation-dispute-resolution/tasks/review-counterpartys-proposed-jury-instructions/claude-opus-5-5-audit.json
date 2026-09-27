@@ -1,0 +1,741 @@
+{
+  "model": "Claude Opus 5.5 (claude-opus-5-5)",
+  "reasoning_effort": "high",
+  "workflow_run_id": "wf_0aa16214-381",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "task": "review-counterpartys-proposed-jury-instructions",
+  "title": "Review Counterparty's Proposed Jury Instructions — Issue Memorandum for Trade Secrets Trial",
+  "criteria_total": 33,
+  "criterion_lines": {
+    "C-001": 18,
+    "C-002": 26,
+    "C-003": 34,
+    "C-004": 42,
+    "C-005": 50,
+    "C-006": 58,
+    "C-007": 66,
+    "C-008": 74,
+    "C-009": 82,
+    "C-010": 90,
+    "C-011": 98,
+    "C-012": 106,
+    "C-013": 114,
+    "C-014": 122,
+    "C-015": 130,
+    "C-016": 138,
+    "C-017": 146,
+    "C-018": 154,
+    "C-019": 162,
+    "C-020": 170,
+    "C-021": 178,
+    "C-022": 186,
+    "C-023": 194,
+    "C-024": 202,
+    "C-025": 210,
+    "C-026": 218,
+    "C-027": 226,
+    "C-028": 234,
+    "C-029": 242,
+    "C-030": 250,
+    "C-031": 258,
+    "C-032": 266,
+    "C-033": 274
+  },
+  "blind": {
+    "task": "review-counterpartys-proposed-jury-instructions",
+    "criteria_reviewed": 33,
+    "coverage": "I read all six documents in full: the defense proposed instructions, the SJ order, the sanctions order, the pretrial minutes, the plaintiff's damages trial brief, and the Employment Agreement (§4 and signature block closely). I checked every criterion against the record. CourtListener checks, read in this session: (1) Georgia tortious-interference elements in Fortson v. Brown, Rowell v. Phoebe Putney and Tribeca Homes; (2) Georgia authority that comparative or contributory negligence is no defense to an intentional tort (McEachern v. Muldovan, Soundara), which supports C-023; (3) AcryliCon v. Silikal (11th Cir. 2021), which confirms that §10-1-763(b) exemplary damages for 'willful and malicious misappropriation' are awarded at the district court's discretion; (4) the 11th Cir. civil pattern expert instructions, but only as reproduced in a 2016 S.D. Fla. filing, not the official publication. WebSearch hit its spend limit and Justia returned 403, so I could not read the primary text of O.C.G.A. §§10-1-761, 10-1-763 or 51-12-5.1. Two points are therefore unverified: whether 'actual fraud' appears anywhere in §51-12-5.1, which C-016 attributes to it and the plaintiff's brief echoes; and whether Georgia's §10-1-761(4)(A) omits the word 'independent', which C-005 uses. I also did not verify the current numbering of the 11th Cir. pattern edition.",
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-020"
+        ],
+        "title": "C-020 requires a Georgia contract-vs-business-relations distinction that Georgia courts do not draw",
+        "explanation": "C-020 passes a memo only if it says that interference with an existing contract needs no independently wrongful act and that this element belongs only to interference with business relations. The Georgia Court of Appeals holds the opposite: all tortious-interference claims, contract or business relations, share the element of 'improper action or wrongful conduct by the defendant without privilege'. It defines that as conduct 'wrongful in itself' (predatory tactics, including 'use of confidential information'). A memo that states Georgia law correctly would fail C-020. The sound objection to No. 27 is different: element 3's framing and the SJ order's element list, together with the point that inducing misuse of confidential information is itself improper conduct. The criterion demands a false statement of law instead.",
+        "evidence": [
+          {
+            "source": "C-020",
+            "quote": "tortious interference with an existing contract does not require a separately/independently wrongful act ... the 'independently wrongful act' element applies to the distinct tort of tortious interference with business relations"
+          },
+          {
+            "source": "summary-judgment-order.docx.txt",
+            "quote": "the elements of tortious interference with an existing contractual relationship are: (1) the existence of a valid contract ... (2) the defendant's knowledge of the contract; (3) the defendant's intentional inducement ... (4) damages"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fortson v. Brown, 302 Ga. App. 89 (2010)",
+            "proposition": "Tortious interference claims, 'whether asserting interference with contractual relations, business relations, or potential business relations,' share the element of improper action or wrongful conduct without privilege, defined as 'conduct wrongful in itself'.",
+            "verified": true
+          },
+          {
+            "citation": "Rowell v. Phoebe Putney Mem. Hosp., 338 Ga. App. 603 (2016)",
+            "proposition": "Elements of tortious interference with a contract include '(1) improper action or wrongful conduct by the defendant without privilege'.",
+            "verified": true
+          },
+          {
+            "citation": "Tribeca Homes, LLC v. Marathon Inv. Corp., 322 Ga. App. 596 (2013)",
+            "proposition": "The same four elements apply to tortious interference with contractual relations, business relations, or potential business relations.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Reword C-020 to pass a memo that objects to No. 27 as inconsistent with the SJ order's statement of the elements, as misframing the wrongful-conduct element ('separate from the interference itself'), or by noting that inducing misuse of confidential information is itself improper conduct. Drop the contract-vs-business-relations distinction."
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-019"
+        ],
+        "title": "C-019 treats No. 27's wrongful-conduct element as plainly improper, but Georgia law includes a version of it",
+        "explanation": "Georgia case law requires 'improper action or wrongful conduct ... without privilege' (conduct wrongful in itself) for interference with a contract. No. 27's element 3 is therefore close to Georgia law; its main faults are the phrase 'separate from the interference itself' and the omitted malice and privilege elements. A careful memo might say element 3 is substantially correct and object only to its phrasing, or might say the element is easily met because inducing use of confidential information is improper conduct. Either memo might not call the element improper outright and would fail C-019. The criterion does have record support, since the SJ order's element list leaves the element out, so it is defensible as a law-of-the-case point.",
+        "evidence": [
+          {
+            "source": "defense-proposed-jury-instructions.docx.txt",
+            "quote": "Axial Systems Corp. committed an independently wrongful act, separate from the interference itself, that induced or caused Dr. Voss to breach the contract"
+          },
+          {
+            "source": "C-019",
+            "quote": "improperly requires Oakvale to prove Axial committed an 'independently wrongful act' separate from the interference itself"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fortson v. Brown, 302 Ga. App. 89 (2010)",
+            "proposition": "Improper conduct means wrongful action such as fraud, misrepresentation, or use of confidential information, and it applies to contractual-relations claims.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Pass a memo that objects to No. 27's framing or its departure from the SJ order's elements, including one that concedes a wrongful-conduct element exists but argues it is satisfied or misstated."
+      },
+      {
+        "id": "O3",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-032",
+          "C-003"
+        ],
+        "title": "C-032 counts against '12 planted issues' the judge cannot see, and prejudice analysis was not requested",
+        "explanation": "C-032 requires prejudice analysis for 'at least 8 of the 12 planted issues that are identified'. The judge has no list of planted issues. It cannot tell which issues count, or how to score a memo that raises 14 issues, some outside the hidden list, or finds only 7 of the hidden 12. The instructions ask only for an issues memo on the defense instructions. Saying why each error hurts Oakvale is common practice but was not requested. A memo that identifies each error, gives the correct law and recommends language could fail both C-003 and C-032.",
+        "evidence": [
+          {
+            "source": "C-032",
+            "quote": "PASS if the memo includes a description of potential prejudice to Oakvale for at least 8 of the 12 planted issues that are identified."
+          },
+          {
+            "source": "task.json instructions",
+            "quote": "Review the defense's proposed jury instructions against the court's prior orders and case documents, and prepare an issues memo."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "List the 12 instruction numbers in the criterion, or restate it as 'explains the practical impact on Oakvale for most identified issues'."
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-027"
+        ],
+        "title": "C-027 misdescribes the Eleventh Circuit pattern expert instruction as neutral on compensation",
+        "explanation": "C-027 describes the pattern instruction as allowing 'consideration of compensation as one factor without directing skepticism.' The general Eleventh Circuit pattern instruction on experts does not mention compensation at all. The companion pattern instruction on expert fees does direct caution: jurors 'should view with caution' a paid witness whose testimony is given regularly and is a significant part of their income. The '3.5' number comes from the defense's own citation; the 2013 edition put these instructions at 3.6.1 and 3.6.2. A memo that describes the pattern accurately might fall outside the criterion's wording. That memo would say the pattern permits a caution instruction only on that factual predicate and applied to both sides' experts, which No. 31 ignores by singling out Marchetti. The 'or the correct neutral standard' alternative reduces the risk but does not remove it.",
+        "evidence": [
+          {
+            "source": "C-027",
+            "quote": "the proper, neutral instruction on expert witness credibility that allows consideration of compensation as one factor without directing skepticism"
+          },
+          {
+            "source": "defense-proposed-jury-instructions.docx.txt",
+            "quote": "You should view her testimony with particular skepticism given her financial relationship with the plaintiff. ... Authority: Eleventh Circuit Pattern Jury Instruction 3.5."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Eleventh Circuit Pattern Jury Instructions (Civil) §§ 3.6.1–3.6.2 (2013), as reproduced in Riley v. Carnival Corp., No. 1:15-cv-20807 (S.D. Fla.), ECF 61",
+            "proposition": "The general expert instruction does not mention fees. The fee instruction says jurors 'should view with caution the testimony of such witness where court testimony is given with regularity and represents a significant portion of the witness's income.'",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Reword C-027 to pass any memo that objects to singling out one party's expert and cites the pattern expert instructions or an even-handed standard, without describing the pattern as silent on caution."
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-030",
+          "C-018"
+        ],
+        "title": "Every caption names 'Ridgemont Technologies' as plaintiff while the text says Oakvale; other record facts conflict",
+        "explanation": "All six documents caption the plaintiff as 'RIDGEMONT TECHNOLOGIES, INC.', and the agreement's signature block also says Ridgemont. The body text of every document says Oakvale. C-030 fails a memo whose parties are 'materially incorrect'. A solver that follows the captions, or treats Ridgemont as the real name, risks failing. A careful memo would flag the conflict, but the rubric gives no credit for doing so. The record has other conflicts too:\n- Litigation hold: 10/14/2022 in the SJ order, 4/14–17/2023 in the sanctions order.\n- Confidentiality clause: §5(a) in the SJ order, §4.1 in the agreement, and the definitions are worded differently.\n- Sanctions order docket number: Dkt. 117 in the SJ order, Dkt. 142 in the plaintiff's brief.\n- Trial date: April 14 in the plaintiff's brief, April 28 elsewhere.\n- Daubert order: dated Nov. 18, 2024 in No. 23, but the Daubert rulings are in the Jan. 12, 2025 SJ order.\nThese mostly do not change what a passing answer must say, but they add noise to C-018 and C-025.",
+        "evidence": [
+          {
+            "source": "defense-proposed-jury-instructions.docx.txt",
+            "quote": "**RIDGEMONT TECHNOLOGIES, INC.,** ... Plaintiff,"
+          },
+          {
+            "source": "voss-employment-agreement.docx.txt",
+            "quote": "by and between Oakvale Technologies, Inc. ... **RIDGEMONT TECHNOLOGIES, INC.** By: ... Name: David R. Hensley"
+          },
+          {
+            "source": "summary-judgment-order.docx.txt",
+            "quote": "after receiving a litigation hold notice from Oakvale's counsel on October 14, 2022"
+          },
+          {
+            "source": "discovery-sanctions-order.docx.txt",
+            "quote": "The Court finds that the litigation hold notice was received by Dr. Voss no later than April 17, 2023."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Fix the captions and signature block to read Oakvale and reconcile the dates and section numbers, or make C-030 accept a memo that flags the caption discrepancy."
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-033"
+        ],
+        "title": "C-033 requires severity tiers ('flatly wrong' vs 'subtly misleading') that the instructions never ask for",
+        "explanation": "The instructions ask only for an issues memo. Sorting errors into severity levels, such as clearly erroneous versus slanted, is a stylistic choice and not a standard part of an objections memo. A competent memo could treat every listed instruction as objectionable and give the basis and replacement language for each. It would fail C-033 despite being fully correct. The bar is low ('at least some distinction'), which limits the harm, but under all-pass scoring the criterion can still zero out a sound answer.",
+        "evidence": [
+          {
+            "source": "C-033",
+            "quote": "FAIL if all identified issues are treated with identical severity without any differentiation."
+          },
+          {
+            "source": "task.json instructions",
+            "quote": "prepare an issues memo"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop C-033, or make it a non-gating quality criterion."
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-029"
+        ],
+        "title": "C-029 requires naming at least two instructions as unobjectionable, which an issues memo need not do",
+        "explanation": "An 'issues memo' is organized around problems. Noting which instructions are acceptable is helpful but not implicit in the request. A memo that covers only the objectionable instructions is complete for its purpose, and C-029 fails it. One of the criterion's examples is also questionable: No. 15 cites 'Penalty Kick Mgmt. Ltd. v. Coca Cola Co., 318 Ga. App. 586 (2012)', while the plaintiff's brief cites that case at 318 F.3d 1284 (11th Cir. 2003). A careful reviewer might flag No. 15's authority rather than approve it. The examples are only 'e.g.', so this second point is minor.",
+        "evidence": [
+          {
+            "source": "C-029",
+            "quote": "FAIL if the memo does not identify any instructions as proper or unobjectionable."
+          },
+          {
+            "source": "defense-proposed-jury-instructions.docx.txt",
+            "quote": "*Penalty Kick Mgmt. Ltd. v. Coca Cola Co.*, 318 Ga. App. 586 (2012)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Make C-029 non-gating, or have the instructions ask the solver to note which instructions are acceptable."
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-007"
+        ],
+        "title": "C-007 ties the harm from No. 16's missing use/disclosure prong only to Axial, though Voss is the defendant it hurts most",
+        "explanation": "Voss got most of the information lawfully as an employee. His liability therefore depends mainly on the use/disclosure prong of §10-1-761(2), so dropping that prong hurts the case against Voss most. Axial can still be reached under the acquisition prong (acquiring from Voss knowing of his breach of a duty of secrecy). A competent memo that explains the omission guts the claim against Voss, or against 'defendants' generally, without naming Axial could fail C-007's Axial-specific test.",
+        "evidence": [
+          {
+            "source": "C-007",
+            "quote": "FAIL if the memo does not connect the omission to the impact on Oakvale's case theory against Axial."
+          },
+          {
+            "source": "summary-judgment-order.docx.txt",
+            "quote": "disclosure or use of a trade secret of another without express or implied consent by a person who ... knew or had reason to know that the knowledge of the trade secret was acquired under circumstances giving rise to a duty to maintain its secrecy"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Reword C-007 to pass a memo that explains the omission removes Oakvale's use/disclosure theory against either or both defendants."
+      }
+    ],
+    "overall": "The rubric mostly follows the planted errors, and the record supports most of them well: SignalSift's dismissal, the novelty requirement, the omitted use/disclosure prong, 'adequate' vs 'reasonable', the damages unanimity rule, the punitive standard, the narrowed contract claim, the withdrawn mitigation defense, the conflict with the spoliation order, and the 'particular skepticism' language. The comparative-fault point (C-023) matches Georgia authority. The clearest defect is C-020, which fails a memo unless it states a contract-versus-business-relations distinction on the wrongful-conduct element; Georgia courts reject that distinction. Several gating criteria demand things the one-line instructions never ask for: severity tiers, a list of acceptable instructions, and per-issue prejudice counted against 'planted issues' the judge cannot see. C-027 misdescribes the Eleventh Circuit pattern instruction. The record also has an unflagged caption error (Ridgemont vs Oakvale) and several date and section-number conflicts. Under all-pass scoring, these make it quite likely that a strong answer is zeroed out."
+  },
+  "final": {
+    "task": "review-counterpartys-proposed-jury-instructions",
+    "sol_verdicts": [
+      {
+        "sol_locator": "F1",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-019",
+          "C-020"
+        ],
+        "verdict": "mixed",
+        "per_criterion": [
+          {
+            "criterion": "C-019",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-020",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "I agree that Georgia puts 'improper action or wrongful conduct without privilege' into contract-interference claims as well (Fortson, Rowell, Tribeca Homes). C-020 therefore requires a false contract-vs-business-relations rule. C-019 is only arguable. No. 27's 'separate from the interference itself' framing is objectionable, and the SJ order's four-element list supports flagging it. A memo that calls element 3 substantially correct Georgia law would still fail C-019."
+      },
+      {
+        "sol_locator": "F2",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-023"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-023",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "Before tort reform, Georgia treated comparative negligence as no defense to intentional torts. Section 51-11-7, which No. 29 cites, speaks of the defendant's negligence. Couch, as quoted in Welch v. Pappas (Ga. 2023), holds that 'fault' in §51-12-33 encompasses intentional torts, so the blanket rule is at least unsettled under statutory apportionment. I found no case applying plaintiff fault against an intentional tortfeasor. Overbroad and debatable, not clearly wrong."
+      },
+      {
+        "sol_locator": "F3",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-016"
+        ],
+        "verdict": "problematic",
+        "per_criterion": [
+          {
+            "criterion": "C-016",
+            "verdict": "problematic"
+          }
+        ],
+        "reason": "Reid v. Morris (Ga. 2020) quotes §51-12-5.1. Under (b), clear and convincing proof of 'willful misconduct, malice, fraud, wantonness, oppression, or ... conscious indifference' supports punitive damages. 'Specific intent to cause harm' appears only in (f), as an exception to the cap, and 'actual fraud' appears in neither. C-016 attributes the defense's conjunctive standard to the general statute, which is wrong law, and it may fail a memo that states the statute accurately."
+      },
+      {
+        "sol_locator": "F4",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-027"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-027",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The Eleventh Circuit places its expert instructions at 3.6.1 and 3.6.2, not 3.5. The general instruction does not mention fees. The fee instruction allows a caution when testimony fees are regular and a significant part of the expert's income. C-027 misdescribes the pattern, but 'or equivalent / correct neutral standard' will pass most competent memos, so the risk is limited."
+      },
+      {
+        "sol_locator": "F5",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-030"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-030",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The captions and the agreement's signature block say RIDGEMONT TECHNOLOGIES, INC., while every body text says Oakvale. Most memos will say Oakvale, but a memo that follows the caption, or treats the discrepancy as unresolved, risks failing, and the rubric gives no credit for flagging it. This is a real document defect with moderate grading impact."
+      },
+      {
+        "sol_locator": "F6",
+        "sol_status": "confirmed",
+        "sol_criteria": [
+          "C-029"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-029",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The PASS/FAIL gap is real: PASS needs at least two approved instructions, while FAIL covers only 'any', so a memo approving exactly one falls between them. The criterion also demands a list of acceptable instructions that an 'issues memo' request does not clearly require. Both points are defensible but debatable, so arguable, not confirmed."
+      },
+      {
+        "sol_locator": "F7",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-010",
+          "C-011"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-010",
+            "verdict": "not_a_defect"
+          },
+          {
+            "criterion": "C-011",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "No. 13 uses 'reasonable' in its first sentence. The operative sentence then says 'if ... inadequate ... you must find that category is not a trade secret' and omits 'under the circumstances'. Flagging 'inadequate' as a departure from the statutory standard is exactly what a competent memo does. C-011's totality / not-perfect-security point is the natural companion argument. Demanding, not defective."
+      },
+      {
+        "sol_locator": "F8",
+        "sol_status": "unverified",
+        "sol_criteria": [
+          "C-014"
+        ],
+        "verdict": "not_a_defect",
+        "per_criterion": [
+          {
+            "criterion": "C-014",
+            "verdict": "not_a_defect"
+          }
+        ],
+        "reason": "The plaintiff's trial brief, which is in the record, expressly makes this Rule 48(b) point. The proposition that jurors need not agree unanimously on the theory behind a damages figure, as opposed to the verdict, is a reasonable statement of federal practice. A careful reviewer of the case documents would be expected to raise it. It is a narrow sub-point, but not a defect."
+      },
+      {
+        "sol_locator": "F9",
+        "sol_status": "arguable",
+        "sol_criteria": [
+          "C-032",
+          "C-033"
+        ],
+        "verdict": "arguable",
+        "per_criterion": [
+          {
+            "criterion": "C-032",
+            "verdict": "arguable"
+          },
+          {
+            "criterion": "C-033",
+            "verdict": "arguable"
+          }
+        ],
+        "reason": "The instructions ask only for an issues memo. C-032 counts prejudice analysis against '12 planted issues' that the judge cannot see. C-033 requires severity tiers. Both are presentation preferences that can zero out a substantively complete memo under all-pass scoring, but many good memos would satisfy them."
+      }
+    ],
+    "findings": [
+      {
+        "id": "O1",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-020"
+        ],
+        "title": "C-020 requires a Georgia contract-vs-business-relations distinction on wrongful conduct that Georgia courts reject",
+        "explanation": "C-020 passes a memo only if it says interference with an existing contract needs no wrongful act beyond knowing inducement, and that the wrongful-act element belongs only to interference with business relations. The Georgia Court of Appeals holds that claims for interference with contractual relations, business relations or potential business relations all share the element 'improper action or wrongful conduct by the defendant without privilege' (conduct wrongful in itself). The supplied SJ order drops that element from its list, which is the likely source of the rubric's rule, but it never states the distinction C-020 demands. A memo that states Georgia law accurately fails C-020. The sound objections to No. 27 are different: its 'separate from the interference itself' framing, its departure from the SJ order's elements, and the point that inducing misuse of confidential information is itself improper conduct.",
+        "evidence": [
+          {
+            "source": "C-020",
+            "quote": "tortious interference with an existing contract does not require a separately/independently wrongful act ... the 'independently wrongful act' element applies to the distinct tort of tortious interference with business relations"
+          },
+          {
+            "source": "summary-judgment-order.docx.txt",
+            "quote": "(1) the existence of a valid contract between the plaintiff and a third party; (2) the defendant's knowledge of the contract; (3) the defendant's intentional inducement of the third party to breach the contract; and (4) damages"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fortson v. Brown, 302 Ga. App. 89 (2010)",
+            "proposition": "Claims for interference with contractual relations, business relations or potential business relations share the element of improper action or wrongful conduct without privilege.",
+            "verified": false
+          },
+          {
+            "citation": "Tribeca Homes, LLC v. Marathon Inv. Corp., 322 Ga. App. 596 (2013)",
+            "proposition": "The same four elements apply across the tortious-interference variants.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Reword C-020 to pass a memo that objects to No. 27 on any of these grounds: inconsistency with the SJ order's elements, the misframed 'separate from the interference itself' requirement, or that inducing use of confidential information is itself wrongful conduct. Drop the contract-vs-business-relations distinction, and correct the SJ order's element list.",
+        "origin": "revised",
+        "sol_locators": [
+          "F1"
+        ],
+        "blind_ids": [
+          "O1"
+        ]
+      },
+      {
+        "id": "O2",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-019"
+        ],
+        "title": "C-019 treats No. 27's wrongful-conduct element as plainly improper, though Georgia law includes a version of it",
+        "explanation": "Georgia requires improper or wrongful conduct without privilege for interference with a contract. No. 27's element 3 is therefore close to Georgia law. Its real faults are the 'separate from the interference itself' framing and the omitted privilege element. A careful memo might call element 3 substantially correct and object only to its phrasing, or might argue the element is easily met because Axial induced use of confidential information. Either memo could fail C-019. The criterion has record support, because the SJ order's element list omits the element, so a law-of-the-case objection is defensible.",
+        "evidence": [
+          {
+            "source": "defense-proposed-jury-instructions.docx.txt",
+            "quote": "Axial Systems Corp. committed an independently wrongful act, separate from the interference itself, that induced or caused Dr. Voss to breach the contract"
+          },
+          {
+            "source": "C-019",
+            "quote": "improperly requires Oakvale to prove Axial committed an 'independently wrongful act' separate from the interference itself"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Fortson v. Brown, 302 Ga. App. 89 (2010)",
+            "proposition": "Improper conduct includes wrongful acts such as use of confidential information and applies to contractual-relations claims.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Pass a memo that objects to No. 27's framing or its departure from the SJ order, including a memo that concedes some wrongful-conduct element exists but argues it is misstated or satisfied.",
+        "origin": "blind",
+        "sol_locators": [
+          "F1"
+        ],
+        "blind_ids": [
+          "O2"
+        ]
+      },
+      {
+        "id": "O3",
+        "status": "problematic",
+        "category": "legal_error",
+        "criteria": [
+          "C-016"
+        ],
+        "title": "C-016 attributes 'actual fraud and specific intent to injure' to O.C.G.A. §51-12-5.1, which contains no such standard",
+        "explanation": "C-016 rightly requires the §10-1-763(b) 'willful and malicious misappropriation' standard. It then says 'actual fraud and specific intent to injure' is 'found in the general Georgia punitive damages statute'. In fact §51-12-5.1(b) allows punitive damages on clear and convincing proof of 'willful misconduct, malice, fraud, wantonness, oppression, or ... conscious indifference'. 'Specific intent to cause harm' appears only in (f), as an exception to the cap, and 'actual fraud' appears in neither. Measured against the real (b) standard, 'willful and malicious' is not clearly 'lower'. A memo that states the statute accurately, for example that No. 32 invents a conjunctive standard found in neither statute, risks failing a judge who reads the PASS text literally. Meanwhile the criterion rewards the plaintiff brief's muddled attribution.",
+        "evidence": [
+          {
+            "source": "C-016",
+            "quote": "a different (and lower) standard than 'actual fraud and specific intent to injure' found in the general Georgia punitive damages statute (O.C.G.A. § 51-12-5.1)"
+          },
+          {
+            "source": "plaintiff-trial-brief-damages.docx.txt",
+            "quote": "requires proof of \"wilful misconduct, malice, fraud, wantonness, oppression, or that entire want of care which would raise the presumption of a conscious indifference to consequences.\" O.C.G.A. § 51-12-5.1(b)"
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Reid v. Morris, 309 Ga. 230 (2020) (quoting O.C.G.A. § 51-12-5.1(b), (f))",
+            "proposition": "Section 51-12-5.1(b) lists alternative grounds proven by clear and convincing evidence. 'Specific intent to cause harm' appears in (f) only as a cap exception, and 'actual fraud' does not appear.",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Require the §10-1-763(b) 'willful and malicious' standard and an objection that No. 32's 'actual fraud and specific intent' conjunction is wrong. Remove the claim that the general statute contains that conjunction, and the 'lower' comparison.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "F3"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O4",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-023"
+        ],
+        "title": "C-023's blanket rule that comparative fault never applies to intentional torts in Georgia is overbroad after Couch",
+        "explanation": "C-023 requires the memo to say comparative fault does not apply to intentional torts under Georgia law. That was the common-law rule, and §51-11-7, which No. 29 cites, concerns avoiding consequences of the defendant's 'negligence'. But the Georgia Supreme Court holds that 'fault' in the apportionment statute §51-12-33 'encompasses intentional torts', and Alston & Bird extended apportionment to claims for injury to property. Whether a plaintiff's own fault can reduce recovery against an intentional tortfeasor under §51-12-33(a) is therefore at least unsettled. A careful memo might rest the objection to No. 29 on the withdrawn mitigation defense, the lack of any pleaded apportionment defense, and §51-11-7 not fitting. By hedging the blanket proposition, it could fail C-023.",
+        "evidence": [
+          {
+            "source": "C-023",
+            "quote": "comparative fault does not apply to intentional tort claims (such as misappropriation or tortious interference) under Georgia law"
+          },
+          {
+            "source": "pretrial-conference-minutes.docx.txt",
+            "quote": "Defendants may not raise failure to mitigate at any stage of the trial proceedings, including in proposed jury instructions or closing arguments."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Welch v. Pappas Restaurants, Inc. (Ga. June 29, 2023) (quoting Couch v. Red Roof Inns, 291 Ga. 359, 365 (2012))",
+            "proposition": "\"'fault,' as used in OCGA § 51-12-33, encompasses intentional torts.\"",
+            "verified": true
+          }
+        ],
+        "suggested_fix": "Pass a memo that explains why No. 29's reduction is improper here (withdrawn mitigation defense, §51-11-7 inapplicable to intentional conduct, no pleaded apportionment) without requiring the categorical intentional-tort statement.",
+        "origin": "adopted_after_reading_sol",
+        "sol_locators": [
+          "F2"
+        ],
+        "blind_ids": []
+      },
+      {
+        "id": "O5",
+        "status": "arguable",
+        "category": "legal_error",
+        "criteria": [
+          "C-027"
+        ],
+        "title": "C-027 cites the wrong pattern number and misdescribes the Eleventh Circuit pattern as neutral on compensation",
+        "explanation": "The Eleventh Circuit places its expert instructions at 3.6.1 and 3.6.2. The '3.5' comes from the defense's own citation, and 3.5 concerns impeachment. The general expert instruction does not mention fees. The fee instruction directs caution where court testimony is regular and a significant part of the expert's income. C-027 says the pattern 'allows consideration of compensation as one factor without directing skepticism'. A memo that describes the pattern accurately, saying caution is allowed only on that factual predicate and applied even-handedly to both sides' experts, fits the criterion's description awkwardly. The 'or equivalent / correct neutral standard' fallback will pass most competent memos.",
+        "evidence": [
+          {
+            "source": "C-027",
+            "quote": "the proper, neutral instruction on expert witness credibility that allows consideration of compensation as one factor without directing skepticism"
+          },
+          {
+            "source": "defense-proposed-jury-instructions.docx.txt",
+            "quote": "You should view her testimony with particular skepticism given her financial relationship with the plaintiff. ... Authority: Eleventh Circuit Pattern Jury Instruction 3.5."
+          }
+        ],
+        "authorities": [
+          {
+            "citation": "Eleventh Circuit Pattern Jury Instructions (Civil) §§ 3.6.1–3.6.2",
+            "proposition": "The general expert instruction does not mention fees. The fee instruction permits caution where court testimony is regular and a significant part of the expert's income.",
+            "verified": false
+          }
+        ],
+        "suggested_fix": "Pass any memo that objects to singling out one party's expert and invokes the pattern expert instructions (3.6.1/3.6.2) or an even-handed standard. Drop the characterization of the pattern as silent on caution.",
+        "origin": "blind",
+        "sol_locators": [
+          "F4"
+        ],
+        "blind_ids": [
+          "O4"
+        ]
+      },
+      {
+        "id": "O6",
+        "status": "arguable",
+        "category": "document_defect",
+        "criteria": [
+          "C-030"
+        ],
+        "title": "All captions and the agreement's signature block name 'Ridgemont Technologies' while the body text says Oakvale",
+        "explanation": "All six documents caption the plaintiff as 'RIDGEMONT TECHNOLOGIES, INC.', and the agreement's signature block also says Ridgemont. The body text of every document says Oakvale. C-030 fails a memo whose parties are 'materially incorrect'. A solver that follows the caption, or treats the discrepancy as unresolved, risks failing, and flagging the conflict earns nothing. The record has other inconsistencies:\n- Litigation hold: October 14, 2022 in the SJ order, April 2023 in the sanctions order.\n- Confidentiality clause: §5(a) in the SJ order, §4.1 in the agreement.\n- Sanctions order docket number: Dkt. 117 vs. Dkt. 142.\n- Charge conference and trial dates differ across documents.\nThese mostly add noise, but they can affect C-018 and C-025.",
+        "evidence": [
+          {
+            "source": "defense-proposed-jury-instructions.docx.txt",
+            "quote": "**RIDGEMONT TECHNOLOGIES, INC.,** ... Plaintiff,"
+          },
+          {
+            "source": "voss-employment-agreement.docx.txt",
+            "quote": "by and between Oakvale Technologies, Inc. ... **RIDGEMONT TECHNOLOGIES, INC.** By:"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Fix the captions and signature block to read Oakvale and reconcile the dates and section numbers, or make C-030 accept a memo that flags the caption discrepancy.",
+        "origin": "blind",
+        "sol_locators": [
+          "F5"
+        ],
+        "blind_ids": [
+          "O5"
+        ]
+      },
+      {
+        "id": "O7",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-029"
+        ],
+        "title": "C-029 demands a list of acceptable instructions an issues memo need not include, and its PASS/FAIL thresholds leave a gap",
+        "explanation": "An 'issues memo' is organized around problems. Noting which instructions are acceptable is helpful but not clearly implicit in the request, and C-029 fails a memo that covers only the objectionable instructions. The thresholds also mismatch: PASS requires at least two approved instructions, while FAIL covers only a memo that approves none, so a memo approving exactly one falls between them. One of the examples is also doubtful. No. 15 cites Penalty Kick at '318 Ga. App. 586 (2012)', but the plaintiff's brief cites the case as 318 F.3d 1284 (11th Cir. 2003), so a careful reviewer might flag No. 15's authority rather than approve it.",
+        "evidence": [
+          {
+            "source": "C-029",
+            "quote": "PASS if the memo affirmatively identifies at least two defense proposed instructions as proper ... FAIL if the memo does not identify any instructions as proper or unobjectionable."
+          },
+          {
+            "source": "defense-proposed-jury-instructions.docx.txt",
+            "quote": "*Penalty Kick Mgmt. Ltd. v. Coca Cola Co.*, 318 Ga. App. 586 (2012)"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Align the PASS and FAIL thresholds, and either make C-029 non-gating or have the instructions ask the solver to note which instructions are acceptable.",
+        "origin": "revised",
+        "sol_locators": [
+          "F6"
+        ],
+        "blind_ids": [
+          "O7"
+        ]
+      },
+      {
+        "id": "O8",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-032"
+        ],
+        "title": "C-032 counts prejudice analysis against '12 planted issues' that the judge cannot see",
+        "explanation": "C-032 requires prejudice analysis for 'at least 8 of the 12 planted issues that are identified'. The judge has no list of planted issues. It cannot tell which issues count, or how to score a memo that raises issues outside the hidden list or finds fewer than 12. A per-issue prejudice discussion is a common practice but was not requested. A memo that identifies each error, gives the correct law and proposes replacement language could still fail.",
+        "evidence": [
+          {
+            "source": "C-032",
+            "quote": "PASS if the memo includes a description of potential prejudice to Oakvale for at least 8 of the 12 planted issues that are identified."
+          },
+          {
+            "source": "task.json instructions",
+            "quote": "Review the defense's proposed jury instructions against the court's prior orders and case documents, and prepare an issues memo."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "List the 12 instruction numbers in the criterion, or restate it as 'explains the practical impact on Oakvale for most identified issues'.",
+        "origin": "revised",
+        "sol_locators": [
+          "F9"
+        ],
+        "blind_ids": [
+          "O3"
+        ]
+      },
+      {
+        "id": "O9",
+        "status": "arguable",
+        "category": "unrequested_requirement",
+        "criteria": [
+          "C-033"
+        ],
+        "title": "C-033 requires severity tiers ('flatly wrong' vs 'subtly misleading') that the instructions never request",
+        "explanation": "The instructions ask only for an issues memo. Sorting errors into severity levels is a stylistic choice, not a standard component of an objections memo. A memo that treats every listed instruction as objectionable and gives the basis and replacement language for each would fail C-033 despite being correct. The bar is low, but under all-pass scoring this one criterion can still zero out a sound answer.",
+        "evidence": [
+          {
+            "source": "C-033",
+            "quote": "FAIL if all identified issues are treated with identical severity without any differentiation."
+          },
+          {
+            "source": "task.json instructions",
+            "quote": "prepare an issues memo"
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Drop C-033, or make it a non-gating quality criterion.",
+        "origin": "blind",
+        "sol_locators": [
+          "F9"
+        ],
+        "blind_ids": [
+          "O6"
+        ]
+      },
+      {
+        "id": "O10",
+        "status": "arguable",
+        "category": "ambiguous_or_unjudgeable",
+        "criteria": [
+          "C-007"
+        ],
+        "title": "C-007 ties the harm from No. 16's missing use/disclosure prong only to Axial, though it hurts the case against Voss most",
+        "explanation": "Voss obtained the information lawfully as an employee, so his liability depends mainly on the use/disclosure prong of §10-1-761(2). Axial remains reachable under the acquisition prong, because it acquired the information from Voss knowing of his duty of secrecy. A memo that explains the omission guts the claim against Voss, or against 'defendants' generally, without naming Axial could fail C-007's Axial-specific wording.",
+        "evidence": [
+          {
+            "source": "C-007",
+            "quote": "FAIL if the memo does not connect the omission to the impact on Oakvale's case theory against Axial."
+          }
+        ],
+        "authorities": [],
+        "suggested_fix": "Pass a memo that explains the omission removes Oakvale's use/disclosure theory against either or both defendants.",
+        "origin": "blind",
+        "sol_locators": [],
+        "blind_ids": [
+          "O8"
+        ]
+      }
+    ],
+    "changes_from_blind": "- Adopted from Sol F3 (C-016), rated problematic. I read §51-12-5.1(b) and (f) as quoted in Reid v. Morris (Ga. 2020). The statute has no conjunctive 'actual fraud and specific intent' standard: specific intent to harm appears only in (f), as a cap exception, and 'actual fraud' does not appear. My blind pass had left this unverified.\n- Adopted from Sol F2 (C-023), rated arguable rather than confirmed. My blind pass treated C-023 as supported by the pre-tort-reform cases. Welch v. Pappas (2023), quoting Couch, confirms that 'fault' in §51-12-33 encompasses intentional torts, so the blanket rule is at least unsettled. I found no case holding that plaintiff fault reduces recovery against an intentional tortfeasor, so it is not clearly wrong.\n- Merged Sol F6's PASS/FAIL threshold gap into my C-029 finding (O7).\n- Dropped C-003 from the old O3. Explaining why including a dismissed claim hurts Oakvale is inherent in objecting to it, so C-003 is not a hidden requirement. C-032 remains, as O8.\n- Rejected Sol F7 (C-010, C-011) and F8 (C-014) as not defects. Flagging 'inadequate' and the missing 'under the circumstances' language is the natural objection to No. 13. The plaintiff's brief expressly makes the Rule 48(b) point that C-014 requires.\n- Softened C-020 slightly (O1) to note that the SJ order's incomplete element list is the likely source of the error. It stays problematic.\n- Renumbered all findings.",
+    "overall": "The rubric follows the planted errors and most criteria have solid record support. Examples:\n- SignalSift's dismissal\n- the novelty requirement\n- the omitted use/disclosure prong\n- 'adequate' vs 'reasonable'\n- the damages election\n- the narrowed contract claim\n- the withdrawn mitigation defense\n- the conflict with the sanctions order\n- 'particular skepticism'\n\nTwo criteria state wrong Georgia law. C-020 requires a contract-vs-business-relations distinction on wrongful conduct that Georgia courts reject. C-016 attributes a nonexistent 'actual fraud and specific intent' standard to §51-12-5.1. C-023's blanket rule on intentional torts is debatable after Couch. C-027 misnumbers and misdescribes the Eleventh Circuit pattern instruction. Several gating criteria add presentation demands the one-line instructions never make: C-029, C-032 and C-033. The record also carries an unflagged caption error (Ridgemont vs Oakvale). Under all-pass scoring, these defects make it likely that a strong memo is zeroed out.",
+    "coverage": "I reviewed all 33 criteria and all 9 Sol findings, and re-read the relevant passages of all six documents: defense Instructions 13, 27, 29–32, the SJ order's tortious-interference and disposition sections, the plaintiff brief's unanimity and punitive sections, and the pretrial minutes. Legal checks run on CourtListener in this session:\n- Reid v. Morris (Ga. 2020), for the text of §51-12-5.1(b) and (f): verified.\n- Welch v. Pappas (Ga. 2023), quoting Couch that §51-12-33 'fault' encompasses intentional torts: verified.\n- I searched for, but did not find, direct authority on whether plaintiff fault reduces recovery against an intentional tortfeasor after Couch.\nThe Georgia tortious-interference cases (Fortson, Rowell, Tribeca) and the Eleventh Circuit pattern numbering were checked in the blind pass, not re-read here, so they are marked unverified."
+  }
+}
