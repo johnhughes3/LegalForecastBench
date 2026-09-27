@@ -105,7 +105,7 @@ export function buildSupplementaryRows(
 					? "Off"
 					: row.metadata.reasoning_effort === "high"
 						? "High"
-						: "Native probabilities",
+						: "N/A (returns probabilities directly)",
 			role:
 				row.metadata.reasoning_effort === "high"
 					? "reasoning-reference"
@@ -134,7 +134,7 @@ export function buildSupplementaryRows(
 		slug: "gpt-4-1",
 		display_name: "GPT-4.1",
 		input_label: "Full documents · agentic tools",
-		reasoning_label: "Non-reasoning model",
+		reasoning_label: "None (non-reasoning model)",
 		role: "full-record-reference",
 		micro_brier: referenceRow.micro_brier,
 		equal_case_brier: referenceRow.equal_case_brier,
