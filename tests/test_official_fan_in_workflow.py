@@ -516,7 +516,7 @@ def test_hugging_face_publication_is_retained_publish_only_and_oidc_bound() -> N
 def test_workflow_uses_immutable_action_pins_and_rejects_unsafe_locators() -> None:
     assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in WORKFLOW
     assert (
-        "aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c"
+        "aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd"
         in WORKFLOW
     )
     assert (
