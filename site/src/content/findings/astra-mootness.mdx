@@ -1,14 +1,14 @@
 ---
 title: "GPT-6 Astra and the amendment problem"
 summary: "An audit of Astra's costliest cases found overconfidence and an inconsistent treatment of complaints amended before the court ruled. The fix is a clearer task specification."
-date: 2026-09-18
+date: 2026-09-27
 kind: note
 models: [gpt-6-astra, gpt-5-6-sol, gpt-5-6-luna]
 ---
 
-*Adapted from the [beta results report](/findings/beta-results/).*
+*Adapted from the [first-release report](/findings/first-release/).*
 
-GPT-6 Astra did not beat its smaller siblings. GPT-5.6 Sol had better observed scores on all three metrics. GPT-5.6 Luna had better micro Brier and unit accuracy, while Astra had better equal-case Brier. With 91 cases, the simplest explanation is sampling noise: only Muse Spark 1.3 was statistically separable from the rest.
+GPT-6 Astra did not beat its smaller siblings. GPT-5.6 Sol had better observed scores on all three metrics. GPT-5.6 Luna had better micro Brier and unit accuracy, while Astra had better equal-case Brier. With 91 cases, the simplest explanation is sampling noise: no difference among current models reached significance in the paired analysis.
 
 I audited the cases with the largest negative relative impact on Astra's score. In addition to some overconfident predictions, Astra sometimes appeared to underweight the possibility that the motion would become moot because the plaintiff would amend the complaint.
 

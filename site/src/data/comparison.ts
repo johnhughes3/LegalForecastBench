@@ -37,7 +37,7 @@ export function applyComparison(snapshot: ResultsSnapshot): ResultsSnapshot {
 		},
 		provenance: {
 			...snapshot.provenance,
-			method: `${snapshot.provenance.method} Updated significance replaces the historical pair list: ${comparisonScope}`,
+			method: `${snapshot.provenance.method} Significance: ${comparisonScope}`,
 		},
 	});
 }

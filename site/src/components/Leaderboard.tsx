@@ -333,7 +333,7 @@ export default function Leaderboard({
 				<div>
 					<a
 						className="text-accent hover:underline"
-						href="/data/beta-run-mechanics/#costs"
+						href="/data/run-notes/#costs"
 					>
 						Cost methodology and explanations →
 					</a>

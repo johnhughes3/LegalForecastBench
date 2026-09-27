@@ -1,14 +1,14 @@
 ---
-title: "Muse Spark: near the top of LAB, last here"
-summary: "Muse Spark 1.3 ranked third on Vals AI's September 10 LAB leaderboard but was the only model statistically distinguishable as worse on LegalForecastBench."
-date: 2026-09-18
+title: "Muse Spark: near the top of LAB, near the bottom here"
+summary: "Muse Spark 1.3 ranked third on Vals AI's September 10 LAB leaderboard. On LegalForecastBench it had the lowest accuracy of fifteen configurations and was the only one below the always-dismiss baseline."
+date: 2026-09-27
 kind: note
-models: [muse-spark-1-3, grok-4-6, claude-opus-5]
+models: [muse-spark-1-3]
 ---
 
-*Adapted from the [beta results report](/findings/beta-results/).*
+*Adapted from the [first-release report](/findings/first-release/).*
 
-On Vals AI's September 10 leaderboard for Harvey's Legal Agent Benchmark (LAB), Muse Spark 1.2 ranked first and Muse Spark 1.3, the version tested here, ranked third. On LegalForecastBench, Muse Spark 1.3 had the lowest scores on all three metrics. It was also the only model with statistically distinguishable underperformance after multiple-comparison correction: worse than Grok 4.6 on both Brier metrics and worse than Claude Opus 5 on micro Brier. At 72.09% unit accuracy, it was also the one model that did not beat always predicting dismissal (73.64%).
+On Vals AI's September 10 leaderboard for Harvey's Legal Agent Benchmark (LAB), Muse Spark 1.2 ranked first and Muse Spark 1.3, the version tested here, ranked third. On LegalForecastBench, Muse Spark 1.3 had the lowest accuracy of the fifteen configurations (72.1%) and the second-worst Brier scores. It was the only configuration that did not beat simply predicting dismissal every time (73.6%).
 
 The two benchmarks measure different things, and their scores are not on a common scale. LAB scores long-form legal work product against expert-written rubric criteria. LegalForecastBench scores calibrated probabilities against what judges actually decided. A model can reasonably do well on one and poorly on the other.
 

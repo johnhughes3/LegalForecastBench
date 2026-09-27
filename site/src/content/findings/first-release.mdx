@@ -1,0 +1,78 @@
+---
+title: "First release: can frontier models forecast motions to dismiss?"
+summary: "Fifteen model configurations forecast 387 claim-defendant outcomes from 91 federal motions to dismiss. GPT-6 Sol leads on every metric, and the cheapest models sit on the cost frontier."
+date: 2026-09-27
+kind: report
+models: [gpt-6-sol, claude-fable-5-1, grok-4-6, claude-opus-5, gpt-5-6-sol, kimi-k3, gpt-5-6-luna, claude-opus-5-5, gpt-6-astra, gemini-3-8-flash, grok-4-7, claude-sonnet-5, gpt-6-luna, muse-spark-1-3, gemini-3-1-pro-preview]
+---
+
+import ConfidenceChart from "../../components/ConfidenceChart";
+import HighConfidenceTable from "../../components/HighConfidenceTable.astro";
+import ParetoChart from "../../components/ParetoChart";
+import ResultsTable from "../../components/ResultsTable.astro";
+import { primarySnapshot as snapshot } from "../../data/results";
+
+LegalForecastBench tests whether AI models can predict real-world outcomes of motions to dismiss in federal litigation. In this first release, fifteen model configurations from six providers forecast 387 claim-defendant outcomes across 91 cases. GPT-6 Sol had the best score on every metric, the cheapest models held the cost frontier, and no difference among current models was large enough to be statistically distinguishable at this sample size.
+
+## Why this benchmark matters
+
+This benchmark gives models motion to dismiss briefs from real federal cases and asks the model to predict how the judge will resolve each issue in the motion. There are several benefits to this approach.
+
+**Objectively verifiable, high-level task.** Testing models' ability to predict motion outcomes is valuable because it is an objectively verifiable, high-level judgment task. In real-world litigation, predicting how a judge is likely to react to a contemplated litigation strategy or a potential motion is usually performed by the most senior and highly paid lawyers on a litigation team. Unlike many legal work-product tasks, moreover, the observable judicial disposition provides objective ground truth. We operationalize that disposition as a binary outcome (whether the motion's first written disposition fully dismisses a given claim and defendant). This approach could be more reliable and objective than rubric-based approaches like Harvey's Legal Agent Benchmark (LAB) ([Harvey's methodology](https://www.harvey.ai/blog/introducing-harveys-legal-agent-benchmark)).
+
+**Contamination resistance.** This benchmark is also designed to be versioned and contamination resistant, so future versions will remain useful even if models have trained on earlier benchmark releases or the judicial decisions they test. Each version can be a temporal holdout; this release uses judicial decisions from June 30 to August 7, 2026, which postdate the documented training cutoffs for most evaluated models, reducing the risk that models memorized the outcomes during training. Cutoff evidence varies by model and is disclosed on each model page; where it cannot establish that the training data predates every decision, the comparison is marked qualified. I've built a pipeline that ingests and labels new cases, so that once we have models with training cutoffs after July of this year, we can create a new version that uses the most recent judicial decisions available at that point in time. This approach provides the best "point in time" snapshot comparing models' predictive capabilities; the one downside is that scores cannot be equated across versions since each version uses a different set of cases, which could entail a different difficulty level. (We may run future models against both the latest version and historical versions and report results separately, so users can see improvement over time and a contamination-resistant snapshot.)
+
+One open question is construct validity: whether prediction is a good proxy for the models' formal legal reasoning ability. Part of the task is modeling judge effects; a judge's leanings (pro-plaintiff or pro-defendant) could influence the outcome, so testing with the judge's identity present (as we do) in part tests the model's ability to identify the leanings of the particular judge who decided that case. My hypothesis is that this will not predominate over legal reasoning on this kind of benchmark; most garden-variety litigation matters are straightforward enough that the outcome does not turn on the judge's judicial philosophy, so the most effective way to predict the outcome of most cases will simply be to be better at analyzing and understanding the facts and applicable legal doctrine.
+
+Even to the extent that this benchmark tests prediction (rather than formal legal reasoning ability), the fact is that predicting how a real judge might react to a real fact pattern is far more valuable than mere abstract reasoning about the doctrinally "correct" legal answer. Legal realists would argue that there is no such thing as a "correct" legal answer; as Oliver Wendell Holmes put it, "The prophecies of what the courts will do in fact, and nothing more pretentious, are what I mean by the law." Oliver Wendell Holmes, Jr., *The Path of the Law*, 10 Harv. L. Rev. 457 (1897). Regardless of one's view on the debate between legal formalists and legal realists, both sides would agree that the experience and judgment to understand what factors impact real-world outcomes is much more economically useful than formal legal reasoning in the abstract.
+
+## Results
+
+The release covers 91 cases and 387 scored claim-defendant units (for example, a motion challenging five distinct claims against two separately scored defendant groups would have ten claim-defendant units). Models predicted the probability that each unit would be fully dismissed in the motion's first written disposition. Micro Brier gives every scored unit equal weight; equal-case Brier gives every case equal weight. Lower Brier is better. Unit accuracy classifies a prediction of at least 50% as dismissal.
+
+Models received the pre-decision docket and documents through a common document-tool harness, with Internet access disabled. Official runs were executed in GitHub Actions. Each configuration produced one retained prediction per unit, so this release does not measure run-to-run variance. Uncertainty comes from a paired case-cluster bootstrap with a Bonferroni correction across all model pairs and three metrics. The analysis is exploratory; cross-case dependence, such as related cases in the same MDL, has not yet been verified.
+
+<ResultsTable snapshot={snapshot} />
+
+All fifteen configurations beat the 0.1941 micro Brier of a constant forecast at the cohort's 73.6% dismissal rate. Fourteen of fifteen beat the 73.6% accuracy of always predicting dismissal; Muse Spark 1.3 (72.1%) did not.
+
+<figure>
+<ParetoChart client:visible snapshot={snapshot} />
+</figure>
+
+## Interpretation
+
+- **Top performance:** GPT-6 Sol led on micro Brier (0.1176), equal-case Brier (0.1295), and accuracy (84.5%), at an estimated $11.01 for the whole cohort. Claude Fable 5.1 (0.1288) and Grok 4.6 (0.1337) followed on micro Brier.
+- **Value:** the observed cost frontier on every metric runs through GPT-6 Luna ($0.62), GPT-5.6 Luna ($1.48), and GPT-6 Sol. Strong forecasting did not require the most expensive models.
+- **Weighting matters below the top.** GPT-6 Sol leads under both weightings, but the order behind it shifts: GPT-5.6 Sol is fifth on micro Brier and second on equal-case Brier.
+- **The leaders cannot yet be separated.** In the paired analysis, none of the differences among current models reached significance after correcting for multiple comparisons. Every current model included in that analysis was significantly better than the older GPT-4.1, which is kept as a reference rather than ranked. A larger sample will be needed to establish a reliable ordering.
+
+### The contrast with LAB
+
+One interesting result is the contrast with Harvey's Legal Agent Benchmark (LAB). On Vals AI's September 10 LAB leaderboard, Muse Spark 1.2 ranked first and Muse Spark 1.3, the version tested here, ranked third. Here, Muse Spark 1.3 had the lowest accuracy of the fifteen configurations, the second-worst Brier scores, and was the only one that did not beat always predicting dismissal. LAB rewards models that give specific kinds of answers, which might make it more vulnerable to benchmark overfitting; models could improve at satisfying the rubric requirements without comparable gains in generalizable abilities. LAB's headline metric, the all-pass rate, rewards recall against its rubrics, essentially requiring models to flag the large number of issues LAB tests. That may not be the best optimization target, since practicing lawyers often prefer precision, focusing on a small number of dispositive points rather than a large number of technically accurate but minor ones ([Vals AI's LAB results](https://www.vals.ai/benchmarks/hlab)).
+
+### Confidence and calibration
+
+Brier scoring squares each error, so confident mistakes are expensive. The models differed most in how often they were very sure, and how often that certainty was warranted.
+
+<figure>
+<ConfidenceChart snapshot={snapshot} />
+</figure>
+
+<HighConfidenceTable snapshot={snapshot} />
+
+Claude Fable 5.1 and Claude Opus 5.5 were never wrong among their high-confidence predictions (81 and 65 respectively). GPT-6 Sol was sure more often (169 units) and missed 8. The GPT-5.6 models and GPT-6 Astra were less calibrated at the extremes: their mean stated confidence in that subset was roughly 95–97%, while accuracy was roughly 89–90%. Gemini 3.1 Pro Preview made the most high-confidence predictions (320) and missed 57.
+
+I audited cases that had the largest negative relative impact on Astra's score and found that, in addition to some overconfident predictions, Astra sometimes appeared to underweight the possibility that the motion to dismiss would become moot because the judge would allow the plaintiff to amend the complaint. This counted as a nondismissal outcome here, but in many cases after a plaintiff amends, the defendant can file a renewed motion to dismiss so the amended complaint might ultimately be dismissed. In some cases, Astra, Sol, and Luna explicitly considered the possibility that an amendment would moot the motion to dismiss. But in other instances, Astra seemed to ignore the possibility of amendment or mootness in coming up with its probabilities. This suggests that task specification could be improved to obtain more consistent and accurate results. The prompt here explicitly asked for a prediction of the first written disposition, not the ultimate merits outcome (after a plaintiff amended the complaint), but more clearly distinguishing between the judge dismissing the complaint but giving the plaintiff leave to amend (which counts as dismissal) and the plaintiff amending proactively followed by the judge denying or terminating as moot the motion to dismiss the prior version of the complaint (which does not count as dismissal) might yield more consistency in future versions.
+
+### Summaries versus the full record
+
+A separate experiment tested whether a summary-based pipeline can substitute for the full record. Typesafe.ai's Jev, forecasting from case summaries, scored worse than always answering 50%, while OpenAI models given the same summaries beat the base rate. See the [summary-pipeline experiment](/experiments/summary-pipelines/).
+
+## Conclusion and next steps
+
+We are continuing to improve case labeling, curation, and task specification for the next version of the benchmark. The LegalQuants community is also interested in repeating these tests through agent harnesses (e.g., Codex, Claude Code, etc., running in a sandbox with network egress only to the model provider's API) to test whether the harness itself has any noticeable impact on accuracy; I am building a package to facilitate that community test run. We welcome comments from researchers on any steps we could take to improve future versions of the benchmark and make it more useful, or anything we should include in the public presentation of it.
+
+We are also investigating whether litigation prediction can serve as an RL environment with verifiable rewards, since the outcome is checkable against the real disposition. One challenge is that, while in principle it should be easy to have frontier models label outcomes and then train and test models on prediction without the answer included, I discovered while preparing this benchmark that real-world litigation data is much messier than one would expect and a fair amount of manual work is needed to clean it up and provide an accurate answer key. Case data must be purchased; many cases we purchased turned out to be unsuitable candidates for testing or training; and court data is frequently mislabeled, so we had to add several quality control steps to ensure the testing data included everything the judge would have seen. Frontier models also often disagreed on even how to label a judge's decision or which claims and defendants were at issue in the motion to dismiss; high-level legal judgment is required to properly specify the task and interpret the judge's ruling into a reliable answer key. While for purposes of the public open-source benchmark we are planning to use an AI pipeline with various QC measures to label cases, we are hand-labeling a separate set of training data (and using AI for QC) to understand whether properly labeled data could provide a useful training signal.
+
+Although this benchmark run does not answer the question, I am particularly interested in exploring whether the hand-labeled training data provides meaningful signal that generalizes beyond prediction. In principle, teaching models to predict outcomes could help them better understand which issues actually matter in litigation (versus which points are minor or unlikely to impact outcomes) and thus help the models exhibit better "legal judgment." Current models are excellent at research and summarizing legal doctrine, but they tend to focus on minor, technical points when asked to give advice on high-level strategic decisions. The most interesting question is whether training them to discern the issues that motivate federal judicial outcomes could improve that higher-level strategic thinking ability.

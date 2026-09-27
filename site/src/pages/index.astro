@@ -5,13 +5,48 @@ import Leaderboard from "../components/Leaderboard";
 import ParetoChart from "../components/ParetoChart";
 import Stat from "../components/Stat.astro";
 import { publishedFindings } from "../data/findings";
-import { formatPercent } from "../data/metrics";
+import { formatPercent, formatUsd, paretoFrontier } from "../data/metrics";
 import { primarySnapshot, snapshot } from "../data/results";
 import { supplementaryRows } from "../data/supplementary-results";
 import Layout from "../layouts/Layout.astro";
 
 const { cohort } = snapshot;
 const findings = (await publishedFindings()).slice(0, 3);
+const ranked = [...primarySnapshot.models].sort(
+	(a, b) => a.micro_brier - b.micro_brier,
+);
+const leader = ranked[0];
+const frontierModels = paretoFrontier(primarySnapshot, "micro_brier");
+const perfect = primarySnapshot.models.filter(
+	(m) => m.high_confidence.count > 0 && m.high_confidence.wrong === 0,
+);
+const n = primarySnapshot.cohort.unit_count;
+const worstHighConfidenceRate = Math.max(
+	...primarySnapshot.models
+		.filter((m) => m.high_confidence.count > 0)
+		.map((m) => m.high_confidence.wrong / m.high_confidence.count),
+);
+const takeaways: [string, string][] = leader
+	? [
+			[
+				`${leader.display_name} leads on every metric.`,
+				`Micro Brier ${leader.micro_brier.toFixed(4)}, equal-case Brier ${leader.equal_case_brier.toFixed(4)}, and ${formatPercent(leader.correct / n)} accuracy, at an estimated ${formatUsd(leader.cost.usd)} for all ${primarySnapshot.cohort.case_count} cases.`,
+			],
+			[
+				"Cheap models hold the cost frontier.",
+				`${frontierModels.map((m) => `${m.display_name} (${formatUsd(m.cost.usd)})`).join(", ")}: no other model is both cheaper and better.`,
+			],
+			[
+				"The leaders cannot yet be separated.",
+				"No difference among current models reached significance after correcting for multiple comparisons. Every current model in the analysis beat the older GPT-4.1.",
+			],
+			[
+				"Confidence is where models differ most.",
+				`${perfect.map((m) => m.display_name).join(" and ")} never missed a prediction made with at least 90% confidence; others missed up to ${formatPercent(worstHighConfidenceRate, 0)} of theirs.`,
+			],
+		]
+	: [];
+
 const jevRow = supplementaryRows.find(
 	(row) => row.slug === "jev-luna-summaries",
 );
@@ -49,17 +84,23 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 			<div>
 				<h2 class="font-serif text-2xl font-semibold tracking-tight">Key takeaways</h2>
                 <ol class="mt-5 space-y-4 text-[1.02rem] leading-relaxed text-ink-2">
-                    <li><strong class="font-semibold text-ink">Six newer agentic runs are included.</strong> GPT-6 Sol, GPT-6 Luna, Claude Opus 5.5, Grok 4.7, GPT-4.1, and the labelled Gemini 3.1 Pro preview were scored on the same 91-case, 387-unit cohort.</li>
-                    <li><strong class="font-semibold text-ink">Micro Brier is the headline.</strong> The table also shows equal-case Brier and accuracy. Different weighting can change the observed ordering.</li>
-                    <li><strong class="font-semibold text-ink">Jev and GPT-4.1 fell below naive baselines.</strong> Jev on case summaries and GPT-4.1 on the full record both scored worse than always forecasting 50%. OpenAI models given the same summaries as Jev beat the base rate. <a class="text-accent hover:underline" href="/experiments/summary-pipelines/">See the experiment →</a></li>
-
-                </ol>
+					{takeaways.map(([title, body], i) => (
+						<li class="flex gap-3">
+							<span class="mt-0.5 font-serif text-accent">{i + 1}</span>
+							<span><strong class="font-semibold text-ink">{title}</strong> {body}</span>
+						</li>
+					))}
+					<li class="flex gap-3">
+						<span class="mt-0.5 font-serif text-accent">{takeaways.length + 1}</span>
+						<span><strong class="font-semibold text-ink">A summary pipeline fell below chance.</strong> Typesafe.ai's Jev, forecasting from case summaries, scored worse than always answering 50%, while OpenAI models given the same summaries beat the base rate. <a class="text-accent hover:underline" href="/experiments/summary-pipelines/">See the experiment →</a></span>
+					</li>
+				</ol>
 			</div>
 			<aside class="card h-fit space-y-3 p-5 text-sm text-ink-2">
 				<p class="eyebrow">Read this first</p>
 				<p>This is a <strong class="text-ink">public beta</strong>, and we are refining and improving the benchmark as we go. It runs on {cohort.case_count} cases, with one retained forecast per unit. Treat the ordering among the top models as provisional.</p>
 				<p>Scores are comparable only within this cohort. Future versions use new cases and will not be directly comparable.</p>
-				<a class="inline-flex items-center gap-1 font-medium text-accent hover:underline" href="/findings/beta-results/">Read the full beta report →</a>
+				<a class="inline-flex items-center gap-1 font-medium text-accent hover:underline" href="/findings/first-release/">Read the release report →</a>
 			</aside>
 		</div>
 	</section>
