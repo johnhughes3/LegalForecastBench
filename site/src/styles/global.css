@@ -137,3 +137,43 @@
 .prose-lfb :where(td, th) {
 	font-variant-numeric: tabular-nums;
 }
+
+/* Top-layer positioning avoids clipping in horizontally scrolling tables.
+ * No animation: reduced-motion readers get the same immediate interaction. */
+.tip-content {
+	display: none;
+	position: fixed;
+	inset: auto;
+	margin: 0;
+	width: 16rem;
+	max-width: calc(100vw - 16px);
+	max-height: calc(100dvh - 16px);
+	overflow: auto;
+}
+
+.tip-content:popover-open {
+	display: block;
+}
+
+/* An unrecognized popover attribute must never expose permanent overlays.
+ * Keep the fallback selector separate from the newer pseudo-class. */
+.tip-content[data-open] {
+	display: block;
+	z-index: 50;
+}
+
+[data-tip] > button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 3px;
+}
+
+@media (forced-colors: active) {
+	.tip-content {
+		background: Canvas;
+		color: CanvasText;
+		border-color: CanvasText;
+	}
+	[data-tip] > button:focus-visible {
+		outline-color: Highlight;
+	}
+}
