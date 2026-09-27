@@ -276,7 +276,10 @@ def test_codex_failure_is_not_retried_or_evaluated(
     binary = tmp_path / "bin" / "codex"
     _install_codex_wrapper(binary, outcome=outcome)
     record["arms"][0]["solver_executable_sha256"] = _file_hash(binary)
-    record["arms"][0]["timeout_seconds"] = 0.2
+    # Only the hanging fixture needs deadline injection. Refusal/crash must
+    # finish the Python wrapper and fake CLI startup, even under CI contention.
+    if outcome == "timeout":
+        record["arms"][0]["timeout_seconds"] = 0.2
     spec, digest = _load_spec(tmp_path, record)
     calls = _capture_launches(monkeypatch)
     with pytest.raises(Tier0RunnerError) as raised:
