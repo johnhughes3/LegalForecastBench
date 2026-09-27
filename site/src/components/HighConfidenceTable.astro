@@ -1,0 +1,46 @@
+---
+import { formatPercent } from "../data/metrics";
+import type { ResultsSnapshot } from "../data/snapshot";
+
+interface Props {
+	snapshot: ResultsSnapshot;
+}
+const { snapshot } = Astro.props;
+const n = snapshot.cohort.unit_count;
+const rows = [...snapshot.models]
+	.filter((m) => m.high_confidence.count > 0)
+	.sort(
+		(a, b) =>
+			a.high_confidence.wrong / a.high_confidence.count -
+			b.high_confidence.wrong / b.high_confidence.count,
+	);
+---
+
+<figure class="not-serif">
+	<div class="overflow-x-auto rounded-xl border border-rule">
+		<table class="w-full min-w-[560px] border-collapse text-left text-sm">
+			<caption class="sr-only">Predictions made with at least 90% confidence either way, and how many were wrong.</caption>
+			<thead class="border-b border-rule bg-surface-2/60 text-xs text-ink-3">
+				<tr>
+					<th scope="col" class="px-3 py-2.5 font-medium">Model</th>
+					<th scope="col" class="px-3 py-2.5 text-right font-medium">≥90% predictions</th>
+					<th scope="col" class="px-3 py-2.5 text-right font-medium">Share of {n} units</th>
+					<th scope="col" class="px-3 py-2.5 text-right font-medium">Wrong</th>
+					<th scope="col" class="px-3 py-2.5 text-right font-medium">Error rate</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-rule">
+				{rows.map((m) => (
+					<tr>
+						<th scope="row" class="px-3 py-2 font-medium text-ink">{m.display_name}</th>
+						<td class="px-3 py-2 text-right tabular text-ink-2">{m.high_confidence.count}</td>
+						<td class="px-3 py-2 text-right tabular text-ink-2">{formatPercent(m.high_confidence.count / n)}</td>
+						<td class="px-3 py-2 text-right tabular text-ink">{m.high_confidence.wrong}</td>
+						<td class="px-3 py-2 text-right tabular text-ink-2">{formatPercent(m.high_confidence.wrong / m.high_confidence.count)}</td>
+					</tr>
+				))}
+			</tbody>
+		</table>
+	</div>
+	<figcaption class="mt-2 text-xs text-ink-3">"90% confidence" means at least 90% probability of dismissal or at most 10%. These are scored units, not independent cases; several misses can come from one case.</figcaption>
+</figure>
