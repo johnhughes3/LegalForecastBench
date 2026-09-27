@@ -1,7 +1,8 @@
 import type { APIRoute, GetStaticPaths } from "astro";
 import { recentResults } from "../../../data/recent-results";
+import { summaryComparisons } from "../../../data/supplementary-results";
 export const getStaticPaths = (() =>
-	recentResults.map(({ source, data }) => ({
+	[...recentResults, ...summaryComparisons].map(({ source, data }) => ({
 		params: { slug: source.slug },
 		props: { data },
 	}))) satisfies GetStaticPaths;

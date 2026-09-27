@@ -2,6 +2,7 @@
 import { comparison } from "../../data/comparison";
 import { recentResults } from "../../data/recent-results";
 import { snapshot } from "../../data/results";
+import { summaryComparisons } from "../../data/supplementary-results";
 import Layout from "../../layouts/Layout.astro";
 
 const { provenance, cohort } = snapshot;
@@ -29,7 +30,11 @@ const { provenance, cohort } = snapshot;
 		</div>
 
 		<div class="prose-lfb prose mt-12 max-w-none">
-			<h2>Source downloads</h2>
+			<h2 id="supplementary">Summary-based and minimal-reasoning comparisons</h2>
+<p>Three one-shot summary tests, with GPT-4.1 shown separately as a full-record reference. <a href="/data/beta-run-mechanics/#summary-comparisons">Methods and provenance →</a></p>
+<ul>{summaryComparisons.map(({source, data}) => <li><a href={`/data/exports/${source.slug}.json`} download>{data.results[0]?.metadata.display_name}</a> · <a href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${source.forecast_run}`}>Forecast run</a></li>)}</ul>
+<p><a href="/data/summary-comparison/catalog.json" download>Source catalog, archive references, and cost evidence</a> · <a href="https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/site-data.md#summary-comparisons">Reproduction instructions</a></p>
+<h2>Source downloads</h2>
             <p><a href="/data/sources.json" download>Run and release provenance for the newer scored exports</a></p>
             <p><a href="/data/beta-2026-09-18.json" download>Historical September 18 beta snapshot</a></p>
             <ul>{recentResults.map(({source, data}) => <li><a href={`/data/exports/${source.slug}.json`} download>{data.results[0]?.metadata.display_name}</a> · <a href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${source.forecast_run}`}>Forecast run</a> · <a href={`https://github.com/johnhughes3/LegalForecastBench/actions/runs/${source.scoring_run}`}>Scoring run</a></li>)}</ul>

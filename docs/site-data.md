@@ -66,3 +66,17 @@ OPENBLAS_NUM_THREADS=4 uv run scripts/compare_site_results.py --inputs path/to/d
 ```
 
 The script pins its numerical dependency. Public inputs contain only case/unit identifiers, forecast probabilities, and binary outcomes; no court documents or model transcripts are included. The S3 site-data workflow preserves the JSONL inputs alongside the JSON downloads.
+
+## Summary comparisons
+
+The supplementary section keeps Jev and one-shot Luna summary conditions separate from the main agentic leaderboard. GPT-4.1 appears there as a full-record non-reasoning reference; its original native export remains unchanged. The shared cache was prepared by GPT-5.6 Luna. The high-reasoning reference also uses GPT-5.6 Luna, while the reasoning-off comparison uses GPT-6 Luna, so this is not an isolated reasoning-effort ablation of the same model.
+
+The three summary exports are reconstructed with the canonical scorer from archived valid forecasts and the previously published GPT-6 Sol unit outcomes for the identical release. They are not new protected fan-in outputs. Download their native exports from `/data/exports/`, and the catalog, published outcomes, forecasts, and frozen registries under `/data/summary-comparison/`. The catalog records original run identities, common summary-cache identity, archive workflow/artifact IDs, and separate preparation/inference estimates. It preserves the 409-forecast census and scores the original 387 eligible units across 91 cases. The frozen registry files retain their original bytes and are excluded from automatic JSON formatting.
+
+From a repository checkout, reproduce the displayed exports without model calls:
+
+```bash
+uv run python scripts/reproduce_summary_comparisons.py site/public/data/summary-comparison /tmp/summary-exports
+```
+
+The site publisher includes these public reproduction files and exports in its normal JSON/JSONL upload and readback verification. The main agentic snapshot and its significance family remain unchanged. Reader-facing details belong on `/data/beta-run-mechanics/#summary-comparisons`.
