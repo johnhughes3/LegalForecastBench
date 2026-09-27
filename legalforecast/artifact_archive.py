@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
@@ -16,9 +18,31 @@ from legalforecast.immutable_io import write_file_replace_safe
 
 _HELPER = Path(__file__).resolve().parents[1] / ".github/scripts/reconcile-s3-object.sh"
 _TIMEOUT = 900
+# Artifact names become S3 key segments in the by-run lookup index.
+_SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,254}")
 
 
-def _validate(repository: str, bucket: str, archive_id: str, workers: int) -> None:
+def _prefix(repository: str) -> str:
+    return f"reports/github-artifacts/multi-ablation/{repository}/"
+
+
+def pointer_key(repository: str, run_id: int, name: str, artifact_id: int) -> str:
+    """Return the lookup key that finds an archived artifact by source run and name.
+
+    Readers list ``by-run/<run_id>/<name>/`` and require exactly one pointer; the
+    pointer names the immutable ``artifacts/<artifact_id>.zip`` object and its
+    GitHub SHA-256 digest.
+    """
+    return f"{_prefix(repository)}by-run/{run_id}/{name}/{artifact_id}.json"
+
+
+def _validate(
+    repository: str,
+    bucket: str,
+    archive_id: str,
+    workers: int,
+    source_run_id: int | None = None,
+) -> None:
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("repository must be OWNER/REPO")
     if any(part in {".", ".."} for part in repository.split("/")):
@@ -29,16 +53,23 @@ def _validate(repository: str, bucket: str, archive_id: str, workers: int) -> No
         raise ValueError("archive-id must be RUNID-ATTEMPT")
     if not 1 <= workers <= 8:
         raise ValueError("workers must be between 1 and 8")
+    if source_run_id is not None and (
+        type(source_run_id) is not int or source_run_id <= 0
+    ):
+        raise ValueError("source-run-id must be a positive integer")
 
 
-def _snapshot(repository: str) -> list[dict[str, object]]:
+def _snapshot(
+    repository: str, source_run_id: int | None = None
+) -> list[dict[str, object]]:
+    scope = "" if source_run_id is None else f"runs/{source_run_id}/"
     response = subprocess.run(
         [
             "gh",
             "api",
             "--paginate",
             "--slurp",
-            f"repos/{repository}/actions/artifacts?per_page=100",
+            f"repos/{repository}/actions/{scope}artifacts?per_page=100",
         ],
         check=True,
         capture_output=True,
@@ -84,13 +115,50 @@ def _snapshot(repository: str) -> list[dict[str, object]]:
 
 
 def _upload(bucket: str, source: Path, key: str) -> None:
-    subprocess.run(
-        ["bash", str(_HELPER), bucket, str(source), key],
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=_TIMEOUT,
-    )
+    try:
+        subprocess.run(
+            ["bash", str(_HELPER), bucket, str(source), key],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=_TIMEOUT,
+        )
+    except subprocess.CalledProcessError as exc:
+        # S3 errors (AccessDenied, immutable-key mismatch) carry no credentials;
+        # surface them in the job log so a policy denial is never silent. The
+        # index still records only the exit status.
+        print(f"S3 upload failed for {key}:\n{exc.stderr or ''}", file=sys.stderr)
+        raise
+
+
+def _pointer(repository: str, artifact: dict[str, object]) -> tuple[str, bytes] | None:
+    """Build the deterministic by-run pointer, or None when it cannot be keyed."""
+    identifier, name = artifact.get("id"), artifact.get("name")
+    raw_run = artifact.get("workflow_run")
+    run = cast(dict[str, object], raw_run) if isinstance(raw_run, dict) else {}
+    run_id = run.get("id")
+    if (
+        type(identifier) is not int
+        or type(run_id) is not int
+        or run_id <= 0
+        or not isinstance(name, str)
+        or not _SAFE_NAME.fullmatch(name)
+    ):
+        return None
+    # Only immutable metadata, sorted, so an archive re-run reproduces the same
+    # bytes and the create-once helper reuses the existing object.
+    value = {
+        "repository": repository,
+        "source_run_id": run_id,
+        "artifact_id": identifier,
+        "name": name,
+        "digest": artifact.get("digest"),
+        "size_in_bytes": artifact.get("size_in_bytes"),
+        "head_sha": run.get("head_sha"),
+        "key": f"{_prefix(repository)}artifacts/{identifier}.zip",
+    }
+    body = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
+    return pointer_key(repository, run_id, name, identifier), body
 
 
 def _error(exc: Exception) -> str:
@@ -132,22 +200,32 @@ def _batch_size(deadline: float, reserve: int = 10) -> int:
 
 
 def _download_phase(
-    repository: str, bucket: str, archive_id: str, output_dir: Path, workers: int
+    repository: str,
+    bucket: str,
+    archive_id: str,
+    output_dir: Path,
+    workers: int,
+    source_run_id: int | None = None,
 ) -> int:
     deadline = time.monotonic() + 7200
     _batch_size(deadline, reserve=50)
-    artifacts = _snapshot(repository)
+    artifacts = _snapshot(repository, source_run_id)
     available = [artifact for artifact in artifacts if not artifact["expired"]]
     expired = [artifact for artifact in artifacts if artifact["expired"]]
     output_dir.mkdir(parents=True, exist_ok=True)
-    prefix = f"reports/github-artifacts/multi-ablation/{repository}/"
+    prefix = _prefix(repository)
     index: dict[str, object] = {
         "repository": repository,
         "archive_id": archive_id,
+        "source_run_id": source_run_id,
         "started_at": datetime.now(UTC).isoformat(),
         "bucket": bucket,
         "prefix": prefix,
-        "scope": "Artifacts listed at start; artifacts created later are not included.",
+        "scope": (
+            "Artifacts listed at start; artifacts created later are not included."
+            if source_run_id is None
+            else f"Artifacts of workflow run {source_run_id} listed at start."
+        ),
         "listed_count": len(artifacts),
         "available_count": len(available),
         "skipped_expired_count": len(expired),
@@ -192,6 +270,11 @@ def _download_phase(
                 )
             if destination.stat().st_size == 0:
                 raise ValueError("GitHub returned an empty artifact archive")
+            digest = artifact.get("digest")
+            if isinstance(digest, str) and digest.startswith("sha256:"):
+                actual = hashlib.sha256(destination.read_bytes()).hexdigest()
+                if f"sha256:{actual}" != digest:
+                    raise ValueError("Downloaded artifact digest mismatch")
             result.update(status="downloaded", archive_bytes=destination.stat().st_size)
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             result.update(status="failed", error=_error(exc))
@@ -227,18 +310,24 @@ def _read_state(path: Path) -> dict[str, object]:
 
 
 def _upload_phase(
-    repository: str, bucket: str, archive_id: str, output_dir: Path, workers: int
+    repository: str,
+    bucket: str,
+    archive_id: str,
+    output_dir: Path,
+    workers: int,
+    source_run_id: int | None = None,
 ) -> int:
     snapshot_path = output_dir / "archive-snapshot.json"
     snapshot = _read_state(snapshot_path)
     index = _read_state(output_dir / "download-state.json")
-    prefix = f"reports/github-artifacts/multi-ablation/{repository}/"
+    prefix = _prefix(repository)
     for state in (snapshot, index):
         for key, expected in (
             ("repository", repository),
             ("bucket", bucket),
             ("archive_id", archive_id),
             ("prefix", prefix),
+            ("source_run_id", source_run_id),
         ):
             if state.get(key) != expected:
                 raise ValueError(f"Archive phase identity mismatch: {key}")
@@ -276,6 +365,12 @@ def _upload_phase(
             if destination.stat().st_size != result.get("archive_bytes"):
                 raise ValueError("Downloaded artifact size mismatch")
             _upload(bucket, destination, str(result["key"]))
+            pointer = _pointer(repository, artifact)
+            if pointer is not None:
+                pointer_path = output_dir / f"{artifact['id']}.pointer.json"
+                write_file_replace_safe(pointer_path, pointer[1])
+                _upload(bucket, pointer_path, pointer[0])
+                result["pointer_key"] = pointer[0]
             result["status"] = "copied"
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             result.update(status="failed", error=_error(exc))
@@ -306,16 +401,24 @@ def archive_artifacts(
     *,
     download_only: bool = False,
     upload_only: bool = False,
+    source_run_id: int | None = None,
 ) -> int:
-    """Download with quota-aware batches, then upload under fresh AWS credentials."""
-    _validate(repository, bucket, archive_id, workers)
+    """Download with quota-aware batches, then upload under fresh AWS credentials.
+
+    With ``source_run_id`` only that workflow run's artifacts are archived.
+    """
+    _validate(repository, bucket, archive_id, workers, source_run_id)
     if download_only and upload_only:
         raise ValueError("Choose only one archive phase")
     if not upload_only:
-        result = _download_phase(repository, bucket, archive_id, output_dir, workers)
+        result = _download_phase(
+            repository, bucket, archive_id, output_dir, workers, source_run_id
+        )
         if download_only:
             return result
-    return _upload_phase(repository, bucket, archive_id, output_dir, workers)
+    return _upload_phase(
+        repository, bucket, archive_id, output_dir, workers, source_run_id
+    )
 
 
 def main() -> int:
@@ -334,6 +437,11 @@ def main() -> int:
     )
     parser.add_argument(
         "--workers", type=int, default=4, help="Concurrent copies (1-8; default 4)"
+    )
+    parser.add_argument(
+        "--source-run-id",
+        type=int,
+        help="Archive only this workflow run's artifacts (default: whole repository)",
     )
     phase = parser.add_mutually_exclusive_group()
     phase.add_argument(
@@ -355,6 +463,7 @@ def main() -> int:
         args.workers,
         download_only=args.download_only,
         upload_only=args.upload_only,
+        source_run_id=args.source_run_id,
     )
 
 

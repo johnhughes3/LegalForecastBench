@@ -73,6 +73,8 @@ def test_all_pages_distinct_ids_and_expiration(
     assert {argv[-1] for argv in uploads[1:-1]} == {
         "reports/github-artifacts/multi-ablation/owner/repo/artifacts/1.zip",
         "reports/github-artifacts/multi-ablation/owner/repo/artifacts/3.zip",
+        "reports/github-artifacts/multi-ablation/owner/repo/by-run/42/same-name/1.json",
+        "reports/github-artifacts/multi-ablation/owner/repo/by-run/42/same-name/3.json",
     }
     assert uploads[-1][-1].endswith("runs/123-1.json")
     assert all("timeout" in kwargs for _, kwargs in calls)
@@ -271,3 +273,85 @@ def test_invalid_reset_preserves_partial_state_for_upload(
     index = json.loads((tmp_path / "archive-index.json").read_text())
     assert index["failed_count"] == 2
     assert index["copied_count"] == 0
+
+
+def test_source_run_scope_lists_one_run_and_writes_stable_pointers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls = _transport(monkeypatch)
+    uploaded: dict[str, bytes] = {}
+
+    def upload(bucket: str, source: Path, key: str) -> None:
+        uploaded[key] = source.read_bytes()
+
+    monkeypatch.setattr(archive, "_upload", upload)
+    assert (
+        archive.archive_artifacts(
+            "owner/repo", "test-bucket", "9-1", tmp_path, source_run_id=42
+        )
+        == 0
+    )
+    listing = next(argv for argv, _ in calls if "--paginate" in argv)
+    assert listing[-1] == "repos/owner/repo/actions/runs/42/artifacts?per_page=100"
+    key = archive.pointer_key("owner/repo", 42, "same-name", 1)
+    pointer = json.loads(uploaded[key])
+    assert pointer["key"].endswith("artifacts/1.zip")
+    assert pointer["source_run_id"] == 42
+    first = uploaded[key]
+    # A re-run must reproduce identical pointer bytes for the create-once helper.
+    assert (
+        archive.archive_artifacts(
+            "owner/repo", "test-bucket", "9-2", tmp_path / "again", source_run_id=42
+        )
+        == 0
+    )
+    assert uploaded[key] == first
+    index = json.loads(
+        uploaded["reports/github-artifacts/multi-ablation/owner/repo/runs/9-1.json"]
+    )
+    assert index["source_run_id"] == 42
+
+
+def test_digest_mismatch_fails_the_artifact(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _transport(monkeypatch)
+    original = archive._snapshot  # pyright: ignore[reportPrivateUsage]
+
+    def snapshot(
+        repository: str, source_run_id: int | None = None
+    ) -> list[dict[str, object]]:
+        artifacts = original(repository, source_run_id)
+        artifacts[0]["digest"] = "sha256:" + "0" * 64
+        return artifacts
+
+    monkeypatch.setattr(archive, "_snapshot", snapshot)
+
+    def upload(bucket: str, source: Path, key: str) -> None:
+        return None
+
+    monkeypatch.setattr(archive, "_upload", upload)
+    assert (
+        archive.archive_artifacts("owner/repo", "test-bucket", "123-5", tmp_path) == 1
+    )
+    index = json.loads((tmp_path / "archive-index.json").read_text())
+    assert index["results"][0]["error"] == "ValueError"
+    assert index["results"][1]["status"] == "copied"
+
+
+def test_s3_denial_is_printed_to_the_job_log(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.CalledProcessError(
+            1, argv, stderr="An error occurred (AccessDenied) when calling PutObject"
+        )
+
+    monkeypatch.setattr(archive.subprocess, "run", run)
+    source = tmp_path / "x.zip"
+    source.write_bytes(b"zip")
+    with pytest.raises(subprocess.CalledProcessError):
+        archive._upload("test-bucket", source, "k")  # pyright: ignore[reportPrivateUsage]
+    assert "AccessDenied" in capsys.readouterr().err

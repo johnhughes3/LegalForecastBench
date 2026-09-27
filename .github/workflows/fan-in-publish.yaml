@@ -281,6 +281,15 @@ jobs:
           print(json.dumps({"run_id": run_id, "run_attempt": attempt, "head_sha": workflow_sha}, sort_keys=True))
           PY
 
+      # Credentials come before the forecast download so an expired GitHub
+      # artifact can be restored from its protected S3 archive copy.
+      - name: Configure protected fan-in storage access
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-labels-fan-in-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+
       - name: Download exact durable forecast result artifact
         shell: bash
         env:
@@ -293,11 +302,13 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          import hashlib
           import io
           import json
           import os
           import stat
           import subprocess
+          import tempfile
           import urllib.error
           import urllib.request
           import zipfile
@@ -336,27 +347,83 @@ jobs:
               item for item in listing["artifacts"]
               if isinstance(item, dict) and item.get("name") == expected_name
           ]
-          if len(matches) != 1:
+          if len(matches) > 1:
               raise SystemExit(f"expected exactly one durable forecast artifact: {expected_name}")
-          artifact = matches[0]
-          if artifact.get("expired") is True:
-              raise SystemExit("durable forecast artifact has expired")
-          artifact_id = artifact.get("id")
-          if isinstance(artifact_id, bool) or not isinstance(artifact_id, int) or artifact_id <= 0:
-              raise SystemExit("durable forecast artifact ID is invalid")
-          try:
-              archive_bytes = subprocess.run(
-                  [
-                      "gh",
-                      "api",
-                      "--allow-escape-sequences",
-                      f"/repos/{repository}/actions/artifacts/{artifact_id}/zip",
-                  ],
-                  check=True,
-                  capture_output=True,
-              ).stdout
-          except (OSError, subprocess.CalledProcessError) as exc:
-              raise SystemExit("could not download durable forecast artifact") from exc
+
+          def s3_object(key: str) -> bytes:
+              # Errors (AccessDenied, NoSuchKey) stay visible on stderr.
+              with tempfile.TemporaryDirectory() as scratch:
+                  target = Path(scratch) / "object"
+                  subprocess.run(
+                      ["aws", "s3api", "get-object", "--bucket", bucket, "--key", key, str(target)],
+                      check=True,
+                      stdout=subprocess.DEVNULL,
+                  )
+                  return target.read_bytes()
+
+          def restore_from_archive() -> bytes:
+              # GitHub drops expired artifacts from listings, so the archive's
+              # by-run pointer is the only way back to the package.
+              archive_prefix = f"reports/github-artifacts/multi-ablation/{repository}/"
+              pointer_prefix = f"{archive_prefix}by-run/{run_id}/{expected_name}/"
+              if not bucket:
+                  raise SystemExit("LFB_RESULTS_BUCKET is required to restore an expired artifact")
+              try:
+                  listed = subprocess.run(
+                      ["aws", "s3api", "list-objects-v2", "--bucket", bucket,
+                       "--prefix", pointer_prefix, "--output", "json"],
+                      check=True,
+                      stdout=subprocess.PIPE,
+                      text=True,
+                  ).stdout
+                  keys = [item["Key"] for item in json.loads(listed or "{}").get("Contents") or []]
+                  if len(keys) != 1:
+                      raise SystemExit(
+                          f"GitHub artifact {expected_name} is unavailable and S3 holds "
+                          f"{len(keys)} archive pointers for it"
+                      )
+                  pointer = json.loads(s3_object(keys[0]))
+                  artifact_id = pointer.get("artifact_id")
+                  digest = pointer.get("digest")
+                  if (
+                      pointer.get("repository") != repository
+                      or pointer.get("source_run_id") != int(run_id)
+                      or pointer.get("name") != expected_name
+                      or isinstance(artifact_id, bool)
+                      or not isinstance(artifact_id, int)
+                      or pointer.get("key") != f"{archive_prefix}artifacts/{artifact_id}.zip"
+                      or not isinstance(digest, str)
+                      or not digest.startswith("sha256:")
+                  ):
+                      raise SystemExit("S3 archive pointer does not match the forecast run")
+                  restored = s3_object(pointer["key"])
+              except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+                  raise SystemExit("could not restore forecast artifact from S3 archive") from exc
+              if f"sha256:{hashlib.sha256(restored).hexdigest()}" != digest:
+                  raise SystemExit("S3 archived forecast artifact digest mismatch")
+              print(f"restored expired forecast artifact {artifact_id} from S3 archive")
+              return restored
+
+          bucket = os.environ.get("LFB_RESULTS_BUCKET", "")
+          if not matches or matches[0].get("expired") is True:
+              archive_bytes = restore_from_archive()
+          else:
+              artifact_id = matches[0].get("id")
+              if isinstance(artifact_id, bool) or not isinstance(artifact_id, int) or artifact_id <= 0:
+                  raise SystemExit("durable forecast artifact ID is invalid")
+              try:
+                  archive_bytes = subprocess.run(
+                      [
+                          "gh",
+                          "api",
+                          "--allow-escape-sequences",
+                          f"/repos/{repository}/actions/artifacts/{artifact_id}/zip",
+                      ],
+                      check=True,
+                      capture_output=True,
+                  ).stdout
+              except (OSError, subprocess.CalledProcessError) as exc:
+                  raise SystemExit("could not download durable forecast artifact") from exc
           root = Path("/tmp/lfb-forecast")
           root.mkdir(parents=True, exist_ok=False)
           seen: set[str] = set()
@@ -400,13 +467,6 @@ jobs:
           if any(path.name == "labels-release.json" or "labels" in path.parts for path in root.rglob("*")):
               raise SystemExit("forecast artifact must not contain labels or label locators")
           PY
-
-      - name: Configure protected fan-in storage access
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lfb-labels-fan-in-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}
-          role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
 
       - name: Fetch and bind locked releases, including labels only here
         shell: bash
