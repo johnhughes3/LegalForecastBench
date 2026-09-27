@@ -43,6 +43,7 @@ on:
           - native
           - claude-code-terminal
           - hermes-agent
+          - openclaw
       terminal_case_id:
         description: Optional exact case ID for a scoped release-harness smoke; empty runs the full release.
         required: false
@@ -166,7 +167,14 @@ jobs:
           RESUME_SOURCES: ${{ inputs.resume_sources }}
         run: |
           set -euo pipefail
-          if [[ -n "${TERMINAL_CASE_ID}" && "${EXECUTION_MODE}" != "claude-code-terminal" && "${EXECUTION_MODE}" != "hermes-agent" ]]; then
+          case "${EXECUTION_MODE}" in
+            native) ;;
+            claude-code-terminal|hermes-agent|openclaw)
+              [[ "${MODEL_KEY}" == anthropic:* ]] || { echo "terminal execution requires an anthropic model" >&2; exit 1; }
+              ;;
+            *) echo "unsupported execution_mode" >&2; exit 1 ;;
+          esac
+          if [[ -n "${TERMINAL_CASE_ID}" && "${EXECUTION_MODE}" != "claude-code-terminal" && "${EXECUTION_MODE}" != "hermes-agent" && "${EXECUTION_MODE}" != "openclaw" ]]; then
             echo "terminal_case_id requires a release-harness execution mode" >&2
             exit 1
           fi
@@ -598,7 +606,7 @@ jobs:
 
   run-terminal:
     name: Protected harness forecast release
-    if: ${{ (inputs.execution_mode == 'claude-code-terminal' || inputs.execution_mode == 'hermes-agent') && startsWith(inputs.model_key, 'anthropic:') && needs.prepare-inputs.result == 'success' }}
+    if: ${{ (inputs.execution_mode == 'claude-code-terminal' || inputs.execution_mode == 'hermes-agent' || inputs.execution_mode == 'openclaw') && startsWith(inputs.model_key, 'anthropic:') && needs.prepare-inputs.result == 'success' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 240
@@ -613,6 +621,7 @@ jobs:
       LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
       LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
       LFB_PROTECTED_TERMINAL_RELEASE: "1"
+      EXECUTION_MODE: ${{ inputs.execution_mode }}
     steps:
       - name: Checkout and verify trusted source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -664,22 +673,37 @@ jobs:
         with:
           artifact-ids: ${{ needs.prepare-inputs.outputs.locked_inputs_artifact_id }}
           path: /tmp/lfb-terminal-inputs
-      - name: Configure rootless Docker for Claude Code and gateway
+      - name: Configure rootless Docker for terminal runtime and gateway
         shell: bash
         run: .github/scripts/setup-rootless-docker.sh
-      - name: Build pinned Claude Code and gateway images
-        if: ${{ inputs.execution_mode == 'claude-code-terminal' }}
+      - name: Build pinned terminal runtime and gateway images
+        if: ${{ inputs.execution_mode != 'hermes-agent' }}
         shell: bash
         run: |
           set -euo pipefail
-          docker build --pull=false -f infra/claude-code-runtime/Containerfile -t lfb-claude-code:release .
+          case "${EXECUTION_MODE}" in
+            claude-code-terminal)
+              docker build --pull=false -f infra/claude-code-runtime/Containerfile -t lfb-claude-code:release .
+              terminal_image_tag=lfb-claude-code:release
+              terminal_run_prefix=claude-code
+              ;;
+            openclaw)
+              docker build --pull=false -f infra/openclaw-runtime/Containerfile -t lfb-openclaw:release .
+              terminal_image_tag=lfb-openclaw:release
+              terminal_run_prefix=openclaw
+              ;;
+            *) echo "unsupported terminal execution_mode" >&2; exit 1 ;;
+          esac
           docker build --pull=false -f infra/model-gateway-runtime/Containerfile -t lfb-model-gateway:release .
-          claude_image_id="$(docker image inspect --format '{{.Id}}' lfb-claude-code:release)"
+          terminal_image_id="$(docker image inspect --format '{{.Id}}' "${terminal_image_tag}")"
           gateway_image_id="$(docker image inspect --format '{{.Id}}' lfb-model-gateway:release)"
-          [[ "${claude_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "${terminal_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "${gateway_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
-          echo "LFB_CLAUDE_IMAGE=${claude_image_id}" >> "${GITHUB_ENV}"
-          echo "LFB_GATEWAY_IMAGE=${gateway_image_id}" >> "${GITHUB_ENV}"
+          {
+            echo "LFB_TERMINAL_IMAGE=${terminal_image_id}"
+            echo "LFB_TERMINAL_RUN_PREFIX=${terminal_run_prefix}"
+            echo "LFB_GATEWAY_IMAGE=${gateway_image_id}"
+          } >> "${GITHUB_ENV}"
       - name: Build pinned canonical task worker
         if: ${{ inputs.execution_mode == 'hermes-agent' }}
         shell: bash
@@ -688,7 +712,10 @@ jobs:
           docker build --pull=false -f infra/task-worker-runtime/Containerfile -t lfb-task-worker:release .
           task_image_id="$(docker image inspect --format '{{.Id}}' lfb-task-worker:release)"
           [[ "${task_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
-          echo "LFB_CLAUDE_IMAGE=${task_image_id}" >> "${GITHUB_ENV}"
+          {
+            echo "LFB_TERMINAL_IMAGE=${task_image_id}"
+            echo "LFB_TERMINAL_RUN_PREFIX=hermes-agent"
+          } >> "${GITHUB_ENV}"
       - name: Derive approved provider budget
         shell: bash
         env:
@@ -715,6 +742,7 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/lfb-terminal-paid
           uv run python -m legalforecast.multiharness.paid_gateway_descriptor \
+            --harness "${EXECUTION_MODE}" \
             --manifest /tmp/lfb-terminal-inputs/run-manifest.json \
             --forecast /tmp/lfb-terminal-inputs/forecast-release.json \
             --artifact-root /tmp/lfb-terminal-inputs/artifacts \
@@ -723,7 +751,7 @@ jobs:
             --ceiling-microusd "${CEILING_MICROUSD}" \
             --account "${ACCOUNT}" \
             --output /tmp/lfb-terminal-paid/paid-gateway.json
-      - name: Execute scoreless protected harness release
+      - name: Execute scoreless terminal release
         shell: bash
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -742,18 +770,19 @@ jobs:
             case_args+=(--gateway-image "${LFB_GATEWAY_IMAGE}")
           fi
           uv run legalforecast multiharness release-execute "${case_args[@]}" \
+            --harness "${EXECUTION_MODE}" \
             --forecast-release /tmp/lfb-terminal-inputs/forecast-release.json \
             --artifact-root /tmp/lfb-terminal-inputs/artifacts \
             --output-dir /tmp/lfb-terminal-paid/release \
             --model-key "${MODEL_KEY}" \
-            --image "${LFB_CLAUDE_IMAGE}" \
+            --image "${LFB_TERMINAL_IMAGE}" \
             --auth-profile published-api-key \
             --max-budget-usd "${LFB_MAX_BUDGET_USD}" \
             --paid-config /tmp/lfb-terminal-paid/paid-gateway.json \
             --model-registry /tmp/lfb-terminal-inputs/model-registry.json \
             --gateway-upstream-base-url https://api.anthropic.com:443 \
             --timeout-seconds 900 \
-            --run-id "${EXECUTION_MODE}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            --run-id "${LFB_TERMINAL_RUN_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
       - name: Preserve locked scoreless package inputs
         if: ${{ always() }}
         shell: bash

@@ -60,6 +60,14 @@ def build_terminal_release_adapter(
             max_budget_usd=options.max_budget_usd,
             timeout_seconds=options.timeout_seconds,
         )
+    if options.harness == "openclaw":
+        from legalforecast.multiharness.openclaw_container import (
+            OpenClawContainerAdapter,
+        )
+
+        return OpenClawContainerAdapter(options)
+    if options.harness not in {"claude-code", "claude-code-terminal"}:
+        raise ValueError("unsupported release harness")
     from legalforecast.multiharness.claude_code_container import (
         OUTER_CONTAINER_ONLY_MODE,
         build_claude_code_container_adapter,

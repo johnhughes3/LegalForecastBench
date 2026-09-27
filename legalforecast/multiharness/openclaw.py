@@ -24,6 +24,7 @@ ADAPTER_ID = "openclaw-pinned-bridge"
 ADAPTER_VERSION = "1.0.0"
 OPENCLAW_VERSION = "2026.9.6"
 OPENCLAW_COMMIT = "eb377ac59e6c9fd6c7705028034812becf00271b"
+GATEWAY_HARNESS_ID = f"{ADAPTER_ID}/{OPENCLAW_VERSION}/{OPENCLAW_COMMIT}"
 TOOL_NAME = "lfb_read_task"
 
 
@@ -123,12 +124,15 @@ def normalize_result(
     *,
     tool_reads: int,
     prompt_complete: bool,
+    gateway_auth: bool = False,
 ) -> RunResult:
     """Reject failed/drifted runs and retain predictions only as private data."""
-    model = request.model_key.removeprefix("openai:")
+    provider, separator, model = request.model_key.partition(":")
+    if not separator or provider != ("anthropic" if gateway_auth else "openai"):
+        raise OpenClawError("OpenClaw provider route mismatch")
     if envelope.get("ok") is not True or envelope.get("status") != "ok":
         raise OpenClawError("OpenClaw run did not succeed")
-    if envelope.get("provider") != "openai" or envelope.get("model") != model:
+    if envelope.get("provider") != provider or envelope.get("model") != model:
         raise OpenClawError("OpenClaw served model or provider mismatch")
     if not prompt_complete or tool_reads < 2:
         raise OpenClawError("OpenClaw must acknowledge every solver prompt page")
@@ -160,8 +164,10 @@ def normalize_result(
         "openclaw_commit": OPENCLAW_COMMIT,
         "selected_native_runtime": "openclaw",
         "invocation": "agent exec",
-        "auth_mode": "api-key-environment-isolated-home",
-        "provider": "openai",
+        "auth_mode": "protected-gateway-capability"
+        if gateway_auth
+        else "api-key-environment-isolated-home",
+        "provider": provider,
         "requested_model": model,
         "served_model": model,
         "tool_policy": "host-container-solver-prompt-only",

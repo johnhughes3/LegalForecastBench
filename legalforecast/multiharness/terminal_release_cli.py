@@ -46,7 +46,7 @@ class TerminalReleaseOptions:
     model_registry_path: Path | None = None
     gateway_upstream_base_url: str | None = None
     gateway_image_digest: str | None = None
-    harness: str = "claude-code"
+    harness: str = "claude-code-terminal"
     hermes_checkout: Path | None = None
 
     @classmethod
@@ -59,9 +59,14 @@ class TerminalReleaseOptions:
         if output_dir.exists() or output_dir.is_symlink():
             raise ValueError("--output-dir must be a fresh, absent path")
         profile = str(args.auth_profile)
-        harness = str(getattr(args, "harness", "claude-code"))
+        harness = str(getattr(args, "harness", "claude-code-terminal"))
         hermes_checkout_arg = getattr(args, "hermes_checkout", None)
-        if harness not in {"claude-code", "hermes-agent"}:
+        if harness not in {
+            "claude-code",
+            "claude-code-terminal",
+            "hermes-agent",
+            "openclaw",
+        }:
             raise ValueError("unsupported release harness")
         if harness == "hermes-agent":
             if profile != PUBLISHED_API_KEY or hermes_checkout_arg is None:
@@ -259,9 +264,9 @@ def _add_release_execution_arguments(
 
     parser.add_argument(
         "--harness",
-        choices=("claude-code", "hermes-agent"),
-        default="claude-code",
-        help="Release harness; Hermes requires the protected paid gateway.",
+        choices=("claude-code-terminal", "claude-code", "hermes-agent", "openclaw"),
+        default="claude-code-terminal",
+        help="Release runtime; Hermes and OpenClaw require the protected gateway. claude-code is an alias for claude-code-terminal.",
     )
     parser.add_argument(
         "--hermes-checkout",

@@ -28,6 +28,7 @@ from legalforecast.multiharness.container_harness.model_gateway_paid import (
     PAID_GATEWAY_WORKFLOW_MARKER,
     worst_case_request_microusd,
 )
+from legalforecast.multiharness.openclaw import GATEWAY_HARNESS_ID
 from legalforecast.multiharness.protected_terminal_paid import (
     ProtectedTerminalPaidError,
     protected_authority_environment,
@@ -64,11 +65,14 @@ class ProtectedPaidGatewayDescriptor:
     provider_authority_resource_identity_sha256: str
     model_registry_sha256: str
     model_registry_entry_sha256: str
+    harness_id: str = TERMINAL_HARNESS_ID
+    forecast_release_digest: str | None = None
 
     def to_record(self) -> dict[str, object]:
         """Return the exact loader-facing descriptor fields."""
 
-        return {
+        record: dict[str, object] = {
+            "harness_id": self.harness_id,
             "schema_version": PAID_GATEWAY_CONFIG_SCHEMA,
             "workflow_marker": PAID_GATEWAY_WORKFLOW_MARKER,
             "cycle_id": self.cycle_id,
@@ -89,6 +93,11 @@ class ProtectedPaidGatewayDescriptor:
             "ablation": TERMINAL_ABLATION,
             "repeat_index": TERMINAL_REPEAT_INDEX,
         }
+        if self.harness_id == GATEWAY_HARNESS_ID:
+            record.update(
+                forecast_release_digest=self.forecast_release_digest,
+            )
+        return record
 
 
 def issue_paid_gateway_descriptor(
@@ -101,6 +110,7 @@ def issue_paid_gateway_descriptor(
     ceiling_microusd: int,
     account: str,
     environment: Mapping[str, str] | None = None,
+    harness_id: str = TERMINAL_HARNESS_ID,
 ) -> ProtectedPaidGatewayDescriptor:
     """Derive one descriptor from locked inputs and protected workflow state.
 
@@ -109,6 +119,8 @@ def issue_paid_gateway_descriptor(
     official workflow must never become a paid gateway launch input.
     """
 
+    if harness_id not in {TERMINAL_HARNESS_ID, GATEWAY_HARNESS_ID}:
+        raise ProtectedTerminalPaidError("unsupported protected gateway harness")
     if not model_key.strip():
         raise ProtectedTerminalPaidError("model_key must be nonempty")
     if not model_key.startswith("anthropic:"):
@@ -184,7 +196,7 @@ def issue_paid_gateway_descriptor(
         entry=entry,
         registry_sha256=registry_sha256,
         ceiling_microusd=ceiling_microusd,
-        harness=TERMINAL_HARNESS_ID,
+        harness=harness_id,
         ablation=TERMINAL_ABLATION,
         repeat_count=TERMINAL_REPEAT_INDEX,
         account=account,
@@ -206,7 +218,9 @@ def issue_paid_gateway_descriptor(
         account=account,
         model_key=entry.registry_key,
         ceiling_microusd=ceiling_microusd,
-        max_requests=PAID_GATEWAY_MAX_REQUESTS_PER_CASE,
+        max_requests=64
+        if harness_id == GATEWAY_HARNESS_ID
+        else PAID_GATEWAY_MAX_REQUESTS_PER_CASE,
         authority_identity_sha256=authority_identity_sha256,
         reservation_ledger_sha256=run_identity_sha256,
         provider_authority_table=authority_table,
@@ -214,6 +228,8 @@ def issue_paid_gateway_descriptor(
         provider_authority_resource_identity_sha256=authority_resource,
         model_registry_sha256=registry_sha256,
         model_registry_entry_sha256=model_registry_entry_sha256(entry),
+        harness_id=harness_id,
+        forecast_release_digest=release.release_digest,
     )
 
 
@@ -249,6 +265,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ceiling-microusd", type=int, required=True)
     parser.add_argument("--account", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--harness",
+        choices=("claude-code-terminal", "openclaw"),
+        default="claude-code-terminal",
+        help="Bind spend identity to the selected pinned release harness.",
+    )
     return parser
 
 
@@ -264,6 +286,9 @@ def main(argv: list[str] | None = None) -> int:
         model_key=args.model_key,
         ceiling_microusd=args.ceiling_microusd,
         account=args.account,
+        harness_id=GATEWAY_HARNESS_ID
+        if args.harness == "openclaw"
+        else TERMINAL_HARNESS_ID,
     )
     write_paid_gateway_descriptor(args.output, descriptor)
     return 0

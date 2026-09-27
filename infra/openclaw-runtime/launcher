@@ -1,0 +1,4 @@
+#!/opt/legalforecast/.venv/bin/python
+from legalforecast.multiharness.openclaw_worker import main
+
+raise SystemExit(main())

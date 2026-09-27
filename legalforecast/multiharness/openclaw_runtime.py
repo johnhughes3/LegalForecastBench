@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import threading
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -30,6 +31,26 @@ from legalforecast.multiharness.openclaw import (
 from legalforecast.multiharness.openclaw_tool import PromptDelivery, bridge_read
 from legalforecast.multiharness.sandbox import PROVIDER_EGRESS_HOST_ONLY
 from legalforecast.multiharness.spec import RunRequest, RunResult
+
+GATEWAY_BASE_URL = "http://lfb-model-gateway:8080"
+
+
+@dataclass(frozen=True, slots=True)
+class GatewayRuntimeConfig:
+    """Non-provider capability and frozen model limits for the contained worker."""
+
+    capability: str
+    context_limit: int
+    max_output_tokens: int
+    reasoning_effort: str = "high"
+
+    def __post_init__(self) -> None:
+        if not self.capability or any(c in self.capability for c in "\r\n"):
+            raise OpenClawError("gateway capability must be a nonempty header value")
+        if self.context_limit <= 0 or self.max_output_tokens <= 0:
+            raise OpenClawError("gateway model limits must be positive")
+        if self.reasoning_effort != "high":
+            raise OpenClawError("OpenClaw gateway supports only pinned high reasoning")
 
 
 def runtime_root() -> Path:
@@ -62,13 +83,16 @@ def verify_runtime(root: Path) -> Path:
     return entry.resolve()
 
 
-def build_config(model: str, descriptor: int) -> dict[str, Any]:
+def build_config(
+    model: str, descriptor: int, *, gateway: GatewayRuntimeConfig | None = None
+) -> dict[str, Any]:
     """Select the built-in managed runtime and only the host-owned read tool."""
-    return {
+    provider = "openai" if gateway is None else "anthropic"
+    config: dict[str, Any] = {
         "agents": {
             "defaults": {
-                "models": {f"openai/{model}": {"agentRuntime": {"id": "openclaw"}}},
-                "model": {"primary": f"openai/{model}", "fallbacks": []},
+                "models": {f"{provider}/{model}": {"agentRuntime": {"id": "openclaw"}}},
+                "model": {"primary": f"{provider}/{model}", "fallbacks": []},
             }
         },
         "tools": {
@@ -79,7 +103,7 @@ def build_config(model: str, descriptor: int) -> dict[str, Any]:
             "toolSearch": False,
         },
         "plugins": {
-            "allow": ["openai", "lfb-container-tool"],
+            "allow": [provider, "lfb-container-tool"],
             "load": {"paths": [str(Path(__file__).with_name("openclaw_plugin"))]},
             "entries": {
                 "lfb-container-tool": {
@@ -90,21 +114,52 @@ def build_config(model: str, descriptor: int) -> dict[str, Any]:
         },
         "env": {"shellEnv": {"enabled": False}},
     }
+    if gateway is not None:
+        config["agents"]["defaults"]["thinkingDefault"] = gateway.reasoning_effort
+        config["models"] = {
+            "providers": {
+                "anthropic": {
+                    "baseUrl": GATEWAY_BASE_URL,
+                    "api": "anthropic-messages",
+                    "apiKey": gateway.capability,
+                    "models": [
+                        {
+                            "id": model,
+                            "name": model,
+                            "input": ["text"],
+                            "reasoning": True,
+                            "contextWindow": gateway.context_limit,
+                            "maxTokens": gateway.max_output_tokens,
+                        }
+                    ],
+                }
+            }
+        }
+    return config
 
 
 def run_openclaw(
     request: RunRequest,
     workspace: Path,
     transport: ToolTransport,
+    *,
+    gateway: GatewayRuntimeConfig | None = None,
 ) -> RunResult:
     """Run one managed OpenClaw turn; model tools never receive provider keys."""
     validate_request(request)
-    if request.sandbox_policy.allowed_provider_env_vars != ("OPENAI_API_KEY",):
-        raise OpenClawError("OpenClaw provider grant must be exactly OPENAI_API_KEY")
+    expected_grant = ("OPENAI_API_KEY",) if gateway is None else ()
+    if request.sandbox_policy.allowed_provider_env_vars != expected_grant:
+        raise OpenClawError(
+            "OpenClaw provider grant must be exactly OPENAI_API_KEY"
+            if gateway is None
+            else "contained OpenClaw must not receive a provider credential grant"
+        )
     if request.sandbox_policy.network_policy != PROVIDER_EGRESS_HOST_ONLY:
         raise OpenClawError(f"OpenClaw requires {PROVIDER_EGRESS_HOST_ONLY} policy")
-    if not request.model_key.startswith("openai:") or not request.model_key[7:].strip():
-        raise OpenClawError("OpenClaw model must use openai:<model>")
+    provider, separator, model = request.model_key.partition(":")
+    expected_provider = "openai" if gateway is None else "anthropic"
+    if provider != expected_provider or not separator or not model.strip():
+        raise OpenClawError(f"OpenClaw model must use {expected_provider}:<model>")
     required = unit_ids(request)
     entry = verify_runtime(runtime_root())
     node = shutil.which("node")
@@ -117,7 +172,7 @@ def run_openclaw(
     private = private.resolve()
     with tempfile.TemporaryDirectory(prefix="openclaw-", dir=private) as temporary:
         root = Path(temporary)
-        environment = build_host_subprocess_environment(root, ("OPENAI_API_KEY",))
+        environment = build_host_subprocess_environment(root, expected_grant)
         work = root / "work"
         work.mkdir(mode=0o700)
         state = root / "state"
@@ -144,7 +199,10 @@ def run_openclaw(
         try:
             config_path = root / "config.json"
             write_json_object(
-                config_path, build_config(request.model_key[7:], child.fileno())
+                config_path,
+                build_config(model, child.fileno())
+                if gateway is None
+                else build_config(model, child.fileno(), gateway=gateway),
             )
             config_path.chmod(0o600)
             prompt_path = root / "prompt.txt"
@@ -182,7 +240,7 @@ def run_openclaw(
                         "--cwd",
                         str(work),
                         "--model",
-                        f"openai/{request.model_key[7:]}",
+                        f"{provider}/{model}",
                         "--json",
                         "--timeout",
                         str(
@@ -214,6 +272,7 @@ def run_openclaw(
                 cast(Mapping[str, Any], envelope),
                 tool_reads=delivery.tool_calls,
                 prompt_complete=delivery.complete,
+                gateway_auth=gateway is not None,
             )
         except subprocess.TimeoutExpired:
             raise OpenClawError("OpenClaw managed run timed out") from None

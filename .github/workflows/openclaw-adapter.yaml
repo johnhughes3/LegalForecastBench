@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/openclaw-adapter.yaml'
       - 'examples/adapters/openclaw-pinned/**'
+      - 'infra/openclaw-runtime/**'
       - 'legalforecast/multiharness/**'
       - 'tests/test_multiharness_openclaw*.py'
       - 'uv.lock'
@@ -13,6 +14,7 @@ on:
     paths:
       - '.github/workflows/openclaw-adapter.yaml'
       - 'examples/adapters/openclaw-pinned/**'
+      - 'infra/openclaw-runtime/**'
       - 'legalforecast/multiharness/**'
       - 'tests/test_multiharness_openclaw*.py'
       - 'uv.lock'
@@ -46,9 +48,14 @@ jobs:
           corepack enable
           corepack prepare pnpm@11.27.0 --activate
           pnpm --dir examples/adapters/openclaw-pinned install --frozen-lockfile
+      - name: Configure rootless Docker for the contained regression
+        run: .github/scripts/setup-rootless-docker.sh
+      - name: Build the pinned credential-free OpenClaw image
+        run: docker build --pull=false -f infra/openclaw-runtime/Containerfile -t lfb-openclaw:issue46-gateway .
       - name: Exercise installed OpenClaw with a local provider double
         env:
           LEGALFORECAST_OPENCLAW_E2E: '1'
+          LFB_OPENCLAW_CONTAINER_E2E: '1'
         run: >-
           uv run pytest tests/test_multiharness_openclaw*.py -q
           --cov=legalforecast --cov-report=xml:coverage.xml
