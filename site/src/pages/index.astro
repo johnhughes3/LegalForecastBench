@@ -6,15 +6,11 @@ import ParetoChart from "../components/ParetoChart";
 import Stat from "../components/Stat.astro";
 import { publishedFindings } from "../data/findings";
 import { formatPercent } from "../data/metrics";
-import { snapshot } from "../data/results";
+import { primarySnapshot, snapshot } from "../data/results";
 import { supplementaryRows } from "../data/supplementary-results";
 import Layout from "../layouts/Layout.astro";
 
 const { cohort } = snapshot;
-const primarySnapshot = {
-	...snapshot,
-	models: snapshot.models.filter((model) => model.slug !== "gpt-4-1"),
-};
 const findings = (await publishedFindings()).slice(0, 3);
 const jevRow = supplementaryRows.find(
 	(row) => row.slug === "jev-luna-summaries",
@@ -42,7 +38,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 			<div class="mt-12 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
 				<Stat value={String(cohort.case_count)} label="Federal cases" detail={`Decided ${window}`} />
 				<Stat value={String(cohort.unit_count)} label="Scored units" detail="Claim × defendant predictions" />
-				<Stat value={String(snapshot.models.length)} label="Full-record configurations" detail={`${new Set(snapshot.models.map((m) => m.provider)).size} providers`} />
+				<Stat value={String(primarySnapshot.models.length)} label="Models compared" detail={`${new Set(primarySnapshot.models.map((m) => m.provider)).size} providers · full record`} />
 				<Stat value={formatPercent(cohort.dismissed_unit_count / cohort.unit_count)} label="Dismissal base rate" detail="Units fully dismissed" />
 			</div>
 		</div>
@@ -88,7 +84,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 				<p class="mt-3 text-sm leading-relaxed text-ink-2">Frontier membership is descriptive and includes only models with cost evidence. A rank alone does not establish statistical significance.</p>
 			</div>
 			<div class="card min-w-0 p-4 sm:p-6">
-				<ParetoChart client:visible snapshot={snapshot} />
+				<ParetoChart client:visible snapshot={primarySnapshot} />
 			</div>
 		</div>
 	</section>

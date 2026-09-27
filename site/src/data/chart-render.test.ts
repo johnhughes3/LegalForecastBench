@@ -5,9 +5,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import ConfidenceChart from "../components/ConfidenceChart";
 import Leaderboard from "../components/Leaderboard";
 import ParetoChart from "../components/ParetoChart";
-import { snapshot } from "./results";
+import { primarySnapshot, REFERENCE_SLUGS, snapshot } from "./results";
 
-test("confidence chart does not move a low-accuracy point to the old 85% floor", () => {
+test("confidence chart extends its axis to a low-accuracy point instead of clamping it", () => {
 	const data = structuredClone(snapshot);
 	const model = data.models[0];
 	assert.ok(model);
@@ -17,29 +17,44 @@ test("confidence chart does not move a low-accuracy point to the old 85% floor",
 		createElement(ConfidenceChart, { snapshot: data }),
 	);
 	assert.match(html, /realized accuracy 60.0%/);
-	assert.match(html, /left:60%/);
-	assert.match(html, /Full 0–100% axis/);
+	// The axis starts at 55%, so 60% sits a ninth of the way in, not at the floor.
+	assert.match(html, />55%</);
+	assert.match(html, /left:11\.1\d*%/);
 });
 
-test("cost chart omits GPT-4.1 from the plot but keeps the other priced models", () => {
-	const data = structuredClone(snapshot);
-	// Exercise an expanded cost census independently of accounting availability.
+test("reference models are excluded from the ranked set, and the chart plots and labels the rest", () => {
+	assert.ok(REFERENCE_SLUGS.has("gpt-4-1"));
+	assert.ok(!primarySnapshot.models.some((m) => m.slug === "gpt-4-1"));
+	assert.equal(
+		primarySnapshot.models.length,
+		snapshot.models.length - REFERENCE_SLUGS.size,
+	);
+	const data = structuredClone(primarySnapshot);
 	for (const [index, model] of data.models.entries())
 		model.cost.usd = index + 1;
 	const html = renderToStaticMarkup(
 		createElement(ParetoChart, { snapshot: data }),
 	);
-	for (const model of data.models.filter((model) => model.slug !== "gpt-4-1"))
+	for (const model of data.models) {
 		assert.ok(html.includes(`/models/${model.slug}/`), model.slug);
-	assert.ok(!html.includes("/models/gpt-4-1/"));
-	assert.match(html, /15 plotted models/);
-	assert.ok((html.match(/stroke="var\(--chart-grid\)"/g) ?? []).length <= 16);
+		// Desktop rendering labels every point.
+		assert.ok(
+			html.includes(`>${model.display_name}</text>`),
+			model.display_name,
+		);
+	}
 	assert.ok(!html.includes("NaN"));
-	assert.ok(html.includes("GPT-4.1 omitted for scale"));
-	const table = renderToStaticMarkup(
-		createElement(Leaderboard, { snapshot: data }),
-	);
-	assert.ok(table.includes("/models/gpt-4-1/"));
+});
+
+test("display names are reader-facing, without run settings", () => {
+	for (const model of snapshot.models) {
+		assert.doesNotMatch(
+			model.display_name,
+			/agentic|via |snapshot|reasoning/i,
+			model.slug,
+		);
+		assert.doesNotMatch(model.eligibility_reason, /^[a-z_]+$/, model.slug);
+	}
 });
 
 test("leaderboard Pareto badges name the qualifying metrics", () => {

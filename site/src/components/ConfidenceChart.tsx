@@ -1,9 +1,6 @@
 import type { ResultsSnapshot } from "../data/snapshot";
 
-const LO = 0;
 const HI = 1.0;
-const TICKS = [0, 0.25, 0.5, 0.75, 1.0];
-const pos = (v: number) => `${((v - LO) / (HI - LO)) * 100}%`;
 
 /**
  * Stated versus realized accuracy within each model's high-confidence
@@ -29,6 +26,15 @@ export default function ConfidenceChart({
 			return { m, stated, realized, gap: stated - realized };
 		})
 		.sort((a, b) => b.gap - a.gap);
+	// Start the axis just below the lowest value so differences near 90-100%
+	// stay visible; reference models are excluded upstream, not squeezed in.
+	const lowest = Math.min(...rows.flatMap((r) => [r.stated, r.realized]));
+	const LO = Math.max(0.5, Math.floor((lowest - 0.01) * 20) / 20);
+	const TICKS = Array.from(
+		{ length: Math.round((HI - LO) / 0.05) + 1 },
+		(_, i) => Number((LO + i * 0.05).toFixed(2)),
+	).filter((t, i, all) => all.length <= 6 || i % 2 === 0 || t === HI);
+	const pos = (v: number) => `${((Math.max(v, LO) - LO) / (HI - LO)) * 100}%`;
 
 	return (
 		<figure className="not-serif m-0">
@@ -122,8 +128,8 @@ export default function ConfidenceChart({
 					Realized accuracy
 				</span>
 				<span>
-					Sorted by the gap between them. Full 0–100% axis. Units, not
-					independent cases: several misses can come from one case.
+					Sorted by the gap between them. Units, not independent cases: several
+					misses can come from one case.
 				</span>
 			</figcaption>
 		</figure>

@@ -14,7 +14,7 @@ import {
 	ranks,
 } from "../../data/metrics";
 import { recentResults } from "../../data/recent-results";
-import { snapshot } from "../../data/results";
+import { primarySnapshot, REFERENCE_SLUGS, snapshot } from "../../data/results";
 import type { Metric, SnapshotModel } from "../../data/snapshot";
 import Layout from "../../layouts/Layout.astro";
 
@@ -29,7 +29,9 @@ const source = recentResults.find(
 	({ source }) => source.slug === model.slug,
 )?.source;
 const n = snapshot.cohort.unit_count;
-const total = snapshot.models.length;
+const isReference = REFERENCE_SLUGS.has(model.slug);
+const ranked = isReference ? snapshot : primarySnapshot;
+const total = primarySnapshot.models.length;
 const metrics: Metric[] = ["micro_brier", "equal_case_brier", "accuracy"];
 const cards = metrics.map((metric) => {
 	const value = metric === "accuracy" ? model.correct / n : model[metric];
@@ -37,10 +39,12 @@ const cards = metrics.map((metric) => {
 		metric,
 		spec: METRICS[metric],
 		value,
-		rank: ranks(snapshot, metric).get(model.slug) ?? total,
-		frontier: paretoFrontier(snapshot, metric).some(
-			(m) => m.slug === model.slug,
-		),
+		rank: ranks(ranked, metric).get(model.slug) ?? total,
+		frontier:
+			!isReference &&
+			paretoFrontier(primarySnapshot, metric).some(
+				(m) => m.slug === model.slug,
+			),
 	};
 });
 const hc = model.high_confidence;
@@ -98,7 +102,7 @@ const facts: [string, string][] = [
 							</p>
 							<p class="mt-2 font-serif text-4xl font-medium tabular">{c.spec.format(c.value)}</p>
 							<p class="mt-2 text-sm text-ink-2">
-								Rank {c.rank} of {total}
+								{isReference ? "Reference model · not ranked" : `Rank ${c.rank} of ${total}`}
 								{c.frontier && <span class="text-series-1"> · on the cost frontier</span>}
 							</p>
 						</div>
@@ -110,10 +114,20 @@ const facts: [string, string][] = [
 
 	<section class="mx-auto grid max-w-6xl gap-10 px-4 pt-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
 		<div class="min-w-0 space-y-12">
+			{isReference ? (
+				<div class="card p-6">
+					<h2 class="font-serif text-2xl font-semibold tracking-tight">An older reference model</h2>
+					<p class="mt-3 leading-relaxed text-ink-2">
+						{model.display_name} is an older, non-reasoning model run on the same full record and harness. It is kept as a reference rather than ranked with current models. It mostly answered 0% or 100%, and its forecasts show no ranking signal.
+					</p>
+					<a class="mt-4 inline-flex text-sm font-medium text-accent hover:underline" href="/experiments/summary-pipelines/">See how it compares in the summary-pipeline experiment →</a>
+				</div>
+			) : (
+				<Fragment>
 			<div>
 				<h2 class="font-serif text-2xl font-semibold tracking-tight">Cost and quality</h2>
 				<div class="card mt-4 p-4 sm:p-6">
-					<ParetoChart client:visible snapshot={snapshot} highlight={model.slug} />
+					<ParetoChart client:visible snapshot={primarySnapshot} highlight={model.slug} />
 				</div>
 			</div>
 			<div>
@@ -124,9 +138,11 @@ const facts: [string, string][] = [
 					{hc.mean_confidence !== null && ` Mean stated confidence in that subset was ${formatPercent(hc.mean_confidence)}.`}
 				</p>
 				<div class="card mt-4 p-4 sm:p-6">
-					<ConfidenceChart snapshot={snapshot} highlight={model.slug} />
+					<ConfidenceChart snapshot={primarySnapshot} highlight={model.slug} />
 				</div>
 			</div>
+				</Fragment>
+			)}
             <div>
                 <h2 class="font-serif text-2xl font-semibold tracking-tight">Statistical comparison coverage</h2>
                 <p class="mt-2 text-ink-2">{includedInComparison ? "Included in the nine-model paired analysis." : "Not included in the updated paired analysis."}</p>

@@ -13,3 +13,19 @@ export const snapshot = applyComparison(
 		recentResults.map(({ source }) => source),
 	),
 );
+
+/**
+ * Older configurations kept as references: they have model pages and appear in
+ * experiments, but are not ranked or charted with current models.
+ */
+export const REFERENCE_SLUGS: ReadonlySet<string> = new Set(["gpt-4-1"]);
+
+/** The ranked comparison: every configuration except references. */
+export const primarySnapshot = {
+	...snapshot,
+	models: snapshot.models.filter((model) => !REFERENCE_SLUGS.has(model.slug)),
+	significant_pairs: snapshot.significant_pairs.filter(
+		(pair) =>
+			!REFERENCE_SLUGS.has(pair.better) && !REFERENCE_SLUGS.has(pair.worse),
+	),
+};
