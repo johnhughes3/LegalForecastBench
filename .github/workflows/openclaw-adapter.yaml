@@ -49,4 +49,21 @@ jobs:
       - name: Exercise installed OpenClaw with a local provider double
         env:
           LEGALFORECAST_OPENCLAW_E2E: '1'
-        run: uv run pytest tests/test_multiharness_openclaw*.py -q
+        run: >-
+          uv run pytest tests/test_multiharness_openclaw*.py -q
+          --cov=legalforecast --cov-report=xml:coverage.xml
+      - name: Require the native-runtime coverage report
+        id: coverage-report
+        if: ${{ !cancelled() }}
+        run: test -s coverage.xml
+      - name: Upload native-runtime coverage to the same commit report
+        if: ${{ !cancelled() && steps.coverage-report.outcome == 'success' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: johnhughes3/LegalForecastBench
+          files: coverage.xml
+          disable_search: true
+          fail_ci_if_error: true
+          override_commit: ${{ github.event.pull_request.head.sha || github.sha }}
+          name: openclaw-native
