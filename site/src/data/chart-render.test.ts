@@ -66,6 +66,6 @@ test("a model on only the accuracy frontier gets an accuracy-specific tooltip", 
 		row.includes(`/models/${b.slug}/`),
 	);
 	assert.ok(row);
-	assert.match(row, /Pareto frontier for: Accuracy\./);
+	assert.match(row, /Pareto frontier for: Unit accuracy\./);
 	assert.ok(!row.includes("Pareto frontier for: Micro Brier"));
 });
