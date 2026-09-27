@@ -21,7 +21,7 @@ test("confidence chart does not move a low-accuracy point to the old 85% floor",
 	assert.match(html, /Full 0–100% axis/);
 });
 
-test("cost chart includes all priced models and keeps outlier grid readable", () => {
+test("cost chart omits GPT-4.1 from the plot but keeps the other priced models", () => {
 	const data = structuredClone(snapshot);
 	// Exercise an expanded cost census independently of accounting availability.
 	for (const [index, model] of data.models.entries())
@@ -29,12 +29,17 @@ test("cost chart includes all priced models and keeps outlier grid readable", ()
 	const html = renderToStaticMarkup(
 		createElement(ParetoChart, { snapshot: data }),
 	);
-	for (const model of data.models)
+	for (const model of data.models.filter((model) => model.slug !== "gpt-4-1"))
 		assert.ok(html.includes(`/models/${model.slug}/`), model.slug);
-	assert.match(html, /16 plotted models/);
+	assert.ok(!html.includes("/models/gpt-4-1/"));
+	assert.match(html, /15 plotted models/);
 	assert.ok((html.match(/stroke="var\(--chart-grid\)"/g) ?? []).length <= 16);
 	assert.ok(!html.includes("NaN"));
-	assert.ok(html.includes("GPT-4.1"));
+	assert.ok(html.includes("GPT-4.1 omitted for scale"));
+	const table = renderToStaticMarkup(
+		createElement(Leaderboard, { snapshot: data }),
+	);
+	assert.ok(table.includes("/models/gpt-4-1/"));
 });
 
 test("leaderboard Pareto badges name the qualifying metrics", () => {
