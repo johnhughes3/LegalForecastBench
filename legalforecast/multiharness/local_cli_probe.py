@@ -169,12 +169,14 @@ def probe_installed_cli(
             resolved,
             version_args,
             environment=probe_env,
+            cwd=scratch_root,
             timeout_seconds=timeout_seconds,
         )
         help_output = _run_probe(
             resolved,
             help_args,
             environment=probe_env,
+            cwd=scratch_root,
             timeout_seconds=timeout_seconds,
         )
     except (OSError, subprocess.SubprocessError) as exc:
@@ -271,6 +273,7 @@ def _run_probe(
     args: Sequence[str],
     *,
     environment: Mapping[str, str],
+    cwd: Path,
     timeout_seconds: float,
 ) -> str:
     try:
@@ -279,7 +282,7 @@ def _run_probe(
             stdin=subprocess.DEVNULL,
             capture_output=True,
             check=False,
-            cwd=executable.parent,
+            cwd=cwd,
             env=dict(environment),
             timeout=timeout_seconds,
         )

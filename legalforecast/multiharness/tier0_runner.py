@@ -79,6 +79,7 @@ from legalforecast.multiharness.local_cli_identity import (
     verify_executable_digest,
 )
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
+from legalforecast.multiharness.native_cli_preflight import preflight_solver_identity
 from legalforecast.multiharness.receipt_authority import (
     EvaluatorIssuerAuthority,
     ReceiptAuthorityError,
@@ -2315,18 +2316,15 @@ def _preflight_executables(
                 search_path=(parent_env or os.environ).get("PATH", "/usr/bin"),
             )
             if arm.solver_executable_version is not None:
-                from legalforecast.multiharness.local_cli_identity import (
-                    bind_executable_identity,
-                )
-
                 with tempfile.TemporaryDirectory(prefix="lfb-tier0-probe-") as probe:
-                    observed = bind_executable_identity(
+                    observed = preflight_solver_identity(
                         pin,
-                        (arm.solver_executable,),
+                        native=arm.adapter in CLEAN_NATIVE_ADAPTERS,
                         version_probe_args=arm.version_probe_args,
                         scratch_root=Path(probe),
                         parent_env=parent_env,
                         requested_model=arm.requested_model,
+                        paid=arm.auth_profile == "published-api-key",
                     )
         except Exception as exc:
             raise Tier0RunnerError(
