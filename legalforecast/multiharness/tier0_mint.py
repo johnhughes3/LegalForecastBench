@@ -136,11 +136,10 @@ class NativeThinArmInput:
                 raise Tier0MintError(
                     "provider cap must not invent a solver budget argument"
                 )
-            self.provider_cap.validate_for_run(
+            self.provider_cap.validate_compatibility(
                 provider=JUDGE_PROVIDER,
                 auth_profile="published-api-key",
                 max_cost_usd=SOLVER_MAX_COST_USD,
-                timeout_seconds=300,
             )
             return
         if self.budget_argument is None:

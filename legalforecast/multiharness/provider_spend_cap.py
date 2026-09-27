@@ -89,6 +89,24 @@ class ProviderSpendCap:
     def to_record(self) -> dict[str, object]:
         return asdict(self)
 
+    def validate_compatibility(
+        self,
+        *,
+        provider: str,
+        auth_profile: str,
+        max_cost_usd: str,
+    ) -> None:
+        """Check immutable identities and ceiling without consulting the clock."""
+
+        if provider != self.provider or auth_profile != self.auth_profile:
+            raise ProviderCapError(
+                "provider cap does not match the provider/auth profile"
+            )
+        if Decimal(self.hard_limit_usd) > Decimal(max_cost_usd):
+            raise ProviderCapError(
+                "whole provider hard limit exceeds the solver ceiling"
+            )
+
     def validate_for_run(
         self,
         *,
@@ -98,17 +116,14 @@ class ProviderSpendCap:
         timeout_seconds: float,
         now: datetime | None = None,
     ) -> None:
+        """Require compatibility and current evidence before live admission."""
+
+        self.validate_compatibility(
+            provider=provider, auth_profile=auth_profile, max_cost_usd=max_cost_usd
+        )
         now = now or datetime.now(UTC)
         observed = datetime.fromisoformat(self.observed_at)
         expires = datetime.fromisoformat(self.enforced_until)
-        if provider != self.provider or auth_profile != self.auth_profile:
-            raise ProviderCapError(
-                "provider cap does not match the provider/auth profile"
-            )
-        if Decimal(self.hard_limit_usd) > Decimal(max_cost_usd):
-            raise ProviderCapError(
-                "whole provider hard limit exceeds the solver ceiling"
-            )
         if observed > now or now - observed > timedelta(minutes=15):
             raise ProviderCapError(
                 "provider cap observation must be current (within 15 minutes)"

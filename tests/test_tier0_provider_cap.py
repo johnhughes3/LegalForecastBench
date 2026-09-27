@@ -63,6 +63,78 @@ def _cap(**overrides: object) -> ProviderSpendCap:
     return ProviderSpendCap.from_record(record | overrides)
 
 
+def _stale_cap() -> ProviderSpendCap:
+    return _cap(
+        provider="anthropic",
+        hard_limit_usd="8.000000",
+        observed_at="2000-01-01T00:00:00+00:00",
+        enforced_until="2000-01-01T01:00:00+00:00",
+    )
+
+
+def test_stale_cap_remints_identical_artifact_bytes_and_hashes(tmp_path: Path) -> None:
+    from legalforecast.multiharness.tier0_mint import mint_tier0_artifacts
+    from tests.test_tier0_operator_half import CRITERION_IDS, _native_thin
+
+    minted = []
+    for directory in ("original", "remint"):
+        output_dir = tmp_path / directory
+        output_dir.mkdir()
+        native = replace(
+            _native_thin(),
+            budget_argument=None,
+            command=("harvey-lab-thin", "--task", "fixture"),
+            provider_cap=_stale_cap(),
+        )
+        minted.append(
+            mint_tier0_artifacts(
+                output_dir, criterion_ids=CRITERION_IDS, native_thin=native
+            )
+        )
+    original, remint = minted
+    for field in ("spec_path", "pricing_path", "policy_path"):
+        assert (
+            getattr(original, field).read_bytes() == getattr(remint, field).read_bytes()
+        )
+    assert original.spec_sha256 == remint.spec_sha256
+    assert original.pricing_snapshot_sha256 == remint.pricing_snapshot_sha256
+    assert original.spend_policy_sha256 == remint.spend_policy_sha256
+    assert _stale_cap().observed_at in original.policy_path.read_text()
+
+
+def test_runtime_refuses_stale_cap_before_credentials_or_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import legalforecast.multiharness.local_cli_runtime as runtime
+    from tests.test_multiharness_local_cli_runtime import _spec, _write_script
+
+    class ForbiddenCredentials(StaticCredentialSource):
+        def fetch_projected_env(self, profile: object) -> dict[str, str]:
+            pytest.fail("stale cap must refuse before fetching credentials")
+
+    def forbidden_process(*args: object, **kwargs: object) -> None:
+        pytest.fail("stale cap must refuse before starting a process")
+
+    monkeypatch.setattr(runtime.subprocess, "Popen", forbidden_process)
+    cap = _stale_cap()
+    spec = _spec(
+        tmp_path,
+        script=_write_script(tmp_path, "raise AssertionError('must not launch')"),
+        auth_profile=cap.auth_profile,
+        supported=(cap.auth_profile,),
+        profile_env_vars=((cap.auth_profile, (cap.credential_env_var,)),),
+    )
+    with pytest.raises(ProviderCapError, match="within 15 minutes"):
+        runtime.execute_local_cli(
+            spec,
+            tmp_path / "scratch",
+            credential_source=CapBoundCredentialSource(
+                cap, ForbiddenCredentials({}), 300
+            ),
+            parent_env={"PATH": "/usr/bin"},
+        )
+
+
 @pytest.mark.parametrize(
     "changes",
     [
