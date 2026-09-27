@@ -80,3 +80,8 @@ jobs:
 
       - name: Build the static site
         run: pnpm site:build
+
+      - name: Check responsive navigation
+        run: |
+          pnpm --filter @legalforecastbench/site exec playwright install --with-deps chromium
+          pnpm --filter @legalforecastbench/site test:browser

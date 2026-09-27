@@ -61,7 +61,7 @@ const isActive = (href: string) =>
 					<svg class="size-6 text-accent" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="7" fill="currentColor" /><path d="M10 21.5 14.5 16l3.2 3.2L23 11" fill="none" stroke="var(--bg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
 					LegalForecastBench
 				</a>
-				<nav class="ml-auto hidden items-center gap-1 text-sm sm:flex" aria-label="Primary">
+				<nav class="ml-auto hidden items-center gap-1 text-sm lg:flex" aria-label="Primary">
 					{nav.map((item) => (
 						<a
 							href={item.href}
@@ -75,11 +75,11 @@ const isActive = (href: string) =>
 						</a>
 					))}
 				</nav>
-				<div class="ml-auto sm:ml-0"><ThemeToggle /></div>
+				<div class="ml-auto lg:ml-0"><ThemeToggle /></div>
 			</div>
-			<nav class="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-2 text-sm sm:hidden" aria-label="Primary (mobile)">
+			<nav class="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-2 text-sm lg:hidden" aria-label="Primary (mobile)">
 				{nav.map((item) => (
-					<a href={item.href} class:list={["shrink-0 rounded-full px-3 py-1", isActive(item.href) ? "bg-surface-2 font-medium text-ink" : "text-ink-2"]}>{item.label}</a>
+					<a href={item.href} aria-current={isActive(item.href) ? "page" : undefined} class:list={["shrink-0 rounded-full px-3 py-1", isActive(item.href) ? "bg-surface-2 font-medium text-ink" : "text-ink-2"]}>{item.label}</a>
 				))}
 			</nav>
 		</header>

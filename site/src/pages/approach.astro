@@ -16,7 +16,7 @@ const pipeline = [
 	},
 	{
 		step: "Uses",
-		body: "Contamination-resistant evaluation today. Possibly verifiable training signal for legal judgment tomorrow.",
+		body: "Evaluation designed to limit contamination today. Possibly verifiable training signal for legal judgment tomorrow.",
 	},
 ];
 
@@ -48,7 +48,7 @@ const comparison = [
 	],
 	[
 		"Contamination",
-		"New decisions after model training cutoffs form a fresh holdout",
+		"Decisions must postdate documented training cutoffs; limited contamination remains an assumption",
 		"Tasks can be held out, but grow stale once public",
 	],
 ];
@@ -87,15 +87,15 @@ const comparison = [
 
 			<h2 id="public-litigation">What public litigation exposes</h2>
 			<p>
-				Federal litigation is different. When a defendant moves to dismiss, the complaint, the motion, the opposition, and the reply are filed on the public docket. Then a judge decides, and in most cases explains the decision in a written opinion. That gives us three things that are rare elsewhere in law:
+				Federal litigation is different. When a defendant moves to dismiss, the public docket can contain the complaint, motion, opposition, and reply, followed by a judge's written decision. Cases with a usable record and a written ruling give us three things that are rare elsewhere in law:
 			</p>
 			<ul>
-				<li><strong>The full inputs.</strong> We know exactly what arguments and record the decision-maker had in front of them.</li>
+				<li><strong>The inputs.</strong> We can reconstruct the filed arguments and record the decision-maker had in front of them, checking for missing or sealed material.</li>
 				<li><strong>An objective outcome.</strong> Whether each challenged claim against each defendant was dismissed is a matter of record, not opinion.</li>
 				<li><strong>The reasoning.</strong> The judge's opinion states which arguments mattered and why, in the judge's own words.</li>
 			</ul>
 			<p>
-				Together, these turn a high-level legal judgment task into one that can be checked. Predicting how a judge will rule is the kind of call senior litigators are paid to make, and here the answer eventually arrives. Because new decisions keep coming, each benchmark version can also use rulings issued after a model's training cutoff, which guards against models having memorized the answers.
+				Together, these turn a high-level legal judgment task into one that can be checked. Predicting how a judge will rule is the kind of call senior litigators are paid to make, and here the answer eventually arrives. Because new decisions keep coming, each benchmark version can use rulings issued after a model's documented training cutoff. That is our eligibility rule, not proof that a model has never encountered an answer during training or post-training. Limited contamination remains a working assumption; unknown or overlapping cutoffs require visible qualification.
 			</p>
 
 			<h2 id="curation">Raw data is not enough</h2>
@@ -103,7 +103,7 @@ const comparison = [
 				Public does not mean ready. Building this benchmark showed how much careful work it takes to turn court records into a reliable answer key:
 			</p>
 			<ul>
-				<li>Case data must be purchased, and many cases turn out to be unsuitable once examined.</li>
+				<li>Some court documents must be purchased when free copies are unavailable, and many cases turn out to be unsuitable once examined.</li>
 				<li>Docket entries are frequently mislabeled, so confirming that the test record contains everything the judge saw takes several quality-control steps.</li>
 				<li>Even frontier models often disagree about how to read a ruling, or about which claims and defendants a motion actually challenged. Specifying the task and translating the judge's decision into an answer key requires legal judgment.</li>
 				<li>Definitions matter. A dismissal with leave to amend counts as dismissal; a motion mooted because the plaintiff amended first does not. Models that blur that line lose points for the wrong reason.</li>
@@ -117,7 +117,7 @@ const comparison = [
 				If outcomes can be checked, prediction might also serve as a reinforcement-learning environment with verifiable rewards. My hypothesis is that teaching models to forecast real rulings could improve something current models lack: a sense of which issues actually decide a case. Today's models are excellent at research and summarizing doctrine, but when asked for strategic advice they tend to dwell on minor, technical points. Judges' written reasoning offers a second signal beyond the bare outcome: which arguments moved the court.
 			</p>
 			<p>
-				This is a hypothesis, not a result. The public benchmark will use an AI labeling pipeline with quality controls; a separate, hand-labeled training set is being built to test whether properly labeled litigation data provides a training signal that generalizes beyond prediction.
+				This is a hypothesis, not a result. The public benchmark uses an AI labeling pipeline with quality controls; a separate, hand-labeled training set is being built to test whether properly labeled litigation data provides a training signal that generalizes beyond prediction. The evaluation corpus is not used to train or fine-tune models.
 			</p>
 
 			<h2 id="outcomes-vs-rubrics">Outcome grading and rubric grading</h2>
@@ -157,10 +157,10 @@ const comparison = [
 			</p>
 			<ol>
 				<li>
-					<strong>The key contradicts itself.</strong> One criterion assumed one state's law governed the tort claims; another assumed the plaintiff could avoid a merger clause under that same law. Under Georgia law, a party that affirms a contract containing a merger clause is generally barred from claiming reliance on outside representations (<em>Ekeledo v. Amporful</em>, 281 Ga. 817 (2007); <em>Novare Grp., Inc. v. Sarif</em>, 290 Ga. 186 (2011)). Both criteria cannot be right, and a memo that notices this can fail one of them.
+					<strong>The key can pull in conflicting directions.</strong> One criterion favored Georgia law for the tort claims; another required an argument that a merger clause could not bar fraudulent inducement under Georgia or Texas law. Under Georgia law, a party that affirms a contract containing a merger clause is generally barred from claiming reliance on outside representations (<em>Ekeledo v. Amporful</em>, 281 Ga. 817 (2007); <em>Novare Grp., Inc. v. Sarif</em>, 290 Ga. 186 (2011)). Rescission, the clause's wording, and the choice of law matter. A supported Texas-law argument can satisfy the second criterion, but a memo should also receive credit for explaining why the categorical Georgia-law argument fails.
 				</li>
 				<li>
-					<strong>The key rewards the weaker argument.</strong> A criterion required attacking a one-year contractual limitations period as unconscionable. Georgia courts routinely enforce one-year periods between commercial parties (<em>Cobra Tactical, Inc. v. Payment Alliance Int'l, Inc.</em>, 315 F. Supp. 3d 1342 (N.D. Ga. 2018)), while Texas makes a contractual period shorter than two years void by statute outside large business sales (Tex. Civ. Prac. &amp; Rem. Code § 16.070). The statutory argument was the strong one, and nothing rewarded it.
+					<strong>The key rewards the weaker argument.</strong> A criterion required attacking a one-year contractual limitations period as unconscionable. A federal court applying Georgia law rejected an unconscionability challenge to a commercial contract's 60/90-day reporting-and-claim deadlines (<a href="https://openjurist.org/315/fsupp3d/1342/cobra-tactical-inc-v-payment-alliance-int-l-inc"><em>Cobra Tactical, Inc. v. Payment Alliance Int'l, Inc.</em>, 315 F. Supp. 3d 1342 (N.D. Ga. 2018)</a>). Texas generally makes contractual suit periods shorter than two years void (<a href="https://tcss.legis.texas.gov/resources/CP/htm/CP.16.htm#16.070">Tex. Civ. Prac. &amp; Rem. Code § 16.070</a>), subject to its business-sale exception and applicable special statutes. Whether that rule applies requires classifying the transaction and resolving the governing law. The statutory argument deserved consideration, but the criterion rewarded only unconscionability.
 				</li>
 				<li>
 					<strong>The key requires facts that are not in the record.</strong> One criterion required a specific court deadline that appears nowhere in the task's documents. It can be satisfied only by inventing the date.
@@ -176,7 +176,7 @@ const comparison = [
 				There is also a subtler issue. Rubrics built from long checklists reward recall: flag every issue the authors listed. Practicing lawyers often value the opposite, a short list of dispositive points without the technically accurate but minor ones. A model can learn to satisfy the checklist without getting better at that judgment.
 			</p>
 			<p>
-				None of this makes rubric benchmarks worthless. They measure things outcomes cannot, and their authors are doing hard work. But an answer key deserves the review we would give a brief, and grading against what courts actually decided avoids this particular failure mode entirely.
+				None of this makes rubric benchmarks worthless. They measure things outcomes cannot, and their authors are doing hard work. But an answer key deserves the review we would give a brief. Grading against what courts actually decided avoids prescribing the argument a model must make, though our own outcome labels still need review.
 			</p>
 
 			<h2 id="limits">What outcome grading does not solve</h2>
