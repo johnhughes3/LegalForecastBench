@@ -187,6 +187,23 @@
         "nonblank_line_count": 17,
         "top_level_definition_count": 2
       },
+      "legalforecast/artifact_archive.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "root",
+        "fan_in": 0,
+        "fan_out": 1,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "_download_phase",
+        "largest_symbol_lines": 86,
+        "layer": "application",
+        "line_count": 362,
+        "nonblank_line_count": 330,
+        "top_level_definition_count": 11
+      },
       "legalforecast/contracts/ratchet.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
