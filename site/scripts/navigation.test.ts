@@ -155,6 +155,28 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 						1,
 						`${context}: technical subsections retain their hierarchy`,
 					);
+					if (width === 390) {
+						await page.goto(
+							`http://127.0.0.1:${address.port}/findings/first-release/`,
+						);
+						const region = page.getByRole("region", {
+							name: "High-confidence predictions",
+						});
+						assert.equal(await region.getAttribute("tabindex"), "0");
+						await region.focus();
+						assert.ok(
+							await region.evaluate(
+								(element) => element === document.activeElement,
+							),
+						);
+						await page.keyboard.press("ArrowRight");
+						await page.waitForFunction(
+							() =>
+								(document.querySelector(
+									'[aria-label="High-confidence predictions"]',
+								)?.scrollLeft ?? 0) > 0,
+						);
+					}
 					await page.close();
 				}
 			}

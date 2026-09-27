@@ -182,7 +182,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 			{[
 				["The record", "Each model receives the pre-decision docket and filings through a controlled document-tool harness. The judge's ruling is withheld."],
 				["The question", "For each challenged claim against each defendant, what is the probability it is fully dismissed in the motion's first written disposition?"],
-				["The answer key", "The court's actual ruling. Decisions postdate the cutoffs providers report for the evaluated models; where eligibility cannot be established, the model is marked qualified."],
+				["The answer key", "The court's actual ruling. Six configurations have documented training-data cutoffs before every decision; the other nine are qualified because cutoff evidence is unknown or overlaps the decision window."],
 				["The score", "Brier score: the squared gap between forecast and outcome. It rewards calibration and discrimination, and it punishes confident errors."],
 			].map(([title, body], i) => (
 				<div class="card p-5">
