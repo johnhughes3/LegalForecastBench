@@ -12,6 +12,13 @@ from legalforecast.multiharness.tier0_production_factory import (
     anthropic_messages_transport,
 )
 
+# The deliverable is the stable prefix every criterion of an arm shares, so it
+# carries the one cache breakpoint; the criterion text follows uncached.
+_CACHED_CONTENT = [
+    {"type": "text", "text": "deliverable", "cache_control": {"type": "ephemeral"}},
+    {"type": "text", "text": "criterion"},
+]
+
 
 def test_anthropic_transport_uses_provider_default_sampling(
     monkeypatch: pytest.MonkeyPatch,
@@ -24,7 +31,12 @@ def test_anthropic_transport_uses_provider_default_sampling(
             return SimpleNamespace(
                 content=[SimpleNamespace(type="text", text="pass")],
                 model="claude-sonnet-4-6",
-                usage=SimpleNamespace(input_tokens=12, output_tokens=1),
+                usage=SimpleNamespace(
+                    input_tokens=12,
+                    output_tokens=1,
+                    cache_read_input_tokens=4000,
+                    cache_creation_input_tokens=0,
+                ),
                 to_json=lambda: '{"ok":true}',
             )
 
@@ -38,19 +50,25 @@ def test_anthropic_transport_uses_provider_default_sampling(
         api_key="stub-key",
         model="claude-sonnet-4-6",
         system="system",
-        prompt="prompt",
+        cached_prefix="deliverable",
+        prompt="criterion",
         max_output_tokens=16,
     )
 
     assert result.verdict_text == "pass"
+    assert result.cache_read_input_tokens == 4000
     assert calls[0] == {
         "model": "claude-sonnet-4-6",
         "max_tokens": 16,
         "system": "system",
-        "messages": [{"role": "user", "content": "prompt"}],
+        "messages": [{"role": "user", "content": _CACHED_CONTENT}],
     }
     assert "temperature" not in calls[0] and "top_p" not in calls[0]
     assert JUDGE_SETTINGS["provider_sampling_policy"] == "provider_default"
+    assert JUDGE_SETTINGS["prompt_caching"] == {
+        "breakpoint": "deliverable_prefix",
+        "ttl": "5m",
+    }
     assert "temperature" not in JUDGE_SETTINGS and "top_p" not in JUDGE_SETTINGS
 
 
@@ -80,7 +98,12 @@ def test_anthropic_v1_sdk_round_trips_frozen_messages_request(
                 "model": "claude-sonnet-4-6",
                 "stop_reason": "end_turn",
                 "stop_sequence": None,
-                "usage": {"input_tokens": 12, "output_tokens": 1},
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 1,
+                    "cache_read_input_tokens": 0,
+                    "cache_creation_input_tokens": 4000,
+                },
             },
         )
 
@@ -92,7 +115,8 @@ def test_anthropic_v1_sdk_round_trips_frozen_messages_request(
             api_key="fixture-key",
             model="claude-sonnet-4-6",
             system="system",
-            prompt="prompt",
+            cached_prefix="deliverable",
+            prompt="criterion",
             max_output_tokens=16,
         )
 
@@ -102,12 +126,14 @@ def test_anthropic_v1_sdk_round_trips_frozen_messages_request(
     assert seen["headers"]["anthropic-version"] == "2023-06-01"
     assert seen["body"] == {
         "max_tokens": 16,
-        "messages": [{"role": "user", "content": "prompt"}],
+        "messages": [{"role": "user", "content": _CACHED_CONTENT}],
         "model": "claude-sonnet-4-6",
         "system": "system",
     }
     assert result.verdict_text == "pass"
     assert result.resolved_model == "claude-sonnet-4-6"
     assert result.input_tokens == 12
+    assert result.cache_creation_input_tokens == 4000
+    assert result.cache_read_input_tokens == 0
     assert result.output_tokens == 1
     assert json.loads(result.raw_response)["id"] == "msg_characterization"

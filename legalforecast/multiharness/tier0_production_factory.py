@@ -92,6 +92,11 @@ JUDGE_SETTINGS: Mapping[str, object] = {
     "tools": [],
     "stop_sequences": [],
     "anthropic_sdk_version": REQUIRED_ANTHROPIC_SDK_VERSION,
+    # One 5-minute cache breakpoint closes the deliverable prefix, which every
+    # criterion of an arm shares; the criterion follows it. Caching changes
+    # billing, not the tokens the judge reads, and it is part of the request
+    # shape, so it is named here and covered by judge_settings_sha256.
+    "prompt_caching": {"breakpoint": "deliverable_prefix", "ttl": "5m"},
 }
 JUDGE_SYSTEM_PROMPT = (
     "You are grading one binary criterion for a legal drafting task. "
@@ -128,6 +133,11 @@ RESOURCE_POLICY: Mapping[str, object] = {
 TOKEN_ACCOUNTING_POLICY: Mapping[str, object] = {
     "source": "provider_usage",
     "required_fields": ["input_tokens", "output_tokens"],
+    # Anthropic reports input_tokens as the uncached remainder. The settled
+    # input is uncached + cache reads + 1.25 x cache writes, at the full input
+    # rate: writes at their billed multiple, reads over-counted (billed 0.1x),
+    # so no call settles below what it cost.
+    "cached_input": "reads_at_full_input_rate_writes_at_1.25x",
     "subscription_usage": "refused",
     "unknown_cost": "refused",
 }
@@ -146,10 +156,15 @@ class JudgeTransport(Protocol):
         api_key: str,
         model: str,
         system: str,
+        cached_prefix: str,
         prompt: str,
         max_output_tokens: int,
     ) -> JudgeTransportResult:
-        """Issue the request and report what the provider actually returned."""
+        """Issue the request and report what the provider actually returned.
+
+        ``cached_prefix`` is the criterion-independent part of the user turn
+        (the deliverable); ``prompt`` is the criterion that follows it.
+        """
         ...
 
 
@@ -162,6 +177,22 @@ class JudgeTransportResult:
     input_tokens: int
     output_tokens: int
     raw_response: bytes
+    cache_read_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+
+    @property
+    def settled_input_tokens(self) -> int:
+        """Input tokens to settle at the full input rate, never under cost.
+
+        A cache write bills 1.25x the input rate, so it settles as 5/4 of its
+        tokens, rounded up; a cache read bills 0.1x and settles at 1x.
+        """
+
+        return (
+            self.input_tokens
+            + self.cache_read_input_tokens
+            + -(-5 * self.cache_creation_input_tokens // 4)
+        )
 
 
 def infisical_tier0_judge_secret_loader(environment: str, path: str, name: str) -> str:
@@ -194,10 +225,16 @@ def anthropic_messages_transport(
     api_key: str,
     model: str,
     system: str,
+    cached_prefix: str,
     prompt: str,
     max_output_tokens: int,
 ) -> JudgeTransportResult:
     """Issue one judge request through the official Anthropic SDK.
+
+    The user turn is two text blocks: the deliverable, closed by a cache
+    breakpoint, then the criterion. The breakpoint does not change what the
+    judge reads; it lets the other criteria of the arm read the deliverable
+    from cache instead of paying full input price for it every call.
 
     Imported lazily so that neither this module nor the provider-free tests
     require the optional ``tier0-judge-adapter`` extra to be installed.
@@ -224,8 +261,21 @@ def anthropic_messages_transport(
         model=model,
         max_tokens=max_output_tokens,
         system=system,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": cached_prefix,
+                        "cache_control": {"type": "ephemeral"},
+                    },
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
     )
+    usage: Any = response.usage
     text = "".join(
         str(block.text)
         for block in cast(list[Any], response.content)
@@ -234,9 +284,13 @@ def anthropic_messages_transport(
     return JudgeTransportResult(
         verdict_text=text,
         resolved_model=str(response.model),
-        input_tokens=int(response.usage.input_tokens),
-        output_tokens=int(response.usage.output_tokens),
+        input_tokens=int(usage.input_tokens),
+        output_tokens=int(usage.output_tokens),
         raw_response=str(response.to_json()).encode("utf-8"),
+        cache_read_input_tokens=int(getattr(usage, "cache_read_input_tokens", 0) or 0),
+        cache_creation_input_tokens=int(
+            getattr(usage, "cache_creation_input_tokens", 0) or 0
+        ),
     )
 
 
@@ -252,14 +306,16 @@ class AnthropicMessagesJudgeAdapter:
 
     def __call__(self, call: ProductionJudgeCall) -> ProductionJudgeResponse:
         criterion = call.criterion
-        prompt = _judge_prompt(criterion, call.deliverable)
+        cached_prefix, prompt = _judge_prompt(criterion, call.deliverable)
         # A token spans at least one byte, so bounding the prompt's bytes
         # bounds its tokens. Refusing an oversized prompt is deliberate: a
         # truncated deliverable would produce a confident verdict on a
         # document the candidate did not write, and silently overrun the
         # per-call ceiling the spend policy reserved for this request.
-        prompt_bytes = len(JUDGE_SYSTEM_PROMPT.encode("utf-8")) + len(
-            prompt.encode("utf-8")
+        prompt_bytes = (
+            len(JUDGE_SYSTEM_PROMPT.encode("utf-8"))
+            + len(cached_prefix.encode("utf-8"))
+            + len(prompt.encode("utf-8"))
         )
         if prompt_bytes > self.max_prompt_bytes:
             raise ProductionFactoryError(
@@ -276,6 +332,7 @@ class AnthropicMessagesJudgeAdapter:
             api_key=api_key,
             model=self.requested_model,
             system=JUDGE_SYSTEM_PROMPT,
+            cached_prefix=cached_prefix,
             prompt=prompt,
             max_output_tokens=cast(int, JUDGE_SETTINGS["max_output_tokens"]),
         )
@@ -284,7 +341,7 @@ class AnthropicMessagesJudgeAdapter:
         usage = UsageObservation(
             basis="estimated_from_pricing_snapshot",
             pricing_snapshot_sha256=self.pricing_snapshot.snapshot_sha256,
-            input_tokens=result.input_tokens,
+            input_tokens=result.settled_input_tokens,
             output_tokens=result.output_tokens,
         )
         verdict = result.verdict_text.strip().lower()
@@ -473,13 +530,20 @@ class JudgeAttemptWriter:
 
 def _judge_prompt(
     criterion: Mapping[str, object], deliverable: JudgeDeliverable
-) -> str:
-    """Render the per-criterion prompt from private task material and the work.
+) -> tuple[str, str]:
+    """Render ``(deliverable prefix, criterion)`` for one judge call.
 
     Including the deliverable is the point of the request: a criterion alone
     tells the judge what to look for but never what to look at, and a judge
     given only the criterion still answers -- confidently, billably, and
     identically for every candidate.
+
+    The deliverable comes first because it is identical for every criterion
+    of an arm; as a cached prefix it is billed at full price once per arm
+    rather than once per criterion. Before this order (and the
+    ``prompt_caching`` entry in ``JUDGE_SETTINGS`` that moves
+    ``judge_settings_sha256`` with it) the criterion led; verdicts from the
+    two orders are recorded under different settings digests.
     """
 
     title = criterion.get("title")
@@ -489,12 +553,11 @@ def _judge_prompt(
     if type(deliverable) is not JudgeDeliverable:
         raise ProductionFactoryError("judge call is missing its candidate deliverable")
     heading = title if isinstance(title, str) and title.strip() else "criterion"
-    return (
-        f"Criterion: {heading}\n\n"
-        f"Requirement:\n{match_criteria}\n\n"
+    prefix = (
         f"Candidate deliverables ({', '.join(deliverable.artifact_paths)}):\n"
-        f"<deliverable>\n{deliverable.text}\n</deliverable>\n"
+        f"<deliverable>\n{deliverable.text}\n</deliverable>\n\n"
     )
+    return prefix, f"Criterion: {heading}\n\nRequirement:\n{match_criteria}\n"
 
 
 def policy_digest(record: Mapping[str, object]) -> str:

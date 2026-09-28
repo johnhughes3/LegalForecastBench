@@ -367,7 +367,6 @@ class _CapturingTransport:
         self.verdict = verdict
         self.resolved_model = resolved_model
         self.prompts: list[str] = []
-        self.systems: list[str] = []
 
     def __call__(
         self,
@@ -375,12 +374,12 @@ class _CapturingTransport:
         api_key: str,
         model: str,
         system: str,
+        cached_prefix: str,
         prompt: str,
         max_output_tokens: int,
     ) -> JudgeTransportResult:
-        del api_key, max_output_tokens
-        self.prompts.append(prompt)
-        self.systems.append(system)
+        del api_key, max_output_tokens, system
+        self.prompts.append(cached_prefix + prompt)
         return JudgeTransportResult(
             verdict_text=self.verdict,
             resolved_model=self.resolved_model or model,
