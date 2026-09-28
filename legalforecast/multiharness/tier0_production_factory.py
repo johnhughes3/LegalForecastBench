@@ -134,9 +134,10 @@ TOKEN_ACCOUNTING_POLICY: Mapping[str, object] = {
     "source": "provider_usage",
     "required_fields": ["input_tokens", "output_tokens"],
     # Anthropic reports input_tokens as the uncached remainder. The settled
-    # input is uncached + cache reads + cache writes, all at the full input
-    # rate: reads are over-counted, which is the safe side for a ceiling.
-    "cached_input": "settled_at_full_input_rate",
+    # input is uncached + cache reads + 1.25 x cache writes, at the full input
+    # rate: writes at their billed multiple, reads over-counted (billed 0.1x),
+    # so no call settles below what it cost.
+    "cached_input": "reads_at_full_input_rate_writes_at_1.25x",
     "subscription_usage": "refused",
     "unknown_cost": "refused",
 }
@@ -180,13 +181,17 @@ class JudgeTransportResult:
     cache_creation_input_tokens: int = 0
 
     @property
-    def total_input_tokens(self) -> int:
-        """Every input token the request carried, cached or not."""
+    def settled_input_tokens(self) -> int:
+        """Input tokens to settle at the full input rate, never under cost.
+
+        A cache write bills 1.25x the input rate, so it settles as 5/4 of its
+        tokens, rounded up; a cache read bills 0.1x and settles at 1x.
+        """
 
         return (
             self.input_tokens
             + self.cache_read_input_tokens
-            + self.cache_creation_input_tokens
+            + -(-5 * self.cache_creation_input_tokens // 4)
         )
 
 
@@ -227,8 +232,8 @@ def anthropic_messages_transport(
     """Issue one judge request through the official Anthropic SDK.
 
     The user turn is two text blocks: the deliverable, closed by a cache
-    breakpoint, then the criterion. The judge reads the same text either way;
-    the breakpoint lets the other criteria of the arm read the deliverable
+    breakpoint, then the criterion. The breakpoint does not change what the
+    judge reads; it lets the other criteria of the arm read the deliverable
     from cache instead of paying full input price for it every call.
 
     Imported lazily so that neither this module nor the provider-free tests
@@ -336,7 +341,7 @@ class AnthropicMessagesJudgeAdapter:
         usage = UsageObservation(
             basis="estimated_from_pricing_snapshot",
             pricing_snapshot_sha256=self.pricing_snapshot.snapshot_sha256,
-            input_tokens=result.total_input_tokens,
+            input_tokens=result.settled_input_tokens,
             output_tokens=result.output_tokens,
         )
         verdict = result.verdict_text.strip().lower()
@@ -535,7 +540,10 @@ def _judge_prompt(
 
     The deliverable comes first because it is identical for every criterion
     of an arm; as a cached prefix it is billed at full price once per arm
-    rather than once per criterion.
+    rather than once per criterion. Before this order (and the
+    ``prompt_caching`` entry in ``JUDGE_SETTINGS`` that moves
+    ``judge_settings_sha256`` with it) the criterion led; verdicts from the
+    two orders are recorded under different settings digests.
     """
 
     title = criterion.get("title")

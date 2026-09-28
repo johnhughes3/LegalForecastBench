@@ -79,18 +79,18 @@ def _call(criterion_id: str, deliverable_text: str) -> ProductionJudgeCall:
     )
 
 
-def test_judge_settles_cached_input_at_the_full_input_rate() -> None:
+def test_judge_settles_cached_input_never_below_its_cost() -> None:
     """Anthropic's ``input_tokens`` is the uncached remainder only.
 
     Settling on it alone would make every cache read free in the ledger.
-    Settling the inclusive total at the full input rate over-counts reads,
-    which is the safe side for a spend ceiling.
+    Reads settle at the full input rate (billed 0.1x) and writes at their
+    billed 1.25x, rounded up, so no call settles below what it cost.
     """
 
     response = _adapter(_SplitTransport(cache_read=9000, cache_write=300))(
         _call("criterion-01", "The memo identifies the tolling issue.")
     )
-    assert response.usage.input_tokens == 1200 + 9000 + 300
+    assert response.usage.input_tokens == 1200 + 9000 + 375
 
 
 def test_the_deliverable_is_a_criterion_independent_prefix() -> None:
@@ -102,3 +102,10 @@ def test_the_deliverable_is_a_criterion_independent_prefix() -> None:
     assert "The memo identifies the tolling issue." in transport.prefixes[0]
     assert "requirement" not in transport.prefixes[0]
     assert "requirement" in transport.suffixes[0]
+
+
+def test_a_write_that_does_not_divide_by_four_rounds_up() -> None:
+    response = _adapter(_SplitTransport(cache_write=1025))(
+        _call("criterion-01", "The memo identifies the tolling issue.")
+    )
+    assert response.usage.input_tokens == 1200 + 1282
