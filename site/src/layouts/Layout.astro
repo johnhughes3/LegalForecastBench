@@ -1,4 +1,5 @@
 ---
+import { COURTHOUSE_PATH } from "../brand";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/newsreader";
 import "../styles/global.css";
@@ -71,7 +72,9 @@ const onPaper = path.startsWith("/paper/");
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
 		{!isNotFound && <link rel="canonical" href={canonical} />}
-		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 		<link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
 		<link rel="preload" href={newsreaderLatin} as="font" type="font/woff2" crossorigin />
 		<script is:inline>
@@ -90,11 +93,17 @@ const onPaper = path.startsWith("/paper/");
 	<body class="min-h-screen">
 		<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-surface focus:px-3 focus:py-2">Skip to content</a>
 		<header class="sticky top-0 z-40 border-b border-rule/80 bg-bg/85 backdrop-blur-md">
-			<div class="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
-				<a href="/" class="flex items-center gap-2.5 font-serif text-[1.15rem] font-semibold tracking-tight text-ink">
-					<svg class="size-6 text-accent" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="7" fill="currentColor" /><path d="M10 21.5 14.5 16l3.2 3.2L23 11" fill="none" stroke="var(--bg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
-					LegalForecastBench
-				</a>
+			<div class="mx-auto flex min-h-20 max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
+				<div class="shrink-0 py-3">
+					<a href="/" class="flex items-center gap-2.5 font-serif text-[1.25rem] font-medium tracking-tight text-ink sm:text-[1.4rem]">
+						<svg class="h-7 w-6 text-[#781d2b] dark:text-[#faf9f6]" viewBox="0 0 32 35" aria-hidden="true"><path d={COURTHOUSE_PATH} fill="currentColor" /></svg>
+						LegalForecastBench
+					</a>
+					<a href="https://www.legalquants.com/" class="mt-1 flex items-center gap-3 pl-[2.125rem] text-[11px] text-ink-2">
+						<span>In partnership with LegalQuants</span>
+						<img src="/brand/legalquants.svg" width="24" height="24" alt="" />
+					</a>
+				</div>
 				<nav class="ml-auto hidden items-center gap-1 text-sm lg:flex" aria-label="Primary">
 					{nav.map((item) => (
 						<a
@@ -157,7 +166,7 @@ const onPaper = path.startsWith("/paper/");
 				<div class="space-y-3">
 					<p class="font-serif text-base font-semibold text-ink">LegalForecastBench</p>
 					<p>An independent, open-source research benchmark by <a class="text-ink-2 underline decoration-rule-strong underline-offset-2 hover:text-ink" href={AUTHOR.site}>{AUTHOR.name}</a>. Published predictions are retrospective research artifacts about matters already decided. They are not legal advice.</p>
-					<p>Shared with the LegalQuants community, which supports its distribution. Harvey AI, Harvey LAB, and Vals AI are not sponsors, partners, or endorsers of this work. Provider names identify the measured product surface only.</p>
+					<p>In partnership with LegalQuants, which supports its distribution. Harvey AI, Harvey LAB, and Vals AI are not sponsors, partners, or endorsers of this work. Provider names identify the measured product surface only.</p>
 				</div>
 				<div class="space-y-2">
 					<p class="font-medium text-ink-2">Explore</p>
