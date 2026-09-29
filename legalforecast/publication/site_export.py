@@ -33,6 +33,7 @@ from legalforecast.evals.scorers import (
     UnitScore,
     score_cases,
 )
+from legalforecast.publication.model_cutoffs import cutoff_eligibility, evidence_for
 from legalforecast.publication.site_export_models import (
     SiteCalibrationBin,
     SiteCosts,
@@ -153,7 +154,16 @@ def _metadata(
         entry = matches[0]
     eligibility = "unknown"
     reason = "missing_registry_or_decision_boundary"
-    if entry is not None and boundary is not None:
+    evidence = (
+        evidence_for(entry.model_id, entry.registry_key, base_id)
+        if entry is not None
+        else None
+    )
+    if evidence is not None and boundary is not None:
+        # The maintained table applies the owner's reported-cutoff rule; frozen
+        # registries leave knowledge and month-only cutoffs unknown.
+        eligibility, reason = cutoff_eligibility(evidence, first_decision=boundary)
+    elif entry is not None and boundary is not None:
         decision = classify_registry_entry(entry, contamination_boundary=boundary)
         eligibility = (
             "eligible" if decision.tier is ContaminationTier.RESISTANT else "qualified"
@@ -182,7 +192,17 @@ def _metadata(
             "thinking_level": (
                 entry.thinking_level.value if entry and entry.thinking_level else None
             ),
-            "training_cutoff": entry.provider_training_cutoff if entry else None,
+            "training_cutoff": (
+                entry.provider_training_cutoff
+                if entry and entry.provider_training_cutoff
+                # The date field takes only exact days; month-only evidence stays
+                # in the eligibility reason and the cutoff table.
+                else (
+                    evidence.cutoff
+                    if evidence and evidence.cutoff and len(evidence.cutoff) == 10
+                    else None
+                )
+            ),
             "comparison_eligibility": eligibility,
             "eligibility_reason": reason,
         }

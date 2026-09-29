@@ -20,7 +20,7 @@
 				"thinking_level": null,
 				"training_cutoff": "2026-02-16",
 				"comparison_eligibility": "eligible",
-				"eligibility_reason": "known_cutoff_predates_boundary"
+				"eligibility_reason": "reported_cutoff_predates_decisions"
 			},
 			"case_count": 91,
 			"unit_count": 387,

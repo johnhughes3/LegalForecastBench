@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { comparison } from "./comparison.js";
-import { primarySnapshot } from "./results.js";
+import { assess, cutoffTable } from "./eligibility.js";
+import { primarySnapshot, snapshot } from "./results.js";
 
 const source = (path: string) =>
 	readFileSync(new URL(path, import.meta.url), "utf8");
@@ -39,24 +40,52 @@ test("release significance claim excludes the reference and untested models", ()
 	);
 });
 
-test("cutoff claims preserve the six eligible and nine qualified configurations", () => {
+test("cutoff claims follow the reported-cutoff rule: eleven eligible, four qualified", () => {
 	const eligible = primarySnapshot.models.filter(
 		(model) => model.eligibility === "eligible",
 	);
-	assert.equal(eligible.length, 6);
-	assert.equal(primarySnapshot.models.length - eligible.length, 9);
+	assert.equal(eligible.length, 11);
+	assert.deepEqual(
+		primarySnapshot.models
+			.filter((model) => model.eligibility !== "eligible")
+			.map((model) => model.slug)
+			.sort(),
+		["claude-fable-5-1", "claude-opus-5-5", "kimi-k3", "muse-spark-1-3"],
+	);
 	assert.match(
 		report,
-		/six of the fifteen configurations document a training-data cutoff/,
+		/eleven of the fifteen configurations report a training-data or knowledge cutoff before the first decision/,
 	);
 	assert.doesNotMatch(
 		report + home,
 		/decisions[^.]*postdate the cutoffs providers report/i,
 	);
+	// The home page computes its counts from the data rather than hard-coding them.
 	assert.match(
 		home,
-		/Six configurations have documented training-data cutoffs before every decision; the other nine are qualified/,
+		/\$\{eligibleCount\} of \$\{primarySnapshot\.models\.length\} configurations report a training or knowledge cutoff/,
 	);
+});
+
+test("eligibility comes from the shared cutoff table for every displayed model", () => {
+	for (const model of snapshot.models) {
+		const entry = cutoffTable.find((e) => e.slug === model.slug);
+		assert.ok(entry, model.slug);
+		assert.equal(
+			assess(entry, snapshot.cohort.decision_window.start).eligibility,
+			model.eligibility,
+		);
+	}
+	const month = assess(
+		{ slug: "x", model_ids: [], cutoff: "2026-06", kind: "knowledge" },
+		"2026-06-30",
+	);
+	assert.equal(month.eligibility, "qualified");
+	const may = assess(
+		{ slug: "x", model_ids: [], cutoff: "2026-05", kind: "knowledge" },
+		"2026-06-30",
+	);
+	assert.equal(may.eligibility, "eligible");
 });
 
 test("new report captions use the readable secondary text color", () => {

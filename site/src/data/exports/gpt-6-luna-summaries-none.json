@@ -18,9 +18,9 @@
 				"ablation": null,
 				"reasoning_effort": "none",
 				"thinking_level": null,
-				"training_cutoff": null,
-				"comparison_eligibility": "qualified",
-				"eligibility_reason": "cutoff_not_known"
+				"training_cutoff": "2026-05-18",
+				"comparison_eligibility": "eligible",
+				"eligibility_reason": "reported_cutoff_predates_decisions"
 			},
 			"case_count": 91,
 			"unit_count": 387,

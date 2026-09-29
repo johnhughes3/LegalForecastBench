@@ -18,9 +18,6 @@ export const recentResults = [
 			access: "OpenAI API",
 			display_name: "GPT-6 Sol",
 			reasoning: "High",
-			training_cutoff: "April 20, 2026 (knowledge cutoff)",
-			eligibility_reason:
-				"OpenAI reports an April 20, 2026 knowledge cutoff but has not documented a training-data cutoff, so eligibility cannot be established.",
 			provider: "OpenAI",
 			release: "cycle-1-91-2026-09-08-luna-r5",
 			release_digest:
@@ -37,9 +34,6 @@ export const recentResults = [
 			access: "OpenAI API",
 			display_name: "GPT-6 Luna",
 			reasoning: "High",
-			training_cutoff: "May 18, 2026 (knowledge cutoff)",
-			eligibility_reason:
-				"OpenAI reports a May 18, 2026 knowledge cutoff but has not documented a training-data cutoff, so eligibility cannot be established.",
 			provider: "OpenAI",
 			release: "cycle-1-91-2026-09-08-luna-r5",
 			release_digest:
@@ -56,9 +50,6 @@ export const recentResults = [
 			access: "Anthropic API",
 			display_name: "Claude Opus 5.5",
 			reasoning: "High",
-			training_cutoff: "June 2026",
-			eligibility_reason:
-				"Anthropic reports a June 2026 training-data cutoff without a day, which overlaps the earliest June 30 decision.",
 			provider: "Anthropic",
 			release: "cycle-1-91-2026-09-08-luna-r5",
 			release_digest:
@@ -75,9 +66,6 @@ export const recentResults = [
 			access: "Vercel AI Gateway (served by xAI)",
 			display_name: "Grok 4.7",
 			reasoning: "High",
-			training_cutoff: "May 2026 (knowledge cutoff)",
-			eligibility_reason:
-				"xAI reports a May 2026 knowledge cutoff but has not documented a training-data cutoff, so eligibility cannot be established.",
 			provider: "SpaceXAI",
 			release: "cycle-1-91-2026-09-08-luna-r5",
 			release_digest:
@@ -94,9 +82,6 @@ export const recentResults = [
 			access: "OpenAI API (dated snapshot gpt-4.1-2025-04-14)",
 			display_name: "GPT-4.1",
 			reasoning: "None (non-reasoning model)",
-			training_cutoff: "June 1, 2024 (knowledge cutoff)",
-			eligibility_reason:
-				"OpenAI reports a June 1, 2024 knowledge cutoff but has not documented a training-data cutoff, so eligibility cannot be established.",
 			provider: "OpenAI",
 			release: "cycle-1-91-2026-09-08-luna-r5",
 			release_digest:
@@ -113,9 +98,6 @@ export const recentResults = [
 			access: "Google Gemini API (preview alias)",
 			display_name: "Gemini 3.1 Pro Preview",
 			reasoning: "High thinking",
-			training_cutoff: "January 2025 (knowledge cutoff)",
-			eligibility_reason:
-				"Google reports a January 2025 knowledge cutoff but has not documented a training-data cutoff, so eligibility cannot be established.",
 			provider: "Google",
 			release: "cycle-1-91-2026-09-08-luna-r5",
 			release_digest:
