@@ -17,7 +17,7 @@ data downloads. Specifically:
   - data files (such as JSON and JSONL) under site/src/data/
   - files under site/public/data/
   - the files served under /data/ on https://www.legalforecastbench.org
-  - docs/model-cutoffs.json
+  - legalforecast/data/model_cutoffs.json
 
 Source code, including TypeScript and Python modules that sit in those
 directories, remains licensed under the Apache License 2.0 (see LICENSE).
