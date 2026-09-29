@@ -23,6 +23,7 @@ from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     TrainingCutoffStatus,
 )
+from legalforecast.reporting.model_cutoffs import evidence_for
 
 SIDECAR_KIND = "contamination_tier_sidecar"
 PRELIMINARY_MARKER = "*"
@@ -319,11 +320,30 @@ def classify_registry_entry(
 ) -> ContaminationTierDecision:
     """Classify a frozen registry entry against a cohort eligibility_anchor."""
 
+    status, cutoff = _cutoff_fields(entry)
     return classify_contamination_tier(
-        provider_training_cutoff_status=entry.provider_training_cutoff_status,
-        provider_training_cutoff=entry.provider_training_cutoff,
+        provider_training_cutoff_status=status,
+        provider_training_cutoff=cutoff,
         contamination_boundary=contamination_boundary,
     )
+
+
+def _cutoff_fields(
+    entry: ModelRegistryEntry,
+) -> tuple[TrainingCutoffStatus, date | None]:
+    """Cutoff status and comparison date from the maintained table, else the registry.
+
+    The maintained table (``legalforecast/data/model_cutoffs.json``) applies the
+    owner's reported-cutoff rule; a month-only cutoff is compared as the first day
+    of its month. Frozen registry fields are the fallback for unlisted models.
+    """
+    evidence = evidence_for(entry.model_id, entry.registry_key)
+    if evidence is None:
+        return entry.provider_training_cutoff_status, entry.provider_training_cutoff
+    compared = evidence.comparison_date
+    if compared is None:
+        return TrainingCutoffStatus.UNKNOWN, None
+    return TrainingCutoffStatus.KNOWN, compared
 
 
 def classify_leaderboard_models(
@@ -408,8 +428,8 @@ def sidecar_rows_from_registry(
                 model_id=model_id,
                 contamination_tier=decision.tier,
                 classification_reason=decision.reason,
-                provider_training_cutoff_status=entry.provider_training_cutoff_status,
-                provider_training_cutoff=entry.provider_training_cutoff,
+                provider_training_cutoff_status=_cutoff_fields(entry)[0],
+                provider_training_cutoff=_cutoff_fields(entry)[1],
             )
         )
     return tuple(rows)

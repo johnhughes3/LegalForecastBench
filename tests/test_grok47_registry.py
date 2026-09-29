@@ -6,7 +6,7 @@ from legalforecast.reporting.contamination_tiers import classify_registry_entry
 from legalforecast.runner.gateway import gateway_request_extra_body
 
 
-def test_grok47_route_preserves_month_cutoff_qualification() -> None:
+def test_grok47_month_cutoff_is_eligible_under_reported_cutoff_rule() -> None:
     registry = load_model_registry(
         Path("model_registries/cycle-1-official-grok-4.7-gateway-2026-09-21.json")
     )
@@ -24,5 +24,7 @@ def test_grok47_route_preserves_month_cutoff_qualification() -> None:
         classify_registry_entry(
             entry, contamination_boundary=date(2026, 6, 30)
         ).tier.value
-        == "preliminary"
+        # The frozen registry keeps the cutoff unknown; the maintained cutoff table
+        # records May 2026, which precedes the June 30 first decision.
+        == "contamination_resistant"
     )

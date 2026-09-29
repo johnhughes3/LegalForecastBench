@@ -11,8 +11,9 @@ import type {
  * Comparison eligibility from the maintained cutoff table that the Python
  * exporter also uses (legalforecast/data/model_cutoffs.json). Owner rule,
  * 2026-09-28: eligible when the provider-reported training-data or knowledge
- * cutoff falls before the earliest scored decision; a month counts as its
- * last day.
+ *  cutoff falls before the earliest scored decision; a month counts as its
+ * first day, because same-day ingestion of a new decision is implausible
+ * (owner decision, 2026-09-28).
  */
 export interface CutoffEntry {
 	slug: string;
@@ -75,16 +76,24 @@ export function assess(
 	const kind = entry.kind === "training" ? "training-data" : "knowledge";
 	const label = formatCutoff(entry.cutoff);
 	const training_cutoff = `${label} (${kind} cutoff)`;
-	if (lastDay(entry.cutoff) < firstDecision) {
+	// A month-only cutoff is compared as the first day of its month: ingesting a
+	// decision on the day it issued is implausible (owner decision, 2026-09-28).
+	const monthOnly = entry.cutoff.length === 7;
+	const compared = monthOnly ? `${entry.cutoff}-01` : entry.cutoff;
+	const precedes = compared < firstDecision;
+	if (precedes) {
 		return {
 			eligibility: "eligible",
-			reason: `The reported ${kind} cutoff (${label}) predates the first scored decision on ${formatIso(firstDecision)}.${note}`,
+			reason:
+				monthOnly && entry.cutoff === firstDecision.slice(0, 7)
+					? `The reported ${kind} cutoff (${label}) is in the month of the first scored decision (${formatIso(firstDecision)}). It is treated as preceding that decision, because a ruling is very unlikely to enter training data the day it issues.${note}`
+					: `The reported ${kind} cutoff (${label}) predates the first scored decision on ${formatIso(firstDecision)}.${note}`,
 			training_cutoff,
 		};
 	}
 	return {
 		eligibility: "qualified",
-		reason: `The reported ${kind} cutoff (${label}) could fall on or after the first scored decision on ${formatIso(firstDecision)}.${note}`,
+		reason: `The reported ${kind} cutoff (${label}) falls on or after the first scored decision on ${formatIso(firstDecision)}.${note}`,
 		training_cutoff,
 	};
 }

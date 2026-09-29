@@ -1,5 +1,5 @@
 {
-	"policy": "A model is eligible when its provider-reported training-data or knowledge cutoff falls before the earliest scored decision. A month-only cutoff counts as the last day of that month. A missing cutoff, or one on or after the earliest decision, is qualified. A reported cutoff is evidence, not proof of what a model saw. Owner decision, 2026-09-28.",
+	"policy": "A model is eligible when its provider-reported training-data or knowledge cutoff falls before the earliest scored decision. A month-only cutoff is compared as the first day of that month, because ingesting a decision on the day it issued is implausible. A missing cutoff, or one on or after the earliest decision, is qualified. A reported cutoff is evidence, not proof of what a model saw. Owner decisions, 2026-09-28.",
 	"models": [
 		{
 			"slug": "claude-fable-5-1",

@@ -3,7 +3,7 @@ export const EXPLAIN = {
 	eligible:
 		"Eligible: the provider reports a training-data or knowledge cutoff before the first decision in this cohort, so the outcomes should postdate the model's training data. A reported cutoff is evidence, not proof.",
 	qualified:
-		"Qualified: the provider has not published a cutoff, or the reported cutoff could fall on or after the first decision (for example, a month-only cutoff in the month of the first decision). The score is shown, but read it with that caveat.",
+		"Qualified: the provider has not published a cutoff, or the reported cutoff falls on or after the first decision. The score is shown, but read it with that caveat.",
 	unknown:
 		"Unknown: the export does not record enough information to assess whether the model's training data predates the decisions.",
 	frontier:

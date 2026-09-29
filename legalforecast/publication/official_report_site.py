@@ -212,8 +212,8 @@ def build_official_report_page(
         "<section id='interpretation' aria-labelledby='interpretation-title'>",
         "<h2 id='interpretation-title'>How to interpret this result</h2>",
         (
-            "<p><strong>Contamination.</strong> Eligibility requires a documented "
-            "training-data cutoff that strictly predates every scored decision. "
+            "<p><strong>Contamination.</strong> Eligibility requires a reported "
+            "training or knowledge cutoff before the earliest scored decision. "
             "That evidence reduces temporal contamination risk; it does not prove "
             "immunity from memorization, pretraining overlap, or other contamination. "
             "Release dates and historical release-arm classifications remain visible "
