@@ -1,0 +1,153 @@
+---
+import ConfidenceChart from "../components/ConfidenceChart";
+import Leaderboard from "../components/Leaderboard";
+import ParetoChart from "../components/ParetoChart";
+import { CURRENT_RELEASE } from "../data/analysis";
+import { comparison, comparisonScope } from "../data/comparison";
+import { formatPercent, formatUsd, paretoFrontier } from "../data/metrics";
+import { primarySnapshot, snapshot } from "../data/results";
+import { supplementaryRows } from "../data/supplementary-results";
+import Layout from "../layouts/Layout.astro";
+
+const { cohort } = snapshot;
+const ranked = [...primarySnapshot.models].sort(
+	(a, b) => a.micro_brier - b.micro_brier,
+);
+const leader = ranked[0];
+const frontierModels = paretoFrontier(primarySnapshot, "micro_brier");
+const perfect = primarySnapshot.models.filter(
+	(m) => m.high_confidence.count > 0 && m.high_confidence.wrong === 0,
+);
+const n = primarySnapshot.cohort.unit_count;
+const comparisonCurrent = comparison.available_models.filter((slug) =>
+	primarySnapshot.models.some((m) => m.slug === slug),
+).length;
+const worstHighConfidenceRate = Math.max(
+	...primarySnapshot.models
+		.filter((m) => m.high_confidence.count > 0)
+		.map((m) => m.high_confidence.wrong / m.high_confidence.count),
+);
+const takeaways: [string, string][] = leader
+	? [
+			[
+				`${leader.display_name} has the best observed scores.`,
+				`Micro Brier ${leader.micro_brier.toFixed(4)}, equal-case Brier ${leader.equal_case_brier.toFixed(4)}, and ${formatPercent(leader.correct / n)} accuracy, at an estimated ${formatUsd(leader.cost.usd)} for all ${primarySnapshot.cohort.case_count} cases. It is not statistically separated from the other tested models.`,
+			],
+			[
+				"Cheap models hold the cost frontier.",
+				`${frontierModels.map((m) => `${m.display_name} (${formatUsd(m.cost.usd)})`).join(", ")}: no other model is both cheaper and better.`,
+			],
+			[
+				"No tested pair of current models differed significantly.",
+				`Among the ${comparisonCurrent} current models in the paired analysis, no difference reached significance after correcting for multiple comparisons. The other models were not tested pairwise, so their order is descriptive.`,
+			],
+			[
+				"Confidence is where models differ most.",
+				`${perfect.map((m) => m.display_name).join(" and ")} never missed a prediction made with at least 90% confidence; others missed up to ${formatPercent(worstHighConfidenceRate, 0)} of theirs. These subsets differ in size and case mix, so zero misses is not proof of calibration.`,
+			],
+		]
+	: [];
+
+const jevRow = supplementaryRows.find(
+	(row) => row.slug === "jev-luna-summaries",
+);
+---
+
+<Layout title="Results" description="Full-document leaderboard, cost frontier, and calibration for every model configuration in the current LegalForecastBench release.">
+	<section class="border-b border-rule">
+		<div class="mx-auto max-w-6xl px-4 pb-10 pt-14 sm:px-6">
+			<p class="eyebrow">Results · {CURRENT_RELEASE}</p>
+			<h1 class="mt-3 max-w-4xl font-serif text-4xl font-medium tracking-tight sm:text-5xl">How well each model forecast the rulings</h1>
+			<p class="mt-5 max-w-3xl text-lg leading-relaxed text-ink-2">
+				{primarySnapshot.models.length} model configurations read the full pre-decision record of {cohort.case_count} federal motions to dismiss through the same document-tool harness and forecast {cohort.unit_count} claim-defendant outcomes. Summary-based conditions are a <a class="text-accent hover:underline" href="/experiments/summary-pipelines/">separate experiment</a> and are not ranked here.
+			</p>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-12 sm:px-6">
+		<div class="grid gap-10 lg:grid-cols-[1fr_20rem]">
+			<div>
+				<h2 class="font-serif text-2xl font-semibold tracking-tight">Key takeaways</h2>
+				<ol class="mt-5 space-y-4 text-[1.02rem] leading-relaxed text-ink-2">
+					{takeaways.map(([title, body], i) => (
+						<li class="flex gap-3">
+							<span class="mt-0.5 font-serif text-accent">{i + 1}</span>
+							<span><strong class="font-semibold text-ink">{title}</strong> {body}</span>
+						</li>
+					))}
+					<li class="flex gap-3">
+						<span class="mt-0.5 font-serif text-accent">{takeaways.length + 1}</span>
+						<span><strong class="font-semibold text-ink">A summary pipeline scored worse than guessing 50%.</strong> TypeSafe's Jev, forecasting from case summaries, scored worse than always answering 50%, while OpenAI models given the same summaries beat the base rate. <a class="text-accent hover:underline" href="/experiments/summary-pipelines/">See the experiment →</a></span>
+					</li>
+				</ol>
+			</div>
+			<aside class="card h-fit space-y-3 p-5 text-sm text-ink-2">
+				<p class="eyebrow">Read this first</p>
+				<p>This is a <strong class="text-ink">public beta</strong>, and we are refining and improving the benchmark as we go. It runs on {cohort.case_count} cases, with one retained forecast per unit. Treat the ordering among the top models as provisional.</p>
+				<p>Scores are comparable only within this cohort. Future versions use new cases and will not be directly comparable.</p>
+				<a class="inline-flex items-center gap-1 font-medium text-accent hover:underline" href="/findings/first-release/">Read the release report →</a>
+			</aside>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6" id="leaderboard">
+		<div class="mb-5 flex flex-wrap items-end justify-between gap-4">
+			<div>
+				<p class="eyebrow">Leaderboard</p>
+				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Forecast quality by model</h2>
+			</div>
+			<p class="max-w-md text-sm text-ink-3">Ranked by micro Brier, the headline metric. Lower is better. <span class="hidden md:inline">Click any column to re-sort.</span></p>
+		</div>
+		<Leaderboard client:load snapshot={primarySnapshot} />
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-6 sm:px-6" aria-labelledby="inference-scope">
+		<div class="card p-5 text-sm leading-relaxed text-ink-2">
+			<h2 id="inference-scope" class="font-medium text-ink">What the ordering does and does not show</h2>
+			<p class="mt-2">{comparisonScope} Untested pairs remain untested, and a non-significant difference is not evidence that two models are equivalent. Each configuration's model page lists its version, reasoning setting, training-cutoff evidence, and cost basis.</p>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+		<div class="grid gap-10 lg:grid-cols-[18rem_1fr]">
+			<div>
+				<p class="eyebrow">Cost and quality</p>
+				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">What each point of accuracy costs</h2>
+				<p class="mt-4 text-sm leading-relaxed text-ink-2">Each point is one model's total standard-rate cost for the cohort against its score. Diamonds joined by the dashed line form the observed frontier: no other model is both cheaper and better.</p>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">Frontier membership is descriptive and includes only models with cost evidence. A rank alone does not establish statistical significance.</p>
+			</div>
+			<div class="card min-w-0 p-4 sm:p-6">
+				<ParetoChart client:visible snapshot={primarySnapshot} />
+			</div>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+		<div class="grid gap-10 lg:grid-cols-[18rem_1fr]">
+			<div>
+				<p class="eyebrow">Calibration at the extremes</p>
+				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">When models are sure, are they right?</h2>
+				<p class="mt-4 text-sm leading-relaxed text-ink-2">Among predictions made with at least 90% confidence either way, the hollow circle is the mean stated confidence and the filled circle is how often those predictions were right.</p>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">Brier scoring squares each error, so a few confident misses can outweigh many good calls.</p>
+				<a class="mt-4 inline-flex text-sm font-medium text-accent hover:underline" href="/findings/confident-misses/">Why confident misses cost so much →</a>
+			</div>
+			<div class="card min-w-0 p-4 sm:p-6">
+				<ConfidenceChart snapshot={primarySnapshot} />
+			</div>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+		<a href="/experiments/summary-pipelines/" class="group grid gap-6 overflow-hidden rounded-2xl border border-rule-strong bg-surface-2 p-6 transition hover:border-accent/40 sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
+			<div>
+				<p class="eyebrow">Experiment · Summary pipelines</p>
+				<h2 class="mt-2 font-serif text-2xl font-semibold tracking-tight group-hover:text-accent sm:text-3xl">Given the same case summaries, Jev forecast worse than always guessing 50%</h2>
+				<p class="mt-3 max-w-2xl text-sm leading-relaxed text-ink-2">TypeSafe's Jev forecast from GPT-5.6 Luna summaries and scored below every naive baseline. Two OpenAI controls reading the identical summaries, including GPT-6 Luna with reasoning off, beat the base rate.</p>
+			</div>
+			<div class="flex gap-6 md:text-right">
+				{jevRow && <div><p class="font-serif text-3xl tabular text-ink">{jevRow.micro_brier.toFixed(3)}</p><p class="text-xs text-ink-3">Jev micro Brier</p></div>}
+				<div><p class="font-serif text-3xl tabular text-ink">0.250</p><p class="text-xs text-ink-3">Always 50%</p></div>
+			</div>
+		</a>
+	</section>
+</Layout>

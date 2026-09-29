@@ -1,0 +1,41 @@
+---
+import { METRICS } from "../data/metrics";
+import type { ResultsSnapshot } from "../data/snapshot";
+
+interface Props {
+	snapshot: ResultsSnapshot;
+}
+
+// A compact, static view of the headline metric for the overview page. The
+// interactive, sortable leaderboard lives on /results/.
+const { snapshot } = Astro.props;
+const rows = [...snapshot.models].sort((a, b) => a.micro_brier - b.micro_brier);
+const baseRate = snapshot.cohort.constant_forecast_micro_brier;
+const coin = 0.25;
+// Bars run from zero to the always-50% score, so both references sit on the axis.
+const scale = Math.max(coin, ...rows.map((m) => m.micro_brier));
+const pct = (value: number) => `${((value / scale) * 100).toFixed(2)}%`;
+---
+
+<figure class="not-serif">
+	<div class="relative space-y-1.5">
+		{rows.map((m) => (
+			<a href={`/models/${m.slug}/`} class="group grid grid-cols-[9.5rem_1fr_3.5rem] items-center gap-3 text-sm sm:grid-cols-[12rem_1fr_4rem]">
+				<span class="truncate text-ink-2 group-hover:text-accent">
+					{m.display_name}{m.eligibility !== "eligible" && <sup class="text-ink-3" aria-label="qualified cutoff evidence">†</sup>}
+				</span>
+				<span class="relative h-3 rounded-full bg-surface-2">
+					<span class="absolute inset-y-0 left-0 rounded-full bg-accent/70 group-hover:bg-accent" style={`width:${pct(m.micro_brier)}`}></span>
+				</span>
+				<span class="text-right tabular text-ink">{METRICS.micro_brier.format(m.micro_brier)}</span>
+			</a>
+		))}
+		<div class="pointer-events-none absolute inset-y-0 left-[10.25rem] right-[4.25rem] sm:left-[12.75rem] sm:right-[4.75rem]" aria-hidden="true">
+			<span class="absolute inset-y-0 border-l border-dashed border-ink-3/60" style={`left:${pct(baseRate)}`}></span>
+			<span class="absolute inset-y-0 border-l border-dashed border-ink-3" style={`left:${pct(coin)}`}></span>
+		</div>
+	</div>
+	<figcaption class="mt-4 text-xs leading-relaxed text-ink-2">
+		Micro Brier by configuration on {snapshot.cohort.unit_count} units; lower is better. Dashed lines mark always forecasting the cohort's dismissal rate ({baseRate.toFixed(3)}, a retrospective reference) and always forecasting 50% (0.250). † Qualified: no published training or knowledge cutoff before the first decision, or one that could overlap the decision window.
+	</figcaption>
+</figure>

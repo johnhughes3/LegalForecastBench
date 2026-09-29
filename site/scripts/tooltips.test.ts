@@ -60,7 +60,7 @@ test("tooltips remain described, dismissible, and visible on static and hydrated
 						if (message.type() === "error") errors.push(message.text());
 					});
 					for (const path of [
-						"/",
+						"/results/",
 						"/models/gpt-6-sol/",
 						"/experiments/summary-pipelines/",
 					]) {
@@ -82,7 +82,7 @@ test("tooltips remain described, dismissible, and visible on static and hydrated
 							.map((match) => match[1])
 							.sort();
 						await page.evaluate(() => document.fonts.ready);
-						if (path === "/")
+						if (path === "/results/")
 							await page
 								.getByRole("heading", { name: "Forecast quality by model" })
 								.scrollIntoViewIfNeeded();

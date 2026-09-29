@@ -40,10 +40,10 @@ const datasetLd = {
 };
 ---
 
-<Layout title="Data and reproduction" description="Download the results LegalForecastBench displays and see where they come from.">
+<Layout title="Data & code" description="Download the results LegalForecastBench displays, reproduce the scoring, and see where the evidence comes from.">
 	<script type="application/ld+json" set:html={JSON.stringify(datasetLd)} />
 	<section class="mx-auto max-w-5xl px-4 pt-14 sm:px-6">
-		<p class="eyebrow">Data</p>
+		<p class="eyebrow">Data &amp; code</p>
 		<div class="mt-3 flex flex-wrap items-end justify-between gap-4">
 			<h1 class="font-serif text-4xl font-medium tracking-tight sm:text-5xl">Data and reproduction</h1>
 			<a href={repo} class="inline-flex items-center gap-2 rounded-full border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:border-ink">
@@ -108,6 +108,7 @@ const datasetLd = {
 						<li class="px-4 py-3"><a class="text-ink-2 hover:text-accent" href={`/data/significance/${slug}.jsonl`} download>{nameOf(slug)} <span class="text-ink-3">· units (JSONL)</span></a></li>
 					))}
 				</ul>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">Per-unit predictions are not available for the other {comparison.missing_models.length} ranked configurations ({comparison.missing_models.map(nameOf).join(", ")}). Their unit-level predictions were not recoverable for this analysis, so their published aggregate scores cannot be rescored from units or included in paired comparisons.</p>
 				<p class="mt-3 text-sm"><a class="text-accent hover:underline" href="/data/run-notes/#significance">Scope of the analysis →</a></p>
 			</div>
 		</div>

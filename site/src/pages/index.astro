@@ -1,62 +1,37 @@
 ---
-import ConfidenceChart from "../components/ConfidenceChart";
-import FindingCard from "../components/FindingCard.astro";
-import Leaderboard from "../components/Leaderboard";
-import ParetoChart from "../components/ParetoChart";
+import BrierBars from "../components/BrierBars.astro";
 import Stat from "../components/Stat.astro";
+import { CURRENT_RELEASE } from "../data/analysis";
+import { AUTHOR } from "../data/author";
 import { comparison } from "../data/comparison";
-import { publishedFindings } from "../data/findings";
-import { formatPercent, formatUsd, paretoFrontier } from "../data/metrics";
+import { formatPercent } from "../data/metrics";
+import { PAPER } from "../data/paper";
 import { primarySnapshot, snapshot } from "../data/results";
 import { supplementaryRows } from "../data/supplementary-results";
 import Layout from "../layouts/Layout.astro";
 
 const { cohort } = snapshot;
-const findings = (await publishedFindings()).slice(0, 3);
 const ranked = [...primarySnapshot.models].sort(
 	(a, b) => a.micro_brier - b.micro_brier,
 );
-const leader = ranked[0];
-const frontierModels = paretoFrontier(primarySnapshot, "micro_brier");
-const perfect = primarySnapshot.models.filter(
-	(m) => m.high_confidence.count > 0 && m.high_confidence.wrong === 0,
-);
-const n = primarySnapshot.cohort.unit_count;
+const [leader, runnerUp] = ranked;
+const tested = (slug: string) => comparison.available_models.includes(slug);
 const eligibleCount = primarySnapshot.models.filter(
 	(m) => m.eligibility === "eligible",
 ).length;
-const comparisonCurrent = comparison.available_models.filter((slug) =>
-	primarySnapshot.models.some((m) => m.slug === slug),
+const testedCurrent = primarySnapshot.models.filter((m) =>
+	tested(m.slug),
 ).length;
-const worstHighConfidenceRate = Math.max(
-	...primarySnapshot.models
-		.filter((m) => m.high_confidence.count > 0)
-		.map((m) => m.high_confidence.wrong / m.high_confidence.count),
+const confident = primarySnapshot.models.filter(
+	(m) => m.high_confidence.count > 0,
 );
-const takeaways: [string, string][] = leader
-	? [
-			[
-				`${leader.display_name} has the best observed scores.`,
-				`Micro Brier ${leader.micro_brier.toFixed(4)}, equal-case Brier ${leader.equal_case_brier.toFixed(4)}, and ${formatPercent(leader.correct / n)} accuracy, at an estimated ${formatUsd(leader.cost.usd)} for all ${primarySnapshot.cohort.case_count} cases. It is not statistically separated from the other tested models.`,
-			],
-			[
-				"Cheap models hold the cost frontier.",
-				`${frontierModels.map((m) => `${m.display_name} (${formatUsd(m.cost.usd)})`).join(", ")}: no other model is both cheaper and better.`,
-			],
-			[
-				"No tested pair of current models differed significantly.",
-				`Among the ${comparisonCurrent} current models in the paired analysis, no difference reached significance after correcting for multiple comparisons. The other models were not tested pairwise, so their order is descriptive.`,
-			],
-			[
-				"Confidence is where models differ most.",
-				`${perfect.map((m) => m.display_name).join(" and ")} never missed a prediction made with at least 90% confidence; others missed up to ${formatPercent(worstHighConfidenceRate, 0)} of theirs.`,
-			],
-		]
-	: [];
-
-const jevRow = supplementaryRows.find(
-	(row) => row.slug === "jev-luna-summaries",
+const worstConfident = confident.reduce((worst, m) =>
+	m.high_confidence.wrong / m.high_confidence.count >
+	worst.high_confidence.wrong / worst.high_confidence.count
+		? m
+		: worst,
 );
+const jev = supplementaryRows.find((row) => row.slug === "jev-luna-summaries");
 const fmtDate = (iso: string) =>
 	new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
 		month: "short",
@@ -64,122 +39,108 @@ const fmtDate = (iso: string) =>
 		timeZone: "UTC",
 	});
 const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.decision_window.end)}, 2026`;
+
+const contributions = [
+	[
+		"A specified legal forecast target",
+		"The probability that each challenged claim against each defendant is fully dismissed in the motion's first written disposition, scored against what the court later did.",
+	],
+	[
+		"Reconstructed records and documented labels",
+		"A process for rebuilding the record the judge had before ruling and translating each ruling into claim-defendant labels, with its review coverage stated in the methods.",
+	],
+	[
+		"Controlled comparisons and failure analysis",
+		"Experiments and error analysis that expose probabilistic mistakes and task-interpretation problems, not just a rank order.",
+	],
+];
+
+const findings: { title: string; body: string; href: string }[] =
+	leader && runnerUp
+		? [
+				{
+					title: `${leader.display_name} has the best observed scores; ${runnerUp.display_name} follows on micro Brier.`,
+					body: `Among the ${testedCurrent} current configurations in the paired analysis, no difference reached significance after correction${tested(runnerUp.slug) ? "" : `, and ${runnerUp.display_name} was not among them`}. The ordering across all ${primarySnapshot.models.length} configurations is descriptive.`,
+					href: "/results/",
+				},
+				{
+					title: "Confident misses are expensive.",
+					body: `At 90% stated confidence or more, some configurations had no misses while ${worstConfident.display_name} missed ${formatPercent(worstConfident.high_confidence.wrong / worstConfident.high_confidence.count, 0)}. Brier scoring squares each error, so a few confident misses outweigh many good calls.`,
+					href: "/findings/confident-misses/",
+				},
+				{
+					title: "A summary pipeline scored worse than always guessing 50%.",
+					body: `Jev scored ${jev ? jev.micro_brier.toFixed(3) : "n/a"} micro Brier from case summaries, against 0.250 for a constant 50% forecast. Two OpenAI controls given the identical summaries did better, so the summaries alone do not explain the result.`,
+					href: "/experiments/summary-pipelines/",
+				},
+			]
+		: [];
 ---
 
-<Layout>
+<Layout description="An open research benchmark testing whether AI models can forecast federal motion-to-dismiss outcomes from the court record available before the decision.">
 	<section class="relative overflow-hidden border-b border-rule">
 		<div class="pointer-events-none absolute inset-0 opacity-[0.5] [background-image:radial-gradient(var(--rule)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"></div>
 		<div class="relative mx-auto max-w-6xl px-4 pb-14 pt-16 sm:px-6 sm:pt-24">
-			<p class="eyebrow">Beta results · {new Date(`${snapshot.as_of}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}</p>
+			<p class="eyebrow">Research benchmark · {CURRENT_RELEASE}</p>
 			<h1 class="mt-4 max-w-4xl font-serif text-4xl font-medium leading-[1.08] tracking-tight text-ink sm:text-6xl">
 				Can frontier models predict how federal judges will rule on motions to dismiss?
 			</h1>
 			<p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink-2">
-				LegalForecastBench gives models the written record a judge received and asks for the probability that each challenged claim will be fully dismissed. Every forecast is scored against what the court actually did.
+				LegalForecastBench tests whether AI models can forecast federal motion-to-dismiss outcomes from the court record available before the decision. It measures both predictive accuracy and the quality of the models' probabilities.
 			</p>
-			<div class="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium">
-				<a class="text-accent hover:underline" href="#leaderboard">See the leaderboard ↓</a>
-				<a class="text-accent hover:underline" href="/approach/">Why outcomes, not rubrics →</a>
+			<div class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
+				<a class="font-medium text-ink hover:text-accent" href={AUTHOR.research}>{AUTHOR.name}</a>
+				<span class="text-rule-strong" aria-hidden="true">|</span>
+				<a class="font-medium text-accent hover:underline" href="/paper/">{PAPER.status} →</a>
+				<a class="font-medium text-accent hover:underline" href="/data/">Code &amp; results →</a>
+				<a class="font-medium text-accent hover:underline" href={AUTHOR.contact}>Contact →</a>
 			</div>
+			<p class="mt-3 text-xs text-ink-3">Shared with the LegalQuants community.</p>
 			<div class="mt-12 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
 				<Stat value={String(cohort.case_count)} label="Federal cases" detail={`Decided ${window}`} />
-				<Stat value={String(cohort.unit_count)} label="Scored units" detail="Claim × defendant predictions" />
-				<Stat value={String(primarySnapshot.models.length)} label="Models compared" detail={`${new Set(primarySnapshot.models.map((m) => m.provider)).size} providers · full record`} />
+				<Stat value={String(cohort.unit_count)} label="Scored units" detail="Claim × defendant forecasts" />
+				<Stat value={String(primarySnapshot.models.length)} label="Model configurations" detail={`${new Set(primarySnapshot.models.map((m) => m.provider)).size} providers · full record`} />
 				<Stat value={formatPercent(cohort.dismissed_unit_count / cohort.unit_count)} label="Dismissal base rate" detail="Units fully dismissed" />
 			</div>
 		</div>
 	</section>
 
-	<section class="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
-		<div class="grid gap-10 lg:grid-cols-[1fr_20rem]">
-			<div>
-				<h2 class="font-serif text-2xl font-semibold tracking-tight">Key takeaways</h2>
-                <ol class="mt-5 space-y-4 text-[1.02rem] leading-relaxed text-ink-2">
-					{takeaways.map(([title, body], i) => (
-						<li class="flex gap-3">
-							<span class="mt-0.5 font-serif text-accent">{i + 1}</span>
-							<span><strong class="font-semibold text-ink">{title}</strong> {body}</span>
-						</li>
-					))}
-					<li class="flex gap-3">
-						<span class="mt-0.5 font-serif text-accent">{takeaways.length + 1}</span>
-						<span><strong class="font-semibold text-ink">A summary pipeline scored worse than guessing 50%.</strong> TypeSafe's Jev, forecasting from case summaries, scored worse than always answering 50%, while OpenAI models given the same summaries beat the base rate. <a class="text-accent hover:underline" href="/experiments/summary-pipelines/">See the experiment →</a></span>
-					</li>
-				</ol>
-			</div>
-			<aside class="card h-fit space-y-3 p-5 text-sm text-ink-2">
-				<p class="eyebrow">Read this first</p>
-				<p>This is a <strong class="text-ink">public beta</strong>, and we are refining and improving the benchmark as we go. It runs on {cohort.case_count} cases, with one retained forecast per unit. Treat the ordering among the top models as provisional.</p>
-				<p>Scores are comparable only within this cohort. Future versions use new cases and will not be directly comparable.</p>
-				<a class="inline-flex items-center gap-1 font-medium text-accent hover:underline" href="/findings/first-release/">Read the release report →</a>
-			</aside>
-		</div>
+	<section class="mx-auto max-w-6xl px-4 pt-14 sm:px-6" aria-labelledby="contributions">
+		<p class="eyebrow">What this work contributes</p>
+		<h2 id="contributions" class="sr-only">Contributions</h2>
+		<ol class="mt-5 grid gap-4 md:grid-cols-3">
+			{contributions.map(([title, body], i) => (
+				<li class="card p-5">
+					<p class="font-serif text-sm text-accent">0{i + 1}</p>
+					<h3 class="mt-2 font-serif text-lg font-semibold leading-snug">{title}</h3>
+					<p class="mt-2 text-sm leading-relaxed text-ink-2">{body}</p>
+				</li>
+			))}
+		</ol>
 	</section>
 
-	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6" id="leaderboard">
-		<div class="mb-5 flex flex-wrap items-end justify-between gap-4">
-			<div>
-				<p class="eyebrow">Leaderboard</p>
-				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Forecast quality by model</h2>
-			</div>
-			<p class="max-w-md text-sm text-ink-3">Ranked by micro Brier, the headline metric. Lower is better. <span class="hidden md:inline">Click any column to re-sort.</span></p>
-		</div>
-		<Leaderboard client:load snapshot={primarySnapshot} />
-	</section>
-
-	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
-		<div class="grid gap-10 lg:grid-cols-[18rem_1fr]">
-			<div>
-				<p class="eyebrow">Cost and quality</p>
-				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">What each point of accuracy costs</h2>
-				<p class="mt-4 text-sm leading-relaxed text-ink-2">Each point is one model's total standard-rate cost for the cohort against its score. Diamonds joined by the dashed line form the observed frontier: no other model is both cheaper and better.</p>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">Frontier membership is descriptive and includes only models with cost evidence. A rank alone does not establish statistical significance.</p>
-			</div>
-			<div class="card min-w-0 p-4 sm:p-6">
-				<ParetoChart client:visible snapshot={primarySnapshot} />
-			</div>
-		</div>
-	</section>
-
-	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
-		<div class="grid gap-10 lg:grid-cols-[18rem_1fr]">
-			<div>
-				<p class="eyebrow">Calibration at the extremes</p>
-				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">When models are sure, are they right?</h2>
-				<p class="mt-4 text-sm leading-relaxed text-ink-2">Among predictions made with at least 90% confidence either way, the hollow circle is the mean stated confidence and the filled circle is how often those predictions were right.</p>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">Brier scoring squares each error, so a few confident misses can outweigh many good calls.</p>
-				<a class="mt-4 inline-flex text-sm font-medium text-accent hover:underline" href="/findings/confident-misses/">Why confident misses cost so much →</a>
-			</div>
-			<div class="card min-w-0 p-4 sm:p-6">
-				<ConfidenceChart snapshot={primarySnapshot} />
-			</div>
-		</div>
-	</section>
-
-	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
-		<a href="/experiments/summary-pipelines/" class="group grid gap-6 overflow-hidden rounded-2xl border border-rule-strong bg-surface-2 p-6 transition hover:border-accent/40 sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
-			<div>
-				<p class="eyebrow">Experiment · Summary pipelines</p>
-				<h2 class="mt-2 font-serif text-2xl font-semibold tracking-tight group-hover:text-accent sm:text-3xl">Given the same case summaries, Jev forecast worse than always guessing 50%</h2>
-				<p class="mt-3 max-w-2xl text-sm leading-relaxed text-ink-2">TypeSafe's Jev forecast from GPT-5.6 Luna summaries and scored below every naive baseline. OpenAI models reading the same summaries beat the base rate, even with reasoning off.</p>
-			</div>
-			<div class="flex gap-6 md:text-right">
-				{jevRow && <div><p class="font-serif text-3xl tabular text-ink">{jevRow.micro_brier.toFixed(3)}</p><p class="text-xs text-ink-3">Jev micro Brier</p></div>}
-				<div><p class="font-serif text-3xl tabular text-ink">0.250</p><p class="text-xs text-ink-3">Always 50%</p></div>
-			</div>
-		</a>
-	</section>
-
-	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
-		<div class="mb-6 flex items-end justify-between gap-4">
+	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6">
+		<div class="grid gap-10 lg:grid-cols-[1fr_1.1fr]">
 			<div>
 				<p class="eyebrow">Findings</p>
-				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Reports and notes</h2>
+				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">What the first release shows</h2>
+				<ol class="mt-6 space-y-5 text-[1.02rem] leading-relaxed text-ink-2">
+					{findings.map((f, i) => (
+						<li class="flex gap-3">
+							<span class="mt-0.5 font-serif text-accent">{i + 1}</span>
+							<span><strong class="font-semibold text-ink">{f.title}</strong> {f.body} <a class="whitespace-nowrap text-accent hover:underline" href={f.href}>Evidence →</a></span>
+						</li>
+					))}
+				</ol>
+				<p class="mt-6 text-sm text-ink-3">This is a public beta on {cohort.case_count} cases with one retained forecast per unit. Scores are comparable only within this cohort.</p>
 			</div>
-			<a href="/findings/" class="text-sm font-medium text-accent hover:underline">All findings →</a>
-		</div>
-		<div class="grid gap-4 md:grid-cols-3">
-			{findings.map((entry) => <FindingCard entry={entry} />)}
+			<div id="leaderboard" class="card min-w-0 scroll-mt-20 p-5 sm:p-6">
+				<div class="mb-5 flex items-baseline justify-between gap-4">
+					<h3 class="font-serif text-lg font-semibold">Forecast quality by model</h3>
+					<a class="shrink-0 text-sm font-medium text-accent hover:underline" href="/results/">Full results →</a>
+				</div>
+				<BrierBars snapshot={primarySnapshot} />
+			</div>
 		</div>
 	</section>
 
@@ -199,13 +160,46 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 				</div>
 			))}
 		</div>
-		<div class="mt-6 grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
-			<a href="/approach/" class="group card flex flex-col gap-1 p-5 transition hover:border-accent/40">
-				<span class="eyebrow">Approach</span>
-				<span class="font-serif text-xl font-semibold tracking-tight group-hover:text-accent">Why grade against what courts decide, not a rubric?</span>
-				<span class="text-sm text-ink-2">Public litigation makes part of law checkable. Read the case for outcome-based evaluation →</span>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6">
+		<div class="grid gap-4 lg:grid-cols-2">
+			<a href="/findings/astra-mootness/" class="card group flex flex-col p-6 transition hover:border-accent/40">
+				<p class="eyebrow">Worked example · A label boundary</p>
+				<h2 class="mt-2 font-serif text-2xl font-semibold tracking-tight group-hover:text-accent">When is a claim "dismissed"?</h2>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">The target is the motion's first written disposition, not the eventual merits. Two outcomes that look alike score differently:</p>
+				<table class="mt-4 w-full text-left text-sm">
+					<caption class="sr-only">How two similar outcomes are labeled</caption>
+					<thead class="border-b border-rule text-xs text-ink-3"><tr><th scope="col" class="py-2 font-medium">What happens</th><th scope="col" class="py-2 font-medium">Label</th></tr></thead>
+					<tbody class="divide-y divide-rule text-ink-2">
+						<tr><td class="py-2 pr-4">The judge dismisses the claim with leave to amend</td><td class="py-2 font-medium text-ink">Dismissed</td></tr>
+						<tr><td class="py-2 pr-4">The plaintiff amends first, and the motion is denied as moot</td><td class="py-2 font-medium text-ink">Not dismissed</td></tr>
+					</tbody>
+				</table>
+				<span class="mt-auto pt-5 text-sm font-medium text-accent">How this boundary affected GPT-6 Astra →</span>
 			</a>
-			<a href="/methods/" class="inline-flex text-sm font-medium text-accent hover:underline md:px-4">Full methods →</a>
+			<div class="card flex flex-col p-6">
+				<p class="eyebrow">Research agenda · Ongoing</p>
+				<h2 class="mt-2 font-serif text-2xl font-semibold tracking-tight">Learning from resolved outcomes</h2>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">Through LegalForecastGym, we are testing whether optimization against resolved legal outcomes improves probabilistic prediction on later, disjoint cases, and whether any improvement transfers to other legal tasks. There are no results to report yet.</p>
+				<div class="mt-auto flex flex-wrap gap-x-5 gap-y-2 pt-5 text-sm font-medium">
+					<a class="text-accent hover:underline" href="/analysis/">All analysis →</a>
+					<a class="text-accent hover:underline" href="/approach/">Why outcomes, not rubrics →</a>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6">
+		<div class="rounded-2xl border border-rule-strong bg-surface-2 p-6 sm:p-8 md:flex md:items-center md:justify-between md:gap-10">
+			<div class="max-w-2xl">
+				<h2 class="font-serif text-2xl font-semibold tracking-tight">Working on evaluation, forecasting, or post-training?</h2>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">I'd welcome feedback on the task design and outcome labels, and conversations about evaluating models on a fresh cohort or testing outcome-based training.</p>
+			</div>
+			<div class="mt-5 flex shrink-0 flex-wrap gap-3 md:mt-0">
+				<a href={AUTHOR.contact} class="rounded-full bg-ink px-4 py-2 text-sm font-medium text-bg hover:opacity-90">Get in touch</a>
+				<a href="/paper/" class="rounded-full border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:border-ink">Read the paper</a>
+			</div>
 		</div>
 	</section>
 </Layout>
