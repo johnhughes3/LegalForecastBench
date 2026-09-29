@@ -51,6 +51,7 @@
     "legalforecast"
   ],
   "file_relative_resolution": [
+    "docs/paper/figures/make_figures.py",
     "examples/adapters/claude-agent-sdk/adapter.py",
     "examples/adapters/codex-cli/adapter.py",
     "examples/adapters/openai-responses/adapter.py",
