@@ -40,21 +40,21 @@ test("release significance claim excludes the reference and untested models", ()
 	);
 });
 
-test("cutoff claims follow the reported-cutoff rule: eleven eligible, four qualified", () => {
+test("cutoff claims follow the reported-cutoff rule: thirteen eligible, two qualified", () => {
 	const eligible = primarySnapshot.models.filter(
 		(model) => model.eligibility === "eligible",
 	);
-	assert.equal(eligible.length, 11);
+	assert.equal(eligible.length, 13);
 	assert.deepEqual(
 		primarySnapshot.models
 			.filter((model) => model.eligibility !== "eligible")
 			.map((model) => model.slug)
 			.sort(),
-		["claude-fable-5-1", "claude-opus-5-5", "kimi-k3", "muse-spark-1-3"],
+		["kimi-k3", "muse-spark-1-3"],
 	);
 	assert.match(
 		report,
-		/eleven of the fifteen configurations report a training-data or knowledge cutoff before the first decision/,
+		/thirteen of the fifteen configurations report a training-data or knowledge cutoff before the first decision/,
 	);
 	assert.doesNotMatch(
 		report + home,
@@ -80,7 +80,13 @@ test("eligibility comes from the shared cutoff table for every displayed model",
 		{ slug: "x", model_ids: [], cutoff: "2026-06", kind: "knowledge" },
 		"2026-06-30",
 	);
-	assert.equal(month.eligibility, "qualified");
+	// Same month as the first decision counts as preceding it.
+	assert.equal(month.eligibility, "eligible");
+	const july = assess(
+		{ slug: "x", model_ids: [], cutoff: "2026-07", kind: "knowledge" },
+		"2026-06-30",
+	);
+	assert.equal(july.eligibility, "qualified");
 	const may = assess(
 		{ slug: "x", model_ids: [], cutoff: "2026-05", kind: "knowledge" },
 		"2026-06-30",

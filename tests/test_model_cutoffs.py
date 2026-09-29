@@ -17,14 +17,18 @@ def _evidence(cutoff: str | None) -> CutoffEvidence:
     return CutoffEvidence(slug="m", model_ids=("m",), cutoff=cutoff, kind="knowledge")
 
 
-def test_month_cutoff_counts_as_its_last_day() -> None:
+def test_month_cutoff_in_or_before_the_decision_month_is_eligible() -> None:
     assert _evidence("2026-05").last_day == date(2026, 5, 31)
-    assert cutoff_eligibility(_evidence("2026-05"), first_decision=FIRST_DECISION) == (
-        "eligible",
-        "reported_cutoff_predates_decisions",
+    assert (
+        cutoff_eligibility(_evidence("2026-05"), first_decision=FIRST_DECISION)[0]
+        == "eligible"
     )
-    # June 2026 could be June 30, the first decision date, so it is qualified.
-    assert cutoff_eligibility(_evidence("2026-06"), first_decision=FIRST_DECISION) == (
+    # Same month as the first decision (June 30): treated as preceding it.
+    assert (
+        cutoff_eligibility(_evidence("2026-06"), first_decision=FIRST_DECISION)[0]
+        == "eligible"
+    )
+    assert cutoff_eligibility(_evidence("2026-07"), first_decision=FIRST_DECISION) == (
         "qualified",
         "reported_cutoff_overlaps_decisions",
     )

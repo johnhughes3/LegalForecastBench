@@ -83,8 +83,18 @@ def cutoff_eligibility(
 ) -> tuple[Eligibility, str]:
     """Apply the owner's rule to one model against the earliest scored decision."""
     last_day = evidence.last_day
-    if last_day is None:
+    if last_day is None or evidence.cutoff is None:
         return "qualified", "cutoff_not_published"
+    if len(evidence.cutoff) == 7:
+        # Month-only cutoff: a month before or equal to the first decision's
+        # month counts as preceding it. Ingesting a same-month decision on the
+        # day it issued is implausible (owner judgment, 2026-09-28).
+        if (last_day.year, last_day.month) <= (
+            first_decision.year,
+            first_decision.month,
+        ):
+            return "eligible", "reported_cutoff_predates_decisions"
+        return "qualified", "reported_cutoff_overlaps_decisions"
     if last_day < first_decision:
         return "eligible", "reported_cutoff_predates_decisions"
     return "qualified", "reported_cutoff_overlaps_decisions"

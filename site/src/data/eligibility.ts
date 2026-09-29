@@ -12,7 +12,8 @@ import type {
  * exporter also uses (legalforecast/data/model_cutoffs.json). Owner rule,
  * 2026-09-28: eligible when the provider-reported training-data or knowledge
  * cutoff falls before the earliest scored decision; a month counts as its
- * last day.
+ * last day, except that a month-only cutoff in the first decision's month
+ * counts as preceding it (owner decision, 2026-09-28).
  */
 export interface CutoffEntry {
 	slug: string;
@@ -75,16 +76,22 @@ export function assess(
 	const kind = entry.kind === "training" ? "training-data" : "knowledge";
 	const label = formatCutoff(entry.cutoff);
 	const training_cutoff = `${label} (${kind} cutoff)`;
-	if (lastDay(entry.cutoff) < firstDecision) {
+	// Month-only cutoffs count when their month is no later than the first
+	// decision's month: same-day ingestion of a new decision is implausible.
+	const monthOnly = entry.cutoff.length === 7;
+	const precedes = monthOnly
+		? entry.cutoff <= firstDecision.slice(0, 7)
+		: lastDay(entry.cutoff) < firstDecision;
+	if (precedes) {
 		return {
 			eligibility: "eligible",
-			reason: `The reported ${kind} cutoff (${label}) predates the first scored decision on ${formatIso(firstDecision)}.${note}`,
+			reason: `The reported ${kind} cutoff (${label}) ${monthOnly && entry.cutoff === firstDecision.slice(0, 7) ? "is in the same month as, and treated as preceding," : "predates"} the first scored decision on ${formatIso(firstDecision)}.${note}`,
 			training_cutoff,
 		};
 	}
 	return {
 		eligibility: "qualified",
-		reason: `The reported ${kind} cutoff (${label}) could fall on or after the first scored decision on ${formatIso(firstDecision)}.${note}`,
+		reason: `The reported ${kind} cutoff (${label}) falls after the first scored decision on ${formatIso(firstDecision)}.${note}`,
 		training_cutoff,
 	};
 }
