@@ -1,0 +1,1163 @@
+[
+  {
+    "key": "deepseek",
+    "title": "DeepSeek-R1 incentivizes reasoning in LLMs through reinforcement learning",
+    "authors": [
+      "Daya Guo",
+      "Dejian Yang",
+      "Haowei Zhang",
+      "Junxiao Song",
+      "Peiyi Wang",
+      "Qihao Zhu",
+      "Runxin Xu",
+      "Ruoyu Zhang",
+      "Shirong Ma",
+      "Xiao Bi",
+      "Xiaokang Zhang",
+      "Xingkai Yu",
+      "Yu Wu",
+      "Z. F. Wu",
+      "Zhibin Gou",
+      "Zhihong Shao",
+      "Zhuoshu Li",
+      "Ziyi Gao",
+      "Aixin Liu",
+      "Bing Xue",
+      "Bingxuan Wang",
+      "Bochao Wu",
+      "Bei Feng",
+      "Chengda Lu",
+      "Chenggang Zhao",
+      "Chengqi Deng",
+      "Chong Ruan",
+      "Damai Dai",
+      "Deli Chen",
+      "Dongjie Ji",
+      "Erhang Li",
+      "Fangyun Lin",
+      "Fucong Dai",
+      "Fuli Luo",
+      "Guangbo Hao",
+      "Guanting Chen",
+      "Guowei Li",
+      "H. Zhang",
+      "Hanwei Xu",
+      "Honghui Ding",
+      "Huazuo Gao",
+      "Hui Qu",
+      "Hui Li",
+      "Jianzhong Guo",
+      "Jiashi Li",
+      "Jingchang Chen",
+      "Jingyang Yuan",
+      "Jinhao Tu",
+      "Junjie Qiu",
+      "Junlong Li",
+      "J. L. Cai",
+      "Jiaqi Ni",
+      "Jian Liang",
+      "Jin Chen",
+      "Kai Dong",
+      "Kai Hu",
+      "Kaichao You",
+      "Kaige Gao",
+      "Kang Guan",
+      "Kexin Huang",
+      "Kuai Yu",
+      "Lean Wang",
+      "Lecong Zhang",
+      "Liang Zhao",
+      "Litong Wang",
+      "Liyue Zhang",
+      "Lei Xu",
+      "Leyi Xia",
+      "Mingchuan Zhang",
+      "Minghua Zhang",
+      "Minghui Tang",
+      "Mingxu Zhou",
+      "Meng Li",
+      "Miaojun Wang",
+      "Mingming Li",
+      "Ning Tian",
+      "Panpan Huang",
+      "Peng Zhang",
+      "Qiancheng Wang",
+      "Qinyu Chen",
+      "Qiushi Du",
+      "Ruiqi Ge",
+      "Ruisong Zhang",
+      "Ruizhe Pan",
+      "Runji Wang",
+      "R. J. Chen",
+      "R. L. Jin",
+      "Ruyi Chen",
+      "Shanghao Lu",
+      "Shangyan Zhou",
+      "Shanhuang Chen",
+      "Shengfeng Ye",
+      "Shiyu Wang",
+      "Shuiping Yu",
+      "Shunfeng Zhou",
+      "Shuting Pan",
+      "S. S. Li",
+      "Shuang Zhou",
+      "Shaoqing Wu",
+      "Tao Yun",
+      "Tian Pei",
+      "Tianyu Sun",
+      "T. Wang",
+      "Wangding Zeng",
+      "Wen Liu",
+      "Wenfeng Liang",
+      "Wenjun Gao",
+      "Wenqin Yu",
+      "Wentao Zhang",
+      "W. L. Xiao",
+      "Wei An",
+      "Xiaodong Liu",
+      "Xiaohan Wang",
+      "Xiaokang Chen",
+      "Xiaotao Nie",
+      "Xin Cheng",
+      "Xin Liu",
+      "Xin Xie",
+      "Xingchao Liu",
+      "Xinyu Yang",
+      "Xinyuan Li",
+      "Xuecheng Su",
+      "Xuheng Lin",
+      "X. Q. Li",
+      "Xiangyue Jin",
+      "Xiaojin Shen",
+      "Xiaosha Chen",
+      "Xiaowen Sun",
+      "Xiaoxiang Wang",
+      "Xinnan Song",
+      "Xinyi Zhou",
+      "Xianzu Wang",
+      "Xinxia Shan",
+      "Y. K. Li",
+      "Y. Q. Wang",
+      "Y. X. Wei",
+      "Yang Zhang",
+      "Yanhong Xu",
+      "Yao Li",
+      "Yao Zhao",
+      "Yaofeng Sun",
+      "Yaohui Wang",
+      "Yi Yu",
+      "Yichao Zhang",
+      "Yifan Shi",
+      "Yiliang Xiong",
+      "Ying He",
+      "Yishi Piao",
+      "Yisong Wang",
+      "Yixuan Tan",
+      "Yiyang Ma",
+      "Yiyuan Liu",
+      "Yongqiang Guo",
+      "Yuan Ou",
+      "Yuduan Wang",
+      "Yue Gong",
+      "Yuheng Zou",
+      "Yujia He",
+      "Yunfan Xiong",
+      "Yuxiang Luo",
+      "Yuxiang You",
+      "Yuxuan Liu",
+      "Yuyang Zhou",
+      "Y. X. Zhu",
+      "Yanping Huang",
+      "Yaohui Li",
+      "Yi Zheng",
+      "Yuchen Zhu",
+      "Yunxian Ma",
+      "Ying Tang",
+      "Yukun Zha",
+      "Yuting Yan",
+      "Z. Z. Ren",
+      "Zehui Ren",
+      "Zhangli Sha",
+      "Zhe Fu",
+      "Zhean Xu",
+      "Zhenda Xie",
+      "Zhengyan Zhang",
+      "Zhewen Hao",
+      "Zhicheng Ma",
+      "Zhigang Yan",
+      "Zhiyu Wu",
+      "Zihui Gu",
+      "Zijia Zhu",
+      "Zijun Liu",
+      "Zilin Li",
+      "Ziwei Xie",
+      "Ziyang Song",
+      "Zizheng Pan",
+      "Zhen Huang",
+      "Zhipeng Xu",
+      "Zhongyu Zhang",
+      "Zhen Zhang"
+    ],
+    "year": 2025,
+    "venue": "Nature 645, 633–638 (2025); arXiv:2501.12948v2",
+    "url": "https://www.nature.com/articles/s41586-025-09422-z",
+    "pdf_url": "https://www.nature.com/articles/s41586-025-09422-z.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "rlve",
+    "title": "RLVE: Scaling Up Reinforcement Learning for Language Models with Adaptive Verifiable Environments",
+    "authors": [
+      "Zhiyuan Zeng",
+      "Hamish Ivison",
+      "Yiping Wang",
+      "Lifan Yuan",
+      "Shuyue Stella Li",
+      "Zhuorui Ye",
+      "Siting Li",
+      "Jacqueline He",
+      "Runlong Zhou",
+      "Tong Chen",
+      "Chenyang Zhao",
+      "Yulia Tsvetkov",
+      "Simon Shaolei Du",
+      "Natasha Jaques",
+      "Hao Peng",
+      "Pang Wei Koh",
+      "Hannaneh Hajishirzi"
+    ],
+    "year": 2026,
+    "venue": "ICML2026, Proceedings of Machine Learning Research306:153406–153428",
+    "url": "https://proceedings.mlr.press/v306/zeng26j.html",
+    "pdf_url": "https://arxiv.org/pdf/2511.07317",
+    "type": "paper"
+  },
+  {
+    "key": "alphazero",
+    "title": "Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm",
+    "authors": [
+      "David Silver",
+      "Thomas Hubert",
+      "Julian Schrittwieser",
+      "Ioannis Antonoglou",
+      "Matthew Lai",
+      "Arthur Guez",
+      "Marc Lanctot",
+      "Laurent Sifre",
+      "Dharshan Kumaran",
+      "Thore Graepel",
+      "Timothy Lillicrap",
+      "Karen Simonyan",
+      "Demis Hassabis"
+    ],
+    "year": 2017,
+    "venue": "arXiv:1712.01815 (2017), preprint; precursor to the distinct 2018 Science article",
+    "url": "https://arxiv.org/abs/1712.01815",
+    "pdf_url": "https://arxiv.org/pdf/1712.01815",
+    "type": "paper"
+  },
+  {
+    "key": "alphaproof",
+    "title": "Olympiad-level formal mathematical reasoning with reinforcement learning",
+    "authors": [
+      "Thomas Hubert",
+      "Rishi Mehta",
+      "Laurent Sartran",
+      "Miklós Z. Horváth",
+      "Goran Žužić",
+      "Eric Wieser",
+      "Aja Huang",
+      "Julian Schrittwieser",
+      "Yannick Schroecker",
+      "Hussain Masoom",
+      "Ottavia Bertolli",
+      "Tom Zahavy",
+      "Amol Mandhane",
+      "Jessica Yung",
+      "Iuliya Beloshapka",
+      "Borja Ibarz",
+      "Vivek Veeriah",
+      "Lei Yu",
+      "Oliver Nash",
+      "Paul Lezeau",
+      "Salvatore Mercuri",
+      "Calle Sönne",
+      "Bhavik Mehta",
+      "Alex Davies",
+      "Daniel Zheng",
+      "Fabian Pedregosa",
+      "Yin Li",
+      "Ingrid von Glehn",
+      "Mark Rowland",
+      "Samuel Albanie",
+      "Ameya Velingker",
+      "Simon Schmitt",
+      "Edward Lockhart",
+      "Edward Hughes",
+      "Henryk Michalewski",
+      "Nicolas Sonnerat",
+      "Demis Hassabis",
+      "Pushmeet Kohli",
+      "David Silver"
+    ],
+    "year": 2026,
+    "venue": "Nature 651, 607–613; version of record 13 March 2026",
+    "url": "https://www.nature.com/articles/s41586-025-09833-y",
+    "pdf_url": "https://www.nature.com/articles/s41586-025-09833-y.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "navierstokesproof",
+    "title": "Finite Time Blowup for Navier–Stokes",
+    "authors": [
+      "OpenAI"
+    ],
+    "year": 2026,
+    "venue": "Technical manuscript, September 2026; not a prize adjudication",
+    "url": "https://cdn.openai.com/pdf/32d9f210-8b73-45e0-91bc-82a30aef8a9a/navier-stokes.pdf",
+    "pdf_url": "https://cdn.openai.com/pdf/32d9f210-8b73-45e0-91bc-82a30aef8a9a/navier-stokes.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "navierstokesreport",
+    "title": "On the Navier–Stokes Millennium Prize Problem",
+    "authors": [
+      "OpenAI"
+    ],
+    "year": 2026,
+    "venue": "Research announcement, September 8, 2026; updated September 10",
+    "url": "https://openai.com/index/navier-stokes-solution/",
+    "type": "web"
+  },
+  {
+    "key": "judgmentbench",
+    "title": "JudgmentBench: Comparing Rubric and Preference Evaluation for Quality Assessment",
+    "authors": [
+      "Russell Yang",
+      "Ruishi Chen",
+      "Pierce Kelaita",
+      "Riya Ranjan",
+      "Sibo Ma",
+      "Charles Dickens",
+      "Matthew Guillod",
+      "Megan Ma",
+      "Julian Nyarko"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2605.25240v3, preprint",
+    "url": "https://arxiv.org/abs/2605.25240",
+    "pdf_url": "https://arxiv.org/pdf/2605.25240",
+    "type": "paper"
+  },
+  {
+    "key": "rubricsrewards",
+    "title": "Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains",
+    "authors": [
+      "Anisha Gunjal",
+      "Anthony Wang",
+      "Elaine Lau",
+      "Vaskar Nath",
+      "Yunzhong He",
+      "Bing Liu",
+      "Sean Hendryx"
+    ],
+    "year": 2026,
+    "venue": "ICLR 2026; proceedings pp. 127924–127945; first posted as arXiv:2507.17746 in 2025",
+    "url": "https://proceedings.iclr.cc/paper_files/paper/2026/hash/cfd7bee7a651ee9af525098ef67a9e45-Abstract-Conference.html",
+    "pdf_url": "https://proceedings.iclr.cc/paper_files/paper/2026/file/cfd7bee7a651ee9af525098ef67a9e45-Paper-Conference.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "harveyTraining",
+    "title": "Training a Legal Agent with Applied Compute",
+    "authors": [
+      "Niko Grupen",
+      "Julio Pereyra",
+      "Gabe Pereyra",
+      "Rhythm Garg",
+      "Jacob Phillips",
+      "Raymond Feng"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://www.harvey.ai/blog/training-a-legal-agent-with-applied-compute",
+    "type": "company report"
+  },
+  {
+    "key": "tenet",
+    "title": "Harvey Tenet Research Preview",
+    "authors": [
+      "Calvin Qi",
+      "Vasudha Rengarajan",
+      "Julio Pereyra",
+      "Niko Grupen",
+      "Gabe Pereyra"
+    ],
+    "year": 2026,
+    "venue": "August 20, 2026 company research report",
+    "url": "https://www.harvey.ai/blog/post-training-update-harvey-tenet",
+    "type": "company report"
+  },
+  {
+    "key": "instructgpt",
+    "title": "Training language models to follow instructions with human feedback",
+    "authors": [
+      "Long Ouyang",
+      "Jeffrey Wu",
+      "Xu Jiang",
+      "Diogo Almeida",
+      "Carroll Wainwright",
+      "Pamela Mishkin",
+      "Chong Zhang",
+      "Sandhini Agarwal",
+      "Katarina Slama",
+      "Alex Ray",
+      "John Schulman",
+      "Jacob Hilton",
+      "Fraser Kelton",
+      "Luke Miller",
+      "Maddie Simens",
+      "Amanda Askell",
+      "Peter Welinder",
+      "Paul F. Christiano",
+      "Jan Leike",
+      "Ryan Lowe"
+    ],
+    "year": 2022,
+    "venue": "NeurIPS 2022",
+    "url": "https://arxiv.org/abs/2203.02155",
+    "pdf_url": "https://papers.neurips.cc/paper_files/paper/2022/file/b1efde53be364a73914f58805a001731-Paper-Conference.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "legalbench",
+    "title": "LegalBench: A Collaboratively Built Benchmark for Measuring Legal Reasoning in Large Language Models",
+    "authors": [
+      "Neel Guha",
+      "Julian Nyarko",
+      "Daniel E. Ho",
+      "Christopher Ré",
+      "Adam Chilton",
+      "Aditya Narayana",
+      "Alex Chohlas-Wood",
+      "Austin Peters",
+      "Brandon Waldon",
+      "Daniel N. Rockmore",
+      "Diego Zambrano",
+      "Dmitry Talisman",
+      "Enam Hoque",
+      "Faiz Surani",
+      "Frank Fagan",
+      "Galit Sarfaty",
+      "Gregory M. Dickinson",
+      "Haggai Porat",
+      "Jason Hegland",
+      "Jessica Wu",
+      "Joe Nudell",
+      "Joel Niklaus",
+      "John Nay",
+      "Jonathan H. Choi",
+      "Kevin Tobia",
+      "Margaret Hagan",
+      "Megan Ma",
+      "Michael Livermore",
+      "Nikon Rasumov-Rahe",
+      "Nils Holzenberger",
+      "Noam Kolt",
+      "Peter Henderson",
+      "Sean Rehaag",
+      "Sharad Goel",
+      "Shang Gao",
+      "Spencer Williams",
+      "Sunny Gandhi",
+      "Tom Zur",
+      "Varun Iyer",
+      "Zehua Li"
+    ],
+    "year": 2023,
+    "venue": "NeurIPS 2023, Datasets and Benchmarks",
+    "url": "https://arxiv.org/abs/2308.11462",
+    "pdf_url": "https://arxiv.org/pdf/2308.11462",
+    "type": "paper"
+  },
+  {
+    "key": "ncbe",
+    "title": "About the Multistate Bar Examination",
+    "authors": [
+      "National Conference of Bar Examiners"
+    ],
+    "year": "n.d.",
+    "venue": "Official examination description; accessed September 29, 2026",
+    "url": "https://www.ncbex.org/exams/mbe/about-mbe",
+    "type": "institutional"
+  },
+  {
+    "key": "hart",
+    "title": "Positivism and the Separation of Law and Morals",
+    "authors": [
+      "H. L. A. Hart"
+    ],
+    "year": 1958,
+    "venue": "Harvard Law Review 71(4):593–629",
+    "url": "https://www.jstor.org/stable/1338225",
+    "pdf_url": "https://www.law.nyu.edu/sites/default/files/Hart%2C%20H.%20L.%20A.%20%281958%29%20%27Positivism%20and%20the%20Separation%20of%20Law%20and%20Morals%27%20Harvard%20Law%20Review%20Vol.%2071%2C%20No.%204%20%281958%29%20pp.%20593-629.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "fuller",
+    "title": "Positivism and Fidelity to Law—A Reply to Professor Hart",
+    "authors": [
+      "Lon L. Fuller"
+    ],
+    "year": 1958,
+    "venue": "Harvard Law Review 71(4):630–672",
+    "url": "https://www.jstor.org/stable/1338226",
+    "pdf_url": "https://www.law.nyu.edu/sites/default/files/Fuller%2C%20Lon%20L.%20%281958%29%20%27Positivism%20and%20Fidelity%20to%20Law%20%E2%80%94%20A%20Reply%20to%20Professor%20Hart%27%20Harvard%20Law%20Review%20Vol.%2071%2C%20No.%204%20%281958%29%20pp.%20630-672.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "declaratory",
+    "title": "28 U.S.C. § 2201: Creation of Remedy",
+    "authors": [
+      "United States Congress"
+    ],
+    "year": 2026,
+    "venue": "United States Code, text consulted September 29, 2026",
+    "url": "https://www.law.cornell.edu/uscode/text/28/2201",
+    "type": "legal authority"
+  },
+  {
+    "key": "moitie",
+    "title": "Federated Department Stores, Inc. v. Moitie",
+    "authors": [
+      "Supreme Court of the United States"
+    ],
+    "year": 1981,
+    "venue": "452 U.S. 394, 398–399",
+    "url": "https://www.govinfo.gov/content/pkg/USREPORTS-452/pdf/USREPORTS-452-394.pdf",
+    "pdf_url": "https://www.govinfo.gov/content/pkg/USREPORTS-452/pdf/USREPORTS-452-394.pdf",
+    "type": "legal authority"
+  },
+  {
+    "key": "brier",
+    "title": "Verification of Forecasts Expressed in Terms of Probability",
+    "authors": [
+      "Glenn W. Brier"
+    ],
+    "year": 1950,
+    "venue": "Monthly Weather Review 78(1) (1950), 1–3",
+    "url": "https://journals.ametsoc.org/view/journals/mwre/78/1/1520-0493_1950_078_0001_vofeit_2_0_co_2.xml",
+    "pdf_url": "https://doi.org/10.1175/1520-0493(1950)078<0001:VOFEIT>2.0.CO;2",
+    "type": "paper"
+  },
+  {
+    "key": "gneiting",
+    "title": "Strictly Proper Scoring Rules, Prediction, and Estimation",
+    "authors": [
+      "Tilmann Gneiting",
+      "Adrian E. Raftery"
+    ],
+    "year": 2007,
+    "venue": "Journal of the American Statistical Association 102 (2007), 359–378",
+    "url": "https://doi.org/10.1198/016214506000001437",
+    "pdf_url": "https://sites.stat.washington.edu/people/raftery/Research/PDF/Gneiting2007jasa.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "holmes",
+    "title": "The Path of the Law",
+    "authors": [
+      "Oliver Wendell Holmes, Jr."
+    ],
+    "year": 1897,
+    "venue": "Harvard Law Review 10(8):457–478",
+    "url": "https://www.jstor.org/stable/1322028",
+    "pdf_url": "https://archive.org/download/jstor-1322028/1322028.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "shadow",
+    "title": "Bargaining in the Shadow of the Law: The Case of Divorce",
+    "authors": [
+      "Robert H. Mnookin",
+      "Lewis Kornhauser"
+    ],
+    "year": 1979,
+    "venue": "Yale Law Journal 88(5):950–997",
+    "url": "https://doi.org/10.2307/795824",
+    "pdf_url": "https://openyls.law.yale.edu/bitstream/20.500.13051/15889/2/47_88YaleLJ950_April1979_.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "nylawyerskills",
+    "title": "Legal Skills and Professional Values: A Handbook",
+    "authors": [
+      "Paul C. Saunders"
+    ],
+    "year": 2019,
+    "venue": "Journal of the New York State Judicial Institute on Professionalism in the Law, 7(1), Fall 2019",
+    "url": "https://www.nycourts.gov/LegacyPDFS/ip/JIPL/pdf/JIPL%20-%20FINAL%20-%20Skills%20and%20Professional%20Values.pdf",
+    "pdf_url": "https://www.nycourts.gov/LegacyPDFS/ip/JIPL/pdf/JIPL%20-%20FINAL%20-%20Skills%20and%20Professional%20Values.pdf",
+    "type": "report"
+  },
+  {
+    "key": "outcomerl",
+    "title": "Outcome-based Reinforcement Learning to Predict the Future",
+    "authors": [
+      "Benjamin Turtel",
+      "Danny Franklin",
+      "Kris Skotheim",
+      "Luke Hewitt",
+      "Philipp Schoenegger"
+    ],
+    "year": 2025,
+    "venue": "Transactions on Machine Learning Research (November 2025); arXiv:2505.17989v4",
+    "url": "https://arxiv.org/abs/2505.17989",
+    "pdf_url": "https://arxiv.org/pdf/2505.17989",
+    "type": "paper"
+  },
+  {
+    "key": "openforecaster",
+    "title": "Scaling Open-Ended Reasoning To Predict the Future",
+    "authors": [
+      "Nikhil Chandak",
+      "Shashwat Goel",
+      "Ameya Prabhu",
+      "Moritz Hardt",
+      "Jonas Geiping"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2512.25070v2 (January 2026); preprint",
+    "url": "https://arxiv.org/abs/2512.25070",
+    "pdf_url": "https://arxiv.org/pdf/2512.25070",
+    "type": "paper"
+  },
+  {
+    "key": "sentencing",
+    "title": "Multi-Source Retrieval and Reasoning for Legal Sentencing Prediction",
+    "authors": [
+      "Junjie Chen",
+      "Haitao Li",
+      "Qilei Zhang",
+      "Zhenghua Li",
+      "Ya Zhang",
+      "Quan Zhou",
+      "Cheng Luo",
+      "Yiqun Liu",
+      "Min Zhang",
+      "Yueyue Wu",
+      "Dongsheng Guo",
+      "Qingyao Ai"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2602.04690v3; arXiv record comments ‘EMNLP 2026 main’ (publisher proceedings record not independently checked)",
+    "url": "https://arxiv.org/abs/2602.04690",
+    "pdf_url": "https://arxiv.org/pdf/2602.04690",
+    "type": "paper"
+  },
+  {
+    "key": "labaudit",
+    "title": "Harvey LAB litigation and dispute resolution audit: GPT-6 Sol and Claude Opus 5.5",
+    "authors": [
+      "GPT-6 Sol audit workers",
+      "Claude Opus 5.5 audit workers",
+      "Coordinating agents; individual provenance not fully recorded"
+    ],
+    "year": 2026,
+    "venue": "Local research artifact, pinned September 29, 2026",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/58371a0e13494e591710e2eae3da8e428eebc359/docs/harvey-lab-audit/litigation-dispute-resolution",
+    "type": "primary artifact"
+  },
+  {
+    "key": "labtask",
+    "title": "Pinned LAB task.json for analyze-counterparty-motion-to-dismiss",
+    "authors": [
+      "Harvey AI task authors; upstream authorship not individually listed"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-motion-to-dismiss/task.json",
+    "type": "primary artifact"
+  },
+  {
+    "key": "jacobswallach",
+    "title": "Measurement and Fairness",
+    "authors": [
+      "Abigail Z. Jacobs",
+      "Hanna Wallach"
+    ],
+    "year": 2021,
+    "venue": "Proceedings of the 2021 ACM Conference on Fairness, Accountability, and Transparency (FAccT), pp. 375–385",
+    "url": "https://doi.org/10.1145/3442188.3445901",
+    "pdf_url": "https://arxiv.org/pdf/1912.05511v3",
+    "type": "paper"
+  },
+  {
+    "key": "amodei",
+    "title": "Concrete Problems in AI Safety",
+    "authors": [
+      "Dario Amodei",
+      "Chris Olah",
+      "Jacob Steinhardt",
+      "Paul Christiano",
+      "John Schulman",
+      "Dan Mané"
+    ],
+    "year": 2016,
+    "venue": "arXiv:1606.06565v2",
+    "url": "https://arxiv.org/abs/1606.06565",
+    "pdf_url": "https://arxiv.org/pdf/1606.06565",
+    "type": "paper"
+  },
+  {
+    "key": "gao",
+    "title": "Scaling Laws for Reward Model Overoptimization",
+    "authors": [
+      "Leo Gao",
+      "John Schulman",
+      "Jacob Hilton"
+    ],
+    "year": 2023,
+    "venue": "ICML 2023, Proceedings of Machine Learning Research 202:10835–10866",
+    "url": "https://proceedings.mlr.press/v202/gao23h.html",
+    "pdf_url": "https://proceedings.mlr.press/v202/gao23h/gao23h.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "ruger",
+    "title": "The Supreme Court Forecasting Project: Legal and Political Science Approaches to Predicting Supreme Court Decision-Making",
+    "authors": [
+      "Theodore W. Ruger",
+      "Pauline T. Kim",
+      "Andrew D. Martin",
+      "Kevin M. Quinn"
+    ],
+    "year": 2004,
+    "venue": "Columbia Law Review 104 (2004), 1150–1210",
+    "url": "https://andrewdmartin.wustl.edu/app/uploads/2019/01/The-Supreme-Court-Forecasting-Project-Legal-and-Political-Science-Approaches-to-Predicting-Supreme-Court-Decision-Making-2bvpcdb.pdf",
+    "pdf_url": "https://andrewdmartin.wustl.edu/app/uploads/2019/01/The-Supreme-Court-Forecasting-Project-Legal-and-Political-Science-Approaches-to-Predicting-Supreme-Court-Decision-Making-2bvpcdb.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "katz",
+    "title": "A General Approach for Predicting the Behavior of the Supreme Court of the United States",
+    "authors": [
+      "Daniel Martin Katz",
+      "Michael J. Bommarito II",
+      "Josh Blackman"
+    ],
+    "year": 2017,
+    "venue": "PLOS ONE 12(4): e0174698 (2017)",
+    "url": "https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0174698",
+    "pdf_url": "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0174698&type=printable",
+    "type": "paper"
+  },
+  {
+    "key": "aletras",
+    "title": "Predicting Judicial Decisions of the European Court of Human Rights: A Natural Language Processing Perspective",
+    "authors": [
+      "Nikolaos Aletras",
+      "Dimitrios Tsarapatsanis",
+      "Daniel Preotiuc-Pietro",
+      "Vasileios Lampos"
+    ],
+    "year": 2016,
+    "venue": "PeerJ Computer Science 2:e93 (2016)",
+    "url": "https://peerj.com/articles/cs-93/",
+    "pdf_url": "https://peerj.com/articles/cs-93.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "cail",
+    "title": "CAIL2018: A Large-Scale Legal Dataset for Judgment Prediction",
+    "authors": [
+      "Chaojun Xiao",
+      "Haoxi Zhong",
+      "Zhipeng Guo",
+      "Cunchao Tu",
+      "Zhiyuan Liu",
+      "Maosong Sun",
+      "Yansong Feng",
+      "Xianpei Han",
+      "Zhen Hu",
+      "Heng Wang",
+      "Jianfeng Xu"
+    ],
+    "year": 2018,
+    "venue": "arXiv:1807.02478 (2018); CAIL challenge dataset paper",
+    "url": "https://arxiv.org/abs/1807.02478",
+    "pdf_url": "https://arxiv.org/pdf/1807.02478",
+    "type": "paper"
+  },
+  {
+    "key": "medvedeva",
+    "title": "Legal Judgment Prediction: If You Are Going to Do It, Do It Right",
+    "authors": [
+      "Masha Medvedeva",
+      "Pauline McBride"
+    ],
+    "year": 2023,
+    "venue": "Proceedings of the Natural Legal Language Processing Workshop (ACL), 2023, pp. 73–84",
+    "url": "https://aclanthology.org/2023.nllp-1.9/",
+    "pdf_url": "https://aclanthology.org/2023.nllp-1.9.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "clcuket",
+    "title": "The CLC-UKET Dataset: Benchmarking Case Outcome Prediction for the UK Employment Tribunal",
+    "authors": [
+      "Huiyuan Xie",
+      "Felix Steffek",
+      "Joana Ribeiro de Faria",
+      "Christine Carter",
+      "Jonathan Rutherford"
+    ],
+    "year": 2024,
+    "venue": "Proceedings of the Natural Legal Language Processing Workshop (ACL), 2024, pp. 81–96",
+    "url": "https://aclanthology.org/2024.nllp-1.7/",
+    "pdf_url": "https://aclanthology.org/2024.nllp-1.7.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "harveyLAB",
+    "title": "Introducing Harvey's Legal Agent Benchmark",
+    "authors": [
+      "Niko Grupen",
+      "Gabe Pereyra",
+      "Julio Pereyra"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://www.harvey.ai/blog/introducing-harveys-legal-agent-benchmark",
+    "type": "company report"
+  },
+  {
+    "key": "lightman",
+    "title": "Let’s Verify Step by Step",
+    "authors": [
+      "Hunter Lightman",
+      "Vineet Kosaraju",
+      "Yura Burda",
+      "Harri Edwards",
+      "Bowen Baker",
+      "Teddy Lee",
+      "Jan Leike",
+      "John Schulman",
+      "Ilya Sutskever",
+      "Karl Cobbe"
+    ],
+    "year": 2024,
+    "venue": "ICLR 2024; arXiv:2305.20050",
+    "url": "https://arxiv.org/abs/2305.20050",
+    "pdf_url": "https://arxiv.org/pdf/2305.20050",
+    "type": "paper"
+  },
+  {
+    "key": "autocast",
+    "title": "Forecasting Future World Events with Neural Networks",
+    "authors": [
+      "Andy Zou",
+      "Tristan Xiao",
+      "Ryan Jia",
+      "Joe Kwon",
+      "Mantas Mazeika",
+      "Richard Li",
+      "Dawn Song",
+      "Jacob Steinhardt",
+      "Owain Evans",
+      "Dan Hendrycks"
+    ],
+    "year": 2022,
+    "venue": "NeurIPS 2022, Datasets and Benchmarks",
+    "url": "https://arxiv.org/abs/2206.15474",
+    "pdf_url": "https://arxiv.org/pdf/2206.15474",
+    "type": "paper"
+  },
+  {
+    "key": "halawi",
+    "title": "Approaching Human-Level Forecasting with Language Models",
+    "authors": [
+      "Danny Halawi",
+      "Fred Zhang",
+      "Chen Yueh-Han",
+      "Jacob Steinhardt"
+    ],
+    "year": 2024,
+    "venue": "ICML 2024, Proceedings of Machine Learning Research 235",
+    "url": "https://arxiv.org/abs/2402.18563",
+    "pdf_url": "https://arxiv.org/pdf/2402.18563",
+    "type": "paper"
+  },
+  {
+    "key": "forecastbench",
+    "title": "ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities",
+    "authors": [
+      "Ezra Karger",
+      "Houtan Bastani",
+      "Chen Yueh-Han",
+      "Zachary Jacobs",
+      "Danny Halawi",
+      "Fred Zhang",
+      "Philip E. Tetlock"
+    ],
+    "year": 2025,
+    "venue": "ICLR2025",
+    "url": "https://arxiv.org/abs/2409.19839",
+    "pdf_url": "https://arxiv.org/pdf/2409.19839",
+    "type": "paper"
+  },
+  {
+    "key": "miller",
+    "title": "Adding Error Bars to Evals: A Statistical Approach to Language Model Evaluations",
+    "authors": [
+      "Evan Miller"
+    ],
+    "year": 2024,
+    "venue": "arXiv preprint",
+    "url": "https://arxiv.org/abs/2411.00640",
+    "pdf_url": "https://arxiv.org/pdf/2411.00640",
+    "type": "paper"
+  },
+  {
+    "key": "swebench",
+    "title": "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?",
+    "authors": [
+      "Carlos E. Jimenez",
+      "John Yang",
+      "Alexander Wettig",
+      "Shunyu Yao",
+      "Kexin Pei",
+      "Ofir Press",
+      "Karthik Narasimhan"
+    ],
+    "year": 2024,
+    "venue": "ICLR 2024",
+    "url": "https://arxiv.org/abs/2310.06770",
+    "pdf_url": "https://arxiv.org/pdf/2310.06770",
+    "type": "paper"
+  },
+  {
+    "key": "swecritique",
+    "title": "Why SWE-bench Verified no longer measures frontier coding capabilities",
+    "authors": [
+      "OpenAI"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/",
+    "type": "company report"
+  },
+  {
+    "key": "jevdocs",
+    "title": "Models: Jev and the System One Interface",
+    "authors": [
+      "TypeSafe AI"
+    ],
+    "year": 2026,
+    "venue": "Product documentation, accessed September 29, 2026",
+    "url": "https://docs.typesafe.ai/models",
+    "type": "company report"
+  },
+  {
+    "key": "dobbs",
+    "title": "Dobbs v. Jackson Women's Health Organization",
+    "authors": [
+      "Supreme Court of the United States"
+    ],
+    "year": 2022,
+    "venue": "597 U.S. 215",
+    "url": "https://www.supremecourt.gov/opinions/21pdf/19-1392_6j37.pdf",
+    "pdf_url": "https://www.supremecourt.gov/opinions/21pdf/19-1392_6j37.pdf",
+    "type": "legal authority"
+  },
+  {
+    "key": "shavell",
+    "title": "Economic Analysis of Litigation and the Legal Process",
+    "authors": [
+      "Steven Shavell"
+    ],
+    "year": 2003,
+    "venue": "NBER Working Paper 9697; chapter 17 of the draft Foundations of Economic Analysis of Law",
+    "url": "https://www.nber.org/papers/w9697",
+    "pdf_url": "https://www.nber.org/system/files/working_papers/w9697/w9697.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "priestklein",
+    "title": "The Selection of Disputes for Litigation",
+    "authors": [
+      "George L. Priest",
+      "Benjamin Klein"
+    ],
+    "year": 1984,
+    "venue": "Journal of Legal Studies 13 (1984), 1–55",
+    "url": "https://www.journals.uchicago.edu/doi/10.1086/467732",
+    "pdf_url": "https://masonlec.org/site/rte_uploads/files/Manne/Readings/Litigation%20and%20Civil%20Procedure%20Workshop/Preist%20Klein%20Selection%20of%20Disputes%20for%20Litigation.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "settlement",
+    "title": "Litigation and Settlement Under Imperfect Information",
+    "authors": [
+      "Lucian A. Bebchuk"
+    ],
+    "year": 1984,
+    "venue": "RAND Journal of Economics 15(3) (1984), 404–415",
+    "url": "https://hls.harvard.edu/bibliography/litigation-and-settlement-under-imperfect-information/",
+    "pdf_url": "https://doi.org/10.2307/2555448",
+    "type": "paper"
+  },
+  {
+    "key": "jonesbarnes",
+    "title": "Jones v. Barnes",
+    "authors": [
+      "Supreme Court of the United States"
+    ],
+    "year": 1983,
+    "venue": "463 U.S. 745, 751–753",
+    "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep463/usrep463745/usrep463745.pdf",
+    "pdf_url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep463/usrep463745/usrep463745.pdf",
+    "type": "legal authority"
+  },
+  {
+    "key": "lawyercalibration",
+    "title": "Insightful or Wishful: Lawyers’ Ability to Predict Case Outcomes",
+    "authors": [
+      "Jane Goodman-Delahunty",
+      "Pär Anders Granhag",
+      "Maria Hartwig",
+      "Elizabeth F. Loftus"
+    ],
+    "year": 2010,
+    "venue": "Psychology, Public Policy, and Law 16(2):133–157",
+    "url": "https://doi.org/10.1037/a0019060",
+    "pdf_url": "https://bpb-us-e2.wpmucdn.com/faculty.sites.uci.edu/dist/c/571/files/2024/07/Goodman_Granhag_LawyerPrediction_PPPL10-1.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "litigationAdoption",
+    "title": "How AI Agents are Changing the Way Lawyers do Legal Work",
+    "authors": [
+      "Harvey Team"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://www.harvey.ai/blog/ai-agents-for-legal-work",
+    "type": "company report"
+  },
+  {
+    "key": "harveyInitial",
+    "title": "Legal Agent Benchmark: Initial Results",
+    "authors": [
+      "Niko Grupen",
+      "Gabe Pereyra",
+      "Julio Pereyra"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://www.harvey.ai/blog/legal-agent-benchmark-initial-results",
+    "type": "company report"
+  },
+  {
+    "key": "labAA",
+    "title": "Harvey LAB-AA: New Benchmark Evaluating AI on Legal Tasks",
+    "authors": [
+      "Artificial Analysis"
+    ],
+    "year": 2026,
+    "venue": "July 7, 2026, benchmark announcement",
+    "url": "https://artificialanalysis.ai/articles/harvey-lab-aa",
+    "type": "company report"
+  },
+  {
+    "key": "opusAnnouncement",
+    "title": "Opus 4.8, Now Live in Harvey",
+    "authors": [
+      "Harvey Team"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://www.harvey.ai/blog/opus-4-8-now-live-in-harvey",
+    "type": "company report"
+  },
+  {
+    "key": "fableAnnouncement",
+    "title": "Fable 5, Now Available in Harvey",
+    "authors": [
+      "Harvey Team"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://www.harvey.ai/blog/fable-5-now-available-in-harvey",
+    "type": "company report"
+  },
+  {
+    "key": "sonnetAnnouncement",
+    "title": "Claude Sonnet 5, Now Live in Harvey",
+    "authors": [
+      "Harvey Team"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://www.harvey.ai/blog/sonnet-5-in-harvey",
+    "type": "company report"
+  },
+  {
+    "key": "atlantic",
+    "title": "Atlantic Marine Construction Co. v. United States District Court",
+    "authors": [
+      "United States Supreme Court"
+    ],
+    "year": 2013,
+    "venue": "571 U.S.49,59–66 (2013)",
+    "url": "https://www.law.cornell.edu/supremecourt/text/12-929",
+    "pdf_url": "https://www.law.cornell.edu/supct/pdf/12-929.pdf",
+    "type": "legal authority"
+  },
+  {
+    "key": "texasLimitations",
+    "title": "Texas Civil Practice and Remedies Code, Chapter 16",
+    "authors": [
+      "Texas Legislature"
+    ],
+    "year": 2026,
+    "venue": "Texas Civil Practice and Remedies Code § 16.070, accessed September 29, 2026",
+    "url": "https://statutes.capitol.texas.gov/Docs/CP/htm/CP.16.htm#16.070",
+    "type": "legal authority"
+  },
+  {
+    "key": "jones",
+    "title": "Jones v. Bock",
+    "authors": [
+      "Supreme Court of the United States"
+    ],
+    "year": 2007,
+    "venue": "549 U.S.199,215",
+    "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep549/usrep549199/usrep549199.pdf",
+    "pdf_url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep549/usrep549199/usrep549199.pdf",
+    "type": "legal authority"
+  },
+  {
+    "key": "italiancowboy",
+    "title": "Italian Cowboy Partners, Ltd. v. Prudential Insurance Co. of America",
+    "authors": [
+      "Supreme Court of Texas"
+    ],
+    "year": 2011,
+    "venue": "341 S.W.3d 323, 334–37 (Tex. 2011)",
+    "url": "https://www.txcourts.gov/media/819896/OpinionsFY2011.pdf",
+    "pdf_url": "https://www.txcourts.gov/media/819896/OpinionsFY2011.pdf",
+    "type": "legal authority"
+  },
+  {
+    "key": "claynavierstokes",
+    "title": "Navier-Stokes Announcement",
+    "authors": [
+      "Clay Mathematics Institute"
+    ],
+    "year": 2026,
+    "venue": "Institutional announcement, September 11, 2026",
+    "url": "https://www.claymath.org/news/navier-stokes-announcement/",
+    "type": "web"
+  }
+]

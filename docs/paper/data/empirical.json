@@ -1,0 +1,974 @@
+{
+  "scope": "Fixed original 12-configuration manuscript panel; historical ten-model aggregate plus GPT-6 Sol and Grok 4.7 native exports. Checked 2026-09-29. Later configurations deliberately excluded.",
+  "release": {
+    "release": "cycle-1-91-2026-09-08-luna-r5",
+    "release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+    "method": "Scores for the first ten configurations were computed from their unit-level predictions on September 15-18, 2026, and checked against re-downloaded run receipts (91 case receipts and the same 387 scoreable units for each)."
+  },
+  "cohort": {
+    "case_count": 91,
+    "unit_count": 387,
+    "dismissed_unit_count": 285,
+    "decision_window": {
+      "start": "2026-06-30",
+      "end": "2026-08-07"
+    },
+    "constant_forecast_micro_brier": 0.1940989123,
+    "majority_class_accuracy": 0.7364341085,
+    "bootstrap": {
+      "method": "Paired case-cluster percentile bootstrap",
+      "replicates": 1000000,
+      "correction": "Bonferroni across 45 model pairs and three metrics",
+      "caveat": "Exploratory. Cross-case dependence (for example, related cases in one MDL) has not yet been verified."
+    }
+  },
+  "models": [
+    {
+      "slug": "gpt-6-sol",
+      "display_name": "GPT-6 Sol",
+      "provider": "openai",
+      "model_key": "openai:gpt-6-sol",
+      "reasoning": "High",
+      "micro_brier": 0.11762790697674418,
+      "equal_case_brier": 0.12949124213088498,
+      "correct": 327,
+      "high_confidence": {
+        "count": 169,
+        "wrong": 8,
+        "mean_confidence": 0.9558579881656805,
+        "accuracy": 0.9526627218934911,
+        "share": 0.43669250645994834
+      },
+      "cost": {
+        "usd": 11.0097835,
+        "basis": "managed_usage_reprice_with_conservative_uncached_fallback"
+      },
+      "aggregate_source": "site/src/data/exports/gpt-6-sol.json",
+      "accuracy": 0.8449612403100775,
+      "cutoff_evidence": {
+        "slug": "gpt-6-sol",
+        "model_ids": [
+          "gpt-6-sol"
+        ],
+        "cutoff": "2026-04-20",
+        "kind": "knowledge",
+        "source": null,
+        "checked": "2026-09-22",
+        "evidence": "model_registries/cycle-1-agentic-gpt-6-sol-high-2026-09-22.json"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "cost_evidence": {
+        "slug": "gpt-6-sol",
+        "forecast_run_id": "35776235829",
+        "score_run_id": "35885171489",
+        "model_key": "openai:gpt-6-sol",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
+        "workload_cost_usd": 5.504933,
+        "workload_cost_basis": "estimated_from_pricing_snapshot",
+        "workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+        "standard_rate_estimate_usd": 11.0097835,
+        "standard_rate_method": "managed_usage_reprice_with_conservative_uncached_fallback",
+        "pricing_reference": "https://developers.openai.com/api/docs/models/gpt-6-sol: Flex is 50% of Standard; rates include cache read (0.1x) and write (1.25x). Above 272000 input tokens, input/cache rates double and output rates multiply by 1.5. Checked 2026-09-22.",
+        "standard_rate_multiplier": 2,
+        "response_count": 771,
+        "missing_cache_dimensions": {
+          "cache_read_tokens": 135,
+          "cache_write_tokens": 44
+        },
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": true,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Missing cache dimensions remain missing; the shared pricing helper uses ordinary-input estimates for affected responses, which may overstate or understate cache-adjusted costs.",
+          "Standard rates are twice the frozen Flex rates, as documented in the frozen registry.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://developers.openai.com/api/docs/models/gpt-6-sol"
+      },
+      "unit_source": "site/src/data/significance/gpt-6-sol.jsonl",
+      "log_loss": 0.3766742854522973,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
+      "slug": "claude-fable-5-1",
+      "display_name": "Claude Fable 5.1",
+      "provider": "Anthropic",
+      "model_key": "anthropic:claude-fable-5-1",
+      "access": "Anthropic API",
+      "reasoning": "Adaptive thinking (provider default)",
+      "release_date": "2026-09-01",
+      "training_cutoff": "June 2026",
+      "eligibility": "qualified",
+      "eligibility_reason": "A June 2026 cutoff overlaps the earliest June 30 decision, so it cannot establish that the cutoff predates every scored decision.",
+      "github_run_id": "34307189166",
+      "micro_brier": 0.1287705426356589,
+      "equal_case_brier": 0.13653489478775194,
+      "correct": 318,
+      "high_confidence": {
+        "count": 81,
+        "wrong": 0,
+        "mean_confidence": 0.9288888888888889,
+        "accuracy": 1.0,
+        "share": 0.20930232558139536
+      },
+      "cost": {
+        "usd": 83.18,
+        "basis": "estimated",
+        "note": "Estimated cost with caching. The run was inadvertently uncached (actual successful workload $189.70); the cached cost was reconstructed from saved per-turn token usage and validated against the other Anthropic runs."
+      },
+      "accuracy": 0.8217054263565892,
+      "cutoff_evidence": {
+        "slug": "claude-fable-5-1",
+        "model_ids": [
+          "claude-fable-5-1"
+        ],
+        "cutoff": "2026-06",
+        "kind": "training",
+        "source": "https://platform.claude.com/docs/en/models/fable-5-1/overview",
+        "checked": "2026-09-08"
+      },
+      "cutoff_status": "qualified",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": null,
+      "log_loss": null,
+      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+    },
+    {
+      "slug": "grok-4-6",
+      "display_name": "Grok 4.6",
+      "provider": "SpaceXAI",
+      "model_key": "vercel_ai_gateway:spacexai/grok-4.6",
+      "access": "Vercel AI Gateway (served by xAI)",
+      "reasoning": "High",
+      "release_date": "2026-08-12",
+      "training_cutoff": null,
+      "eligibility": "qualified",
+      "eligibility_reason": "Cutoff evidence is conflicting or unknown.",
+      "github_run_id": "34294236811",
+      "micro_brier": 0.13368062015503876,
+      "equal_case_brier": 0.13480444111444112,
+      "correct": 312,
+      "high_confidence": {
+        "count": 112,
+        "wrong": 1,
+        "mean_confidence": 0.9302678571428571,
+        "accuracy": 0.9910714285714286,
+        "share": 0.28940568475452194
+      },
+      "cost": {
+        "usd": 15.72,
+        "basis": "standard_rate",
+        "note": null
+      },
+      "accuracy": 0.8062015503875969,
+      "cutoff_evidence": {
+        "slug": "grok-4-6",
+        "model_ids": [
+          "spacexai/grok-4.6",
+          "grok-4.6"
+        ],
+        "cutoff": "2026-02-01",
+        "kind": "knowledge",
+        "source": "https://docs.x.ai/developers/models",
+        "checked": "2026-08-30",
+        "note": "xAI's pages report January 2026 and February 1, 2026; the later date is used."
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": null,
+      "log_loss": null,
+      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+    },
+    {
+      "slug": "claude-opus-5",
+      "display_name": "Claude Opus 5",
+      "provider": "Anthropic",
+      "model_key": "anthropic:claude-opus-5",
+      "access": "Anthropic API",
+      "reasoning": "Adaptive thinking (provider default: high)",
+      "release_date": "2026-07-24",
+      "training_cutoff": "May 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A May 2026 cutoff predates every scored decision.",
+      "github_run_id": "34845972981",
+      "micro_brier": 0.13987105943152456,
+      "equal_case_brier": 0.1354839407417979,
+      "correct": 310,
+      "high_confidence": {
+        "count": 121,
+        "wrong": 4,
+        "mean_confidence": 0.936198347107438,
+        "accuracy": 0.9669421487603306,
+        "share": 0.31266149870801035
+      },
+      "cost": {
+        "usd": 45.89,
+        "basis": "standard_rate",
+        "note": null
+      },
+      "accuracy": 0.8010335917312662,
+      "cutoff_evidence": {
+        "slug": "claude-opus-5",
+        "model_ids": [
+          "claude-opus-5"
+        ],
+        "cutoff": "2026-05",
+        "kind": "training",
+        "source": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "checked": "2026-08-31"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": "site/src/data/significance/claude-opus-5.jsonl",
+      "log_loss": 0.4305857058137689,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
+      "slug": "gpt-5-6-sol",
+      "display_name": "GPT-5.6 Sol",
+      "provider": "OpenAI",
+      "model_key": "vercel_ai_gateway:openai/gpt-5.6-sol",
+      "access": "Vercel AI Gateway (served by OpenAI, Flex)",
+      "reasoning": "High",
+      "release_date": "2026-06-26",
+      "training_cutoff": "February 16, 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A February 16, 2026 cutoff predates every scored decision.",
+      "github_run_id": "34428487985",
+      "micro_brier": 0.14009137209302325,
+      "equal_case_brier": 0.1331861701607916,
+      "correct": 313,
+      "high_confidence": {
+        "count": 228,
+        "wrong": 26,
+        "mean_confidence": 0.9701710526315789,
+        "accuracy": 0.8859649122807017,
+        "share": 0.5891472868217055
+      },
+      "cost": {
+        "usd": 24.91,
+        "basis": "standard_rate",
+        "note": "Standard-rate equivalent. Flex pricing and a Vercel discount made the actual cost roughly 75% lower."
+      },
+      "accuracy": 0.8087855297157622,
+      "cutoff_evidence": {
+        "slug": "gpt-5-6-sol",
+        "model_ids": [
+          "gpt-5.6-sol",
+          "openai/gpt-5.6-sol"
+        ],
+        "cutoff": "2026-02-16",
+        "kind": "knowledge",
+        "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+        "checked": "2026-07-11"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": "site/src/data/significance/gpt-5-6-sol.jsonl",
+      "log_loss": 0.4840694141365747,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
+      "slug": "kimi-k3",
+      "display_name": "Kimi K3",
+      "provider": "Moonshot",
+      "model_key": "vercel_ai_gateway:moonshotai/kimi-k3",
+      "access": "Vercel AI Gateway (served by DeepInfra)",
+      "reasoning": "High",
+      "release_date": "2026-07-17",
+      "training_cutoff": null,
+      "eligibility": "qualified",
+      "eligibility_reason": "Moonshot has not published a training cutoff.",
+      "github_run_id": "34305285043",
+      "micro_brier": 0.14129870801033592,
+      "equal_case_brier": 0.15366887350744493,
+      "correct": 303,
+      "high_confidence": {
+        "count": 92,
+        "wrong": 1,
+        "mean_confidence": 0.9284782608695652,
+        "accuracy": 0.9891304347826086,
+        "share": 0.23772609819121446
+      },
+      "cost": {
+        "usd": 16.87,
+        "basis": "standard_rate",
+        "note": null
+      },
+      "accuracy": 0.7829457364341085,
+      "cutoff_evidence": {
+        "slug": "kimi-k3",
+        "model_ids": [
+          "moonshotai/kimi-k3",
+          "moonshotai/Kimi-K3"
+        ],
+        "cutoff": null,
+        "kind": null,
+        "source": "https://huggingface.co/moonshotai/Kimi-K3",
+        "checked": "2026-08-30",
+        "note": "Moonshot AI has not published a cutoff."
+      },
+      "cutoff_status": "qualified",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": null,
+      "log_loss": null,
+      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+    },
+    {
+      "slug": "gpt-5-6-luna",
+      "display_name": "GPT-5.6 Luna",
+      "provider": "OpenAI",
+      "model_key": "openai:gpt-5.6-luna",
+      "access": "OpenAI API",
+      "reasoning": "High",
+      "release_date": "2026-06-26",
+      "training_cutoff": "February 16, 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A February 16, 2026 cutoff predates every scored decision.",
+      "github_run_id": "34222142006",
+      "micro_brier": 0.1432169250645995,
+      "equal_case_brier": 0.15083510810617953,
+      "correct": 313,
+      "high_confidence": {
+        "count": 182,
+        "wrong": 20,
+        "mean_confidence": 0.9492307692307692,
+        "accuracy": 0.8901098901098901,
+        "share": 0.4702842377260982
+      },
+      "cost": {
+        "usd": 1.48,
+        "basis": "standard_rate",
+        "note": "Billing-derived; includes eight extra requests."
+      },
+      "accuracy": 0.8087855297157622,
+      "cutoff_evidence": {
+        "slug": "gpt-5-6-luna",
+        "model_ids": [
+          "gpt-5.6-luna"
+        ],
+        "cutoff": "2026-02-16",
+        "kind": "knowledge",
+        "source": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+        "checked": "2026-07-11"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": null,
+      "log_loss": null,
+      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+    },
+    {
+      "slug": "gpt-6-astra",
+      "display_name": "GPT-6 Astra",
+      "provider": "OpenAI",
+      "model_key": "openai:gpt-6-astra",
+      "access": "OpenAI API (Flex)",
+      "reasoning": "High",
+      "release_date": "2026-09-03",
+      "training_cutoff": "April 30, 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "An April 30, 2026 cutoff predates every scored decision.",
+      "github_run_id": "34305259900",
+      "micro_brier": 0.15221040051679585,
+      "equal_case_brier": 0.1427474770665842,
+      "correct": 305,
+      "high_confidence": {
+        "count": 207,
+        "wrong": 21,
+        "mean_confidence": 0.9547584541062801,
+        "accuracy": 0.8985507246376812,
+        "share": 0.5348837209302325
+      },
+      "cost": {
+        "usd": 59.74,
+        "basis": "standard_rate",
+        "note": "Standard-rate equivalent. Flex pricing made the actual cost lower."
+      },
+      "accuracy": 0.7881136950904393,
+      "cutoff_evidence": {
+        "slug": "gpt-6-astra",
+        "model_ids": [
+          "gpt-6-astra"
+        ],
+        "cutoff": "2026-04-30",
+        "kind": "knowledge",
+        "source": "https://developers.openai.com/api/docs/models/gpt-6-astra",
+        "checked": "2026-09-08"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": null,
+      "log_loss": null,
+      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+    },
+    {
+      "slug": "gemini-3-8-flash",
+      "display_name": "Gemini 3.8 Flash",
+      "provider": "Google",
+      "model_key": "google:gemini-3.8-flash",
+      "access": "Google Gemini API",
+      "reasoning": "High thinking",
+      "release_date": "2026-09-02",
+      "training_cutoff": "March 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A March 2026 cutoff predates every scored decision.",
+      "github_run_id": "34293244222",
+      "micro_brier": 0.1533139534883721,
+      "equal_case_brier": 0.13899537216751504,
+      "correct": 310,
+      "high_confidence": {
+        "count": 276,
+        "wrong": 35,
+        "mean_confidence": 0.9518478260869564,
+        "accuracy": 0.8731884057971014,
+        "share": 0.7131782945736435
+      },
+      "cost": {
+        "usd": 35.61,
+        "basis": "standard_rate",
+        "note": "Uses Google's Standard introductory pricing; cache usage is imputed for three cases."
+      },
+      "accuracy": 0.8010335917312662,
+      "cutoff_evidence": {
+        "slug": "gemini-3-8-flash",
+        "model_ids": [
+          "gemini-3.8-flash"
+        ],
+        "cutoff": "2026-03",
+        "kind": "knowledge",
+        "source": "https://deepmind.google/models/model-cards/gemini-3-8-flash/",
+        "checked": "2026-09-08"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": null,
+      "log_loss": null,
+      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+    },
+    {
+      "slug": "grok-4-7",
+      "display_name": "Grok 4.7",
+      "provider": "vercel_ai_gateway",
+      "model_key": "vercel_ai_gateway:spacexai/grok-4.7",
+      "reasoning": "High",
+      "micro_brier": 0.15832558139534883,
+      "equal_case_brier": 0.16454140522176236,
+      "correct": 298,
+      "high_confidence": {
+        "count": 98,
+        "wrong": 4,
+        "mean_confidence": 0.9293877551020409,
+        "accuracy": 0.9591836734693877,
+        "share": 0.2532299741602067
+      },
+      "cost": {
+        "usd": 32.999826,
+        "basis": "managed_usage_reprice_with_conservative_uncached_fallback"
+      },
+      "aggregate_source": "site/src/data/exports/grok-4-7.json",
+      "accuracy": 0.7700258397932817,
+      "cutoff_evidence": {
+        "slug": "grok-4-7",
+        "model_ids": [
+          "spacexai/grok-4.7"
+        ],
+        "cutoff": "2026-05",
+        "kind": "knowledge",
+        "source": "https://docs.x.ai/developers/grok-4-7",
+        "checked": "2026-09-21"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "cost_evidence": {
+        "slug": "grok-4-7",
+        "forecast_run_id": "35799524684",
+        "score_run_id": "35885175070",
+        "model_key": "vercel_ai_gateway:spacexai/grok-4.7",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
+        "workload_cost_usd": 11.517165,
+        "workload_cost_basis": "provider_reported",
+        "workload_cost_method": "gateway_reported_charge",
+        "standard_rate_estimate_usd": 32.999826,
+        "standard_rate_method": "managed_usage_reprice_with_conservative_uncached_fallback",
+        "pricing_reference": "https://docs.x.ai/developers/grok-4-7 (USD 2/M input and USD 6/M output standard rates), checked 2026-09-21",
+        "standard_rate_multiplier": 1,
+        "response_count": 629,
+        "missing_cache_dimensions": {
+          "cache_write_tokens": 629,
+          "cache_read_tokens": 3
+        },
+        "cache_read_rate_available": false,
+        "cache_write_rate_available": false,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Missing cache dimensions remain missing; the shared pricing helper uses ordinary-input estimates for affected responses, which may overstate or understate cache-adjusted costs.",
+          "Frozen registry has no cache rates; standard estimate uses ordinary input rates despite reported cache reads, so it is not a cache-adjusted provider charge.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://docs.x.ai/developers/grok-4-7"
+      },
+      "unit_source": "site/src/data/significance/grok-4-7.jsonl",
+      "log_loss": 0.48117072320483484,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
+      "slug": "claude-sonnet-5",
+      "display_name": "Claude Sonnet 5",
+      "provider": "Anthropic",
+      "model_key": "anthropic:claude-sonnet-5",
+      "access": "Anthropic API",
+      "reasoning": "Adaptive thinking (provider default)",
+      "release_date": "2026-06-30",
+      "training_cutoff": "January 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A January 2026 cutoff predates every scored decision.",
+      "github_run_id": "34895753581",
+      "micro_brier": 0.15848397932816538,
+      "equal_case_brier": 0.15963922014493442,
+      "correct": 293,
+      "high_confidence": {
+        "count": 60,
+        "wrong": 5,
+        "mean_confidence": 0.9256666666666666,
+        "accuracy": 0.9166666666666666,
+        "share": 0.15503875968992248
+      },
+      "cost": {
+        "usd": 24.68,
+        "basis": "standard_rate",
+        "note": null
+      },
+      "accuracy": 0.7571059431524548,
+      "cutoff_evidence": {
+        "slug": "claude-sonnet-5",
+        "model_ids": [
+          "claude-sonnet-5"
+        ],
+        "cutoff": "2026-01",
+        "kind": "training",
+        "source": "https://platform.claude.com/docs/en/models/sonnet-5/overview",
+        "checked": "2026-09-10"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": "site/src/data/significance/claude-sonnet-5.jsonl",
+      "log_loss": 0.487058030961046,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
+      "slug": "muse-spark-1-3",
+      "display_name": "Muse Spark 1.3",
+      "provider": "Meta",
+      "model_key": "vercel_ai_gateway:meta/muse-spark-1.3-contributor",
+      "access": "Vercel AI Gateway (served by Meta, contributor tier)",
+      "reasoning": "High",
+      "release_date": "2026-09-02",
+      "training_cutoff": null,
+      "eligibility": "qualified",
+      "eligibility_reason": "Meta has not published a training cutoff.",
+      "github_run_id": "34272944667",
+      "micro_brier": 0.18120671834625324,
+      "equal_case_brier": 0.17844744224029938,
+      "correct": 279,
+      "high_confidence": {
+        "count": 135,
+        "wrong": 15,
+        "mean_confidence": 0.9351851851851852,
+        "accuracy": 0.8888888888888888,
+        "share": 0.3488372093023256
+      },
+      "cost": {
+        "usd": 8.78,
+        "basis": "standard_rate",
+        "note": "Ran on the contributor-tier endpoint; cost shown at standard rates. Standard-tier execution has not been measured."
+      },
+      "accuracy": 0.7209302325581395,
+      "cutoff_evidence": {
+        "slug": "muse-spark-1-3",
+        "model_ids": [
+          "meta/muse-spark-1.3-contributor",
+          "meta/muse-spark-1.3",
+          "muse-spark-1.3"
+        ],
+        "cutoff": null,
+        "kind": null,
+        "source": "https://research.meta.ai/blog/introducing-muse-spark-1-3",
+        "checked": "2026-09-08",
+        "note": "Meta has not published a cutoff."
+      },
+      "cutoff_status": "qualified",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/snapshots/beta-2026-09-18.json",
+      "cost_evidence": {
+        "basis": "historical_published_aggregate",
+        "note": "Not rederived from raw invoices or token usage in this evidence pass."
+      },
+      "unit_source": null,
+      "log_loss": null,
+      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+    }
+  ],
+  "summary_experiment": {
+    "method": "Paired case-cluster percentile bootstrap",
+    "replicates": 1000000,
+    "seed": 20260514,
+    "rng": "NumPy PCG64 multinomial case multiplicities",
+    "numpy_version": "2.4.2",
+    "family_model_count": 3,
+    "available_models": [
+      "gpt-5-6-luna-summaries-high",
+      "gpt-6-luna-summaries-none",
+      "jev-luna-summaries"
+    ],
+    "case_count": 91,
+    "unit_count": 387,
+    "familywise_alpha": 0.05,
+    "interval_confidence": 0.9944444444444445,
+    "correction": "Bonferroni across 3 model pairs and three metrics",
+    "metrics": {
+      "gpt-5-6-luna-summaries-high": {
+        "micro_brier": 0.1548945736434109,
+        "equal_case_brier": 0.1611943673786531,
+        "accuracy": 0.7855297157622739
+      },
+      "gpt-6-luna-summaries-none": {
+        "micro_brier": 0.17152093023255813,
+        "equal_case_brier": 0.186942624439053,
+        "accuracy": 0.7416020671834626
+      },
+      "jev-luna-summaries": {
+        "micro_brier": 0.3675413436692507,
+        "equal_case_brier": 0.3441620877931591,
+        "accuracy": 0.32558139534883723
+      }
+    },
+    "pairs": [
+      {
+        "model_a": "gpt-5-6-luna-summaries-high",
+        "model_b": "gpt-6-luna-summaries-none",
+        "metric": "micro_brier",
+        "delta": -0.01662635658914724,
+        "ci_low": -0.04597998475609756,
+        "ci_high": 0.011680173225276048,
+        "significant": false
+      },
+      {
+        "model_a": "gpt-5-6-luna-summaries-high",
+        "model_b": "gpt-6-luna-summaries-none",
+        "metric": "equal_case_brier",
+        "delta": -0.025748257060399904,
+        "ci_low": -0.06627741807101621,
+        "ci_high": 0.0065766204906203924,
+        "significant": false
+      },
+      {
+        "model_a": "gpt-5-6-luna-summaries-high",
+        "model_b": "gpt-6-luna-summaries-none",
+        "metric": "accuracy",
+        "delta": 0.043927648578811374,
+        "ci_low": -0.013227513227513255,
+        "ci_high": 0.10795454545454541,
+        "significant": false
+      },
+      {
+        "model_a": "gpt-5-6-luna-summaries-high",
+        "model_b": "jev-luna-summaries",
+        "metric": "micro_brier",
+        "delta": -0.2126467700258398,
+        "ci_low": -0.32644138718761834,
+        "ci_high": -0.06433223472456742,
+        "significant": true
+      },
+      {
+        "model_a": "gpt-5-6-luna-summaries-high",
+        "model_b": "jev-luna-summaries",
+        "metric": "equal_case_brier",
+        "delta": -0.182967720414506,
+        "ci_low": -0.26553515833967606,
+        "ci_high": -0.09276395312227446,
+        "significant": true
+      },
+      {
+        "model_a": "gpt-5-6-luna-summaries-high",
+        "model_b": "jev-luna-summaries",
+        "metric": "accuracy",
+        "delta": 0.4599483204134367,
+        "ci_low": 0.21143958777540872,
+        "ci_high": 0.6634066102816086,
+        "significant": true
+      },
+      {
+        "model_a": "gpt-6-luna-summaries-none",
+        "model_b": "jev-luna-summaries",
+        "metric": "micro_brier",
+        "delta": -0.19602041343669255,
+        "ci_low": -0.30680771293294884,
+        "ci_high": -0.06011302817718015,
+        "significant": true
+      },
+      {
+        "model_a": "gpt-6-luna-summaries-none",
+        "model_b": "jev-luna-summaries",
+        "metric": "equal_case_brier",
+        "delta": -0.1572194633541061,
+        "ci_low": -0.24463113500784928,
+        "ci_high": -0.06178089384920636,
+        "significant": true
+      },
+      {
+        "model_a": "gpt-6-luna-summaries-none",
+        "model_b": "jev-luna-summaries",
+        "metric": "accuracy",
+        "delta": 0.4160206718346253,
+        "ci_low": 0.16666666666666663,
+        "ci_high": 0.6270874431337807,
+        "significant": true
+      }
+    ],
+    "significant_pairs": [
+      {
+        "better": "gpt-5-6-luna-summaries-high",
+        "worse": "jev-luna-summaries",
+        "metric": "micro_brier"
+      },
+      {
+        "better": "gpt-5-6-luna-summaries-high",
+        "worse": "jev-luna-summaries",
+        "metric": "equal_case_brier"
+      },
+      {
+        "better": "gpt-5-6-luna-summaries-high",
+        "worse": "jev-luna-summaries",
+        "metric": "accuracy"
+      },
+      {
+        "better": "gpt-6-luna-summaries-none",
+        "worse": "jev-luna-summaries",
+        "metric": "micro_brier"
+      },
+      {
+        "better": "gpt-6-luna-summaries-none",
+        "worse": "jev-luna-summaries",
+        "metric": "equal_case_brier"
+      },
+      {
+        "better": "gpt-6-luna-summaries-none",
+        "worse": "jev-luna-summaries",
+        "metric": "accuracy"
+      }
+    ],
+    "caveat": "Exploratory. Cross-case dependence has not been verified. Unavailable pairs are not tested.",
+    "sources": {
+      "jev-luna-summaries": "jev-luna-summaries.jsonl",
+      "gpt-6-luna-summaries-none": "gpt-6-luna-summaries-none.jsonl",
+      "gpt-5-6-luna-summaries-high": "gpt-5-6-luna-summaries-high.jsonl"
+    },
+    "provenance": {
+      "release": "cycle-1-91-2026-09-08-luna-r5",
+      "release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+      "models": {
+        "jev-luna-summaries": {
+          "forecast_run": "35459485218",
+          "source": "summary_export_units"
+        },
+        "gpt-6-luna-summaries-none": {
+          "forecast_run": "35799226577",
+          "source": "summary_export_units"
+        },
+        "gpt-5-6-luna-summaries-high": {
+          "forecast_run": "35773842374",
+          "source": "summary_export_units"
+        }
+      }
+    },
+    "missing_models": [],
+    "catalog": [
+      {
+        "slug": "jev-luna-summaries",
+        "forecast_run_id": "35459485218",
+        "model_key": "vercel_ai_gateway:typesafe-ai/jev",
+        "run_identity_sha256": "e8a87c0a4cc8022cd4bb920dab5e7f1721ba22ef7ae79be6b299268fa0cf04d4",
+        "model_registry_sha256": "3c2140cc02c7a0432bcc22213c628e176f79d96a8910f068dd14588c64149b80",
+        "summary_cache_sha256": "34af6ac7239f706976ed7cee91a44a9aecb24a0a4b3f8a9c1373e5d794f64bca",
+        "forecast_release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+        "published_outcomes_scoring_run_id": "35885171489",
+        "published_outcomes_forecast_run_id": "35776235829",
+        "score_basis": "Rescored saved valid forecasts with the canonical scorer against already published GPT-6 Sol unit outcomes from the same locked release. This is not a protected fan-in scoring run.",
+        "recomputed_at": "2026-09-27T04:15:39.731675+00:00",
+        "forecast_case_count": 91,
+        "forecast_unit_count": 409,
+        "scored_unit_count": 387,
+        "summary_document_count": 482,
+        "summary_preparation_estimated_usd": 10.320438,
+        "successful_inference_estimated_usd": 0.044179,
+        "inference_cost_caveat": "Registry-rate estimate for successful receipts only; excludes retries and uncertain charges; not an invoice total. Shared summary preparation is separate.",
+        "archive_workflow_run_id": "36284632360",
+        "archive_artifact_id": 10590228053
+      },
+      {
+        "slug": "gpt-5-6-luna-summaries-high",
+        "forecast_run_id": "35773842374",
+        "model_key": "openai:gpt-5.6-luna",
+        "run_identity_sha256": "236b3d876a35588a2ba0088a9f832acc7a8d7a201c5f0d1e6a679a04ddf85183",
+        "model_registry_sha256": "50fdf6d5a461fd0b59c61dbcbcf421d633b201dde57a8aeac7831dc190eff407",
+        "summary_cache_sha256": "34af6ac7239f706976ed7cee91a44a9aecb24a0a4b3f8a9c1373e5d794f64bca",
+        "forecast_release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+        "published_outcomes_scoring_run_id": "35885171489",
+        "published_outcomes_forecast_run_id": "35776235829",
+        "score_basis": "Rescored saved valid forecasts with the canonical scorer against already published GPT-6 Sol unit outcomes from the same locked release. This is not a protected fan-in scoring run.",
+        "recomputed_at": "2026-09-27T04:15:39.733505+00:00",
+        "forecast_case_count": 91,
+        "forecast_unit_count": 409,
+        "scored_unit_count": 387,
+        "summary_document_count": 482,
+        "summary_preparation_estimated_usd": 10.320438,
+        "successful_inference_estimated_usd": 1.617969,
+        "inference_cost_caveat": "Registry-rate estimate for successful receipts only; excludes retries and uncertain charges; not an invoice total. Shared summary preparation is separate.",
+        "archive_workflow_run_id": "36284632360",
+        "archive_artifact_id": 10716882391
+      },
+      {
+        "slug": "gpt-6-luna-summaries-none",
+        "forecast_run_id": "35799226577",
+        "model_key": "openai:gpt-6-luna",
+        "run_identity_sha256": "c22a68253a722e5c23bf090bdf63691e2f37d081939ab4210551efd89cb5de73",
+        "model_registry_sha256": "d23ca2bd65e2d065a20e1517e6ff5b14db07fe0c420588707cab8b19e09597b9",
+        "summary_cache_sha256": "34af6ac7239f706976ed7cee91a44a9aecb24a0a4b3f8a9c1373e5d794f64bca",
+        "forecast_release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+        "published_outcomes_scoring_run_id": "35885171489",
+        "published_outcomes_forecast_run_id": "35776235829",
+        "score_basis": "Rescored saved valid forecasts with the canonical scorer against already published GPT-6 Sol unit outcomes from the same locked release. This is not a protected fan-in scoring run.",
+        "recomputed_at": "2026-09-27T04:15:39.735310+00:00",
+        "forecast_case_count": 91,
+        "forecast_unit_count": 409,
+        "scored_unit_count": 387,
+        "summary_document_count": 482,
+        "summary_preparation_estimated_usd": 10.320438,
+        "successful_inference_estimated_usd": 0.102504,
+        "inference_cost_caveat": "Registry-rate estimate for successful receipts only; excludes retries and uncertain charges; not an invoice total. Shared summary preparation is separate.",
+        "archive_workflow_run_id": "36284632360",
+        "archive_artifact_id": 10725139258
+      }
+    ],
+    "unit_sources": {
+      "gpt-5-6-luna-summaries-high": "site/src/data/significance/summary/gpt-5-6-luna-summaries-high.jsonl",
+      "gpt-6-luna-summaries-none": "site/src/data/significance/summary/gpt-6-luna-summaries-none.jsonl",
+      "jev-luna-summaries": "site/src/data/significance/summary/jev-luna-summaries.jsonl"
+    },
+    "jev_calibration_in_the_large": {
+      "mean_probability": 0.30472868217054266,
+      "observed_dismissal_rate": 0.7364341085271318,
+      "unit_count": 387,
+      "case_count": 91,
+      "basis": "Recomputed from committed public per-unit summary inputs on 2026-09-29."
+    }
+  },
+  "full_panel_unit_coverage": {
+    "available": [
+      "gpt-6-sol",
+      "claude-opus-5",
+      "gpt-5-6-sol",
+      "grok-4-7",
+      "claude-sonnet-5"
+    ],
+    "missing": [
+      "claude-fable-5-1",
+      "grok-4-6",
+      "kimi-k3",
+      "gpt-5-6-luna",
+      "gpt-6-astra",
+      "gemini-3-8-flash",
+      "muse-spark-1-3"
+    ]
+  },
+  "source_map": {
+    "aggregate": "site/src/data/snapshots/beta-2026-09-18.json",
+    "cutoffs": "legalforecast/data/model_cutoffs.json",
+    "costs": "site/src/data/receipt-costs.json",
+    "methods": "docs/METHODS.md",
+    "protocol": "legalforecast/runner/managed_execution.py",
+    "labeling_protocol": "Private companion-repository labeling protocol (not redistributed in this public package).",
+    "summary_protocol": "docs/jev-mode.md",
+    "summary_comparison": "site/src/data/significance/summary/comparison.json",
+    "summary_catalog": "site/public/data/summary-comparison/catalog.json"
+  },
+  "analysis_limits": [
+    "Historical aggregate values are verified against repository snapshot, not re-derived for seven original models without retained local unit files.",
+    "Only five of the twelve original configurations have available per-unit data for recomputation in committed site data.",
+    "No all-twelve significance analysis is claimed.",
+    "Current labeling protocol is implementation/documentation evidence, not a census of completed historical human adjudications.",
+    "No human forecasting baseline was run.",
+    "Original beta has one retained successful forecast per unit; run-to-run variation is not measured."
+  ],
+  "public_provenance": {
+    "repository": "LegalForecastBench",
+    "revision": "8374f8e1",
+    "revision_basis": "Public input revision containing the repository-relative sources referenced by this package.",
+    "imported_on": "2026-09-29",
+    "source_description": "Cleaned from the manuscript empirical aggregate. Public repository paths are repository-relative; numerical values and recorded caveats are preserved.",
+    "private_protocol_limitation": "Historical labeling-protocol evidence remains in the private companion LegalForecastCorpus repository and is not redistributed here. The aggregate values are preserved, but the private protocol path and private corpus bytes are unavailable for independent reconstruction from this package."
+  }
+}
