@@ -154,7 +154,7 @@ const comparison = [
 		<div class="prose-lfb prose mt-10 max-w-[46rem] prose-headings:scroll-mt-24">
 			<h2 id="rubric-failures">How rubric answer keys fail</h2>
 			<p>
-				I read two tasks from a published legal-agent benchmark closely, checking each grading criterion against the task's record and the governing law. Most issue-spotting criteria were sound. But a meaningful share had one of five problems. The examples below are paraphrased so they illustrate the pattern rather than any one task.
+				The problems below are not specific to any one benchmark; they can arise wherever a rubric serves as the answer key. To make them concrete, I read two tasks from Harvey's Legal Agent Benchmark (LAB) closely, checking each grading criterion against the task's record and the governing law. LAB is a set of long-horizon legal work-product tasks graded against expert-written criteria, and its tasks and scoring code are <a href="https://github.com/harveyai/harvey-labs">public</a>, so anyone can check what I describe. Most issue-spotting criteria were sound. But a meaningful share had one of five problems. The examples come from those two LAB tasks; I describe them without reproducing the task text.
 			</p>
 			<ol>
 				<li>
@@ -170,7 +170,7 @@ const comparison = [
 					<strong>The key grades what was never requested.</strong> Several criteria required severity ratings, spreadsheet layouts, or risk labels that the prompt never asked for. A memo that answered the question as posed fails them.
 				</li>
 				<li>
-					<strong>Strict scoring amplifies every error.</strong> When a response scores only if every criterion passes, and two model judges must agree on each, a single defective criterion turns a correct answer into a zero.
+					<strong>Strict scoring amplifies every error.</strong> When a response scores only if every criterion passes, a single defective criterion turns a correct answer into a zero. LAB uses this <a href="https://github.com/harveyai/harvey-labs/blob/main/docs/eval-strategies.md">all-pass scoring</a>: a task scores 1 only if every criterion passes, and in the standard setup two model judges grade each response independently and their task scores are averaged.
 				</li>
 			</ol>
 			<p>

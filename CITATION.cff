@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: "If you use LegalForecastBench or its LegalForecast-MTD task, please cite it as below."
 title: "LegalForecastBench: Forecasting Federal Motions to Dismiss (LegalForecast-MTD)"
-version: "0.1.0-alpha.1"
-date-released: 2026-05-17
+version: "2026-09-27"
+date-released: 2026-09-27
 license: "Apache-2.0"
 authors:
   - family-names: "Hughes"
