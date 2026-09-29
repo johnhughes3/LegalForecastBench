@@ -191,7 +191,9 @@ The "Why This Exists" section above was written personally by John J. Hughes, II
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+Code: Apache License 2.0. See [LICENSE](LICENSE).
+
+Benchmark data (published results, exports, and the site's data downloads): Creative Commons Attribution 4.0 International (CC BY 4.0). See [LICENSE-DATA](LICENSE-DATA).
 
 ## Citation
 
