@@ -59,3 +59,10 @@ def test_table_loads_and_resolves_model_ids() -> None:
 def test_malformed_cutoff_is_rejected() -> None:
     with pytest.raises(ValueError, match="unsupported cutoff format"):
         _ = _evidence("2026").last_day
+
+
+def test_month_only_cutoff_exports_without_a_date_field() -> None:
+    evidence = evidence_for("spacexai/grok-4.7")
+    assert evidence is not None and evidence.cutoff == "2026-05"
+    # Month precision is kept in the table; only exact days fit the date field.
+    assert len(evidence.cutoff) != 10

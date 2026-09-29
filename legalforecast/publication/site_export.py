@@ -195,7 +195,13 @@ def _metadata(
             "training_cutoff": (
                 entry.provider_training_cutoff
                 if entry and entry.provider_training_cutoff
-                else (evidence.cutoff if evidence else None)
+                # The date field takes only exact days; month-only evidence stays
+                # in the eligibility reason and the cutoff table.
+                else (
+                    evidence.cutoff
+                    if evidence and evidence.cutoff and len(evidence.cutoff) == 10
+                    else None
+                )
             ),
             "comparison_eligibility": eligibility,
             "eligibility_reason": reason,
