@@ -24,7 +24,13 @@ class ChallengeScope(StrEnum):
 
 
 class DefendantGrouping(StrEnum):
-    """Whether the unit covers one defendant or a legally grouped set."""
+    """Whether the unit names one defendant or a group of similarly situated ones.
+
+    Defendants share a unit only when they are similarly situated on the claim;
+    differently situated defendants, where the court could reach a different
+    outcome for each, are separate units.  ``grouped`` means the unit names two
+    or more defendants.  ``grouping_rationale`` is optional for a group.
+    """
 
     INDIVIDUAL = "individual"
     GROUPED = "grouped"
@@ -106,8 +112,8 @@ class PredictionUnit:
         if not self.source_citations:
             raise ValueError("source_citations must include at least one citation")
 
-        if self.grouping is DefendantGrouping.GROUPED:
-            _require_non_empty(self.grouping_rationale or "", "grouping_rationale")
+        if self.grouping_rationale is not None:
+            _require_non_empty(self.grouping_rationale, "grouping_rationale")
 
         if self.grouping is DefendantGrouping.INDIVIDUAL and self.grouping_rationale:
             raise ValueError(

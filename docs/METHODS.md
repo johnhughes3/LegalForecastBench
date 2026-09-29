@@ -4,6 +4,10 @@
 
 LegalForecastBench measures whether a model can predict federal motion-to-dismiss outcomes from a frozen written pre-decision record. The prediction unit is a challenged claim against a defendant or defendant group, and the target is the probability that the unit will be fully dismissed in the first written disposition of the target motion.
 
+Defendant grouping follows the labeling protocol's rule: "A prediction unit is a logical grouping of one challenged claim against one defendant or one group of defendants. Defendants share a unit only when they are similarly situated on that claim. Differently situated defendants, where the court could reach a different outcome for each, are separate units." Where to draw the line is a judgment call for the unitizer. Generally, a defendant that is separately represented or files its own brief is a separate unit, and defendants that file one consolidated brief are one group. A defendant with a distinct argument that the other defendants do not share, such as a limitations defense available to only one underwriter, is a separate unit for the claims where that argument applies, even when it joins a shared brief. For example, a securities motion challenging Rule 10b-5 claims against an issuer, ten jointly briefed underwriters, a director, and an officer, and Section 11 and Section 12 claims against the issuer and the underwriters, yields 8 units: four for Rule 10b-5, and two each for Sections 11 and 12.
+
+The Cycle 1 release units were frozen under an earlier wording that allowed grouping only for defendants "treated together on materially identical grounds." They are not rewritten; the rule above governs units constructed after 2026-09-29.
+
 Published predictions are retrospective research artifacts about matters already decided before scoring. They are not legal advice and are not a prediction service for pending litigation.
 
 ## Frozen Inputs And Leakage Controls

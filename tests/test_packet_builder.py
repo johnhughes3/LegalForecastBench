@@ -332,3 +332,28 @@ def _unit() -> PredictionUnit:
         unit_confidence=0.95,
         source_citations=(SourceCitation(document_id="complaint", page=1),),
     )
+
+
+def test_grouped_prediction_unit_does_not_require_rationale() -> None:
+    # A group's rationale is optional; grouping follows from how many
+    # defendants the unit names (labeling protocol, "Defendant grouping").
+    from legalforecast.evals.prediction_units import (
+        ChallengeScope,
+        DefendantGrouping,
+        PredictionUnit,
+        SourceCitation,
+    )
+
+    unit = PredictionUnit(
+        unit_id="u1",
+        count="II",
+        claim_name="Section 11",
+        defendant_group="Underwriter Defendants",
+        challenged_by_motion=True,
+        challenge_scope=ChallengeScope.ENTIRE_CLAIM,
+        unit_confidence=0.8,
+        source_citations=(SourceCitation(document_id="complaint"),),
+        grouping=DefendantGrouping.GROUPED,
+    )
+
+    assert unit.grouping_rationale is None
