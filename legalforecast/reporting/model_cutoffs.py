@@ -1,17 +1,17 @@
 """Maintained provider cutoff evidence for comparison eligibility.
 
-Frozen model registries record a training cutoff only when a provider states
-an exact training-data date, so knowledge cutoffs and month-only statements
-stay "unknown" there. The owner's rule (2026-09-28) is broader: a model is
-eligible when its provider-reported training-data or knowledge cutoff falls
-before the earliest scored decision. This module applies that rule from one
-maintained table, ``legalforecast/data/model_cutoffs.json``, which the website
-reads too, without rewriting any frozen registry.
+Frozen model registries record a training cutoff only when a provider states an
+exact training-data date, so knowledge cutoffs and month-only statements stay
+"unknown" there. The owner's rule (2026-09-28): a model is eligible when its
+provider-reported training-data or knowledge cutoff falls before the earliest
+scored decision. A month-only cutoff is compared as the first day of that
+month, because ingesting a decision on the day it issued is implausible. The
+maintained table, ``legalforecast/data/model_cutoffs.json``, is read here and by
+the website; frozen registries are not rewritten.
 """
 
 from __future__ import annotations
 
-import calendar
 import json
 from dataclasses import dataclass
 from datetime import date
@@ -32,17 +32,21 @@ class CutoffEvidence:
     kind: str | None
 
     @property
-    def last_day(self) -> date | None:
-        """The latest date the cutoff could mean (a month counts as its last day)."""
+    def comparison_date(self) -> date | None:
+        """The date compared with the first decision (a month is its first day)."""
         if self.cutoff is None:
             return None
         parts = [int(part) for part in self.cutoff.split("-")]
         if len(parts) == 3:
             return date(parts[0], parts[1], parts[2])
         if len(parts) == 2:
-            year, month = parts
-            return date(year, month, calendar.monthrange(year, month)[1])
+            return date(parts[0], parts[1], 1)
         raise ValueError(f"unsupported cutoff format {self.cutoff!r} for {self.slug}")
+
+    @property
+    def exact_date(self) -> date | None:
+        """The cutoff when the provider states a day; None for month precision."""
+        return self.comparison_date if self.cutoff and len(self.cutoff) == 10 else None
 
 
 @cache
@@ -66,7 +70,7 @@ def load_cutoffs() -> tuple[CutoffEvidence, ...]:
     if len(ids) != len(set(ids)) or len({e.slug for e in entries}) != len(entries):
         raise ValueError("model_cutoffs.json repeats a slug or model id")
     for entry in entries:
-        entry.last_day  # noqa: B018 - validates the date format eagerly
+        entry.comparison_date  # noqa: B018 - validates the date format eagerly
     return entries
 
 
@@ -82,19 +86,9 @@ def cutoff_eligibility(
     evidence: CutoffEvidence, *, first_decision: date
 ) -> tuple[Eligibility, str]:
     """Apply the owner's rule to one model against the earliest scored decision."""
-    last_day = evidence.last_day
-    if last_day is None or evidence.cutoff is None:
+    compared = evidence.comparison_date
+    if compared is None:
         return "qualified", "cutoff_not_published"
-    if len(evidence.cutoff) == 7:
-        # Month-only cutoff: a month before or equal to the first decision's
-        # month counts as preceding it. Ingesting a same-month decision on the
-        # day it issued is implausible (owner judgment, 2026-09-28).
-        if (last_day.year, last_day.month) <= (
-            first_decision.year,
-            first_decision.month,
-        ):
-            return "eligible", "reported_cutoff_predates_decisions"
-        return "qualified", "reported_cutoff_overlaps_decisions"
-    if last_day < first_decision:
+    if compared < first_decision:
         return "eligible", "reported_cutoff_predates_decisions"
     return "qualified", "reported_cutoff_overlaps_decisions"

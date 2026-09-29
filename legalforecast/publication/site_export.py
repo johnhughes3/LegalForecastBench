@@ -33,7 +33,6 @@ from legalforecast.evals.scorers import (
     UnitScore,
     score_cases,
 )
-from legalforecast.publication.model_cutoffs import cutoff_eligibility, evidence_for
 from legalforecast.publication.site_export_models import (
     SiteCalibrationBin,
     SiteCosts,
@@ -49,6 +48,7 @@ from legalforecast.reporting.contamination_tiers import (
     classify_registry_entry,
 )
 from legalforecast.reporting.leaderboard import summarize_accounting_leaderboard
+from legalforecast.reporting.model_cutoffs import cutoff_eligibility, evidence_for
 from legalforecast.reporting.score_summary_codec import score_summary_from_record
 
 
@@ -197,11 +197,7 @@ def _metadata(
                 if entry and entry.provider_training_cutoff
                 # The date field takes only exact days; month-only evidence stays
                 # in the eligibility reason and the cutoff table.
-                else (
-                    evidence.cutoff
-                    if evidence and evidence.cutoff and len(evidence.cutoff) == 10
-                    else None
-                )
+                else (evidence.exact_date if evidence else None)
             ),
             "comparison_eligibility": eligibility,
             "eligibility_reason": reason,

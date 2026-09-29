@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from legalforecast.publication.model_cutoffs import (
+from legalforecast.reporting.model_cutoffs import (
     CutoffEvidence,
     cutoff_eligibility,
     evidence_for,
@@ -18,7 +18,7 @@ def _evidence(cutoff: str | None) -> CutoffEvidence:
 
 
 def test_month_cutoff_in_or_before_the_decision_month_is_eligible() -> None:
-    assert _evidence("2026-05").last_day == date(2026, 5, 31)
+    assert _evidence("2026-05").comparison_date == date(2026, 5, 1)
     assert (
         cutoff_eligibility(_evidence("2026-05"), first_decision=FIRST_DECISION)[0]
         == "eligible"
@@ -62,11 +62,11 @@ def test_table_loads_and_resolves_model_ids() -> None:
 
 def test_malformed_cutoff_is_rejected() -> None:
     with pytest.raises(ValueError, match="unsupported cutoff format"):
-        _ = _evidence("2026").last_day
+        _ = _evidence("2026").comparison_date
 
 
 def test_month_only_cutoff_exports_without_a_date_field() -> None:
     evidence = evidence_for("spacexai/grok-4.7")
     assert evidence is not None and evidence.cutoff == "2026-05"
     # Month precision is kept in the table; only exact days fit the date field.
-    assert len(evidence.cutoff) != 10
+    assert evidence.exact_date is None
