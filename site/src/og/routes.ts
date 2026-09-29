@@ -12,6 +12,19 @@ export const SECTION_CARDS = {
 		title:
 			"Can frontier models predict how federal judges rule on motions to dismiss?",
 	},
+	results: {
+		eyebrow: "Results",
+		title: "How well each model forecast federal motion-to-dismiss rulings",
+	},
+	analysis: {
+		eyebrow: "Analysis",
+		title: "What the forecasts show, and why the task matters",
+	},
+	paper: {
+		eyebrow: "Working paper",
+		title:
+			"Evaluating probabilistic legal judgment from pre-decision court records",
+	},
 	approach: {
 		eyebrow: "Approach",
 		title: "Law can be a verifiable domain",
@@ -30,7 +43,7 @@ export const SECTION_CARDS = {
 		title: "How the benchmark builds cases, runs models, and scores forecasts",
 	},
 	data: {
-		eyebrow: "Data and reproduction",
+		eyebrow: "Data & code",
 		title: "Download the results and see where they come from",
 	},
 } as const;

@@ -62,10 +62,17 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 						exact: true,
 					});
 					assert.ok(await nav.isVisible(), context);
-					assert.equal(await nav.getByRole("link").count(), 6);
+					// Below 640px the paper action leads the mobile nav row instead of
+					// crowding the header.
+					const narrow = width < 640;
+					assert.equal(
+						await nav.getByRole("link").count(),
+						narrow ? 6 : 5,
+						context,
+					);
 					assert.equal(
 						await nav
-							.getByRole("link", { name: "Approach", exact: true })
+							.getByRole("link", { name: "Analysis", exact: true })
 							.getAttribute("aria-current"),
 						"page",
 					);
@@ -81,6 +88,18 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 							toggle.x + toggle.width <= width,
 						context,
 					);
+					// The paper action stays in the header row at every width.
+					const paper = await page
+						.locator('body > header a[href="/paper/"]:visible')
+						.boundingBox();
+					assert.ok(
+						paper &&
+							(narrow
+								? paper.x >= 0 && paper.x + paper.width <= width
+								: brand.x + brand.width <= paper.x &&
+									paper.x + paper.width <= toggle.x),
+						`${context}: paper action is visible in the header`,
+					);
 					if (width >= 1024) {
 						const box = await nav.boundingBox();
 						assert.ok(
@@ -91,10 +110,15 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 						);
 					}
 					// Tab to the last link: the mobile scroller must reveal keyboard focus.
-					await nav.getByRole("link", { name: "Results", exact: true }).focus();
-					for (let index = 0; index < 5; index++)
+					await nav
+						.getByRole("link", { name: "Overview", exact: true })
+						.focus();
+					for (let index = 0; index < 4; index++)
 						await page.keyboard.press("Tab");
-					const lastLink = nav.getByRole("link", { name: "Data", exact: true });
+					const lastLink = nav.getByRole("link", {
+						name: "Data & Code",
+						exact: true,
+					});
 					assert.ok(
 						await lastLink.evaluate(
 							(element) => element === document.activeElement,

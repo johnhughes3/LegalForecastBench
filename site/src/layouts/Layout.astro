@@ -7,6 +7,7 @@ import "../styles/global.css";
 import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import newsreaderLatin from "@fontsource-variable/newsreader/files/newsreader-latin-wght-normal.woff2?url";
 import ThemeToggle from "../components/ThemeToggle.astro";
+import { AUTHOR, REPO } from "../data/author";
 import { defaultOgImage, OG_HEIGHT, OG_WIDTH } from "../og/routes";
 
 interface Props {
@@ -29,16 +30,24 @@ const pageTitle = title
 	? `${title} · LegalForecastBench`
 	: "LegalForecastBench";
 const path = Astro.url.pathname;
+// Articles keep their pre-reorganization URLs; `also` maps them to the
+// section they now belong to so the nav still marks where the reader is.
 const nav = [
-	{ href: "/", label: "Results" },
-	{ href: "/approach/", label: "Approach" },
-	{ href: "/experiments/", label: "Experiments" },
-	{ href: "/findings/", label: "Findings" },
-	{ href: "/methods/", label: "Methods" },
-	{ href: "/data/", label: "Data" },
+	{ href: "/", label: "Overview", also: [] },
+	{ href: "/results/", label: "Results", also: ["/models/"] },
+	{ href: "/methods/", label: "Methods", also: [] },
+	{
+		href: "/analysis/",
+		label: "Analysis",
+		also: ["/findings/", "/experiments/", "/approach/"],
+	},
+	{ href: "/data/", label: "Data & Code", also: [] },
 ];
-const isActive = (href: string) =>
-	href === "/" ? path === "/" : path.startsWith(href);
+const isActive = (item: (typeof nav)[number]) =>
+	item.href === "/"
+		? path === "/"
+		: [item.href, ...item.also].some((prefix) => path.startsWith(prefix));
+const onPaper = path.startsWith("/paper/");
 ---
 
 <!doctype html>
@@ -81,7 +90,7 @@ const isActive = (href: string) =>
 	<body class="min-h-screen">
 		<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-surface focus:px-3 focus:py-2">Skip to content</a>
 		<header class="sticky top-0 z-40 border-b border-rule/80 bg-bg/85 backdrop-blur-md">
-			<div class="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6">
+			<div class="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
 				<a href="/" class="flex items-center gap-2.5 font-serif text-[1.15rem] font-semibold tracking-tight text-ink">
 					<svg class="size-6 text-accent" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="7" fill="currentColor" /><path d="M10 21.5 14.5 16l3.2 3.2L23 11" fill="none" stroke="var(--bg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
 					LegalForecastBench
@@ -92,25 +101,33 @@ const isActive = (href: string) =>
 							href={item.href}
 							class:list={[
 								"rounded-full px-3 py-1.5 transition",
-								isActive(item.href) ? "bg-surface-2 font-medium text-ink" : "text-ink-2 hover:text-ink",
+								isActive(item) ? "bg-surface-2 font-medium text-ink" : "text-ink-2 hover:text-ink",
 							]}
-							aria-current={isActive(item.href) ? "page" : undefined}
+							aria-current={isActive(item) ? "page" : undefined}
 						>
 							{item.label}
 						</a>
 					))}
 				</nav>
-				<div class="ml-auto lg:ml-0"><ThemeToggle /></div>
+				<div class="ml-auto flex items-center gap-2 lg:ml-0">
+					<a
+						href="/paper/"
+						aria-current={onPaper ? "page" : undefined}
+						class="hidden shrink-0 rounded-full bg-ink px-3 py-1.5 text-sm font-medium text-bg transition hover:opacity-90 sm:inline-flex"
+					>Read the paper</a>
+					<ThemeToggle />
+				</div>
 			</div>
 			<nav id="mobile-nav" class="nav-scroll mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pr-12 pb-2 text-sm lg:hidden" aria-label="Primary (mobile)">
+				<a href="/paper/" aria-current={onPaper ? "page" : undefined} class="sticky left-0 z-10 shrink-0 rounded-full bg-ink px-3 py-1 font-medium text-bg shadow-[0.5rem_0_0.5rem_-0.25rem_var(--bg)] sm:hidden">Paper</a>
 				{nav.map((item) => (
-					<a href={item.href} aria-current={isActive(item.href) ? "page" : undefined} class:list={["shrink-0 rounded-full px-3 py-1", isActive(item.href) ? "bg-surface-2 font-medium text-ink" : "text-ink-2"]}>{item.label}</a>
+					<a href={item.href} aria-current={isActive(item) ? "page" : undefined} class:list={["shrink-0 rounded-full px-3 py-1", isActive(item) ? "bg-surface-2 font-medium text-ink" : "text-ink-2"]}>{item.label}</a>
 				))}
 			</nav>
 			<script is:inline>
 				// Phones: center the current section, and keep a keyboard-focused
-				// link clear of the trailing fade (native focus scrolling stops at
-				// the edge, which is inside the fade).
+				// link clear of the trailing fade and of the pinned paper link
+				// (native focus scrolling stops at the edges, which they cover).
 				(() => {
 					const nav = document.getElementById("mobile-nav");
 					if (!nav) return;
@@ -119,12 +136,15 @@ const isActive = (href: string) =>
 					const current = nav.querySelector('[aria-current="page"]');
 					if (current && nav.scrollWidth > nav.clientWidth)
 						nav.scrollLeft += offset(current) - (nav.clientWidth - current.clientWidth) / 2;
+					const pinned = nav.querySelector(".sticky");
 					nav.addEventListener("focusin", (event) => {
 						const link = event.target;
+						if (link === pinned) return;
+						const lead = pinned ? pinned.offsetWidth + 8 : 0;
 						const left = offset(link);
 						const overflow = left + link.offsetWidth - (nav.clientWidth - FADE);
 						if (overflow > 0) nav.scrollLeft += overflow;
-						else if (left < 0) nav.scrollLeft += left - 12;
+						else if (left < lead) nav.scrollLeft += left - lead - 12;
 					});
 				})();
 			</script>
@@ -136,25 +156,22 @@ const isActive = (href: string) =>
 			<div class="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm text-ink-3 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
 				<div class="space-y-3">
 					<p class="font-serif text-base font-semibold text-ink">LegalForecastBench</p>
-					<p>An independent, open-source academic benchmark. Published predictions are retrospective research artifacts about matters already decided. They are not legal advice.</p>
-					<p>Harvey AI, Harvey LAB, Vals AI, and LegalQuants are not sponsors, partners, or endorsers of this work. Provider names identify the measured product surface only.</p>
+					<p>An independent, open-source research benchmark by <a class="text-ink-2 underline decoration-rule-strong underline-offset-2 hover:text-ink" href={AUTHOR.site}>{AUTHOR.name}</a>. Published predictions are retrospective research artifacts about matters already decided. They are not legal advice.</p>
+					<p>Shared with the LegalQuants community, which supports its distribution. Harvey AI, Harvey LAB, and Vals AI are not sponsors, partners, or endorsers of this work. Provider names identify the measured product surface only.</p>
 				</div>
 				<div class="space-y-2">
 					<p class="font-medium text-ink-2">Explore</p>
 					<ul class="space-y-1.5">
-						<li><a class="hover:text-ink" href="/">Results</a></li>
-						<li><a class="hover:text-ink" href="/approach/">Approach</a></li>
-						<li><a class="hover:text-ink" href="/experiments/">Experiments</a></li>
-						<li><a class="hover:text-ink" href="/findings/">Findings</a></li>
-						<li><a class="hover:text-ink" href="/methods/">Methods</a></li>
-						<li><a class="hover:text-ink" href="/data/">Data and reproduction</a></li>
+						{nav.map((item) => <li><a class="hover:text-ink" href={item.href}>{item.label}</a></li>)}
+						<li><a class="hover:text-ink" href="/paper/">Working paper</a></li>
 					</ul>
 				</div>
 				<div class="space-y-2">
-					<p class="font-medium text-ink-2">Project</p>
+					<p class="font-medium text-ink-2">Author and project</p>
 					<ul class="space-y-1.5">
-						<li><a class="hover:text-ink" href="https://github.com/johnhughes3/LegalForecastBench">Source on GitHub</a></li>
-						<li><a class="hover:text-ink" href="https://johnjhughes3.com">John J. Hughes, III</a></li>
+						<li><a class="hover:text-ink" href={AUTHOR.research}>{AUTHOR.name}: research</a></li>
+						<li><a class="hover:text-ink" href={AUTHOR.contact}>Contact</a></li>
+						<li><a class="hover:text-ink" href={REPO}>Source on GitHub</a></li>
 						<li>Code under Apache License 2.0</li>
 						<li><a class="hover:text-ink" href="https://creativecommons.org/licenses/by/4.0/">Data under CC BY 4.0</a></li>
 					</ul>
