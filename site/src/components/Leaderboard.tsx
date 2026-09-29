@@ -310,7 +310,7 @@ export default function Leaderboard({
 							))}
 							<th scope="col" className="py-3 pr-4 font-medium">
 								<Tip
-									tip="Whether the model's documented training cutoff predates every scored decision. Hover a badge for the model's specifics."
+									tip="Whether the provider-reported training or knowledge cutoff predates the first scored decision. Hover a badge for the model's specifics."
 									side="bottom"
 									align="end"
 								>
@@ -448,7 +448,8 @@ export default function Leaderboard({
 				<span># is the micro Brier rank, whatever the sort</span>
 				<span>Hover a column name for its definition</span>
 				<span>
-					Eligible: documented training cutoff predates every scored decision
+					Eligible: reported training or knowledge cutoff predates the first
+					scored decision
 				</span>
 			</div>
 		</div>

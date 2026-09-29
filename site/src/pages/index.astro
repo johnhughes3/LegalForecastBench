@@ -22,6 +22,9 @@ const perfect = primarySnapshot.models.filter(
 	(m) => m.high_confidence.count > 0 && m.high_confidence.wrong === 0,
 );
 const n = primarySnapshot.cohort.unit_count;
+const eligibleCount = primarySnapshot.models.filter(
+	(m) => m.eligibility === "eligible",
+).length;
 const comparisonCurrent = comparison.available_models.filter((slug) =>
 	primarySnapshot.models.some((m) => m.slug === slug),
 ).length;
@@ -34,7 +37,7 @@ const takeaways: [string, string][] = leader
 	? [
 			[
 				`${leader.display_name} has the best observed scores.`,
-				`Micro Brier ${leader.micro_brier.toFixed(4)}, equal-case Brier ${leader.equal_case_brier.toFixed(4)}, and ${formatPercent(leader.correct / n)} accuracy, at an estimated ${formatUsd(leader.cost.usd)} for all ${primarySnapshot.cohort.case_count} cases. It is not statistically separated from the other tested models, and its training cutoff is qualified.`,
+				`Micro Brier ${leader.micro_brier.toFixed(4)}, equal-case Brier ${leader.equal_case_brier.toFixed(4)}, and ${formatPercent(leader.correct / n)} accuracy, at an estimated ${formatUsd(leader.cost.usd)} for all ${primarySnapshot.cohort.case_count} cases. It is not statistically separated from the other tested models.`,
 			],
 			[
 				"Cheap models hold the cost frontier.",
@@ -186,7 +189,7 @@ const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.de
 			{[
 				["The record", "Each model receives the pre-decision docket and filings through a controlled document-tool harness. The judge's ruling is withheld."],
 				["The question", "For each challenged claim against each defendant, what is the probability it is fully dismissed in the motion's first written disposition?"],
-				["The answer key", "The court's actual ruling. Six configurations have documented training-data cutoffs before every decision; the other nine are qualified because cutoff evidence is unknown or overlaps the decision window."],
+				["The answer key", `The court's actual ruling. ${eligibleCount} of ${primarySnapshot.models.length} configurations report a training or knowledge cutoff before the first decision; the other ${primarySnapshot.models.length - eligibleCount} are qualified because no cutoff is published or it could overlap the decision window.`],
 				["The score", "Brier score: the squared gap between forecast and outcome. It rewards calibration and discrimination, and it punishes confident errors."],
 			].map(([title, body], i) => (
 				<div class="card p-5">

@@ -237,7 +237,7 @@ const facts: [string, string][] = [
 				<h2 class="font-semibold text-ink">Eligibility</h2>
 				<p class="mt-2 text-ink-2">{model.eligibility_reason}</p>
 				<p class="mt-2 text-xs text-ink-3">
-					Eligible means the documented training cutoff strictly predates every scored decision ({
+					Eligible means the provider-reported training or knowledge cutoff falls before the first scored decision ({
 						snapshot.cohort.decision_window.start
 					} to {snapshot.cohort.decision_window.end}). A provider cutoff is evidence, not proof of what the model saw.
 				</p>
