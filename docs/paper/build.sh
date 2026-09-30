@@ -34,7 +34,7 @@ repo_root=$(cd -- "$paper_dir/../.." && pwd)
 output_dir="$paper_dir/build"
 mkdir -p "$output_dir"
 
-if "$release" && grep -nE '\\(draft|checkcite|checknum|todo)(\[[^]]*\])?\{' \
+if "$release" && grep -nE -e '^[[:space:]]*%[[:space:]]*TODO([[:space:]:]|$)' -e '\\(draft|checkcite|checknum|todo)(\[[^]]*\])?\{' \
   "$paper_dir/LegalForecastBench-paper.tex"; then
   printf 'Resolve the draft annotations above before publishing a paper version.\n' >&2
   exit 1
