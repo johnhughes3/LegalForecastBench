@@ -26,6 +26,8 @@ This index covers the current public contracts, operator guides, and reproducibl
 
 ## Research References
 
+- [Working paper and PDF build](paper/README.md): canonical LaTeX manuscript, public numerical inputs, reference metadata, CI previews, and versioned publication instructions.
+- [Paper figure reproduction](paper/figures/README.md): regenerate the fixed-panel CSVs and inline TikZ result figures from public inputs.
 - [Rationale review export](rationale-audit.md): prepare private, model-blinded case assessments and unit rationales from saved forecasts for qualitative review.
 - [AI-generated Harvey LAB litigation audits](harvey-lab-audit/litigation-dispute-resolution/README.md): unverified, human-steered reference analysis of rubric and grading drift by GPT-6 Sol and Claude Opus 5.5, with model provenance, per-task reports for 52 tasks, and a [comparison of where the two audits agree and differ](harvey-lab-audit/litigation-dispute-resolution/comparison.md). Inclusion is not verification; findings verified for public discussion will be described separately on the public-facing site.
 

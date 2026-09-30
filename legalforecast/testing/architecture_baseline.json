@@ -127,6 +127,24 @@
       ]
     ],
     "files": {
+      "docs/paper/figures/make_figures.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "other",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "other",
+        "largest_symbol": "figure3_rows",
+        "largest_symbol_lines": 96,
+        "layer": "application",
+        "line_count": 509,
+        "nonblank_line_count": 456,
+        "top_level_definition_count": 20
+      },
       "examples/adapters/claude-agent-sdk/adapter.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",
