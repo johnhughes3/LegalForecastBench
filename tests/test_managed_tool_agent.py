@@ -719,6 +719,7 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
         ("claude-opus-5", None),
         ("claude-sonnet-5", None),
         ("claude-opus-5-5", "high"),
+        ("claude-sonnet-5-5", "high"),
     ],
 )
 @pytest.mark.parametrize("max_tokens", [16000, 128000])

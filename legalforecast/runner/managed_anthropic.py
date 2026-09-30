@@ -6,6 +6,7 @@ from pydantic_ai import ModelSettings
 from pydantic_ai.models import Model
 
 from legalforecast.evals.model_registry import (
+    ANTHROPIC_AGENTIC_HIGH_EFFORT_MODELS,
     ModelRegistryEntry,
     OpenAIReasoningEffort,
     ToolPolicy,
@@ -52,17 +53,17 @@ def anthropic_model_settings(
 
     from pydantic_ai.models.anthropic import AnthropicModelSettings
 
-    explicit_opus_effort = entry.reasoning_effort is not None
-    if explicit_opus_effort and not (
+    explicit_high_effort = entry.reasoning_effort is not None
+    if explicit_high_effort and not (
         entry.provider.strip().lower() == "anthropic"
-        and entry.model_id == "claude-opus-5-5"
+        and entry.model_id in ANTHROPIC_AGENTIC_HIGH_EFFORT_MODELS
         and entry.reasoning_effort is OpenAIReasoningEffort.HIGH
         and entry.jev_input_mode is None
         and entry.tool_policy is ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY
     ):
         raise ValueError(
             "Explicit Anthropic managed effort is supported only for agentic "
-            "claude-opus-5-5 at high effort"
+            f"{', '.join(sorted(ANTHROPIC_AGENTIC_HIGH_EFFORT_MODELS))} at high effort"
         )
 
     settings = AnthropicModelSettings(
@@ -71,7 +72,7 @@ def anthropic_model_settings(
         anthropic_cache=True,
         parallel_tool_calls=False,
     )
-    if explicit_opus_effort:
+    if explicit_high_effort:
         cast(dict[str, object], settings)["anthropic_effort"] = "high"
     return cast(
         ModelSettings,

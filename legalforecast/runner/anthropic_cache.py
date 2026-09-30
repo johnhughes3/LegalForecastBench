@@ -28,6 +28,10 @@ _OPUS_55_PRICING_SOURCE: Final = (
     "https://platform.claude.com/docs/en/about-claude/pricing, "
     "Anthropic prompt-cache pricing checked 2026-09-22"
 )
+_SONNET_55_PRICING_SOURCE: Final = (
+    "https://platform.claude.com/docs/en/about-claude/pricing, "
+    "Anthropic prompt-cache pricing checked 2026-09-29"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,8 +48,8 @@ class _AnthropicCacheRate:
 
 # These are the current first-party Anthropic rates in USD per million tokens.
 # The cache flag used by the native adapter resolves ``True`` to the 5m TTL.
-# Fable 5.1 is the held Anthropic model; Opus 5.5, Opus 5, and Sonnet 5 are
-# document-tool execution models.
+# Fable 5.1 is the held Anthropic model; Opus 5.5, Opus 5, Sonnet 5, and
+# Sonnet 5.5 are document-tool execution models.
 _RATES: Final[dict[str, _AnthropicCacheRate]] = {
     "claude-fable-5-1": _AnthropicCacheRate(
         input_token_price=10.0,
@@ -71,6 +75,13 @@ _RATES: Final[dict[str, _AnthropicCacheRate]] = {
         cache_read_token_price=0.2,
         cache_write_token_price=2.5,
         output_token_price=10.0,
+    ),
+    "claude-sonnet-5-5": _AnthropicCacheRate(
+        input_token_price=2.0,
+        cache_read_token_price=0.2,
+        cache_write_token_price=2.5,
+        output_token_price=10.0,
+        pricing_source=_SONNET_55_PRICING_SOURCE,
     ),
 }
 

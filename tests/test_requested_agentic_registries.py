@@ -35,6 +35,41 @@ def test_requested_models_keep_full_agentic_condition(model: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("filename", "provider", "model_id"),
+    [
+        (
+            "cycle-1-agentic-gpt-6.1-sol-high-2026-09-29.json",
+            "openai",
+            "gpt-6.1-sol",
+        ),
+        (
+            "cycle-1-agentic-claude-sonnet-5-5-high-2026-09-29.json",
+            "anthropic",
+            "claude-sonnet-5-5",
+        ),
+    ],
+)
+def test_september_29_models_keep_full_agentic_high_effort(
+    filename: str, provider: str, model_id: str
+) -> None:
+    registry = load_model_registry(Path("model_registries") / filename)
+    entry = registry.entries[0]
+    assert require_official_registry_entries(registry.entries) == registry.entries
+    require_managed_document_tools(entry)
+    assert entry.provider == provider
+    assert entry.model_id == model_id
+    assert entry.model_version_or_snapshot == model_id
+    assert entry.tool_policy.value == "controlled_docket_tool_only"
+    assert entry.reasoning_effort is not None
+    assert entry.reasoning_effort.value == "high"
+    assert entry.network_disabled and entry.search_disabled
+    assert entry.jev_input_mode is None
+    assert entry.jev_summaries_sha256 is None
+    assert entry.provider_training_cutoff is None
+    assert entry.provider_training_cutoff_status.value == "unknown"
+
+
+@pytest.mark.parametrize(
     "model_id", ["gemini-3.1-pro-preview-customtools", "gemini-3.1-pro-latest"]
 )
 def test_preview_exception_does_not_admit_other_aliases(model_id: str) -> None:
