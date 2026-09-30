@@ -4,6 +4,11 @@
  * The .tex file is the source of truth. The site parses it at build time so a
  * manuscript edit reaches /paper/ without a second copy in paper.ts.
  */
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const MANUSCRIPT = "docs/paper/LegalForecastBench-paper.tex";
 
 export interface Manuscript {
 	title: string;
@@ -25,6 +30,32 @@ const DROP_COMMANDS = new Set([
 	"footnote",
 	"marginpar",
 ]);
+
+/**
+ * Find the repository root starting from a file path.
+ *
+ * Astro's production build bundles this module under site/dist, so a relative
+ * URL from import.meta.url no longer points at the source tree. Walk up until
+ * the manuscript is present.
+ */
+export function repositoryRootFrom(start: string): string {
+	let dir = start;
+	for (let i = 0; i < 10; i += 1) {
+		if (existsSync(resolve(dir, MANUSCRIPT))) return dir;
+		const parent = dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	throw new Error(`Could not find ${MANUSCRIPT} from ${start}.`);
+}
+
+export function repositoryRoot(): string {
+	return repositoryRootFrom(dirname(fileURLToPath(import.meta.url)));
+}
+
+export function manuscriptPath(): string {
+	return resolve(repositoryRoot(), MANUSCRIPT);
+}
 
 export function parseManuscript(source: string): Manuscript {
 	const title = collapse(

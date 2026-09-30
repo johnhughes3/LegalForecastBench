@@ -8,17 +8,9 @@
  */
 import { readFileSync } from "node:fs";
 
-import { parseManuscript } from "./manuscript.js";
+import { manuscriptPath, parseManuscript } from "./manuscript.js";
 
-const manuscript = parseManuscript(
-	readFileSync(
-		new URL(
-			"../../../docs/paper/LegalForecastBench-paper.tex",
-			import.meta.url,
-		),
-		"utf8",
-	),
-);
+const manuscript = parseManuscript(readFileSync(manuscriptPath(), "utf8"));
 
 export interface PaperVersion {
 	version: string;

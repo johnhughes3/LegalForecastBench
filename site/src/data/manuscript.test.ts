@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { parseManuscript } from "./manuscript.js";
+import { parseManuscript, repositoryRootFrom } from "./manuscript.js";
 import { PAPER, WORKING_PAPER_PDF } from "./paper.js";
 
+const manuscriptFile = "docs/paper/LegalForecastBench-paper.tex";
 const manuscriptPath = fileURLToPath(
-	new URL("../../../docs/paper/LegalForecastBench-paper.tex", import.meta.url),
+	new URL(`../../../${manuscriptFile}`, import.meta.url),
 );
+const root = repositoryRootFrom(dirname(manuscriptPath));
 
 test("a manuscript title and abstract become plain paragraphs", () => {
 	const parsed = parseManuscript(String.raw`
@@ -43,11 +46,16 @@ test("the paper page reads the checked-in manuscript", () => {
 	assert.match(parsed.abstract[0] ?? "", /84\.50%/);
 	assert.doesNotMatch(parsed.abstract[0] ?? "", /\\/);
 	assert.equal(
-		existsSync(
-			fileURLToPath(
-				new URL(`../../public${WORKING_PAPER_PDF}`, import.meta.url),
-			),
-		),
+		existsSync(resolve(root, `site/public${WORKING_PAPER_PDF}`)),
 		true,
 	);
+});
+
+test("the manuscript is found from a bundled prerender path", () => {
+	const bundled = fileURLToPath(
+		new URL("../../../site/dist/.prerender/chunks/paper.mjs", import.meta.url),
+	);
+	const bundledRoot = repositoryRootFrom(dirname(bundled));
+	assert.equal(bundledRoot, root);
+	assert.equal(existsSync(resolve(bundledRoot, manuscriptFile)), true);
 });

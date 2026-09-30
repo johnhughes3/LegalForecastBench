@@ -1,14 +1,15 @@
 ---
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 import CiteBox from "../components/CiteBox.astro";
 import { AUTHOR, REPO } from "../data/author";
+import { repositoryRoot } from "../data/manuscript";
 import { currentPaper, PAPER } from "../data/paper";
 import Layout from "../layouts/Layout.astro";
 
 const workingPdfOnDisk = existsSync(
-	fileURLToPath(new URL(`../../public${PAPER.workingPdf}`, import.meta.url)),
+	resolve(repositoryRoot(), `site/public${PAPER.workingPdf}`),
 );
 
 const fmt = (iso: string) =>
