@@ -1,0 +1,28 @@
+[
+  {
+    "cache_read_token_price": 0.2,
+    "cache_write_token_price": 2.5,
+    "context_limit": 1000000,
+    "display_name": "Claude Sonnet 5.5 (agentic; high reasoning)",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "Provider reports a June 2026 training-data cutoff without an exact day; exact training cutoff is left unknown.",
+      "Regular Cycle 1 agentic document-tool condition over the full locked document set, with high reasoning and provider-default sampling. No Jev summary cache or one-shot comparator mode is used.",
+      "Post-anchor model with an unestablished exact training cutoff; report contamination eligibility separately from benchmark completion.",
+      "Adaptive thinking with explicit high effort matches the prior high-reasoning comparison. The Claude API default is already high, and effort levels are recalibrated relative to Sonnet 5."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "claude-sonnet-5-5",
+    "model_version_or_snapshot": "claude-sonnet-5-5",
+    "network_disabled": true,
+    "output_token_price": 10.0,
+    "pricing_source": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview: Sonnet 5.5 standard USD2/M input, USD10/M output, USD0.20/M cache read, USD2.50/M five-minute cache write; no long-context premium. Checked 2026-09-29.",
+    "provider": "anthropic",
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-09-28T00:00:00Z",
+    "release_timestamp_source": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview, release date September 28, 2026.",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

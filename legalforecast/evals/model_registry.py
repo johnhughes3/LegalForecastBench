@@ -26,6 +26,16 @@ SUMMARY_COMPARATOR_MODELS = frozenset(
 # version normally. This exception makes no immutable-weight or cutoff claim.
 _APPROVED_PREVIEW_COMPARISONS = frozenset({"google:gemini-3.1-pro-preview"})
 
+# Agentic document-tool runs pin high effort on these Anthropic models. Opus 5.5's
+# provider default is medium; Sonnet 5.5's default is high, and its effort scale
+# is recalibrated, so the registry still sends high explicitly.
+ANTHROPIC_AGENTIC_HIGH_EFFORT_MODELS = frozenset(
+    {
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+    }
+)
+
 
 class TrainingCutoffStatus(StrEnum):
     """Whether a model's provider training cutoff is known."""
@@ -290,7 +300,7 @@ class ModelRegistryEntry:
         )
         anthropic_agentic_high_effort = (
             self.provider.strip().lower() == "anthropic"
-            and self.model_id == "claude-opus-5-5"
+            and self.model_id in ANTHROPIC_AGENTIC_HIGH_EFFORT_MODELS
             and self.jev_input_mode is None
             and self.tool_policy is ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY
             and self.reasoning_effort is OpenAIReasoningEffort.HIGH
