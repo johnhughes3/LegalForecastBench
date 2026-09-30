@@ -15,7 +15,9 @@ THREAD_ID = "00000000-0000-7000-8000-000000000001"
 FAKE_VERSION = "codex-cli 0.0.0-legalforecast-fake"
 DRIFT_VERSION = "codex-cli 99.0.0-drift"
 RESULT = "LEGALFORECAST_FAKE_CODEX_RESULT"
-SECRET_CANARY = "LEGALFORECAST_SECRET_CANARY_7f3a"
+# Public, fixed fixture text: it exercises output confinement, never credentials.
+# Keep these bytes in the fake's JSONL stream so the leak-guard test can detect them.
+OUTPUT_CANARY = "LEGALFORECAST_SECRET_CANARY_7f3a"
 MODE_ENV = "LEGALFORECAST_FAKE_CODEX_MODE"
 MODES = {
     "cancellation",
@@ -81,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     if mode == "tool_request":
         _emit_tool_request()
 
-    final_message = SECRET_CANARY if mode == "secret_canary" else RESULT
+    final_message = OUTPUT_CANARY if mode == "secret_canary" else RESULT
     _emit_agent_message(final_message)
     if output_path is not None:
         Path(output_path).write_text(f"{final_message}\n", encoding="utf-8")

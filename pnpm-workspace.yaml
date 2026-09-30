@@ -2,3 +2,5 @@ packages:
   - site
 allowBuilds:
   esbuild: true
+overrides:
+  'fflate@<0.7.5': 0.7.5
