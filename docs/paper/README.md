@@ -22,7 +22,7 @@ To use the same pinned TeX Live image as CI, with Docker available:
 bash docs/paper/build.sh --container
 ```
 
-The image reference is fixed by digest in [texlive-image.txt](texlive-image.txt), using the [TeX Live container maintained by Xu Cheng](https://github.com/xu-cheng/latex-docker). It targets `linux/amd64`; other architectures need Docker emulation. The container reads the checkout and writes only the build directory, with network access disabled during compilation. PDF metadata dates use the last commit that changed this directory, which requires its full history; a shallow checkout is refused. Locally edited sources produce working-tree previews, not a published paper version.
+The image reference is fixed by digest in [texlive-image.txt](texlive-image.txt), using the [TeX Live container maintained by Xu Cheng](https://github.com/xu-cheng/latex-docker). It targets `linux/amd64`; other architectures need Docker emulation. The container reads the checkout and writes only the build directory, with network access disabled during compilation. PDF metadata dates use the month, day, and year in the manuscript's `\date` line, so a later commit does not change the file. Locally edited sources produce working-tree previews, not a published paper version.
 
 ## Reproduction scope
 
@@ -41,7 +41,7 @@ The research archive, downloaded third-party papers, source credibility notes, a
 
 ## CI previews and the public paper page
 
-The [Paper workflow](../../.github/workflows/paper.yaml) compiles changes to this directory with the pinned TeX Live image. A pull request uploads a 30-day preview artifact and does not commit the PDF: a workflow token cannot start the checks a new pull-request head would need. After the change reaches main, the workflow commits `site/public/papers/legalforecastbench-working.pdf` when the compiled bytes differ. The site serves that file at `/papers/legalforecastbench-working.pdf`. The paper page reads its title and abstract from `LegalForecastBench-paper.tex` while the site builds, so those update with the manuscript and do not have a second copy in [paper.ts](../../site/src/data/paper.ts).
+The [Paper workflow](../../.github/workflows/paper.yaml) compiles changes to this directory with the pinned TeX Live image and uploads a 30-day preview artifact. It fails when that PDF differs from `site/public/papers/legalforecastbench-working.pdf`. Commit the artifact in the same pull request. main cannot accept an automatic follow-up commit, because every commit there must already have passed the Python tests. The site serves the committed file at `/papers/legalforecastbench-working.pdf`. The paper page reads its title and abstract from `LegalForecastBench-paper.tex` while the site builds, so those update with the manuscript and do not have a second copy in [paper.ts](../../site/src/data/paper.ts).
 
 That working file is replaced when the manuscript changes. An immutable version is a separate, deliberate publication. Resolve the visible draft annotations and run:
 

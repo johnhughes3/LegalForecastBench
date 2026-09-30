@@ -40,21 +40,42 @@ if "$release" && grep -nE -e '^[[:space:]]*%[[:space:]]*TODO([[:space:]:]|$)' -e
   exit 1
 fi
 
-# Date the PDF from the last change under docs/paper. A later commit that only
-# replaces the website copy must not change the metadata, or each publication
-# would compile a different file. A shallow checkout has no parent for that
-# path filter, so Git reports the boundary commit even when it did not touch
-# the manuscript. Uncommitted drafts are previews of the working tree.
+# Date the PDF from the manuscript's \date line, not from a git commit. A squash
+# merge creates a new commit, and dating from that commit would change the PDF
+# bytes after the pull request had already compiled them. Uncommitted drafts are
+# previews of the working tree.
 if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
-  if [[ "$(git -C "$repo_root" rev-parse --is-shallow-repository)" == "true" ]]; then
-    printf 'Refusing to date the PDF from a shallow checkout of docs/paper.\n' >&2
-    exit 1
-  fi
-  SOURCE_DATE_EPOCH=$(git -C "$repo_root" log -1 --format=%ct -- docs/paper)
+  SOURCE_DATE_EPOCH=$(python3 - "$paper_dir/LegalForecastBench-paper.tex" <<'PY'
+import re
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+dated = re.search(r"\\date\{([^}]*)\}", text)
+if dated is None:
+    raise SystemExit("The manuscript needs a \\date{Month D, YYYY} line.")
+found = re.search(
+    r"(January|February|March|April|May|June|July|August|September|"
+    r"October|November|December)\s+(\d{1,2}),\s+(\d{4})",
+    dated.group(1),
+)
+if found is None:
+    raise SystemExit(
+        "Could not read a month, day, and year from the manuscript date: "
+        + dated.group(1)
+    )
+when = datetime.strptime(
+    f"{found.group(1)} {int(found.group(2))} {found.group(3)}",
+    "%B %d %Y",
+).replace(tzinfo=timezone.utc)
+print(int(when.timestamp()))
+PY
+)
 fi
 export SOURCE_DATE_EPOCH
 if [[ -z "${SOURCE_DATE_EPOCH}" ]]; then
-  printf 'Could not date the PDF from the docs/paper git history.\n' >&2
+  printf 'Could not date the PDF from the manuscript \\date line.\n' >&2
   exit 1
 fi
 export FORCE_SOURCE_DATE=1

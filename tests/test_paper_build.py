@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -36,49 +37,32 @@ def test_release_build_allows_resolved_manuscript(tmp_path: Path) -> None:
     assert (tmp_path / "compiled").exists()
 
 
-def test_paper_workflow_updates_the_pdf_only_on_main() -> None:
+def test_paper_workflow_does_not_push_the_pdf() -> None:
     workflow = (ROOT / ".github" / "workflows" / "paper.yaml").read_text(
         encoding="utf-8"
     )
-    assert workflow.count("fetch-depth: 0") == 2
-    publish = workflow.split("  publish:", 1)[1]
-    assert "github.event_name != 'pull_request'" in publish
-    assert "github.ref == 'refs/heads/main'" in publish
+    assert "git push" not in workflow
+    assert "contents: write" not in workflow
+    assert "cmp -s" in workflow
 
 
-def test_build_refuses_a_shallow_checkout(tmp_path: Path) -> None:
-    origin = tmp_path / "origin"
-    env = _git_env(tmp_path)
-    subprocess.run(["git", "init", "-b", "main", str(origin)], check=True, env=env)
-    paper = origin / "docs" / "paper"
-    paper.mkdir(parents=True)
-    shutil.copy2(ROOT / "docs" / "paper" / "build.sh", paper / "build.sh")
-    (paper / "LegalForecastBench-paper.tex").write_text(
-        "Settled prose.\n", encoding="utf-8"
+def test_pdf_date_comes_from_the_manuscript(tmp_path: Path) -> None:
+    result = _build_preview(
+        tmp_path,
+        "\\date{Working paper --- September 29, 2026}\nSettled prose.\n",
+        record_epoch=True,
+        source_date_epoch=None,
     )
-    subprocess.run(["git", "-C", str(origin), "add", "."], check=True, env=env)
-    subprocess.run(
-        ["git", "-C", str(origin), "commit", "-m", "paper"],
-        check=True,
-        env=_commit_env(env),
-    )
-    shallow = tmp_path / "shallow"
-    subprocess.run(
-        ["git", "clone", "--depth", "1", origin.as_uri(), str(shallow)],
-        check=True,
-        env=env,
-    )
-    result = subprocess.run(
-        ["bash", str(shallow / "docs" / "paper" / "build.sh")],
-        cwd=shallow,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=10,
-    )
+    assert result.returncode == 0, result.stderr
+    expected = str(int(datetime(2026, 9, 29, tzinfo=UTC).timestamp()))
+    assert (tmp_path / "epoch").read_text(encoding="utf-8").strip() == expected
+
+
+def test_pdf_date_requires_a_manuscript_date(tmp_path: Path) -> None:
+    result = _build_preview(tmp_path, "Settled prose.\n", source_date_epoch=None)
     assert result.returncode == 1
-    assert "shallow checkout" in result.stderr
+    assert "manuscript needs a" in result.stderr
+    assert not (tmp_path / "compiled").exists()
 
 
 def test_publish_working_copy_commits_only_a_changed_pdf(tmp_path: Path) -> None:
@@ -124,29 +108,6 @@ def test_publish_working_copy_commits_only_a_changed_pdf(tmp_path: Path) -> None
     assert log.stdout.strip() == "2"
 
 
-def _git_env(tmp_path: Path) -> dict[str, str]:
-    gitconfig = tmp_path / "gitconfig"
-    gitconfig.write_text("", encoding="utf-8")
-    home = tmp_path / "home"
-    home.mkdir()
-    return {
-        **os.environ,
-        "HOME": str(home),
-        "GIT_CONFIG_GLOBAL": str(gitconfig),
-        "GIT_CONFIG_SYSTEM": str(gitconfig),
-    }
-
-
-def _commit_env(env: dict[str, str]) -> dict[str, str]:
-    return {
-        **env,
-        "GIT_AUTHOR_NAME": "Paper Test",
-        "GIT_AUTHOR_EMAIL": "paper-test@example.com",
-        "GIT_COMMITTER_NAME": "Paper Test",
-        "GIT_COMMITTER_EMAIL": "paper-test@example.com",
-    }
-
-
 def _publish(repo: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["bash", str(repo / "docs" / "paper" / "publish-working-copy.sh")],
@@ -159,7 +120,13 @@ def _publish(repo: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str
     )
 
 
-def _build_preview(tmp_path: Path, manuscript: str) -> subprocess.CompletedProcess[str]:
+def _build_preview(
+    tmp_path: Path,
+    manuscript: str,
+    *,
+    record_epoch: bool = False,
+    source_date_epoch: str | None = "1",
+) -> subprocess.CompletedProcess[str]:
     paper_dir = tmp_path / "docs" / "paper"
     paper_dir.mkdir(parents=True)
     shutil.copy2(ROOT / "docs" / "paper" / "build.sh", paper_dir / "build.sh")
@@ -167,16 +134,28 @@ def _build_preview(tmp_path: Path, manuscript: str) -> subprocess.CompletedProce
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     compiler = bin_dir / "latexmk"
-    compiler.write_text('#!/usr/bin/env bash\ntouch "$PAPER_TEST_COMPILED"\n')
+    recorder = (
+        'printf "%s\\n" "$SOURCE_DATE_EPOCH" > "$PAPER_TEST_EPOCH"\n'
+        if record_epoch
+        else ""
+    )
+    compiler.write_text(
+        f'#!/usr/bin/env bash\n{recorder}touch "$PAPER_TEST_COMPILED"\n'
+    )
     compiler.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+        "PAPER_TEST_COMPILED": str(tmp_path / "compiled"),
+        "PAPER_TEST_EPOCH": str(tmp_path / "epoch"),
+    }
+    if source_date_epoch is not None:
+        env["SOURCE_DATE_EPOCH"] = source_date_epoch
+    else:
+        env.pop("SOURCE_DATE_EPOCH", None)
     return subprocess.run(
         ["bash", str(paper_dir / "build.sh"), "--release"],
-        env={
-            **os.environ,
-            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
-            "SOURCE_DATE_EPOCH": "1",
-            "PAPER_TEST_COMPILED": str(tmp_path / "compiled"),
-        },
+        env=env,
         capture_output=True,
         text=True,
         check=False,

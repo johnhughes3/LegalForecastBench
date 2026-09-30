@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Copy the compiled manuscript onto the path the website serves.
-# In CI, commit that copy when the bytes changed. A local run only copies.
+# A local run only copies. GitHub Actions must not push the result: main rejects
+# a commit that does not already have the Python quality gates check.
 set -euo pipefail
 
 paper_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
