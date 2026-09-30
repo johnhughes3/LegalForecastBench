@@ -22,7 +22,7 @@ To use the same pinned TeX Live image as CI, with Docker available:
 bash docs/paper/build.sh --container
 ```
 
-The image reference is fixed by digest in [texlive-image.txt](texlive-image.txt), using the [TeX Live container maintained by Xu Cheng](https://github.com/xu-cheng/latex-docker). It targets `linux/amd64`; other architectures need Docker emulation. The container reads the checkout and writes only the build directory, with network access disabled during compilation. PDF metadata dates use the checked-out commit time. Locally edited sources produce working-tree previews, not a published paper version.
+The image reference is fixed by digest in [texlive-image.txt](texlive-image.txt), using the [TeX Live container maintained by Xu Cheng](https://github.com/xu-cheng/latex-docker). It targets `linux/amd64`; other architectures need Docker emulation. The container reads the checkout and writes only the build directory, with network access disabled during compilation. PDF metadata dates use the last commit that changed this directory, which requires its full history; a shallow checkout is refused. Locally edited sources produce working-tree previews, not a published paper version.
 
 ## Reproduction scope
 
@@ -39,14 +39,14 @@ The generator writes `figures/figures-inline.tex` and three CSVs. Copy the regen
 
 The research archive, downloaded third-party papers, source credibility notes, and private editorial material are maintained separately. Cite the original authorities linked from the bibliography, rather than redistributed copies of their papers.
 
-## CI previews and published versions
+## CI previews and the public paper page
 
-The [Paper workflow](../../.github/workflows/paper.yaml) compiles changes to this directory and uploads a PDF preview named for the tested revision, retained for 30 days. Download it from the corresponding Actions run. A preview is not automatically registered as a version on the public paper page.
+The [Paper workflow](../../.github/workflows/paper.yaml) compiles changes to this directory with the pinned TeX Live image. A pull request uploads a 30-day preview artifact and does not commit the PDF: a workflow token cannot start the checks a new pull-request head would need. After the change reaches main, the workflow commits `site/public/papers/legalforecastbench-working.pdf` when the compiled bytes differ. The site serves that file at `/papers/legalforecastbench-working.pdf`. The paper page reads its title and abstract from `LegalForecastBench-paper.tex` while the site builds, so those update with the manuscript and do not have a second copy in [paper.ts](../../site/src/data/paper.ts).
 
-To prepare a publication build, first resolve the visible draft annotations and run:
+That working file is replaced when the manuscript changes. An immutable version is a separate, deliberate publication. Resolve the visible draft annotations and run:
 
 ```bash
 bash docs/paper/build.sh --container --release
 ```
 
-Publish the reviewed PDF from the selected source revision under a new immutable name such as `site/public/papers/legalforecastbench-v0.1.pdf`. Record that source revision or tag in the publication PR, append the version/date/results-release entry in [paper.ts](../../site/src/data/paper.ts), and synchronize the site's title and abstract with the published paper. Existing published PDFs remain unchanged when the working manuscript advances. Corrections receive a new version and change note. The site's normal static build serves these versioned files; an Actions preview artifact alone does not publish them.
+Add the reviewed PDF under a new name such as `site/public/papers/legalforecastbench-v0.1.pdf`, record the source revision in the publication PR, and append the version, date, and results release in `paper.ts`. Leave older version files unchanged. A correction is a new version with a change note. The preview artifact alone is not a published version.

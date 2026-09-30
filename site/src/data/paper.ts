@@ -1,11 +1,17 @@
 /**
  * The working paper, as listed on /paper/ and linked from every page.
  *
- * One record, so the landing page, header action, and homepage cannot drift.
- * To publish a version: add the immutable PDF under public/papers/, append a
- * row to `versions`, and point `current` at it. Never overwrite a released
- * PDF; a correction is a new version with a note.
+ * Title and abstract come from the manuscript, so they cannot drift from it.
+ * The website serves one replaceable working PDF. To publish an immutable
+ * version, add a new file under public/papers/, append a row to `versions`,
+ * and leave the older file in place.
  */
+import { readFileSync } from "node:fs";
+
+import { manuscriptPath, parseManuscript } from "./manuscript.js";
+
+const manuscript = parseManuscript(readFileSync(manuscriptPath(), "utf8"));
+
 export interface PaperVersion {
 	version: string;
 	/** ISO date the version was posted. */
@@ -18,19 +24,18 @@ export interface PaperVersion {
 	changes?: string;
 }
 
-export const PAPER = {
-	title:
-		"LegalForecastBench: Evaluating Probabilistic Legal Judgment from Pre-Decision Court Records",
-	author: "John J. Hughes, III",
-	status: "Working paper",
-	// Draft abstract assembled from the released results. Replace with the
-	// paper's own abstract when the PDF is posted.
-	abstract: [
-		"LegalForecastBench asks whether AI models can forecast federal motion-to-dismiss outcomes from the court record available before the decision. Each model receives the pre-decision docket and filings through a controlled document-tool harness and gives the probability that each challenged claim against each defendant is fully dismissed in the motion's first written disposition. Forecasts are scored with the Brier score against the court's actual ruling.",
-		"The first release covers 91 cases and 387 claim-defendant units decided between June 30 and August 7, 2026. We report observed ordering, paired case-level uncertainty where unit-level predictions are available, calibration, and cost, together with a controlled experiment on summary-based forecasting and an error analysis of confident misses and procedural outcomes.",
-	],
-	versions: [] as PaperVersion[],
-} as const;
+/** Stable URL of the PDF rebuilt from the current manuscript. */
+export const WORKING_PAPER_PDF = "/papers/legalforecastbench-working.pdf";
 
-/** The newest posted version, or null before the first PDF is released. */
+export const PAPER = {
+	title: manuscript.title,
+	author: "John J. Hughes, III",
+	status: "Working paper" as const,
+	abstract: manuscript.abstract,
+	abstractIsDraft: manuscript.abstractIsDraft,
+	workingPdf: WORKING_PAPER_PDF,
+	versions: [] as PaperVersion[],
+};
+
+/** The newest immutable version, or null before the first one is released. */
 export const currentPaper: PaperVersion | null = PAPER.versions.at(-1) ?? null;

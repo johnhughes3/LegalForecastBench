@@ -15,7 +15,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  actions: read
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,12 +25,18 @@ concurrency:
 jobs:
   build:
     name: Compile working paper
+    permissions:
+      contents: read
     runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
     timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.sha || github.sha }}
+          # Full history so the PDF date is the last docs/paper commit, not the
+          # shallow boundary of an unrelated change.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Install uv
@@ -51,3 +58,54 @@ jobs:
           path: docs/paper/build/LegalForecastBench-paper.pdf
           if-no-files-found: error
           retention-days: 30
+
+  publish:
+    name: Update the website PDF
+    needs: build
+    # A GITHUB_TOKEN push does not start new workflow runs. Committing onto a
+    # pull-request head would leave that head without the required checks.
+    # The compile job still uploads a preview artifact on a pull request.
+    # Update the website copy only once the change is on main.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the compiled PDF
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: legalforecastbench-paper-${{ github.sha }}
+          path: docs/paper/build
+          github-token: ${{ github.token }}
+
+      - name: Commit and push the working PDF when it changed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PAPER_PUSH_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          status=$(bash docs/paper/publish-working-copy.sh)
+          printf '%s\n' "$status"
+          if [[ "$status" != "UPDATED" ]]; then
+            exit 0
+          fi
+          # Branch names are not arbitrary shell. Reject anything that is not a
+          # normal ref before using it as a push destination.
+          if [[ ! "$PAPER_PUSH_REF" =~ ^[A-Za-z0-9._/-]+$ ]] || [[ "$PAPER_PUSH_REF" == *..* ]]; then
+            printf 'Refusing to push the working PDF to %s\n' "$PAPER_PUSH_REF" >&2
+            exit 1
+          fi
+          auth=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')
+          if ! git -c "http.extraheader=AUTHORIZATION: basic ${auth}" push origin "HEAD:${PAPER_PUSH_REF}"; then
+            printf 'Could not push the working PDF. Commit site/public/papers/legalforecastbench-working.pdf on this branch.\n' >&2
+            exit 1
+          fi
