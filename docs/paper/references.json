@@ -1159,5 +1159,44 @@
     "venue": "Institutional announcement, September 11, 2026",
     "url": "https://www.claymath.org/news/navier-stokes-announcement/",
     "type": "web"
+  },
+  {
+    "key": "stubenbergmbe",
+    "title": "How AI Stacks Up Against the Multistate Bar Exam",
+    "authors": [
+      "Matthew Stubenberg",
+      "Chloe Berridge",
+      "Thomas Smith",
+      "Joshua Casey"
+    ],
+    "year": 2025,
+    "venue": "University of Hawai'i Richardson School of Law Research Paper No. 5291811; SSRN working paper, May 12, 2025",
+    "url": "https://doi.org/10.2139/ssrn.5291811",
+    "type": "paper",
+    "note": "Describes the earlier study; does not substantiate the subsequent 2026 perfect-score report."
+  },
+  {
+    "key": "stubenbergperfect",
+    "title": "AI model achieves 100% on MBE bar exam questions",
+    "authors": [
+      "Matthew Stubenberg"
+    ],
+    "year": 2026,
+    "venue": "Researcher's online benchmark update, LinkedIn; accessed September 30, 2026",
+    "url": "https://www.linkedin.com/posts/matthew-stubenberg_well-it-finally-happened-an-ai-model-correctly-activity-7482410775534448641-urAX",
+    "type": "web",
+    "note": "Primary researcher reports Claude Fable 5 scoring 210/210 on MBE practice questions; not an administered bar exam or a peer-reviewed result."
+  },
+  {
+    "key": "valslegalbench",
+    "title": "LegalBench Leaderboard and Methodology",
+    "authors": [
+      "Vals AI"
+    ],
+    "year": 2026,
+    "venue": "Benchmark-provider results and commentary; updated September 27, 2026; accessed September 30, 2026",
+    "url": "https://www.vals.ai/benchmarks/legal_bench",
+    "type": "web",
+    "note": "Saturation assessment concerns limited frontier discrimination of the overall score near 88%; the provider also notes remaining differences by reasoning type."
   }
 ]
