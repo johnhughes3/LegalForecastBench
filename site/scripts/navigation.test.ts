@@ -77,7 +77,8 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 						"page",
 					);
 					const brand = await page
-						.locator("body > header > div > a")
+						.getByRole("banner")
+						.getByRole("link", { name: "LegalForecastBench", exact: true })
 						.boundingBox();
 					const toggle = await page
 						.getByRole("button", { name: "Toggle dark mode" })

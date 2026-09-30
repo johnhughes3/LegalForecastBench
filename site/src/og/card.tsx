@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { Resvg } from "@resvg/resvg-js";
 import type { ReactNode } from "react";
 import satori from "satori";
+import { BRAND_BURGUNDY, COURTHOUSE_PATH } from "../brand";
 import { OG_HEIGHT, OG_WIDTH } from "./routes";
 
 /** Light-theme tokens from styles/global.css; previews always render light. */
@@ -73,16 +74,8 @@ export type CardSpec =
 
 function Mark(): ReactNode {
 	return (
-		<svg width="44" height="44" viewBox="0 0 32 32" aria-hidden="true">
-			<rect x="3" y="3" width="26" height="26" rx="7" fill={C.accent} />
-			<path
-				d="M10 21.5 14.5 16l3.2 3.2L23 11"
-				fill="none"
-				stroke={C.bg}
-				strokeWidth="2.4"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-			/>
+		<svg width="44" height="48" viewBox="0 0 32 35" aria-hidden="true">
+			<path d={COURTHOUSE_PATH} fill={BRAND_BURGUNDY} />
 		</svg>
 	);
 }

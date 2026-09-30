@@ -3,6 +3,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"brand:generate": "tsx scripts/generate-brand.tsx",
 		"check": "pnpm lint && pnpm typecheck && pnpm contract:check && pnpm test",
 		"lint": "biome check .",
 		"typecheck": "astro check && tsc --noEmit",
