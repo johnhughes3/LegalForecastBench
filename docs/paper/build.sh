@@ -40,9 +40,14 @@ if "$release" && grep -nE -e '^[[:space:]]*%[[:space:]]*TODO([[:space:]:]|$)' -e
   exit 1
 fi
 
-# Fix PDF metadata dates to the source revision; do not use PDF timestamps as
-# a freshness test. Uncommitted drafts are previews of the working tree.
-export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git -C "$repo_root" log -1 --format=%ct)}
+# Date the PDF from the last change under docs/paper. A later commit that only
+# replaces the website copy must not change the metadata, or each publication
+# would compile a different file. Uncommitted drafts are previews of the working tree.
+export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git -C "$repo_root" log -1 --format=%ct -- docs/paper)}
+if [[ -z "${SOURCE_DATE_EPOCH}" ]]; then
+  printf 'Could not date the PDF from the docs/paper git history.\n' >&2
+  exit 1
+fi
 export FORCE_SOURCE_DATE=1
 
 if "$container"; then

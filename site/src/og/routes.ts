@@ -22,8 +22,7 @@ export const SECTION_CARDS = {
 	},
 	paper: {
 		eyebrow: "Working paper",
-		title:
-			"Evaluating probabilistic legal judgment from pre-decision court records",
+		title: "Forecasting judicial decisions as a test of legal reasoning",
 	},
 	approach: {
 		eyebrow: "Approach",

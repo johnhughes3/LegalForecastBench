@@ -36,6 +36,61 @@ def test_release_build_allows_resolved_manuscript(tmp_path: Path) -> None:
     assert (tmp_path / "compiled").exists()
 
 
+def test_publish_working_copy_commits_only_a_changed_pdf(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    paper_dir = repo / "docs" / "paper"
+    build_dir = paper_dir / "build"
+    build_dir.mkdir(parents=True)
+    shutil.copy2(ROOT / "docs" / "paper" / "publish-working-copy.sh", paper_dir)
+    pdf = build_dir / "LegalForecastBench-paper.pdf"
+    pdf.write_bytes(b"%PDF-1.4\nfirst\n")
+    gitconfig = tmp_path / "gitconfig"
+    gitconfig.write_text("")
+    (tmp_path / "home").mkdir()
+    env = {
+        **os.environ,
+        "CI": "true",
+        "HOME": str(tmp_path / "home"),
+        "GIT_CONFIG_GLOBAL": str(gitconfig),
+        "GIT_CONFIG_SYSTEM": str(gitconfig),
+    }
+    subprocess.run(["git", "init", "-b", "main", str(repo)], check=True, env=env)
+    first = _publish(repo, env)
+    assert first.returncode == 0, first.stderr
+    assert first.stdout.strip() == "UPDATED"
+    assert (
+        repo / "site" / "public" / "papers" / "legalforecastbench-working.pdf"
+    ).read_bytes() == pdf.read_bytes()
+    second = _publish(repo, env)
+    assert second.returncode == 0, second.stderr
+    assert second.stdout.strip() == "UNCHANGED"
+    pdf.write_bytes(b"%PDF-1.4\nsecond\n")
+    third = _publish(repo, env)
+    assert third.returncode == 0, third.stderr
+    assert third.stdout.strip() == "UPDATED"
+    log = subprocess.run(
+        ["git", "rev-list", "--count", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert log.stdout.strip() == "2"
+
+
+def _publish(repo: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["bash", str(repo / "docs" / "paper" / "publish-working-copy.sh")],
+        cwd=repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+
+
 def _build_preview(tmp_path: Path, manuscript: str) -> subprocess.CompletedProcess[str]:
     paper_dir = tmp_path / "docs" / "paper"
     paper_dir.mkdir(parents=True)

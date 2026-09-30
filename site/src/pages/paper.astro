@@ -1,8 +1,15 @@
 ---
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import CiteBox from "../components/CiteBox.astro";
 import { AUTHOR, REPO } from "../data/author";
 import { currentPaper, PAPER } from "../data/paper";
 import Layout from "../layouts/Layout.astro";
+
+const workingPdfOnDisk = existsSync(
+	fileURLToPath(new URL(`../../public${PAPER.workingPdf}`, import.meta.url)),
+);
 
 const fmt = (iso: string) =>
 	new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -21,7 +28,9 @@ const history = [...PAPER.versions].reverse();
 		<p class="mt-5 text-base text-ink-2"><a class="font-medium text-ink hover:text-accent" href={AUTHOR.research}>{PAPER.author}</a></p>
 
 		<div class="mt-8 flex flex-wrap gap-3">
-			{currentPaper ? (
+			{workingPdfOnDisk ? (
+				<a href={PAPER.workingPdf} class="rounded-full bg-ink px-4 py-2 text-sm font-medium text-bg hover:opacity-90">Download working PDF</a>
+			) : currentPaper ? (
 				<a href={currentPaper.pdf} class="rounded-full bg-ink px-4 py-2 text-sm font-medium text-bg hover:opacity-90">Download PDF (v{currentPaper.version})</a>
 			) : (
 				<span class="rounded-full border border-dashed border-rule-strong px-4 py-2 text-sm text-ink-3">PDF not yet posted</span>
@@ -37,7 +46,11 @@ const history = [...PAPER.versions].reverse();
 			<div class="mt-4 space-y-4 text-[1.05rem] leading-relaxed text-ink-2">
 				{PAPER.abstract.map((paragraph) => <p>{paragraph}</p>)}
 			</div>
-			<p class="mt-5 text-sm text-ink-3">A working paper, not peer reviewed. Each posted PDF names the results release it reports.</p>
+			<p class="mt-5 text-sm text-ink-3">
+				A working paper, not peer reviewed. The title and abstract on this page are read from the manuscript, and the download is the current working PDF.
+				{PAPER.abstractIsDraft &&
+					" The manuscript still marks the abstract as a draft, so that passage is colored in the PDF."}
+			</p>
 		</section>
 
 		{history.length > 0 && (
