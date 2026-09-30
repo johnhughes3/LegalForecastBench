@@ -34,6 +34,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.sha || github.sha }}
+          # Full history so the PDF date is the last docs/paper commit, not the
+          # shallow boundary of an unrelated change.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Install uv
@@ -59,11 +62,11 @@ jobs:
   publish:
     name: Update the website PDF
     needs: build
-    # A fork pull request cannot push back to its branch. The preview artifact
-    # from the compile job is still available.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+    # A GITHUB_TOKEN push does not start new workflow runs. Committing onto a
+    # pull-request head would leave that head without the required checks.
+    # The compile job still uploads a preview artifact on a pull request.
+    # Update the website copy only once the change is on main.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     permissions:
       actions: read
       contents: write
@@ -74,6 +77,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Download the compiled PDF
@@ -86,7 +90,7 @@ jobs:
       - name: Commit and push the working PDF when it changed
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          PAPER_PUSH_REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          PAPER_PUSH_REF: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           status=$(bash docs/paper/publish-working-copy.sh)

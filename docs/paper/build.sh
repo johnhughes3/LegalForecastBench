@@ -42,8 +42,17 @@ fi
 
 # Date the PDF from the last change under docs/paper. A later commit that only
 # replaces the website copy must not change the metadata, or each publication
-# would compile a different file. Uncommitted drafts are previews of the working tree.
-export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git -C "$repo_root" log -1 --format=%ct -- docs/paper)}
+# would compile a different file. A shallow checkout has no parent for that
+# path filter, so Git reports the boundary commit even when it did not touch
+# the manuscript. Uncommitted drafts are previews of the working tree.
+if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
+  if [[ "$(git -C "$repo_root" rev-parse --is-shallow-repository)" == "true" ]]; then
+    printf 'Refusing to date the PDF from a shallow checkout of docs/paper.\n' >&2
+    exit 1
+  fi
+  SOURCE_DATE_EPOCH=$(git -C "$repo_root" log -1 --format=%ct -- docs/paper)
+fi
+export SOURCE_DATE_EPOCH
 if [[ -z "${SOURCE_DATE_EPOCH}" ]]; then
   printf 'Could not date the PDF from the docs/paper git history.\n' >&2
   exit 1
