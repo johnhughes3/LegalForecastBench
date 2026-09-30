@@ -2,7 +2,7 @@
 
 [Manuscript source](LegalForecastBench-paper.tex) · [Reference metadata](references.json) · [Numerical inputs](data/empirical.json)
 
-This directory is the canonical home of the working manuscript, **LegalForecastBench: Forecasting Judicial Decisions as a Test of Legal Reasoning Ability**. The paper reports the original twelve-configuration comparison on 91 cases and 387 claim–defendant units, a separate summary experiment, and the proposed outcome-feedback research direction. Later models on the live leaderboard are outside this fixed comparison. Draft annotations remain visible; a successful build is not a claim that the paper has completed scientific or editorial review.
+This directory is the canonical home of the working manuscript, **LegalForecastBench: Forecasting Judicial Decisions as a Test of Legal Reasoning Ability**. The paper reports a fourteen-configuration comparison on 91 cases and 387 claim–defendant units, a separate summary experiment, and the proposed outcome-feedback research direction. The live leaderboard also includes configurations that are not in this comparison. Draft annotations remain visible; a successful build is not a claim that the paper has completed scientific or editorial review.
 
 ## Edit and build
 
@@ -26,7 +26,7 @@ The image reference is fixed by digest in [texlive-image.txt](texlive-image.txt)
 
 ## Reproduction scope
 
-The empirical inputs are aggregate results and references to result files already in this public repository. The paper keeps the original cohort, conditions, cost qualifications, and missing unit-level coverage explicit. This package does not rerun model inference, relabel cases, or require court-document downloads or provider credentials. Public arithmetic reproduction and access to the underlying litigation records are different capabilities; see [Reproduce or audit a result](../reproduce-or-audit.md).
+The empirical inputs are aggregate results and references to result files already in this public repository. The paper keeps the cohort, conditions, and cost qualifications explicit. This package does not rerun model inference, relabel cases, or require court-document downloads or provider credentials. Public arithmetic reproduction and access to the underlying litigation records are different capabilities; see [Reproduce or audit a result](../reproduce-or-audit.md).
 
 Regenerate the three result figures and their CSV data using Python's standard library:
 
@@ -35,7 +35,18 @@ uv run --no-project --python 3.14 python docs/paper/figures/make_figures.py
 uv run --no-project --python 3.14 python docs/paper/figures/make_figures.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
 ```
 
-The generator writes `figures/figures-inline.tex` and three CSVs. Copy the regenerated result-figure bodies into the manuscript when changing the numerical inputs, preserving the standalone editor format. The check compares those bodies with the manuscript and fails on drift. The conceptual pipeline diagram is authored separately. CI runs this check before compiling. See the [figure reproduction notes](figures/README.md) for the fixed panel and input limits.
+The generator writes `figures/figures-inline.tex` and three CSVs. Copy the regenerated result-figure bodies into the manuscript when changing the numerical inputs, preserving the standalone editor format. The check compares those bodies with the manuscript and fails on drift. The conceptual pipeline diagram is authored separately. CI runs this check before compiling. See the [figure reproduction notes](figures/README.md) for the manuscript panel and input limits.
+
+### Within-case clustering
+
+The [clustering analysis](analysis/README.md) reads the public unit-level exports listed in the significance input manifest. It regenerates outcome, prediction-error, and Brier-loss ICCs, bootstrap intervals, a label-permutation test, and the manuscript paragraph:
+
+```bash
+uv run --frozen python docs/paper/analysis/clustering.py --write-manuscript --manuscript docs/paper/LegalForecastBench-paper.tex
+uv run --frozen python docs/paper/analysis/clustering.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
+```
+
+The write command updates only the marked clustering paragraph, leaving the rest of the manuscript editable in a standalone LaTeX editor. CI reruns the analysis and rejects stale numerical outputs or manuscript text when inputs change. See the analysis notes for custom cohorts, weighting, and assumptions.
 
 The research archive, downloaded third-party papers, source credibility notes, and private editorial material are maintained separately. Cite the original authorities linked from the bibliography, rather than redistributed copies of their papers.
 

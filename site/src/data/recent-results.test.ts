@@ -5,9 +5,9 @@ import { applyReceiptCosts, receiptCosts } from "./receipt-costs.js";
 import { recentResults } from "./recent-results.js";
 import { historicalSnapshot, snapshot } from "./results.js";
 
-test("all six newer agentic models augment the unchanged beta snapshot", () => {
+test("all eight newer agentic models augment the unchanged beta snapshot", () => {
 	assert.equal(historicalSnapshot.models.length, 10);
-	assert.equal(snapshot.models.length, 16);
+	assert.equal(snapshot.models.length, 18);
 	for (const slug of [
 		"gpt-6-sol",
 		"gpt-6-luna",
@@ -15,15 +15,17 @@ test("all six newer agentic models augment the unchanged beta snapshot", () => {
 		"grok-4-7",
 		"gpt-4-1",
 		"gemini-3-1-pro-preview",
+		"gpt-6-1-sol",
+		"claude-sonnet-5-5",
 	])
 		assert.ok(snapshot.models.some((m) => m.slug === slug));
 	for (const { source, data } of recentResults) {
 		const model = snapshot.models.find((m) => m.slug === source.slug);
 		assert.equal(model?.micro_brier, data.results[0]?.micro_brier);
 		assert.equal(
-			model?.cost.usd,
+			model?.cost.usd ?? null,
 			receiptCosts.find((cost) => cost.slug === source.slug)
-				?.standard_rate_estimate_usd,
+				?.standard_rate_estimate_usd ?? null,
 		);
 	}
 });
@@ -91,13 +93,13 @@ test("release mismatch fails before combining metrics", () => {
 
 test("updated significance replaces the historical family and excludes untested models", () => {
 	assert.equal(historicalSnapshot.significant_pairs.length, 3);
-	assert.equal(snapshot.significant_pairs.length, 24);
+	assert.equal(snapshot.significant_pairs.length, 30);
 	for (const pair of snapshot.significant_pairs) {
 		assert.equal(pair.worse, "gpt-4-1");
 		assert.notEqual(pair.better, "gpt-4-1");
 	}
-	assert.match(snapshot.cohort.bootstrap.correction, /120 model pairs/);
-	assert.match(snapshot.cohort.bootstrap.caveat, /9 of 16/);
+	assert.match(snapshot.cohort.bootstrap.correction, /153 model pairs/);
+	assert.match(snapshot.cohort.bootstrap.caveat, /11 of 18/);
 	assert.ok(
 		!snapshot.significant_pairs.some(
 			(pair) => pair.better === "grok-4-6" || pair.worse === "muse-spark-1-3",

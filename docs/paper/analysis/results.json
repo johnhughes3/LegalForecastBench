@@ -1,0 +1,371 @@
+{
+  "across_case_agree": 44623,
+  "across_case_agreement": 0.606084889643,
+  "across_case_agreement_percent": 60.608488964346,
+  "across_case_pairs": 73625,
+  "between_case_agree": 44623,
+  "between_case_agreement": 0.606084889643,
+  "between_case_agreement_percent": 60.608488964346,
+  "between_case_pairs": 73625,
+  "bootstrap_replicates": 20000,
+  "case_size_range": [
+    1,
+    15
+  ],
+  "cases": 91,
+  "coverage": {
+    "available_model_count": 11,
+    "available_models": [
+      "claude-opus-5",
+      "claude-opus-5-5",
+      "claude-sonnet-5",
+      "claude-sonnet-5-5",
+      "gemini-3-1-pro-preview",
+      "gpt-4-1",
+      "gpt-5-6-sol",
+      "gpt-6-1-sol",
+      "gpt-6-luna",
+      "gpt-6-sol",
+      "grok-4-7"
+    ],
+    "cases": 91,
+    "family_model_count": 18,
+    "missing_model_count": 7,
+    "missing_models": [
+      "claude-fable-5-1",
+      "grok-4-6",
+      "kimi-k3",
+      "gpt-5-6-luna",
+      "gpt-6-astra",
+      "gemini-3-8-flash",
+      "muse-spark-1-3"
+    ],
+    "units": 387
+  },
+  "homogeneous_multiunit_cases": 63,
+  "method_assumptions": {
+    "bootstrap": "percentile interval from whole-case resampling",
+    "estimator": "unbalanced one-way ANOVA method-of-moments ICC",
+    "independence": "Independence between cases is assumed for intervals; related-case family dependence is not assessed",
+    "model_intervals": "pointwise intervals, not simultaneous comparisons",
+    "pair_agreement": "descriptive pair counts; pairs are not independent sample sizes",
+    "permutation_null": "unit-label exchangeability across fixed case-size slots"
+  },
+  "method_notes": [
+    "Binary outcomes are analyzed on the observed 0/1 scale, not a logistic latent scale.",
+    "Case bootstrap treats cases as the sampling clusters; independence between cases is assumed for intervals.",
+    "The permutation null preserves total outcomes and fixed case sizes by shuffling unit labels."
+  ],
+  "mixed_multiunit_cases": 15,
+  "models": {
+    "claude-opus-5": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.340746777482,
+          0.665417409845
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.538260705909
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.542635443441,
+          0.824875846156
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.716229723339
+      }
+    },
+    "claude-opus-5-5": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.348718586906,
+          0.665394930277
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.520589583697
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.566007597785,
+          0.834963199088
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.727570934325
+      }
+    },
+    "claude-sonnet-5": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.341085668051,
+          0.635970315464
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.506895661461
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.544686510514,
+          0.825068678635
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.713267387258
+      }
+    },
+    "claude-sonnet-5-5": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.332192682901,
+          0.6187584344
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.499144628182
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.529167673789,
+          0.810838136828
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.706371145393
+      }
+    },
+    "gemini-3-1-pro-preview": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.324100594889,
+          0.638029726515
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.486202605054
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.497258593077,
+          0.753939242463
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.648435694294
+      }
+    },
+    "gpt-4-1": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.656300693982,
+          0.878395773375
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.780772189464
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.738354561591,
+          0.922119081117
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.855007800522
+      }
+    },
+    "gpt-5-6-sol": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.285943301046,
+          0.573634795865
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.452596756291
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.512317709456,
+          0.768600589659
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.667366052143
+      }
+    },
+    "gpt-6-1-sol": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.327958297348,
+          0.674652754989
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.544288965481
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.507671885128,
+          0.807348206617
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.692030405639
+      }
+    },
+    "gpt-6-luna": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.41068990966,
+          0.737596195603
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.609074252249
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.554020935697,
+          0.82933119354
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.720255655169
+      }
+    },
+    "gpt-6-sol": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.236666746076,
+          0.581952799415
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.416941797665
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.461930906312,
+          0.739670827267
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.616148267836
+      }
+    },
+    "grok-4-7": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.413231047614,
+          0.717266298462
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.594808030249
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.560704511612,
+          0.819826287394
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.719612821316
+      }
+    }
+  },
+  "multiunit_cases": 78,
+  "outcome": {
+    "bootstrap_replicates": 20000,
+    "bootstrap_undefined_replicates": 0,
+    "bootstrap_valid_replicates": 20000,
+    "case_bootstrap_ci95": [
+      0.609640600829,
+      0.869762037243
+    ],
+    "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+    "icc_anova": 0.758685605533,
+    "permutation_exceedances": 0,
+    "permutation_p_plus_one": 4.99975e-05,
+    "permutation_undefined_replicates": 0
+  },
+  "outcome_dismissed": 285,
+  "pair_counts": {
+    "across_case_agree": 44623,
+    "across_case_agreement": 0.606084889643,
+    "across_case_agreement_percent": 60.608488964346,
+    "across_case_pairs": 73625,
+    "between_case_agree": 44623,
+    "between_case_agreement": 0.606084889643,
+    "between_case_agreement_percent": 60.608488964346,
+    "between_case_pairs": 73625,
+    "within_case_agree": 998,
+    "within_case_agreement": 0.936210131332,
+    "within_case_agreement_percent": 93.621013133208,
+    "within_case_equal_case_agreement": 0.875702075702,
+    "within_case_equal_case_agreement_percent": 87.570207570208,
+    "within_case_equal_case_count": 78,
+    "within_case_pairs": 1066
+  },
+  "permutations": 20000,
+  "seed": 20260930,
+  "singleton_cases": 13,
+  "source": "site/src/data/significance/inputs.json",
+  "units": 387,
+  "within_case_agree": 998,
+  "within_case_agreement": 0.936210131332,
+  "within_case_agreement_percent": 93.621013133208,
+  "within_case_equal_case_agreement": 0.875702075702,
+  "within_case_equal_case_agreement_percent": 87.570207570208,
+  "within_case_equal_case_count": 78,
+  "within_case_pairs": 1066
+}

@@ -20,6 +20,8 @@ The [additional comparison registry](../model_registries/cycle-1-official-held-m
 
 [Grok 4.7](../model_registries/cycle-1-official-grok-4.7-gateway-2026-09-21.json) is an official post-anchor candidate using the ordinary Gateway document-tool condition. [xAI reports a May 2026 knowledge cutoff](https://docs.x.ai/developers/grok-4-7) and a [September 21 release](https://x.ai/news/grok-4-7). May precedes the documented cohort window, so Grok 4.7 is eligible under the reported-cutoff rule; the frozen registry still preserves month precision. It has since been run and scored on the Cycle 1 release (forecast run 35799524684, scoring run 35885175070). This entry does not change the Grok 4.6-to-Jev summary experiment.
 
+The September 30, 2026 comparison adds two full-document agentic runs with high reasoning. [GPT-6.1 Sol](../model_registries/cycle-1-agentic-gpt-6.1-sol-high-2026-09-29.json) uses `gpt-6.1-sol`. OpenAI reports an April 30, 2026 knowledge cutoff, which precedes the cohort, so the configuration is eligible. The registry release timestamp is the September 29, 2026 model-page observation date, not a separately verified launch announcement. [Claude Sonnet 5.5](../model_registries/cycle-1-agentic-claude-sonnet-5-5-high-2026-09-29.json) uses `claude-sonnet-5-5`, released September 28, 2026, with high effort pinned. Anthropic reports a June 2026 training cutoff, compared as June 1 under the maintained rule, which also precedes the cohort. Forecast runs are 36673524599 and 36673527185; scoring runs are 36741462923 and 36741468019.
+
 ## Current Pilot Registry
 
 | Provider | Model | Registry key | Release timestamp | Source |

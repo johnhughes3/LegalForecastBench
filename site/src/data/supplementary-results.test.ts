@@ -34,7 +34,7 @@ test("summary results remain separate and use the same 91-case, 387-unit cohort"
 		supplementaryRows.find((row) => row.slug === "gpt-4-1")?.role,
 		"full-record-reference",
 	);
-	assert.equal(snapshot.models.length, 16);
+	assert.equal(snapshot.models.length, 18);
 	assert.ok(
 		summaryComparisons.every(
 			({ source }) =>

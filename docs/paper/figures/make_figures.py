@@ -35,10 +35,12 @@ SHORT = {
     "gpt-5-6-sol": "GPT-5.6 Sol",
     "kimi-k3": "Kimi K3",
     "gpt-5-6-luna": "GPT-5.6 Luna",
+    "gpt-6-1-sol": "GPT-6.1 Sol",
     "gpt-6-astra": "GPT-6 Astra",
     "gemini-3-8-flash": "Gemini 3.8 Flash",
     "grok-4-7": "Grok 4.7",
     "claude-sonnet-5": "Sonnet 5",
+    "claude-sonnet-5-5": "Sonnet 5.5",
     "muse-spark-1-3": "Muse Spark 1.3",
 }
 
@@ -123,7 +125,11 @@ def figure1_rows(
                 "unit_count": model["unit_count"],
                 "high_confidence_count": high["count"],
                 "high_confidence_share": f"{float(high['share']):.12f}",
-                "cost_usd_estimate": f"{float(model['cost']['usd']):.6f}",
+                "cost_usd_estimate": (
+                    ""
+                    if model["cost"]["usd"] is None
+                    else f"{float(model['cost']['usd']):.6f}"
+                ),
             }
         )
     return fields, rows
@@ -292,13 +298,20 @@ def figure3_rows(
     return fields, rows, conditions
 
 
+def panel_top(model_count: int, step: float = 0.5) -> str:
+    """Top of the ranking grid: one step above the highest row."""
+
+    return f5((model_count - 1) * step + 0.25)
+
+
 def render_figure1(data: dict[str, Any], models: list[dict[str, Any]]) -> str:
     baseline = float(data["cohort"]["constant_forecast_micro_brier"])
+    top = panel_top(len(models))
     lines = [r"\begin{tikzpicture}[every node/.style={font=\small}]"]
     for tick in (0.11, 0.13, 0.15, 0.17, 0.19):
         coordinate = x1(tick)
         lines += [
-            rf"\draw[gray!18] ({f5(coordinate)},-.2)--({f5(coordinate)},5.750);",
+            rf"\draw[gray!18] ({f5(coordinate)},-.2)--({f5(coordinate)},{top});",
             rf"\node[anchor=north] at ({f5(coordinate)},-.3) {{{tick:.2f}}};",
         ]
     # The manuscript's existing five-decimal coordinate was produced from the
@@ -306,7 +319,7 @@ def render_figure1(data: dict[str, Any], models: list[dict[str, Any]]) -> str:
     # and data file preserve the full aggregate value.
     baseline_coordinate = x1(round(baseline, 7))
     lines.append(
-        rf"\draw[dashed,gray!70] ({f5(baseline_coordinate)},-.2)--({f5(baseline_coordinate)},5.750);"  # noqa: E501
+        rf"\draw[dashed,gray!70] ({f5(baseline_coordinate)},-.2)--({f5(baseline_coordinate)},{top});"  # noqa: E501
     )
     for row_number, model in enumerate(
         reversed(sorted(models, key=lambda row: float(row["micro_brier"]))), 0
@@ -330,11 +343,12 @@ def render_figure1(data: dict[str, Any], models: list[dict[str, Any]]) -> str:
 
 
 def render_figure2(models: list[dict[str, Any]]) -> str:
+    top = panel_top(len(models))
     lines = [r"\begin{tikzpicture}[every node/.style={font=\small}]"]
     for tick in (0.85, 0.90, 0.95, 1.00):
         coordinate = x2(tick)
         lines += [
-            rf"\draw[gray!18] ({f5(coordinate)},-.2)--({f5(coordinate)},5.750);",
+            rf"\draw[gray!18] ({f5(coordinate)},-.2)--({f5(coordinate)},{top});",
             rf"\node[anchor=north] at ({f5(coordinate)},-.3) {{{tick:.2f}}};",
         ]
     for row_number, model in enumerate(models[::-1], 0):
@@ -391,9 +405,7 @@ def render_figure3(data: dict[str, Any], conditions: list[dict[str, Any]]) -> st
 def render_all(data: dict[str, Any]) -> str:
     models = data["models"]
     if tuple(model["slug"] for model in models) != EXPECTED_MODELS:
-        raise ValueError(
-            "empirical model panel does not match the fixed original-12 order"
-        )
+        raise ValueError("empirical model panel does not match the manuscript order")
     _, _, conditions = figure3_rows(data, models)
     blocks = [
         render_figure1(data, models),
@@ -458,7 +470,10 @@ def validate_public_data(data: dict[str, Any]) -> None:
         raise ValueError(f"public data contains absolute paths: {forbidden[:2]}")
     if any("LegalForecastCorpus/docs/" in value for value in strings):
         raise ValueError("public data contains a private Corpus path")
-    if len(data["models"]) != 12 or data["cohort"]["case_count"] != 91:
+    if (
+        len(data["models"]) != len(EXPECTED_MODELS)
+        or data["cohort"]["case_count"] != 91
+    ):
         raise ValueError("unexpected fixed-panel counts")
     if data["cohort"]["unit_count"] != 387:
         raise ValueError("unexpected scored-unit count")

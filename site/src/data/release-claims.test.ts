@@ -15,13 +15,13 @@ test("release significance claim excludes the reference and untested models", ()
 	const tested = primarySnapshot.models.filter((model) =>
 		comparison.available_models.includes(model.slug),
 	);
-	assert.equal(tested.length, 8);
+	assert.equal(tested.length, 10);
 	assert.equal(primarySnapshot.significant_pairs.length, 0);
 	assert.equal(comparison.significant_pairs.length, tested.length * 3);
 	const introduction = report.split("## Why this benchmark matters")[0] ?? "";
 	assert.match(
 		introduction,
-		/eight current models in the paired significance analysis/,
+		/ten current models in the paired significance analysis/,
 	);
 	assert.match(
 		introduction,
@@ -36,15 +36,15 @@ test("release significance claim excludes the reference and untested models", ()
 	);
 	assert.match(
 		astra,
-		/Among the eight current configurations that were tested, no pairwise difference reached significance after correction; each was significantly better than the GPT-4.1 reference/,
+		/Among the ten current configurations that were tested, no pairwise difference reached significance after correction; each was significantly better than the GPT-4.1 reference/,
 	);
 });
 
-test("cutoff claims follow the reported-cutoff rule: thirteen eligible, two qualified", () => {
+test("cutoff claims follow the reported-cutoff rule: fifteen eligible, two qualified", () => {
 	const eligible = primarySnapshot.models.filter(
 		(model) => model.eligibility === "eligible",
 	);
-	assert.equal(eligible.length, 13);
+	assert.equal(eligible.length, 15);
 	assert.deepEqual(
 		primarySnapshot.models
 			.filter((model) => model.eligibility !== "eligible")
@@ -54,7 +54,7 @@ test("cutoff claims follow the reported-cutoff rule: thirteen eligible, two qual
 	);
 	assert.match(
 		report,
-		/thirteen of the fifteen configurations report a training-data or knowledge cutoff before the first decision/,
+		/fifteen of the seventeen configurations report a training-data or knowledge cutoff before the first decision/,
 	);
 	assert.doesNotMatch(
 		report + home,

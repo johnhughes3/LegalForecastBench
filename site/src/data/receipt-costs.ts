@@ -46,9 +46,11 @@ export function applyReceiptCosts(
 		if (estimate === null) continue;
 		if (!Number.isFinite(estimate) || estimate <= 0)
 			throw new Error("Chart cost must be a positive finite estimate");
-		const cacheNote = cost.standard_rate_method.includes("conservative")
-			? "Incomplete cache usage or prices use ordinary-input estimates, which may overstate or understate cache-adjusted costs."
-			: "Retains reported cache usage and cache prices.";
+		const cacheNote =
+			cost.standard_rate_method.includes("conservative") ||
+			cost.standard_rate_method.includes("missing_cache")
+				? "Incomplete cache usage or prices use ordinary-input estimates, which may overstate or understate cache-adjusted costs."
+				: "Retains reported cache usage and cache prices.";
 		models.set(cost.slug, {
 			...model,
 			cost: {

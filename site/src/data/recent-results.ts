@@ -1,8 +1,10 @@
 import export2 from "./exports/claude-opus-5-5.json" with { type: "json" };
+import export7 from "./exports/claude-sonnet-5-5.json" with { type: "json" };
 import export5 from "./exports/gemini-3-1-pro-preview.json" with {
 	type: "json",
 };
 import export4 from "./exports/gpt-4-1.json" with { type: "json" };
+import export6 from "./exports/gpt-6-1-sol.json" with { type: "json" };
 import export1 from "./exports/gpt-6-luna.json" with { type: "json" };
 import export0 from "./exports/gpt-6-sol.json" with { type: "json" };
 import export3 from "./exports/grok-4-7.json" with { type: "json" };
@@ -104,5 +106,37 @@ export const recentResults = [
 				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
 		},
 		data: parseSiteExport(export5),
+	},
+	{
+		source: {
+			slug: "gpt-6-1-sol",
+			release_date: "2026-09-29",
+			forecast_run: "36673524599",
+			scoring_run: "36741462923",
+			access: "OpenAI API",
+			display_name: "GPT-6.1 Sol",
+			reasoning: "High",
+			provider: "OpenAI",
+			release: "cycle-1-91-2026-09-08-luna-r5",
+			release_digest:
+				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		},
+		data: parseSiteExport(export6),
+	},
+	{
+		source: {
+			slug: "claude-sonnet-5-5",
+			release_date: "2026-09-28",
+			forecast_run: "36673527185",
+			scoring_run: "36741468019",
+			access: "Anthropic API",
+			display_name: "Claude Sonnet 5.5",
+			reasoning: "High",
+			provider: "Anthropic",
+			release: "cycle-1-91-2026-09-08-luna-r5",
+			release_digest:
+				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		},
+		data: parseSiteExport(export7),
 	},
 ];

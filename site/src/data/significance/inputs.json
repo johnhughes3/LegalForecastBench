@@ -6,11 +6,13 @@
 		"claude-opus-5-5": "claude-opus-5-5.jsonl",
 		"gpt-4-1": "gpt-4-1.jsonl",
 		"gemini-3-1-pro-preview": "gemini-3-1-pro-preview.jsonl",
+		"gpt-6-1-sol": "gpt-6-1-sol.jsonl",
+		"claude-sonnet-5-5": "claude-sonnet-5-5.jsonl",
 		"claude-opus-5": "claude-opus-5.jsonl",
 		"gpt-5-6-sol": "gpt-5-6-sol.jsonl",
 		"claude-sonnet-5": "claude-sonnet-5.jsonl"
 	},
-	"family_model_count": 16,
+	"family_model_count": 18,
 	"missing_models": [
 		"claude-fable-5-1",
 		"grok-4-6",
@@ -48,6 +50,14 @@
 				"score_run": "36169561374",
 				"source": "native_unit_scores"
 			},
+			"gpt-6-1-sol": {
+				"score_run": "36741462923",
+				"source": "native_unit_scores"
+			},
+			"claude-sonnet-5-5": {
+				"score_run": "36741468019",
+				"source": "native_unit_scores"
+			},
 			"claude-opus-5": {
 				"forecast_run": "34845972981",
 				"source": "validated_receipts_joined_to_native_score_labels"
@@ -63,6 +73,6 @@
 		},
 		"label_source_score_run": "36169561374",
 		"cohort_validation": "All native score sources agree on 387 case/unit/outcome keys across 91 cases. Historical receipts bind to the same release and reproduce their prior published aggregates.",
-		"coverage": "Nine of sixteen model configurations have recoverable unit-level evidence. The other seven models and their pairs are not tested."
+		"coverage": "Eleven of eighteen model configurations have recoverable unit-level evidence. The other seven models and their pairs are not tested."
 	}
 }

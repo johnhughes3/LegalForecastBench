@@ -89,7 +89,7 @@ target-version = "py313"
 select = ["B", "E", "F", "I", "RUF", "UP"]
 
 [tool.pyright]
-include = ["legalforecast", "scripts", "docs/paper/figures"]
+include = ["legalforecast", "scripts", "docs/paper/figures", "docs/paper/analysis"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
 
