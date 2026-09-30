@@ -5,13 +5,17 @@ on:
     branches: [main]
     paths:
       - 'docs/paper/**'
-      - 'site/src/data/significance/summary/**'
+      - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'
+      - 'pyproject.toml'
+      - 'uv.lock'
   pull_request:
     paths:
       - 'docs/paper/**'
-      - 'site/src/data/significance/summary/**'
+      - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'
+      - 'pyproject.toml'
+      - 'uv.lock'
   workflow_dispatch:
 
 permissions:
@@ -42,6 +46,11 @@ jobs:
         run: >-
           uv run --no-project --python 3.14 python
           docs/paper/figures/make_figures.py --check
+          --manuscript docs/paper/LegalForecastBench-paper.tex
+
+      - name: Check clustering analysis against the manuscript
+        run: >-
+          uv run --frozen python docs/paper/analysis/clustering.py --check
           --manuscript docs/paper/LegalForecastBench-paper.tex
 
       - name: Compile with pinned TeX Live

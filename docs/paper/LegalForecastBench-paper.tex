@@ -25,12 +25,12 @@
 \usepackage[skip=0.6em]{parskip}
 \title{LegalForecastBench: Forecasting Judicial Decisions\\as a Test of Legal Reasoning Ability}
 \author{John J. Hughes, III\\Independent researcher\\\url{https://www.johnjhughes3.com/research/}}
-\date{Working paper --- September 29, 2026}
+\date{Working paper --- September 30, 2026}
 \begin{document}
 \maketitle
 \begin{abstract}
 % TODO: revise the abstract at the end, after the rest of the paper is settled
-\draft{Legal AI evaluations increasingly assess professional work products with expert-written rubrics. Judicial forecasting offers a complementary target: an uncertain legal judgment whose realized outcome can subsequently be observed. We introduce LegalForecastBench, a benchmark of claim--defendant-level dismissal probabilities from pre-decision records in U.S. federal litigation. The beta contains 91 cases decided between June 30 and August 7, 2026, with 387 scored units. In a fixed panel of twelve document-enabled model configurations, GPT-6 Sol has the lowest observed micro-Brier loss (0.11763) and the highest unit accuracy (84.50\%). All twelve improve on a retrospectively fitted constant-probability reference; eleven improve on majority-class accuracy. Confidence differs substantially across configurations, and several strong models make consequential high-confidence errors. In a separate shared-summary experiment, two Luna configurations substantially outperform Jev; Jev underpredicts dismissal in the aggregate. We distinguish these evaluation findings from the hypothesis that outcome feedback can improve legal judgment, describe LegalForecastGym as a setting for testing that hypothesis, and examine task--rubric alignment through a bounded case study of Harvey's Legal Agent Benchmark. The contribution is a legally specified probabilistic evaluation task and empirical baseline, with explicit limits concerning label adjudication, selection, contamination, repeated-run uncertainty, and transfer beyond forecasting.}
+\draft{Legal AI evaluations increasingly assess professional work products with expert-written rubrics. Judicial forecasting offers a complementary target: an uncertain legal judgment whose realized outcome can subsequently be observed. We introduce LegalForecastBench, a benchmark of claim--defendant-level dismissal probabilities from pre-decision records in U.S. federal litigation. The beta contains 91 cases decided between June 30 and August 7, 2026, with 387 scored units. In a panel of fourteen document-enabled model configurations, GPT-6 Sol has the lowest observed micro-Brier loss (0.11763) and the highest unit accuracy (84.50\%). All fourteen improve on a retrospectively fitted constant-probability reference; thirteen improve on majority-class accuracy. Confidence differs substantially across configurations, and several strong models make consequential high-confidence errors. In a separate shared-summary experiment, two Luna configurations substantially outperform Jev; Jev underpredicts dismissal in the aggregate. We distinguish these evaluation findings from the hypothesis that outcome feedback can improve legal judgment, describe LegalForecastGym as a setting for testing that hypothesis, and examine task--rubric alignment through a bounded case study of Harvey's Legal Agent Benchmark. The contribution is a legally specified probabilistic evaluation task and empirical baseline, with explicit limits concerning label adjudication, selection, contamination, repeated-run uncertainty, and transfer beyond forecasting.}
 \end{abstract}
 
 \section{Introduction}
@@ -48,7 +48,7 @@ In practice, however, the efficiacy of these techniques in the legal domain is u
 
 For lawyers and the legal system, litigation is the core mechanism for resolving uncertainty about the law and reducing disputes over meaning into binding law. For example, if a contract dispute arises between two sophisticated parties, each side's lawyer may advance arguments for why their preferred reading of the contract is the correct one. But if the dispute is submitted to a court, either in an action for breach or pursuant to the Declaratory Judgment Act, the court's final judgment resolves that issue once and for all and constitutes binding law amongst those parties.  \citep{declaratory}. Even an erroneous judgment is still binding law. \citep{moitie}. Litigation thus turns a disputed question into an observable, legally operative disposition. From the perspective of training AI models, a difficult-to-verify legal question becomes a verifiable disposition every time a court enters judgment on a matter.
 
-That makes predicting litigation outcomes an essential skill for lawyers in a variety of high-level judgment tasks. Oliver Wendell Holmes, a major precursor to American Legal Realism, famously wrote: "The prophecies of what the courts will do in fact, and nothing more pretentious, are what I mean by the law." \citep{holmes}. While there are many components of high-level legal advice, decomposing many high-level legal judgment tasks into their constituent elements reveals that predicting litigation outcomes is often a key sub-task even in cases that never go to court. For example, lawyers frequently advise on commercial disputes. Prior work establishes that, even for disputes that never to go to a judge, the legal system provides a framework that constraints the parties' respective bargaining range. \citep{shadow}. In many disputes, each side's best alternative to a negotatiated agreement is to take the dispute to court, so the likely litigated outcome often sets a floor (or ceiling) on what each side is willing to accept (or offer) out of court. Even when a lawyer is merely giving general advice or preparing a contract between two parties who do not expect litigation, a good lawyer anticipates and prepares for potential disputes. \citep{nylawyerskills,shadow}. The value of prediction therefore extends beyond forecasting cases that ultimately reach judgment.
+That makes predicting litigation outcomes an essential skill for lawyers in a variety of high-level judgment tasks. Oliver Wendell Holmes Jr., one of the most influential jurists in American history and a major precursor to American Legal Realism, famously wrote: "The prophecies of what the courts will do in fact, and nothing more pretentious, are what I mean by the law." \citep{holmes}. While there are many components of high-level legal advice, decomposing many high-level legal judgment tasks into their constituent elements reveals that predicting litigation outcomes is often a key sub-task even in cases that never go to court. For example, lawyers frequently advise on commercial disputes. Prior work establishes that, even for disputes that never to go to a judge, the legal system provides a framework that constraints the parties' respective bargaining range. \citep{shadow}. In many disputes, each side's best alternative to a negotatiated agreement is to take the dispute to court, so the likely litigated outcome often sets a floor (or ceiling) on what each side is willing to accept (or offer) out of court. Even when a lawyer is merely giving general advice or preparing a contract between two parties who do not expect litigation, a good lawyer anticipates and prepares for potential disputes. \citep{nylawyerskills,shadow}. The value of prediction therefore extends beyond forecasting cases that ultimately reach judgment.
 
 For the initial run of LegalForecastBench, I used AI models to collect documents from 91 real cases in federal court that had written decisions on motions to dismiss. Models, with my oversight, identified the moving defendants and the claims they challenged, and labeled the judge's ruling based on whether it granted entirely a motion to dismiss a specific claim asserted against a defendant (or group of similarly situated defendants). AI models received the same briefing and docket that was before the judge (including the identity of the real parties and the name of the assigned judge, to the extent that information was on the docket prior to the judge's disposition) and were asked to predict the judge's ruling as to each claim-defendant unit. The headline metric is micro-Brier loss, a score for probabilistic forecasts. \citep{brier,gneiting}. GPT-6 Sol had the best observed scores, but this small, single-retained-run comparison is intended primarily to establish the framework for using real-world litigation data as an evaluation metric (and potentially a training signal). We separately tested a discriminative, non-autoregressive decision model (TypeSafe AI's Jev model), using LLM-generated summaries of the court records (in order to fit the task within Jev's small context window). Jev was not competitive with frontier models on this specific task.
 
@@ -56,23 +56,32 @@ Although this benchmark is merely evaluative, we are separately developing a tra
 
 
 \section{Related work}
-\paragraph{Legal outcome prediction.} Judicial prediction predates large language models. Ruger and colleagues compared statistical and expert forecasts of Supreme Court decisions, and Katz, Bommarito, and Blackman developed a general approach to predicting Supreme Court behavior over a long historical period \citep{ruger,katz}. Text-based prediction of European Court of Human Rights decisions and large Chinese judgment datasets broadened the field \citep{aletras,cail}. These tasks differ in jurisdiction, information set, granularity, and whether inputs are written before or as part of the judgment. Medvedeva and McBride emphasize that predicting labels from judicially authored accounts can diverge sharply from the information available to a real forecaster \citep{medvedeva}. CLC-UKET is a particularly relevant comparison that includes human predictions, but its facts and claims are extracted from judgments; the authors identify original party submissions as an important next step \citep{clcuket}. Commercial motion-prediction products also exist. We therefore make no claim to the first judicial, U.S., or motion-to-dismiss predictor. Our specific object is a refreshable, probabilistically scored, claim--defendant-level evaluation using the pre-decision written record.
 
-\paragraph{Professional legal evaluation.} LegalBench organizes legal reasoning tasks around domain expertise \citep{legalbench}. LAB assesses document- and tool-based legal assignments with detailed criteria, while JudgmentBench compares rubric and preference evaluation on constructed quality levels in a different legal benchmark, BigLaw Bench \citep{harveyLAB,judgmentbench}. Forecasting and work-product evaluation measure different constructs. An excellent opposition memorandum can lose; a poor memorandum can prevail for reasons unrelated to its quality. Outcome forecasting complements evaluation of legal work products and cannot replace it.
+The approach here is consistent with previous research that (i) used older AI techniques to build smaller, custom models for predicting the outcome of litigation (especially U.S. Supreme Court decisions), and (ii) more recent efforts to use frontier models to predict the outcomes of events defined in prediction markets. Some research in China has also used frontier models to predict criminal sentences. 
 
-\paragraph{Verification, rewards, and forecasting.} Rule-based rewards, learned preferences, and process supervision supply different forms of training feedback \citep{deepseek,lightman,instructgpt}. Autocast established a substantial real-world event-forecasting dataset, and Halawi and colleagues combined retrieval, reasoning, and fine-tuning for forecasting \citep{autocast,halawi}. Outcome-based reinforcement learning and OpenForecaster train using resolved events \citep{outcomerl,openforecaster}; ForecastBench uses evolving real-world questions to address contamination and evaluate forecasting \citep{forecastbench}. Chinese sentencing work combines outcome-related rewards with intermediate reasoning assessment \citep{sentencing}. These are direct antecedents of the proposed learning direction. None, by itself, establishes that training on U.S. motion outcomes improves broader litigation judgment.
+\paragraph{Legal outcome prediction.} Using AI models and other techniques to predict litigation outcomes has a long lineage. Ruger and colleagues used hand-coded metadata and statistical techniques to predict the 2002 Term of the U.S. Supreme Court \citep{ruger}. Later work incorporated more sophisticated machine-learning and natural language processing techniques. Aletras and colleagues in 2016 used a text-based approach to predict the outcomes of European Court of Human Rights decisions \citep{aletras}. Katz, Bommarito, and Blackman in 2017 used a random-forest classifier over structured Supreme Court data to predict Justice votes and case outcomes. \citep{katz}. CAIL2018 used a dataset of more than 2.6 million Chinese criminal cases to predict charges and sentences, with text-classification models providing initial baselines. \citep{cail}. As the transformer architecture became dominant, later legal prediction systems increasingly used models like BERT and T5. CLC-UKET, realesed in 2024, compared fine-tuned BERT and T5 models to zero- and few-shot GPT-3.5 and GPT-5 to predict U.K. Employment Tribunal cases. \citep{clcuket}. The field has thus progressed from statistical models over hand-coded metadata through covnentional MLP and supervised machine learning to transformer-based classifiers and, more recently, large language models. Much of this literature differes from the approach studied here, because teh models operate on structured metadata or facts and claims extracted from judicial opinions. The approach here simply asks frontier models to reason about the actual pre-decision litigation record, essentially the documents filed in court before the judge who decided the motion, without any access to statistical data or models showing prior decisions.
 
-\paragraph{Measurement validity.} Proper scoring rules encourage honest probabilities in expectation \citep{brier,gneiting}. Statistical evaluation must also respect dependence among questions sharing a record \citep{miller}. Real-world provenance does not eliminate specification error: SWE-bench's executable tests and subsequent analyses illustrate the need to align the task, information supplied, and criterion of success \citep{swebench,swecritique}. The same alignment problem applies both to legal rubrics and to our own outcome labels.
+\paragraph{Legal benchmarks and evaluation.} One of the most impressive academic benchmarks is LegalBench, a collaborative benchmark to which 40 authors contributed 162 tasks that aimed to assess legal domain expertise. Although some of the legal issues tested could give rise to disputes in real litigation (for example, there are tests of whether a given statement is hearsay or not), the benhcmark deliberately uses relatively clean examples that can be reduced to a binary answer. \citep{legalbench}. The hearsay tasks, for example, explicitly articulate what proposition a given statement is being used to prove or disprove, and then ask whether that use is hearsay; in real-world litigation, what proposition the statement is being offered to prove may itself be disputed so providing a clean prompt on that point narrows the task to a relatively mechanical application of an explicit rule. 
+
+Most recent benchmarks test higher-leve judgment tasks that lack an objective ground truth. JudgmentBench, released in May 2026, and Harvey's LAB targeted open-ended professional legal work, like drafting, analysis, and advice, for which there are potentially multiple defensible outputs and no independently verifiable ground truth. \citep{harveyLAB,judgmentbench}. These benchmarks take different approaches to reward specification. JudgmentBench explicitly compared rubric-based scoring to comparative judgment (pairwise preference judgments collected from practicing attorneys), and found that comparative judgments recover the intended quality ordering substantially better than rubrics. LAB relies on a rubric-based approach. There are potential downsides to both approaches. Preference-based evaluation is a form of RLHF that can amplify human biases and errors into the rewards signal \citep{sharmaSycophancy,shapiraSycophancy}; for example, reviewers could reward briefs that are longer, sycophantic, overly confident, or more consistent with the reviewer's own judicial philosophy or political preferences, rather than rewarding briefs that are most effective at persuading a judge. As discussed herein, my preliminary audit of the LAB rubrics also found evidence of a significant number of errors and misspecified tasks, with the tasks apparently having been created by leading data companies that are selling significant amounts of training data to AI labs. 
+
+\paragraph{Verification, rewards, and forecasting.} Frontier models are trained on several different forms of feedback, as described in prior work. InstructGPT in 2022 provided an influential demonstration of reinforcement learning from human feedback \citep{instructgpt}. In 2023, Lightman and colleagues showed that, on mathematical reasoning tasks, process supervision (assigning feedback to individual reasoning steps) outperformed outcome supervision, which gives rewards based on whether the final answer is correct \citep{lightman}.
+
+More recent work has used externally resolved real-world events to supply an analogous signal outside domains like mathematics. For example, Autocast, released in 2022, assembled forecasting questions from tournaments and a date-indexed news corpus to allow language models to make predictions based on the information a human would have had at the time. \citep{autocast}. Halawi and colleagues in 2024 used a retrieval-augmented forecasting system that could search for information, and generate and aggregate multipple forecasts; the system approached the performance of competitive human forecasters \citep{halawi}. ForecastBench, introduced in 2024, extended this approach into a dynamic benchmark that continually collects questions about unresolved future events and scores models once the event outcome is known \citep{forecastbench}.
+
+Outcome-Based Reinforcement Learning to Predict the Future showed in 2025 that resolved binary forecasting questions coudl serve as reinforcement-learning rewards, training a 14-billion-parameter model on more than 100,000 events using adaptions of GRPO and ReMax \citep{outcomerl}. OpenForecaster similarly explored training language models directly on resolved forecasting questions \citep{openforecaster}. LegalForecastBench is an effort to apply a similar approach to litigation outcomes, at least as an evaluation metric for now.
+
+\paragraph{Measurement validity.} The correct scoring rules are those that encourage honest probabilities in expectation \citep{brier,gneiting}. Statistical evaluation also must respect dependence among questions sharing a record \citep{miller}. OpenAI's published work on SWE-bench Verified also emphasizes the importance of avoiding specification error (which is relevant to the findings about rubric-based benchmarks, such as the preliminary audit of LAB). After published that benchmark in August 2024, OpenAI noted concerns in February 2026 that the benchmark no longer measures the coding capabilites of frontier models because the tests reject correct solutions and models were increasingly contaminated by having seen the open-source repositories often used for training purposes \citep{swebench,swecritique}. These specification problems apply both to rubric-based approaches and to our own outcome labels.
 
 \section{Dataset and task}
 \subsection{Prediction target and information set}
-Let $c\in\{1,\ldots,C\}$ index cases and $u\in\mathcal U_c$ index scored units within case $c$. Each unit identifies a challenged claim or independently disposable pleaded subclaim against a moving defendant or a group treated together on materially identical grounds. A legal defense, claim element, requested remedy, or factual theory is not automatically a separate unit. The model receives the pre-decision record $X_c$ and unit specification $U_{cu}$ and returns
+Let $c\in\{1,\ldots,C\}$ index cases and $u\in\mathcal U_c$ index scored units within case $c$. Each unit identifies a challenged claim or a separately resolveable pleaded subclaim against a moving defendant (or a group of similarly situated defendants, for whom the outcome is predicted together since the legal and factual arguments for dismissal are materially identical as to all of them). We used models to identify appropriate units based on the arguments articulated in each motion; an affirmative defense, an element of a legal cause of action, a requested remedy, or a distinct factual theory was not automatically treated as a separate unit. Rather, units generally tracked claims asserted in the complaint (in some cases with a single claim asserted against multiple defendants being treated as different units, if different defendants advanced different grounds for dismissal). The model receives the pre-decision record that the judge received $X_c$ and the unit specification $U_{cu}$ and returns
 \begin{equation}
  p_{cu}\in[0,1],\qquad p_{cu}\approx \Pr(Y_{cu}=1\mid X_c,U_{cu}),
 \end{equation}
-where $Y_{cu}=1$ means full dismissal of that unit in the target motion's first written disposition. The event is not final victory in the lawsuit.
+where $Y_{cu}=1$ means that the judge dismissed that claim-defendant unit in its entirety, in the target motion's first written disposition. That event is not a final victory in the lawsuit, since a plaintiff might be given an opportunity to file an amended complaint with additional allegations supporting a dismissed claim, other claims might survive even if some are dismissed, and the plaintiff normally has a right to appeal dismissal and seek a de novo adjudication of the issue from the circuit court of appeals.
 
-A full dismissal with leave to amend still has label 1. A partial dismissal that leaves the frozen unit alive in a material respect has label 0. Later amendment, settlement, reconsideration, and appellate reversal do not retroactively change this target. Dispositions that cannot be reliably mapped to the unit are excluded from primary scoring. These choices sacrifice some procedural detail for a stable, interpretable forecast event. They also make label construction a legal task in its own right.
+A full dismissal with leave to amend still has label 1 (i.e., a dismissal is coded the same way, even if it is without prejudice and the plaintiff may seek leave to amend the complaint and try again). A partial dismissal of some claims or theories that leaves the frozen unit alive in a material respect has label 0, meaning the claim-defendant unit must be entirely dismissed. Later amendment, settlement, reconsideration, and appellate reversal do not change the target; the model is specifically asked to predict only the trial judge's ruling on the specific motion to dismiss. Dispositions that cannot be reliably mapped to a unit were excluded from primary scoring. These choices sacrifice some procedural detail for a stable, objectively interpretable forecast event. Even with these limitations, label construction is a substantive legal task in its own right as the labeling models had to analyze the filed motions to determine what claims were being challenged and ascertain from the judge's ruling how those were resolved. Two labeling models had to agree on the units, and had the option to escalate ambiguous cases to me for review; in practice, the labeling process was iterative in this preliminary run, as we discovered a number of edge cases that needed to be resolved. The process started with 100 cases but seven were elimianted during the labeling process because the order did not decide the frozen claims, one was eliminated beause it was a stipulated dismissal, and one was a plaintiffs' Rule 12(c) motion for judgment on the pleadings rather than a defendant's motion to dismiss under Rule 12(b).
 
 \begin{table}[ht]
 \centering\small
@@ -91,11 +100,11 @@ Disposition does not reliably resolve the frozen target & Excluded from primary 
 \end{table}
 
 \subsection{Cohort construction and labeling}
-The analyzed release contains 91 U.S. federal cases with written decisions dated June 30--August 7, 2026. The retained package contains 409 forecast units, of which 387 are scored; 22 units therefore do not enter the headline metrics. Of the scored units, 285 were fully dismissed and 102 were not. The shared-summary preparation inventory contains 482 selected documents. We report the analyzed cohort rather than implying a random sample of all federal motions. The materials reviewed for this paper do not provide a complete population-level sampling frame or a reason-by-reason census of every excluded acquisition candidate.
+The analyzed set consists of 91 U.S. federal cases with written decisions dated June 30--August 7, 2026. The cases were labeled as contained 409 claim-defendant units that could be forecasted. Of those, 387 are scored; 22 units therefore do not enter the headline metrics. The unscored units involved situations where the plaintiff voluntarily withdrew the frozen claim, the order did not cleanly grant or deny the frozen claim, or (for four units) we determined after freezing the unit that the frozen defendant was the wrong target or the motion did not address the frozen claim. Of the scored claim-defendantunits, 285 were fully dismissed and 102 were not. The shared-summary preparation inventory contains 482 selected documents. The sample was not random; our pipeline favored cases where some of the necessary documents could be obtained from online databases, although we typically had to purchase a number of documents from the federal PACER system to ensure that the task included all the substantive filings on the motion that were before the judge.
 
-The documented construction pipeline combines models with human legal oversight. Its protocol identifies units from pre-decision material and uses a separate stage to interpret the subsequent disposition for those frozen targets. The documented labeling policy requires structured outcome agreement and supporting disposition excerpts for automatic acceptance, with disagreement, ambiguity, and structural defects routed to lawyer review. The author reports resolving disputed units and correcting labels. This is not a completed independent label-error study: this paper does not report an adjudication rate, inter-annotator agreement, or a blinded human-audit error estimate. Current pipeline documentation also contains later refinements and should not be mistaken for a census of the operations performed on every historical beta case.
+The case construction and labeling pipeline used models as well as human legal oversight from me. We did take pains to maintain separation between \emph{unitization} and \emph{outcome coding}. In particular, we wished to avoid the possibility that the prediction units could leak information about the judge's ultimate outcome to the models that were performing prediction. AI models first were asked to identify the claim-defendant units that a motion sought to dismiss, based only on the pre-decision materials (the motion and the docket). A later stage was given access to the claim-defendant units and the judge's order disposing of the motion, to interpret the disposition for each frozen target. The labeling pipeline we used requires structured outcome agreement and supporting disposition excerpts for automatic acceptance; disagreements between models, ambiguity, and structural defects in the cases were routed to me for lawyer review and a a decision. I resolved disputed units and corrected labels as necessary. For purposes of the initial release, this process was iterative and we did not track a blinded human-audit error estimate.
 
-The important separation is between \emph{unitization} and \emph{outcome coding}. A decision must not be used to invent a prediction unit after the fact. Conversely, an expressly pleaded but legally defective claim is still a potential forecast target if the motion challenges it; deciding that the claim lacks legal merit is not a reason to remove it from the task. Authentic litigation records require this distinction because pleadings, motions, and dispositions rarely share a perfectly aligned schema.
+
 
 
 \begin{figure}[tb]
@@ -119,17 +128,15 @@ The important separation is between \emph{unitization} and \emph{outcome coding}
 
 
 \subsection{Temporal design and contamination}
-The target decision and its outcome are withheld from the model-visible record. Packet construction screens docket and filing text for outcome leakage. The model-visible document-tool sandbox provides no Internet research access; provider transport remains available. These measures control the supplied information, not the model's pretraining or post-training history.
+The models predicting outcomes were not given access to the target decision or the outcome. The construction pipeline also screens docket and filing text to avoid outcome leakage. Models had access to document text tools in a sandbox with no Internet access. Model API calls were made with provider-side web search tools disabled where applicable.
 
-The decision window follows the reported knowledge or training cutoffs for ten configurations under the repository's maintained eligibility rule. Month-only cutoffs are compared as the first day of the reported month; Fable's June 2026 cutoff therefore precedes the earliest June 30 decision. Kimi and Muse have no established cutoff in the retained evidence. Knowledge cutoffs are provider statements and need not describe every training exposure. Model release dates are not substitutes for training-data dates. Appendix~\ref{app:cutoffs} makes this distinction explicit. The appropriate description is \emph{historical temporal holdout with qualified contamination resistance}, not proof that all evaluated models were unexposed.
+The decisions used in the benchmark were handed down after the reported knowledge or training cutoffs for twelve of the fourteen tested models. Kimi and Muse did not publish training cutoffs, but based on the model release dates, it appears unlikely that those models were exposed to the decisions being tested in training.
 
-The acquisition and labeling pipeline is designed to issue later cohorts as new decisions become available. This enables fresh comparisons after earlier benchmark data become public. A genuinely prospective evaluation would freeze predictions before the judicial outcomes occur; the present beta is retrospective. Refreshing a benchmark also changes its case mix and difficulty. Scores from different versions should not be interpreted as a time series of model improvement without common comparators and appropriate adjustment.
+The acquisition and labeling pipeline is designed to create new cohorts in the future, when new decisions become available. This enables fresh comparisons even after models might have been trained on the decisions at issue here. However, the downside is that refreshing a benchmark changes its case mix and difficulty, scores from different versions cannot be interpreted as a time series of model improvement.
 
 \section{Evaluation protocol and scoring}
 \subsection{Execution}
-The main comparison uses a common document-access interface for the full pre-decision packet, with model-provider access and no Internet research. Models can inspect documents through tools and produce a probability for each unit, together with a short rationale. Provider-specific reasoning settings are retained in the run registries; a common interface does not imply identical inference budgets or identical serving behavior. Appendix~\ref{app:protocol} lists the configuration settings.
-
-The beta retains one successful forecast for each configuration and unit. Recovery completed interrupted or failed cases, but the analysis does not measure first-attempt completion probability, failure-adjusted utility, or run-to-run variance. The main panel is fixed to the twelve configurations in the source draft; later repository additions do not silently change the study population. Numerical results are checked against retained aggregates, and available unit-level exports are recomputed separately.
+The main comparison uses a common document-access interface. Models can read documents using tools and produce a probability for each unit, together with a short rationale. Provider-specific reasoning settings are retained in the run registries. Appendix~\ref{app:protocol} lists the configuration settings. The study population is the fourteen configurations in Table~\ref{tab:main}.
 
 \subsection{Proper scores and descriptive references}
 For $N=\sum_c |\mathcal U_c|=387$ and $C=91$, the primary metric is the micro-Brier loss
@@ -142,31 +149,37 @@ The equal-case score changes the estimand by giving each case the same weight:
  B_{\mathrm{case}}=\frac{1}{C}\sum_{c=1}^C\frac{1}{|\mathcal U_c|}\sum_{u\in\mathcal U_c}(p_{cu}-Y_{cu})^2.
 \label{eq:case}
 \end{equation}
-Both are lower-is-better. Micro-Brier emphasizes the experience of a scored claim--defendant unit; equal-case Brier reduces the influence of cases containing many units. Neither score should be selected after looking at which gives a preferred model ordering.
+Lower is better for both. Micro-Brier treats each scored claim--defendant unit equally, so cases that involve a motion to dismiss many separate claims receive more weight than cases where only one claim and defendant was subject to a motion to dismiss. Equal-case Brier weights each prediction unit in proportion to the number of units from that case.
 
 The Brier rule is strictly proper for the binary target. If the true conditional event probability is $q$, then
 \begin{equation}
  \mathbb E[(p-Y)^2\mid X,U]=(p-q)^2+q(1-q),
 \label{eq:proper}
 \end{equation}
-which is minimized by reporting $p=q$. The second term is irreducible uncertainty for that information set. An observable judicial event therefore supports a verifiable score, although one realized outcome cannot reveal whether an individual probability was correct \citep{brier,gneiting}.
+which is minimized by reporting $p=q$. The second term is irreducible uncertainty for that information set. A set of observable judicial events therefore create a verifiable score across the entire probability distribution, even though a single realized outcome standing alone does not reveal whether the individual probability a model assigned to that outcome was correct ex ante \citep{brier,gneiting}.
 
-We report accuracy at threshold $p\geq0.5$ as a secondary descriptive metric. The observed dismissal frequency is $\widehat\pi=285/387=0.73643$. A constant forecast $p=\widehat\pi$ has micro-Brier $\widehat\pi(1-\widehat\pi)=0.19410$; always predicting dismissal has accuracy 73.64\%. The constant is fitted retrospectively on this cohort, so it is a descriptive reference, not a deployable baseline trained on earlier cases. The uninformative forecast $p=0.5$ has Brier 0.25. A random hard classification is a different baseline and should not be conflated with a probability of one-half.
+We report accuracy at threshold $p\geq0.5$ as a secondary descriptive metric; in other words, accuracy percentage is simply the percentage of cases where the model's assigned 50% or greater probability to the correct outcome.
+
+The observed dismissal frequency is $\widehat\pi=285/387=0.73643$. Always predicting dismissal has accuracy 73.64\%, so a constant forecast $p=\widehat\pi$ has micro-Brier $\widehat\pi(1-\widehat\pi)=0.19410$. The constant is fitted retrospectively on this cohort, so it is a descriptive reference, not a baseline derived from earlier cases. The uninformative forecast $p=0.5$ has Brier 0.25.
 
 Log loss is a complementary diagnostic:
 \begin{equation}
  L=-\frac{1}{N}\sum_{c,u}\left[Y_{cu}\log p_{cu}+(1-Y_{cu})\log(1-p_{cu})\right].
 \end{equation}
-For a wrong forecast assigning 0.99 to the predicted class, Brier loss is 0.9801 and log loss is approximately 4.605; at confidence 0.90 the corresponding losses are 0.81 and 2.303. Thus log loss places a particularly large penalty on extreme errors. A complete twelve-model log-loss table is unavailable: unit-level data sufficient to rederive it were available for only five main-panel configurations in the checked local export.
+For a wrong forecast assigning 0.99 to the predicted class, Brier loss is 0.9801 and log loss is approximately 4.605; at confidence 0.90 the corresponding losses are 0.81 and 2.303. Thus log loss imposes a large penalty on extreme errors, specifically, instances where the model assigned a very high probability to the outcome that did not occur.
 
 \subsection{Uncertainty and scope of inference}
-Units within the same case share facts and outcomes. The historical ten-configuration analysis used a paired case-cluster percentile bootstrap with one million resamples, correcting across 45 model pairs and three metrics. Its retained summary reports only three distinguishable comparisons, all involving worse scores for Muse: against Grok 4.6 on both Brier metrics and against Opus 5 on micro-Brier. This does not establish equivalence among the other models.
+Units from the same case share facts, and distinct claims may suffer from closely related legal defects. We therefore measure within-case dependence using an observed-scale intraclass correlation coefficient (ICC), rather than treating claim--defendant units as independent observations \citep{makicc}.
 
-The expanded twelve-configuration table is descriptive. We do not attach the historical significance statements to GPT-6 Sol or Grok 4.7. Seven of the original twelve configurations lack locally retained unit-level inputs in the checked site export, preventing a complete reanalysis from that export. The shared-summary experiment has its own complete three-condition comparison and its own multiplicity correction. Neither analysis establishes independence across related cases or multidistrict-litigation families, and neither measures variation across repeated model runs \citep{miller}.
+% BEGIN GENERATED CLUSTERING
+Across 387 scored units nested in 91 cases, the observed binary outcome ICC was 0.76 (95 percent whole-case bootstrap CI 0.61--0.87). Within-case agreement was 998 of 1,066 pairs (93.6 percent), compared with 44,623 of 73,625 pairs (60.6 percent) across cases. GPT-6 Sol's Brier-loss ICC was 0.42 (95 percent CI 0.24--0.58). The estimator is an unbalanced method-of-moments one-way ANOVA ICC; the interval uses 20,000 whole-case resamples, assuming cases are independent for interval estimation.
+% END GENERATED CLUSTERING
+
+The observed dependence supports resampling whole cases while retaining paired model predictions when quantifying uncertainty in score differences \citep{cameronmiller}. The fourteen-configuration table is descriptive and does not claim a significance ordering. The shared-summary experiment has its own three-condition comparison and its own multiplicity correction. Neither analysis establishes independence across related cases or multidistrict-litigation families, and neither measures variation across repeated model runs \citep{miller}.
 
 \section{Results}
 \subsection{Full-document comparison}
-Table~\ref{tab:main} reports the fixed twelve-configuration panel. GPT-6 Sol achieves the best observed micro-Brier (0.11763), equal-case Brier (0.12949), and accuracy (327/387, 84.50\%). Relative to the retrospectively fitted constant, its micro-Brier is lower by about 39.4\%. All twelve configurations beat that Brier reference; eleven beat majority-class accuracy. Muse's 279/387 correct forecasts (72.09\%) illustrate why accuracy and probability quality need not give the same comparison.
+Table~\ref{tab:main} reports the fourteen-configuration panel. GPT-6 Sol achieves the best observed micro-Brier (0.11763), equal-case Brier (0.12949), and accuracy (327/387, 84.50\%). Relative to the retrospectively fitted constant, its micro-Brier is lower by about 39.4\%. All fourteen configurations beat that Brier reference; thirteen beat majority-class accuracy. Muse's 279/387 correct forecasts (72.09\%) illustrate why accuracy and probability quality need not give the same comparison.
 
 \begin{table}[tb]
 \centering\small
@@ -180,162 +193,180 @@ Claude Opus 5 & 0.13987 & 0.13548 & 310/387 & 80.10 & 45.89 \\
 GPT-5.6 Sol & 0.14009 & 0.13319 & 313/387 & 80.88 & 24.91 \\
 Kimi K3 & 0.14130 & 0.15367 & 303/387 & 78.29 & 16.87 \\
 GPT-5.6 Luna & 0.14322 & 0.15084 & 313/387 & 80.88 & 1.48 \\
+GPT-6.1 Sol & 0.14948 & 0.13885 & 304/387 & 78.55 & 10.68 \\
 GPT-6 Astra & 0.15221 & 0.14275 & 305/387 & 78.81 & 59.74 \\
 Gemini 3.8 Flash & 0.15331 & 0.13900 & 310/387 & 80.10 & 35.61 \\
 Grok 4.7 & 0.15833 & 0.16454 & 298/387 & 77.00 & 33.00 \\
 Claude Sonnet 5 & 0.15848 & 0.15964 & 293/387 & 75.71 & 24.68 \\
+Claude Sonnet 5.5 & 0.17298 & 0.17183 & 295/387 & 76.23 & 6.99 \\
 Muse Spark 1.3 & 0.18121 & 0.17845 & 279/387 & 72.09 & 8.78 \\
 \midrule
 Cohort-rate reference & 0.19410 & --- & 285/387 & 73.64 & ---\\
 Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \bottomrule\end{tabular}
-\caption{Full-document results, ordered by micro-Brier loss. Each model row covers 91 cases and 387 scored units. The last column reports the retained successful-workload cost estimate under heterogeneous accounting assumptions detailed in the text; it is not a controlled price comparison. The cohort-rate reference is retrospectively fitted, and its accuracy column uses always-dismiss classification. No twelve-model significance ordering is claimed.}
+\caption{Full-document results, ordered by micro-Brier loss. Each model row covers 91 cases and 387 scored units. The last column reports the retained successful-workload cost estimate under heterogeneous accounting assumptions detailed in the text; it is not a controlled price comparison. The cohort-rate reference is retrospectively fitted, and its accuracy column uses always-dismiss classification. No fourteen-model significance ordering is claimed.}
 \label{tab:main}
 \end{table}
 
 \begin{figure}[tb]\centering
 \begin{tikzpicture}[every node/.style={font=\small}]
-\draw[gray!18] (0.43500,-.2)--(0.43500,5.750);
+\draw[gray!18] (0.43500,-.2)--(0.43500,6.75000);
 \node[anchor=north] at (0.43500,-.3) {0.11};
-\draw[gray!18] (2.17500,-.2)--(2.17500,5.750);
+\draw[gray!18] (2.17500,-.2)--(2.17500,6.75000);
 \node[anchor=north] at (2.17500,-.3) {0.13};
-\draw[gray!18] (3.91500,-.2)--(3.91500,5.750);
+\draw[gray!18] (3.91500,-.2)--(3.91500,6.75000);
 \node[anchor=north] at (3.91500,-.3) {0.15};
-\draw[gray!18] (5.65500,-.2)--(5.65500,5.750);
+\draw[gray!18] (5.65500,-.2)--(5.65500,6.75000);
 \node[anchor=north] at (5.65500,-.3) {0.17};
-\draw[gray!18] (7.39500,-.2)--(7.39500,5.750);
+\draw[gray!18] (7.39500,-.2)--(7.39500,6.75000);
 \node[anchor=north] at (7.39500,-.3) {0.19};
-\draw[dashed,gray!70] (7.75160,-.2)--(7.75160,5.750);
+\draw[dashed,gray!70] (7.75160,-.2)--(7.75160,6.75000);
 \node[anchor=east] at (-.18,0.000) {Muse Spark 1.3};
 \draw[gray!50] (6.62998,0.000)--(6.38993,0.000);
 \fill[blue!65!black] (6.62998,0.000) circle (2pt);
 \draw[blue!65!black,fill=white,line width=.7pt] (6.38993,0.000) circle (2pt);
-\node[anchor=east] at (-.18,0.500) {Sonnet 5};
-\draw[gray!50] (4.65311,0.500)--(4.75361,0.500);
-\fill[blue!65!black] (4.65311,0.500) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (4.75361,0.500) circle (2pt);
-\node[anchor=east] at (-.18,1.000) {Grok 4.7};
-\draw[gray!50] (4.63933,1.000)--(5.18010,1.000);
-\fill[blue!65!black] (4.63933,1.000) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (5.18010,1.000) circle (2pt);
-\node[anchor=east] at (-.18,1.500) {Gemini 3.8 Flash};
-\draw[gray!50] (4.20331,1.500)--(2.95760,1.500);
-\fill[blue!65!black] (4.20331,1.500) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.95760,1.500) circle (2pt);
-\node[anchor=east] at (-.18,2.000) {GPT-6 Astra};
-\draw[gray!50] (4.10730,2.000)--(3.28403,2.000);
-\fill[blue!65!black] (4.10730,2.000) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (3.28403,2.000) circle (2pt);
-\node[anchor=east] at (-.18,2.500) {GPT-5.6 Luna};
-\draw[gray!50] (3.32487,2.500)--(3.98765,2.500);
-\fill[blue!65!black] (3.32487,2.500) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (3.98765,2.500) circle (2pt);
-\node[anchor=east] at (-.18,3.000) {Kimi K3};
-\draw[gray!50] (3.15799,3.000)--(4.23419,3.000);
-\fill[blue!65!black] (3.15799,3.000) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (4.23419,3.000) circle (2pt);
-\node[anchor=east] at (-.18,3.500) {GPT-5.6 Sol};
-\draw[gray!50] (3.05295,3.500)--(2.45220,3.500);
-\fill[blue!65!black] (3.05295,3.500) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.45220,3.500) circle (2pt);
-\node[anchor=east] at (-.18,4.000) {Opus 5};
-\draw[gray!50] (3.03378,4.000)--(2.65210,4.000);
-\fill[blue!65!black] (3.03378,4.000) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.65210,4.000) circle (2pt);
-\node[anchor=east] at (-.18,4.500) {Grok 4.6};
-\draw[gray!50] (2.49521,4.500)--(2.59299,4.500);
-\fill[blue!65!black] (2.49521,4.500) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.59299,4.500) circle (2pt);
-\node[anchor=east] at (-.18,5.000) {Fable 5.1};
-\draw[gray!50] (2.06804,5.000)--(2.74354,5.000);
-\fill[blue!65!black] (2.06804,5.000) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.74354,5.000) circle (2pt);
-\node[anchor=east] at (-.18,5.500) {GPT-6 Sol};
-\draw[gray!50] (1.09863,5.500)--(2.13074,5.500);
-\fill[blue!65!black] (1.09863,5.500) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.13074,5.500) circle (2pt);
+\node[anchor=east] at (-.18,0.500) {Sonnet 5.5};
+\draw[gray!50] (5.91407,0.500)--(5.81460,0.500);
+\fill[blue!65!black] (5.91407,0.500) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (5.81460,0.500) circle (2pt);
+\node[anchor=east] at (-.18,1.000) {Sonnet 5};
+\draw[gray!50] (4.65311,1.000)--(4.75361,1.000);
+\fill[blue!65!black] (4.65311,1.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (4.75361,1.000) circle (2pt);
+\node[anchor=east] at (-.18,1.500) {Grok 4.7};
+\draw[gray!50] (4.63933,1.500)--(5.18010,1.500);
+\fill[blue!65!black] (4.63933,1.500) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (5.18010,1.500) circle (2pt);
+\node[anchor=east] at (-.18,2.000) {Gemini 3.8 Flash};
+\draw[gray!50] (4.20331,2.000)--(2.95760,2.000);
+\fill[blue!65!black] (4.20331,2.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.95760,2.000) circle (2pt);
+\node[anchor=east] at (-.18,2.500) {GPT-6 Astra};
+\draw[gray!50] (4.10730,2.500)--(3.28403,2.500);
+\fill[blue!65!black] (4.10730,2.500) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (3.28403,2.500) circle (2pt);
+\node[anchor=east] at (-.18,3.000) {GPT-6.1 Sol};
+\draw[gray!50] (3.86964,3.000)--(2.94516,3.000);
+\fill[blue!65!black] (3.86964,3.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.94516,3.000) circle (2pt);
+\node[anchor=east] at (-.18,3.500) {GPT-5.6 Luna};
+\draw[gray!50] (3.32487,3.500)--(3.98765,3.500);
+\fill[blue!65!black] (3.32487,3.500) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (3.98765,3.500) circle (2pt);
+\node[anchor=east] at (-.18,4.000) {Kimi K3};
+\draw[gray!50] (3.15799,4.000)--(4.23419,4.000);
+\fill[blue!65!black] (3.15799,4.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (4.23419,4.000) circle (2pt);
+\node[anchor=east] at (-.18,4.500) {GPT-5.6 Sol};
+\draw[gray!50] (3.05295,4.500)--(2.45220,4.500);
+\fill[blue!65!black] (3.05295,4.500) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.45220,4.500) circle (2pt);
+\node[anchor=east] at (-.18,5.000) {Opus 5};
+\draw[gray!50] (3.03378,5.000)--(2.65210,5.000);
+\fill[blue!65!black] (3.03378,5.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.65210,5.000) circle (2pt);
+\node[anchor=east] at (-.18,5.500) {Grok 4.6};
+\draw[gray!50] (2.49521,5.500)--(2.59299,5.500);
+\fill[blue!65!black] (2.49521,5.500) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.59299,5.500) circle (2pt);
+\node[anchor=east] at (-.18,6.000) {Fable 5.1};
+\draw[gray!50] (2.06804,6.000)--(2.74354,6.000);
+\fill[blue!65!black] (2.06804,6.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.74354,6.000) circle (2pt);
+\node[anchor=east] at (-.18,6.500) {GPT-6 Sol};
+\draw[gray!50] (1.09863,6.500)--(2.13074,6.500);
+\fill[blue!65!black] (1.09863,6.500) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.13074,6.500) circle (2pt);
 \node[anchor=north] at (4.35,-.78) {Brier loss (lower is better)};
 \fill[blue!65!black] (.2,-1.5) circle(2pt);\node[anchor=west] at (.4,-1.5) {Micro Brier};
 \draw[blue!65!black,fill=white] (4.0,-1.5) circle(2pt);\node[anchor=west] at (4.2,-1.5) {Equal-case Brier};
 \draw[dashed,gray!70] (.2,-2.05)--(.6,-2.05);\node[anchor=west,font=\scriptsize] at (.8,-2.05) {Cohort rate (micro only)};\end{tikzpicture}
-\caption{Micro- and equal-case Brier scores for the same twelve configurations. The connecting segments show weighting sensitivity, not uncertainty intervals. The dashed constant-probability reference applies only to micro-Brier.}\label{fig:ranking}\end{figure}
+\caption{Micro- and equal-case Brier scores for the same fourteen configurations. The connecting segments show weighting sensitivity, not uncertainty intervals. The dashed constant-probability reference applies only to micro-Brier.}\label{fig:ranking}\end{figure}
 
-More expensive or newer configurations do not uniformly score better. Astra's micro-Brier is worse than those of GPT-5.6 Sol and Luna; Astra improves on Luna's equal-case Brier but not its accuracy. Grok 4.7 has worse observed scores than Grok 4.6. These are cohort-specific observations from retained successful runs, not evidence of a general capability regression or equivalence across model families.
+More expensive or newer configurations do not uniformly score better. Astra's micro-Brier is worse than those of GPT-5.6 Sol and Luna; Astra improves on Luna's equal-case Brier but not its accuracy. Grok 4.7 has worse observed scores than Grok 4.6. GPT-6.1 Sol is worse than GPT-6 Sol on micro-Brier (0.14948 versus 0.11763). Claude Sonnet 5.5 is worse than Claude Sonnet 5 on micro-Brier (0.17298 versus 0.15848), though its unit accuracy is slightly higher (76.23\% versus 75.71\%). These are cohort-specific observations from retained successful runs, not evidence of a general capability regression or equivalence across model families.
 
 \subsection{Sharp forecasts and confident errors}
 Define confidence $h_{cu}=\max(p_{cu},1-p_{cu})$ and the high-confidence subset $H_m=\{(c,u):h_{cu}\geq0.9\}$ for configuration $m$. Comparing the mean confidence in $H_m$ with classification accuracy in $H_m$ gives a useful conditional calibration diagnostic. It is not a full reliability curve: the subset differs by model, and its units remain clustered by case.
 
-GPT-5.6 Sol, GPT-5.6 Luna, and Astra make high-confidence forecasts on 58.9\%, 47.0\%, and 53.5\% of units respectively, compared with 20.9\% for Fable. Their mean confidence in those subsets is approximately 95--97\%, while realized accuracy is approximately 89--90\%. Astra misses 21 of 207 such predictions. However, greater sharpness is not unique to OpenAI: Gemini makes 276 high-confidence forecasts (71.3\% of units) and misses 35. GPT-6 Sol provides a useful counterexample within OpenAI, missing 8 of 169 high-confidence forecasts, for 95.3\% subset accuracy.
+GPT-5.6 Sol, GPT-5.6 Luna, and Astra make high-confidence forecasts on 58.9\%, 47.0\%, and 53.5\% of units respectively, compared with 20.9\% for Fable. Their mean confidence in those subsets is approximately 95--97\%, while realized accuracy is approximately 89--90\%. Astra misses 21 of 207 such predictions. However, greater sharpness is not unique to OpenAI: Gemini makes 276 high-confidence forecasts (71.3\% of units) and misses 35. GPT-6 Sol provides a useful counterexample within OpenAI, missing 8 of 169 high-confidence forecasts, for 95.3\% subset accuracy. GPT-6.1 Sol is sharper and less accurate in that subset, missing 18 of 199. Claude Sonnet 5.5 makes 63 high-confidence forecasts and misses 5.
 
 \begin{figure}[tb]\centering
 \begin{tikzpicture}[every node/.style={font=\small}]
-\draw[gray!18] (0.00000,-.2)--(0.00000,5.750);
+\draw[gray!18] (0.00000,-.2)--(0.00000,6.75000);
 \node[anchor=north] at (0.00000,-.3) {0.85};
-\draw[gray!18] (2.71875,-.2)--(2.71875,5.750);
+\draw[gray!18] (2.71875,-.2)--(2.71875,6.75000);
 \node[anchor=north] at (2.71875,-.3) {0.90};
-\draw[gray!18] (5.43750,-.2)--(5.43750,5.750);
+\draw[gray!18] (5.43750,-.2)--(5.43750,6.75000);
 \node[anchor=north] at (5.43750,-.3) {0.95};
-\draw[gray!18] (8.15625,-.2)--(8.15625,5.750);
+\draw[gray!18] (8.15625,-.2)--(8.15625,6.75000);
 \node[anchor=north] at (8.15625,-.3) {1.00};
 \node[anchor=east] at (-.18,0.000) {Muse Spark 1.3};
 \draw[gray!50] (4.63194,0.000)--(2.11458,0.000);
 \fill[blue!65!black] (4.63194,0.000) circle (2pt);
 \fill[orange!80!black] (2.05958,-0.055) rectangle (2.16958,0.055);
-\node[anchor=east] at (-.18,0.500) {Sonnet 5};
-\draw[gray!50] (4.11437,0.500)--(3.62500,0.500);
-\fill[blue!65!black] (4.11437,0.500) circle (2pt);
-\fill[orange!80!black] (3.57000,0.445) rectangle (3.68000,0.555);
-\node[anchor=east] at (-.18,1.000) {Grok 4.7};
-\draw[gray!50] (4.31671,1.000)--(5.93686,1.000);
-\fill[blue!65!black] (4.31671,1.000) circle (2pt);
-\fill[orange!80!black] (5.88186,0.945) rectangle (5.99186,1.055);
-\node[anchor=east] at (-.18,1.500) {Gemini 3.8 Flash};
-\draw[gray!50] (5.53798,1.500)--(1.26087,1.500);
-\fill[blue!65!black] (5.53798,1.500) circle (2pt);
-\fill[orange!80!black] (1.20587,1.445) rectangle (1.31587,1.555);
-\node[anchor=east] at (-.18,2.000) {GPT-6 Astra};
-\draw[gray!50] (5.69624,2.000)--(2.63995,2.000);
-\fill[blue!65!black] (5.69624,2.000) circle (2pt);
-\fill[orange!80!black] (2.58495,1.945) rectangle (2.69495,2.055);
-\node[anchor=east] at (-.18,2.500) {GPT-5.6 Luna};
-\draw[gray!50] (5.39567,2.500)--(2.18098,2.500);
-\fill[blue!65!black] (5.39567,2.500) circle (2pt);
-\fill[orange!80!black] (2.12598,2.445) rectangle (2.23598,2.555);
-\node[anchor=east] at (-.18,3.000) {Kimi K3};
-\draw[gray!50] (4.26726,3.000)--(7.56522,3.000);
-\fill[blue!65!black] (4.26726,3.000) circle (2pt);
-\fill[orange!80!black] (7.51022,2.945) rectangle (7.62022,3.055);
-\node[anchor=east] at (-.18,3.500) {GPT-5.6 Sol};
-\draw[gray!50] (6.53430,3.500)--(1.95559,3.500);
-\fill[blue!65!black] (6.53430,3.500) circle (2pt);
-\fill[orange!80!black] (1.90059,3.445) rectangle (2.01059,3.555);
-\node[anchor=east] at (-.18,4.000) {Opus 5};
-\draw[gray!50] (4.68704,4.000)--(6.35873,4.000);
-\fill[blue!65!black] (4.68704,4.000) circle (2pt);
-\fill[orange!80!black] (6.30373,3.945) rectangle (6.41373,4.055);
-\node[anchor=east] at (-.18,4.500) {Grok 4.6};
-\draw[gray!50] (4.36456,4.500)--(7.67076,4.500);
-\fill[blue!65!black] (4.36456,4.500) circle (2pt);
-\fill[orange!80!black] (7.61576,4.445) rectangle (7.72576,4.555);
-\node[anchor=east] at (-.18,5.000) {Fable 5.1};
-\draw[gray!50] (4.28958,5.000)--(8.15625,5.000);
-\fill[blue!65!black] (4.28958,5.000) circle (2pt);
-\fill[orange!80!black] (8.10125,4.945) rectangle (8.21125,5.055);
-\node[anchor=east] at (-.18,5.500) {GPT-6 Sol};
-\draw[gray!50] (5.75603,5.500)--(5.58229,5.500);
-\fill[blue!65!black] (5.75603,5.500) circle (2pt);
-\fill[orange!80!black] (5.52729,5.445) rectangle (5.63729,5.555);
+\node[anchor=east] at (-.18,0.500) {Sonnet 5.5};
+\draw[gray!50] (3.57321,0.500)--(3.84077,0.500);
+\fill[blue!65!black] (3.57321,0.500) circle (2pt);
+\fill[orange!80!black] (3.78577,0.445) rectangle (3.89577,0.555);
+\node[anchor=east] at (-.18,1.000) {Sonnet 5};
+\draw[gray!50] (4.11437,1.000)--(3.62500,1.000);
+\fill[blue!65!black] (4.11437,1.000) circle (2pt);
+\fill[orange!80!black] (3.57000,0.945) rectangle (3.68000,1.055);
+\node[anchor=east] at (-.18,1.500) {Grok 4.7};
+\draw[gray!50] (4.31671,1.500)--(5.93686,1.500);
+\fill[blue!65!black] (4.31671,1.500) circle (2pt);
+\fill[orange!80!black] (5.88186,1.445) rectangle (5.99186,1.555);
+\node[anchor=east] at (-.18,2.000) {Gemini 3.8 Flash};
+\draw[gray!50] (5.53798,2.000)--(1.26087,2.000);
+\fill[blue!65!black] (5.53798,2.000) circle (2pt);
+\fill[orange!80!black] (1.20587,1.945) rectangle (1.31587,2.055);
+\node[anchor=east] at (-.18,2.500) {GPT-6 Astra};
+\draw[gray!50] (5.69624,2.500)--(2.63995,2.500);
+\fill[blue!65!black] (5.69624,2.500) circle (2pt);
+\fill[orange!80!black] (2.58495,2.445) rectangle (2.69495,2.555);
+\node[anchor=east] at (-.18,3.000) {GPT-6.1 Sol};
+\draw[gray!50] (5.79408,3.000)--(3.23791,3.000);
+\fill[blue!65!black] (5.79408,3.000) circle (2pt);
+\fill[orange!80!black] (3.18291,2.945) rectangle (3.29291,3.055);
+\node[anchor=east] at (-.18,3.500) {GPT-5.6 Luna};
+\draw[gray!50] (5.39567,3.500)--(2.18098,3.500);
+\fill[blue!65!black] (5.39567,3.500) circle (2pt);
+\fill[orange!80!black] (2.12598,3.445) rectangle (2.23598,3.555);
+\node[anchor=east] at (-.18,4.000) {Kimi K3};
+\draw[gray!50] (4.26726,4.000)--(7.56522,4.000);
+\fill[blue!65!black] (4.26726,4.000) circle (2pt);
+\fill[orange!80!black] (7.51022,3.945) rectangle (7.62022,4.055);
+\node[anchor=east] at (-.18,4.500) {GPT-5.6 Sol};
+\draw[gray!50] (6.53430,4.500)--(1.95559,4.500);
+\fill[blue!65!black] (6.53430,4.500) circle (2pt);
+\fill[orange!80!black] (1.90059,4.445) rectangle (2.01059,4.555);
+\node[anchor=east] at (-.18,5.000) {Opus 5};
+\draw[gray!50] (4.68704,5.000)--(6.35873,5.000);
+\fill[blue!65!black] (4.68704,5.000) circle (2pt);
+\fill[orange!80!black] (6.30373,4.945) rectangle (6.41373,5.055);
+\node[anchor=east] at (-.18,5.500) {Grok 4.6};
+\draw[gray!50] (4.36456,5.500)--(7.67076,5.500);
+\fill[blue!65!black] (4.36456,5.500) circle (2pt);
+\fill[orange!80!black] (7.61576,5.445) rectangle (7.72576,5.555);
+\node[anchor=east] at (-.18,6.000) {Fable 5.1};
+\draw[gray!50] (4.28958,6.000)--(8.15625,6.000);
+\fill[blue!65!black] (4.28958,6.000) circle (2pt);
+\fill[orange!80!black] (8.10125,5.945) rectangle (8.21125,6.055);
+\node[anchor=east] at (-.18,6.500) {GPT-6 Sol};
+\draw[gray!50] (5.75603,6.500)--(5.58229,6.500);
+\fill[blue!65!black] (5.75603,6.500) circle (2pt);
+\fill[orange!80!black] (5.52729,6.445) rectangle (5.63729,6.555);
 \node[anchor=north] at (4.35,-.78) {Probability / empirical fraction};
 \fill[blue!65!black] (-.4,-1.5) circle(2pt);\node[anchor=west] at (-.2,-1.5) {Mean stated confidence};
 \fill[orange!80!black] (5.05,-1.555) rectangle(5.16,-1.445);\node[anchor=west] at (5.35,-1.5) {Empirical accuracy};\end{tikzpicture}
-\caption{Conditional confidence diagnostic on predictions with $\max(p,1-p)\geq0.9$. Each row uses the subset selected by that model, rather than a common set of units. Wrong/selected counts: GPT-6 Sol: 8/169; Fable 5.1: 0/81; Grok 4.6: 1/112; Opus 5: 4/121; GPT-5.6 Sol: 26/228; Kimi K3: 1/92; GPT-5.6 Luna: 20/182; GPT-6 Astra: 21/207; Gemini 3.8 Flash: 35/276; Grok 4.7: 4/98; Sonnet 5: 5/60; Muse Spark 1.3: 15/135. This is not a full reliability diagram or an estimate of statistical significance.}\label{fig:confidence}\end{figure}
+\caption{Conditional confidence diagnostic on predictions with $\max(p,1-p)\geq0.9$. Each row uses the subset selected by that model, rather than a common set of units. Wrong/selected counts: GPT-6 Sol: 8/169; Fable 5.1: 0/81; Grok 4.6: 1/112; Opus 5: 4/121; GPT-5.6 Sol: 26/228; Kimi K3: 1/92; GPT-5.6 Luna: 20/182; GPT-6.1 Sol: 18/199; GPT-6 Astra: 21/207; Gemini 3.8 Flash: 35/276; Grok 4.7: 4/98; Sonnet 5: 5/60; Sonnet 5.5: 5/63; Muse Spark 1.3: 15/135. This is not a full reliability diagram or an estimate of statistical significance.}\label{fig:confidence}\end{figure}
 
 Fable has no errors among 81 high-confidence units, while Kimi and Grok 4.6 each miss one. These observations do not establish population error rates of zero or one percent. A model may achieve excellent accuracy on a smaller, easier high-confidence subset. The practical finding is that confidence behavior varies substantially and can materially affect proper scores; model price or flagship status is not a sufficient calibration guarantee.
 
 \subsection{Inference cost}
 The retained normalized successful-workload figures range from \$1.48 for GPT-5.6 Luna to \$83.18 for Fable. These are not total experiment budgets or uniform invoice charges. Fable's figure is a reconstruction of hypothetical cached execution; its historical uncached successful workload was \$189.70. Luna's billing-derived figure includes eight extra requests. Several other figures normalize provider discounts or impute missing cache information.
 
-The retained corrected estimate for Grok 4.7 is \$33.00 at standard rates, alongside \$11.52 in provider-reported successful-call charges. Cache-adjusted pricing is not fully observed. GPT-6 Sol's corresponding standard estimate is \$11.01, versus a saved pricing-based workload estimate of \$5.50. Failed attempts and unresolved charges are generally outside these totals. On these stated estimates Luna and GPT-6 Sol form the observed cost--score frontier; its precise location depends on the accounting assumptions.
+The retained corrected estimate for Grok 4.7 is \$33.00 at standard rates, alongside \$11.52 in provider-reported successful-call charges. Cache-adjusted pricing is not fully observed. GPT-6 Sol's corresponding standard estimate is \$11.01, versus a saved pricing-based workload estimate of \$5.50. Failed attempts and unresolved charges are generally outside these totals. On these stated estimates Luna and GPT-6 Sol form the observed cost--score frontier; its precise location depends on the accounting assumptions. GPT-6.1 Sol's recorded successful-call cost is \$10.68, and Claude Sonnet 5.5's is \$6.99. Both are the totals saved on the run receipts.
 
 \section{A shared-summary experiment with Jev}
 Jev is described by its developer as a probabilistic ``System One'' model, exposing native Boolean probabilities rather than generating an agentic legal analysis \citep{jevdocs}. Its context and interaction constraints differ from those of the document-enabled configurations. We therefore treat its evaluation as a separate experiment, not a row in the full-document model ranking.
@@ -476,17 +507,17 @@ Real litigation is valuable because it supplies naturally occurring arguments, p
 
 \paragraph{Labels and completeness.} Unitization can omit, merge, or split legally distinct targets; dispositions can be ambiguous or procedural. Human oversight helps but does not quantify residual error. The absence of a complete blinded label audit and acquisition/exclusion census limits claims about both label accuracy and representativeness. Excluding 22 unscored units preserves an interpretable target but may also change difficulty. These limitations deserve the same scrutiny as disputed rubrics in another benchmark.
 
-\paragraph{Statistical and execution limits.} One retained successful prediction per unit does not characterize run-to-run variance, operational reliability, or expected total cost. The cohort is small and imbalanced. Case clustering does not resolve unverified dependence among related cases. Incomplete local recovery of seven models' per-unit inputs limits reanalysis. Reported scores compare model--harness--provider configurations, not isolated model weights.
+\paragraph{Statistical and execution limits.} One successful prediction per unit does not characterize run-to-run variance, operational reliability, or expected total cost. The cohort is small and imbalanced. Case clustering does not resolve unverified dependence among related cases. Reported scores compare model--harness--provider configurations, not isolated model weights.
 
 \paragraph{Temporal and transfer limits.} A provider-reported cutoff and disabled browsing reduce specific leakage risks without proving contamination absent. New benchmark versions change the case distribution. Generalization to other jurisdictions, procedural stages, settlement decisions, drafting, or strategic advice is not established by this study. Outcome feedback may improve a narrow probability estimate without improving explanations or real client decisions.
 
 \section{Conclusion}
-LegalForecastBench operationalizes an uncertain but consequential legal judgment as a probabilistic forecast of a later judicial event. In the beta, all twelve document-enabled configurations outperform a cohort-fitted constant in micro-Brier, while confidence behavior and model ordering differ in informative ways. GPT-6 Sol has the strongest observed scores, and the shared-summary comparison exposes a large gap between Jev and Luna that cannot be explained by the summaries containing no signal.
+LegalForecastBench operationalizes an uncertain but consequential legal judgment as a probabilistic forecast of a later judicial event. In the beta, all fourteen document-enabled configurations outperform a cohort-fitted constant in micro-Brier, while confidence behavior and model ordering differ in informative ways. GPT-6 Sol has the strongest observed scores, and the shared-summary comparison exposes a large gap between Jev and Luna that cannot be explained by the summaries containing no signal.
 
 The broader opportunity is to make legal evaluation more empirically grounded. Real outcomes provide an external scoring reference, but useful training signals still require careful task definition, information boundaries, and legal labeling. The next research question is whether feedback on such forecasts improves performance on later cases and transfers to independently assessed legal work. The present evidence motivates that question; it does not answer it.
 
 \section*{Reproducibility, access, and disclosure}
-This manuscript preserves the twelve-configuration panel in the supplied working draft and checks its numerical claims against the retained repository artifacts as of September 29, 2026. The accompanying aggregate data and figure script regenerate the plots without court-document bytes. Code and result artifacts are maintained in the \href{https://github.com/johnhughes3/LegalForecastBench}{LegalForecastBench repository}; access to restricted source documents and private adjudication material is a separate audit process. Availability of code is not equivalent to unrestricted source-data replication.
+This manuscript reports the fourteen-configuration comparison and checks its numerical claims against the retained repository artifacts as of September 30, 2026. The accompanying aggregate data and figure script regenerate the plots without court-document bytes. Code and result artifacts are maintained in the \href{https://github.com/johnhughes3/LegalForecastBench}{LegalForecastBench repository}; access to restricted source documents and private adjudication material is a separate audit process. Availability of code is not equivalent to unrestricted source-data replication.
 
 The author designed the benchmark and supplied domain judgments. AI assistants supported this manuscript's drafting, literature retrieval, and numerical and source checks. The LAB audit discussed below is explicitly an AI-assisted preliminary analysis; the author's targeted task review is distinguished from a completed independent audit. No model-weight reinforcement-learning experiment is claimed unless explicitly identified as a result of an external cited study.
 
@@ -553,6 +584,10 @@ The author designed the benchmark and supplied domain judgments. AI assistants s
 \bibitem{amodei} Dario Amodei, Chris Olah, Jacob Steinhardt, Paul Christiano, John Schulman, and Dan Man\'e. Concrete Problems in AI Safety. \emph{arXiv:1606.06565v2}, 2016. \url{https://arxiv.org/abs/1606.06565}.
 
 \bibitem{gao} Leo Gao, John Schulman, and Jacob Hilton. Scaling Laws for Reward Model Overoptimization. In \emph{Proceedings of the 40th International Conference on Machine Learning}, PMLR 202:10835--10866, 2023. \url{https://proceedings.mlr.press/v202/gao23h.html}.
+
+\bibitem{sharmaSycophancy} Mrinank Sharma, Meg Tong, Tomasz Korbak et al. Towards Understanding Sycophancy in Language Models. \emph{ICLR 2024; first posted as arXiv:2310.13548 in 2023}, 2024. \url{https://arxiv.org/abs/2310.13548}.
+
+\bibitem{shapiraSycophancy} Itai Shapira, Gerdus Benade, and Ariel D. Procaccia. How RLHF Amplifies Sycophancy. \emph{ICML 2026; arXiv:2602.01002}, 2026. \url{https://arxiv.org/abs/2602.01002}.
 
 \bibitem{ruger} Theodore W. Ruger, Pauline T. Kim, Andrew D. Martin, Kevin M. Quinn. The Supreme Court Forecasting Project: Legal and Political Science Approaches to Predicting Supreme Court Decision-Making. \emph{Columbia Law Review 104 (2004), 1150--1210}, 2004. \href{https://andrewdmartin.wustl.edu/app/uploads/2019/01/The-Supreme-Court-Forecasting-Project-Legal-and-Political-Science-Approaches-to-Predicting-Supreme-Court-Decision-Making-2bvpcdb.pdf}{Author-hosted article PDF}.
 
@@ -625,6 +660,11 @@ The author designed the benchmark and supplied domain judgments. AI assistants s
 
 \bibitem{valslegalbench} Vals AI. LegalBench Leaderboard and Methodology. \emph{Benchmark-provider results and commentary}, updated September 27, 2026; accessed September 30, 2026. \url{https://www.vals.ai/benchmarks/legal_bench}.
 
+
+\bibitem{makicc} Tak K. Mak. Analysing Intraclass Correlation for Dichotomous Variables. \emph{Journal of the Royal Statistical Society, Series C (Applied Statistics)}, 37(3):344--352, 1988. \url{https://doi.org/10.2307/2347309}.
+
+\bibitem{cameronmiller} A. Colin Cameron and Douglas L. Miller. A Practitioner's Guide to Cluster-Robust Inference. \emph{Journal of Human Resources}, 50(2):317--372, 2015. \url{https://doi.org/10.3368/jhr.50.2.317}.
+
 \end{thebibliography}
 
 \clearpage
@@ -632,7 +672,7 @@ The author designed the benchmark and supplied domain judgments. AI assistants s
 \appendix
 \section{Model configuration and temporal evidence}
 \label{app:cutoffs}\label{app:protocol}
-The table records the maintained local evidence, rather than certifying provider training histories. ``K'' denotes a reported knowledge cutoff, ``T'' a reported training cutoff, and ``?'' no established cutoff. Month-only dates are compared as the first day of the reported month. The reported cutoffs for ten configurations precede June 30, 2026. Kimi and Muse remain qualified. A release date is not used to fill an unknown cutoff.
+The table records the maintained local evidence, rather than certifying provider training histories. ``K'' denotes a reported knowledge cutoff, ``T'' a reported training cutoff, and ``?'' no established cutoff. Month-only dates are compared as the first day of the reported month. The reported cutoffs for twelve configurations precede June 30, 2026. Kimi and Muse remain qualified. A release date is not used to fill an unknown cutoff.
 \begin{table}[ht]\centering\small\setlength{\tabcolsep}{4pt}
 \begin{tabular}{llll}\toprule
 Configuration & Reasoning & Reported cutoff & Relation to window\\\midrule
@@ -643,31 +683,21 @@ Claude Opus 5 & Adaptive/default & 2026-05 (T) & Precedes window \\
 GPT-5.6 Sol & High & 2026-02-16 (K) & Precedes window \\
 Kimi K3 & High & Unknown (?) & Unknown \\
 GPT-5.6 Luna & High & 2026-02-16 (K) & Precedes window \\
+GPT-6.1 Sol & High & 2026-04-30 (K) & Precedes window \\
 GPT-6 Astra & High & 2026-04-30 (K) & Precedes window \\
 Gemini 3.8 Flash & High thinking & 2026-03 (K) & Precedes window \\
 Grok 4.7 & High & 2026-05 (K) & Precedes window \\
 Claude Sonnet 5 & Adaptive/default & 2026-01 (T) & Precedes window \\
+Claude Sonnet 5.5 & High & 2026-06 (T) & Precedes window \\
 Muse Spark 1.3 & High & Unknown (?) & Unknown \\
 \bottomrule\end{tabular}\caption{Configuration and cutoff evidence retained by the benchmark. ``Precedes window'' is a date comparison under the maintained rule, not an independently verified training-history claim.}\label{tab:cutoffs}\end{table}
 
-The common document interface standardizes access, not every inference setting. Claude configurations use adaptive thinking at provider defaults; the others use the high reasoning or thinking setting recorded in their registries. Provider-default sampling and serving updates may still introduce variation. Full-document predictions and the one-request shared-summary conditions are kept separate throughout the analysis.
+The common document interface standardizes access, not every inference setting. Claude Fable 5.1, Claude Opus 5, and Claude Sonnet 5 use adaptive thinking at provider defaults. Claude Sonnet 5.5 pins high effort. The other configurations use the high reasoning or thinking setting recorded in their registries. Provider-default sampling and serving updates may still introduce variation. Full-document predictions and the one-request shared-summary conditions are kept separate throughout the analysis.
 
-\section{Result provenance and scope of numerical reproduction}
-The primary cohort identifier is \texttt{cycle-1-91-2026-09-08-luna-r5}. The ten historical aggregate rows are retained in the September 18 beta snapshot. GPT-6 Sol and Grok 4.7 are added from their native scored exports. The corrected Grok 4.7 cost comes from the receipt-cost reconstruction; it changes the cost estimate, not its forecast scores.
+\section{Result provenance}
+The primary cohort identifier is \texttt{cycle-1-91-2026-09-08-luna-r5}. Costs in the main table are the totals recorded on the run receipts from provider-reported token usage and the frozen rates.
 
-For this manuscript, unit-level score arithmetic can be recomputed for GPT-6 Sol, Grok 4.7, GPT-5.6 Sol, Claude Opus 5, and Claude Sonnet 5, and for all three summary conditions. The other seven main-panel rows are checked against the retained published aggregate rather than independently rederived from forecasts. The distinction is material for full-panel uncertainty and log-loss claims. The original ten-model bootstrap is reported as retained historical analysis. We independently reran the complete shared-summary comparison with one million paired case resamples and reproduced all nine retained pair-by-metric intervals exactly.
-
-\begin{table}[ht]\centering\small
-\begin{tabular}{p{.31\linewidth}p{.60\linewidth}}\toprule
-Artifact & What was checked\\\midrule
-Historical ten-model snapshot & Aggregate scores, cohort counts, confidence counts, historical bootstrap scope.\\
-Five available main-panel unit exports & Recomputed micro Brier, equal-case Brier, and threshold accuracy.\\
-Three summary-condition unit exports & Recomputed all scores and the complete million-resample, nine-comparison bootstrap.\\
-LAB pinned snapshot & 52 tasks, 2,858 criteria; final flag overlap; selected task JSON and source documents.\\
-Gym source and retained experiment records & Reward implementation and split controls; no completed parameter-update study found.\\
-\bottomrule\end{tabular}\caption{Numerical and methodological verification performed for this manuscript. Aggregate checking and unit-level recomputation are different forms of evidence.}\end{table}
-
-The checked source revisions are \href{https://github.com/johnhughes3/LegalForecastBench/tree/58371a0e13494e591710e2eae3da8e428eebc359}{LegalForecastBench \texttt{58371a0e}}, LegalForecastCorpus \texttt{b392ddaf}, and LegalForecastGym \texttt{4cc0f528}. The LAB source snapshot is \href{https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143}{\texttt{1dd81403}}. These identify inspected versions; they do not certify every historical execution against the current source tree.
+The checked source revisions are \href{https://github.com/johnhughes3/LegalForecastBench/tree/58371a0e13494e591710e2eae3da8e428eebc359}{LegalForecastBench \texttt{58371a0e}}, LegalForecastCorpus \texttt{b392ddaf}, and LegalForecastGym \texttt{4cc0f528}. The LAB source snapshot is \href{https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143}{\texttt{1dd81403}}. These identify inspected versions; they do not certify every execution against the current source tree.
 
 
 \section{A bounded LAB motion-to-dismiss case study}

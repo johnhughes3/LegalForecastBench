@@ -7,11 +7,11 @@ uv run --no-project --python 3.14 python docs/paper/figures/make_figures.py
 uv run --no-project --python 3.14 python docs/paper/figures/make_figures.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
 ```
 
-The generator uses Python's standard library and [the fixed empirical inputs](../data/empirical.json). Mean summary probabilities are recomputed from the three public JSONL exports named in that file; missing exports are errors. Input paths are relative to the repository, with the public source revision recorded in the empirical provenance. Historical aggregate metrics for configurations lacking retained public unit-level predictions are preserved rather than reconstructed. The code does not fetch court documents or call models.
+The generator uses Python's standard library and [the empirical inputs](../data/empirical.json). Mean summary probabilities are recomputed from the three public JSONL exports named in that file; missing exports are errors. Input paths are relative to the repository, with the public source revision recorded in the empirical provenance. The code does not fetch court documents or call models.
 
 | Generated file | Content |
 | --- | --- |
-| `figure1_brier_ranked.csv` | Original twelve configurations, ranked by micro-Brier, with equal-case Brier and descriptive context. |
+| `figure1_brier_ranked.csv` | Manuscript configurations, ranked by micro-Brier, with equal-case Brier and descriptive context. |
 | `figure2_high_confidence_diagnostic.csv` | Confidence and empirical accuracy on each model's own high-confidence subset. These are not matched subsets or a full reliability diagram. |
 | `figure3_summary_experiment.csv` | Shared-summary conditions, the full-document Luna reference, and the constant 0.5 forecast. The full-document row differs in both information access and interaction. |
 | `figures-inline.tex` | Three generated TikZ bodies matching the manuscript's results figures. |

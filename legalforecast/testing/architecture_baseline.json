@@ -127,6 +127,24 @@
       ]
     ],
     "files": {
+      "docs/paper/analysis/clustering.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "other",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "other",
+        "largest_symbol": "analyze",
+        "largest_symbol_lines": 117,
+        "layer": "application",
+        "line_count": 708,
+        "nonblank_line_count": 625,
+        "top_level_definition_count": 24
+      },
       "docs/paper/figures/make_figures.py": {
         "cycle_id": "",
         "disposition_kind": "watch",

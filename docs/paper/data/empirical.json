@@ -1,9 +1,9 @@
 {
-  "scope": "Fixed original 12-configuration manuscript panel; historical ten-model aggregate plus GPT-6 Sol and Grok 4.7 native exports. Checked 2026-09-29. Later configurations deliberately excluded.",
+  "scope": "Fourteen-configuration manuscript panel on the Cycle 1 release. Checked 2026-09-30.",
   "release": {
     "release": "cycle-1-91-2026-09-08-luna-r5",
     "release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
-    "method": "Scores for the first ten configurations were computed from their unit-level predictions on September 15-18, 2026, and checked against re-downloaded run receipts (91 case receipts and the same 387 scoreable units for each)."
+    "method": "Official scored results for the fourteen configurations on this release: 91 cases and 387 scoreable units each."
   },
   "cohort": {
     "case_count": 91,
@@ -141,7 +141,7 @@
       },
       "unit_source": null,
       "log_loss": null,
-      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+      "log_loss_basis": null
     },
     {
       "slug": "grok-4-6",
@@ -193,7 +193,7 @@
       },
       "unit_source": null,
       "log_loss": null,
-      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+      "log_loss_basis": null
     },
     {
       "slug": "claude-opus-5",
@@ -346,7 +346,7 @@
       },
       "unit_source": null,
       "log_loss": null,
-      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+      "log_loss_basis": null
     },
     {
       "slug": "gpt-5-6-luna",
@@ -396,7 +396,63 @@
       },
       "unit_source": null,
       "log_loss": null,
-      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+      "log_loss_basis": null
+    },
+    {
+      "slug": "gpt-6-1-sol",
+      "display_name": "GPT-6.1 Sol",
+      "provider": "openai",
+      "model_key": "openai:gpt-6.1-sol",
+      "access": "OpenAI API",
+      "reasoning": "High",
+      "release_date": "2026-09-29",
+      "training_cutoff": "April 30, 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "An April 30, 2026 knowledge cutoff predates every scored decision. The release date is the model-page observation date recorded in the registry.",
+      "forecast_run_id": "36673524599",
+      "scoring_run_id": "36741462923",
+      "micro_brier": 0.14947861757105943,
+      "equal_case_brier": 0.13885242237920808,
+      "correct": 304,
+      "high_confidence": {
+        "count": 199,
+        "wrong": 18,
+        "mean_confidence": 0.9565577889447233,
+        "accuracy": 0.9095477386934674,
+        "share": 0.5142118863049095
+      },
+      "cost": {
+        "usd": 10.677807,
+        "basis": "estimated_from_pricing_snapshot",
+        "note": "Total recorded on the run receipts from provider-reported token usage and the frozen rates. Some responses omit cache counts; those responses were priced as ordinary input when the call was made."
+      },
+      "accuracy": 0.7855297157622739,
+      "cutoff_evidence": {
+        "slug": "gpt-6-1-sol",
+        "model_ids": [
+          "gpt-6.1-sol"
+        ],
+        "cutoff": "2026-04-30",
+        "kind": "knowledge",
+        "source": "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+        "checked": "2026-09-29",
+        "evidence": "model_registries/cycle-1-agentic-gpt-6.1-sol-high-2026-09-29.json"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/gpt-6-1-sol.json",
+      "cost_evidence": {
+        "basis": "estimated_from_pricing_snapshot",
+        "forecast_run_id": "36673524599",
+        "score_run_id": "36741462923",
+        "workload_cost_usd": 10.677807,
+        "standard_rate_estimate_usd": 10.677807,
+        "note": "Sum of estimated_cost_microusd recorded on the 91 successful-case receipts."
+      },
+      "unit_source": "site/src/data/significance/gpt-6-1-sol.jsonl",
+      "log_loss": 0.4640116130899528,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
     },
     {
       "slug": "gpt-6-astra",
@@ -446,7 +502,7 @@
       },
       "unit_source": null,
       "log_loss": null,
-      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+      "log_loss_basis": null
     },
     {
       "slug": "gemini-3-8-flash",
@@ -496,7 +552,7 @@
       },
       "unit_source": null,
       "log_loss": null,
-      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+      "log_loss_basis": null
     },
     {
       "slug": "grok-4-7",
@@ -618,6 +674,62 @@
       "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
     },
     {
+      "slug": "claude-sonnet-5-5",
+      "display_name": "Claude Sonnet 5.5",
+      "provider": "Anthropic",
+      "model_key": "anthropic:claude-sonnet-5-5",
+      "access": "Anthropic API",
+      "reasoning": "High",
+      "release_date": "2026-09-28",
+      "training_cutoff": "June 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A June 2026 training cutoff is compared as June 1 under the maintained policy and predates every scored decision.",
+      "forecast_run_id": "36673527185",
+      "scoring_run_id": "36741468019",
+      "micro_brier": 0.17297777777777779,
+      "equal_case_brier": 0.17183453419596278,
+      "correct": 295,
+      "high_confidence": {
+        "count": 63,
+        "wrong": 5,
+        "mean_confidence": 0.9157142857142853,
+        "accuracy": 0.9206349206349206,
+        "share": 0.16279069767441862
+      },
+      "cost": {
+        "usd": 6.992451,
+        "basis": "estimated_from_pricing_snapshot",
+        "note": "Total recorded on the run receipts from provider-reported token usage, including cache reads and five-minute cache writes, at the frozen rates."
+      },
+      "accuracy": 0.7622739018087855,
+      "cutoff_evidence": {
+        "slug": "claude-sonnet-5-5",
+        "model_ids": [
+          "claude-sonnet-5-5"
+        ],
+        "cutoff": "2026-06",
+        "kind": "training",
+        "source": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
+        "checked": "2026-09-29",
+        "evidence": "model_registries/cycle-1-agentic-claude-sonnet-5-5-high-2026-09-29.json"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/claude-sonnet-5-5.json",
+      "cost_evidence": {
+        "basis": "estimated_from_pricing_snapshot",
+        "forecast_run_id": "36673527185",
+        "score_run_id": "36741468019",
+        "workload_cost_usd": 6.992451,
+        "standard_rate_estimate_usd": 6.992451,
+        "note": "Sum of estimated_cost_microusd recorded on the 91 successful-case receipts."
+      },
+      "unit_source": "site/src/data/significance/claude-sonnet-5-5.jsonl",
+      "log_loss": 0.5214918600734371,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
       "slug": "muse-spark-1-3",
       "display_name": "Muse Spark 1.3",
       "provider": "Meta",
@@ -668,7 +780,7 @@
       },
       "unit_source": null,
       "log_loss": null,
-      "log_loss_basis": "not available in checked aggregate; original unit-level inputs not retained in committed local site data"
+      "log_loss_basis": null
     }
   ],
   "summary_experiment": {
@@ -926,24 +1038,6 @@
       "basis": "Recomputed from committed public per-unit summary inputs on 2026-09-29."
     }
   },
-  "full_panel_unit_coverage": {
-    "available": [
-      "gpt-6-sol",
-      "claude-opus-5",
-      "gpt-5-6-sol",
-      "grok-4-7",
-      "claude-sonnet-5"
-    ],
-    "missing": [
-      "claude-fable-5-1",
-      "grok-4-6",
-      "kimi-k3",
-      "gpt-5-6-luna",
-      "gpt-6-astra",
-      "gemini-3-8-flash",
-      "muse-spark-1-3"
-    ]
-  },
   "source_map": {
     "aggregate": "site/src/data/snapshots/beta-2026-09-18.json",
     "cutoffs": "legalforecast/data/model_cutoffs.json",
@@ -956,9 +1050,7 @@
     "summary_catalog": "site/public/data/summary-comparison/catalog.json"
   },
   "analysis_limits": [
-    "Historical aggregate values are verified against repository snapshot, not re-derived for seven original models without retained local unit files.",
-    "Only five of the twelve original configurations have available per-unit data for recomputation in committed site data.",
-    "No all-twelve significance analysis is claimed.",
+    "No all-fourteen significance analysis is claimed.",
     "Current labeling protocol is implementation/documentation evidence, not a census of completed historical human adjudications.",
     "No human forecasting baseline was run.",
     "Original beta has one retained successful forecast per unit; run-to-run variation is not measured."
@@ -967,7 +1059,7 @@
     "repository": "LegalForecastBench",
     "revision": "8374f8e1",
     "revision_basis": "Public input revision containing the repository-relative sources referenced by this package.",
-    "imported_on": "2026-09-29",
+    "imported_on": "2026-09-30",
     "source_description": "Cleaned from the manuscript empirical aggregate. Public repository paths are repository-relative; numerical values and recorded caveats are preserved.",
     "private_protocol_limitation": "Historical labeling-protocol evidence remains in the private companion LegalForecastCorpus repository and is not redistributed here. The aggregate values are preserved, but the private protocol path and private corpus bytes are unavailable for independent reconstruction from this package."
   }

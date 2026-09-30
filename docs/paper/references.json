@@ -350,6 +350,50 @@
     "type": "paper"
   },
   {
+    "key": "sharmaSycophancy",
+    "title": "Towards Understanding Sycophancy in Language Models",
+    "authors": [
+      "Mrinank Sharma",
+      "Meg Tong",
+      "Tomasz Korbak",
+      "David Duvenaud",
+      "Amanda Askell",
+      "Samuel R. Bowman",
+      "Newton Cheng",
+      "Esin Durmus",
+      "Zac Hatfield-Dodds",
+      "Scott R. Johnston",
+      "Shauna Kravec",
+      "Timothy Maxwell",
+      "Sam McCandlish",
+      "Kamal Ndousse",
+      "Oliver Rausch",
+      "Nicholas Schiefer",
+      "Da Yan",
+      "Miranda Zhang",
+      "Ethan Perez"
+    ],
+    "year": 2024,
+    "venue": "ICLR 2024; first posted as arXiv:2310.13548 in 2023",
+    "url": "https://arxiv.org/abs/2310.13548",
+    "pdf_url": "https://arxiv.org/pdf/2310.13548",
+    "type": "paper"
+  },
+  {
+    "key": "shapiraSycophancy",
+    "title": "How RLHF Amplifies Sycophancy",
+    "authors": [
+      "Itai Shapira",
+      "Gerdus Benade",
+      "Ariel D. Procaccia"
+    ],
+    "year": 2026,
+    "venue": "ICML 2026; arXiv:2602.01002",
+    "url": "https://arxiv.org/abs/2602.01002",
+    "pdf_url": "https://arxiv.org/pdf/2602.01002",
+    "type": "paper"
+  },
+  {
     "key": "rubricsrewards",
     "title": "Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains",
     "authors": [
@@ -1198,5 +1242,29 @@
     "url": "https://www.vals.ai/benchmarks/legal_bench",
     "type": "web",
     "note": "Saturation assessment concerns limited frontier discrimination of the overall score near 88%; the provider also notes remaining differences by reasoning type."
+  },
+  {
+    "key": "makicc",
+    "title": "Analysing Intraclass Correlation for Dichotomous Variables",
+    "authors": [
+      "Tak K. Mak"
+    ],
+    "year": 1988,
+    "venue": "Journal of the Royal Statistical Society, Series C (Applied Statistics), 37(3):344–352",
+    "url": "https://doi.org/10.2307/2347309",
+    "type": "paper"
+  },
+  {
+    "key": "cameronmiller",
+    "title": "A Practitioner's Guide to Cluster-Robust Inference",
+    "authors": [
+      "A. Colin Cameron",
+      "Douglas L. Miller"
+    ],
+    "year": 2015,
+    "venue": "Journal of Human Resources, 50(2):317–372",
+    "url": "https://doi.org/10.3368/jhr.50.2.317",
+    "pdf_url": "https://cameron.econ.ucdavis.edu/research/Cameron_Miller_JHR_2015.pdf",
+    "type": "paper"
   }
 ]

@@ -61,8 +61,8 @@ test("leaderboard Pareto badges name the qualifying metrics", () => {
 	const html = renderToStaticMarkup(createElement(Leaderboard, { snapshot }));
 	const rows = html.match(/<tr[\s\S]*?<\/tr>/g) ?? [];
 	const labeled = rows.filter((row) => row.includes("Pareto frontier"));
-	assert.equal(labeled.length, 3);
-	for (const slug of ["gpt-6-luna", "gpt-5-6-luna", "gpt-6-sol"])
+	assert.equal(labeled.length, 4);
+	for (const slug of ["gpt-6-luna", "gpt-5-6-luna", "gpt-6-1-sol", "gpt-6-sol"])
 		assert.ok(
 			labeled.some((row) => row.includes(`/models/${slug}/`)),
 			slug,
