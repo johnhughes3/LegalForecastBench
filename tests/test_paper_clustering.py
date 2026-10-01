@@ -126,6 +126,7 @@ def test_cli_check_detects_output_and_manuscript_drift(tmp_path: Path) -> None:
     assert written.startswith("before\n\n")
     assert written.endswith("\nafter\n")
     assert "old generated text" not in written
+    assert "denied on procedural grounds" in written
     assert clustering.main([*args[:-1], "--check"]) == 0
 
     summary_path = output_dir / "summary.tex"

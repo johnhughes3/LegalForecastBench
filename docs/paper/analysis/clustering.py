@@ -532,42 +532,34 @@ def render_summary(results: dict[str, Any]) -> str:
             return "undefined"
         return f"{float(value):.{digits}f}"
 
+    def interval(value: list[Any] | None) -> str:
+        if value is None:
+            return "undefined"
+        return f"{fmt(value[0])}--{fmt(value[1])}"
+
     outcome = cast(dict[str, Any], results["outcome"])
     ci = cast(list[Any] | None, outcome["case_bootstrap_ci95"])
-    ci_text = "undefined" if ci is None else f"{fmt(ci[0])}--{fmt(ci[1])}"
-    pair_counts = cast(dict[str, Any], results["pair_counts"])
-    within = (
-        f"{pair_counts['within_case_agree']:,} of {pair_counts['within_case_pairs']:,} "
-        f"pairs ({fmt(pair_counts['within_case_agreement_percent'], 1)} percent)"
-    )
-    across = (
-        f"{pair_counts['across_case_agree']:,} of {pair_counts['across_case_pairs']:,} "
-        f"pairs ({fmt(pair_counts['across_case_agreement_percent'], 1)} percent)"
-    )
     paragraph = (
-        f"Across {results['units']:,} scored units nested in "
+        f"Across the {results['units']:,} scored units in "
         f"{results['cases']:,} cases, "
-        f"the observed binary outcome ICC was {fmt(outcome['icc_anova'])} "
-        f"(95 percent whole-case bootstrap CI {ci_text}). Within-case agreement was "
-        f"{within}, compared with {across} across cases."
+        f"the observed-scale outcome ICC was {fmt(outcome['icc_anova'])} "
+        f"(95\\% CI: {interval(ci)})."
     )
     sol = cast(dict[str, Any] | None, results["models"].get("gpt-6-sol"))
     if sol is not None:
         brier = cast(dict[str, Any], sol["brier_loss"])
         brier_ci = cast(list[Any] | None, brier["case_bootstrap_ci95"])
-        brier_ci_text = (
-            "undefined"
-            if brier_ci is None
-            else f"{fmt(brier_ci[0])}--{fmt(brier_ci[1])}"
-        )
         paragraph += (
-            f" GPT-6 Sol's Brier-loss ICC was {fmt(brier['icc_anova'])} "
-            f"(95 percent CI {brier_ci_text})."
+            " Prediction losses also clustered within case because if a model "
+            "failed to account, for example, for the possibility that a given "
+            "motion might be denied on procedural grounds, all of the claims in "
+            "a case that it expected to be dismissed could survive: "
+            f"GPT-6 Sol's Brier-loss ICC was {fmt(brier['icc_anova'])} "
+            f"(95\\% CI: {interval(brier_ci)})."
         )
     paragraph += (
-        " The estimator is an unbalanced method-of-moments one-way ANOVA ICC; "
-        f"the interval uses {results['bootstrap_replicates']:,} whole-case resamples, "
-        "assuming cases are independent for interval estimation."
+        f" These intervals use {results['bootstrap_replicates']:,} whole-case "
+        "bootstrap resamples, and assume independence between cases."
     )
     return paragraph + "\n"
 
