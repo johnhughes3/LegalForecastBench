@@ -8,6 +8,8 @@ import {
 	supplementaryRows,
 } from "../../data/supplementary-results";
 import Layout from "../../layouts/Layout.astro";
+import { COPY } from "../../seo/copy";
+import { datasetNode } from "../../seo/jsonld";
 
 const { provenance, cohort } = snapshot;
 const nameOf = (slug: string) =>
@@ -19,29 +21,17 @@ const summaryName = (slug: string) => {
 		: slug;
 };
 const repo = "https://github.com/johnhughes3/LegalForecastBench";
-const datasetLd = {
-	"@context": "https://schema.org",
-	"@type": "Dataset",
+const datasetDescription = `Forecasts by ${snapshot.models.length} AI model configurations of whether each challenged claim in ${cohort.case_count} federal motions to dismiss would be fully dismissed, scored against the actual rulings (${cohort.unit_count} claim-defendant units).`;
+const datasetLd = datasetNode({
 	name: "LegalForecastBench results",
-	description: `Forecasts by ${snapshot.models.length} AI model configurations of whether each challenged claim in ${cohort.case_count} federal motions to dismiss would be fully dismissed, scored against the actual rulings (${cohort.unit_count} claim-defendant units).`,
-	url: new URL("/data/", Astro.site).toString(),
-	creator: { "@type": "Person", name: "John J. Hughes, III" },
+	description: datasetDescription,
+	url: new URL("/data/", Astro.site).href,
 	temporalCoverage: `${cohort.decision_window.start}/${cohort.decision_window.end}`,
-	isAccessibleForFree: true,
-	license: "https://creativecommons.org/licenses/by/4.0/",
-	distribution: [
-		{
-			"@type": "DataDownload",
-			encodingFormat: "application/json",
-			contentUrl: new URL("/data/current.json", Astro.site).toString(),
-		},
-	],
-	codeRepository: repo,
-};
+	contentUrl: new URL("/data/current.json", Astro.site).href,
+});
 ---
 
-<Layout title="Data & code" description="Download the results LegalForecastBench displays, reproduce the scoring, and see where the evidence comes from.">
-	<script type="application/ld+json" set:html={JSON.stringify(datasetLd)} />
+<Layout title={COPY.data.title} description={COPY.data.description} schema={[datasetLd]}>
 	<section class="mx-auto max-w-5xl px-4 pt-14 sm:px-6">
 		<p class="eyebrow">Data &amp; code</p>
 		<div class="mt-3 flex flex-wrap items-end justify-between gap-4">

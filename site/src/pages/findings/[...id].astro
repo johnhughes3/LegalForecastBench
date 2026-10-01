@@ -4,6 +4,7 @@ import type { GetStaticPaths } from "astro";
 import { publishedFindings } from "../../data/findings";
 import { snapshot } from "../../data/results";
 import Layout from "../../layouts/Layout.astro";
+import { scholarlyArticle } from "../../seo/jsonld";
 
 export const getStaticPaths = (async () =>
 	(await publishedFindings()).map((entry) => ({
@@ -26,24 +27,18 @@ const toc = headings.filter((h) => h.depth === 2);
 const models = snapshot.models.filter((m) =>
 	entry.data.models.includes(m.slug),
 );
-const articleLd = {
-	"@context": "https://schema.org",
-	"@type": "ScholarlyArticle",
+const articleUrl = new URL(`/findings/${entry.id}/`, Astro.site).href;
+const articleLd = scholarlyArticle({
 	headline: entry.data.title,
 	description: entry.data.summary,
+	url: articleUrl,
+	authorName: entry.data.author,
 	datePublished: entry.data.date.toISOString().slice(0, 10),
-	author: { "@type": "Person", name: entry.data.author },
-	url: new URL(`/findings/${entry.id}/`, Astro.site).toString(),
-	isPartOf: {
-		"@type": "WebSite",
-		name: "LegalForecastBench",
-		url: Astro.site?.toString(),
-	},
-};
+	image: new URL(`/og/findings/${entry.id}.png`, Astro.site).href,
+});
 ---
 
-<Layout title={entry.data.title} description={entry.data.summary} image={`/og/findings/${entry.id}.png`}>
-	<script type="application/ld+json" set:html={JSON.stringify(articleLd)} />
+<Layout title={entry.data.title} description={entry.data.summary} image={`/og/findings/${entry.id}.png`} schema={[articleLd]}>
 	<article class="mx-auto max-w-6xl px-4 pt-12 sm:px-6">
 		<a href="/analysis/" class="text-sm text-ink-3 hover:text-ink">← Analysis</a>
 		<header class="mt-8 max-w-3xl">

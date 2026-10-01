@@ -10,7 +10,7 @@
 		"contract:generate": "tsx scripts/generate-contract.ts",
 		"contract:check": "tsx scripts/generate-contract.ts --check",
 		"contract:validate": "tsx scripts/validate-export.ts",
-		"test": "tsx --test src/data/*.test.ts",
+		"test": "tsx --test src/data/*.test.ts src/seo/*.test.ts",
 		"test:browser": "tsx --test scripts/*.test.ts",
 		"dev": "astro dev",
 		"build": "astro build",

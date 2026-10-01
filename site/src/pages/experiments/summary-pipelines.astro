@@ -12,6 +12,7 @@ import {
 	supplementaryRows,
 } from "../../data/supplementary-results";
 import Layout from "../../layouts/Layout.astro";
+import { COPY } from "../../seo/copy";
 
 const { cohort } = snapshot;
 const baseRate = cohort.dismissed_unit_count / cohort.unit_count;
@@ -34,10 +35,7 @@ const lunaPairSignificant = lunaPair.some((p) => p.significant);
 const preparation = jev.preparation_usd ?? 0;
 ---
 
-<Layout
-	title="Summary pipelines"
-	description="A summary-based legal model forecast motions to dismiss worse than always guessing 50%. Frontier models given the same summaries beat the base rate."
->
+<Layout title={COPY.experiment.title} description={COPY.experiment.description}>
 	<section class="border-b border-rule">
 		<div class="mx-auto max-w-6xl px-4 pb-12 pt-12 sm:px-6">
 			<a href="/analysis/" class="text-sm text-ink-3 hover:text-ink">← Analysis</a>

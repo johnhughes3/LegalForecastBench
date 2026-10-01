@@ -33,6 +33,8 @@ export const PAPER = {
 	status: "Working paper" as const,
 	abstract: manuscript.abstract,
 	abstractIsDraft: manuscript.abstractIsDraft,
+	/** ISO date from the manuscript `\date`, or null when it has none. */
+	revisedOn: manuscript.revisedOn,
 	workingPdf: WORKING_PAPER_PDF,
 	versions: [] as PaperVersion[],
 };

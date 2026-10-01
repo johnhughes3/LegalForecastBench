@@ -19,6 +19,7 @@ import { recentResults } from "../../data/recent-results";
 import { primarySnapshot, REFERENCE_SLUGS, snapshot } from "../../data/results";
 import type { Metric, SnapshotModel } from "../../data/snapshot";
 import Layout from "../../layouts/Layout.astro";
+import { modelTitle } from "../../seo/titles";
 
 export const getStaticPaths = (() =>
 	snapshot.models.map((model) => ({
@@ -113,7 +114,7 @@ const facts: [string, string][] = [
 ---
 
 <Layout
-	title={model.display_name}
+	title={modelTitle(model.display_name)}
 	image={`/og/models/${model.slug}.png`}
 	description={`${model.display_name} on LegalForecastBench: micro Brier ${model.micro_brier.toFixed(4)} across ${n} units.`}
 >

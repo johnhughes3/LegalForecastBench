@@ -6,6 +6,7 @@ import {
 	GROUPS,
 } from "../../data/analysis";
 import Layout from "../../layouts/Layout.astro";
+import { COPY } from "../../seo/copy";
 
 const items = await analysisItems();
 const fmt = (date: Date) =>
@@ -17,7 +18,7 @@ const fmt = (date: Date) =>
 	});
 ---
 
-<Layout title="Analysis" description="Essays, reports, experiments, and audit notes on LegalForecastBench, each marked with its date, the release it analyzes, and how much evidence it carries.">
+<Layout title={COPY.analysis.title} description={COPY.analysis.description}>
 	<section class="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
 		<p class="eyebrow">Analysis</p>
 		<h1 class="mt-3 max-w-3xl font-serif text-4xl font-medium tracking-tight sm:text-5xl">What the forecasts show, and why the task matters</h1>

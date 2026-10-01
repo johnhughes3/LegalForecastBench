@@ -3,5 +3,127 @@
 	"framework": "astro",
 	"installCommand": "pnpm install --frozen-lockfile",
 	"buildCommand": "pnpm build",
-	"outputDirectory": "dist"
+	"outputDirectory": "dist",
+	"trailingSlash": true,
+	"headers": [
+		{
+			"source": "/_astro/(.*)",
+			"headers": [
+				{
+					"key": "Cache-Control",
+					"value": "public, max-age=31536000, immutable"
+				}
+			]
+		},
+		{
+			"source": "/agent/(.*)",
+			"headers": [
+				{
+					"key": "X-Robots-Tag",
+					"value": "noindex, nofollow"
+				},
+				{
+					"key": "Content-Type",
+					"value": "text/markdown; charset=utf-8"
+				},
+				{
+					"key": "Cache-Control",
+					"value": "public, max-age=3600, s-maxage=86400"
+				}
+			]
+		},
+		{
+			"source": "/llms.txt",
+			"headers": [
+				{
+					"key": "Cache-Control",
+					"value": "public, max-age=3600, s-maxage=86400"
+				}
+			]
+		},
+		{
+			"source": "/llms-full.txt",
+			"headers": [
+				{
+					"key": "Cache-Control",
+					"value": "public, max-age=3600, s-maxage=86400"
+				}
+			]
+		},
+		{
+			"source": "/",
+			"headers": [
+				{
+					"key": "Link",
+					"value": "</llms.txt>; rel=\"describedby\"; type=\"text/plain\", </llms-full.txt>; rel=\"service-doc\"; type=\"text/plain\", </sitemap-index.xml>; rel=\"sitemap\"; type=\"application/xml\""
+				}
+			]
+		},
+		{
+			"source": "/((?!_astro/|agent/|llms\\.txt|llms-full\\.txt).*)",
+			"headers": [
+				{
+					"key": "Cache-Control",
+					"value": "public, max-age=0, s-maxage=86400, stale-while-revalidate=86400"
+				}
+			]
+		}
+	],
+	"rewrites": [
+		{
+			"source": "/",
+			"has": [
+				{
+					"type": "header",
+					"key": "accept",
+					"value": "^(?=.*(?:text/plain|text/markdown))(?!.*text/html.*(?:text/plain|text/markdown)).*"
+				}
+			],
+			"destination": "/agent/home.md"
+		},
+		{
+			"source": "^/(results|methods|paper|analysis|approach)/$",
+			"has": [
+				{
+					"type": "header",
+					"key": "accept",
+					"value": "^(?=.*(?:text/plain|text/markdown))(?!.*text/html.*(?:text/plain|text/markdown)).*"
+				}
+			],
+			"destination": "/agent/$1.md"
+		},
+		{
+			"source": "^/data/$",
+			"has": [
+				{
+					"type": "header",
+					"key": "accept",
+					"value": "^(?=.*(?:text/plain|text/markdown))(?!.*text/html.*(?:text/plain|text/markdown)).*"
+				}
+			],
+			"destination": "/agent/data.md"
+		},
+		{
+			"source": "^/data/run-notes/$",
+			"has": [
+				{
+					"type": "header",
+					"key": "accept",
+					"value": "^(?=.*(?:text/plain|text/markdown))(?!.*text/html.*(?:text/plain|text/markdown)).*"
+				}
+			],
+			"destination": "/agent/data/run-notes.md"
+		},
+		{
+			"source": "^/(models|findings|experiments)/([^/]+)/$",
+			"has": [
+				{
+					"type": "header",
+					"key": "accept",
+					"value": "^(?=.*(?:text/plain|text/markdown))(?!.*text/html.*(?:text/plain|text/markdown)).*"
+				}
+			],
+			"destination": "/agent/$1/$2.md"
+		}
+	]
 }

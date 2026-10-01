@@ -9,6 +9,9 @@ import { PAPER } from "../data/paper";
 import { primarySnapshot, snapshot } from "../data/results";
 import { supplementaryRows } from "../data/supplementary-results";
 import Layout from "../layouts/Layout.astro";
+import { COPY } from "../seo/copy";
+import { FAQS } from "../seo/faqs";
+import { faqPageNode } from "../seo/jsonld";
 
 const { cohort } = snapshot;
 const ranked = [...primarySnapshot.models].sort(
@@ -39,6 +42,15 @@ const fmtDate = (iso: string) =>
 		timeZone: "UTC",
 	});
 const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.decision_window.end)}, 2026`;
+const reviewed = new Date(`${snapshot.as_of}T00:00:00Z`).toLocaleDateString(
+	"en-US",
+	{
+		month: "long",
+		day: "numeric",
+		year: "numeric",
+		timeZone: "UTC",
+	},
+);
 
 const contributions = [
 	[
@@ -77,7 +89,11 @@ const findings: { title: string; body: string; href: string }[] =
 		: [];
 ---
 
-<Layout description="An open research benchmark testing whether AI models can forecast federal motion-to-dismiss outcomes from the court record available before the decision.">
+<Layout
+	title={COPY.home.title}
+	description={COPY.home.description}
+	schema={[faqPageNode(new URL("/", Astro.site).href, FAQS)]}
+>
 	<section class="relative overflow-hidden border-b border-rule">
 		<div class="pointer-events-none absolute inset-0 opacity-[0.5] [background-image:radial-gradient(var(--rule)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"></div>
 		<div class="relative mx-auto max-w-6xl px-4 pb-14 pt-16 sm:px-6 sm:pt-24">
@@ -187,6 +203,25 @@ const findings: { title: string; body: string; href: string }[] =
 					<a class="text-accent hover:underline" href="/approach/">Why outcomes, not rubrics →</a>
 				</div>
 			</div>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6" aria-labelledby="faq">
+		<p class="eyebrow">Frequently asked questions</p>
+		<h2 id="faq" class="mt-2 max-w-3xl font-serif text-3xl font-semibold tracking-tight">Direct answers</h2>
+		<p class="mt-3 text-sm text-ink-3">
+			Last reviewed <time datetime={snapshot.as_of}>{reviewed}</time>. Reviewed by <a class="hover:text-ink" href={AUTHOR.research}>{AUTHOR.name}</a>.
+		</p>
+		<div class="mt-8 max-w-3xl space-y-8">
+			{FAQS.map((faq) => (
+				<div>
+					<h3 class="font-serif text-xl font-semibold tracking-tight">{faq.question}</h3>
+					<p class="mt-2 leading-relaxed text-ink-2">{faq.answer}</p>
+					{faq.href && faq.hrefLabel && (
+						<p class="mt-2 text-sm"><a class="font-medium text-accent hover:underline" href={faq.href}>{faq.hrefLabel}</a></p>
+					)}
+				</div>
+			))}
 		</div>
 	</section>
 

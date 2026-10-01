@@ -1,4 +1,5 @@
 import type { CollectionEntry } from "astro:content";
+import { APPROACH_PUBLISHED } from "./approach";
 import { publishedFindings } from "./findings";
 import { snapshot } from "./results";
 
@@ -112,7 +113,7 @@ const STATIC_ITEMS: AnalysisItem[] = [
 		title: "Law can be a verifiable domain",
 		summary:
 			"Why public litigation makes part of legal judgment checkable, and how outcome-based evaluation differs from rubric grading.",
-		date: new Date("2026-09-27T00:00:00Z"),
+		date: new Date(`${APPROACH_PUBLISHED}T00:00:00Z`),
 		group: "rationale",
 		evidence: "essay",
 		release: null,
