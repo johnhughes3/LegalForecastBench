@@ -17,23 +17,28 @@ const HAS = [
 /**
  * Header rewrites for the canonical URL. Destinations live under `/agent/`
  * and are disallowed in robots.txt. They are not linked or sitemapped.
+ *
+ * Vercel compiles `source` with path-to-regexp, which rejects `?` (`/?` is
+ * read as a modifier, not an optional slash). These patterns use the trailing
+ * slash the site already canonicalizes, anchored so `/data/` does not swallow
+ * `/data/current.json`.
  */
 export function negotiationRewrites(): NegotiationRewrite[] {
 	return [
 		{ source: "/", has: HAS, destination: "/agent/home.md" },
 		{
-			source: "^/(results|methods|paper|analysis|approach)/?$",
+			source: "^/(results|methods|paper|analysis|approach)/$",
 			has: HAS,
 			destination: "/agent/$1.md",
 		},
-		{ source: "^/data/?$", has: HAS, destination: "/agent/data.md" },
+		{ source: "^/data/$", has: HAS, destination: "/agent/data.md" },
 		{
-			source: "^/data/run-notes/?$",
+			source: "^/data/run-notes/$",
 			has: HAS,
 			destination: "/agent/data/run-notes.md",
 		},
 		{
-			source: "^/(models|findings|experiments)/(.+?)/?$",
+			source: "^/(models|findings|experiments)/([^/]+)/$",
 			has: HAS,
 			destination: "/agent/$1/$2.md",
 		},

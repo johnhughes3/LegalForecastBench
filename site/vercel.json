@@ -82,7 +82,7 @@
 			"destination": "/agent/home.md"
 		},
 		{
-			"source": "^/(results|methods|paper|analysis|approach)/?$",
+			"source": "^/(results|methods|paper|analysis|approach)/$",
 			"has": [
 				{
 					"type": "header",
@@ -93,7 +93,7 @@
 			"destination": "/agent/$1.md"
 		},
 		{
-			"source": "^/data/?$",
+			"source": "^/data/$",
 			"has": [
 				{
 					"type": "header",
@@ -104,7 +104,7 @@
 			"destination": "/agent/data.md"
 		},
 		{
-			"source": "^/data/run-notes/?$",
+			"source": "^/data/run-notes/$",
 			"has": [
 				{
 					"type": "header",
@@ -115,7 +115,7 @@
 			"destination": "/agent/data/run-notes.md"
 		},
 		{
-			"source": "^/(models|findings|experiments)/(.+?)/?$",
+			"source": "^/(models|findings|experiments)/([^/]+)/$",
 			"has": [
 				{
 					"type": "header",
