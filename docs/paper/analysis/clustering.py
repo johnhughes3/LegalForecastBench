@@ -559,7 +559,7 @@ def render_summary(results: dict[str, Any]) -> str:
         )
     paragraph += (
         f" These intervals use {results['bootstrap_replicates']:,} whole-case "
-        "bootstrap resamples, and assume independent between cases."
+        "bootstrap resamples, and assume independence between cases."
     )
     return paragraph + "\n"
 
