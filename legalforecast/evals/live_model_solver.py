@@ -32,6 +32,10 @@ from legalforecast.evals.openai_compatible_provider import (
     openai_compatible_provider,
 )
 from legalforecast.evals.response_verification import verify_provider_response
+from legalforecast.evals.structured_output import (
+    StructuredOutputSchemaError,
+    native_schema_fields,
+)
 from legalforecast.openai_transport import (
     OPENAI_RESPONSES_URL as OPENAI_RESPONSES_URL,
 )
@@ -340,6 +344,10 @@ def complete_live_prompt(
             "response_json_schema is not supported for provider "
             f"{registry_entry.provider}"
         )
+    try:  # a schema the provider cannot enforce natively fails before spend
+        native_schema_fields(registry_entry.provider, response_json_schema)
+    except StructuredOutputSchemaError as exc:
+        raise LiveModelConfigError(str(exc)) from exc
     if _uses_bedrock_anthropic_runtime(registry_entry.provider, environ):
         return _complete_bedrock_anthropic_prompt(
             registry_entry,
@@ -351,6 +359,7 @@ def complete_live_prompt(
             retry_backoff_seconds=retry_backoff_seconds,
             attempt_handler=attempt_handler,
             request_body_observer=request_body_observer,
+            response_json_schema=response_json_schema,
         )
 
     started = time.perf_counter()
@@ -461,6 +470,7 @@ def _complete_bedrock_anthropic_prompt(
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None,
     request_body_observer: RequestBodyObserver | None,
+    response_json_schema: Mapping[str, object] | None = None,
 ) -> SolverResponse:
     bedrock_model_id = _bedrock_anthropic_model_id(registry_entry, environ)
     _reject_unsupported_legacy_bedrock_model(
@@ -469,6 +479,7 @@ def _complete_bedrock_anthropic_prompt(
         environ,
     )
     request_payload = _bedrock_anthropic_payload(registry_entry, prompt)
+    request_payload.update(native_schema_fields("anthropic", response_json_schema))
     request_bytes = json.dumps(dict(request_payload)).encode("utf-8")
 
     def prepare_bedrock_runtime() -> None:
@@ -574,7 +585,7 @@ def _provider_config(provider: str) -> _ProviderConfig:
             extract_output=_openai_output,
             extract_usage=_openai_usage,
             extract_served_version=_openai_served_model_version,
-            supports_response_json_schema=False,
+            supports_response_json_schema=True,
         )
     if normalized == "anthropic":
         return _ProviderConfig(
@@ -583,7 +594,7 @@ def _provider_config(provider: str) -> _ProviderConfig:
             extract_output=_anthropic_output,
             extract_usage=_anthropic_usage,
             extract_served_version=_anthropic_served_model_version,
-            supports_response_json_schema=False,
+            supports_response_json_schema=True,
         )
     if normalized in {"google", "gemini"}:
         return _ProviderConfig(
@@ -710,7 +721,6 @@ def _openai_request(
     service_tier: str = OPENAI_SERVICE_TIER,
     route: OpenAITransportRoute | None = None,
 ) -> urllib.request.Request:
-    del response_json_schema
     resolved_route = route or resolve_openai_transport(entry.model_id)
     payload: dict[str, object] = {
         "model": resolved_route.request_model_id,
@@ -721,6 +731,7 @@ def _openai_request(
     }
     if entry.reasoning_effort is not None:
         payload["reasoning"] = {"effort": entry.reasoning_effort.value}
+    payload.update(native_schema_fields("openai", response_json_schema))
     payload.update(resolved_route.gateway_extra_body())
     return _json_request(
         resolved_route.responses_url,
@@ -735,7 +746,6 @@ def _anthropic_request(
     api_key: str,
     response_json_schema: Mapping[str, object] | None,
 ) -> urllib.request.Request:
-    del response_json_schema
     payload: dict[str, object] = {
         "model": entry.model_id,
         "messages": [{"role": "user", "content": prompt}],
@@ -744,6 +754,7 @@ def _anthropic_request(
     }
     if _uses_anthropic_adaptive_thinking(entry):
         payload["thinking"] = {"type": "adaptive"}
+    payload.update(native_schema_fields("anthropic", response_json_schema))
     return _json_request(
         ANTHROPIC_MESSAGES_URL,
         payload,
