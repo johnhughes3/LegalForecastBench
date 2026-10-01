@@ -180,6 +180,31 @@ def test_openai_strict_schema_nulls_optional_enum_and_ref_properties() -> None:
     assert strict["$defs"]["span"]["additionalProperties"] is False
 
 
+def test_openai_strict_schema_moves_unique_items_into_the_description() -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": True,
+                "items": {"type": "string"},
+            }
+        },
+        "required": ["ids"],
+        "additionalProperties": False,
+    }
+
+    ids = openai_strict_json_schema(schema)["properties"]["ids"]
+
+    assert ids == {
+        "type": "array",
+        "minItems": 1,
+        "items": {"type": "string"},
+        "description": "{uniqueItems: True}",
+    }
+
+
 def test_openai_schema_survives_retries_unchanged() -> None:
     transport = _Transport(
         [
@@ -338,6 +363,12 @@ def test_gemini_request_carries_the_schema_as_response_json_schema() -> None:
             "type": "object",
             "properties": {"x": {"type": "string"}},
             "additionalProperties": True,
+        },
+        {
+            "type": "object",
+            "properties": {"x": {"oneOf": [{"type": "string"}, {"type": "integer"}]}},
+            "required": ["x"],
+            "additionalProperties": False,
         },
     ),
 )

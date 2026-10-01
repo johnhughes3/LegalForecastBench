@@ -9,20 +9,28 @@ a JSON list on 1,929 of 3,116 findings.
 
 Each provider's strict mode accepts a narrower JSON Schema than callers write,
 so this module adapts the schema and refuses, before any request is sent, a
-schema the provider cannot enforce exactly:
+schema the provider cannot represent:
 
 * OpenAI (Responses ``text.format``, ``strict: true``) needs an object root,
   every property listed in ``required`` and ``additionalProperties: false``.
   Optional properties therefore become required and nullable. Callers must
-  read ``null`` as absent.
+  read ``null`` as absent. ``uniqueItems``, which strict mode does not accept,
+  moves into the description the way the Anthropic SDK moves bounds.
 * Anthropic (Messages ``output_config.format``) needs an object root and
   ``additionalProperties: false``, and rejects numeric and string bounds. The
   Anthropic SDK's own ``transform_schema`` moves those bounds into the
   description, so the caller's parser stays authoritative for them.
 
-Both refuse a free-form object (no ``properties`` or ``additionalProperties``
-other than ``false``): strict mode would force it to ``{}``, a silent change of
-meaning.
+What both providers enforce natively is the shape: types, enums, required
+properties and no extra properties, which is the failure seen in production.
+Value bounds that reach the model only as description text (Anthropic:
+``minimum``/``maximum``/``minLength``; OpenAI: ``uniqueItems``) remain the
+caller's parser's job.
+
+Both refuse, rather than weaken, a free-form object (no ``properties`` or
+``additionalProperties`` other than ``false``; strict mode would force it to
+``{}``) and the combinators strict mode cannot represent exactly
+(``oneOf``, ``allOf``, ``not``, ``prefixItems``, ``patternProperties``).
 """
 
 from __future__ import annotations
@@ -32,7 +40,14 @@ from typing import Any, Final, cast
 
 OPENAI_RESPONSE_FORMAT_NAME: Final = "legalforecast_response"
 
-_SUBSCHEMA_LIST_KEYS: Final = ("anyOf", "oneOf", "allOf", "prefixItems")
+_SUBSCHEMA_LIST_KEYS: Final = ("anyOf",)
+_UNREPRESENTABLE_KEYS: Final = (
+    "oneOf",
+    "allOf",
+    "not",
+    "prefixItems",
+    "patternProperties",
+)
 _SUBSCHEMA_MAP_KEYS: Final = ("$defs", "definitions")
 
 
@@ -96,6 +111,10 @@ def openai_strict_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
 
 def _openai_strict(schema: Mapping[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = dict(schema)
+    if "uniqueItems" in result:
+        note = f"{{uniqueItems: {result.pop('uniqueItems')}}}"
+        description = result.get("description")
+        result["description"] = f"{description}\n\n{note}" if description else note
     properties = schema.get("properties")
     if isinstance(properties, Mapping):
         required = set(cast(list[str], schema.get("required", [])))
@@ -156,6 +175,12 @@ def _require_enforceable(schema: Mapping[str, Any], *, provider: str) -> None:
 def _refuse_free_form_objects(
     schema: Mapping[str, Any], *, provider: str, path: str
 ) -> None:
+    for key in _UNREPRESENTABLE_KEYS:
+        if key in schema:
+            raise StructuredOutputSchemaError(
+                f"{provider} strict structured output cannot represent {key} "
+                f"at {path}; rewrite it with anyOf or plain properties"
+            )
     kind = schema.get("type")
     is_object = kind == "object" or (isinstance(kind, list) and "object" in kind)
     if is_object:
