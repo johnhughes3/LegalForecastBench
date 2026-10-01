@@ -35,13 +35,16 @@ SHORT = {
     "gpt-5-6-sol": "GPT-5.6 Sol",
     "kimi-k3": "Kimi K3",
     "gpt-5-6-luna": "GPT-5.6 Luna",
+    "claude-opus-5-5": "Opus 5.5",
     "gpt-6-1-sol": "GPT-6.1 Sol",
     "gpt-6-astra": "GPT-6 Astra",
     "gemini-3-8-flash": "Gemini 3.8 Flash",
     "grok-4-7": "Grok 4.7",
     "claude-sonnet-5": "Sonnet 5",
+    "gpt-6-luna": "GPT-6 Luna",
     "claude-sonnet-5-5": "Sonnet 5.5",
     "muse-spark-1-3": "Muse Spark 1.3",
+    "gemini-3-1-pro-preview": "Gemini 3.1 Pro",
 }
 
 PROVIDER_ALIASES = {"openai": "OpenAI", "vercel_ai_gateway": "vercel_ai_gateway"}
@@ -49,8 +52,9 @@ PROVIDER_ALIASES = {"openai": "OpenAI", "vercel_ai_gateway": "vercel_ai_gateway"
 EXPECTED_MODELS = tuple(SHORT)
 F1_XMIN = 0.105
 F1_XSCALE = 87.0
-F2_XMIN = 0.85
-F2_XSCALE = 54.375
+F2_XMIN = 0.80
+F2_XSCALE = 40.78125
+ROW_STEP = 0.4
 F3_XMIN = 0.10
 F3_XSCALE = 29.0
 
@@ -306,7 +310,7 @@ def panel_top(model_count: int, step: float = 0.5) -> str:
 
 def render_figure1(data: dict[str, Any], models: list[dict[str, Any]]) -> str:
     baseline = float(data["cohort"]["constant_forecast_micro_brier"])
-    top = panel_top(len(models))
+    top = panel_top(len(models), ROW_STEP)
     lines = [r"\begin{tikzpicture}[every node/.style={font=\small}]"]
     for tick in (0.11, 0.13, 0.15, 0.17, 0.19):
         coordinate = x1(tick)
@@ -324,7 +328,7 @@ def render_figure1(data: dict[str, Any], models: list[dict[str, Any]]) -> str:
     for row_number, model in enumerate(
         reversed(sorted(models, key=lambda row: float(row["micro_brier"]))), 0
     ):
-        y = row_number * 0.5
+        y = row_number * ROW_STEP
         micro = x1(float(model["micro_brier"]))
         equal = x1(float(model["equal_case_brier"]))
         lines += [
@@ -343,16 +347,16 @@ def render_figure1(data: dict[str, Any], models: list[dict[str, Any]]) -> str:
 
 
 def render_figure2(models: list[dict[str, Any]]) -> str:
-    top = panel_top(len(models))
+    top = panel_top(len(models), ROW_STEP)
     lines = [r"\begin{tikzpicture}[every node/.style={font=\small}]"]
-    for tick in (0.85, 0.90, 0.95, 1.00):
+    for tick in (0.80, 0.85, 0.90, 0.95, 1.00):
         coordinate = x2(tick)
         lines += [
             rf"\draw[gray!18] ({f5(coordinate)},-.2)--({f5(coordinate)},{top});",
             rf"\node[anchor=north] at ({f5(coordinate)},-.3) {{{tick:.2f}}};",
         ]
     for row_number, model in enumerate(models[::-1], 0):
-        y = row_number * 0.5
+        y = row_number * ROW_STEP
         high = model["high_confidence"]
         confidence = x2(float(high["mean_confidence"]))
         accuracy = x2(float(high["accuracy"]))

@@ -1,9 +1,9 @@
 {
-  "scope": "Fourteen-configuration manuscript panel on the Cycle 1 release. Checked 2026-09-30.",
+  "scope": "Seventeen-configuration manuscript panel on the Cycle 1 release. Checked 2026-09-30.",
   "release": {
     "release": "cycle-1-91-2026-09-08-luna-r5",
     "release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
-    "method": "Official scored results for the fourteen configurations on this release: 91 cases and 387 scoreable units each."
+    "method": "Official scored results for the seventeen ranked configurations on this release: 91 cases and 387 scoreable units each."
   },
   "cohort": {
     "case_count": 91,
@@ -399,6 +399,62 @@
       "log_loss_basis": null
     },
     {
+      "slug": "claude-opus-5-5",
+      "display_name": "Claude Opus 5.5",
+      "provider": "Anthropic",
+      "model_key": "anthropic:claude-opus-5-5",
+      "access": "Anthropic API",
+      "reasoning": "High",
+      "release_date": "2026-09-22",
+      "training_cutoff": "June 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A June 2026 training cutoff, compared as June 1, predates every scored decision.",
+      "forecast_run_id": "35953489581",
+      "scoring_run_id": "35954306953",
+      "micro_brier": 0.14540258397932818,
+      "equal_case_brier": 0.1476222901701473,
+      "correct": 299,
+      "high_confidence": {
+        "count": 65,
+        "wrong": 0,
+        "mean_confidence": 0.9278461538461539,
+        "accuracy": 1.0,
+        "share": 0.16795865633074936
+      },
+      "cost": {
+        "usd": 20.5866604,
+        "basis": "estimated_from_pricing_snapshot",
+        "note": "Standard-rate total from provider-reported token usage and the frozen rates, matching the leaderboard."
+      },
+      "accuracy": 0.772609819121447,
+      "cutoff_evidence": {
+        "slug": "claude-opus-5-5",
+        "model_ids": [
+          "claude-opus-5-5"
+        ],
+        "cutoff": "2026-06",
+        "kind": "training",
+        "source": null,
+        "checked": "2026-09-22",
+        "evidence": "model_registries/cycle-1-agentic-claude-opus-5-5-high-2026-09-22.json"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/claude-opus-5-5.json",
+      "cost_evidence": {
+        "basis": "estimated_from_pricing_snapshot",
+        "forecast_run_id": "35953489581",
+        "score_run_id": "35954306953",
+        "workload_cost_usd": 20.586702,
+        "standard_rate_estimate_usd": 20.5866604,
+        "note": "Standard-rate estimate recorded for the 91 successful cases."
+      },
+      "unit_source": "site/src/data/significance/claude-opus-5-5.jsonl",
+      "log_loss": 0.44685183628790554,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
       "slug": "gpt-6-1-sol",
       "display_name": "GPT-6.1 Sol",
       "provider": "openai",
@@ -674,6 +730,62 @@
       "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
     },
     {
+      "slug": "gpt-6-luna",
+      "display_name": "GPT-6 Luna",
+      "provider": "openai",
+      "model_key": "openai:gpt-6-luna",
+      "access": "OpenAI API",
+      "reasoning": "High",
+      "release_date": "2026-09-22",
+      "training_cutoff": "May 18, 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A May 18, 2026 knowledge cutoff predates every scored decision.",
+      "forecast_run_id": "35933696453",
+      "scoring_run_id": "35940612024",
+      "micro_brier": 0.16367900516795866,
+      "equal_case_brier": 0.17379408853051712,
+      "correct": 296,
+      "high_confidence": {
+        "count": 183,
+        "wrong": 19,
+        "mean_confidence": 0.9541256830601097,
+        "accuracy": 0.8961748633879781,
+        "share": 0.4728682170542636
+      },
+      "cost": {
+        "usd": 0.62452294,
+        "basis": "standard_rate",
+        "note": "Standard-rate total shown on the leaderboard. The run receipts recorded a Flex-priced estimate of 0.312309."
+      },
+      "accuracy": 0.7648578811369509,
+      "cutoff_evidence": {
+        "slug": "gpt-6-luna",
+        "model_ids": [
+          "gpt-6-luna"
+        ],
+        "cutoff": "2026-05-18",
+        "kind": "knowledge",
+        "source": null,
+        "checked": "2026-09-22",
+        "evidence": "model_registries/cycle-1-agentic-gpt-6-luna-high-2026-09-22.json"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/gpt-6-luna.json",
+      "cost_evidence": {
+        "basis": "estimated_from_pricing_snapshot",
+        "forecast_run_id": "35933696453",
+        "score_run_id": "35940612024",
+        "workload_cost_usd": 0.312309,
+        "standard_rate_estimate_usd": 0.62452294,
+        "note": "Leaderboard cost is the standard-rate estimate. Receipts stored the Flex-priced estimate."
+      },
+      "unit_source": "site/src/data/significance/gpt-6-luna.jsonl",
+      "log_loss": 0.5028699880553794,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
       "slug": "claude-sonnet-5-5",
       "display_name": "Claude Sonnet 5.5",
       "provider": "Anthropic",
@@ -781,6 +893,61 @@
       "unit_source": null,
       "log_loss": null,
       "log_loss_basis": null
+    },
+    {
+      "slug": "gemini-3-1-pro-preview",
+      "display_name": "Gemini 3.1 Pro Preview",
+      "provider": "Google",
+      "model_key": "google:gemini-3.1-pro-preview",
+      "access": "Google Gemini API (preview alias)",
+      "reasoning": "High thinking",
+      "release_date": "2026-02-19",
+      "training_cutoff": "January 2025",
+      "eligibility": "eligible",
+      "eligibility_reason": "A January 2025 knowledge cutoff predates every scored decision.",
+      "forecast_run_id": "36075557088",
+      "scoring_run_id": "36169561374",
+      "micro_brier": 0.1834496124031008,
+      "equal_case_brier": 0.18079850209314494,
+      "correct": 302,
+      "high_confidence": {
+        "count": 320,
+        "wrong": 57,
+        "mean_confidence": 0.9544374999999989,
+        "accuracy": 0.821875,
+        "share": 0.8268733850129198
+      },
+      "cost": {
+        "usd": 59.044026,
+        "basis": "estimated_from_pricing_snapshot",
+        "note": "Standard-rate total from provider-reported token usage and the frozen rates, matching the leaderboard."
+      },
+      "accuracy": 0.7803617571059431,
+      "cutoff_evidence": {
+        "slug": "gemini-3-1-pro-preview",
+        "model_ids": [
+          "gemini-3.1-pro-preview"
+        ],
+        "cutoff": "2025-01",
+        "kind": "knowledge",
+        "source": "https://ai.google.dev/gemini-api/docs/gemini-3",
+        "checked": "2026-09-24"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/gemini-3-1-pro-preview.json",
+      "cost_evidence": {
+        "basis": "estimated_from_pricing_snapshot",
+        "forecast_run_id": "36075557088",
+        "score_run_id": "36169561374",
+        "workload_cost_usd": 59.044034,
+        "standard_rate_estimate_usd": 59.044026,
+        "note": "Standard-rate estimate recorded for the 91 successful cases."
+      },
+      "unit_source": "site/src/data/significance/gemini-3-1-pro-preview.jsonl",
+      "log_loss": 0.5928437470686482,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
     }
   ],
   "summary_experiment": {
@@ -1050,7 +1217,7 @@
     "summary_catalog": "site/public/data/summary-comparison/catalog.json"
   },
   "analysis_limits": [
-    "No all-fourteen significance analysis is claimed.",
+    "No significance ordering is claimed for the seventeen-configuration panel.",
     "Current labeling protocol is implementation/documentation evidence, not a census of completed historical human adjudications.",
     "No human forecasting baseline was run.",
     "Original beta has one retained successful forecast per unit; run-to-run variation is not measured."
