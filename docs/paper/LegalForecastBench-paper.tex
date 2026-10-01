@@ -77,7 +77,7 @@ Outcome-Based Reinforcement Learning to Predict the Future showed in 2025 that r
 \subsection{Benchmark validity and specification}
 The correct scoring rules are those that encourage honest probabilities in expectation \citep{brier,gneiting}. Statistical evaluation also must respect dependence among questions sharing a record \citep{miller}. OpenAI's published work on SWE-bench Verified also emphasizes the importance of avoiding specification error (which is relevant to the findings about rubric-based benchmarks, such as the preliminary audit of LAB). After publishing that benchmark in August 2024, OpenAI noted concerns in February 2026 that the benchmark no longer measures the coding capabilities of frontier models because the tests reject correct solutions and models were increasingly contaminated by having seen the open-source repositories often used for training purposes \citep{swebench,swecritique}. These specification problems apply both to rubric-based approaches and to our own outcome labels.
 
-\section{Dataset and task}
+\section{LegalForecastBench: Dataset and task}
 \subsection{Prediction target and information set}
 Let $c\in\{1,\ldots,C\}$ index cases and $u\in\mathcal U_c$ index scored units within case $c$. Each unit identifies a challenged claim or a separately resolvable pleaded subclaim against a moving defendant (or a group of similarly situated defendants, for whom the outcome is predicted together since the legal and factual arguments for dismissal are materially identical as to all of them). We used models to identify appropriate units based on the arguments articulated in each motion; an affirmative defense, an element of a legal cause of action, a requested remedy, or a distinct factual theory was not automatically treated as a separate unit. Rather, units generally tracked claims asserted in the complaint (in some cases with a single claim asserted against multiple defendants being treated as different units, if different defendants advanced different grounds for dismissal). The model receives the pre-decision record that the judge received $X_c$ and the unit specification $U_{cu}$ and returns
 \begin{equation}
@@ -85,7 +85,7 @@ Let $c\in\{1,\ldots,C\}$ index cases and $u\in\mathcal U_c$ index scored units w
 \end{equation}
 where $Y_{cu}=1$ means that the judge dismissed that claim-defendant unit in its entirety, in the target motion's first written disposition. That event is not a final victory in the lawsuit, since a plaintiff might be given an opportunity to file an amended complaint with additional allegations supporting a dismissed claim, other claims might survive even if some are dismissed, and the plaintiff normally has a right to appeal dismissal and seek a de novo adjudication of the issue from the circuit court of appeals.
 
-A full dismissal with leave to amend still has label 1 (i.e., a dismissal is coded the same way, even if it is without prejudice and the plaintiff may seek leave to amend the complaint and try again). A partial dismissal of some claims or theories that leaves the frozen unit alive in a material respect has label 0, meaning the claim-defendant unit must be entirely dismissed. Later amendment, settlement, reconsideration, and appellate reversal do not change the target; the model is specifically asked to predict only the trial judge's ruling on the specific motion to dismiss. Dispositions that cannot be reliably mapped to a unit were excluded from primary scoring. These choices sacrifice some procedural detail for a stable, objectively interpretable forecast event. Even with these limitations, label construction is a substantive legal task in its own right as the labeling models had to analyze the filed motions to determine what claims were being challenged and ascertain from the judge's ruling how those were resolved. Two labeling models had to agree on the units, and had the option to escalate ambiguous cases to me for review; in practice, the labeling process was iterative in this preliminary run, as we discovered a number of edge cases that needed to be resolved. The process started with 100 cases but seven were eliminated during the labeling process because the order did not decide the frozen claims, one was eliminated because it was a stipulated dismissal, and one was a plaintiffs' Rule 12(c) motion for judgment on the pleadings rather than a defendant's motion to dismiss under Rule 12(b).
+A full dismissal with leave to amend still has label 1 (i.e., a dismissal is coded the same way, even if it is without prejudice and the plaintiff may seek leave to amend the complaint and try again). A partial dismissal of some claims or theories that leaves the frozen unit alive in a material respect has label 0, meaning the claim-defendant unit was not entirely dismissed. Later amendment, settlement, reconsideration, and appellate reversal do not change the target; the model is specifically asked to predict only the trial judge's ruling on the specific motion to dismiss. Dispositions that cannot be reliably mapped to a unit were excluded from primary scoring. These choices sacrifice some procedural detail for a stable, objectively interpretable forecast event. Even with these limitations, label construction is a substantive legal task in its own right as the labeling models had to analyze the filed motions to determine what claims were being challenged and ascertain from the judge's ruling how those were resolved. Two labeling models had to agree on the units, and had the option to escalate ambiguous cases to me for review; in practice, the labeling process was iterative in this preliminary run, as we discovered a number of edge cases that needed to be resolved. The process started with 100 cases but seven were eliminated during the labeling process because the order did not decide the frozen claims, one was eliminated because it was a stipulated dismissal, and one was a plaintiffs' Rule 12(c) motion for judgment on the pleadings rather than a defendant's motion to dismiss under Rule 12(b).
 
 \begin{table}[ht]
 \centering\small
@@ -103,8 +103,11 @@ Disposition does not reliably resolve the frozen target & Excluded from primary 
 \label{tab:labels}
 \end{table}
 
-\subsection{Cohort construction and labeling}
-The analyzed set consists of 91 U.S. federal cases with written decisions dated June 30--August 7, 2026. The cases, as labeled, contained 409 claim-defendant units that could be forecasted. Of those, 387 are scored; 22 units therefore do not enter the headline metrics. The unscored units involved situations where the plaintiff voluntarily withdrew the frozen claim, the order did not cleanly grant or deny the frozen claim, or (for four units) we determined after freezing the unit that the frozen defendant was the wrong target or the motion did not address the frozen claim. Of the scored claim-defendant units, 285 were fully dismissed and 102 were not. The shared-summary preparation inventory contains 482 selected documents. The sample was not random; our pipeline favored cases where some of the necessary documents could be obtained from online databases, although we typically had to purchase a number of documents from the federal PACER system to ensure that the task included all the substantive filings on the motion that were before the judge.
+\subsection{Cohort construction}
+The analyzed set consists of 91 U.S. federal cases with written decisions dated June 30--August 7, 2026. The cases, as labeled, contained 409 claim-defendant units that could be forecasted. Of those, 387 are scored. Of the scored claim-defendant units, 285 were fully dismissed and 102 were not. The shared-summary preparation inventory contains 482 selected documents. The sample was not random; our pipeline favored cases where some of the necessary documents could be obtained from online databases, although we typically had to purchase a number of documents from the federal PACER system to ensure that the task included all the substantive filings on the motion that were before the judge.
+
+\subsection{Unitization and outcome labeling}
+Of the 409 claim-defendant units, 387 are scored; 22 units therefore do not enter the headline metrics. The unscored units involved situations where the plaintiff voluntarily withdrew the frozen claim, the order did not cleanly grant or deny the frozen claim, or (for four units) we determined after freezing the unit that the frozen defendant was the wrong target or the motion did not address the frozen claim.
 
 The case construction and labeling pipeline used models as well as human legal oversight from me. We did take pains to maintain separation between \emph{unitization} and \emph{outcome coding}. In particular, we wished to avoid the possibility that the prediction units could leak information about the judge's ultimate outcome to the models that were performing prediction. AI models first were asked to identify the claim-defendant units that a motion sought to dismiss, based only on the pre-decision materials (the motion and the docket). A later stage was given access to the claim-defendant units and the judge's order disposing of the motion, to interpret the disposition for each frozen target. The labeling pipeline we used requires structured outcome agreement and supporting disposition excerpts for automatic acceptance; disagreements between models, ambiguity, and structural defects in the cases were routed to me for lawyer review and a decision. I resolved disputed units and corrected labels as necessary. For purposes of the initial release, this process was iterative and we did not track a blinded human-audit error estimate.
 
@@ -131,18 +134,18 @@ The case construction and labeling pipeline used models as well as human legal o
 \end{figure}
 
 
-\subsection{Temporal design and contamination}
+\subsection{Temporal isolation and contamination}
 The models predicting outcomes were not given access to the target decision or the outcome. The construction pipeline also screens docket and filing text to avoid outcome leakage. Models had access to document text tools in a sandbox with no Internet access. Model API calls were made with provider-side web search tools disabled where applicable.
 
 The decisions used in the benchmark were handed down after the reported knowledge or training cutoffs for fifteen of the seventeen tested models. Kimi and Muse did not publish training cutoffs, but based on the model release dates, it appears unlikely that those models were exposed to the decisions being tested in training.
 
-The acquisition and labeling pipeline is designed to create new cohorts in the future, when new decisions become available. This enables fresh comparisons even after models might have been trained on the decisions at issue here. However, the downside is that refreshing a benchmark changes its case mix and difficulty, scores from different versions cannot be interpreted as a time series of model improvement.
+The acquisition and labeling pipeline is designed to create new cohorts in the future, when new decisions become available. This enables fresh comparisons even after models might have been trained on the decisions at issue here. However, the downside is that refreshing a benchmark changes its case mix and difficulty; scores from different versions cannot be interpreted as a time series of model improvement.
 
-\section{Evaluation protocol and scoring}
-\subsection{Execution}
+\section{Evaluation protocol}
+\subsection{Model execution}
 The main comparison uses a common document-access interface. Models can read documents using tools and produce a probability for each unit, together with a short rationale. Provider-specific reasoning settings are retained in the run registries. Appendix~\ref{app:protocol} lists the configuration settings. The study population is the seventeen configurations in Table~\ref{tab:main}.
 
-\subsection{Proper scores and descriptive references}
+\subsection{Metrics}
 For $N=\sum_c |\mathcal U_c|=387$ and $C=91$, the primary metric is the micro-Brier loss
 \begin{equation}
  B_{\mathrm{micro}}=\frac{1}{N}\sum_{c=1}^C\sum_{u\in\mathcal U_c}(p_{cu}-Y_{cu})^2.
@@ -153,7 +156,7 @@ The equal-case score changes the estimand by giving each case the same weight:
  B_{\mathrm{case}}=\frac{1}{C}\sum_{c=1}^C\frac{1}{|\mathcal U_c|}\sum_{u\in\mathcal U_c}(p_{cu}-Y_{cu})^2.
 \label{eq:case}
 \end{equation}
-Lower is better for both. Micro-Brier treats each scored claim--defendant unit equally, so cases that involve a motion to dismiss many separate claims receive more weight than cases where only one claim and defendant was subject to a motion to dismiss. Equal-case Brier weights each prediction unit in proportion to the number of units from that case.
+Lower is better for both. Micro-Brier treats each scored claim--defendant unit equally, so cases that involve a motion to dismiss many separate claims receive more weight than cases where only one claim and defendant was subject to a motion to dismiss. Equal-case Brier weights each prediction unit in inverse proportion to the number of units from that case.
 
 The Brier rule is strictly proper for the binary target. If the true conditional event probability is $q$, then
 \begin{equation}
@@ -162,7 +165,7 @@ The Brier rule is strictly proper for the binary target. If the true conditional
 \end{equation}
 which is minimized by reporting $p=q$. The second term is irreducible uncertainty for that information set. A set of observable judicial events therefore create a verifiable score across the entire probability distribution, even though a single realized outcome standing alone does not reveal whether the individual probability a model assigned to that outcome was correct ex ante \citep{brier,gneiting}.
 
-We report accuracy at threshold $p\geq0.5$ as a secondary descriptive metric; in other words, accuracy percentage is simply the percentage of cases where the model assigned a 50% or greater probability to the correct outcome.
+We report accuracy at threshold $p\geq0.5$ as a secondary descriptive metric; in other words, accuracy percentage is simply the percentage of units where the model assigned a 50% or greater probability to the correct outcome.
 
 The observed dismissal frequency is $\widehat\pi=285/387=0.73643$. Always predicting dismissal has accuracy 73.64\%, so a constant forecast $p=\widehat\pi$ has micro-Brier $\widehat\pi(1-\widehat\pi)=0.19410$. The constant is fitted retrospectively on this cohort, so it is a descriptive reference, not a baseline derived from earlier cases. The uninformative forecast $p=0.5$ has Brier 0.25.
 
@@ -172,7 +175,7 @@ Log loss is a complementary diagnostic:
 \end{equation}
 For a wrong forecast assigning 0.99 to the predicted class, Brier loss is 0.9801 and log loss is approximately 4.605; at confidence 0.90 the corresponding losses are 0.81 and 2.303. Thus log loss imposes a large penalty on extreme errors, specifically, instances where the model assigned a very high probability to the outcome that did not occur.
 
-\subsection{Uncertainty and scope of inference}
+\subsection{Statistical dependence and uncertainty}
 Claim--defendant units from the same case share facts and legal issues; distinct claims in a single case may suffer from closely related legal defects, so the outcomes are not independent. We therefore measure within-case dependence using an observed-scale intraclass correlation coefficient (ICC) \citep{makicc}.
 
 % BEGIN GENERATED CLUSTERING
@@ -182,7 +185,7 @@ Across the 387 scored units in 91 cases, the observed-scale outcome ICC was 0.76
 The observed dependence supports resampling whole cases, with model predictions kept paired, when estimating uncertainty in score differences \citep{cameronmiller}. The seventeen-configuration table is descriptive and does not claim a significance ordering. It does not measure variation across repeated model runs \citep{miller}.
 
 \section{Results}
-\subsection{Full-document comparison}
+\subsection{Frontier models substantially outperform unconditional references}
 Table~\ref{tab:main} reports the seventeen configurations on the ranked leaderboard. GPT-6 Sol achieves the best observed micro-Brier (0.11763), equal-case Brier (0.12949), and accuracy (327/387, 84.50\%). All seventeen beat the retrospectively fitted constant micro-Brier of 0.19410; GPT-6 Sol's micro-Brier is lower than that constant by about 39.4\%.
 
 Sixteen configurations also beat majority-class accuracy (the 73.64\% accuracy of predicting dismissal for every unit). Muse Spark 1.3 does not: 279/387 correct forecasts is 72.09\%. Gemini 3.1 Pro Preview has the highest micro-Brier in the panel (0.18345) and still beats that accuracy baseline (302/387, 78.04\%).
@@ -314,7 +317,7 @@ More expensive or newer configurations do not uniformly score better:
 \item GPT-6 Luna's full-document scores are worse than GPT-5.6 Luna's: micro-Brier 0.16368 versus 0.14322, and accuracy 76.49\% versus 80.88\%.
 \end{itemize}
 
-\subsection{Sharp forecasts and confident errors}
+\subsection{Confidence and calibration}
 Define confidence $h_{cu}=\max(p_{cu},1-p_{cu})$ and the high-confidence subset $H_m=\{(c,u):h_{cu}\geq0.9\}$ for configuration $m$. Comparing the mean confidence in $H_m$ with classification accuracy in $H_m$ gives a useful conditional calibration diagnostic. Of course, this is not a full reliability curve; the subset differs by model, and its units remain clustered by case.
 
 OpenAI models appeared more likely than others to make high-confidence forecasts. GPT-5.6 Sol, GPT-5.6 Luna, and Astra make high-confidence forecasts on 58.9\%, 47.0\%, and 53.5\% of units respectively, compared with 20.9\% for Fable 5.1. Their mean confidence in those subsets is approximately 95--97\%, while realized accuracy is approximately 89--90\%, suggesting some overconfidence, particularly for Astra, which missed 21 of 207 such predictions. Gemini 3.8 Flash also had relatively high sharpness, making 276 high-confidence forecasts (71.3\% of units) and missing 35. Gemini 3.1 Pro Preview is sharper still, making 320 high-confidence forecasts and missing 57. GPT-6 Sol provides a useful counterexample within OpenAI, missing 8 of 169 high-confidence forecasts, for 95.3\% subset accuracy. GPT-6.1 Sol is sharper and less accurate in that subset, missing 18 of 199. GPT-6 Luna misses 19 of 183. Claude Opus 5.5 misses none of 65. 
@@ -410,10 +413,10 @@ Other high-performing models were less sharp. For example, Fable has no errors a
 The normalized successful-workload costs range from \$0.62 for GPT-6 Luna to \$83.18 for Fable. These are not actual invoice charges. For example, Fable was initially run without caching, resulting in an actual cost of \$189.70. The normalized price was reconstructed after the fact using turn-by-turn token counts, with the reconstruction validated against real billing data from other Anthropic model runs. In several other cases, provider discounts that we received were normalized to standard API rates.
 On these standardized estimates, GPT-6 Luna, GPT-5.6 Luna, and GPT-6 Sol form the observed micro-Brier cost--score frontier.
 
-\section{Evaluation of Jev, a non-autoregressive decision model}
+\subsection{Shared-summary experiment: Jev and Luna}
 Jev is described by its developer as a probabilistic ``System One'' model, exposing native Boolean probabilities rather than generating text or using tools agentically as frontier models do \citep{jevdocs}. Because Jev's context window and lack of agentic tool calling differ from the document-enabled configurations used with frontier models, Jev was evaluated as a separate experiment.
 
-The full set of documents relevant to motions to dismiss are frequently much longer than Jev's context window, so GPT-5.6 Luna summarized each document with instructions to preserve material facts, arguments, authorities, and procedural posture without commentary or analysis. The Luna summarizer received only the motion documents that forecasting models received, not outcome labels, the actual judicial disposition, or other models' forecasts. Jev and two Luna comparator configurations then received the same frozen summary and unit questions in a single request per case, without document tools or follow-up turns. The conditions compare Jev through the \texttt{typesafe-ai/jev} Gateway alias, GPT-5.6 Luna with high reasoning, and GPT-6 Luna without reasoning.
+The full set of documents relevant to motions to dismiss is frequently much longer than Jev's context window, so GPT-5.6 Luna summarized each document with instructions to preserve material facts, arguments, authorities, and procedural posture without commentary or analysis. The Luna summarizer received only the motion documents that forecasting models received, not outcome labels, the actual judicial disposition, or other models' forecasts. Jev and two Luna comparator configurations then received the same frozen summary and unit questions in a single request per case, without document tools or follow-up turns. The conditions compare Jev through the \texttt{typesafe-ai/jev} Gateway alias, GPT-5.6 Luna with high reasoning, and GPT-6 Luna without reasoning.
 \begin{table}[tb]\centering\small
 \begin{tabular}{lrrr}\toprule
 Condition & Micro Brier & Case Brier & Acc. (\%)\\\midrule
