@@ -1030,7 +1030,7 @@ def test_gemini_usage_without_thinking_tokens_is_unchanged(
     )
 
 
-def test_complete_live_prompt_passes_explicit_json_schema_only_to_gemini() -> None:
+def test_complete_live_prompt_passes_explicit_json_schema_to_gemini() -> None:
     transport = _FixtureTransport(
         {
             "modelVersion": "models/gemini-test-2026-05-14",
@@ -1058,16 +1058,6 @@ def test_complete_live_prompt_passes_explicit_json_schema_only_to_gemini() -> No
 
     body = _json_body(transport.only_request())
     assert body["generationConfig"]["responseJsonSchema"] == schema
-
-
-def test_complete_live_prompt_rejects_json_schema_for_unsupported_provider() -> None:
-    with pytest.raises(LiveModelConfigError, match="not supported for provider openai"):
-        complete_live_prompt(
-            _registry_entry("openai", "gpt-test"),
-            "Return structured JSON.",
-            environ={"OPENAI_API_KEY": "openai-secret"},
-            response_json_schema={"type": "object"},
-        )
 
 
 @pytest.mark.parametrize(
