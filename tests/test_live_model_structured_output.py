@@ -23,7 +23,10 @@ from legalforecast.evals.live_model_solver import (
     complete_live_prompt,
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
-from legalforecast.evals.structured_output import openai_strict_json_schema
+from legalforecast.evals.structured_output import (
+    anthropic_output_format,
+    openai_strict_json_schema,
+)
 from legalforecast.openai_transport import (
     OPENAI_SERVICE_TIER,
     VERCEL_AI_GATEWAY_RESPONSES_URL,
@@ -389,3 +392,25 @@ def test_schema_the_provider_cannot_enforce_strictly_fails_before_transport(
         )
 
     assert transport.requests == []
+
+
+def test_anthropic_schema_accepts_nullable_type_lists() -> None:
+    """The SDK transform asserts on ``type: [..., "null"]``; it becomes anyOf."""
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "kind": {"type": ["string", "null"], "enum": ["a", "b", None]},
+            "count": {"type": ["integer", "null"], "minimum": 1},
+        },
+        "required": ["kind", "count"],
+        "additionalProperties": False,
+    }
+
+    properties = anthropic_output_format(schema)["schema"]["properties"]
+
+    assert properties["kind"] == {
+        "anyOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]
+    }
+    assert properties["count"]["anyOf"][0]["type"] == "integer"
+    assert properties["count"]["anyOf"][1] == {"type": "null"}

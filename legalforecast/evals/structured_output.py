@@ -99,7 +99,62 @@ def anthropic_output_format(schema: Mapping[str, Any]) -> dict[str, object]:
             "Anthropic strict structured output needs the anthropic package "
             "(install the managed-anthropic extra)"
         ) from exc
-    return {"type": "json_schema", "schema": transform_schema(dict(schema))}
+    return {
+        "type": "json_schema",
+        "schema": transform_schema(_type_lists_as_any_of(schema)),
+    }
+
+
+def _type_lists_as_any_of(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Rewrite ``type: [t, "null"]`` as ``anyOf``, which the SDK transform accepts.
+
+    ``anthropic.transform_schema`` asserts on a list-valued ``type``; nullable
+    fields (including the ones OpenAI strict form produces) are spelled that way.
+    """
+
+    result: dict[str, Any] = dict(schema)
+    properties = schema.get("properties")
+    if isinstance(properties, Mapping):
+        result["properties"] = {
+            name: _type_lists_as_any_of(child)
+            for name, child in cast(Mapping[str, Mapping[str, Any]], properties).items()
+        }
+    items = schema.get("items")
+    if isinstance(items, Mapping):
+        result["items"] = _type_lists_as_any_of(cast(Mapping[str, Any], items))
+    options = schema.get("anyOf")
+    if isinstance(options, list):
+        result["anyOf"] = [
+            _type_lists_as_any_of(option)
+            for option in cast(list[Mapping[str, Any]], options)
+        ]
+    for key in _SUBSCHEMA_MAP_KEYS:
+        definitions = schema.get(key)
+        if isinstance(definitions, Mapping):
+            result[key] = {
+                name: _type_lists_as_any_of(definition)
+                for name, definition in cast(
+                    Mapping[str, Mapping[str, Any]], definitions
+                ).items()
+            }
+    kinds = result.get("type")
+    if not isinstance(kinds, list):
+        return result
+    shared = {k: v for k, v in result.items() if k not in {"type", "description"}}
+    branches: list[dict[str, Any]] = []
+    for kind in cast(list[str], kinds):
+        if kind == "null":
+            branches.append({"type": "null"})
+            continue
+        branch: dict[str, Any] = {**shared, "type": kind}
+        enum = shared.get("enum")
+        if isinstance(enum, list):
+            branch["enum"] = [v for v in cast(list[object], enum) if v is not None]
+        branches.append(branch)
+    any_of: dict[str, Any] = {"anyOf": branches}
+    if "description" in result:
+        any_of["description"] = result["description"]
+    return any_of
 
 
 def openai_strict_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
