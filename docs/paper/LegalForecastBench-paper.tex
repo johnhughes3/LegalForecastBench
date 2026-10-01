@@ -8,7 +8,7 @@
 \usepackage{caption}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage[colorlinks=true,allcolors=blue!45!black,breaklinks=true]{hyperref}
-\hypersetup{pdftitle={LegalForecastBench: Forecasting Judicial Decisions as a Test of Legal Reasoning Ability},pdfauthor={John J. Hughes, III},pdfsubject={Legal forecasting, probabilistic evaluation, and outcome feedback},pdfkeywords={legal AI, forecasting, benchmark, Brier score, reinforcement learning}}
+\hypersetup{pdftitle={Law Can Be a Verifiable Domain: Using Real-World Judicial Outcomes to Evaluate AI Legal Reasoning},pdfauthor={John J. Hughes, III},pdfsubject={Legal forecasting, probabilistic evaluation, and outcome feedback},pdfkeywords={legal AI, forecasting, benchmark, Brier score, reinforcement learning}}
 \urlstyle{same}
 \captionsetup{font=small,labelfont=bf}
 % Drafting markers. A line starting with % TODO is visible only in the source.
@@ -25,7 +25,7 @@
 \usepackage[skip=0.6em]{parskip}
 \title{LegalForecastBench: Forecasting Judicial Decisions\\as a Test of Legal Reasoning Ability}
 \author{John J. Hughes, III\\Independent researcher\\\url{https://www.johnjhughes3.com/research/}}
-\date{Working paper --- September 30, 2026}
+\date{Working draft --- October 1, 2026}
 \begin{document}
 \maketitle
 \begin{abstract}
@@ -406,10 +406,10 @@ Other high-performing models were less sharp. For example, Fable has no errors a
 The normalized successful-workload costs range from \$0.62 for GPT-6 Luna to \$83.18 for Fable. These are not actual invoice charges. For example, Fable was initially run without caching, resulting in an actual cost of \$189.70. The normalized price was reconstructed after the fact using turn-by-turn token counts, with the reconstruction validated against real billing data from other Anthropic model runs. In several other cases, provider discounts that we received were normalized to standard API rates.
 On these standardized estimates, GPT-6 Luna, GPT-5.6 Luna, and GPT-6 Sol form the observed micro-Brier cost--score frontier.
 
-\section{A shared-summary experiment with Jev}
-Jev is described by its developer as a probabilistic ``System One'' model, exposing native Boolean probabilities rather than generating text or using tools agentically as frontier models do \citep{jevdocs}. Because Jev's context window and lack of agentic tool calling differ from the document-enabled configurations used with frontier models, we evaluated Jev as a separate experiment.
+\section{Evaluation of Jev, a non-autogressive decision model}
+Jev is described by its developer as a probabilistic ``System One'' model, exposing native Boolean probabilities rather than generating text or using tools agentically as frontier models do \citep{jevdocs}. Because Jev's context window and lack of agentic tool calling differ from the document-enabled configurations used with frontier models, Jev was evaluated as a separate experiment.
 
-Because the full set of documents relevant to motions to dismiss are frequently much longer than Jev's context window, GPT-5.6 Luna summarized each document with instructions to preserve material facts, arguments, authorities, and procedural posture without commentary or analysis. The Luna summarizer received only the motion documents that forecasting models received, not outcome labels, the actual judicial disposition, or other models' forecasts. Jev and two Luna comparator configurations then received the same frozen summary and unit questions in a single request per case, without document tools or follow-up turns. The conditions compare Jev through the \texttt{typesafe-ai/jev} Gateway alias, GPT-5.6 Luna with high reasoning, and GPT-6 Luna without reasoning.
+The full set of documents relevant to motions to dismiss are frequently much longer than Jev's context window, so GPT-5.6 Luna summarized each document with instructions to preserve material facts, arguments, authorities, and procedural posture without commentary or analysis. The Luna summarizer received only the motion documents that forecasting models received, not outcome labels, the actual judicial disposition, or other models' forecasts. Jev and two Luna comparator configurations then received the same frozen summary and unit questions in a single request per case, without document tools or follow-up turns. The conditions compare Jev through the \texttt{typesafe-ai/jev} Gateway alias, GPT-5.6 Luna with high reasoning, and GPT-6 Luna without reasoning.
 \begin{table}[tb]\centering\small
 \begin{tabular}{lrrr}\toprule
 Condition & Micro Brier & Case Brier & Acc. (\%)\\\midrule
@@ -501,11 +501,14 @@ One major limitation of LegalForecastBench, relative to alternatives, is that is
 
 A basic principle observed in the legal profession is that lawyers must confine their argument to the strongest points, not raise every possible point, and generally should put the strongest arguments first in the brief, moving on to points that are less likely to be dispositve later. In \emph{Jones v. Barnes}, the Supreme Court expressly recognized the value of selecting stronger appellate arguments and the risk that adding weaker ones can dilute them \citep{jonesbarnes}. In order to prepare good work product, then, models need to distinguish the potentially dispositive issues from objections or points that are technically valid but less likely to drive the ultimate outcome. 
 
-\section{Task validity and rubric-based legal evaluation}
+\section{Harvey's LAB: How rewards from human-specified rubrics compare with externally realized outcome signals}
 \subsection{Why the reward definition matters}
-A June 2026 Harvey industry article characterizes litigation as slower to adopt agents than some volume-driven workflows; this is a vendor observation, not a measured cross-practice adoption study \citep{litigationAdoption}. Harvey launched LAB on May 6, 2026 as an open-source collection of legal-agent tasks with matter files, requested deliverables, and expert-written criteria \citep{harveyLAB}. The launch describes 1,200 tasks spanning 24 practice areas and more than 75,000 criteria. Its initial-results report announced a partnership with Artificial Analysis, which subsequently introduced a 120-task LAB-AA variant \citep{harveyInitial,labAA}. This establishes a prominent industry evaluation effort, not a field-wide consensus that LAB or its publisher uniquely defines legal capability.
 
-LAB-style criteria also enter training. Harvey and Applied Compute report full-parameter reinforcement learning of a legal agent using rubric-based rewards \citep{harveyTraining}. Harvey's August 2026 Tenet research preview describes asynchronous RL of a Kimi K3-based model, with rewards combining criterion coverage, issue-level success, and perfect-completion bonuses. It reports gains on LAB and other legal benchmarks \citep{tenet}. These are first-party training reports, not independent replications, but they make task validity consequential: a misspecified reward can shape learned behavior as well as a leaderboard.
+In the absence of an external event that can resolve a target and provide reward, evaluation generally must substitute a human-specified proxy. JudgmentBench compared two alternative approaches: human preference evaluation and human-specified rubrics. [[cite]] Although JudgmentBench suggested that preference evaluation recovered the intended quality ordering better with less annotation time than rubrics, the most frequently cited legal benchmark today, Harvey's LAB, uses rubric-based scoring (with LLM as judges). Launched on May 6, 2026, LAB contains 1,200 tasks spanning 24 practice areas and more than 75,000 criteria \citep{harveyLAB,harveyInitial,labAA}. LAB-style tasks have been used for evaluation as well as for training. Harvey and Applied Compute undertook full-parameter reinforcement learning of a legal agent using rubric-based rewards \citep{harveyTraining}. And in August 2026, Harvey announced it was creating its own model (Tenet), using Kimi K3 as a base, that acheived gains on LAB and other legal benchmarks \citep{tenet}. 
+
+One major advantage of rubric-based approaches like LAB is that they can help score 
+
+
 
 Rubrics are useful when they encode meaningful requirements and are reliably graded. The risk is a mismatch among the requested work, the record supplied, the legal answer prescribed by a criterion, and the grader's application of that criterion. These are distinct failure modes. JudgmentBench's comparison of expert rubric scores and pairwise preferences on 30 BigLaw Bench tasks provides related empirical motivation, although its constructed quality levels and task selection limit generalization \citep{judgmentbench}.
 
@@ -543,6 +546,9 @@ The checked Gym artifacts contain no completed parameter-update experiment or he
 
 The intended learning study asks whether earlier outcome feedback improves predictions on later, disjoint matters and whether any gains extend beyond forecasting. Parameter learning, in-context feedback, and changes to the surrounding agent system are different interventions. Each needs a matched control and a held-out endpoint. Forecasting literature makes such learning plausible, and OpenForecaster reports calibration transfer to other question-answering benchmarks; those findings do not establish improved litigation strategy \citep{outcomerl,openforecaster}. Appendix~\ref{app:study} specifies a concrete prospective design.
 
+
+
+A June 2026 Harvey industry article characterizes litigation as slower to adopt agents than some volume-driven workflows; this is a vendor observation, not a measured cross-practice adoption study \citep{litigationAdoption}. 
 
 \section{Limitations and generalization}
 \paragraph{Selection into adjudication.} The target population is a set of accessible cases with written motion decisions, not all disputes, all filed cases, or all contemplated motions. Parties settle, abandon claims, amend pleadings, or choose not to sue. Cases reaching a published disposition may differ in uncertainty, stakes, representation, and bargaining conditions. Calibration conditional on reaching this dataset does not establish calibration for counterfactual outcomes in the broader dispute population \citep{priestklein}. At the same time, selection does not prove that learned skills cannot transfer: that is an empirical question requiring an independently defined evaluation population.

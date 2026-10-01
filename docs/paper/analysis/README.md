@@ -13,6 +13,8 @@ uv run --frozen python docs/paper/analysis/clustering.py --check --manuscript do
 
 The first command writes [results.json](results.json), [summary.tex](summary.tex), and the paragraph between the manuscript's `BEGIN GENERATED CLUSTERING` and `END GENERATED CLUSTERING` comments. The rest of the manuscript is untouched. The second recomputes the analysis and fails if those results or the marked paragraph are stale; the Paper workflow runs it before compiling the PDF. A changed dataset therefore requires regenerating and reviewing the results alongside the source change.
 
+That paragraph is generated so the quoted counts and intervals stay tied to the public unit exports. Its wording lives in `render_summary`. Change the wording there, then regenerate. Editing the marked paragraph in the manuscript alone makes the check fail. Pair-agreement counts remain in `results.json` when the paragraph does not quote them.
+
 Use `--inputs` for another cohort manifest, `--output-dir` for another destination, and `--seed`, `--bootstrap`, or `--permutations` to change the resampling configuration. The manifest's `models` maps model identifiers to unit-export paths relative to the manifest. Each JSONL row needs `case_id`, `unit_id`, binary `outcome`, and finite `probability_fully_dismissed` between zero and one. Run `--help` for the complete interface. The defaults are seed 20260930, 20,000 whole-case bootstrap draws, and 20,000 label permutations; NumPy is pinned by the repository lockfile.
 
 ## Estimator and interpretation
