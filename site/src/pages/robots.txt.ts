@@ -1,9 +1,10 @@
 import type { APIRoute } from "astro";
 
-/** Allow crawling and point to the generated sitemap on the configured site. */
+import { robotsTxt } from "../seo/robots";
+
 export const GET: APIRoute = ({ site }) => {
-	const sitemap = new URL("sitemap-index.xml", site).toString();
-	return new Response(`User-agent: *\nAllow: /\n\nSitemap: ${sitemap}\n`, {
+	if (!site) throw new Error("site is not configured");
+	return new Response(robotsTxt(site), {
 		headers: { "Content-Type": "text/plain; charset=utf-8" },
 	});
 };

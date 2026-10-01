@@ -2,6 +2,7 @@
 import { getEntry, render } from "astro:content";
 import MethodsSummary from "../components/methods/MethodsSummary.astro";
 import Layout from "../layouts/Layout.astro";
+import { COPY } from "../seo/copy";
 
 const methods = await getEntry("docs", "methods");
 if (!methods)
@@ -29,7 +30,7 @@ const technicalHtml = methods.rendered.html
 	);
 ---
 
-<Layout title="Methods" description="How LegalForecastBench builds its cases, runs models, and scores forecasts.">
+<Layout title={COPY.methods.title} description={COPY.methods.description}>
 	<section class="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
 		<MethodsSummary />
 	</section>

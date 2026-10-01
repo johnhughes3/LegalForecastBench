@@ -1,12 +1,15 @@
 ---
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-
+import cff from "../../../CITATION.cff?raw";
 import CiteBox from "../components/CiteBox.astro";
 import { AUTHOR, REPO } from "../data/author";
+import { parseCitation } from "../data/citation";
 import { repositoryRoot } from "../data/manuscript";
 import { currentPaper, PAPER } from "../data/paper";
 import Layout from "../layouts/Layout.astro";
+import { COPY } from "../seo/copy";
+import { scholarlyArticle } from "../seo/jsonld";
 
 const workingPdfOnDisk = existsSync(
 	resolve(repositoryRoot(), `site/public${PAPER.workingPdf}`),
@@ -20,13 +23,32 @@ const fmt = (iso: string) =>
 		timeZone: "UTC",
 	});
 const history = [...PAPER.versions].reverse();
+const citation = parseCitation(cff);
+const articleLd = scholarlyArticle({
+	headline: PAPER.title,
+	description: PAPER.abstract.join(" "),
+	url: new URL("/paper/", Astro.site).href,
+	authorName: PAPER.author,
+	datePublished: citation.date,
+	dateModified: PAPER.revisedOn,
+});
 ---
 
-<Layout title="Working paper" description={`${PAPER.title}. ${PAPER.status} by ${PAPER.author}.`}>
+<Layout
+	title={COPY.paper.title}
+	description={`${PAPER.title}. ${PAPER.status} by ${PAPER.author}.`}
+	schema={[articleLd]}
+>
 	<article class="mx-auto max-w-4xl px-4 pt-14 sm:px-6">
 		<p class="eyebrow">{PAPER.status}{currentPaper && ` · v${currentPaper.version} · ${fmt(currentPaper.date)}`}</p>
 		<h1 class="mt-3 font-serif text-3xl font-medium leading-tight tracking-tight sm:text-5xl">{PAPER.title}</h1>
 		<p class="mt-5 text-base text-ink-2"><a class="font-medium text-ink hover:text-accent" href={AUTHOR.research}>{PAPER.author}</a></p>
+		<p class="mt-2 text-sm text-ink-3">
+			{citation.date && <><span>Citation date </span><time datetime={citation.date}>{fmt(citation.date)}</time></>}
+			{PAPER.revisedOn && PAPER.revisedOn !== citation.date && (
+				<> · Manuscript updated <time datetime={PAPER.revisedOn}>{fmt(PAPER.revisedOn)}</time></>
+			)}
+		</p>
 
 		<div class="mt-8 flex flex-wrap gap-3">
 			{workingPdfOnDisk ? (

@@ -8,6 +8,7 @@ import { formatPercent, formatUsd, paretoFrontier } from "../data/metrics";
 import { primarySnapshot, snapshot } from "../data/results";
 import { supplementaryRows } from "../data/supplementary-results";
 import Layout from "../layouts/Layout.astro";
+import { COPY } from "../seo/copy";
 
 const { cohort } = snapshot;
 const ranked = [...primarySnapshot.models].sort(
@@ -53,7 +54,7 @@ const jevRow = supplementaryRows.find(
 );
 ---
 
-<Layout title="Results" description="Full-document leaderboard, cost frontier, and calibration for every model configuration in the current LegalForecastBench release.">
+<Layout title={COPY.results.title} description={COPY.results.description}>
 	<section class="border-b border-rule">
 		<div class="mx-auto max-w-6xl px-4 pb-10 pt-14 sm:px-6">
 			<p class="eyebrow">Results · {CURRENT_RELEASE}</p>

@@ -1,81 +1,31 @@
 ---
 import CiteBox from "../components/CiteBox.astro";
+import {
+	APPROACH_COMPARISON,
+	APPROACH_HEADING,
+	APPROACH_LEAD,
+	APPROACH_PIPELINE,
+} from "../data/approach";
 import Layout from "../layouts/Layout.astro";
-
-const pipeline = [
-	{
-		step: "Public record",
-		body: "Complaints, motions, oppositions, replies, and the docket, filed publicly in federal court.",
-	},
-	{
-		step: "Curation",
-		body: "Select usable motions, repair mislabeled dockets, confirm the record the judge saw, and define each claim-defendant unit.",
-	},
-	{
-		step: "Two signals",
-		body: "The outcome of each unit, which can be checked, and the judge's written reasoning, which explains why.",
-	},
-	{
-		step: "Uses",
-		body: "Evaluation designed to limit contamination today. Possibly verifiable training signal for legal judgment tomorrow.",
-	},
-];
-
-const comparison = [
-	[
-		"What is graded",
-		"Whether the forecast matched what the court actually did",
-		"Whether a deliverable satisfies criteria an expert wrote in advance",
-	],
-	[
-		"Who writes the answer key",
-		"The court, in its written ruling",
-		"The benchmark's authors",
-	],
-	[
-		"How it is scored",
-		"A proper scoring rule (Brier) over probabilities",
-		"Model judges applying pass/fail criteria",
-	],
-	[
-		"Main failure mode",
-		"Noisy or mislabeled outcomes; a narrow task",
-		"Criteria that are wrong, inconsistent, or unrequested",
-	],
-	[
-		"What it measures best",
-		"Calibrated judgment about how a real decision-maker will act",
-		"Quality and completeness of legal work product",
-	],
-	[
-		"Contamination",
-		"Decisions must postdate the reported training or knowledge cutoff; limited contamination remains an assumption",
-		"Tasks can be held out, but grow stale once public",
-	],
-];
+import { COPY } from "../seo/copy";
 ---
 
-<Layout
-	title="Approach"
-	description="Why public litigation makes parts of law a verifiable domain, and how outcome-based evaluation compares with rubric-based grading."
->
+<Layout title={COPY.approach.title} description={COPY.approach.description}>
 	<article class="mx-auto max-w-6xl px-4 pt-12 sm:px-6">
 		<header class="max-w-3xl">
 			<p class="eyebrow">Approach</p>
-			<h1 class="mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">Law can be a verifiable domain</h1>
-			<p class="mt-5 text-lg leading-relaxed text-ink-2">
-				AI has improved fastest where answers can be checked: code that compiles and passes tests, math with a known result. Law has seemed different, because good legal work is judged by other lawyers and much of it is confidential. Public litigation changes that for an important slice of legal reasoning.
-			</p>
+			<h1 class="mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">{APPROACH_HEADING}</h1>
+			<p class="mt-5 text-lg leading-relaxed text-ink-2">{APPROACH_LEAD}</p>
 			<p class="mt-5 text-sm text-ink-3">John J. Hughes, III</p>
 		</header>
 
 		<div class="mt-12 grid gap-3 md:grid-cols-4" aria-label="From public filings to evaluation signal">
-			{pipeline.map((item, i) => (
+			{APPROACH_PIPELINE.map((item, i) => (
 				<div class="card relative p-5">
 					<p class="font-serif text-sm text-accent">0{i + 1}</p>
 					<h2 class="mt-2 font-serif text-lg font-semibold">{item.step}</h2>
 					<p class="mt-2 text-sm leading-relaxed text-ink-2">{item.body}</p>
-					{i < pipeline.length - 1 && <span class="absolute -right-2.5 top-1/2 hidden -translate-y-1/2 text-rule-strong md:block" aria-hidden="true">→</span>}
+					{i < APPROACH_PIPELINE.length - 1 && <span class="absolute -right-2.5 top-1/2 hidden -translate-y-1/2 text-rule-strong md:block" aria-hidden="true">→</span>}
 				</div>
 			))}
 		</div>
@@ -139,7 +89,7 @@ const comparison = [
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-rule">
-						{comparison.map(([dimension, outcome, rubric]) => (
+						{APPROACH_COMPARISON.map(([dimension, outcome, rubric]) => (
 							<tr>
 								<th scope="row" class="w-44 px-4 py-3 align-top font-medium text-ink">{dimension}</th>
 								<td class="px-4 py-3 align-top text-ink-2">{outcome}</td>

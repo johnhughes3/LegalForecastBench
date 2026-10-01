@@ -15,6 +15,8 @@ export interface Manuscript {
 	abstract: readonly string[];
 	/** True when the abstract still carries a drafting mark or a TODO. */
 	abstractIsDraft: boolean;
+	/** ISO date from `\date`, when that command contains a calendar date. */
+	revisedOn: string | null;
 }
 
 const DROP_COMMANDS = new Set([
@@ -78,6 +80,7 @@ export function parseManuscript(source: string): Manuscript {
 		title,
 		abstract,
 		abstractIsDraft: /\\draft\b|\\todo\b|%\s*TODO\b/.test(rawAbstract),
+		revisedOn: isoDate(optionalCommandArgument(source, "date") ?? ""),
 	};
 }
 
@@ -95,12 +98,47 @@ function stripComments(source: string): string {
 		.join("\n");
 }
 
-function commandArgument(source: string, name: string): string {
+const MONTHS = [
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
+] as const;
+
+/** Pull `Month D, YYYY` out of a manuscript date command. */
+function isoDate(text: string): string | null {
+	const match =
+		/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s*(\d{4})\b/.exec(
+			text,
+		);
+	if (!match) return null;
+	const month = String(
+		MONTHS.indexOf(match[1] as (typeof MONTHS)[number]) + 1,
+	).padStart(2, "0");
+	const day = match[2]?.padStart(2, "0");
+	return `${match[3]}-${month}-${day}`;
+}
+
+function optionalCommandArgument(source: string, name: string): string | null {
 	const match = new RegExp(`\\\\${name}\\*?(?:\\[[^\\]]*\\])?\\{`).exec(source);
-	if (!match) {
+	if (!match) return null;
+	return balanced(source, match.index + match[0].length - 1).inner;
+}
+
+function commandArgument(source: string, name: string): string {
+	const argument = optionalCommandArgument(source, name);
+	if (argument === null) {
 		throw new Error(`The manuscript is missing \\${name}.`);
 	}
-	return balanced(source, match.index + match[0].length - 1).inner;
+	return argument;
 }
 
 function environmentBody(source: string, name: string): string {

@@ -10,26 +10,51 @@ import newsreaderLatin from "@fontsource-variable/newsreader/files/newsreader-la
 import ThemeToggle from "../components/ThemeToggle.astro";
 import { AUTHOR, REPO } from "../data/author";
 import { defaultOgImage, OG_HEIGHT, OG_WIDTH } from "../og/routes";
+import { crumbsFor } from "../seo/crumbs";
+import { type JsonLdNode, jsonLdScript, pageGraph } from "../seo/jsonld";
+import { documentTitle } from "../seo/titles";
 
 interface Props {
 	title?: string;
 	description?: string;
 	/** Site path of this page's social-preview PNG; defaults to its section card. */
 	image?: string;
+	/** Extra schema.org nodes merged into the page graph. */
+	schema?: JsonLdNode[];
+	/** Set on pages that must stay out of the index, such as the 404. */
+	robots?: string;
 }
 
 const {
 	title,
 	description = "An open benchmark measuring whether frontier AI models can forecast how federal judges rule on motions to dismiss.",
 	image,
+	schema,
+	robots,
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const isNotFound = /^\/404\/?$/.test(Astro.url.pathname);
 const ogImage = new URL(image ?? defaultOgImage(Astro.url.pathname), Astro.site)
 	.href;
-const pageTitle = title
-	? `${title} · LegalForecastBench`
-	: "LegalForecastBench";
+const pageTitle = documentTitle(title);
+const crumbs = isNotFound
+	? []
+	: crumbsFor(Astro.url.pathname, title ?? "LegalForecastBench");
+const ogType = schema?.some((node) => node["@type"] === "ScholarlyArticle")
+	? "article"
+	: "website";
+const graph =
+	!isNotFound && Astro.site
+		? pageGraph({
+				site: Astro.site,
+				canonical,
+				title: pageTitle,
+				description,
+				image: ogImage,
+				crumbs,
+				extra: schema,
+			})
+		: undefined;
 const path = Astro.url.pathname;
 // Articles keep their pre-reorganization URLs; `also` maps them to the
 // section they now belong to so the nav still marks where the reader is.
@@ -60,7 +85,9 @@ const onPaper = path.startsWith("/paper/");
 		<meta name="description" content={description} />
 		<meta property="og:title" content={pageTitle} />
 		<meta property="og:description" content={description} />
-		<meta property="og:type" content="website" />
+		<meta property="og:type" content={ogType} />
+		{(robots || isNotFound) && <meta name="robots" content={robots ?? "noindex"} />}
+		<meta name="author" content={AUTHOR.name} />
 		<meta property="og:site_name" content="LegalForecastBench" />
 		<meta property="og:url" content={canonical} />
 		<meta property="og:image" content={ogImage} />
@@ -71,7 +98,12 @@ const onPaper = path.startsWith("/paper/");
 		<meta name="twitter:title" content={pageTitle} />
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
+		<meta name="twitter:creator" content={AUTHOR.xHandle} />
 		{!isNotFound && <link rel="canonical" href={canonical} />}
+		{!isNotFound && <link rel="describedby" href="/llms.txt" type="text/plain" />}
+		{!isNotFound && <link rel="service-doc" href="/llms-full.txt" type="text/plain" />}
+		{!isNotFound && <link rel="sitemap" href="/sitemap-index.xml" type="application/xml" />}
+		{graph && <script type="application/ld+json" set:html={jsonLdScript(graph)} />}
 		<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
@@ -159,6 +191,22 @@ const onPaper = path.startsWith("/paper/");
 			</script>
 		</header>
 		<main id="main">
+			{crumbs.length > 1 && (
+				<nav aria-label="Breadcrumb" class="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+					<ol class="flex flex-wrap items-center gap-x-2 text-sm text-ink-3">
+						{crumbs.map((crumb, index) => (
+							<li class="flex items-center gap-x-2">
+								{index > 0 && <span aria-hidden="true">/</span>}
+								{index === crumbs.length - 1 ? (
+									<span class="text-ink-2">{crumb.name}</span>
+								) : (
+									<a class="hover:text-ink" href={crumb.path}>{crumb.name}</a>
+								)}
+							</li>
+						))}
+					</ol>
+				</nav>
+			)}
 			<slot />
 		</main>
 		<footer class="mt-24 border-t border-rule">
@@ -180,6 +228,8 @@ const onPaper = path.startsWith("/paper/");
 					<ul class="space-y-1.5">
 						<li><a class="hover:text-ink" href={AUTHOR.research}>{AUTHOR.name}: research</a></li>
 						<li><a class="hover:text-ink" href={AUTHOR.contact}>Contact</a></li>
+						<li><a class="hover:text-ink" href={AUTHOR.linkedin}>LinkedIn</a></li>
+						<li><a class="hover:text-ink" href={AUTHOR.x}>X</a></li>
 						<li><a class="hover:text-ink" href={REPO}>Source on GitHub</a></li>
 						<li>Code under Apache License 2.0</li>
 						<li><a class="hover:text-ink" href="https://creativecommons.org/licenses/by/4.0/">Data under CC BY 4.0</a></li>
