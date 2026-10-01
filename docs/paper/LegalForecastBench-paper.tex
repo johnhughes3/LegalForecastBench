@@ -34,6 +34,8 @@
 \end{abstract}
 
 \section{Introduction}
+% TODO: Cut this down to a flag. Keep the verification problem, the contrast with rubrics and preferences, the 91-case benchmark, and the statement that training is future work. Do not argue here why forecasting matters. The Hart, penumbra, Declaratory Judgment Act, Moitie, Holmes, and shadow-of-the-law paragraphs belong in Section 3. They are still here as well, so the reader gets the argument twice.
+
 Reinforcement learning (RL) techniques have led to significant recent gains in the reasoning abilities of frontier AI models, but the largest and most significant gains appear to have come in verifiable domains. RL training environments specify what a model can observe and do, and which outcomes receive reward. In \emph{reinforcement learning with verifiable rewards} (RLVR), correctness checks (like mathematical answer matching, executable tests, or formal proof checking) supply a scalable training signal that does not require a human to assess every model response \citep{deepseek,rlve}. Earlier self-play systems demonstrated the power of outcome feedback in games with explicit rules \citep{alphazero}.
 
 The efficacy of these techniques in verifiable domains has been exceptional. During reinforcement learning, DeepSeek-R1-Zero's average pass@1 on AIME 2024 rose from 15.6\% to 77.9\%; the final DeepSeek-R1 system, which used a broader training pipeline, reached the 96.3rd percentile on Codeforces \citep{deepseek}. AlphaProof coupled reinforcement learning with Lean's formal proof checker and proved three problems from the 2024 International Mathematical Olympiad, including its hardest problem, solved by only five of 609 human contestants \citep{alphaproof}. And OpenAI's September 2026 announcement that it had solved the Navier--Stokes Millennium Prize Problem reportedly relied on an internal model developed through large-scale reinforcement learning, followed by Lean formalization and verification. \citep{navierstokesproof,navierstokesreport}.
@@ -56,6 +58,8 @@ Although this benchmark is merely evaluative, we are separately developing a tra
 
 
 \section{Related work}
+% TODO: Sections 2.1 and 2.3 can stay. In 2.2, keep what LegalBench, JudgmentBench, and LAB did. The preference-bias paragraph is the comparison, and it belongs in Section 6.4. The Brier, dependence, and SWE-bench paragraph that now closes 2.2 used to be its own subsection. Brier and dependence are already in Section 4. SWE-bench is already in Section 6.4. Cut the duplicate here, or leave one sentence if the citation should still appear in related work.
+
 
 The approach here is consistent with previous research that (i) used older AI techniques to build smaller, custom models for predicting the outcome of litigation (especially U.S. Supreme Court decisions), and (ii) more recent efforts to use frontier models to predict the outcomes of events defined in prediction markets.
 
@@ -77,6 +81,8 @@ More recent work has used externally resolved real-world events to supply an ana
 Outcome-Based Reinforcement Learning to Predict the Future showed in 2025 that resolved binary forecasting questions could serve as reinforcement-learning rewards, training a 14-billion-parameter model on more than 100,000 events using adaptations of GRPO and ReMax \citep{outcomerl}. OpenForecaster similarly explored training language models directly on resolved forecasting questions \citep{openforecaster}. Some research in China has also used frontier models to predict criminal sentences \citep{sentencing}. LegalForecastBench is an effort to apply a similar approach to litigation outcomes, at least as an evaluation metric for now.
 
 \section{Judicial outcomes as a target for legal AI evaluation}
+% TODO: This section is the construct. After the introduction is cut, 3.1 should also hold the Hart and litigation paragraphs, with Moitie said once. The securities-settlement sentence still has a raw URL where the citation should be. 3.2 should be the only home for Holmes and shadow of the law. Jones v. Barnes can stay there. 3.3 has the moved limitations paragraph. Add the close: prediction is not all of legal competence, it can mix doctrine with institutional priors, it scores a probability rather than a brief, and those limits define the construct rather than emptying it.
+
 \label{sec:strategy}
 \subsection{Judicial outcomes as externally verifiable events}
 
@@ -109,6 +115,8 @@ A basic principle observed in the legal profession is that lawyers must confine 
 \paragraph{Prediction is not legal correctness.} Judicial outcomes reflect doctrine and record facts, but also procedure, judicial behavior, and institutional context. Judge identity remains visible. A metadata-only comparison, judge masking, and a human forecasting baseline are important future tests. Neither fluent rationales nor a correct forecast demonstrate valid legal reasoning. Training to imitate outcomes can reproduce historical disparities or errors; professional advice also has obligations that prediction scores do not capture.
 
 \section{LegalForecastBench: Dataset and evaluation protocol}
+% TODO: No rewrite. Optional: the end of 4.1 still tells the two-model agreement and the nine dropped cases, which 4.2 also tells.
+
 \subsection{Prediction target and information set}
 Let $c\in\{1,\ldots,C\}$ index cases and $u\in\mathcal U_c$ index scored units within case $c$. Each unit identifies a challenged claim or a separately resolvable pleaded subclaim against a moving defendant (or a group of similarly situated defendants, for whom the outcome is predicted together since the legal and factual arguments for dismissal are materially identical as to all of them). We used models to identify appropriate units based on the arguments articulated in each motion; an affirmative defense, an element of a legal cause of action, a requested remedy, or a distinct factual theory was not automatically treated as a separate unit. Rather, units generally tracked claims asserted in the complaint (in some cases with a single claim asserted against multiple defendants being treated as different units, if different defendants advanced different grounds for dismissal). The model receives the pre-decision record that the judge received $X_c$ and the unit specification $U_{cu}$ and returns
 \begin{equation}
@@ -213,6 +221,8 @@ Across the 387 scored units in 91 cases, the observed-scale outcome ICC was 0.76
 The observed dependence supports resampling whole cases, with model predictions kept paired, when estimating uncertainty in score differences \citep{cameronmiller}. The seventeen-configuration table is descriptive and does not claim a significance ordering. It does not measure variation across repeated model runs \citep{miller}.
 
 \section{Results}
+% TODO: No rewrite. Leave this section empirical. Do not add interpretation between the subsections.
+
 \subsection{Frontier models substantially outperform unconditional references}
 Table~\ref{tab:main} reports the seventeen configurations on the ranked leaderboard. GPT-6 Sol achieves the best observed micro-Brier (0.11763), equal-case Brier (0.12949), and accuracy (327/387, 84.50\%). All seventeen beat the retrospectively fitted constant micro-Brier of 0.19410; GPT-6 Sol's micro-Brier is lower than that constant by about 39.4\%.
 
@@ -506,6 +516,8 @@ Although this experiment indicates that Jev is inferior to frontier models on th
 Summary preparation cost an estimated \$10.32. Successful inference estimates are approximately \$0.044 for Jev, \$1.62 for GPT-5.6 Luna (with high reasoning), and \$0.103 for GPT-6 Luna (which was run without reasoning as a control).
 
 \section{Alternative evaluation signals: preferences and rubric-based rewards}
+% TODO: 6.1 still has the unfinished sentence ending "they can help score" and a [[cite]] marker. Open with JudgmentBench so the three signals are outcomes, preferences, and rubrics, and treat LAB as the case study. 6.2 needs a sentence saying that a rubric can score richer work than a judicial forecast only if the rubric itself is specified correctly. 6.3 now contains both the short preview and the full case study; cut whichever sentences repeat. 6.4 needs the comparison that is not written yet: outcomes are external and narrow, rubrics cover more of the work and are hard to specify, preferences avoid a checklist and add reviewer noise, and the three are complementary. The preference half is still the sycophancy paragraph in Related Work.
+
 \subsection{Evaluating open-ended legal work}
 
 In the absence of an external event that can resolve a target and provide reward, evaluation generally must substitute a human-specified proxy. JudgmentBench compared two alternative approaches: human preference evaluation and human-specified rubrics. [[cite]] Although JudgmentBench suggested that preference evaluation recovered the intended quality ordering better with less annotation time than rubrics, the most frequently cited legal benchmark today, Harvey's LAB, uses rubric-based scoring (with LLMs as judges). Launched on May 6, 2026, LAB contains 1,200 tasks spanning 24 practice areas and more than 75,000 criteria \citep{harveyLAB,harveyInitial,labAA}. LAB-style tasks have been used for evaluation as well as for training. Harvey and Applied Compute undertook full-parameter reinforcement learning of a legal agent using rubric-based rewards \citep{harveyTraining}. And in August 2026, Harvey announced it was creating its own model (Tenet), using Kimi K3 as a base, that achieved gains on LAB and other legal benchmarks \citep{tenet}. 
@@ -557,6 +569,8 @@ A June 2026 Harvey industry article characterizes litigation as slower to adopt 
 
 
 \section{Future work: from outcome evaluation to outcome feedback}
+% TODO: 7.1 can stay. Add 7.2, Testing transfer beyond forecasting. Say what would count as transfer: issue prioritization, strategic advice, drafting, and a blinded lawyer assessment. The prospective-test appendix already has one sentence on blinded review of advice or drafting. Do not present LegalForecastGym as a result. The reward equation is already in that appendix.
+
 \subsection{Outcome feedback as a training signal}
 LegalForecastGym implements a separate, single-step forecasting environment intended for post-training experiments. It renders a static litigation packet and receives a structured action containing a dismissal probability and cited evidence spans. Training loaders admit only explicitly designated training collections and reject locked test matters. Episode assembly keeps the label out of the observation. The current phase does not implement a multi-turn litigation simulator or train an agent to take procedural actions.
 
@@ -566,6 +580,8 @@ The intended learning study asks whether earlier outcome feedback improves predi
 
 
 \section{Limitations}
+% TODO: Keep this short and empirical: selection, labels, one run, contamination, and generalization. The priors sentence stays here. Do not restate Section 3.3. The last sentence, about outcome feedback and explanations, fits Section 7 better than this list.
+
 \paragraph{Selection into adjudication.} The target population is a set of accessible cases with written motion decisions, not all disputes, all filed cases, or all contemplated motions. Parties settle, abandon claims, amend pleadings, or choose not to sue. Cases reaching a published disposition may differ in uncertainty, stakes, representation, and bargaining conditions. Calibration conditional on reaching this dataset does not establish calibration for counterfactual outcomes in the broader dispute population \citep{priestklein}. At the same time, selection does not prove that learned skills cannot transfer: that is an empirical question requiring an independently defined evaluation population.
 
 \paragraph{Judge, court, and party priors.} We have not established how much performance comes from close legal analysis rather than judge, court, party, or case-type priors.
@@ -577,6 +593,8 @@ The intended learning study asks whether earlier outcome feedback improves predi
 \paragraph{Temporal and transfer limits.} A provider-reported cutoff and disabled browsing reduce specific leakage risks without proving contamination absent. New benchmark versions change the case distribution. Generalization to other jurisdictions, procedural stages, settlement decisions, drafting, or strategic advice is not established by this study. Outcome feedback may improve a narrow probability estimate without improving explanations or real client decisions.
 
 \section{Conclusion}
+% TODO: After Sections 3, 6, and 7.2 are settled, read this once and cut any sentence that argues the construct again. The conclusion should state the result and the open question, not reopen them.
+
 LegalForecastBench operationalizes an uncertain but consequential legal judgment as a probabilistic forecast of a later judicial event. In the beta, all seventeen document-enabled configurations outperform a cohort-fitted constant in micro-Brier, while confidence behavior and model ordering differ in informative ways. GPT-6 Sol has the strongest observed scores, and the shared-summary comparison exposes a large gap between Jev and Luna that cannot be explained by the summaries containing no signal.
 
 The broader opportunity is to make legal evaluation more empirically grounded. Real outcomes provide an external scoring reference, but useful training signals still require careful task definition, information boundaries, and legal labeling. The next research question is whether feedback on such forecasts improves performance on later cases and transfers to independently assessed legal work. The present evidence motivates that question; it does not answer it.
