@@ -248,6 +248,23 @@
         "nonblank_line_count": 330,
         "top_level_definition_count": 11
       },
+      "legalforecast/artifact_restore.py": {
+        "cycle_id": "legalforecast/artifact_restore.py,legalforecast/retained_package.py",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv",
+        "fan_in": 1,
+        "fan_out": 2,
+        "flags": [
+          "cycle"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "restore_artifact",
+        "largest_symbol_lines": 125,
+        "layer": "application",
+        "line_count": 360,
+        "nonblank_line_count": 332,
+        "top_level_definition_count": 9
+      },
       "legalforecast/contracts/ratchet.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -1601,6 +1618,23 @@
         "line_count": 583,
         "nonblank_line_count": 483,
         "top_level_definition_count": 24
+      },
+      "legalforecast/retained_package.py": {
+        "cycle_id": "legalforecast/artifact_restore.py,legalforecast/retained_package.py",
+        "disposition_kind": "planned-seam",
+        "disposition_owner": "legalforecastbench-m1pv",
+        "fan_in": 1,
+        "fan_out": 2,
+        "flags": [
+          "cycle"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "validate_package",
+        "largest_symbol_lines": 100,
+        "layer": "application",
+        "line_count": 238,
+        "nonblank_line_count": 225,
+        "top_level_definition_count": 4
       },
       "legalforecast/runner/ledger.py": {
         "cycle_id": "",
