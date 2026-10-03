@@ -218,6 +218,14 @@ def refresh_site(
     ):
         raise ValueError("withdrawal cases must belong to the selected cohort")
     historical = [model for model in current["models"] if model["slug"] not in exports]
+    prior_historical_path = input_dir / "historical-aggregates.json"
+    prior_historical = (
+        _read(prior_historical_path) if prior_historical_path.exists() else None
+    )
+    if prior_historical is not None:
+        historical = prior_historical["models"] + historical
+        if len({model["slug"] for model in historical}) != len(historical):
+            raise ValueError("superseded historical models have duplicate identities")
     selected = {
         model["slug"]: model for model in current["models"] if model["slug"] in exports
     }
@@ -317,8 +325,12 @@ def refresh_site(
             "reason": "Unit-level evidence unavailable for rescoring "
             "the changed cohort; excluded from active rankings and "
             "significance.",
-            "provenance": _read(input_dir / "current.json")["provenance"],
-            "cohort": _read(input_dir / "current.json")["cohort"],
+            "provenance": prior_historical["provenance"]
+            if prior_historical is not None
+            else _read(input_dir / "current.json")["provenance"],
+            "cohort": prior_historical["cohort"]
+            if prior_historical is not None
+            else _read(input_dir / "current.json")["cohort"],
             "models": historical,
         },
     )
