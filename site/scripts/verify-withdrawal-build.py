@@ -61,6 +61,14 @@ def verify(
                 "calibration",
             ):
                 assert replay[field] == displayed[field], (path.name, field)
+    if reproduced is not None:
+        replayed_history = json.loads(
+            (reproduced.parent / "historical-reproduced.json").read_text()
+        )
+        displayed_history = json.loads(
+            (built / "historical-comparison/results.json").read_text()
+        )
+        assert replayed_history == displayed_history
     historical = json.loads((built / "historical-aggregates.json").read_text())
     assert historical["status"] == "superseded" and len(historical["models"]) == 7
     index = (built / "index.html").read_text()
@@ -72,6 +80,7 @@ def verify(
     appendix = (built / "historical-results/index.html").read_text()
     assert "2 prediction units from 1 cases" in appendix
     assert "0.100000" in appendix
+    assert "--expected-case-count 1 --expected-unit-count 2" in appendix
     assert not (ROOT / "site/dist/models/kimi-k3/index.html").exists()
     print(
         f"Verified {len(downloads)} exact backend downloads "

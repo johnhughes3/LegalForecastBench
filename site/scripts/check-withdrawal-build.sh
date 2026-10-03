@@ -22,6 +22,7 @@ uv run python site/scripts/generate-withdrawal-fixture.py "$fixture/source"
 uv run legalforecast site refresh --input-dir "$fixture/source" --output-dir "$fixture/refreshed" --withdrawn-case synthetic-case-b --replicates 100
 LFB_SITE_DATA_DIR="$fixture/refreshed" pnpm site:build
 uv run python scripts/reproduce_summary_comparisons.py "$fixture/refreshed/summary-comparison" "$fixture/reproduced" --expected-case-count 1 --expected-scored-unit-count 2 --expected-forecast-unit-count 2
+uv run python scripts/reproduce_historical_comparison.py "$fixture/refreshed/historical-comparison/inputs.json" "$fixture/historical-reproduced.json" --expected-case-count 1 --expected-unit-count 2
 uv run python site/scripts/verify-withdrawal-build.py "$fixture/refreshed" "$fixture/reproduced"
 
 # The normal Vercel command picks up a committed generated tree without env changes.
