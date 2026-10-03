@@ -240,6 +240,13 @@ jobs:
           print(json.dumps({"run_id": run_id, "run_attempt": attempt, "head_sha": head_sha}, sort_keys=True))
           PY
 
+      - name: Configure protected fan-in read access
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-terminal-score-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+
       - name: Download exact terminal scoreless artifact
         shell: bash
         env:
@@ -254,84 +261,20 @@ jobs:
         run: |
           set -euo pipefail
           uv run python - <<'PY'
-          import io
           import json
           import os
-          import stat
-          import subprocess
-          import urllib.error
-          import urllib.request
-          import zipfile
           from pathlib import Path
+          from legalforecast.artifact_restore import extract_artifact, restore_artifact
 
-          api = os.environ["GITHUB_API_URL"].rstrip("/")
-          repository = os.environ["GITHUB_REPOSITORY_NAME"]
-          run_id = os.environ["FORECAST_RUN_ID"]
+          run_id = int(os.environ["FORECAST_RUN_ID"])
           attempt = os.environ["FORECAST_RUN_ATTEMPT"]
-          artifact_id = int(os.environ["FORECAST_ARTIFACT_ID"])
-          expected_name = f"official-terminal-forecast-results-{run_id}-attempt-{attempt}"
-          token = os.environ["GITHUB_TOKEN"]
-
-          def get_json(path: str) -> object:
-              request = urllib.request.Request(
-                  f"{api}{path}",
-                  headers={
-                      "Accept": "application/vnd.github+json",
-                      "Authorization": f"Bearer {token}",
-                      "User-Agent": "legalforecastbench-score-terminal-release",
-                      "X-GitHub-Api-Version": "2022-11-28",
-                  },
-              )
-              try:
-                  with urllib.request.urlopen(request, timeout=60) as response:
-                      return json.load(response)
-              except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
-                  raise SystemExit("could not read forecast artifact metadata") from exc
-
-          listing = get_json(f"/repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100")
-          if not isinstance(listing, dict) or not isinstance(listing.get("artifacts"), list):
-              raise SystemExit("forecast artifact listing is invalid")
-          matches = [
-              item for item in listing["artifacts"]
-              if isinstance(item, dict) and item.get("id") == artifact_id
-              and item.get("name") == expected_name
-          ]
-          if len(matches) != 1:
-              raise SystemExit("artifact ID/name does not identify the terminal package on this run")
-          if matches[0].get("expired") is True:
-              raise SystemExit("terminal scoreless artifact has expired")
-          try:
-              archive_bytes = subprocess.run(
-                  ["gh", "api", "--allow-escape-sequences", f"/repos/{repository}/actions/artifacts/{artifact_id}/zip"],
-                  check=True,
-                  capture_output=True,
-              ).stdout
-          except (OSError, subprocess.CalledProcessError) as exc:
-              raise SystemExit("could not download terminal scoreless artifact") from exc
-
           root = Path("/tmp/lfb-terminal-scoreless")
-          root.mkdir(parents=True, exist_ok=False)
-          seen: set[str] = set()
-          with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
-              for member in archive.infolist():
-                  relative = Path(member.filename)
-                  if relative.is_absolute() or ".." in relative.parts:
-                      raise SystemExit("terminal artifact contains an unsafe path")
-                  normalized = relative.as_posix()
-                  if normalized in seen:
-                      raise SystemExit("terminal artifact contains a duplicate path")
-                  seen.add(normalized)
-                  if member.is_dir():
-                      continue
-                  mode = member.external_attr >> 16
-                  # Some ZIP writers omit Unix file-type bits and preserve
-                  # only permissions; that is still an ordinary file entry.
-                  file_type = stat.S_IFMT(mode)
-                  if stat.S_ISLNK(mode) or file_type not in {0, stat.S_IFREG}:
-                      raise SystemExit("terminal artifact contains a non-regular file")
-                  destination = root / relative
-                  destination.parent.mkdir(parents=True, exist_ok=True)
-                  destination.write_bytes(archive.read(member))
+          extract_artifact(restore_artifact(
+              os.environ["GITHUB_REPOSITORY_NAME"], run_id,
+              f"official-terminal-forecast-results-{run_id}-attempt-{attempt}",
+              artifact_id=int(os.environ["FORECAST_ARTIFACT_ID"]),
+              bucket=os.environ["LFB_RESULTS_BUCKET"],
+          ), root)
 
           required = (
               "run-manifest.json",
@@ -382,13 +325,6 @@ jobs:
           ):
               raise SystemExit("terminal package lacks the Claude Code container adapter")
           PY
-
-      - name: Configure protected fan-in read access
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: lfb-terminal-score-${{ inputs.forecast_run_id }}-${{ inputs.forecast_run_attempt }}
-          role-to-assume: ${{ env.LFB_GITHUB_FAN_IN_ROLE_ARN }}
 
       - name: Fetch locked releases and labels inside protected fan-in
         shell: bash
