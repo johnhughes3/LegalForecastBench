@@ -3,12 +3,8 @@ name: Publish selected site data
 on:
   workflow_dispatch:
     inputs:
-      refreshed_data_run_id:
-        description: 'Optional run containing a complete refreshed public data artifact'
-        required: false
-        type: string
-      refreshed_data_artifact:
-        description: 'Artifact name (required with refreshed_data_run_id)'
+      withdrawn_case_ids:
+        description: 'Optional space-separated case IDs to withdraw from the selected cohort'
         required: false
         type: string
 
@@ -27,7 +23,6 @@ jobs:
     environment: legalforecastbench-official-eval-fan-in
     permissions:
       contents: read
-      actions: read
       id-token: write
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION }}
@@ -44,40 +39,23 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Validate optional refreshed input selection
-        env:
-          REFRESH_RUN: ${{ inputs.refreshed_data_run_id }}
-          REFRESH_ARTIFACT: ${{ inputs.refreshed_data_artifact }}
-        run: |
-          if [[ -n "$REFRESH_RUN" || -n "$REFRESH_ARTIFACT" ]]; then
-            [[ "$REFRESH_RUN" =~ ^[0-9]+$ && -n "$REFRESH_ARTIFACT" ]] || {
-              echo 'Select both a numeric run ID and a refreshed artifact name' >&2
-              exit 1
-            }
-          fi
+      - name: Install uv for optional offline withdrawal refresh
+        if: inputs.withdrawn_case_ids != ''
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
-      - name: Download selected refreshed public data
-        if: inputs.refreshed_data_run_id != ''
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: ${{ inputs.refreshed_data_artifact }}
-          run-id: ${{ inputs.refreshed_data_run_id }}
-          github-token: ${{ github.token }}
-          path: refreshed-site-data
+      - name: Sync Python dependencies for optional offline withdrawal refresh
+        if: inputs.withdrawn_case_ids != ''
+        run: uv sync --locked
 
       - name: Validate and build selected public data
         env:
-          REFRESH_RUN: ${{ inputs.refreshed_data_run_id }}
+          WITHDRAWN_CASE_IDS: ${{ inputs.withdrawn_case_ids }}
         run: |
           corepack enable
           corepack prepare pnpm@11.27.0 --activate
           pnpm install --frozen-lockfile
           pnpm site:check
-          if [[ -n "$REFRESH_RUN" ]]; then
-            LFB_SITE_DATA_DIR="$GITHUB_WORKSPACE/refreshed-site-data" pnpm site:build
-          else
-            pnpm site:build
-          fi
+          bash site/scripts/build-selected-data.sh
 
       - name: Assume protected publication role
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0

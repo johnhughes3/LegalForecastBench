@@ -10,7 +10,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def verify(expected: Path, reproduced: Path | None = None) -> None:
+def verify(
+    expected: Path, reproduced: Path | None = None, *, producer: bool = False
+) -> None:
     built = ROOT / "site/dist/data"
     downloads = {
         p.relative_to(built)
@@ -25,7 +27,19 @@ def verify(expected: Path, reproduced: Path | None = None) -> None:
     assert downloads == selected, "stale or missing downloadable files"
     for relative in downloads:
         data = (built / relative).read_bytes()
-        assert data == (expected / relative).read_bytes(), relative
+        if producer and relative.name == "comparison.json":
+            result = json.loads(data)
+            assert (
+                result["case_count"],
+                result["unit_count"],
+                result["replicates"],
+            ) == (1, 2, 1_000_000)
+        elif producer and relative == Path("current.json"):
+            selected_current = json.loads(data)
+            reference_current = json.loads((expected / relative).read_bytes())
+            assert selected_current["models"] == reference_current["models"]
+        else:
+            assert data == (expected / relative).read_bytes(), relative
         assert b"synthetic-case-b" not in data, relative
         assert b"synthetic-unit-b1" not in data, relative
     current = json.loads((built / "current.json").read_text())
@@ -66,4 +80,8 @@ def verify(expected: Path, reproduced: Path | None = None) -> None:
 
 
 if __name__ == "__main__":
-    verify(Path(sys.argv[1]), Path(sys.argv[2]) if len(sys.argv) > 2 else None)
+    verify(
+        Path(sys.argv[1]),
+        Path(sys.argv[2]) if len(sys.argv) > 2 else None,
+        producer="--producer" in sys.argv,
+    )

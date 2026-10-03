@@ -7,11 +7,28 @@ import {
 	rmSync,
 } from "node:fs";
 import { resolve } from "node:path";
+import { repositoryRoot } from "./manuscript.js";
 
 /** Optional complete output of `legalforecast site refresh`; checked-in data is the default. */
-export const refreshedDataDirectory = process.env.LFB_SITE_DATA_DIR
-	? resolve(process.env.LFB_SITE_DATA_DIR)
-	: undefined;
+export function selectDatasetDirectory(
+	explicit: string | undefined,
+	root: string,
+): string | undefined {
+	if (explicit !== undefined) {
+		if (explicit === "") return undefined;
+		const selected = resolve(explicit);
+		if (!existsSync(resolve(selected, "current.json")))
+			throw new Error("Selected dataset is missing current.json");
+		return selected;
+	}
+	const selected = resolve(root, "site/refreshed-data");
+	return existsSync(resolve(selected, "current.json")) ? selected : undefined;
+}
+
+export const refreshedDataDirectory = selectDatasetDirectory(
+	process.env.LFB_SITE_DATA_DIR,
+	repositoryRoot(),
+);
 
 export function datasetJson<T>(relative: string, fallback: T): T {
 	if (!refreshedDataDirectory) return fallback;

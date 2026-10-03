@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
 	existsSync,
 	mkdirSync,
@@ -10,7 +11,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { copyRefreshedDownloads, datasetJson } from "./dataset-input.js";
+import {
+	copyRefreshedDownloads,
+	datasetJson,
+	selectDatasetDirectory,
+} from "./dataset-input.js";
+import { repositoryRoot } from "./manuscript.js";
 
 test("default dataset input preserves checked-in values", () => {
 	const fallback = { cases: 91 };
@@ -59,4 +65,43 @@ test("refresh replaces every download while preserving newly rendered pages", ()
 	} finally {
 		rmSync(root, { recursive: true });
 	}
+});
+
+test("persistent generated input is selected without deployment environment changes", () => {
+	const root = mkdtempSync(join(tmpdir(), "lfb-persistent-"));
+	try {
+		assert.equal(selectDatasetDirectory(undefined, root), undefined);
+		const selected = join(root, "site/refreshed-data");
+		mkdirSync(selected, { recursive: true });
+		writeFileSync(join(selected, "current.json"), "{}");
+		assert.equal(selectDatasetDirectory(undefined, root), selected);
+		assert.equal(selectDatasetDirectory("", root), undefined);
+		const explicit = join(root, "explicit");
+		assert.throws(
+			() => selectDatasetDirectory(explicit, root),
+			/missing current.json/,
+		);
+		mkdirSync(explicit);
+		writeFileSync(join(explicit, "current.json"), "{}");
+		assert.equal(selectDatasetDirectory(explicit, root), explicit);
+	} finally {
+		rmSync(root, { recursive: true });
+	}
+});
+
+test("publication producer rejects shell syntax before building", () => {
+	const result = spawnSync(
+		"bash",
+		[join(repositoryRoot(), "site/scripts/build-selected-data.sh")],
+		{
+			env: {
+				...process.env,
+				WITHDRAWN_CASE_IDS: "synthetic-case-b;touch forbidden",
+			},
+			encoding: "utf8",
+		},
+	);
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /Withdrawal case IDs/);
+	assert.equal(result.stdout, "");
 });

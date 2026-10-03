@@ -12,6 +12,9 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from legalforecast.publication.historical_comparison import reproduce
+from legalforecast.publication.site_comparison import compare
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -54,10 +57,14 @@ def generate(output: Path) -> None:
             cost={"usd": None, "basis": "unavailable", "note": "Synthetic test."},
         )
     write(output / "current.json", snapshot)
+    write(
+        output / "historical-aggregates.json",
+        {"status": "superseded", "models": [], "reason": "Synthetic baseline"},
+    )
     write(output / "sources.json", sources)
     write(output / "costs.json", [])
     for group, entries in [("", sources), ("/summary", catalog)]:
-        models = {}
+        models: dict[str, str] = {}
         for source in entries:
             slug = source["slug"]
             original = read(built / "exports" / f"{slug}.json")
@@ -76,6 +83,17 @@ def generate(output: Path) -> None:
         manifest = read(built / f"significance{group}/inputs.json")
         manifest["models"] = models
         write(output / f"significance{group}/inputs.json", manifest)
+        analysis = compare(
+            {slug: units for slug in models},
+            replicates=100,
+            family_model_count=manifest["family_model_count"],
+        )
+        analysis.update(
+            sources=models,
+            provenance=manifest["provenance"],
+            missing_models=manifest["missing_models"],
+        )
+        write(output / f"significance{group}/comparison.json", analysis)
     for source in catalog:
         source.update(forecast_case_count=2, forecast_unit_count=3, scored_unit_count=3)
         forecasts = [
@@ -128,6 +146,12 @@ def generate(output: Path) -> None:
             for case in ["synthetic-case-a", "synthetic-case-b"]
         ]
     write(output / "historical-comparison/inputs.json", historical)
+    reproduce(
+        output / "historical-comparison/inputs.json",
+        output / "historical-comparison/results.json",
+        expected_case_count=2,
+        expected_unit_count=3,
+    )
 
 
 if __name__ == "__main__":
