@@ -1,4 +1,5 @@
 import type { SiteExport, SiteUnit } from "../generated/site-export.js";
+import { canonicalCost } from "./canonical-costs.js";
 import {
 	parseSnapshot,
 	type ResultsSnapshot,
@@ -103,11 +104,7 @@ export function extendSnapshot(
 						) / high.length
 					: null,
 			},
-			cost: {
-				usd: row.costs.total_cost,
-				basis: row.costs.total_cost === null ? "unavailable" : "estimated",
-				note: `Accounting covers ${row.costs.covered_case_count} of ${row.case_count} cases. Standard-rate repricing is unavailable.`,
-			},
+			cost: canonicalCost(row.costs, row.case_count),
 		};
 	});
 	return parseSnapshot({

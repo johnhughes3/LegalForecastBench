@@ -13,6 +13,8 @@ export const snapshot = applyCutoffs(
 		applyReceiptCosts(
 			extendSnapshot(historicalSnapshot, recentResults),
 			recentResults.map(({ source }) => source),
+			undefined,
+			recentResults,
 		),
 	),
 );

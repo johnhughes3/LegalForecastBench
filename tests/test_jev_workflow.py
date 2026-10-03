@@ -21,7 +21,10 @@ def test_jev_workflow_is_manual_bounded_and_uses_the_protected_environment() -> 
     assert "timeout-minutes: 360" in WORKFLOW
     assert "environment: legalforecastbench-official-eval" in WORKFLOW
     assert "permissions:\n  actions: read\n  contents: read" in WORKFLOW
-    assert "id-token:" not in WORKFLOW
+    preparation = WORKFLOW.split("  prepare:\n", 1)[1]
+    assert "id-token:" not in preparation
+    assert "role-to-assume:" not in preparation
+    assert "environment: legalforecastbench-official-eval-fan-in" in WORKFLOW
     assert "run: uv sync --locked" in WORKFLOW
 
 
@@ -37,11 +40,14 @@ def test_jev_workflow_requires_exact_cross_run_artifact_identity() -> None:
         "uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
         in WORKFLOW
     )
-    assert WORKFLOW.count("github-token: ${{ github.token }}") == 2
-    assert WORKFLOW.count("artifact-ids: ${{ inputs.locked_inputs_artifact_id }}") == 1
-    assert WORKFLOW.count("run-id: ${{ inputs.source_run_id }}") == 1
-    assert "run-id: ${{ inputs.prior_summary_run_id }}" in WORKFLOW
-    assert "repository: ${{ github.repository }}" in WORKFLOW
+    assert "SOURCE_RUN_ID: ${{ inputs.source_run_id }}" in WORKFLOW
+    assert "INPUT_ARTIFACT_ID: ${{ inputs.locked_inputs_artifact_id }}" in WORKFLOW
+    assert "PRIOR_RUN_ID: ${{ inputs.prior_summary_run_id }}" in WORKFLOW
+    assert "PRIOR_ARTIFACT_ID: ${{ inputs.prior_summary_artifact_id }}" in WORKFLOW
+    assert '--repository "${GITHUB_REPOSITORY}" --run-id "${SOURCE_RUN_ID}"' in WORKFLOW
+    assert '--artifact-id "${INPUT_ARTIFACT_ID}"' in WORKFLOW
+    assert '--repository "${GITHUB_REPOSITORY}" --run-id "${PRIOR_RUN_ID}"' in WORKFLOW
+    assert '--artifact-id "${PRIOR_ARTIFACT_ID}"' in WORKFLOW
 
 
 def test_jev_workflow_checks_origin_main_and_allowlisted_locked_inputs() -> None:
@@ -49,7 +55,7 @@ def test_jev_workflow_checks_origin_main_and_allowlisted_locked_inputs() -> None
     assert "persist-credentials: false" in WORKFLOW
     assert "git rev-parse origin/main" in WORKFLOW
     assert 'test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"' in WORKFLOW
-    assert "path: /tmp/lfb-jev-inputs" in WORKFLOW
+    assert "mv -f /tmp/lfb-jev-restored/inputs /tmp/lfb-jev-inputs" in WORKFLOW
     assert "/tmp/lfb-jev-inputs/run-manifest.json" in WORKFLOW
     assert "/tmp/lfb-jev-inputs/forecast-release.json" in WORKFLOW
     assert "/tmp/lfb-jev-inputs/artifacts" in WORKFLOW
@@ -98,7 +104,8 @@ def test_jev_workflow_resumes_both_cache_and_sqlite_ledger() -> None:
     assert "/tmp/lfb-jev-prior/summary-spend.sqlite3" in WORKFLOW
     assert "cp -f /tmp/lfb-jev-prior/jev-summaries.json" in WORKFLOW
     assert "cp -f /tmp/lfb-jev-prior/summary-spend.sqlite3" in WORKFLOW
-    assert "if: ${{ inputs.prior_summary_artifact_id != '' }}" in WORKFLOW
+    assert 'if [[ -n "${PRIOR_ARTIFACT_ID}" ]]; then' in WORKFLOW
+    assert "mv -f /tmp/lfb-jev-restored/prior /tmp/lfb-jev-prior" in WORKFLOW
 
 
 def test_jev_workflow_restores_the_latest_prior_attempt_without_repolling() -> None:

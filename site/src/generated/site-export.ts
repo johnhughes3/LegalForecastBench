@@ -9,12 +9,27 @@ export type UnitCount = number;
 export type Upper = number;
 export type Calibration = SiteCalibrationBin[];
 export type CaseCount = number;
-export type Basis = "unavailable" | "estimated_accounting";
+export type Basis =
+  | "unavailable"
+  | "estimated_accounting"
+  | "provider_reported"
+  | "estimated_from_pricing_snapshot"
+  | "mixed_receipt_evidence";
+export type Caveats = string[];
+export type CostMethods = string[];
 export type CostPerCase = number | null;
+export type CostScope = "successful_case_workload";
 export type CoveredCaseCount = number;
 export type Currency = "USD";
+export type MissingCacheRateResponseCount = number;
+export type MissingCacheReadResponseCount = number;
+export type MissingCacheWriteResponseCount = number;
 export type MissingCaseCount = number;
-export type StandardRateStatus = "unavailable";
+export type MissingResponseUsageCaseCount = number;
+export type RateProvenance = string[];
+export type ResponseCount = number;
+export type StandardRateCoveredCaseCount = number;
+export type StandardRateStatus = "unavailable" | "complete" | "partial";
 export type StandardRateTotalCost = number | null;
 export type TotalCost = number | null;
 export type EqualCaseBrier = number;
@@ -82,10 +97,20 @@ export interface SiteCalibrationBin {
  */
 export interface SiteCosts {
   basis: Basis;
+  caveats?: Caveats;
+  cost_methods?: CostMethods;
   cost_per_case: CostPerCase;
+  cost_scope?: CostScope;
   covered_case_count: CoveredCaseCount;
   currency?: Currency;
+  missing_cache_rate_response_count?: MissingCacheRateResponseCount;
+  missing_cache_read_response_count?: MissingCacheReadResponseCount;
+  missing_cache_write_response_count?: MissingCacheWriteResponseCount;
   missing_case_count: MissingCaseCount;
+  missing_response_usage_case_count?: MissingResponseUsageCaseCount;
+  rate_provenance?: RateProvenance;
+  response_count?: ResponseCount;
+  standard_rate_covered_case_count?: StandardRateCoveredCaseCount;
   standard_rate_status?: StandardRateStatus;
   standard_rate_total_cost?: StandardRateTotalCost;
   total_cost: TotalCost;

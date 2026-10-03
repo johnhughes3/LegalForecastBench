@@ -65,10 +65,27 @@
         "basis": {
           "enum": [
             "unavailable",
-            "estimated_accounting"
+            "estimated_accounting",
+            "provider_reported",
+            "estimated_from_pricing_snapshot",
+            "mixed_receipt_evidence"
           ],
           "title": "Basis",
           "type": "string"
+        },
+        "caveats": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Caveats",
+          "type": "array"
+        },
+        "cost_methods": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cost Methods",
+          "type": "array"
         },
         "cost_per_case": {
           "anyOf": [
@@ -82,6 +99,12 @@
           ],
           "title": "Cost Per Case"
         },
+        "cost_scope": {
+          "const": "successful_case_workload",
+          "default": "successful_case_workload",
+          "title": "Cost Scope",
+          "type": "string"
+        },
         "covered_case_count": {
           "minimum": 0,
           "title": "Covered Case Count",
@@ -93,14 +116,61 @@
           "title": "Currency",
           "type": "string"
         },
+        "missing_cache_rate_response_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Missing Cache Rate Response Count",
+          "type": "integer"
+        },
+        "missing_cache_read_response_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Missing Cache Read Response Count",
+          "type": "integer"
+        },
+        "missing_cache_write_response_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Missing Cache Write Response Count",
+          "type": "integer"
+        },
         "missing_case_count": {
           "minimum": 0,
           "title": "Missing Case Count",
           "type": "integer"
         },
+        "missing_response_usage_case_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Missing Response Usage Case Count",
+          "type": "integer"
+        },
+        "rate_provenance": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rate Provenance",
+          "type": "array"
+        },
+        "response_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Response Count",
+          "type": "integer"
+        },
+        "standard_rate_covered_case_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Standard Rate Covered Case Count",
+          "type": "integer"
+        },
         "standard_rate_status": {
-          "const": "unavailable",
           "default": "unavailable",
+          "enum": [
+            "unavailable",
+            "complete",
+            "partial"
+          ],
           "title": "Standard Rate Status",
           "type": "string"
         },

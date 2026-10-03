@@ -154,11 +154,13 @@ def test_forecast_artifact_is_durable_complete_and_cannot_transport_labels() -> 
         ) : WORKFLOW.index("- name: Fetch and bind locked releases")
     ]
     assert "official-forecast-results-{run_id}-{attempt}" in download
-    assert "actions/artifacts/{artifact_id}/zip" in download
-    assert "--allow-escape-sequences" in download
+    assert (
+        "from legalforecast.artifact_restore import extract_artifact, restore_artifact"
+        in download
+    )
     assert "GH_TOKEN: ${{ github.token }}" in download
     assert "archive_download_url" not in download
-    assert "expired" in download
+    assert 'bucket=os.environ["LFB_RESULTS_BUCKET"]' in download
     assert "ledger/ledger.sqlite3" in download
     for required in (
         "forecast-run.json",
@@ -170,8 +172,6 @@ def test_forecast_artifact_is_durable_complete_and_cannot_transport_labels() -> 
         "artifacts/",
         "missing artifacts/",
         "is_symlink",
-        "duplicate path",
-        "unsafe path",
         "must not contain labels",
     ):
         assert required in download
@@ -199,9 +199,17 @@ def test_forecast_artifact_download_uses_exact_gh_artifact_endpoint(
     fake_gh.write_text(
         f"""#!/bin/sh -e
 test "${{GH_TOKEN}}" = test-token
-test "$1 $2" = "api --allow-escape-sequences"
-test "$3" = "/repos/example/benchmark/actions/artifacts/456/zip"
-cat {str(tmp_path / "f.zip")!r}
+case "$2" in
+  --paginate)
+    test "$3" = --slurp
+    test "$4" = "repos/example/benchmark/actions/runs/123/artifacts?per_page=100"
+    printf '%s' '[{{"artifacts":[{{"id":456,
+"name":"official-forecast-results-123-1","expired":false}}]}}]' ;;
+  --allow-escape-sequences)
+    test "$3" = "repos/example/benchmark/actions/artifacts/456/zip"
+    cat {str(tmp_path / "f.zip")!r} ;;
+  *) exit 7 ;;
+esac
 """,
         encoding="utf-8",
     )
@@ -213,16 +221,7 @@ cat {str(tmp_path / "f.zip")!r}
     monkeypatch.setenv("GITHUB_TOKEN", "test-token")
     monkeypatch.setenv("FORECAST_RUN_ID", "123")
     monkeypatch.setenv("FORECAST_RUN_ATTEMPT", "1")
-    listing = {
-        "artifacts": [
-            {"id": 456, "name": "official-forecast-results-123-1", "expired": False}
-        ]
-    }
-    monkeypatch.setattr(
-        urllib.request,
-        "urlopen",
-        lambda *args, **kwargs: io.BytesIO(json.dumps(listing).encode()),
-    )
+    monkeypatch.setenv("LFB_RESULTS_BUCKET", "test-bucket")
     download = WORKFLOW[
         WORKFLOW.index(
             "- name: Download exact durable forecast result artifact"
@@ -303,10 +302,13 @@ esac
     monkeypatch.setenv("FORECAST_RUN_ATTEMPT", "1")
 
     # GitHub drops expired artifacts from the run listing entirely.
-    def urlopen(*args: object, **kwargs: object) -> io.BytesIO:
-        return io.BytesIO(b'{"artifacts": []}')
-
-    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    fake_gh = tmp_path / "gh"
+    fake_gh.write_text(
+        '#!/bin/sh -e\ntest "$1 $2 $3" = "api --paginate --slurp"\n'
+        "printf '%s' '[{\"artifacts\": []}]'\n",
+        encoding="utf-8",
+    )
+    fake_gh.chmod(0o755)
     download = WORKFLOW[
         WORKFLOW.index(
             "- name: Download exact durable forecast result artifact"
@@ -322,7 +324,7 @@ esac
     script = script.replace('Path("/tmp/lfb-forecast")', f"Path({str(output_root)!r})")
     code = compile(script, "workflow-forecast-download", "exec")
     if tampered:
-        with pytest.raises(SystemExit, match="digest mismatch"):
+        with pytest.raises(ValueError, match="digest mismatch"):
             exec(code, {})
         assert not output_root.exists()
     else:
@@ -614,9 +616,25 @@ def test_checked_out_model_registry_is_the_only_local_fan_in_input(
             "git",
             "-C",
             str(checkout),
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            "scorer repair",
+        ],
+        check=True,
+    )
+    scorer_sha = subprocess.check_output(
+        ["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True
+    ).strip()
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(checkout),
             "update-ref",
             "refs/remotes/origin/main",
-            release_sha,
+            scorer_sha,
         ],
         check=True,
     )
@@ -634,6 +652,7 @@ def test_checked_out_model_registry_is_the_only_local_fan_in_input(
         **os.environ,
         "GITHUB_REF": "refs/heads/main",
         "RELEASE_SHA": release_sha,
+        "SCORER_SHA": scorer_sha,
         "CYCLE_ID": "cycle-1",
         "FORECAST_RUN_ID": "123",
         "FORECAST_RUN_ATTEMPT": "1",
