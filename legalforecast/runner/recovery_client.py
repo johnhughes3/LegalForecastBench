@@ -49,11 +49,7 @@ class GhRecoveryClient:
         seen: set[int] = set()
         for item in records:
             artifact_id = item.get("id")
-            if (
-                type(artifact_id) is not int
-                or artifact_id <= 0
-                or artifact_id in seen
-            ):
+            if type(artifact_id) is not int or artifact_id <= 0 or artifact_id in seen:
                 raise RecoveryError(
                     "archive cache artifact ID is invalid or duplicated"
                 )

@@ -46,6 +46,8 @@ def validate_package(payload: bytes, run_id: int, attempt: int) -> None:
             json.loads((root / "forecast-release.json").read_bytes())
         )
         registry_bytes = (root / "model-registry.json").read_bytes()
+        if identity.get("repeat_count") != 1:
+            raise ValueError("retained package preservation requires one repeat")
         if not isinstance(json.loads(registry_bytes), (list, dict)):
             raise ValueError("retained registry must be a supported JSON container")
         if hashlib.sha256(registry_bytes).hexdigest() != identity.get(
@@ -105,6 +107,7 @@ def validate_package(payload: bytes, run_id: int, attempt: int) -> None:
                 != identity.get("run_identity_sha256")
                 or receipt.get("model_registry_sha256")
                 != identity.get("model_registry_sha256")
+                or receipt.get("repeat_index") != 1
             ):
                 raise ValueError("receipt membership differs from retained run")
             cases.add(case)

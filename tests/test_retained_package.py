@@ -24,6 +24,7 @@ def package(*, invalid: bool = False, incomplete: bool = False) -> bytes:
             "model_key": "model",
             "forecast_release_digest": "release",
             "model_registry_sha256": registry_digest,
+            "repeat_count": 1,
         },
         "run-summary.json": {
             "workflow_run_id": 123,
@@ -49,6 +50,7 @@ def package(*, invalid: bool = False, incomplete: bool = False) -> bytes:
             "run_identity_sha256": "identity",
             "model_registry_sha256": registry_digest,
             "required_unit_ids": ["unit"],
+            "repeat_index": 1,
             "parser_output": {
                 "is_valid": not invalid,
                 "invalid_output": invalid,
@@ -92,6 +94,7 @@ def test_wrong_original_run_refused() -> None:
         ("run_identity_sha256", "other"),
         ("model_registry_sha256", "other"),
         ("required_unit_ids", ["other"]),
+        ("repeat_index", 2),
     ],
 )
 def test_receipt_binding_refused(field: str, value: object) -> None:
