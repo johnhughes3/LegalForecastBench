@@ -44,10 +44,19 @@ test("the paper page reads the checked-in manuscript", () => {
 	assert.equal(PAPER.revisedOn, parsed.revisedOn);
 	assert.equal(PAPER.workingPdf, WORKING_PAPER_PDF);
 	assert.match(parsed.title, /Legal Reasoning Ability$/);
-	assert.equal(parsed.abstract.length, 1);
-	assert.match(parsed.abstract[0] ?? "", /claim–defendant-level/);
-	assert.match(parsed.abstract[0] ?? "", /84\.50%/);
-	assert.doesNotMatch(parsed.abstract[0] ?? "", /\\/);
+	assert.equal(parsed.abstract.length, 3);
+	assert.match(
+		parsed.abstract[1] ?? "",
+		/verification of those findings is ongoing/,
+	);
+	assert.match(
+		parsed.abstract[2] ?? "",
+		/91 cases and 387 scored claim–defendant units/,
+	);
+	assert.match(parsed.abstract[2] ?? "", /84\.5%/);
+	for (const paragraph of parsed.abstract) {
+		assert.doesNotMatch(paragraph, /\\/);
+	}
 	assert.equal(
 		existsSync(resolve(root, `site/public${WORKING_PAPER_PDF}`)),
 		true,
