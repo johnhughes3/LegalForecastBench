@@ -91,6 +91,7 @@ def stage_model_gateway(
         )
         package_path.mkdir(mode=0o700, parents=True, exist_ok=False)
         for relative in (
+            "anthropic_usage.py",
             "model_gateway.py",
             "model_gateway_accounting.py",
             "model_gateway_protocol.py",

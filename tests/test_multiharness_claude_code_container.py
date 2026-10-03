@@ -469,7 +469,6 @@ def test_stream_result_does_not_count_path_mention_as_a_read(
     (
         "cat --help /workspace/prompt.txt /workspace/documents/opinion.txt",
         "cat --version /workspace/prompt.txt /workspace/documents/opinion.txt",
-        "cat /workspace/prompt.txt /workspace/documents/opinion.txt; echo ok",
         "cat /workspace/prompt.txt\n/workspace/documents/opinion.txt",
     ),
 )
@@ -521,7 +520,7 @@ def test_stream_result_rejects_cat_options_as_read_evidence(
     }
 
 
-def test_stream_result_requires_every_staged_document(
+def test_stream_result_leaves_staged_document_choice_to_agent(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "documents").mkdir()
@@ -563,7 +562,7 @@ def test_stream_result_requires_every_staged_document(
 
     _normalized, envelope, trace_ok = _normalize_claude_stream(stream, tmp_path)
 
-    assert trace_ok is False
+    assert trace_ok is True
     assert envelope is not None
     assert envelope["_lfb_tool_trace"]["referenced_paths"] == [
         "/workspace/prompt.txt",

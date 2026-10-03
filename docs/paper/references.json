@@ -1266,5 +1266,18 @@
     "url": "https://doi.org/10.3368/jhr.50.2.317",
     "pdf_url": "https://cameron.econ.ucdavis.edu/research/Cameron_Miller_JHR_2015.pdf",
     "type": "paper"
+  },
+  {
+    "key": "securitiesFilings2024",
+    "title": "Securities Class Action Filings—2024 Year in Review",
+    "authors": [
+      "Cornerstone Research",
+      "Stanford Law School Securities Class Action Clearinghouse"
+    ],
+    "type": "report",
+    "venue": "Cornerstone Research and Stanford Law School Securities Class Action Clearinghouse",
+    "year": 2025,
+    "url": "https://securities.stanford.edu/research-reports/1996-2024/Securities-Class-Action-Filings-2024-Year-in-Review.pdf",
+    "pdf_url": "https://securities.stanford.edu/research-reports/1996-2024/Securities-Class-Action-Filings-2024-Year-in-Review.pdf"
   }
 ]
