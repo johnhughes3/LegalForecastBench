@@ -84,3 +84,17 @@ uv run python scripts/reproduce_summary_comparisons.py site/public/data/summary-
 ```
 
 The site publisher includes these public reproduction files and exports in its normal JSON/JSONL upload and readback verification. The main agentic snapshot and its significance family remain unchanged. The summary conditions have their own three-model significance family in `site/src/data/significance/summary/`, produced with `scripts/compare_site_results.py --inputs site/src/data/significance/summary/inputs.json`. Reader-facing details belong on `/experiments/summary-pipelines/#method`.
+
+## Case withdrawals
+
+An explicitly requested withdrawal produces a superseding current cohort. Build the selected public inputs with `pnpm site:build`, then run:
+
+```bash
+uv run legalforecast site refresh --input-dir site/dist/data --output-dir /tmp/refreshed-site-data --withdrawn-case CASE_ID
+```
+
+The command filters the affected cases, recomputes canonical scores/calibration and paired comparisons, and updates all native/summary unit exports and reproduction downloads together. Original run and release provenance remains frozen. Configurations lacking unit-level evidence cannot be rescored: their aggregate observations move to `historical-aggregates.json`, marked superseded and excluded from current rankings and significance. The planned comparison family remains unchanged. Costs preserve their original successful-workload amounts and coverage rather than allocating aggregate totals to remaining cases; the independent historical appendix can sum exact retained per-case usage evidence.
+
+The generated directory is a complete replacement input for the site and its protected data publisher. Never combine selected refreshed downloads with old-cohort metrics or forecasts. The command leaves the original tree intact and makes no hosted changes. For independently reproducing a refreshed historical appendix, pass its results' `available_cases` and `available_units` as `--expected-case-count` and `--expected-unit-count` to `scripts/reproduce_historical_comparison.py`; omitting those flags retains the original 100-case, 425-unit defaults.
+
+Summary downloads also retain independent reproduction after withdrawal. Pass the refreshed catalog's `forecast_case_count`, `scored_unit_count`, and `forecast_unit_count` to `scripts/reproduce_summary_comparisons.py` using `--expected-case-count`, `--expected-scored-unit-count`, and `--expected-forecast-unit-count`. Original defaults remain 91 cases, 387 scored units, and 409 forecast units. The reproducer recalculates probabilities, scores, and calibration without receipt accounting; retain the refreshed exports' original workload costs and caveats when reporting costs.
