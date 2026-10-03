@@ -271,6 +271,7 @@ def materialize_recovery_cache(
                 "id": artifact_id,
                 "name": name,
                 "expired": False,
+                "archive_available": True,
                 "digest": pointer["digest"],
                 "size_in_bytes": len(payload),
             }

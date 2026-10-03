@@ -673,3 +673,43 @@ def test_recovery_refuses_invalid_predictions_marked_completed(raw_output: str) 
             client, repo="owner/bench", run_id=RUN_ID, ref="main", max_parallel=8
         )
     assert client.dispatched == []
+
+
+@pytest.mark.parametrize("archived", [True, False])
+def test_recovery_uses_durable_archive_without_inventing_retention_timestamps(
+    archived: bool,
+) -> None:
+    class RetentionClient(FakeRecoveryClient):
+        def list_artifacts(
+            self, repo: str, run_id: int
+        ) -> Sequence[Mapping[str, object]]:
+            artifacts = []
+            for original in super().list_artifacts(repo, run_id):
+                item = dict(original)
+                if item["id"] == 11:
+                    item.pop("created_at")
+                    item.pop("expires_at")
+                    if archived:
+                        item["archive_available"] = True
+                artifacts.append(item)
+            return artifacts
+
+    client = RetentionClient()
+    if not archived:
+        with pytest.raises(RecoveryError, match="lacks retention timestamps"):
+            build_recovery_plan(
+                client, repo="owner/bench", run_id=RUN_ID, ref="main", max_parallel=8
+            )
+        return
+    plan = build_recovery_plan(
+        client, repo="owner/bench", run_id=RUN_ID, ref="main", max_parallel=8
+    )
+    assert plan.executable
+    assert plan.frozen_identity.artifact_retention_days == 90
+    source = plan.to_record()["source"]
+    assert isinstance(source, dict)
+    locator = source["locked_inputs_artifact"]
+    assert locator["created_at"] is None
+    assert locator["expires_at"] is None
+    assert locator["archive_available"] is True
+    assert client.dispatched == []

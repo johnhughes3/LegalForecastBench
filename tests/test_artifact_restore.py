@@ -136,7 +136,11 @@ def test_protected_recovery_uses_verified_cache_even_after_github_omits_artifact
         return ({"artifacts": values},)
 
     monkeypatch.setattr(client, "_json_pages", empty_pages)
-    assert client.list_artifacts(REPO, RUN)[0]["id"] == ARTIFACT
+    locator = client.list_artifacts(REPO, RUN)[0]
+    assert locator["id"] == ARTIFACT
+    assert locator["archive_available"] is True
+    assert "created_at" not in locator
+    assert "expires_at" not in locator
     assert client.list_artifacts(REPO, RUN)[0]["id"] == ARTIFACT
     assert client.download_artifact(REPO, ARTIFACT) == payload
     (cache / f"{ARTIFACT}.zip").write_bytes(b"changed")

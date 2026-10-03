@@ -87,6 +87,7 @@ class ArtifactLocator:
     expired: bool
     created_at: str | None
     expires_at: str | None
+    archive_available: bool = False
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -96,6 +97,7 @@ class ArtifactLocator:
             "expired": self.expired,
             "created_at": self.created_at,
             "expires_at": self.expires_at,
+            "archive_available": self.archive_available,
         }
 
 
@@ -519,6 +521,9 @@ def _artifact_locator(value: Mapping[str, object]) -> ArtifactLocator:
     expired = value.get("expired", False)
     if not isinstance(expired, bool):
         raise RecoveryError("workflow artifact expired flag is invalid")
+    archived = value.get("archive_available", False)
+    if not isinstance(archived, bool):
+        raise RecoveryError("workflow artifact archive availability flag is invalid")
     return ArtifactLocator(
         artifact_id=_positive_int(value.get("id"), "workflow artifact id"),
         name=_text(value.get("name"), "workflow artifact name"),
@@ -526,6 +531,7 @@ def _artifact_locator(value: Mapping[str, object]) -> ArtifactLocator:
         expired=expired,
         created_at=_optional_text(value.get("created_at")),
         expires_at=_optional_text(value.get("expires_at")),
+        archive_available=archived,
     )
 
 
@@ -845,6 +851,11 @@ def _read_cell_ledger(payload: bytes) -> tuple[RunBinding, str, int]:
 
 
 def _artifact_retention_days(artifact: ArtifactLocator) -> int:
+    if artifact.archive_available:
+        # The source ZIP is durable; GitHub retention no longer determines its
+        # availability. This value requests retention for NEW child artifacts,
+        # matching the protected workflow policy, not a historical timestamp.
+        return 90
     if artifact.created_at is None or artifact.expires_at is None:
         raise RecoveryError("locked inputs artifact lacks retention timestamps")
     try:
