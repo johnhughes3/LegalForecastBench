@@ -57,7 +57,14 @@ class RegistryBinding(TypedDict):
     tool_policy: str
 
 
-def reproduce(source: Path, output: Path) -> None:
+def reproduce(
+    source: Path,
+    output: Path,
+    *,
+    expected_case_count: int = 91,
+    expected_scored_unit_count: int = 387,
+    expected_forecast_unit_count: int = 409,
+) -> None:
     catalog = cast(
         list[CatalogEntry], json.loads((source / "catalog.json").read_text())
     )
@@ -65,8 +72,9 @@ def reproduce(source: Path, output: Path) -> None:
         list[OutcomeRecord],
         json.loads((source / "published-outcomes.json").read_text()),
     )
-    assert len(labels) == 387 and len({x["unit_id"] for x in labels}) == 387
-    assert len({x["case_id"] for x in labels}) == 91
+    assert len(labels) == expected_scored_unit_count
+    assert len({x["unit_id"] for x in labels}) == expected_scored_unit_count
+    assert len({x["case_id"] for x in labels}) == expected_case_count
     by_case: defaultdict[str, list[OutcomeRecord]] = defaultdict(list)
     for row in labels:
         by_case[row["case_id"]].append(row)
@@ -82,11 +90,13 @@ def reproduce(source: Path, output: Path) -> None:
         forecasts = cast(
             list[ForecastRecord], json.loads((root / "forecasts.json").read_text())
         )
-        assert len(forecasts) == 91
+        assert len(forecasts) == expected_case_count
         forecast_case_ids = {row["case_id"] for row in forecasts}
-        assert len(forecast_case_ids) == 91 and forecast_case_ids == set(by_case)
+        assert len(
+            forecast_case_ids
+        ) == expected_case_count and forecast_case_ids == set(by_case)
         all_ids = [p["unit_id"] for row in forecasts for p in row["predictions"]]
-        assert len(all_ids) == len(set(all_ids)) == 409
+        assert len(all_ids) == len(set(all_ids)) == expected_forecast_unit_count
         cases: list[ScoringCase] = []
         for row in forecasts:
             case_id = row["case_id"]
@@ -173,5 +183,23 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input_directory", type=Path)
     parser.add_argument("output_directory", type=Path)
+    for name, default, fact in [
+        ("case", 91, "forecast_case_count"),
+        ("scored-unit", 387, "scored_unit_count"),
+        ("forecast-unit", 409, "forecast_unit_count"),
+    ]:
+        parser.add_argument(
+            f"--expected-{name}-count",
+            type=int,
+            default=default,
+            help=f"Complete input census (default: {default}); for a refreshed "
+            f"cohort use catalog.json {fact}.",
+        )
     args = parser.parse_args()
-    reproduce(cast(Path, args.input_directory), cast(Path, args.output_directory))
+    reproduce(
+        cast(Path, args.input_directory),
+        cast(Path, args.output_directory),
+        expected_case_count=args.expected_case_count,
+        expected_scored_unit_count=args.expected_scored_unit_count,
+        expected_forecast_unit_count=args.expected_forecast_unit_count,
+    )
