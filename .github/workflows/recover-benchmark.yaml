@@ -36,7 +36,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  restore-archive:
+    name: Restore archived recovery inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: legalforecastbench-official-eval-fan-in
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Configure protected archive read access
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ vars.LFB_AWS_REGION }}
+          role-session-name: lfb-recovery-archive-${{ github.run_id }}
+          role-to-assume: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+      - name: Restore archived source identity and checkpoints
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = main
+          uv run python -m legalforecast.artifact_restore \
+            --repository "${GITHUB_REPOSITORY}" --run-id "${SOURCE_RUN_ID}" \
+            --bucket "${LFB_RESULTS_BUCKET}" --recovery-cache \
+            --destination /tmp/lfb-recovery-archive
+      - name: Pass restored bytes to the recovery job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: archived-recovery-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/lfb-recovery-archive
+          if-no-files-found: error
+          retention-days: 1
+
   recover:
+    needs: restore-archive
     name: Plan and apply bounded benchmark recovery
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -46,6 +87,7 @@ jobs:
       contents: read
       id-token: write
     env:
+      LFB_RECOVERY_ARCHIVE_DIR: /tmp/lfb-recovery-archive
       LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
@@ -79,6 +121,12 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
+
+      - name: Download protected archive recovery cache
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: archived-recovery-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/lfb-recovery-archive
 
       - name: Configure existing provider authority access
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
