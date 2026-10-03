@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import subprocess
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import cast
 
 
@@ -14,6 +17,49 @@ class RecoveryError(ValueError):
 
 class GhRecoveryClient:
     """Use brokered ``gh`` access without opening AWS or provider access."""
+
+    def __init__(self) -> None:
+        # Only protected workflows opt into a pre-materialized, read-only cache.
+        # Local planning never opens AWS or inherits operator credentials.
+        value = os.environ.get("LFB_RECOVERY_ARCHIVE_DIR", "")
+        self.archive_dir = (
+            Path(value)
+            if value and os.environ.get("GITHUB_ACTIONS") == "true"
+            else None
+        )
+        self.archived: dict[int, Mapping[str, object]] = {}
+
+    def _cached_artifacts(
+        self, repo: str, run_id: int
+    ) -> tuple[Mapping[str, object], ...]:
+        if self.archive_dir is None:
+            return ()
+        index = recovery_object(
+            json.loads((self.archive_dir / "index.json").read_text()), "archive cache"
+        )
+        if index.get("repository") != repo or index.get("run_id") != run_id:
+            raise RecoveryError("archive cache does not match requested source run")
+        values = index.get("artifacts")
+        if not isinstance(values, list):
+            raise RecoveryError("archive cache artifacts must be an array")
+        records = tuple(
+            recovery_object(item, "cached artifact")
+            for item in cast(list[object], values)
+        )
+        seen: set[int] = set()
+        for item in records:
+            artifact_id = item.get("id")
+            if (
+                type(artifact_id) is not int
+                or artifact_id <= 0
+                or artifact_id in seen
+            ):
+                raise RecoveryError(
+                    "archive cache artifact ID is invalid or duplicated"
+                )
+            seen.add(artifact_id)
+            self.archived[artifact_id] = item
+        return records
 
     def _json_api(self, endpoint: str) -> object:
         result = self._run_gh(
@@ -86,7 +132,14 @@ class GhRecoveryClient:
             artifacts.extend(
                 recovery_object(item, "workflow artifact") for item in artifact_values
             )
-        return tuple(artifacts)
+        cached = self._cached_artifacts(repo, run_id)
+        by_id = {item.get("id"): item for item in artifacts}
+        for item in cached:
+            original = by_id.get(item["id"])
+            if original is not None and original.get("name") != item.get("name"):
+                raise RecoveryError("archive cache artifact name differs from GitHub")
+            by_id[item["id"]] = item
+        return tuple(by_id.values())
 
     def list_attempt_jobs(
         self, repo: str, run_id: int, run_attempt: int
@@ -107,6 +160,27 @@ class GhRecoveryClient:
         return tuple(jobs)
 
     def download_artifact(self, repo: str, artifact_id: int) -> bytes:
+        if self.archive_dir is not None:
+            if not self.archived:
+                index = recovery_object(
+                    json.loads((self.archive_dir / "index.json").read_text()),
+                    "archive cache",
+                )
+                if (
+                    index.get("repository") != repo
+                    or type(index.get("run_id")) is not int
+                ):
+                    raise RecoveryError("archive cache repository/run is invalid")
+                self._cached_artifacts(repo, cast(int, index["run_id"]))
+            cached = self.archived.get(artifact_id)
+            if cached is not None:
+                payload = (self.archive_dir / f"{artifact_id}.zip").read_bytes()
+                if (
+                    cached.get("digest")
+                    != f"sha256:{hashlib.sha256(payload).hexdigest()}"
+                ):
+                    raise RecoveryError("archive cache ZIP digest mismatch")
+                return payload
         endpoint = f"repos/{repo}/actions/artifacts/{artifact_id}/zip"
         result = self._run_gh(
             (
