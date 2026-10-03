@@ -37,6 +37,8 @@ export function extendSnapshot(
 	additions: PublishedResult[],
 ): ResultsSnapshot {
 	let reference: string | undefined;
+	const addedSlugs = new Set<string>();
+	const addedModelKeys = new Set<string>();
 	const models = additions.map(({ source, data }): SnapshotModel => {
 		if (
 			source.release !== original.provenance.release ||
@@ -49,6 +51,20 @@ export function extendSnapshot(
 		const row = data.results[0];
 		if (row?.metadata.condition !== "agentic" || row.metadata.ablation !== null)
 			throw new Error("Only agentic results belong in this snapshot");
+		if (addedSlugs.has(source.slug) || addedModelKeys.has(row.model_id))
+			throw new Error("Duplicate native result identity");
+		addedSlugs.add(source.slug);
+		addedModelKeys.add(row.model_id);
+		const existing = original.models.find(
+			(model) => model.slug === source.slug || model.model_key === row.model_id,
+		);
+		if (
+			existing &&
+			(existing.slug !== source.slug || existing.model_key !== row.model_id)
+		)
+			throw new Error(
+				"Replacement model identity does not match historical row",
+			);
 		const units = row.units;
 		const unique = new Set(
 			units.map((u) => JSON.stringify([u.case_id, u.unit_id])),
@@ -109,12 +125,22 @@ export function extendSnapshot(
 	});
 	return parseSnapshot({
 		...structuredClone(original),
-		snapshot_id: "beta-2026-09-27",
-		as_of: "2026-09-27",
+		snapshot_id: "beta-2026-10-03",
+		as_of: "2026-10-03",
 		provenance: {
 			...original.provenance,
-			method: `${original.provenance.method} Six later full-document agentic configurations use native scored exports. Accuracy and confidence counts derive from their public prediction units.`,
+			method: `${original.provenance.method} Validated native scored exports supply ${models.length} full-document agentic configurations, replacing matching historical rows where available. Their accuracy and confidence counts derive from public prediction units.`,
 		},
-		models: [...original.models, ...models],
+		models: [
+			...original.models.map(
+				(model) =>
+					models.find((replacement) => replacement.slug === model.slug) ??
+					model,
+			),
+			...models.filter(
+				(model) =>
+					!original.models.some((historical) => historical.slug === model.slug),
+			),
+		],
 	});
 }
