@@ -713,3 +713,36 @@ def test_recovery_uses_durable_archive_without_inventing_retention_timestamps(
     assert locator["expires_at"] is None
     assert locator["archive_available"] is True
     assert client.dispatched == []
+
+
+@pytest.mark.parametrize(
+    "stderr,expected",
+    [
+        (
+            "gh: Resource not accessible by integration (HTTP 403) private-sentinel",
+            "HTTP 403",
+        ),
+        (
+            "gh: API rate limit exceeded (HTTP 403) private-sentinel",
+            "HTTP 403; rate_limit",
+        ),
+        ("gh: Not Found (HTTP 404) private-sentinel", "HTTP 404"),
+        ("unknown flag: --slurp private-sentinel", "unsupported_cli_option"),
+        (b"gh: Bad Gateway (HTTP 502) private-sentinel", "HTTP 502"),
+        ("dial tcp: private-sentinel", "exit 1"),
+    ],
+)
+def test_gh_recovery_failure_reports_value_blind_status(
+    monkeypatch: pytest.MonkeyPatch,
+    stderr: str | bytes,
+    expected: str,
+) -> None:
+    def fail(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise subprocess.CalledProcessError(1, command, stderr=stderr)
+
+    monkeypatch.setattr(subprocess, "run", fail)
+    with pytest.raises(RecoveryError) as error:
+        GhRecoveryClient().list_attempt_jobs("owner/bench", RUN_ID, 2)
+    assert expected in str(error.value)
+    assert "private-sentinel" not in str(error.value)
+    assert "attempts/2/jobs?per_page=100" in str(error.value)

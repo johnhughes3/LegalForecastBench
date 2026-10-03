@@ -1,7 +1,12 @@
 """Workflow fences for protected benchmark recovery and native reruns."""
 
+import os
+import subprocess
+import textwrap
 from itertools import pairwise
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RECOVERY_PATH = ROOT / ".github/workflows/recover-benchmark.yaml"
@@ -112,3 +117,52 @@ def test_result_artifacts_request_github_maximum_retention() -> None:
     assert RECOVERY.count("retention-days: 90\n") == 2
     assert "retention-days: 14" not in RECOVERY
     assert '"artifact_retention_days": "90",' in RECOVERY
+
+
+def test_plan_upload_requires_actual_output_and_failure_refusal_always_runs() -> None:
+    upload = RECOVERY.split(
+        "      - name: Persist protected recovery plan before writes", 1
+    )[1].split("      - name: Refuse blocked authority plan", 1)[0]
+    assert "always() && steps.authority-plan.outputs.plan_available == 'true'" in upload
+    refusal = RECOVERY.split("      - name: Refuse blocked authority plan", 1)[1].split(
+        "      - name: Apply idempotent", 1
+    )[0]
+    assert "always() && steps.authority-plan.outcome != 'success'" in refusal
+
+
+@pytest.mark.parametrize(
+    "status,writes_plan", [(1, False), (0, False), (0, True), (2, True)]
+)
+def test_authority_planning_never_reports_success_without_output(
+    tmp_path: Path,
+    status: int,
+    writes_plan: bool,
+) -> None:
+    section = RECOVERY.split(
+        "      - name: Build read-only provider authority plan", 1
+    )[1].split("      - name: Persist protected recovery plan", 1)[0]
+    script = textwrap.dedent(section.split("        run: |\n", 1)[1])
+    output_path = tmp_path / "plan.json"
+    script = script.replace("/tmp/lfb-protected-recovery-plan.json", str(output_path))
+    fake_gh = tmp_path / "gh"
+    fake_gh.write_text("#!/bin/sh\nprintf '%s\\n' 'gh version test'\n")
+    fake_gh.chmod(0o755)
+    fake_uv = tmp_path / "uv"
+    write = f"printf '%s' '{{}}' > '{output_path}'\n" if writes_plan else ""
+    fake_uv.write_text(f"#!/bin/sh\n{write}exit {status}\n")
+    fake_uv.chmod(0o755)
+    step_output = tmp_path / "outputs"
+    step_output.touch()
+    environment = dict(
+        os.environ,
+        PATH=f"{tmp_path}:{os.environ['PATH']}",
+        GITHUB_OUTPUT=str(step_output),
+        LFB_AWS_REGION="region",
+        LFB_PROVIDER_AUTHORITY_TABLE="table",
+        LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256="a" * 64,
+    )
+    result = subprocess.run(
+        ["bash", "-c", script], env=environment, capture_output=True, text=True
+    )
+    assert result.returncode == (1 if status == 0 and not writes_plan else status)
+    assert ("plan_available=true" in step_output.read_text()) is writes_plan
