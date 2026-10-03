@@ -97,3 +97,36 @@ def test_malformed_extracts_fail_instead_of_scoring_defaults(
     source.write_text(json.dumps(data))
     with pytest.raises(ValueError):
         MODULE.reproduce(source, tmp_path / "output.json")
+
+
+def test_withdrawal_filters_appendix_and_remains_reproducible(tmp_path: Path) -> None:
+    source = json.loads(SOURCE.read_text())
+    removed = source["labels"][0]["case_id"]
+    output = tmp_path / "results.json"
+    MODULE.reproduce(SOURCE, output, excluded_case_ids={removed})
+    refreshed = json.loads(output.read_text())
+    assert refreshed["available_cases"] == 99
+    assert removed not in output.read_text()
+    source["labels"] = [row for row in source["labels"] if row["case_id"] != removed]
+    for condition in source["conditions"]:
+        condition["cases"] = [
+            row for row in condition["cases"] if row["case_id"] != removed
+        ]
+    filtered = tmp_path / "inputs.json"
+    filtered.write_text(json.dumps(source))
+    independent = tmp_path / "independent.json"
+    MODULE.reproduce(
+        filtered,
+        independent,
+        expected_case_count=99,
+        expected_unit_count=refreshed["available_units"],
+    )
+    assert json.loads(independent.read_text()) == refreshed
+
+
+def test_case_absent_from_appendix_preserves_original_results(tmp_path: Path) -> None:
+    output = tmp_path / "results.json"
+    MODULE.reproduce(SOURCE, output, excluded_case_ids={"synthetic-absent-case"})
+    assert json.loads(output.read_text()) == json.loads(
+        SOURCE.with_name("results.json").read_text()
+    )

@@ -10,6 +10,7 @@ from typing import cast
 from legalforecast import cli_support
 from legalforecast.publication.site_export import export_site
 from legalforecast.publication.site_export_models import SiteExport
+from legalforecast.publication.site_refresh import refresh_site
 
 
 def _iso_date(value: str) -> date:
@@ -97,6 +98,38 @@ def register(
         ),
     )
     export.set_defaults(handler=run_export)
+    refresh = commands.add_parser(
+        "refresh",
+        help="Rebuild all selected public data after explicit case withdrawals.",
+    )
+    refresh.add_argument(
+        "--input-dir",
+        type=Path,
+        required=True,
+        help="Built public data directory produced by pnpm site:build "
+        "(site/dist/data).",
+    )
+    refresh.add_argument(
+        "--output-dir",
+        type=Path,
+        required=True,
+        help="New output directory outside the input tree; original "
+        "inputs stay untouched.",
+    )
+    refresh.add_argument(
+        "--withdrawn-case",
+        action="append",
+        required=True,
+        help="Case ID to remove from all current data; repeat for "
+        "multiple cases. No hosted changes are performed.",
+    )
+    refresh.add_argument(
+        "--replicates",
+        type=int,
+        default=1_000_000,
+        help="Paired case-cluster bootstrap replicates (default: 1000000).",
+    )
+    refresh.set_defaults(handler=run_refresh)
     schema = commands.add_parser(
         "schema",
         help=(
@@ -105,6 +138,20 @@ def register(
     )
     schema.add_argument("--output", type=Path, required=True)
     schema.set_defaults(handler=run_schema)
+
+
+def run_refresh(args: argparse.Namespace) -> int:
+    """Generate a superseding public tree without provider calls or publication."""
+    result = refresh_site(
+        cast(Path, args.input_dir),
+        cast(Path, args.output_dir),
+        excluded_case_ids=cast(list[str], args.withdrawn_case),
+        replicates=cast(int, args.replicates),
+    )
+    cli_support.log_event(
+        "site refresh", "artifact_written", args.output_dir, len(result["models"])
+    )
+    return 0
 
 
 def run_export(args: argparse.Namespace) -> int:
