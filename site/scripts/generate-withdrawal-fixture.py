@@ -59,7 +59,13 @@ def generate(output: Path) -> None:
     write(output / "current.json", snapshot)
     write(
         output / "historical-aggregates.json",
-        {"status": "superseded", "models": [], "reason": "Synthetic baseline"},
+        {
+            "status": "superseded",
+            "models": [],
+            "reason": "Synthetic baseline",
+            "provenance": snapshot["provenance"],
+            "cohort": snapshot["cohort"],
+        },
     )
     write(output / "sources.json", sources)
     write(output / "costs.json", [])

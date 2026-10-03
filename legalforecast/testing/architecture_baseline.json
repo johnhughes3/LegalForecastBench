@@ -1854,10 +1854,10 @@
         ],
         "lane_owner": "other",
         "largest_symbol": "generate",
-        "largest_symbol_lines": 125,
+        "largest_symbol_lines": 131,
         "layer": "application",
-        "line_count": 158,
-        "nonblank_line_count": 145,
+        "line_count": 164,
+        "nonblank_line_count": 151,
         "top_level_definition_count": 3
       },
       "site/scripts/verify-withdrawal-build.py": {
