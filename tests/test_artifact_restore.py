@@ -1,3 +1,4 @@
+# pyright: reportPrivateUsage=false
 """Archive fallback tests use saved ZIP bytes; they do not establish S3 coverage."""
 
 from __future__ import annotations
@@ -166,3 +167,107 @@ def test_restore_jobs_use_existing_fanin_environment_and_no_provider_credentials
         assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in section
         assert "retention-days: 1" in section
         assert "infisical" not in section.lower()
+
+
+@pytest.mark.parametrize("status", [0, 403, 404, 410])
+def test_live_download_checks_digest_and_only_missing_zip_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+) -> None:
+    import subprocess
+
+    payload = _archive(monkeypatch)
+    listing: list[object] = [
+        {
+            "artifacts": [
+                {
+                    "id": ARTIFACT,
+                    "name": NAME,
+                    "expired": False,
+                    "digest": "sha256:" + hashlib.sha256(payload).hexdigest(),
+                }
+            ]
+        }
+    ]
+    archive_listing = restore._json_command
+
+    def command(arguments: list[str]) -> object:
+        if arguments[0] == "gh":
+            return listing
+        return archive_listing(arguments)
+
+    def download(
+        arguments: list[str], *, capture_output: bool
+    ) -> subprocess.CompletedProcess[bytes]:
+        assert arguments[-1] == f"repos/{REPO}/actions/artifacts/{ARTIFACT}/zip"
+        assert capture_output
+        return subprocess.CompletedProcess(
+            arguments, 0 if status == 0 else 1, payload, f"HTTP {status}".encode()
+        )
+
+    monkeypatch.setattr(restore, "_json_command", command)
+    monkeypatch.setattr(restore.subprocess, "run", download)
+    if status == 403:
+        with pytest.raises(subprocess.CalledProcessError):
+            restore.restore_artifact(REPO, RUN, NAME, bucket=BUCKET)
+    else:
+        assert restore.restore_artifact(REPO, RUN, NAME, bucket=BUCKET) == payload
+
+
+@pytest.mark.parametrize("field", ["repository", "source_run_id", "name", "key"])
+def test_archive_refuses_pointer_identity_mismatch(
+    monkeypatch: pytest.MonkeyPatch, field: str
+) -> None:
+    _archive(monkeypatch)
+    original = restore._get_s3
+
+    def get_object(bucket: str, key: str) -> bytes:
+        payload = original(bucket, key)
+        if key.endswith(".json"):
+            pointer: dict[str, object] = json.loads(payload)
+            pointer[field] = "wrong"
+            return json.dumps(pointer).encode()
+        return payload
+
+    monkeypatch.setattr(restore, "_get_s3", get_object)
+    with pytest.raises(ValueError, match="pointer does not match"):
+        restore.restore_artifact(REPO, RUN, NAME, bucket=BUCKET)
+
+
+def test_safe_zip_extracts_nested_regular_files(tmp_path: Path) -> None:
+    payload = _zip()
+    destination = tmp_path / "extracted"
+    restore.extract_artifact(payload, destination)
+    assert (destination / "run-manifest.json").read_bytes() == b"{}"
+
+
+def test_git_hub_download_digest_mismatch_is_not_replaced_with_archive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import subprocess
+
+    _archive(monkeypatch)
+
+    def listing(arguments: list[str]) -> object:
+        return [
+            {
+                "artifacts": [
+                    {
+                        "id": ARTIFACT,
+                        "name": NAME,
+                        "expired": False,
+                        "digest": "sha256:" + "0" * 64,
+                    }
+                ]
+            }
+        ]
+
+    def download(
+        arguments: list[str], *, capture_output: bool
+    ) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(arguments, 0, _zip(), b"")
+
+    monkeypatch.setattr(restore, "_json_command", listing)
+    monkeypatch.setattr(restore.subprocess, "run", download)
+    with pytest.raises(ValueError, match="digest mismatch"):
+        restore.restore_artifact(REPO, RUN, NAME, bucket=BUCKET)
