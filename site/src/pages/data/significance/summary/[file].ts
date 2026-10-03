@@ -1,4 +1,5 @@
 import type { APIRoute, GetStaticPaths } from "astro";
+import { datasetDownloads } from "../../../../data/dataset-input.js";
 
 const sources = import.meta.glob("../../../../data/significance/summary/*", {
 	query: "?raw",
@@ -6,10 +7,12 @@ const sources = import.meta.glob("../../../../data/significance/summary/*", {
 	eager: true,
 });
 export const getStaticPaths = (() =>
-	Object.entries(sources).map(([path, data]) => ({
-		params: { file: path.split("/").at(-1) },
-		props: { data },
-	}))) satisfies GetStaticPaths;
+	Object.entries(datasetDownloads("significance/summary", sources)).map(
+		([path, data]) => ({
+			params: { file: path.split("/").at(-1) },
+			props: { data },
+		}),
+	)) satisfies GetStaticPaths;
 export const GET: APIRoute = ({ props, params }) => {
 	if (typeof props.data !== "string")
 		throw new Error("Missing summary significance download");

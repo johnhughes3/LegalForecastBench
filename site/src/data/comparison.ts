@@ -1,6 +1,10 @@
-import analysis from "./significance/comparison.json" with { type: "json" };
+import { datasetJson } from "./dataset-input.js";
+import originalAnalysis from "./significance/comparison.json" with {
+	type: "json",
+};
 import { parseSnapshot, type ResultsSnapshot } from "./snapshot.js";
 
+const analysis = datasetJson("significance/comparison.json", originalAnalysis);
 export const comparison = analysis;
 const familyPairs =
 	(analysis.family_model_count * (analysis.family_model_count - 1)) / 2;

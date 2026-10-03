@@ -85,3 +85,6 @@ jobs:
         run: |
           pnpm --filter @legalforecastbench/site exec playwright install --with-deps chromium
           pnpm --filter @legalforecastbench/site test:browser
+
+      - name: Check synthetic withdrawal across pages and downloads
+        run: bash site/scripts/check-withdrawal-build.sh

@@ -1,7 +1,13 @@
 ---
-import results from "../../../public/data/historical-comparison/results.json";
+import originalResults from "../../../public/data/historical-comparison/results.json";
+import { datasetJson, refreshedDataDirectory } from "../../data/dataset-input";
+import { snapshot } from "../../data/results";
 import Layout from "../../layouts/Layout.astro";
 
+const results = datasetJson(
+	"historical-comparison/results.json",
+	originalResults,
+);
 const names: Record<string, string> = {
 	"google:gemini-3.7-flash": "Gemini 3.7 Flash",
 	"openai:gpt-5.6-luna": "GPT-5.6 Luna",
@@ -11,21 +17,21 @@ const names: Record<string, string> = {
   <section class="prose-lfb prose mx-auto max-w-4xl px-4 pt-14 sm:px-6">
     <a href="/data/run-notes/">← Run notes</a>
     <h1>Historical full-packet results</h1>
-    <p>These two saved runs used the earlier 100-case corpus, before the corpus factory cutover. They are exploratory historical results: the earlier corpus had missing filed oppositions, and these results are separate from the current 91-case comparison and its rankings.</p>
+    <p>These two saved runs used the earlier 100-case corpus, before the corpus factory cutover. They are exploratory historical results: the earlier corpus had missing filed oppositions, and these results are separate from the current {snapshot.cohort.case_count}-case comparison and its rankings.</p>
     <p>Both configurations requested high reasoning with the older Inspect AI full-packet backend. Each case recorded one model request and no tool calls. These records do not establish execution with the current native document-tool agent. GPT-5.6 Luna requested the Flex service tier.</p>
-    <p>The original cohort contains 425 prediction units. Frozen labels provide binary outcomes for 385 units; 40 have null outcomes and are excluded from scoring. Six cases have no scored outcomes. We retain the original units and null labels in the reproduction download.</p>
+    <p>The downloadable cohort contains {results.available_units} prediction units from {results.available_cases} cases. Frozen labels provide binary outcomes for {results.labelled_units} units; {results.null_outcome_units} have null outcomes and are excluded from scoring. Nullable outcomes remain in the reproduction download. {refreshedDataDirectory && "Withdrawn cases have been removed from this historical extract as well as the current comparison."}</p>
     <div class="overflow-x-auto">
       <table>
         <thead><tr><th>Configuration</th><th>Accepted / attempted cases</th><th>Scored cases / units</th><th>Micro Brier</th><th>Equal-case Brier</th><th>All-execution estimated cost</th></tr></thead>
         <tbody>{results.conditions.map(row => <tr><td>{names[row.model_id]}</td><td>{row.accepted_cases} / {row.attempted_cases}</td><td>{row.scored_cases} / {row.scored_units}</td><td>{row.micro_brier.toFixed(6)}</td><td>{row.equal_case_brier.toFixed(6)}</td><td>${row.estimated_all_execution_cost_usd.toFixed(6)}</td></tr>)}</tbody>
       </table>
     </div>
-    <p>GPT-5.6 Luna omitted a required unit in each of two cases (71396055 and 71648352). We exclude both entire case outputs, dropping 18 labelled units, rather than inventing probabilities. Its scores cover 367 units from 92 cases with outcomes, compared with Gemini’s 385 units from 94 cases. These unequal denominators do not support a ranking or significance claim.</p>
-    <p>Recorded token usage and estimated costs cover all 100 executions per configuration and agree with their saved accounting records. Luna’s accepted 98-case workload estimate is $3.571631; its all-execution estimate includes the two rejected cases. These are recorded estimates, not provider invoices or standard-rate repricing. Cache dimensions and billing evidence are unavailable here.</p>
+    <p>{results.conditions.map(row => `${names[row.model_id]}: ${row.failed_cases.length} rejected case outputs, ${row.dropped_labelled_units} labelled units dropped; ${row.scored_units} scored units across ${row.scored_cases} cases.`).join(" ")} These unequal denominators do not support a ranking or significance claim.</p>
+    <p>Recorded token usage and estimated costs cover all attempted cases in this downloadable historical cohort, including rejected outputs. They are recorded estimates, not provider invoices or standard-rate repricing. Cache dimensions and billing evidence are unavailable here. The results download reports accepted-workload estimates and usage coverage separately.</p>
     <h2>Reproduce without model calls</h2>
     <p><a href="/data/historical-comparison/inputs.json" download>Download original unit probabilities, nullable outcomes, usage, and run identities</a> · <a href="/data/historical-comparison/results.json" download>Download reconstructed results and failed-case details</a></p>
     <p>From the repository checkout, run:</p>
-    <pre><code>uv run python scripts/reproduce_historical_comparison.py site/public/data/historical-comparison/inputs.json /tmp/historical-results.json</code></pre>
+    <pre><code>uv run python scripts/reproduce_historical_comparison.py /path/to/downloaded/historical-comparison/inputs.json /tmp/historical-results.json</code></pre>
     <p>The script validates case and unit coverage, rejects malformed or defaulted inputs, and uses the benchmark’s shared scorer for micro and equal-case Brier. The sanitized extract contains no court documents, model rationales, or private operating records. Saved run IDs are {results.conditions.map(row => row.run_id).join(" and ")}.</p>
   </section>
 </Layout>

@@ -1,5 +1,6 @@
-import provenance from "../../public/data/summary-comparison/catalog.json";
+import originalProvenance from "../../public/data/summary-comparison/catalog.json";
 import type { SiteCalibrationBin, SiteExport } from "../generated/site-export";
+import { datasetJson } from "./dataset-input.js";
 import gpt41 from "./exports/gpt-4-1.json";
 import lunaHigh from "./exports/gpt-5-6-luna-summaries-high.json";
 import lunaNone from "./exports/gpt-6-luna-summaries-none.json";
@@ -45,6 +46,10 @@ export interface SummaryComparison {
 	data: SiteExport;
 }
 
+const provenance = datasetJson(
+	"summary-comparison/catalog.json",
+	originalProvenance,
+);
 const exports = [jev, lunaNone, lunaHigh].map(parseSiteExport);
 export const summaryComparisons: SummaryComparison[] = provenance.map(
 	(item) => {
@@ -53,7 +58,12 @@ export const summaryComparisons: SummaryComparison[] = provenance.map(
 			(item) => item.source.run_identity_sha256 === source.run_identity_sha256,
 		);
 		if (!data) throw new Error(`Missing summary export for ${source.slug}`);
-		return { source, data };
+		return {
+			source,
+			data: parseSiteExport(
+				datasetJson<unknown>(`exports/${source.slug}.json`, data),
+			),
+		};
 	},
 );
 
@@ -85,7 +95,7 @@ export function buildSupplementaryRows(
 		if (!cache || source.summary_cache_sha256 !== cache)
 			throw new Error("Summary inputs differ");
 		if (
-			data.excluded_case_count !== 0 ||
+			data.excluded_case_count !== reference.excluded_case_count ||
 			data.contamination_boundary !== reference.contamination_boundary ||
 			row.case_count !== referenceRow.case_count ||
 			row.unit_count !== referenceRow.unit_count ||
@@ -157,5 +167,5 @@ export function buildSupplementaryRows(
 
 export const supplementaryRows = buildSupplementaryRows(
 	summaryComparisons,
-	parseSiteExport(gpt41),
+	parseSiteExport(datasetJson<unknown>("exports/gpt-4-1.json", gpt41)),
 );
