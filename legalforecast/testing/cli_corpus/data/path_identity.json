@@ -173,6 +173,7 @@
     "tests/test_reproduce_summary_comparisons.py",
     "tests/test_scripts_docs.py",
     "tests/test_site_export.py",
+    "tests/test_site_refresh.py",
     "tests/test_site_workflows.py",
     "tests/test_stable_score_timestamps.py",
     "tests/test_summary_comparator_models.py",

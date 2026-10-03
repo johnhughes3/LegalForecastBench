@@ -112,7 +112,7 @@ def reproduce(
         retained_cases = [
             case for case in condition.cases if case.case_id not in excluded
         ]
-        for case in retained_cases:
+        for case in condition.cases:
             required = tuple(case.required_unit_ids)
             labels = labels_by_case[case.case_id]
             if len(required) != len(set(required)) or set(required) != {
@@ -125,9 +125,13 @@ def reproduce(
             ).issubset(required):
                 raise ValueError("duplicate or unknown prediction unit")
             missing = sorted(set(required) - predictions.keys())
+            if case.status == "missing_unit" and not missing:
+                raise ValueError("failed case has no missing prediction")
+            if case.status == "valid" and missing:
+                raise ValueError("valid case is missing predictions")
+            if case.case_id in excluded:
+                continue
             if case.status == "missing_unit":
-                if not missing:
-                    raise ValueError("failed case has no missing prediction")
                 failures.append(
                     {
                         "case_id": case.case_id,
@@ -136,8 +140,6 @@ def reproduce(
                     }
                 )
                 continue
-            if missing:
-                raise ValueError("valid case is missing predictions")
             parsed = ParsedModelOutput(
                 status=ParserStatus.VALID,
                 raw_output_sha256=case.raw_output_sha256,
