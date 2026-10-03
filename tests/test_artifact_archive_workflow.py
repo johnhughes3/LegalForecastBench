@@ -8,6 +8,24 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/archive-github-artifacts.yaml").read_text()
 
 
+def test_private_draft_access_is_scoped_to_protected_preservation_job() -> None:
+    workflow = (ROOT / ".github/workflows/preserve-retained-package.yaml").read_text()
+    defaults, job = workflow.split("jobs:\n", 1)
+    assert "permissions:\n  contents: read" in defaults
+    assert "github.ref == 'refs/heads/main'" in job
+    assert "environment: legalforecastbench-official-eval-fan-in" in job
+    assert "      contents: write\n      id-token: write" in job
+    assert "persist-credentials: false" in job
+    download, publication = job.split(
+        "      - name: Assume protected storage role after validation", 1
+    )
+    assert "GH_TOKEN: ${{ github.token }}" in download
+    assert "GH_TOKEN" not in publication
+    assert "--sha256" in download and "--source-run-id" in download
+    assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in publication
+    assert "--upload-only" in publication
+
+
 def test_every_result_producing_workflow_triggers_an_archive() -> None:
     triggers = WORKFLOW.split("  workflow_run:\n", 1)[1].split("types:", 1)[0]
     for path in (
