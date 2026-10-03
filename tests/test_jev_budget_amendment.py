@@ -60,9 +60,18 @@ def test_summary_resume_amends_budget_without_rebuying_cached_documents(
             ).fetchone() == (40_000_000,)
 
 
-def test_cli_forwards_explicit_budget_amendment(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("option", "value", "expected_key"),
+    [
+        ("--amend-cap-from-microusd", "18003132", "amend_cap_from_microusd"),
+        ("--retry-interrupted-attempt-id", "a" * 64, "retry_interrupted_attempt_id"),
+    ],
+)
+def test_cli_forwards_explicit_summary_recovery(
+    monkeypatch: pytest.MonkeyPatch, option: str, value: str, expected_key: str
 ) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("GITHUB_WORKFLOW", "Prepare Jev Summaries")
     received: dict[str, object] = {}
 
     def capture(**kwargs: object) -> dict[str, int]:
@@ -104,12 +113,25 @@ def test_cli_forwards_explicit_budget_amendment(
                     "grok",
                     "--ceiling-microusd",
                     "38003132",
-                    "--amend-cap-from-microusd",
-                    "18003132",
+                    option,
+                    value,
+                    "--interrupted-source-run-id",
+                    "42",
                 ]
             )
         )
         == 0
     )
+    assert received["interrupted_source_run_id"] == 42
     assert received["ceiling_microusd"] == 38_003_132
-    assert received["amend_cap_from_microusd"] == 18_003_132
+    assert received[expected_key] == (
+        int(value) if option == "--amend-cap-from-microusd" else value
+    )
+
+
+def test_interrupted_paid_cli_refuses_local_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    with pytest.raises(ValueError, match="protected preparation workflow"):
+        jev_cli.run_inputs(argparse.Namespace(retry_interrupted_attempt_id="a" * 64))

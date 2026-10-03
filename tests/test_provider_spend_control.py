@@ -780,3 +780,130 @@ def _key(
         ablation=ablation,
         repeat_index=repeat_index,
     )
+
+
+def test_interrupted_permit_preserves_held_rows_and_rechecks_named_predecessor(
+    tmp_path: Path,
+) -> None:
+    key = _key(account="jev-summaries", stage="document_summary")
+    other = _key(account="jev-summaries", stage="document_summary", case_id="other")
+    with _authority(
+        tmp_path / "ledger.sqlite3",
+        account="jev-summaries",
+        max_billable_attempts=1,
+        failure_threshold=8,
+    ) as authority:
+        original = authority.authorize_attempt(key, reservation_microusd=100_000)
+        uncertain = authority.authorize_attempt(other, reservation_microusd=100_000)
+        authority.record_failure(uncertain, failure_type="timeout", ambiguous=True)
+        assert authority.interrupted_replacement_status(original.attempt_id) == (
+            key.logical_call_key,
+            False,
+        )
+        permit = AdditionalAttemptPermit(
+            logical_call_key=key.logical_call_key,
+            prompt_sha256="a" * 64,
+            journal_path_sha256="b" * 64,
+            max_total_attempts=2,
+            reservation_cap_microusd=100_000,
+            acknowledged_interrupted_attempt_id=original.attempt_id,
+        )
+        with pytest.raises(AttemptStateError):
+            authority.authorize_additional_attempt(
+                key,
+                reservation_microusd=100_000,
+                permit=replace(
+                    permit, acknowledged_interrupted_attempt_id=uncertain.attempt_id
+                ),
+            )
+        replacement = authority.authorize_additional_attempt(
+            key, reservation_microusd=100_000, permit=permit
+        )
+        assert replacement.attempt_ordinal == 2
+        assert authority.snapshot().committed_microusd == 300_000
+        assert authority.snapshot().ambiguous_attempt_count == 1
+        with pytest.raises(AttemptStateError, match="already reserved or failed"):
+            authority.interrupted_replacement_status(original.attempt_id)
+        authority.record_response(
+            replacement,
+            input_tokens=1,
+            output_tokens=1,
+            actual_microusd=20_000,
+            response_sha256="c" * 64,
+        )
+        assert authority.interrupted_replacement_status(original.attempt_id) == (
+            key.logical_call_key,
+            True,
+        )
+        assert authority.snapshot().committed_microusd == 220_000
+        assert authority.snapshot().reserved_attempt_count == 1
+        with pytest.raises(AttemptLimitExceededError):
+            authority.authorize_additional_attempt(
+                key, reservation_microusd=100_000, permit=permit
+            )
+
+
+@pytest.mark.parametrize(
+    "predecessor_status", ["settled", "ambiguous", "failed_nonbillable"]
+)
+def test_interrupted_recovery_rejects_nonreserved_first_attempt(
+    tmp_path: Path, predecessor_status: str
+) -> None:
+    key = _key(account="jev-summaries", stage="document_summary")
+    with _authority(
+        tmp_path / "ledger.sqlite3", account="jev-summaries", max_billable_attempts=1
+    ) as authority:
+        first = authority.authorize_attempt(key, reservation_microusd=100_000)
+        if predecessor_status == "settled":
+            authority.record_response(
+                first,
+                input_tokens=1,
+                output_tokens=1,
+                actual_microusd=20_000,
+                response_sha256="c" * 64,
+            )
+        else:
+            authority.record_failure(
+                first,
+                failure_type="failure",
+                ambiguous=predecessor_status == "ambiguous",
+            )
+        with pytest.raises(AttemptStateError, match="exact reserved first"):
+            authority.interrupted_replacement_status(first.attempt_id)
+        permit = AdditionalAttemptPermit(
+            logical_call_key=key.logical_call_key,
+            prompt_sha256="a" * 64,
+            journal_path_sha256="b" * 64,
+            max_total_attempts=2,
+            reservation_cap_microusd=100_000,
+            acknowledged_interrupted_attempt_id=first.attempt_id,
+        )
+        with pytest.raises(AttemptStateError, match="exact reserved first"):
+            authority.authorize_additional_attempt(
+                key, reservation_microusd=100_000, permit=permit
+            )
+
+
+def test_interrupted_recovery_cannot_exceed_existing_cap(tmp_path: Path) -> None:
+    key = _key(account="jev-summaries", stage="document_summary")
+    with _authority(
+        tmp_path / "ledger.sqlite3",
+        account="jev-summaries",
+        max_billable_attempts=1,
+        cap_microusd=150_000,
+    ) as authority:
+        first = authority.authorize_attempt(key, reservation_microusd=100_000)
+        permit = AdditionalAttemptPermit(
+            logical_call_key=key.logical_call_key,
+            prompt_sha256="a" * 64,
+            journal_path_sha256="b" * 64,
+            max_total_attempts=2,
+            reservation_cap_microusd=100_000,
+            acknowledged_interrupted_attempt_id=first.attempt_id,
+        )
+        with pytest.raises(ProviderCapExceededError):
+            authority.authorize_additional_attempt(
+                key, reservation_microusd=100_000, permit=permit
+            )
+        assert authority.snapshot().committed_microusd == 100_000
+        assert authority.snapshot().attempt_count == 1

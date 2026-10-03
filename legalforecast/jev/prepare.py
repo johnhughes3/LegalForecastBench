@@ -45,6 +45,7 @@ from legalforecast.runner.gateway import (
     gateway_request_extra_body,
 )
 
+from .interrupted_source import require_terminal_summary_run
 from .packets import (
     JEV_REQUEST_BYTE_BUDGET,
     case_documents,
@@ -156,6 +157,8 @@ def prepare_summaries(
     reconcile_saved_overrun: bool = False,
     summary_profile: str = "standard",
     retry_ambiguous_attempt_id: str | None = None,
+    retry_interrupted_attempt_id: str | None = None,
+    interrupted_source_run_id: int | None = None,
     amend_cap_from_microusd: int | None = None,
 ) -> dict[str, int]:
     """Summarize each whole document once, persisting progress and spend."""
@@ -180,6 +183,23 @@ def prepare_summaries(
     request_byte_budget = (
         24_000 if summary_profile == "short" else JEV_REQUEST_BYTE_BUDGET
     )
+    if retry_interrupted_attempt_id is not None:
+        if (
+            retry_ambiguous_attempt_id is not None
+            or amend_cap_from_microusd is not None
+        ):
+            raise ValueError(
+                "interrupted retry cannot change the cap or select another retry"
+            )
+        if (
+            entry.provider,
+            entry.model_id,
+        ) != _GROK_SUMMARY_ENTRY or summary_profile != "short":
+            raise ValueError(
+                "interrupted retry requires the original short Grok condition"
+            )
+    if retry_interrupted_attempt_id is not None:
+        require_terminal_summary_run(interrupted_source_run_id)
     if reconcile_saved_overrun and summary_profile != "standard":
         raise ValueError(
             "saved-overrun reconciliation applies only to the original standard profile"
@@ -226,10 +246,16 @@ def prepare_summaries(
         ),
     ) as authority:
         retry_logical_key: str | None = None
-        if retry_ambiguous_attempt_id is not None:
-            retry_logical_key, replacement_complete = (
-                authority.ambiguous_replacement_status(retry_ambiguous_attempt_id)
-            )
+        retry_attempt_id = retry_ambiguous_attempt_id or retry_interrupted_attempt_id
+        if retry_attempt_id is not None:
+            if retry_interrupted_attempt_id is not None:
+                retry_logical_key, replacement_complete = (
+                    authority.interrupted_replacement_status(retry_attempt_id)
+                )
+            else:
+                retry_logical_key, replacement_complete = (
+                    authority.ambiguous_replacement_status(retry_attempt_id)
+                )
             found = False
             for prior_case in execution.release.cases:
                 prior_units = tuple(
@@ -256,11 +282,11 @@ def prepare_summaries(
                     )
                     if (cached is not None) != replacement_complete:
                         raise AttemptStateError(
-                            "ambiguous retry cache does not match replacement state"
+                            "summary retry cache does not match replacement state"
                         )
             if not found:
                 raise AttemptStateError(
-                    "ambiguous retry attempt does not belong to this summary census"
+                    "summary retry attempt does not belong to this summary census"
                 )
         for case in execution.release.cases:
             units = tuple(
@@ -371,7 +397,7 @@ def prepare_summaries(
                 )
                 permit = None
                 if key.logical_call_key == retry_logical_key:
-                    assert retry_ambiguous_attempt_id is not None
+                    assert retry_attempt_id is not None
                     permit = AdditionalAttemptPermit(
                         logical_call_key=key.logical_call_key,
                         prompt_sha256=hashlib.sha256(
@@ -383,6 +409,7 @@ def prepare_summaries(
                         max_total_attempts=2,
                         reservation_cap_microusd=reservation,
                         acknowledged_ambiguous_attempt_id=retry_ambiguous_attempt_id,
+                        acknowledged_interrupted_attempt_id=retry_interrupted_attempt_id,
                     )
                 handler = ProviderSpendAttemptHandler(
                     authority=authority,

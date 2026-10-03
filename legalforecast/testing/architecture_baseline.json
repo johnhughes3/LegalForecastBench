@@ -414,10 +414,10 @@
         ],
         "lane_owner": "evals",
         "largest_symbol": "SqliteProviderSpendAuthority",
-        "largest_symbol_lines": 991,
+        "largest_symbol_lines": 1021,
         "layer": "application",
-        "line_count": 1275,
-        "nonblank_line_count": 1138,
+        "line_count": 1315,
+        "nonblank_line_count": 1206,
         "top_level_definition_count": 21
       },
       "legalforecast/evals/provider_spend_dynamodb.py": {
@@ -555,6 +555,23 @@
         "line_count": 468,
         "nonblank_line_count": 436,
         "top_level_definition_count": 9
+      },
+      "legalforecast/jev/prepare.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "root",
+        "fan_in": 1,
+        "fan_out": 11,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "root",
+        "largest_symbol": "prepare_summaries",
+        "largest_symbol_lines": 377,
+        "layer": "application",
+        "line_count": 526,
+        "nonblank_line_count": 508,
+        "top_level_definition_count": 3
       },
       "legalforecast/multiharness/__init__.py": {
         "cycle_id": "",
@@ -2088,6 +2105,23 @@
         "line_count": 615,
         "nonblank_line_count": 553,
         "top_level_definition_count": 21
+      },
+      "tests/test_jev_grok_prepare.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_exact_ambiguous_retry_retains_hold_then_reuses_settled_cache",
+        "largest_symbol_lines": 102,
+        "layer": "test",
+        "line_count": 687,
+        "nonblank_line_count": 621,
+        "top_level_definition_count": 19
       },
       "tests/test_live_model_solver.py": {
         "cycle_id": "",

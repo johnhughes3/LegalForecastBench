@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
@@ -200,6 +201,23 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
                     "under the existing ledger ceiling; retain its charge hold."
                 ),
             )
+            child.add_argument(
+                "--retry-interrupted-attempt-id",
+                help=(
+                    "Allow one successor for this exact crash-reserved short Grok "
+                    "attempt; retain its hold and unchanged ceiling. Official "
+                    "recovery requires a terminal prior preparation workflow."
+                ),
+            )
+            child.add_argument(
+                "--interrupted-source-run-id",
+                type=int,
+                help=(
+                    "Exact prior summary workflow run checked through brokered "
+                    "GitHub before interrupted recovery; required with "
+                    "--retry-interrupted-attempt-id."
+                ),
+            )
         child.set_defaults(handler=run_inputs)
     registry = commands.add_parser(
         "registry",
@@ -256,6 +274,13 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
 def run_inputs(args: argparse.Namespace) -> int:
     """Read only outcome-blinded inputs and dispatch the selected operation."""
 
+    if getattr(args, "retry_interrupted_attempt_id", None) and (
+        os.environ.get("GITHUB_ACTIONS") != "true"
+        or os.environ.get("GITHUB_WORKFLOW") != "Prepare Jev Summaries"
+    ):
+        raise ValueError(
+            "interrupted summary recovery requires the protected preparation workflow"
+        )
     execution = load_forecast_run_inputs(
         cast(Path, args.manifest),
         cast(Path, args.forecast),
@@ -284,6 +309,12 @@ def run_inputs(args: argparse.Namespace) -> int:
             summary_kwargs["retry_ambiguous_attempt_id"] = (
                 args.retry_ambiguous_attempt_id
             )
+        if getattr(args, "retry_interrupted_attempt_id", None):
+            summary_kwargs["retry_interrupted_attempt_id"] = (
+                args.retry_interrupted_attempt_id
+            )
+        if getattr(args, "interrupted_source_run_id", None) is not None:
+            summary_kwargs["interrupted_source_run_id"] = args.interrupted_source_run_id
         if getattr(args, "summary_profile", "standard") != "standard":
             summary_kwargs["summary_profile"] = args.summary_profile
         result = prepare_summaries(**summary_kwargs)  # type: ignore[arg-type]
