@@ -7,6 +7,8 @@ description: Produce or change the public website JSON export, schema, and gener
 
 Use the native score artifact produced by `legalforecast score`, not raw run receipts or the legacy static-site bundle. The command is `uv run legalforecast site export --scores scores.json --output site-data.json`; inspect `site export --help` for metadata and withdrawal options.
 
+Protected fan-in scoring generates `accounting.jsonl` from its identity-validated receipts using `uv run python -m legalforecast.publication.receipt_accounting --receipts validated-receipts.jsonl --registry model-registry.json --model-key PROVIDER:MODEL --output accounting.jsonl`. It passes accounting to both report and site export, retains the results, and publishes them alongside scores in S3 when publication is enabled. Preserve charge-versus-estimate evidence, successful-workload scope, missing usage/rates, and standard-rate coverage. Never infer invoice totals from completed-case receipts alone.
+
 The Python contract is authoritative. After changing it, run `uv run legalforecast site schema --output docs/schemas/site-export-v1.schema.json`, `pnpm --filter @legalforecastbench/site contract:generate`, and `pnpm site:check`. Validate exporter behavior with the focused `tests/test_site_export*` tests. Type generation does not replace runtime JSON validation: frontend code uses `parseSiteExport` from `site/src/data/site-export.ts`.
 
 Keep Python scoring and eligibility logic shared. Withdrawals must affect aggregate metrics as well as visible case rows. Null cost means missing evidence, not zero. Separate summary experiments from full-document agentic runs, and do not infer eligibility from model release dates. The synthetic fixture supports development only.

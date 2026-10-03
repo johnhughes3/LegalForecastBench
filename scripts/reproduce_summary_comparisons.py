@@ -136,8 +136,29 @@ def reproduce(source: Path, output: Path) -> None:
         export = build_site_export(
             payload, registry=registry, contamination_boundary=date(2026, 6, 30)
         )
+        # This reproducer has no receipt accounting input. Preserve the original
+        # no-cost-evidence contract rather than minting default accounting claims
+        # that were absent from the published experiment.
+        historical_cost_fields = {
+            "currency",
+            "basis",
+            "total_cost",
+            "cost_per_case",
+            "covered_case_count",
+            "missing_case_count",
+            "standard_rate_total_cost",
+            "standard_rate_status",
+        }
+        historical = export.model_dump(mode="json")
+        for row in historical["results"]:
+            assert row["costs"]["basis"] == "unavailable"
+            row["costs"] = {
+                key: value
+                for key, value in row["costs"].items()
+                if key in historical_cost_fields
+            }
         (output / (item["slug"] + ".json")).write_text(
-            export.model_dump_json(indent=2) + "\n"
+            json.dumps(historical, indent=2) + "\n"
         )
         print(
             item["slug"],

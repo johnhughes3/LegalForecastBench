@@ -42,13 +42,29 @@ class SiteCosts(PublicModel):
     """Cost availability; missing accounting is never interpreted as free usage."""
 
     currency: Literal["USD"] = "USD"
-    basis: Literal["unavailable", "estimated_accounting"]
+    basis: Literal[
+        "unavailable",
+        "estimated_accounting",
+        "provider_reported",
+        "estimated_from_pricing_snapshot",
+        "mixed_receipt_evidence",
+    ]
     total_cost: Nonnegative | None
     cost_per_case: Nonnegative | None
     covered_case_count: Count
     missing_case_count: Count
     standard_rate_total_cost: Nonnegative | None = None
-    standard_rate_status: Literal["unavailable"] = "unavailable"
+    standard_rate_status: Literal["unavailable", "complete", "partial"] = "unavailable"
+    standard_rate_covered_case_count: Count = 0
+    response_count: Count = 0
+    missing_cache_read_response_count: Count = 0
+    missing_cache_write_response_count: Count = 0
+    missing_response_usage_case_count: Count = 0
+    missing_cache_rate_response_count: Count = 0
+    cost_methods: list[str] = Field(default_factory=list)
+    rate_provenance: list[str] = Field(default_factory=list)
+    cost_scope: Literal["successful_case_workload"] = "successful_case_workload"
+    caveats: list[str] = Field(default_factory=list)
 
 
 class SiteModelMetadata(PublicModel):
