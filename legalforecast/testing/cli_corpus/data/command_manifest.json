@@ -1158,6 +1158,32 @@
           ],
           "required": false,
           "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "retry_interrupted_attempt_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--retry-interrupted-attempt-id"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "interrupted_source_run_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--interrupted-source-run-id"
+          ],
+          "required": false,
+          "type": "int"
         }
       ],
       "path": [
