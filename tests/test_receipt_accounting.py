@@ -204,3 +204,203 @@ def test_report_command_accepts_receipt_costs_without_inventing_efficiency(
     assert "total_estimated_cost" not in cost
     assert "Missing latency" in (report_dir / "leaderboard.md").read_text()
     assert "provider_reported" in (report_dir / "leaderboard.html").read_text()
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("model_key", "other:model", "outside registry"),
+        ("cost_evidence", [], "cost evidence must be an object"),
+        ("cost_evidence.basis", "invoice_paid", "unsupported receipt cost basis"),
+        ("cost_evidence.response_usage_details", {}, "must be a list"),
+        ("cost_evidence.response_usage_details", ["invalid"], "must be an object"),
+        ("usage.estimated_cost_microusd", -1, "nonnegative integer"),
+        ("usage.input_tokens", 99, "differs from receipt total"),
+    ],
+)
+def test_invalid_receipt_evidence_cannot_become_public_cost(
+    field, value, message
+) -> None:
+    record = receipt()
+    if "." in field:
+        parent, key = field.split(".", 1)
+        record[parent][key] = value
+    else:
+        record[field] = value
+    with pytest.raises(ValueError, match=message):
+        build_public_accounting([record], registry())
+
+
+def test_reported_charge_requires_explicit_amount_and_missing_usage_is_not_free() -> (
+    None
+):
+    record = receipt()
+    record["cost_evidence"].pop("charged_cost_microusd")
+    with pytest.raises(ValueError, match="recorded charged amount"):
+        build_public_accounting([record], registry())
+    record.pop("usage")
+    assert build_public_accounting([record], registry()) == []
+
+
+def test_native_anthropic_cache_repricing_uses_reported_buckets() -> None:
+    entry = replace(
+        registry().entries[0],
+        provider="anthropic",
+        model_id="claude-opus-5-5",
+        input_token_price=4,
+        output_token_price=20,
+        cache_read_token_price=None,
+        cache_write_token_price=None,
+    )
+    record = receipt()
+    record["model_key"] = entry.registry_key
+    record["cost_evidence"]["method"] = "anthropic_cache_aware_usage_reconstruction"
+    row = record["cost_evidence"]["response_usage_details"][0]
+    row["cache_write_tokens"] = 10
+    output = build_public_accounting([record], ModelRegistry(entries=(entry,)))[0]
+    # 50 uncached*4 +40 read*.20 +10 write*5 +20 output*20, per million.
+    assert output["standard_rate_cost"] == pytest.approx(0.000658)
+    assert output["estimated_cost"] == 0.25
+    assert output["missing_cache_rate_response_count"] == 0
+    row.pop("cache_read_tokens")
+    assert (
+        build_public_accounting([record], ModelRegistry(entries=(entry,)))[0][
+            "standard_rate_cost"
+        ]
+        is None
+    )
+
+
+def test_cost_only_report_renders_mixed_evidence_and_unknown_repricing(
+    tmp_path,
+) -> None:
+    import argparse
+    import json
+
+    from legalforecast.cli_commands import report
+
+    scores = tmp_path / "scores.json"
+    records = tmp_path / "accounting.jsonl"
+    directory = tmp_path / "report"
+    scores.write_text(json.dumps(synthetic_scores()))
+    accounting = build_public_accounting([receipt()], registry())
+    accounting[0]["model_id"] = "synthetic-model"
+    accounting[0]["standard_rate_cost"] = None
+    second = {
+        **accounting[0],
+        "case_id": "synthetic-case-b",
+        "cost_basis": "estimated_from_pricing_snapshot",
+        "estimated_cost": 0.5,
+    }
+    records.write_text(
+        "".join(json.dumps(row) + "\n" for row in [accounting[0], second])
+    )
+    parser = argparse.ArgumentParser()
+    report.register(parser.add_subparsers())
+    args = parser.parse_args(
+        [
+            "report",
+            "--scores",
+            str(scores),
+            "--accounting",
+            str(records),
+            "--output-dir",
+            str(directory),
+            "--bootstrap-replicates",
+            "10",
+        ]
+    )
+    assert report.run(args) == 0
+    payload = json.loads((directory / "leaderboard.json").read_text())
+    assert payload["cost_accounting"][0]["basis"] == "mixed_receipt_evidence"
+    assert payload["cost_accounting"][0]["total_cost"] == 0.75
+    assert payload["cost_accounting"][0]["standard_rate_total_cost"] is None
+    assert payload["cost_accounting"][0]["covered_case_count"] == 2
+    assert payload["cost_accounting"][0]["missing_case_count"] == 0
+    assert "mixed_receipt_evidence" in (directory / "leaderboard.html").read_text()
+    assert "unavailable" in (directory / "leaderboard.md").read_text()
+    assert (
+        next(row for row in payload["rows"] if row["row_type"] == "model")[
+            "mean_latency_ms"
+        ]
+        is None
+    )
+    # A cost-only input must never silently accept a legacy efficiency record.
+    second.pop("cost_scope")
+    records.write_text(
+        "".join(json.dumps(row) + "\n" for row in [accounting[0], second])
+    )
+    with pytest.raises(ValueError, match="cannot mix receipt cost accounting"):
+        report.run(args)
+
+
+def test_accounting_module_cli_preserves_missing_usage_in_jsonl(
+    tmp_path, monkeypatch
+) -> None:
+    import json
+    import sys
+
+    from legalforecast.cli_support import read_records
+    from legalforecast.publication.receipt_accounting import main
+
+    record = receipt()
+    record["cost_evidence"].pop("response_usage_details")
+    receipts = tmp_path / "receipts.jsonl"
+    frozen = tmp_path / "registry.json"
+    output = tmp_path / "nested/accounting.jsonl"
+    receipts.write_text(json.dumps(record) + "\n")
+    frozen.write_text(json.dumps(registry().to_records()))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "receipt_accounting",
+            "--receipts",
+            str(receipts),
+            "--registry",
+            str(frozen),
+            "--output",
+            str(output),
+        ],
+    )
+    main()
+    saved = read_records(output)[0]
+    assert saved["standard_rate_cost"] is None
+    assert saved["estimated_cost"] == 0.25
+    assert saved["missing_response_usage_case_count"] == 1
+    assert "raw_output" not in saved
+
+
+@pytest.mark.parametrize("value", [-0.5, float("inf"), float("nan"), True])
+def test_public_cost_export_refuses_invalid_accounting_amounts(value) -> None:
+    accounting = build_public_accounting([receipt()], registry())
+    accounting[0]["model_id"] = "synthetic-model"
+    for field in ("estimated_cost", "standard_rate_cost"):
+        corrupted = copy.deepcopy(accounting)
+        corrupted[0][field] = value
+        with pytest.raises(ValueError, match="finite and nonnegative"):
+            build_site_export(synthetic_scores(), accounting=corrupted)
+
+
+def test_withdrawn_case_costs_do_not_enter_retained_workload_or_repricing() -> None:
+    accounting = build_public_accounting([receipt()], registry())
+    accounting[0]["model_id"] = "synthetic-model"
+    second = {
+        **accounting[0],
+        "case_id": "synthetic-case-b",
+        "estimated_cost": 1.5,
+        "standard_rate_cost": 2.0,
+    }
+    output = build_site_export(
+        synthetic_scores(),
+        accounting=[accounting[0], second],
+        excluded_case_ids=["synthetic-case-b"],
+    )
+    costs = output.results[0].costs
+    assert costs.total_cost == 0.25
+    assert costs.covered_case_count == 1
+    assert costs.missing_case_count == 0
+    assert costs.standard_rate_status == "complete"
+    assert costs.standard_rate_total_cost == pytest.approx(0.0004)
+    assert costs.response_count == 1
+    assert "synthetic-case-b" not in output.model_dump_json()
