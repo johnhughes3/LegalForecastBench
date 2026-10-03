@@ -5,10 +5,14 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import subprocess
+import sys
+from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
 from legalforecast import artifact_restore as restore
+from legalforecast import retained_package as retained
 from legalforecast.retained_package import retained_pointer_key, validate_package
 
 
@@ -153,3 +157,147 @@ def test_retained_source_uses_separate_namespace(
         restore.restore_artifact(
             "owner/repo", 123, name, artifact_id=456, bucket="bucket"
         )
+
+
+def cli_arguments(destination: Path, digest: str) -> list[str]:
+    return [
+        "retained-package",
+        "--repository",
+        "owner/repo",
+        "--bucket",
+        "results-bucket",
+        "--asset-id",
+        "456",
+        "--sha256",
+        digest,
+        "--source-run-id",
+        "123",
+        "--source-attempt",
+        "1",
+        "--output-dir",
+        str(destination),
+    ]
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "valid",
+        "published",
+        "wrong_asset",
+        "wrong_name",
+        "metadata_denied",
+        "download_denied",
+        "wrong_digest",
+    ],
+)
+def test_authenticated_draft_ingestion(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mode: str
+) -> None:
+    payload = package()
+    digest = hashlib.sha256(payload).hexdigest()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        cli_arguments(tmp_path, "0" * 64 if mode == "wrong_digest" else digest),
+    )
+
+    def metadata(arguments: list[str]) -> object:
+        assert arguments[:2] == ["gh", "api"]
+        if mode == "metadata_denied":
+            raise subprocess.CalledProcessError(1, arguments)
+        if arguments[-1].endswith("/assets/456"):
+            return {
+                "id": 456,
+                "name": "other.zip"
+                if mode == "wrong_name"
+                else "official-forecast-results-123-1.zip",
+            }
+        assert "--paginate" in arguments and "--slurp" in arguments
+        return [
+            [
+                {
+                    "draft": mode != "published",
+                    "assets": [{"id": 999 if mode == "wrong_asset" else 456}],
+                }
+            ]
+        ]
+
+    def download(
+        arguments: list[str], *, check: bool, capture_output: bool
+    ) -> subprocess.CompletedProcess[bytes]:
+        assert check and capture_output
+        assert arguments[-1] == "repos/owner/repo/releases/assets/456"
+        assert "Accept: application/octet-stream" in arguments
+        if mode == "download_denied":
+            raise subprocess.CalledProcessError(1, arguments)
+        return subprocess.CompletedProcess(arguments, 0, payload, b"")
+
+    def no_upload(*args: object) -> None:
+        pytest.fail("download validation must precede storage writes")
+
+    monkeypatch.setattr(retained, "json_command", metadata)
+    monkeypatch.setattr(retained.subprocess, "run", download)
+    monkeypatch.setattr(retained, "upload_archive_object", no_upload)
+    if mode in {"metadata_denied", "download_denied"}:
+        with pytest.raises(subprocess.CalledProcessError):
+            retained.main()
+    elif mode != "valid":
+        with pytest.raises(ValueError):
+            retained.main()
+    else:
+        retained.main()
+        assert (tmp_path / "retained-package.zip").read_bytes() == payload
+        pointer = json.loads((tmp_path / "retained-package-pointer.json").read_bytes())
+        assert pointer["source_type"] == "retained_draft_release_asset"
+        assert pointer["release_asset_id"] == 456
+        assert "artifact_id" not in pointer
+
+
+@pytest.mark.parametrize(
+    "mode", ["valid", "corrupt_zip", "corrupt_pointer", "read_denied"]
+)
+def test_upload_requires_both_storage_readbacks(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mode: str
+) -> None:
+    payload = package()
+    digest = hashlib.sha256(payload).hexdigest()
+    (tmp_path / "retained-package.zip").write_bytes(payload)
+    monkeypatch.setattr(
+        sys, "argv", [*cli_arguments(tmp_path, digest), "--upload-only"]
+    )
+    stored: dict[str, bytes] = {}
+    readbacks: list[str] = []
+
+    def upload(bucket: str, source: Path, key: str) -> None:
+        assert bucket == "results-bucket"
+        stored[key] = source.read_bytes()
+
+    def readback(
+        arguments: list[str], *, check: bool, stdout: int
+    ) -> subprocess.CompletedProcess[bytes]:
+        assert check and stdout == subprocess.DEVNULL
+        assert arguments[:3] == ["aws", "s3api", "get-object"]
+        key = arguments[arguments.index("--key") + 1]
+        readbacks.append(key)
+        if mode == "read_denied":
+            raise subprocess.CalledProcessError(1, arguments)
+        corrupt = (mode == "corrupt_zip" and key.endswith(".zip")) or (
+            mode == "corrupt_pointer" and key.endswith(".json")
+        )
+        Path(arguments[-1]).write_bytes(b"corrupt" if corrupt else stored[key])
+        return subprocess.CompletedProcess(arguments, 0, b"", b"")
+
+    monkeypatch.setattr(retained, "upload_archive_object", upload)
+    monkeypatch.setattr(retained.subprocess, "run", readback)
+    if mode == "read_denied":
+        with pytest.raises(subprocess.CalledProcessError):
+            retained.main()
+    elif mode != "valid":
+        with pytest.raises(ValueError, match="readback"):
+            retained.main()
+    else:
+        retained.main()
+        assert len(stored) == len(readbacks) == 2
+    if mode in {"corrupt_zip", "read_denied"}:
+        assert len(stored) == 1  # An unverified ZIP must not get a lookup pointer.
