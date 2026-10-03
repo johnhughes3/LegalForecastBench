@@ -32,6 +32,10 @@ from pathlib import Path
 from typing import Any, Final, Protocol, cast
 from urllib.parse import SplitResult, urlsplit
 
+from legalforecast.multiharness.container_harness.anthropic_usage import (
+    anthropic_gateway_usage,
+)
+
 from .model_gateway_accounting import GatewayUsage
 from .model_gateway_types import (
     GatewayAuthenticationError,
@@ -713,6 +717,12 @@ def host_header_allowed(
 
 
 def _usage_from_body(body: bytes, content_type: str | None) -> ObservedUsage | None:
+    # Use the same cache-normalized input dimension as dollar settlement.
+    # Partial responses still retain their known dimensions below; missing
+    # cache buckets do not establish cache-adjusted paid settlement.
+    usage = anthropic_gateway_usage(body, content_type)
+    if usage is not None:
+        return ObservedUsage(usage.input_tokens, usage.output_tokens)
     if content_type and content_type.lower().startswith("text/event-stream"):
         input_tokens: int | None = None
         output_tokens: int | None = None
@@ -755,6 +765,13 @@ def _usage_from_object(value: object) -> ObservedUsage | None:
             continue
         candidate_object = cast(dict[str, object], candidate)
         input_tokens = _nonnegative_int(candidate_object.get("input_tokens"))
+        if (
+            "cache_read_input_tokens" in candidate_object
+            or "cache_creation_input_tokens" in candidate_object
+        ):
+            # Full valid cache usage was normalized above. An incomplete or
+            # contradictory cache record cannot justify an uncached-only total.
+            input_tokens = None
         output_tokens = _nonnegative_int(candidate_object.get("output_tokens"))
         if input_tokens is not None or output_tokens is not None:
             return ObservedUsage(input_tokens, output_tokens)

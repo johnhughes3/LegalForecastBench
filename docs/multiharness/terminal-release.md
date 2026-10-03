@@ -41,6 +41,8 @@ For a one-case smoke, add `--case-id CASE_ID` to `release-run` or `release-execu
 
 The score command reads and validates the saved run package and writes `run-results/scores.json`; it does not launch Claude Code or contact a model provider. Keep the labels release outside the forecast worker and its container mounts. A failed forecast row remains in the scored unit denominator, while an incomplete package cannot claim a complete headline result.
 
+Execution verifies that the complete authenticated record was staged unchanged, that a successful Bash call read the solver prompt, and that the native CLI returned a complete valid forecast within the existing network and web-tool boundary. The agent chooses which staged documents to read; observed document reads are diagnostics rather than a requirement to consume every available file. A missing prompt read or boundary observation is reported as an acceptance refusal rather than inferred from the process exit code alone. Cache creation and cache reads count toward total gateway input usage as well as paid settlement.
+
 The repository's opt-in rootless smoke runs the complete scored path against a local fixture without a provider key:
 
 ```bash

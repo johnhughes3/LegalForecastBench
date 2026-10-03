@@ -44,6 +44,9 @@ from legalforecast.multiharness.auth_profiles import (
 from legalforecast.multiharness.claude_code_stream import (
     tool_call_count_from_stdout,
 )
+from legalforecast.multiharness.container_harness.anthropic_usage import (
+    anthropic_gateway_usage,
+)
 from legalforecast.multiharness.deliverables import (
     DeliverableArtifactProjection,
     DeliverableManifest,
@@ -1047,6 +1050,22 @@ def _public_summary(
             f"task_id={request.task.task_id} "
             f"returncode={classified.receipt.returncode}"
         )
+        # Only fixed host-generated acceptance labels may enter the public
+        # summary. Never copy arbitrary provider/tool stderr into it.
+        reason = classified.receipt.stderr.splitlines()[-1:]
+        prefix = "Claude acceptance refused: missing "
+        if reason and reason[0].startswith(prefix):
+            labels = reason[0][len(prefix) :].split(", ")
+            if labels and all(
+                label
+                in {
+                    "native terminal success",
+                    "successful prompt read",
+                    "web-fence evidence",
+                }
+                for label in labels
+            ):
+                summary["failure_detail"] += "; " + reason[0]
     summary["returncode"] = classified.receipt.returncode
     return summary
 
@@ -1234,6 +1253,11 @@ def _usage_from_envelope(
         reporting.input_tokens_field,
         receipt.usage.get("input_tokens"),
     )
+    normalized_usage = anthropic_gateway_usage(
+        receipt.stdout.encode(), "application/json"
+    )
+    if normalized_usage is not None:
+        input_tokens = normalized_usage.input_tokens
     output_tokens = _lookup_int(
         envelope,
         reporting.output_tokens_field,

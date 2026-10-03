@@ -294,6 +294,7 @@ def _stage_gateway_package(tmp_path: Path, repo_root: Path) -> Path:
         init_path.write_text("", encoding="utf-8")
     source_root = repo_root / "legalforecast/multiharness/container_harness"
     for module_name in (
+        "anthropic_usage.py",
         "model_gateway_accounting.py",
         "model_gateway_protocol.py",
         "model_gateway_server.py",
