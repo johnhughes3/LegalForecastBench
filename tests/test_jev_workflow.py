@@ -239,3 +239,40 @@ def test_anthropic_forecast_cell_receives_the_bound_summary_cache() -> None:
         in workflow[start:end]
     )
     assert '"${unit_args[@]}" "${jev_args[@]}" --repeat-index' in workflow[start:end]
+
+
+def test_interrupted_retry_checks_terminal_source_before_provider_preparation() -> None:
+    restore = WORKFLOW.split("  restore-inputs:\n", 1)[1].split("  prepare:\n", 1)[0]
+    assert "retry_interrupted_attempt_id:" in WORKFLOW
+    assert "require_terminal_summary_source(metadata, run_id)" in restore
+    assert "PRIOR_ARTIFACT_ID" in restore and "PRIOR_RUN_ID" in restore
+    assert "AI_GATEWAY_API_KEY" not in restore
+    assert "OPENAI_API_KEY" not in restore
+    assert '--retry-interrupted-attempt-id "$RETRY_INTERRUPTED_ATTEMPT_ID"' in WORKFLOW
+    assert '--interrupted-source-run-id "$INTERRUPTED_SOURCE_RUN_ID"' in WORKFLOW
+
+
+def test_interrupted_source_accepts_only_exact_unsuccessful_terminal_workflow() -> None:
+    from legalforecast.jev.interrupted_source import require_terminal_summary_source
+
+    metadata: dict[str, object] = {
+        "id": 42,
+        "path": ".github/workflows/prepare-jev-summaries.yaml",
+        "status": "completed",
+        "conclusion": "cancelled",
+    }
+    require_terminal_summary_source(metadata, 42)
+    for changes in [
+        {"id": 43},
+        {"id": True},
+        {"status": "in_progress"},
+        {"status": "queued"},
+        {"conclusion": "success"},
+        {"path": ".github/workflows/run-benchmark.yaml"},
+    ]:
+        try:
+            require_terminal_summary_source(metadata | changes, 42)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"accepted mismatched or live source: {changes}")

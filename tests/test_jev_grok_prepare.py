@@ -488,3 +488,200 @@ def test_short_summary_profile_uses_full_sources_and_new_ledger_identity(
             summary_profile="short",
         )
     assert len(factory.prompts) == prompts_before_mismatch
+
+
+def _fixture_terminal_source(run_id: int | None) -> None:
+    if run_id != 42:
+        raise ValueError("missing source")
+
+
+def _interrupt_after_authorization(
+    monkeypatch: pytest.MonkeyPatch, failures: int = 1
+) -> None:
+    original = prepare.ProviderSpendAttemptHandler
+    authorized = 0
+
+    def interrupt(_lease: object) -> None:
+        nonlocal authorized
+        authorized += 1
+        if authorized <= failures:
+            raise KeyboardInterrupt(
+                "simulated process interruption after durable authorization"
+            )
+
+    def handler(**kwargs: Any) -> Any:
+        return original(after_authorize=interrupt, **kwargs)
+
+    monkeypatch.setattr(prepare, "ProviderSpendAttemptHandler", handler)
+
+
+def test_named_interrupted_successor_keeps_original_hold_and_reuses_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    execution = _execution(tmp_path)
+    agent = _FlakySummaryAgent(failures=0)
+    _interrupt_after_authorization(monkeypatch)
+    monkeypatch.setattr(
+        prepare,
+        "require_terminal_summary_run",
+        _fixture_terminal_source,
+    )
+    monkeypatch.setattr(prepare, "_summary_agent", lambda *_args, **_kwargs: agent)
+    monkeypatch.setenv("AI_GATEWAY_API_KEY", "fixture-key")
+    cache = tmp_path / "cache.json"
+    ledger = tmp_path / "ledger.sqlite3"
+    kwargs = dict(
+        entry=_entry(),
+        cache_path=cache,
+        ledger_path=ledger,
+        ceiling_microusd=38_003_132,
+        summary_profile="short",
+    )
+    with pytest.raises(KeyboardInterrupt):
+        prepare.prepare_summaries(execution, **kwargs)
+    with sqlite3.connect(ledger) as db:
+        original = db.execute(
+            "SELECT attempt_id, status, reservation_microusd FROM provider_attempts"
+        ).fetchone()
+    assert original is not None and original[1] == "reserved"
+    with pytest.raises(AttemptLimitExceededError):
+        prepare.prepare_summaries(execution, **kwargs)
+    with pytest.raises(AttemptStateError):
+        prepare.prepare_summaries(
+            execution,
+            retry_interrupted_attempt_id="f" * 64,
+            interrupted_source_run_id=42,
+            **kwargs,
+        )
+    with pytest.raises(AuthorityIdentityMismatchError):
+        prepare.prepare_summaries(
+            execution,
+            retry_interrupted_attempt_id=original[0],
+            interrupted_source_run_id=42,
+            **(kwargs | {"ceiling_microusd": 40_000_000}),
+        )
+    with pytest.raises(ValueError, match="cannot change the cap"):
+        prepare.prepare_summaries(
+            execution,
+            retry_interrupted_attempt_id=original[0],
+            interrupted_source_run_id=42,
+            **(kwargs | {"amend_cap_from_microusd": 38_003_132}),
+        )
+    assert agent.calls == 0
+    result = prepare.prepare_summaries(
+        execution,
+        retry_interrupted_attempt_id=original[0],
+        interrupted_source_run_id=42,
+        **kwargs,
+    )
+    assert result["created"] == len(_documents(execution))
+    count = agent.calls
+    assert (
+        prepare.prepare_summaries(
+            execution,
+            retry_interrupted_attempt_id=original[0],
+            interrupted_source_run_id=42,
+            **kwargs,
+        )["created"]
+        == 0
+    )
+    assert agent.calls == count
+    with sqlite3.connect(ledger) as db:
+        assert (
+            db.execute(
+                "SELECT status, reservation_microusd FROM provider_attempts "
+                "WHERE attempt_id=?",
+                (original[0],),
+            ).fetchone()
+            == original[1:]
+        )
+        assert db.execute(
+            "SELECT cap_microusd,max_billable_attempts FROM provider_spend_metadata"
+        ).fetchone() == (38_003_132, 1)
+        assert db.execute(
+            "SELECT COUNT(*) FROM provider_attempts WHERE attempt_ordinal=2"
+        ).fetchone() == (1,)
+
+
+@pytest.mark.parametrize("replacement_failure", ["interrupted", "ambiguous"])
+def test_interrupted_replacement_cannot_be_called_a_third_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, replacement_failure: str
+) -> None:
+    execution = _execution(tmp_path)
+    agent = _FlakySummaryAgent(failures=0)
+    monkeypatch.setattr(
+        prepare,
+        "require_terminal_summary_run",
+        _fixture_terminal_source,
+    )
+    _interrupt_after_authorization(
+        monkeypatch, failures=2 if replacement_failure == "interrupted" else 1
+    )
+    monkeypatch.setattr(prepare, "_summary_agent", lambda *_args, **_kwargs: agent)
+    monkeypatch.setenv("AI_GATEWAY_API_KEY", "fixture-key")
+    cache = tmp_path / "cache.json"
+    ledger = tmp_path / "ledger.sqlite3"
+    kwargs = dict(
+        entry=_entry(),
+        cache_path=cache,
+        ledger_path=ledger,
+        ceiling_microusd=38_003_132,
+        summary_profile="short",
+    )
+    with pytest.raises(KeyboardInterrupt):
+        prepare.prepare_summaries(execution, **kwargs)
+    with sqlite3.connect(ledger) as db:
+        attempt_id = db.execute("SELECT attempt_id FROM provider_attempts").fetchone()[
+            0
+        ]
+    if replacement_failure == "ambiguous":
+        agent = _FlakySummaryAgent()
+        monkeypatch.setattr(prepare, "_summary_agent", lambda *_args, **_kwargs: agent)
+    with pytest.raises((KeyboardInterrupt, ConnectionError)):
+        prepare.prepare_summaries(
+            execution,
+            retry_interrupted_attempt_id=attempt_id,
+            interrupted_source_run_id=42,
+            **kwargs,
+        )
+    count = agent.calls
+    with pytest.raises(AttemptStateError, match="already reserved or failed"):
+        prepare.prepare_summaries(
+            execution,
+            retry_interrupted_attempt_id=attempt_id,
+            interrupted_source_run_id=42,
+            **kwargs,
+        )
+    assert agent.calls == count
+
+
+@pytest.mark.parametrize("source_run_id", [None, 42])
+def test_interrupted_prepare_requires_current_terminal_proof_before_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source_run_id: int | None
+) -> None:
+    import legalforecast.jev.interrupted_source as source
+
+    monkeypatch.setenv("GITHUB_REPOSITORY", "example/benchmark")
+    monkeypatch.setattr(
+        source,
+        "json_command",
+        lambda _args: {
+            "id": 42,
+            "path": ".github/workflows/prepare-jev-summaries.yaml",
+            "status": "in_progress",
+            "conclusion": None,
+        },
+    )
+    ledger = tmp_path / "ledger.sqlite3"
+    with pytest.raises(ValueError, match=r"prior summary run ID|terminal unsuccessful"):
+        prepare.prepare_summaries(
+            _execution(tmp_path),
+            entry=_entry(),
+            cache_path=tmp_path / "cache.json",
+            ledger_path=ledger,
+            ceiling_microusd=38_003_132,
+            summary_profile="short",
+            retry_interrupted_attempt_id="a" * 64,
+            interrupted_source_run_id=source_run_id,
+        )
+    assert not ledger.exists()

@@ -46,6 +46,11 @@ on:
         required: false
         default: ""
         type: string
+      retry_interrupted_attempt_id:
+        description: Exact interrupted first summary attempt to replace once, retaining its reservation and the unchanged short Grok ceiling; requires a terminal prior preparation run.
+        required: false
+        default: ""
+        type: string
       predictor:
         description: Predictor for the frozen one-shot summary condition.
         required: false
@@ -139,10 +144,31 @@ jobs:
           INPUT_ARTIFACT_ID: ${{ inputs.locked_inputs_artifact_id }}
           PRIOR_RUN_ID: ${{ inputs.prior_summary_run_id }}
           PRIOR_ARTIFACT_ID: ${{ inputs.prior_summary_artifact_id }}
+          RETRY_INTERRUPTED_ATTEMPT_ID: ${{ inputs.retry_interrupted_attempt_id }}
+          RETRY_AMBIGUOUS_ATTEMPT_ID: ${{ inputs.retry_ambiguous_attempt_id }}
+          AMEND_CAP_FROM: ${{ inputs.amend_cap_from_microusd }}
+          REGISTRY_ONLY: ${{ inputs.registry_only }}
+          SUMMARY_MODEL: ${{ inputs.summary_model }}
+          SUMMARY_PROFILE: ${{ inputs.summary_profile }}
           LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
         run: |
           set -euo pipefail
           test "${GITHUB_REF_NAME}" = main
+          if [[ -n "${RETRY_INTERRUPTED_ATTEMPT_ID}" ]]; then
+            [[ "${RETRY_INTERRUPTED_ATTEMPT_ID}" =~ ^[0-9a-f]{64}$ ]]
+            [[ "${PRIOR_RUN_ID}" =~ ^[1-9][0-9]*$ && "${PRIOR_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]]
+            [[ -z "${RETRY_AMBIGUOUS_ATTEMPT_ID}" && -z "${AMEND_CAP_FROM}" ]]
+            [[ "${REGISTRY_ONLY}" == false && "${SUMMARY_MODEL}" == grok && "${SUMMARY_PROFILE}" == short ]]
+            uv run python - <<'PY_SOURCE'
+          import os
+          from legalforecast.artifact_archive import json_command, metadata_object
+          from legalforecast.jev.interrupted_source import require_terminal_summary_source
+          run_id = int(os.environ["PRIOR_RUN_ID"])
+          repository = os.environ["GITHUB_REPOSITORY"]
+          metadata = metadata_object(json_command(["gh", "api", f"repos/{repository}/actions/runs/{run_id}"]))
+          require_terminal_summary_source(metadata, run_id)
+          PY_SOURCE
+          fi
           uv run python -m legalforecast.artifact_restore \
             --repository "${GITHUB_REPOSITORY}" --run-id "${SOURCE_RUN_ID}" \
             --artifact-id "${INPUT_ARTIFACT_ID}" --bucket "${LFB_RESULTS_BUCKET}" \
@@ -406,6 +432,9 @@ jobs:
           AI_GATEWAY_API_KEY: ${{ inputs.summary_model == 'grok' && secrets.AI_GATEWAY_API_KEY || '' }}
           RECONCILE_SAVED_OVERRUN: ${{ inputs.reconcile_saved_overrun }}
           RETRY_AMBIGUOUS_ATTEMPT_ID: ${{ inputs.retry_ambiguous_attempt_id }}
+          RETRY_INTERRUPTED_ATTEMPT_ID: ${{ inputs.retry_interrupted_attempt_id }}
+          INTERRUPTED_SOURCE_RUN_ID: ${{ inputs.prior_summary_run_id }}
+          GH_TOKEN: ${{ github.token }}
           AMEND_CAP_FROM: ${{ inputs.amend_cap_from_microusd }}
         shell: bash
         run: |
@@ -420,6 +449,13 @@ jobs:
               exit 1
             }
             recovery_args+=(--retry-ambiguous-attempt-id "$RETRY_AMBIGUOUS_ATTEMPT_ID")
+          fi
+          if [[ -n "$RETRY_INTERRUPTED_ATTEMPT_ID" ]]; then
+            [[ "$RETRY_INTERRUPTED_ATTEMPT_ID" =~ ^[0-9a-f]{64}$ ]] || {
+              echo "retry_interrupted_attempt_id must be a SHA-256 attempt ID" >&2
+              exit 1
+            }
+            recovery_args+=(--retry-interrupted-attempt-id "$RETRY_INTERRUPTED_ATTEMPT_ID" --interrupted-source-run-id "$INTERRUPTED_SOURCE_RUN_ID")
           fi
           if [[ -n "$AMEND_CAP_FROM" ]]; then
             [[ "$AMEND_CAP_FROM" =~ ^[1-9][0-9]*$ ]] || {

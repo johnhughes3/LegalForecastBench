@@ -85,6 +85,7 @@ class AdditionalAttemptPermit:
     reservation_cap_microusd: int
     provider_logical_call_scope_sha256: str | None = None
     acknowledged_ambiguous_attempt_id: str | None = None
+    acknowledged_interrupted_attempt_id: str | None = None
 
     def __post_init__(self) -> None:
         _sha256(self.logical_call_key, "logical_call_key")
@@ -102,6 +103,15 @@ class AdditionalAttemptPermit:
                 self.acknowledged_ambiguous_attempt_id,
                 "acknowledged_ambiguous_attempt_id",
             )
+        if self.acknowledged_interrupted_attempt_id is not None:
+            _sha256(
+                self.acknowledged_interrupted_attempt_id,
+                "acknowledged_interrupted_attempt_id",
+            )
+            if self.acknowledged_ambiguous_attempt_id is not None:
+                raise ValueError(
+                    "additional permit must name only one held first attempt"
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -586,6 +596,24 @@ class SqliteProviderSpendAuthority:
                 raise AttemptLimitExceededError(
                     "logical provider call reached its approved attempt limit"
                 )
+            if permit.acknowledged_interrupted_attempt_id is not None:
+                if key.account != "jev-summaries" or key.stage != "document_summary":
+                    raise AuthorityIdentityMismatchError(
+                        "interrupted replacement is summary-only"
+                    )
+                prior = self._connection.execute(
+                    "SELECT attempt_ordinal, status FROM provider_attempts "
+                    "WHERE attempt_id = ? AND logical_call_key = ?",
+                    (permit.acknowledged_interrupted_attempt_id, key.logical_call_key),
+                ).fetchone()
+                if (
+                    prior is None
+                    or int(prior["attempt_ordinal"]) != 1
+                    or str(prior["status"]) != "reserved"
+                ):
+                    raise AttemptStateError(
+                        "additional attempt requires the exact reserved first attempt"
+                    )
             acknowledged_failure_in_window = 0
             if permit.acknowledged_ambiguous_attempt_id is not None:
                 if key.account != "jev-summaries" or key.stage != "document_summary":
@@ -683,6 +711,15 @@ class SqliteProviderSpendAuthority:
         be adopted for another call. The original ambiguous hold remains.
         """
 
+        return self._held_replacement_status(attempt_id, expected_status="ambiguous")
+
+    def interrupted_replacement_status(self, attempt_id: str) -> tuple[str, bool]:
+        """Find one crash-reserved first attempt, preserving its uncertain hold."""
+        return self._held_replacement_status(attempt_id, expected_status="reserved")
+
+    def _held_replacement_status(
+        self, attempt_id: str, *, expected_status: str
+    ) -> tuple[str, bool]:
         normalized_id = _sha256(attempt_id, "attempt_id")
         row = self._connection.execute(
             "SELECT logical_call_key, attempt_ordinal, status "
@@ -692,15 +729,18 @@ class SqliteProviderSpendAuthority:
         if (
             row is None
             or int(row["attempt_ordinal"]) != 1
-            or str(row["status"]) != "ambiguous"
-            or self._connection.execute(
-                "SELECT 1 FROM provider_failure_events WHERE attempt_id = ?",
-                (normalized_id,),
-            ).fetchone()
-            is None
+            or str(row["status"]) != expected_status
+            or (
+                expected_status == "ambiguous"
+                and self._connection.execute(
+                    "SELECT 1 FROM provider_failure_events WHERE attempt_id = ?",
+                    (normalized_id,),
+                ).fetchone()
+                is None
+            )
         ):
             raise AttemptStateError(
-                "retry requires the exact ambiguous first provider attempt"
+                f"retry requires the exact {expected_status} first provider attempt"
             )
         logical_key = str(row["logical_call_key"])
         successor = self._connection.execute(
@@ -717,7 +757,7 @@ class SqliteProviderSpendAuthority:
         ):
             return logical_key, True
         raise AttemptStateError(
-            "ambiguous replacement is already reserved or failed; no further call"
+            "held replacement is already reserved or failed; no further call"
         )
 
     def adopt_attempt(
