@@ -28,6 +28,10 @@ def _object(value: object) -> dict[str, object]:
     return cast(dict[str, object], value)
 
 
+json_command = _json_command
+metadata_object = _object
+
+
 def _get_s3(bucket: str, key: str) -> bytes:
     with tempfile.TemporaryDirectory() as scratch:
         target = Path(scratch) / "object"
@@ -195,6 +199,47 @@ def restore_artifact(
         if (name is None or item["name"] == name)
         and (artifact_id is None or item["artifact_id"] == artifact_id)
     ]
+    if not pointers and name is not None and artifact_id is None:
+        # Owner-retained packages have no original GitHub artifact ID. Keep
+        # their provenance separate, and never use them for an exact-ID lookup.
+        from legalforecast.retained_package import (
+            retained_pointer_key,
+            validate_package,
+        )
+
+        match = re.fullmatch(
+            r"official-forecast-results-([1-9][0-9]*)-([1-9][0-9]*)", name
+        )
+        if match is not None and int(match[1]) == run_id:
+            pointer = _object(
+                json.loads(
+                    _get_s3(bucket, retained_pointer_key(repository, run_id, name))
+                )
+            )
+            digest = pointer.get("digest")
+            if (
+                pointer.get("source_type") != "retained_draft_release_asset"
+                or pointer.get("repository") != repository
+                or pointer.get("source_run_id") != run_id
+                or pointer.get("source_attempt") != int(match[2])
+                or pointer.get("name") != name
+                or type(pointer.get("release_asset_id")) is not int
+                or cast(int, pointer["release_asset_id"]) <= 0
+                or not isinstance(digest, str)
+                or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
+                or pointer.get("key")
+                != (
+                    f"reports/github-artifacts/multi-ablation/{repository}/"
+                    f"retained-packages/{digest[7:]}.zip"
+                )
+            ):
+                raise ValueError(
+                    "retained pointer differs from original package identity"
+                )
+            payload = _get_s3(bucket, cast(str, pointer["key"]))
+            _verify_digest(payload, digest)
+            validate_package(payload, run_id, int(match[2]))
+            return payload
     if len(pointers) != 1:
         raise ValueError(
             f"expected one archive pointer for {name}; found {len(pointers)}"

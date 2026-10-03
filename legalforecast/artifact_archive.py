@@ -467,5 +467,10 @@ def main() -> int:
     )
 
 
+upload_archive_object = _upload
+validate_archive_request = _validate
+write_archive_index = _write
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
