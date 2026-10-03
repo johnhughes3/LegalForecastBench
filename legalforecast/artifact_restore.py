@@ -4,28 +4,22 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import io
 import json
 import re
-import stat
 import subprocess
 import tempfile
-import zipfile
 from pathlib import Path
 from typing import cast
 
-from legalforecast.artifact_archive import pointer_key
+from legalforecast.artifact_archive import (
+    extract_artifact,
+    json_command,
+    metadata_object,
+    pointer_key,
+)
 
-
-def _json_command(arguments: list[str]) -> object:
-    result = subprocess.run(arguments, check=True, stdout=subprocess.PIPE, text=True)
-    return json.loads(result.stdout)
-
-
-def _object(value: object) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise ValueError("artifact metadata must be an object")
-    return cast(dict[str, object], value)
+_json_command = json_command
+_object = metadata_object
 
 
 def _get_s3(bucket: str, key: str) -> bytes:
@@ -195,6 +189,47 @@ def restore_artifact(
         if (name is None or item["name"] == name)
         and (artifact_id is None or item["artifact_id"] == artifact_id)
     ]
+    if not pointers and name is not None and artifact_id is None:
+        # Owner-retained packages have no original GitHub artifact ID. Keep
+        # their provenance separate, and never use them for an exact-ID lookup.
+        from legalforecast.retained_package import (
+            retained_pointer_key,
+            validate_package,
+        )
+
+        match = re.fullmatch(
+            r"official-forecast-results-([1-9][0-9]*)-([1-9][0-9]*)", name
+        )
+        if match is not None and int(match[1]) == run_id:
+            pointer = _object(
+                json.loads(
+                    _get_s3(bucket, retained_pointer_key(repository, run_id, name))
+                )
+            )
+            digest = pointer.get("digest")
+            if (
+                pointer.get("source_type") != "retained_draft_release_asset"
+                or pointer.get("repository") != repository
+                or pointer.get("source_run_id") != run_id
+                or pointer.get("source_attempt") != int(match[2])
+                or pointer.get("name") != name
+                or type(pointer.get("release_asset_id")) is not int
+                or cast(int, pointer["release_asset_id"]) <= 0
+                or not isinstance(digest, str)
+                or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
+                or pointer.get("key")
+                != (
+                    f"reports/github-artifacts/multi-ablation/{repository}/"
+                    f"retained-packages/{digest[7:]}.zip"
+                )
+            ):
+                raise ValueError(
+                    "retained pointer differs from original package identity"
+                )
+            payload = _get_s3(bucket, cast(str, pointer["key"]))
+            _verify_digest(payload, digest)
+            validate_package(payload, run_id, int(match[2]))
+            return payload
     if len(pointers) != 1:
         raise ValueError(
             f"expected one archive pointer for {name}; found {len(pointers)}"
@@ -208,34 +243,6 @@ def restore_artifact(
 def _verify_digest(payload: bytes, digest: str) -> None:
     if f"sha256:{hashlib.sha256(payload).hexdigest()}" != digest:
         raise ValueError("artifact ZIP digest mismatch")
-
-
-def extract_artifact(payload: bytes, destination: Path) -> None:
-    """Extract regular ZIP entries without traversal, symlinks or duplicates."""
-    destination.mkdir(parents=True, exist_ok=False)
-    seen: set[str] = set()
-    with zipfile.ZipFile(io.BytesIO(payload)) as bundle:
-        for member in bundle.infolist():
-            relative = Path(member.filename)
-            mode = member.external_attr >> 16
-            if (
-                relative.is_absolute()
-                or ".." in relative.parts
-                or relative.as_posix() in seen
-            ):
-                raise ValueError("artifact contains unsafe or duplicate paths")
-            seen.add(relative.as_posix())
-            if stat.S_ISLNK(mode) or stat.S_IFMT(mode) not in {
-                0,
-                stat.S_IFREG,
-                stat.S_IFDIR,
-            }:
-                raise ValueError("artifact contains a non-regular entry")
-            if member.is_dir():
-                continue
-            target = destination / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(bundle.read(member))
 
 
 def materialize_recovery_cache(

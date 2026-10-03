@@ -233,20 +233,21 @@
       },
       "legalforecast/artifact_archive.py": {
         "cycle_id": "",
-        "disposition_kind": "below-watch",
+        "disposition_kind": "watch",
         "disposition_owner": "root",
-        "fan_in": 0,
+        "fan_in": 2,
         "fan_out": 1,
         "flags": [
-          "relative-path"
+          "relative-path",
+          "watch"
         ],
         "lane_owner": "root",
         "largest_symbol": "_download_phase",
-        "largest_symbol_lines": 86,
+        "largest_symbol_lines": 101,
         "layer": "application",
-        "line_count": 362,
-        "nonblank_line_count": 330,
-        "top_level_definition_count": 11
+        "line_count": 518,
+        "nonblank_line_count": 470,
+        "top_level_definition_count": 17
       },
       "legalforecast/contracts/ratchet.py": {
         "cycle_id": "",

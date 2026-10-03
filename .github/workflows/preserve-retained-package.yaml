@@ -1,0 +1,73 @@
+name: Preserve retained forecast package
+
+on:
+  workflow_dispatch:
+    inputs:
+      asset_id:
+        description: Exact asset ID from an unpublished draft release
+        required: true
+      sha256:
+        description: SHA256 of the owner-retained ZIP
+        required: true
+      source_run_id:
+        description: Original forecast workflow run ID
+        required: true
+      source_attempt:
+        description: Original forecast workflow attempt
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: retained-package-${{ inputs.source_run_id }}-${{ inputs.source_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  preserve:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: legalforecastbench-official-eval-fan-in
+    permissions:
+      # GitHub requires push access to read unpublished draft releases. The
+      # importer uses GETs only; this coarse grant is scoped to this protected job.
+      contents: write
+      id-token: write
+    env:
+      SOURCE_REPOSITORY: ${{ github.repository }}
+      ASSET_ID: ${{ inputs.asset_id }}
+      PACKAGE_SHA256: ${{ inputs.sha256 }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      SOURCE_ATTEMPT: ${{ inputs.source_attempt }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - run: uv sync --locked
+      - name: Download and validate private draft package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uv run python -m legalforecast.retained_package \
+            --repository "$SOURCE_REPOSITORY" --bucket "$LFB_RESULTS_BUCKET" \
+            --asset-id "$ASSET_ID" --sha256 "$PACKAGE_SHA256" \
+            --source-run-id "$SOURCE_RUN_ID" --source-attempt "$SOURCE_ATTEMPT" \
+            --output-dir /tmp/lfb-retained-package
+      - name: Assume protected storage role after validation
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ vars.LFB_AWS_REGION }}
+          role-to-assume: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+          role-session-name: lfb-retained-${{ github.run_id }}
+          role-duration-seconds: 3600
+      - name: Preserve validated package and typed lookup
+        run: |
+          uv run python -m legalforecast.retained_package \
+            --repository "$SOURCE_REPOSITORY" --bucket "$LFB_RESULTS_BUCKET" \
+            --asset-id "$ASSET_ID" --sha256 "$PACKAGE_SHA256" \
+            --source-run-id "$SOURCE_RUN_ID" --source-attempt "$SOURCE_ATTEMPT" \
+            --output-dir /tmp/lfb-retained-package --upload-only
