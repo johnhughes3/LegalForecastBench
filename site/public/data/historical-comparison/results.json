@@ -1,0 +1,60 @@
+{
+  "cohort": "cycle-1-target-100-2026-07-25",
+  "available_cases": 100,
+  "available_units": 425,
+  "labelled_units": 385,
+  "null_outcome_units": 40,
+  "conditions": [
+    {
+      "model_id": "google:gemini-3.7-flash",
+      "run_id": "33312691444",
+      "attempted_cases": 100,
+      "accepted_cases": 100,
+      "accepted_units": 425,
+      "scored_cases": 94,
+      "scored_units": 385,
+      "dropped_labelled_units": 0,
+      "micro_brier": 0.18787298701298702,
+      "equal_case_brier": 0.1914190562569818,
+      "failed_cases": [],
+      "estimated_all_execution_cost_usd": 2.8848030000000002,
+      "estimated_accepted_case_cost_usd": 2.8848030000000002,
+      "input_tokens": 2712914,
+      "output_tokens": 226698,
+      "usage_case_coverage": 100
+    },
+    {
+      "model_id": "openai:gpt-5.6-luna",
+      "run_id": "33212222069",
+      "attempted_cases": 100,
+      "accepted_cases": 98,
+      "accepted_units": 407,
+      "scored_cases": 92,
+      "scored_units": 367,
+      "dropped_labelled_units": 18,
+      "micro_brier": 0.17801828882833787,
+      "equal_case_brier": 0.1899787497088057,
+      "failed_cases": [
+        {
+          "case_id": "71396055",
+          "status": "missing_unit",
+          "missing_unit_ids": [
+            "71396055_third_cause_of_action_violation_of_real_estate_settlement_procedures_act_respa_select_portfolio_servicing_inc"
+          ]
+        },
+        {
+          "case_id": "71648352",
+          "status": "missing_unit",
+          "missing_unit_ids": [
+            "71648352_count_vi_pre_suit_willful_infringement_of_u_s_patent_no_8_072_893_sk_hynix_defendants"
+          ]
+        }
+      ],
+      "estimated_all_execution_cost_usd": 3.714075,
+      "estimated_accepted_case_cost_usd": 3.571631,
+      "input_tokens": 2313878,
+      "output_tokens": 183329,
+      "usage_case_coverage": 100
+    }
+  ]
+}
