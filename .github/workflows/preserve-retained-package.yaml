@@ -30,7 +30,9 @@ jobs:
     timeout-minutes: 30
     environment: legalforecastbench-official-eval-fan-in
     permissions:
-      contents: read
+      # GitHub requires push access to read unpublished draft releases. The
+      # importer uses GETs only; this coarse grant is scoped to this protected job.
+      contents: write
       id-token: write
     env:
       SOURCE_REPOSITORY: ${{ github.repository }}
