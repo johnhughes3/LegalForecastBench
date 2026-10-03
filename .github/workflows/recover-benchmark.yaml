@@ -173,16 +173,26 @@ jobs:
           for value in "${LFB_AWS_REGION}" "${LFB_PROVIDER_AUTHORITY_TABLE}" "${LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}"; do
             [[ -n "${value}" ]] || { echo "shared provider authority configuration is required" >&2; exit 1; }
           done
+          gh --version
+          plan_status=0
           uv run python .github/scripts/protected-benchmark-recovery.py \
             --metadata /tmp/lfb-source-recovery-plan.json \
             --workspace /tmp/lfb-recovery-workspace \
             --output /tmp/lfb-protected-recovery-plan.json \
             --table-name "${LFB_PROVIDER_AUTHORITY_TABLE}" \
             --region "${LFB_AWS_REGION}" \
-            --resource-identity-sha256 "${LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}"
+            --resource-identity-sha256 "${LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256}" \
+            || plan_status=$?
+          if [[ -s /tmp/lfb-protected-recovery-plan.json ]]; then
+            echo "plan_available=true" >> "${GITHUB_OUTPUT}"
+          elif [[ "${plan_status}" == 0 ]]; then
+            echo "provider authority planning returned success without a plan" >&2
+            exit 1
+          fi
+          exit "${plan_status}"
 
       - name: Persist protected recovery plan before writes
-        if: ${{ always() }}
+        if: ${{ always() && steps.authority-plan.outputs.plan_available == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
           name: protected-recovery-plan-${{ github.run_id }}-${{ github.run_attempt }}
@@ -191,7 +201,7 @@ jobs:
           retention-days: 90
 
       - name: Refuse blocked authority plan
-        if: ${{ steps.authority-plan.outcome != 'success' }}
+        if: ${{ always() && steps.authority-plan.outcome != 'success' }}
         shell: bash
         run: |
           echo "protected provider authority plan refused recovery" >&2

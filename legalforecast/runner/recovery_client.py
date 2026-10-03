@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -108,8 +109,25 @@ class GhRecoveryClient:
                 capture_output=True,
                 text=text,
             )
-        except (OSError, subprocess.CalledProcessError) as exc:
-            raise RecoveryError(f"GitHub request failed for {endpoint}") from exc
+        except subprocess.CalledProcessError as exc:
+            stderr = exc.stderr or ""
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode("utf-8", errors="replace")
+            # Preserve only fixed status categories. Raw stderr can contain
+            # API response bodies or local configuration and stays private.
+            status = re.search(r"\bHTTP ([1-5][0-9]{2})\b", stderr)
+            detail = f"HTTP {status[1]}" if status else f"exit {exc.returncode}"
+            if "rate limit" in stderr.lower():
+                detail += "; rate_limit"
+            elif "unknown flag:" in stderr.lower():
+                detail += "; unsupported_cli_option"
+            raise RecoveryError(
+                f"GitHub request failed for {endpoint} ({detail})"
+            ) from exc
+        except OSError as exc:
+            raise RecoveryError(
+                f"GitHub request failed for {endpoint} (launch {type(exc).__name__})"
+            ) from exc
 
     def get_run(self, repo: str, run_id: int) -> Mapping[str, object]:
         return recovery_object(
