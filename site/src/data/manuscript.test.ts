@@ -45,6 +45,7 @@ test("the paper page reads the checked-in manuscript", () => {
 	assert.equal(PAPER.workingPdf, WORKING_PAPER_PDF);
 	assert.match(parsed.title, /Legal Reasoning Ability$/);
 	assert.equal(parsed.abstract.length, 3);
+	assert.match(parsed.abstract[0] ?? "", /objectively verifiable tasks/);
 	assert.match(
 		parsed.abstract[1] ?? "",
 		/verification of those findings is ongoing/,
