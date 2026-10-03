@@ -166,3 +166,59 @@ def test_unknown_withdrawal_does_not_write_output(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="belong"):
         refresh_site(source, tmp_path / "output", excluded_case_ids=["unknown"])
     assert not (tmp_path / "output").exists()
+
+
+def test_successive_withdrawals_preserve_history_and_cumulative_counts(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    public_fixture(source)
+    # Add a third synthetic case to every current prediction source.
+    for path in (source / "exports").glob("*.json"):
+        data = json.loads(path.read_text())
+        row = data["results"][0]
+        unit = deepcopy(row["units"][-1])
+        unit.update(case_id="synthetic-case-c", unit_id="synthetic-unit-c1")
+        row["units"].append(unit)
+        row.update(case_count=3, unit_count=4, micro_brier=0.295, equal_case_brier=0.36)
+        write(path, data)
+    for path in (source / "significance").rglob("*.jsonl"):
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        unit = deepcopy(rows[-1])
+        unit.update(case_id="synthetic-case-c", unit_id="synthetic-unit-c1")
+        rows.append(unit)
+        path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    snapshot = json.loads((source / "current.json").read_text())
+    snapshot["cohort"].update(case_count=3, unit_count=4)
+    for model in snapshot["models"]:
+        model.update(micro_brier=0.295, equal_case_brier=0.36)
+    write(source / "current.json", snapshot)
+    outcomes = json.loads(
+        (source / "summary-comparison/published-outcomes.json").read_text()
+    )
+    unit = deepcopy(outcomes[-1])
+    unit.update(case_id="synthetic-case-c", unit_id="synthetic-unit-c1")
+    outcomes.append(unit)
+    write(source / "summary-comparison/published-outcomes.json", outcomes)
+    for path in (source / "summary-comparison").rglob("forecasts.json"):
+        rows = json.loads(path.read_text())
+        case = deepcopy(rows[-1])
+        case["case_id"] = "synthetic-case-c"
+        case["predictions"][0].update(
+            case_id="synthetic-case-c", unit_id="synthetic-unit-c1"
+        )
+        rows.append(case)
+        write(path, rows)
+    first, second = tmp_path / "first", tmp_path / "second"
+    refresh_site(source, first, excluded_case_ids=["synthetic-case-b"], replicates=10)
+    refresh_site(first, second, excluded_case_ids=["synthetic-case-c"], replicates=10)
+    assert json.loads(
+        (second / "historical-aggregates.json").read_text()
+    ) == json.loads((first / "historical-aggregates.json").read_text())
+    for path in (second / "exports").glob("*.json"):
+        data = json.loads(path.read_text())
+        assert data["excluded_case_count"] == 2
+        assert data["results"][0]["case_count"] == 1
+    for path in second.rglob("*.json*"):
+        assert "synthetic-case-b" not in path.read_text()
+        assert "synthetic-case-c" not in path.read_text()
