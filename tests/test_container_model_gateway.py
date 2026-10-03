@@ -554,6 +554,42 @@ def test_stream_usage_is_observed_without_changing_sse_body() -> None:
         assert usage.observed_output_tokens == 2
 
 
+@pytest.mark.parametrize("stream", [False, True])
+def test_cache_usage_shares_paid_normalization_and_counts_each_response_once(
+    stream: bool,
+) -> None:
+    dimensions = {
+        "input_tokens": 3,
+        "cache_read_input_tokens": 11,
+        "cache_creation_input_tokens": 7,
+        "output_tokens": 2,
+    }
+    if stream:
+        start = {"type": "message_start", "message": {"usage": dimensions}}
+        delta = {"type": "message_delta", "usage": {"output_tokens": 2}}
+        body = b"\n\n".join(
+            b"data: " + json.dumps(event).encode() for event in [start, start, delta]
+        )
+        content_type = "text/event-stream"
+    else:
+        body = json.dumps({"usage": dimensions}).encode()
+        content_type = "application/json"
+    with _upstream(body=body, content_type=content_type) as upstream:
+        policy = _policy(upstream)
+        with _gateway(policy) as gateway:
+            status, response = _request(
+                gateway,
+                body=_message_body(stream=stream),
+                headers={"x-api-key": policy.capability_token},
+            )
+            observed = gateway.gateway.usage.snapshot()
+        assert status == 200
+        assert response == body
+        assert observed.input_tokens == 21
+        assert observed.observed_input_tokens == 21
+        assert observed.output_tokens == 2
+
+
 def test_usage_evidence_is_atomic_and_separates_observed_from_accounted(
     tmp_path: Path,
 ) -> None:

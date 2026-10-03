@@ -470,6 +470,41 @@ def test_identity_drift_failure_detail_names_served_model(tmp_path: Path) -> Non
     assert result.public_summary["served_model"] == "claude-haiku-4-5"
 
 
+@pytest.mark.parametrize(
+    "reason,public",
+    [
+        ("Claude acceptance refused: missing successful prompt read", True),
+        ("Claude acceptance refused: missing /private/provider-secret", False),
+    ],
+)
+def test_failed_acceptance_retains_only_fixed_public_diagnosis(
+    tmp_path: Path, reason: str, public: bool
+) -> None:
+    transcript = replace(_transcript("success"), status="failed", stderr=reason)
+    adapter = ClaudeCodeCliAdapter(
+        execution_service=FakeLocalCliExecutionService(transcript)
+    )
+    result = adapter.run(_run_request(), tmp_path / "workspace")
+    assert result.status == "failed"
+    assert result.public_summary["returncode"] == 0
+    assert (reason in result.public_summary["failure_detail"]) is public
+    assert "/private/provider-secret" not in str(result.public_summary)
+
+
+def test_cached_native_usage_is_normalized_in_public_summary(tmp_path: Path) -> None:
+    def cached(envelope: dict[str, Any]) -> None:
+        envelope["usage"] = {
+            "input_tokens": 10,
+            "cache_creation_input_tokens": 15562,
+            "cache_read_input_tokens": 24983,
+            "output_tokens": 1860,
+        }
+
+    result = _adapter_from_mutated_success(tmp_path, mutate_envelope=cached)
+    assert result.status == "succeeded"
+    assert result.public_summary["input_tokens"] == 40555
+
+
 def test_landlocked_legal_language_is_not_classified_as_sandbox_denial(
     tmp_path: Path,
 ) -> None:

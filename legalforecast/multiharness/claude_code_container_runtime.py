@@ -361,9 +361,18 @@ class ClaudeCodeContainerExecutionService:
                 else ("succeeded" if run_success else "failed")
             )
             if result.exit_code == 0 and not run_success:
+                missing: list[str] = []
+                if not terminal_ok:
+                    missing.append("native terminal success")
+                if not trace_ok:
+                    missing.append("successful prompt read")
+                if not fence_ok:
+                    missing.append("web-fence evidence")
                 stderr = (
-                    f"{stderr}\n" if stderr else ""
-                ) + "missing valid Claude terminal, Bash, or web-fence evidence"
+                    (f"{stderr}\n" if stderr else "")
+                    + "Claude acceptance refused: missing "
+                    + ", ".join(missing)
+                )
             return ExecutionReceipt.from_transcript(
                 spec,
                 stdout=stdout,

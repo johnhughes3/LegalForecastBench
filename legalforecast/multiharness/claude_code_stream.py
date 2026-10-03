@@ -7,6 +7,10 @@ import shlex
 from pathlib import Path
 from typing import cast
 
+from legalforecast.multiharness.container_harness.anthropic_usage import (
+    anthropic_gateway_usage,
+)
+
 
 def normalize_claude_stream(
     raw_stdout: str,
@@ -60,11 +64,9 @@ def normalize_claude_stream(
         "referenced_paths": list(referenced),
     }
     prompt_referenced = "/workspace/prompt.txt" in referenced
-    staged_documents = tuple(
-        path for path in staged_paths if path.startswith("/workspace/documents/")
-    )
-    documents_referenced = all(path in referenced for path in staged_documents)
-    trace_ok = bool(observations) and prompt_referenced and documents_referenced
+    # Staging authenticates the complete record. The evaluated agent chooses
+    # which documents to inspect; successful consumption is diagnostic only.
+    trace_ok = bool(observations) and prompt_referenced
     return (
         json.dumps(envelope, sort_keys=True, separators=(",", ":")),
         envelope,
@@ -152,11 +154,17 @@ def _read_paths_from_cat(
     if "\n" in command or "\r" in command:
         return ()
     try:
-        tokens = shlex.split(command)
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        tokens = list(lexer)
     except ValueError:
         return ()
     if not tokens or tokens[0] != "cat" or not tokens[1:]:
         return ()
+    if ";" in tokens:
+        # Recognize only an unconditional initial literal cat. This is read
+        # evidence, never a shell policy or a general command interpreter.
+        tokens = tokens[: tokens.index(";")]
     staged = set(staged_paths)
     if any(token not in staged for token in tokens[1:]):
         return ()
@@ -204,11 +212,17 @@ def usage(envelope: dict[str, object] | None) -> dict[str, int]:
     if envelope is None or not isinstance(envelope.get("usage"), dict):
         return {}
     raw_usage = cast(dict[object, object], envelope["usage"])
-    return {
+    result = {
         key: value
         for key, value in raw_usage.items()
         if isinstance(key, str) and type(value) is int and value >= 0
     }
+    normalized = anthropic_gateway_usage(
+        json.dumps(envelope).encode(), "application/json"
+    )
+    if normalized is not None:
+        result["input_tokens"] = normalized.input_tokens
+    return result
 
 
 def cost(envelope: dict[str, object] | None) -> float | None:
