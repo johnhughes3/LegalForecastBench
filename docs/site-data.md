@@ -98,3 +98,22 @@ The command filters the affected cases, recomputes canonical scores/calibration 
 The generated directory is a complete replacement input for the site and its protected data publisher. Never combine selected refreshed downloads with old-cohort metrics or forecasts. The command leaves the original tree intact and makes no hosted changes. For independently reproducing a refreshed historical appendix, pass its results' `available_cases` and `available_units` as `--expected-case-count` and `--expected-unit-count` to `scripts/reproduce_historical_comparison.py`; omitting those flags retains the original 100-case, 425-unit defaults.
 
 Summary downloads also retain independent reproduction after withdrawal. Pass the refreshed catalog's `forecast_case_count`, `scored_unit_count`, and `forecast_unit_count` to `scripts/reproduce_summary_comparisons.py` using `--expected-case-count`, `--expected-scored-unit-count`, and `--expected-forecast-unit-count`. Original defaults remain 91 cases, 387 scored units, and 409 forecast units. The reproducer recalculates probabilities, scores, and calibration without receipt accounting; retain the refreshed exports' original workload costs and caveats when reporting costs.
+
+## Rendering a refreshed cohort
+
+The frontend consumes the complete existing-shaped output of `legalforecast site refresh`, including `current.json`, `sources.json`, native exports, and the summary/historical reproduction data. For a temporary build, set `LFB_SITE_DATA_DIR` to the generated directory and run `pnpm site:build`. Unset the variable to automatically select a persistent generated tree; explicitly set it to an empty string (`LFB_SITE_DATA_DIR= pnpm site:build`) to reproduce the immutable original baseline. Frozen-baseline unit tests use that explicit empty selection, while the integration test exercises refreshed input and automatic selection. This drives the rendered pages, rankings, significance interpretations, and all JSON/JSONL downloads together. Old source HTML is never copied over freshly rendered pages. Aggregate-only configurations are excluded from the active ranking and available in `historical-aggregates.json` as superseded provenance. Original run/release identities and recorded workload cost scope are retained.
+
+For a persistent website update, first build the current selected source, then generate a new directory outside its input:
+
+```bash
+pnpm site:build
+uv run legalforecast site refresh --input-dir site/dist/data --output-dir site/refreshed-data --withdrawn-case CASE_ID
+pnpm site:check
+pnpm site:build
+```
+
+Review the generated `site/refreshed-data` tree in a normal data PR. When `site/refreshed-data/current.json` exists, the frontend automatically selects that tree; Vercel's existing Git build consumes it without a new deployment credential or environment change. The original checked-in inputs stay unchanged. When updating an already refreshed tree, generate into a new temporary directory, review its changes, and replace the previous generated tree; the CLI requires a new output directory and validates withdrawals against the current selected cohort. Without a generated tree or explicit environment input, the original 18 configurations and 17 ranked configurations remain selected. Previously downloaded files cannot be recalled.
+
+The protected `publish-site-data.yaml` workflow optionally accepts space-separated `withdrawn_case_ids`. It builds the selected source, runs the same offline refresh into temporary output, rebuilds pages and downloads together, and then uses its existing protected S3 publication/readback path. That temporary S3 refresh does not update Vercel: use the reviewed generated-data PR for a persistent website change. An empty input publishes the selected source unchanged. Source acceptance, S3 preservation, and owner-approved website deployment remain separate outcomes.
+
+Run `bash site/scripts/check-withdrawal-build.sh` for a provider-free fictional two-case comparison reduced to one case, including the complete built download tree, displayed metrics/counts, and summary reproduction. This test performs no real withdrawal or publication.

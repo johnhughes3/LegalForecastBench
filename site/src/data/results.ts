@@ -1,4 +1,5 @@
 import { applyComparison } from "./comparison.js";
+import { datasetJson, refreshedDataDirectory } from "./dataset-input.js";
 import { applyCutoffs } from "./eligibility.js";
 import { extendSnapshot } from "./extend-snapshot.js";
 import { applyReceiptCosts } from "./receipt-costs.js";
@@ -8,21 +9,26 @@ import beta from "./snapshots/beta-2026-09-18.json" with { type: "json" };
 
 export const historicalSnapshot = parseSnapshot(structuredClone(beta));
 /** Historical beta rows plus validated native exports of later agentic runs. */
-export const snapshot = applyCutoffs(
-	applyComparison(
-		applyReceiptCosts(
-			extendSnapshot(historicalSnapshot, recentResults),
-			recentResults.map(({ source }) => source),
-			undefined,
-			recentResults,
+const defaultSnapshot = () =>
+	applyCutoffs(
+		applyComparison(
+			applyReceiptCosts(
+				extendSnapshot(historicalSnapshot, recentResults),
+				recentResults.map(({ source }) => source),
+				undefined,
+				recentResults,
+			),
 		),
-	),
-);
+	);
 
 /**
  * Older configurations kept as references: they have model pages and appear in
  * experiments, but are not ranked or charted with current models.
  */
+export const snapshot = refreshedDataDirectory
+	? parseSnapshot(datasetJson<unknown>("current.json", null))
+	: defaultSnapshot();
+
 export const REFERENCE_SLUGS: ReadonlySet<string> = new Set(["gpt-4-1"]);
 
 /** The ranked comparison: every configuration except references. */

@@ -1,5 +1,6 @@
 ---
 import { comparison, comparisonScope } from "../../data/comparison";
+import { refreshedDataDirectory } from "../../data/dataset-input";
 import { snapshot } from "../../data/results";
 import Layout from "../../layouts/Layout.astro";
 import { COPY } from "../../seo/copy";
@@ -12,8 +13,9 @@ import { COPY } from "../../seo/copy";
     <p>Each configuration ran in GitHub Actions against the same locked release. Some runs needed recovery after provider or accounting issues, and some accounting fields were incomplete. The notes below explain how comparable costs were reconstructed and where estimates remain.</p>
     <h2>Result provenance</h2>
     <p>{snapshot.provenance.method}</p>
-    <p>On October 3, the preserved Claude Opus 5, Claude Sonnet 5, and GPT-5.6 Sol forecasts were scored again through the protected scoring workflow. Their native exports reproduce the original beta scores on the same 91 cases and 387 units and replace the corresponding aggregate rows. No model was rerun. The original September 18 snapshot remains available unchanged.</p>
+    {!refreshedDataDirectory && <p>On October 3, the preserved Claude Opus 5, Claude Sonnet 5, and GPT-5.6 Sol forecasts were scored again through the protected scoring workflow. Their native exports reproduce the original beta scores on the same 91 cases and 387 units and replace the corresponding aggregate rows. No model was rerun. The original September 18 snapshot remains available unchanged.</p>}
     <p><a href="/data/historical-results/">Earlier 100-case full-packet results</a> are available as a separate exploratory appendix with original units, failures, and a provider-free reproduction command.</p>
+    {refreshedDataDirectory && <p>Scores and significance use the retained {snapshot.cohort.case_count}-case cohort. Frozen run and release identities remain original provenance. Cost evidence retains its recorded workload scope rather than implying that withdrawing a case refunds its execution. Aggregate-only configurations cannot be rescored and are preserved as <a href="/data/historical-aggregates.json" download>superseded provenance</a>.</p>}
     <h2 id="summary-comparisons">Summary comparisons</h2>
     <p>The summary-pipeline comparison, including its method, provenance, costs, and significance analysis, now has its own page: <a href="/experiments/summary-pipelines/#method">Summary pipelines experiment</a>.</p>
     <h2 id="significance">Statistical comparison scope</h2>
@@ -21,7 +23,7 @@ import { COPY } from "../../seo/copy";
     <p>Untested pairs are not evidence of equivalence.</p>
     <a href="/data/#significance">Download the analysis and reproducible inputs →</a>
             <h2 id="costs">Cost methodology and explanations</h2>
-            <p>Charts compare estimated standard-rate costs for the same successful 91-case workload. They do not represent total experiment spending or provider invoices. Flex discounts are removed for the chart; the successful workload charges and estimates remain available in the download.</p>
+            <p>Charts compare available estimated standard-rate costs for the successful workload. They do not represent total experiment spending or provider invoices. Flex discounts are removed for the chart; the successful workload charges and estimates remain available in the download.</p>
             <p>We retain cache discounts where usage and prices are known. Where cache dimensions or prices are missing, we use ordinary-input estimates. These may overstate or understate cache-adjusted costs. Failed attempts, retries, and unresolved charges are excluded.</p>
             <p><a href="/data/costs.json" download>Download cost evidence, pricing references, coverage, and run identities</a></p>
             <p>The Opus 5, Sonnet 5, and GPT-5.6 Sol native exports retain successful-workload usage estimates with accounting for all 91 cases. Per-response usage is missing, so standard-rate repricing is unavailable and these configurations have no value in comparative cost charts. The <a href="/data/#exports">per-model source exports</a> include their canonical accounting fields; the separate cost-evidence download contains the older saved enrichments.</p>

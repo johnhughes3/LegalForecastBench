@@ -1,3 +1,4 @@
+import { datasetJson } from "./dataset-input.js";
 import opus5 from "./exports/claude-opus-5.json" with { type: "json" };
 import export2 from "./exports/claude-opus-5-5.json" with { type: "json" };
 import sonnet5 from "./exports/claude-sonnet-5.json" with { type: "json" };
@@ -11,9 +12,10 @@ import export6 from "./exports/gpt-6-1-sol.json" with { type: "json" };
 import export1 from "./exports/gpt-6-luna.json" with { type: "json" };
 import export0 from "./exports/gpt-6-sol.json" with { type: "json" };
 import export3 from "./exports/grok-4-7.json" with { type: "json" };
+import type { ResultSource } from "./extend-snapshot.js";
 import { parseSiteExport } from "./site-export.js";
 
-export const recentResults = [
+const originalResults = [
 	{
 		source: {
 			slug: "gpt-6-sol",
@@ -191,3 +193,20 @@ export const recentResults = [
 		data: parseSiteExport(sol56),
 	},
 ];
+
+export const recentResults = datasetJson<ResultSource[]>(
+	"sources.json",
+	originalResults.map(({ source }) => source),
+).map((source) => {
+	const original = originalResults.find(
+		(item) => item.source.slug === source.slug,
+	);
+	if (!original)
+		throw new Error(`Unknown native result source: ${source.slug}`);
+	return {
+		source,
+		data: parseSiteExport(
+			datasetJson<unknown>(`exports/${source.slug}.json`, original.data),
+		),
+	};
+});

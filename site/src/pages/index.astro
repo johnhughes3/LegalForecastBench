@@ -4,6 +4,7 @@ import Stat from "../components/Stat.astro";
 import { CURRENT_RELEASE } from "../data/analysis";
 import { AUTHOR } from "../data/author";
 import { comparison } from "../data/comparison";
+import { refreshedDataDirectory } from "../data/dataset-input";
 import { formatPercent } from "../data/metrics";
 import { PAPER } from "../data/paper";
 import { primarySnapshot, snapshot } from "../data/results";
@@ -28,12 +29,14 @@ const testedCurrent = primarySnapshot.models.filter((m) =>
 const confident = primarySnapshot.models.filter(
 	(m) => m.high_confidence.count > 0,
 );
-const worstConfident = confident.reduce((worst, m) =>
-	m.high_confidence.wrong / m.high_confidence.count >
-	worst.high_confidence.wrong / worst.high_confidence.count
-		? m
-		: worst,
-);
+const worstConfident = confident.length
+	? confident.reduce((worst, m) =>
+			m.high_confidence.wrong / m.high_confidence.count >
+			worst.high_confidence.wrong / worst.high_confidence.count
+				? m
+				: worst,
+		)
+	: undefined;
 const jev = supplementaryRows.find((row) => row.slug === "jev-luna-summaries");
 const fmtDate = (iso: string) =>
 	new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -68,25 +71,38 @@ const contributions = [
 ];
 
 const findings: { title: string; body: string; href: string }[] =
-	leader && runnerUp
+	refreshedDataDirectory
 		? [
 				{
-					title: `${leader.display_name} has the best observed scores; ${runnerUp.display_name} follows on micro Brier.`,
-					body: `Among the ${testedCurrent} current configurations in the paired analysis, no difference reached significance after correction${tested(runnerUp.slug) ? "" : `, and ${runnerUp.display_name} was not among them`}. The ordering across all ${primarySnapshot.models.length} configurations is descriptive.`,
-					href: "/results/",
+					title: "Results refreshed after case withdrawals.",
+					body: `Scores use ${cohort.case_count} retained cases and ${cohort.unit_count} units across ${primarySnapshot.models.length} ranked configurations. Original aggregate-only results are superseded.`,
+					href: "/data/",
 				},
 				{
-					title: "Confident misses are expensive.",
-					body: `At 90% stated confidence or more, some configurations had no misses while ${worstConfident.display_name} missed ${formatPercent(worstConfident.high_confidence.wrong / worstConfident.high_confidence.count, 0)}. Brier scoring squares each error, so a few confident misses outweigh many good calls.`,
-					href: "/findings/confident-misses/",
-				},
-				{
-					title: "A summary pipeline scored worse than always guessing 50%.",
-					body: `Jev scored ${jev ? jev.micro_brier.toFixed(3) : "n/a"} micro Brier from case summaries, against 0.250 for a constant 50% forecast. Two OpenAI controls given the identical summaries did better, so the summaries alone do not explain the result.`,
-					href: "/experiments/summary-pipelines/",
+					title: "Paired analysis recomputed on retained cases.",
+					body: `${primarySnapshot.significant_pairs.length} significant model/metric comparisons after correction. Untested pairs do not establish equivalence.`,
+					href: "/data/run-notes/#significance",
 				},
 			]
-		: [];
+		: leader && runnerUp
+			? [
+					{
+						title: `${leader.display_name} has the best observed scores; ${runnerUp.display_name} follows on micro Brier.`,
+						body: `Among the ${testedCurrent} current configurations in the paired analysis, no difference reached significance after correction${tested(runnerUp.slug) ? "" : `, and ${runnerUp.display_name} was not among them`}. The ordering across all ${primarySnapshot.models.length} configurations is descriptive.`,
+						href: "/results/",
+					},
+					{
+						title: "Confident misses are expensive.",
+						body: `At 90% stated confidence or more, some configurations had no misses while ${worstConfident?.display_name ?? "no configuration"} missed ${formatPercent(worstConfident ? worstConfident.high_confidence.wrong / worstConfident.high_confidence.count : 0, 0)}. Brier scoring squares each error, so a few confident misses outweigh many good calls.`,
+						href: "/findings/confident-misses/",
+					},
+					{
+						title: "A summary pipeline scored worse than always guessing 50%.",
+						body: `Jev scored ${jev ? jev.micro_brier.toFixed(3) : "n/a"} micro Brier from case summaries, against 0.250 for a constant 50% forecast. Two OpenAI controls given the identical summaries did better, so the summaries alone do not explain the result.`,
+						href: "/experiments/summary-pipelines/",
+					},
+				]
+			: [];
 ---
 
 <Layout

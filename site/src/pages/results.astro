@@ -4,6 +4,7 @@ import Leaderboard from "../components/Leaderboard";
 import ParetoChart from "../components/ParetoChart";
 import { CURRENT_RELEASE } from "../data/analysis";
 import { comparison, comparisonScope } from "../data/comparison";
+import { refreshedDataDirectory } from "../data/dataset-input";
 import { formatPercent, formatUsd, paretoFrontier } from "../data/metrics";
 import { primarySnapshot, snapshot } from "../data/results";
 import { supplementaryRows } from "../data/supplementary-results";
@@ -28,26 +29,41 @@ const worstHighConfidenceRate = Math.max(
 		.filter((m) => m.high_confidence.count > 0)
 		.map((m) => m.high_confidence.wrong / m.high_confidence.count),
 );
-const takeaways: [string, string][] = leader
+const takeaways: [string, string][] = refreshedDataDirectory
 	? [
 			[
-				`${leader.display_name} has the best observed scores.`,
-				`Micro Brier ${leader.micro_brier.toFixed(4)}, equal-case Brier ${leader.equal_case_brier.toFixed(4)}, and ${formatPercent(leader.correct / n)} accuracy, at an estimated ${formatUsd(leader.cost.usd)} for all ${primarySnapshot.cohort.case_count} cases. It is not statistically separated from the other tested models.`,
+				"Scores refreshed after case withdrawals.",
+				`The retained cohort contains ${cohort.case_count} cases and ${cohort.unit_count} units. Only configurations with saved unit-level predictions appear in the active ranking.`,
 			],
 			[
-				"Cheap models hold the cost frontier.",
-				`${frontierModels.map((m) => `${m.display_name} (${formatUsd(m.cost.usd)})`).join(", ")}: no other model is both cheaper and better.`,
+				"Significance uses the retained cohort.",
+				`${primarySnapshot.significant_pairs.length} significant model/metric comparisons after correction across ${comparisonCurrent} tested configurations. Untested pairs are not evidence of equivalence.`,
 			],
 			[
-				"No tested pair of current models differed significantly.",
-				`Among the ${comparisonCurrent} current models in the paired analysis, no difference reached significance after correcting for multiple comparisons. The other models were not tested pairwise, so their order is descriptive.`,
-			],
-			[
-				"Confidence is where models differ most.",
-				`${perfect.map((m) => m.display_name).join(" and ")} never missed a prediction made with at least 90% confidence; others missed up to ${formatPercent(worstHighConfidenceRate, 0)} of theirs. These subsets differ in size and case mix, so zero misses is not proof of calibration.`,
+				"Cost evidence preserves its original workload.",
+				"Withdrawing cases does not refund their execution; costs have not been apportioned to the smaller cohort. See run notes and source exports for coverage.",
 			],
 		]
-	: [];
+	: leader
+		? [
+				[
+					`${leader.display_name} has the best observed scores.`,
+					`Micro Brier ${leader.micro_brier.toFixed(4)}, equal-case Brier ${leader.equal_case_brier.toFixed(4)}, and ${formatPercent(leader.correct / n)} accuracy, at an estimated ${formatUsd(leader.cost.usd)} for all ${primarySnapshot.cohort.case_count} cases. It is not statistically separated from the other tested models.`,
+				],
+				[
+					"Cheap models hold the cost frontier.",
+					`${frontierModels.map((m) => `${m.display_name} (${formatUsd(m.cost.usd)})`).join(", ")}: no other model is both cheaper and better.`,
+				],
+				[
+					"No tested pair of current models differed significantly.",
+					`Among the ${comparisonCurrent} current models in the paired analysis, no difference reached significance after correcting for multiple comparisons. The other models were not tested pairwise, so their order is descriptive.`,
+				],
+				[
+					"Confidence is where models differ most.",
+					`${perfect.map((m) => m.display_name).join(" and ")} never missed a prediction made with at least 90% confidence; others missed up to ${formatPercent(worstHighConfidenceRate, 0)} of theirs. These subsets differ in size and case mix, so zero misses is not proof of calibration.`,
+				],
+			]
+		: [];
 
 const jevRow = supplementaryRows.find(
 	(row) => row.slug === "jev-luna-summaries",

@@ -1860,6 +1860,40 @@
         "nonblank_line_count": 231,
         "top_level_definition_count": 11
       },
+      "site/scripts/generate-withdrawal-fixture.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "other",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "other",
+        "largest_symbol": "generate",
+        "largest_symbol_lines": 131,
+        "layer": "application",
+        "line_count": 164,
+        "nonblank_line_count": 151,
+        "top_level_definition_count": 3
+      },
+      "site/scripts/verify-withdrawal-build.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "other",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "other",
+        "largest_symbol": "verify",
+        "largest_symbol_lines": 76,
+        "layer": "application",
+        "line_count": 96,
+        "nonblank_line_count": 89,
+        "top_level_definition_count": 1
+      },
       "tests/fixtures/local_cli_fake_cli.py": {
         "cycle_id": "",
         "disposition_kind": "watch",

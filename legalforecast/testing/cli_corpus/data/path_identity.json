@@ -77,6 +77,8 @@
     "scripts/probe_openai_compatible_provider.py",
     "scripts/release_check.py",
     "scripts/validate_local_assume_access.py",
+    "site/scripts/generate-withdrawal-fixture.py",
+    "site/scripts/verify-withdrawal-build.py",
     "tests/fixtures/claude_code/fake_claude_lab_cli.py",
     "tests/fixtures/local_cli_fake_cli.py",
     "tests/fixtures/local_cli_identity_cli.py",
