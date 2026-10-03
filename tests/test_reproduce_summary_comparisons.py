@@ -21,4 +21,9 @@ def test_public_summary_comparisons_reproduce_displayed_exports(tmp_path: Path) 
     assert len(exports) == 3
     for export in exports:
         expected = site / "src/data/exports" / export.name
-        assert json.loads(export.read_text()) == json.loads(expected.read_text())
+        reproduced = json.loads(export.read_text())
+        assert reproduced == json.loads(expected.read_text())
+        costs = reproduced["results"][0]["costs"]
+        assert costs["basis"] == "unavailable"
+        assert "cost_scope" not in costs
+        assert "missing_response_usage_case_count" not in costs

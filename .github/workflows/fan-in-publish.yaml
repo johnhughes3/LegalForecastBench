@@ -85,12 +85,12 @@ jobs:
       LFB_GITHUB_FAN_IN_ROLE_ARN: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
     steps:
-      - name: Checkout exact main release
+      - name: Checkout trusted main scoring runtime
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ inputs.release_sha }}
+          ref: ${{ github.sha }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
@@ -110,6 +110,7 @@ jobs:
           MODEL_KEY: ${{ inputs.model_key }}
           MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
           RELEASE_SHA: ${{ inputs.release_sha }}
+          SCORER_SHA: ${{ github.sha }}
           RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
         run: |
           set -euo pipefail
@@ -121,8 +122,8 @@ jobs:
             echo "release_sha must be a full lowercase commit SHA" >&2
             exit 1
           }
-          [[ "$(git rev-parse HEAD)" == "${RELEASE_SHA}" ]] || {
-            echo "checked-out HEAD does not equal release_sha" >&2
+          [[ "$(git rev-parse HEAD)" == "${SCORER_SHA}" ]] || {
+            echo "checked-out HEAD does not equal trusted scoring revision" >&2
             exit 1
           }
           git merge-base --is-ancestor "${RELEASE_SHA}" origin/main || {
@@ -168,8 +169,8 @@ jobs:
             }
           done
           if [[ "${MODEL_REGISTRY_URI}" =~ ^model_registries/[A-Za-z0-9._-]+\.json$ ]]; then
-            [[ -f "${MODEL_REGISTRY_URI}" && ! -L "${MODEL_REGISTRY_URI}" ]] || {
-              echo "checked-out model registry must be a regular file" >&2
+            [[ "$(git ls-tree "${RELEASE_SHA}" -- "${MODEL_REGISTRY_URI}" | cut -d ' ' -f 1)" == 100644 ]] || {
+              echo "historical model registry must be a regular file" >&2
               exit 1
             }
           else
@@ -301,148 +302,20 @@ jobs:
           FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
         run: |
           set -euo pipefail
-          python - <<'PY'
-          import hashlib
-          import io
-          import json
+          uv run python - <<'PY'
           import os
-          import stat
-          import subprocess
-          import tempfile
-          import urllib.error
-          import urllib.request
-          import zipfile
           from pathlib import Path
+          from legalforecast.artifact_restore import extract_artifact, restore_artifact
 
-          api_url = os.environ["GITHUB_API_URL"].rstrip("/")
-          repository = os.environ["GITHUB_REPOSITORY_NAME"]
-          token = os.environ["GITHUB_TOKEN"]
-          run_id = os.environ["FORECAST_RUN_ID"]
+          run_id = int(os.environ["FORECAST_RUN_ID"])
           attempt = os.environ["FORECAST_RUN_ATTEMPT"]
-          expected_name = f"official-forecast-results-{run_id}-{attempt}"
-
-          def request_json(url: str, description: str) -> object:
-              request = urllib.request.Request(
-                  url if url.startswith("http") else api_url + url,
-                  headers={
-                      "Accept": "application/vnd.github+json",
-                      "Authorization": f"Bearer {token}",
-                      "User-Agent": "legalforecastbench-protected-labels-fan-in",
-                      "X-GitHub-Api-Version": "2022-11-28",
-                  },
-              )
-              try:
-                  with urllib.request.urlopen(request, timeout=60) as response:
-                      return json.load(response)
-              except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
-                  raise SystemExit(f"could not read {description}") from exc
-
-          listing = request_json(
-              f"/repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100",
-              "forecast run artifacts",
-          )
-          if not isinstance(listing, dict) or not isinstance(listing.get("artifacts"), list):
-              raise SystemExit("forecast artifact listing is invalid")
-          matches = [
-              item for item in listing["artifacts"]
-              if isinstance(item, dict) and item.get("name") == expected_name
-          ]
-          if len(matches) > 1:
-              raise SystemExit(f"expected exactly one durable forecast artifact: {expected_name}")
-
-          def s3_object(key: str) -> bytes:
-              # Errors (AccessDenied, NoSuchKey) stay visible on stderr.
-              with tempfile.TemporaryDirectory() as scratch:
-                  target = Path(scratch) / "object"
-                  subprocess.run(
-                      ["aws", "s3api", "get-object", "--bucket", bucket, "--key", key, str(target)],
-                      check=True,
-                      stdout=subprocess.DEVNULL,
-                  )
-                  return target.read_bytes()
-
-          def restore_from_archive() -> bytes:
-              # GitHub drops expired artifacts from listings, so the archive's
-              # by-run pointer is the only way back to the package.
-              archive_prefix = f"reports/github-artifacts/multi-ablation/{repository}/"
-              pointer_prefix = f"{archive_prefix}by-run/{run_id}/{expected_name}/"
-              if not bucket:
-                  raise SystemExit("LFB_RESULTS_BUCKET is required to restore an expired artifact")
-              try:
-                  listed = subprocess.run(
-                      ["aws", "s3api", "list-objects-v2", "--bucket", bucket,
-                       "--prefix", pointer_prefix, "--output", "json"],
-                      check=True,
-                      stdout=subprocess.PIPE,
-                      text=True,
-                  ).stdout
-                  keys = [item["Key"] for item in json.loads(listed or "{}").get("Contents") or []]
-                  if len(keys) != 1:
-                      raise SystemExit(
-                          f"GitHub artifact {expected_name} is unavailable and S3 holds "
-                          f"{len(keys)} archive pointers for it"
-                      )
-                  pointer = json.loads(s3_object(keys[0]))
-                  artifact_id = pointer.get("artifact_id")
-                  digest = pointer.get("digest")
-                  if (
-                      pointer.get("repository") != repository
-                      or pointer.get("source_run_id") != int(run_id)
-                      or pointer.get("name") != expected_name
-                      or isinstance(artifact_id, bool)
-                      or not isinstance(artifact_id, int)
-                      or pointer.get("key") != f"{archive_prefix}artifacts/{artifact_id}.zip"
-                      or not isinstance(digest, str)
-                      or not digest.startswith("sha256:")
-                  ):
-                      raise SystemExit("S3 archive pointer does not match the forecast run")
-                  restored = s3_object(pointer["key"])
-              except (OSError, ValueError, subprocess.CalledProcessError) as exc:
-                  raise SystemExit("could not restore forecast artifact from S3 archive") from exc
-              if f"sha256:{hashlib.sha256(restored).hexdigest()}" != digest:
-                  raise SystemExit("S3 archived forecast artifact digest mismatch")
-              print(f"restored expired forecast artifact {artifact_id} from S3 archive")
-              return restored
-
-          bucket = os.environ.get("LFB_RESULTS_BUCKET", "")
-          if not matches or matches[0].get("expired") is True:
-              archive_bytes = restore_from_archive()
-          else:
-              artifact_id = matches[0].get("id")
-              if isinstance(artifact_id, bool) or not isinstance(artifact_id, int) or artifact_id <= 0:
-                  raise SystemExit("durable forecast artifact ID is invalid")
-              try:
-                  archive_bytes = subprocess.run(
-                      [
-                          "gh",
-                          "api",
-                          "--allow-escape-sequences",
-                          f"/repos/{repository}/actions/artifacts/{artifact_id}/zip",
-                      ],
-                      check=True,
-                      capture_output=True,
-                  ).stdout
-              except (OSError, subprocess.CalledProcessError) as exc:
-                  raise SystemExit("could not download durable forecast artifact") from exc
           root = Path("/tmp/lfb-forecast")
-          root.mkdir(parents=True, exist_ok=False)
-          seen: set[str] = set()
-          with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
-              for member in archive.infolist():
-                  relative = Path(member.filename)
-                  if relative.is_absolute() or ".." in relative.parts:
-                      raise SystemExit("durable forecast artifact contains an unsafe path")
-                  normalized = relative.as_posix()
-                  if normalized in seen:
-                      raise SystemExit("durable forecast artifact contains a duplicate path")
-                  seen.add(normalized)
-                  if member.is_dir():
-                      continue
-                  if stat.S_ISLNK(member.external_attr >> 16):
-                      raise SystemExit("durable forecast artifact contains a symlink")
-                  destination = root / relative
-                  destination.parent.mkdir(parents=True, exist_ok=True)
-                  destination.write_bytes(archive.read(member))
+          extract_artifact(restore_artifact(
+              os.environ["GITHUB_REPOSITORY_NAME"], run_id,
+              f"official-forecast-results-{run_id}-{attempt}",
+              bucket=os.environ["LFB_RESULTS_BUCKET"],
+          ), root)
+
           required = (
               "forecast-run.json",
               "run-manifest.json",
@@ -475,6 +348,7 @@ jobs:
           LABELS_RELEASE_URI: ${{ inputs.labels_release_uri }}
           MANIFEST_URI: ${{ inputs.manifest_uri }}
           MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
           reference=/tmp/lfb-fan-in-reference
@@ -482,11 +356,9 @@ jobs:
           fetch_locked() {
             local locator="$1" destination="$2" checked_out_registry="${3:-false}"
             if [[ "${checked_out_registry}" == true && "${locator}" =~ ^model_registries/[A-Za-z0-9._-]+\.json$ ]]; then
-              [[ -f "${locator}" && ! -L "${locator}" ]] || {
-                echo "checked-out model registry must be a regular file" >&2
-                return 1
-              }
-              cp -- "${locator}" "${destination}"
+              # Scoring uses current code; registry bytes retain the original
+              # forecast revision and are compared with its saved package below.
+              git show "${RELEASE_SHA}:${locator}" > "${destination}"
               return
             fi
             case "${locator}" in
@@ -633,6 +505,8 @@ jobs:
 
       - name: Validate releases and score complete forecast receipts
         shell: bash
+        env:
+          MODEL_KEY: ${{ inputs.model_key }}
         run: |
           set -euo pipefail
           uv run legalforecast manifest validate \
@@ -654,12 +528,24 @@ jobs:
             --output /tmp/lfb-score.json \
             --unit-scores-output /tmp/lfb-unit-scores.jsonl
 
+          uv run python -m legalforecast.publication.receipt_accounting \
+            --receipts /tmp/lfb-run-records.jsonl \
+            --registry /tmp/lfb-fan-in-reference/model-registry.json \
+            --model-key "${MODEL_KEY}" \
+            --output /tmp/lfb-accounting.jsonl
+
       - name: Render report from the verified score artifact
         shell: bash
+        env:
+          SCORER_SHA: ${{ github.sha }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
+          FORECAST_RUN_ATTEMPT: ${{ inputs.forecast_run_attempt }}
         run: |
           set -euo pipefail
           uv run legalforecast report \
             --scores /tmp/lfb-score.json \
+            --accounting /tmp/lfb-accounting.jsonl \
             --output-dir /tmp/lfb-report \
             --labels-release /tmp/lfb-fan-in-reference/labels-release.json \
             --forecast-release /tmp/lfb-fan-in-reference/forecast-release.json \
@@ -669,6 +555,26 @@ jobs:
             --expected-run-identity "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["run_identity_sha256"])')" \
             --expected-model-registry-sha256 "$(python -c 'import json; print(json.load(open("/tmp/lfb-forecast/forecast-run.json"))["model_registry_sha256"])')" \
             --title "LegalForecast official benchmark"
+
+          uv run legalforecast site export \
+            --scores /tmp/lfb-score.json \
+            --model-registry /tmp/lfb-fan-in-reference/model-registry.json \
+            --report /tmp/lfb-report/leaderboard.json \
+            --accounting /tmp/lfb-accounting.jsonl \
+            --output /tmp/lfb-site-export.json
+
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          Path("/tmp/lfb-report/scoring-runtime.json").write_text(json.dumps({
+              "scorer_revision": os.environ["SCORER_SHA"],
+              "forecast_revision": os.environ["RELEASE_SHA"],
+              "forecast_run_id": os.environ["FORECAST_RUN_ID"],
+              "forecast_run_attempt": os.environ["FORECAST_RUN_ATTEMPT"],
+          }, sort_keys=True) + "\n")
+          PY
 
       - name: Publish verified report once
         if: ${{ inputs.publish }}
@@ -685,6 +591,8 @@ jobs:
           }
           put_once /tmp/lfb-score.json "${destination}/scores.json"
           put_once /tmp/lfb-unit-scores.jsonl "${destination}/unit-scores.jsonl"
+          put_once /tmp/lfb-accounting.jsonl "${destination}/accounting.jsonl"
+          put_once /tmp/lfb-site-export.json "${destination}/site-export.json"
           while IFS= read -r -d '' report_file; do
             relative="${report_file#/tmp/lfb-report/}"
             put_once "${report_file}" "${destination}/report/${relative}"
@@ -767,8 +675,7 @@ jobs:
           print(f"Published immutable Hugging Face revision: {commit.oid}")
           PY
 
-      # Copying the public inputs works even when release_sha predates the site
-      # exporter. The separate read-only site workflow runs current main code.
+      # Retain the same inputs for the separate read-only reproduction workflow.
       - name: Prepare published site export inputs
         if: ${{ inputs.publish }}
         shell: bash
@@ -776,6 +683,7 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/lfb-site-source
           cp -f /tmp/lfb-score.json /tmp/lfb-site-source/scores.json
+          cp -f /tmp/lfb-accounting.jsonl /tmp/lfb-site-source/accounting.jsonl
           cp -f /tmp/lfb-report/leaderboard.json /tmp/lfb-site-source/report.json
           cp -f /tmp/lfb-fan-in-reference/model-registry.json /tmp/lfb-site-source/model-registry.json
 
@@ -796,6 +704,8 @@ jobs:
           path: |
             /tmp/lfb-score.json
             /tmp/lfb-unit-scores.jsonl
+            /tmp/lfb-accounting.jsonl
+            /tmp/lfb-site-export.json
             /tmp/lfb-report
           if-no-files-found: warn
           retention-days: ${{ inputs.artifact_retention_days }}

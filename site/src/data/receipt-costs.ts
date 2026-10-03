@@ -1,4 +1,5 @@
-import type { ResultSource } from "./extend-snapshot.js";
+import { hasCanonicalCosts } from "./canonical-costs.js";
+import type { PublishedResult, ResultSource } from "./extend-snapshot.js";
 import records from "./receipt-costs.json" with { type: "json" };
 import { parseSnapshot, type ResultsSnapshot } from "./snapshot.js";
 
@@ -24,10 +25,16 @@ export function applyReceiptCosts(
 	snapshot: ResultsSnapshot,
 	sources: ResultSource[],
 	costs: ReceiptCost[] = receiptCosts,
+	canonicalResults: PublishedResult[] = [],
 ): ResultsSnapshot {
 	const models = new Map(snapshot.models.map((model) => [model.slug, model]));
 	const seen = new Set<string>();
 	for (const cost of costs) {
+		const native = canonicalResults.find(
+			({ source }) => source.slug === cost.slug,
+		);
+		if (native?.data.results.some((row) => hasCanonicalCosts(row.costs)))
+			continue;
 		const model = models.get(cost.slug);
 		const source = sources.find((item) => item.slug === cost.slug);
 		if (
