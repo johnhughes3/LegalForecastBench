@@ -78,7 +78,7 @@ test("a replacement with incompatible unit census cannot displace historical dat
 
 test("protected historical backfills reproduce aggregate scores and disclose missing repricing", () => {
 	const selected = extendSnapshot(historicalSnapshot, recentResults);
-	for (const slug of ["claude-opus-5", "claude-sonnet-5"]) {
+	for (const slug of ["claude-opus-5", "claude-sonnet-5", "gpt-5-6-sol"]) {
 		const historical = historicalSnapshot.models.find(
 			(model) => model.slug === slug,
 		);

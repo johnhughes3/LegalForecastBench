@@ -6,6 +6,7 @@ import export5 from "./exports/gemini-3-1-pro-preview.json" with {
 	type: "json",
 };
 import export4 from "./exports/gpt-4-1.json" with { type: "json" };
+import sol56 from "./exports/gpt-5-6-sol.json" with { type: "json" };
 import export6 from "./exports/gpt-6-1-sol.json" with { type: "json" };
 import export1 from "./exports/gpt-6-luna.json" with { type: "json" };
 import export0 from "./exports/gpt-6-sol.json" with { type: "json" };
@@ -172,5 +173,21 @@ export const recentResults = [
 				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
 		},
 		data: parseSiteExport(sonnet5),
+	},
+	{
+		source: {
+			slug: "gpt-5-6-sol",
+			release_date: "2026-06-26",
+			forecast_run: "34428487985",
+			scoring_run: "37144913131",
+			access: "Vercel AI Gateway (served by OpenAI, Flex)",
+			display_name: "GPT-5.6 Sol",
+			reasoning: "High",
+			provider: "OpenAI",
+			release: "cycle-1-91-2026-09-08-luna-r5",
+			release_digest:
+				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		},
+		data: parseSiteExport(sol56),
 	},
 ];
