@@ -18,6 +18,7 @@ from legalforecast.evals.model_registry import (
     require_official_registry_entries,
 )
 from legalforecast.immutable_io import read_single_link_file
+from legalforecast.publication.receipt_accounting import COST_SCOPE
 from legalforecast.release import (
     ForecastRelease,
     LabelsRelease,
@@ -31,6 +32,7 @@ from legalforecast.reporting.leaderboard import (
     infer_leaderboard_score_comparisons,
     summarize_accounting_leaderboard,
 )
+from legalforecast.reporting.receipt_costs import append_receipt_costs
 from legalforecast.reporting.result_class import classify_forecast_run_results
 from legalforecast.reporting.score_summary_codec import score_summary_from_record
 from legalforecast.runner.ledger import RunnerLedger
@@ -162,9 +164,18 @@ def run(args: argparse.Namespace) -> int:
         )
 
     summaries = tuple(score_summary_from_record(record) for record in summary_records)
+    receipt_accounting = any(
+        record.get("cost_scope") == COST_SCOPE for record in accounting_records
+    )
+    if receipt_accounting and not all(
+        record.get("cost_scope") == COST_SCOPE for record in accounting_records
+    ):
+        raise ValueError(
+            "cannot mix receipt cost accounting with legacy efficiency accounting"
+        )
     accounting_rows = (
         summarize_accounting_leaderboard(accounting_records)
-        if accounting_records
+        if accounting_records and not receipt_accounting
         else ()
     )
     inference = infer_leaderboard_score_comparisons(
@@ -209,6 +220,10 @@ def run(args: argparse.Namespace) -> int:
         if classification is not None:
             report_payload["result_classification"] = classification
         _cli_support.write_json(json_path, report_payload)
+    if receipt_accounting:
+        append_receipt_costs(
+            score_payload, accounting_records, json_path, markdown_path, html_path
+        )
     written = [json_path, csv_path, markdown_path, html_path]
     if (
         registry_path is not None

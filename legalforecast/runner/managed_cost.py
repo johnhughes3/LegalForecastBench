@@ -413,3 +413,16 @@ managed_estimated_cost = _managed_estimated_cost
 managed_payload_cost_evidence = _managed_payload_cost_evidence
 managed_result_cost = _managed_result_cost
 managed_result_cost_evidence = _managed_result_cost_evidence
+
+
+def managed_usage_cost(
+    entry: ModelRegistryEntry, response_usage_details: Sequence[ManagedResponseUsage]
+) -> float:
+    """Reproduce frozen-rate usage pricing with cache and context handling."""
+    return _managed_estimated_cost(
+        entry,
+        response_usages=[
+            (row.input_tokens, row.output_tokens) for row in response_usage_details
+        ],
+        response_usage_details=response_usage_details,
+    )

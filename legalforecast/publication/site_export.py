@@ -33,6 +33,7 @@ from legalforecast.evals.scorers import (
     UnitScore,
     score_cases,
 )
+from legalforecast.publication.receipt_accounting import COST_CAVEAT
 from legalforecast.publication.site_export_models import (
     SiteCalibrationBin,
     SiteCosts,
@@ -47,7 +48,6 @@ from legalforecast.reporting.contamination_tiers import (
     ContaminationTier,
     classify_registry_entry,
 )
-from legalforecast.reporting.leaderboard import summarize_accounting_leaderboard
 from legalforecast.reporting.model_cutoffs import cutoff_eligibility, evidence_for
 from legalforecast.reporting.score_summary_codec import score_summary_from_record
 
@@ -225,16 +225,82 @@ def _costs(summary: ScoreSummary, accounting: Sequence[Mapping[str, Any]]) -> Si
         raise ValueError(
             "accounting must contain exactly one record per model and case"
         )
-    rows = summarize_accounting_leaderboard(records)
-    if len(rows) != 1:
+    configurations = {
+        tuple(
+            record.get(key)
+            for key in (
+                "solver_id",
+                "provider",
+                "model_version_or_snapshot",
+                "run_label",
+            )
+        )
+        for record in records
+    }
+    if len(configurations) > 1:
         raise ValueError("accounting mixes configurations for one score summary")
-    row = rows[0]
-    return SiteCosts(
-        basis="estimated_accounting",
-        total_cost=row.total_estimated_cost,
-        cost_per_case=row.cost_per_case,
-        covered_case_count=len(covered),
-        missing_case_count=len(cases - covered),
+    for record in records:
+        for key in ("estimated_cost", "standard_rate_cost"):
+            value = record.get(key)
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, (float, int))
+                or not math.isfinite(value)
+                or value < 0
+            ):
+                raise ValueError(f"accounting {key} must be finite and nonnegative")
+    total = sum(float(record["estimated_cost"]) for record in records)
+    bases = {
+        str(record.get("cost_basis", "estimated_accounting")) for record in records
+    }
+    basis = next(iter(bases)) if len(bases) == 1 else "mixed_receipt_evidence"
+    standard = [
+        record["standard_rate_cost"]
+        for record in records
+        if record.get("standard_rate_cost") is not None
+    ]
+    return SiteCosts.model_validate(
+        {
+            "basis": basis,
+            "total_cost": total,
+            "cost_per_case": total / len(covered),
+            "covered_case_count": len(covered),
+            "missing_case_count": len(cases - covered),
+            "standard_rate_total_cost": sum(float(value) for value in standard)
+            if standard
+            else None,
+            "standard_rate_status": "complete"
+            if len(standard) == len(cases)
+            else "partial"
+            if standard
+            else "unavailable",
+            "standard_rate_covered_case_count": len(standard),
+            **{
+                key: sum(int(record.get(key, 0)) for record in records)
+                for key in (
+                    "response_count",
+                    "missing_cache_read_response_count",
+                    "missing_cache_write_response_count",
+                    "missing_response_usage_case_count",
+                    "missing_cache_rate_response_count",
+                )
+            },
+            "cost_methods": sorted(
+                {
+                    str(record["cost_method"])
+                    for record in records
+                    if "cost_method" in record
+                }
+            ),
+            "rate_provenance": sorted(
+                {
+                    str(record["rate_provenance"])
+                    for record in records
+                    if "rate_provenance" in record
+                }
+            ),
+            "caveats": [COST_CAVEAT],
+        }
     )
 
 

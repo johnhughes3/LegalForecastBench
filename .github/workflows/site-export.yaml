@@ -85,10 +85,15 @@ jobs:
         if: ${{ steps.source.outputs.found == 'true' }}
         run: |
           uv sync --locked
+          accounting_args=()
+          if [[ -f /tmp/lfb-site-source/accounting.jsonl ]]; then
+            accounting_args=(--accounting /tmp/lfb-site-source/accounting.jsonl)
+          fi
           uv run legalforecast site export \
             --scores /tmp/lfb-site-source/scores.json \
             --model-registry /tmp/lfb-site-source/model-registry.json \
             --report /tmp/lfb-site-source/report.json \
+            "${accounting_args[@]}" \
             --output /tmp/lfb-site/site-export.json
 
       - name: Upload site data bundle
