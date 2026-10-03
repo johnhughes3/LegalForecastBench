@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { canonicalCost, hasCanonicalCosts } from "./canonical-costs.js";
 import { extendSnapshot } from "./extend-snapshot.js";
 import { applyReceiptCosts, receiptCosts } from "./receipt-costs.js";
 import { recentResults } from "./recent-results.js";
 import { historicalSnapshot, snapshot } from "./results.js";
 
-test("all eight newer agentic models augment the unchanged beta snapshot", () => {
+test("native agentic exports augment and replace rows in the unchanged beta snapshot", () => {
 	assert.equal(historicalSnapshot.models.length, 10);
 	assert.equal(snapshot.models.length, 18);
 	for (const slug of [
@@ -20,12 +21,16 @@ test("all eight newer agentic models augment the unchanged beta snapshot", () =>
 	])
 		assert.ok(snapshot.models.some((m) => m.slug === slug));
 	for (const { source, data } of recentResults) {
+		const row = data.results[0];
+		assert.ok(row);
 		const model = snapshot.models.find((m) => m.slug === source.slug);
 		assert.equal(model?.micro_brier, data.results[0]?.micro_brier);
 		assert.equal(
 			model?.cost.usd ?? null,
-			receiptCosts.find((cost) => cost.slug === source.slug)
-				?.standard_rate_estimate_usd ?? null,
+			hasCanonicalCosts(row.costs)
+				? canonicalCost(row.costs, row.case_count).usd
+				: (receiptCosts.find((cost) => cost.slug === source.slug)
+						?.standard_rate_estimate_usd ?? null),
 		);
 	}
 });

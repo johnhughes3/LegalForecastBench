@@ -112,7 +112,7 @@ test("sitemap skips agent files and uses real dates", () => {
 	assert.equal(includeInSitemap(`${site}/data/current.json`), false);
 	assert.equal(includeInSitemap(`${site}/og/home.png`), false);
 	assert.equal(lastmodFor("/paper/"), "2026-10-01");
-	assert.equal(lastmodFor("/"), "2026-09-27");
+	assert.equal(lastmodFor("/"), "2026-10-03");
 	assert.equal(lastmodFor("/findings/confident-misses/"), "2026-09-27");
 });
 

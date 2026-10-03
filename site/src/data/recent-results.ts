@@ -1,4 +1,6 @@
+import opus5 from "./exports/claude-opus-5.json" with { type: "json" };
 import export2 from "./exports/claude-opus-5-5.json" with { type: "json" };
+import sonnet5 from "./exports/claude-sonnet-5.json" with { type: "json" };
 import export7 from "./exports/claude-sonnet-5-5.json" with { type: "json" };
 import export5 from "./exports/gemini-3-1-pro-preview.json" with {
 	type: "json",
@@ -138,5 +140,37 @@ export const recentResults = [
 				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
 		},
 		data: parseSiteExport(export7),
+	},
+	{
+		source: {
+			slug: "claude-opus-5",
+			release_date: "2026-07-24",
+			forecast_run: "34845972981",
+			scoring_run: "37143407387",
+			access: "Anthropic API",
+			display_name: "Claude Opus 5",
+			reasoning: "Adaptive thinking (provider default: high)",
+			provider: "Anthropic",
+			release: "cycle-1-91-2026-09-08-luna-r5",
+			release_digest:
+				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		},
+		data: parseSiteExport(opus5),
+	},
+	{
+		source: {
+			slug: "claude-sonnet-5",
+			release_date: "2026-06-30",
+			forecast_run: "34895753581",
+			scoring_run: "37143409174",
+			access: "Anthropic API",
+			display_name: "Claude Sonnet 5",
+			reasoning: "Adaptive thinking (provider default)",
+			provider: "Anthropic",
+			release: "cycle-1-91-2026-09-08-luna-r5",
+			release_digest:
+				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		},
+		data: parseSiteExport(sonnet5),
 	},
 ];

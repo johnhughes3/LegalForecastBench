@@ -125,8 +125,8 @@ export function extendSnapshot(
 	});
 	return parseSnapshot({
 		...structuredClone(original),
-		snapshot_id: "beta-2026-09-27",
-		as_of: "2026-09-27",
+		snapshot_id: "beta-2026-10-03",
+		as_of: "2026-10-03",
 		provenance: {
 			...original.provenance,
 			method: `${original.provenance.method} Validated native scored exports supply ${models.length} full-document agentic configurations, replacing matching historical rows where available. Their accuracy and confidence counts derive from public prediction units.`,

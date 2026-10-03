@@ -69,6 +69,31 @@ test("a replacement with incompatible unit census cannot displace historical dat
 	);
 	assert.equal(
 		original.models.length,
-		historicalSnapshot.models.length + recentResults.length,
+		new Set([
+			...historicalSnapshot.models.map((model) => model.slug),
+			...recentResults.map(({ source }) => source.slug),
+		]).size,
 	);
+});
+
+test("protected historical backfills reproduce aggregate scores and disclose missing repricing", () => {
+	const selected = extendSnapshot(historicalSnapshot, recentResults);
+	for (const slug of ["claude-opus-5", "claude-sonnet-5"]) {
+		const historical = historicalSnapshot.models.find(
+			(model) => model.slug === slug,
+		);
+		const model = selected.models.find((model) => model.slug === slug);
+		assert.ok(historical && model);
+		assert.equal(selected.models.filter((row) => row.slug === slug).length, 1);
+		assert.ok(Math.abs(model.micro_brier - historical.micro_brier) < 1e-12);
+		assert.ok(
+			Math.abs(model.equal_case_brier - historical.equal_case_brier) < 1e-12,
+		);
+		assert.equal(model.correct, historical.correct);
+		assert.equal(model.high_confidence.count, historical.high_confidence.count);
+		assert.equal(model.high_confidence.wrong, historical.high_confidence.wrong);
+		assert.equal(model.cost.usd, null);
+		assert.match(model.cost.note ?? "", /usage estimate/);
+		assert.match(model.cost.note ?? "", /missing response usage: 91 cases/);
+	}
 });
