@@ -13,13 +13,17 @@ from legalforecast.retained_package import retained_pointer_key, validate_packag
 
 
 def package(*, invalid: bool = False, incomplete: bool = False) -> bytes:
+    registry_digest = hashlib.sha256(b"{}").hexdigest()
     values: dict[str, object] = {
+        "model-registry.json": {},
+        "run-manifest.json": {"selected_cases": [{"case_id": "case"}]},
         "forecast-run.json": {
             "workflow_run_id": 123,
             "workflow_run_attempt": 1,
             "run_identity_sha256": "identity",
             "model_key": "model",
             "forecast_release_digest": "release",
+            "model_registry_sha256": registry_digest,
         },
         "run-summary.json": {
             "workflow_run_id": 123,
@@ -34,7 +38,7 @@ def package(*, invalid: bool = False, incomplete: bool = False) -> bytes:
             "case_count": 1,
             "unit_count": 1,
             "cases": [{"case_id": "case"}],
-            "prediction_units": [{"unit_id": "unit"}],
+            "prediction_units": [{"unit_id": "unit", "case_id": "case"}],
         },
     }
     if not incomplete:
@@ -42,6 +46,9 @@ def package(*, invalid: bool = False, incomplete: bool = False) -> bytes:
             "case_id": "case",
             "model_key": "model",
             "forecast_release_digest": "release",
+            "run_identity_sha256": "identity",
+            "model_registry_sha256": registry_digest,
+            "required_unit_ids": ["unit"],
             "parser_output": {
                 "is_valid": not invalid,
                 "invalid_output": invalid,
@@ -77,6 +84,28 @@ def test_invalid_or_incomplete_package_refused(invalid: bool, incomplete: bool) 
 def test_wrong_original_run_refused() -> None:
     with pytest.raises(ValueError, match="run/attempt"):
         validate_package(package(), 124, 1)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("run_identity_sha256", "other"),
+        ("model_registry_sha256", "other"),
+        ("required_unit_ids", ["other"]),
+    ],
+)
+def test_receipt_binding_refused(field: str, value: object) -> None:
+    output = io.BytesIO()
+    with ZipFile(io.BytesIO(package())) as original, ZipFile(output, "w") as changed:
+        for name in original.namelist():
+            payload = original.read(name)
+            if name == "receipts/receipt.json":
+                record = json.loads(payload)
+                record[field] = value
+                payload = json.dumps(record).encode()
+            changed.writestr(name, payload)
+    with pytest.raises(ValueError):
+        validate_package(output.getvalue(), 123, 1)
 
 
 def test_retained_source_uses_separate_namespace(

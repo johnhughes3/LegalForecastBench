@@ -13,14 +13,12 @@ from pathlib import Path
 from typing import cast
 
 from legalforecast.artifact_archive import (
-    upload_archive_object,
-    validate_archive_request,
-    write_archive_index,
-)
-from legalforecast.artifact_restore import (
     extract_artifact,
     json_command,
     metadata_object,
+    upload_archive_object,
+    validate_archive_request,
+    write_archive_index,
 )
 
 
@@ -47,6 +45,31 @@ def validate_package(payload: bytes, run_id: int, attempt: int) -> None:
         release = metadata_object(
             json.loads((root / "forecast-release.json").read_bytes())
         )
+        registry_bytes = (root / "model-registry.json").read_bytes()
+        if not isinstance(json.loads(registry_bytes), (list, dict)):
+            raise ValueError("retained registry must be a supported JSON container")
+        if hashlib.sha256(registry_bytes).hexdigest() != identity.get(
+            "model_registry_sha256"
+        ):
+            raise ValueError("retained registry differs from frozen run identity")
+        manifest = metadata_object(
+            json.loads((root / "run-manifest.json").read_bytes())
+        )
+        selected = manifest.get("selected_cases")
+        release_units = release.get("prediction_units")
+        if not isinstance(selected, list) or not isinstance(release_units, list):
+            raise ValueError("retained frozen membership is missing")
+        expected_by_case: dict[str, set[str]] = {}
+        for raw in cast(list[object], release_units):
+            unit = metadata_object(raw)
+            case_id, unit_id = unit.get("case_id"), unit.get("unit_id")
+            if not isinstance(case_id, str) or not isinstance(unit_id, str):
+                raise ValueError("release unit membership is invalid")
+            expected_by_case.setdefault(case_id, set()).add(unit_id)
+        if {
+            metadata_object(row).get("case_id") for row in cast(list[object], selected)
+        } != set(expected_by_case):
+            raise ValueError("manifest membership differs from forecast release")
         for record in (identity, summary):
             if (
                 record.get("workflow_run_id") != run_id
@@ -78,6 +101,10 @@ def validate_package(payload: bytes, run_id: int, attempt: int) -> None:
                 or receipt.get("model_key") != identity.get("model_key")
                 or receipt.get("forecast_release_digest")
                 != identity.get("forecast_release_digest")
+                or receipt.get("run_identity_sha256")
+                != identity.get("run_identity_sha256")
+                or receipt.get("model_registry_sha256")
+                != identity.get("model_registry_sha256")
             ):
                 raise ValueError("receipt membership differs from retained run")
             cases.add(case)
@@ -93,6 +120,11 @@ def validate_package(payload: bytes, run_id: int, attempt: int) -> None:
             ):
                 raise ValueError("retained prediction is invalid or incomplete")
             required = cast(list[str], required)
+            if (
+                set(required) != expected_by_case.get(case)
+                or receipt.get("required_unit_ids") != required
+            ):
+                raise ValueError("receipt units differ from original case membership")
             predicted: list[str] = []
             for item in cast(list[object], predictions):
                 prediction = metadata_object(item)
@@ -227,11 +259,38 @@ def main() -> None:
     write_archive_index(args.output_dir / "retained-package-pointer.json", pointer)
     if args.upload_only:
         upload_archive_object(args.bucket, target, key)
+        _readback(args.bucket, key, target)
         upload_archive_object(
             args.bucket,
             args.output_dir / "retained-package-pointer.json",
             retained_pointer_key(args.repository, args.source_run_id, name),
         )
+        _readback(
+            args.bucket,
+            retained_pointer_key(args.repository, args.source_run_id, name),
+            args.output_dir / "retained-package-pointer.json",
+        )
+
+
+def _readback(bucket: str, key: str, original: Path) -> None:
+    with tempfile.TemporaryDirectory() as scratch:
+        downloaded = Path(scratch) / "readback"
+        subprocess.run(
+            [
+                "aws",
+                "s3api",
+                "get-object",
+                "--bucket",
+                bucket,
+                "--key",
+                key,
+                str(downloaded),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        if downloaded.read_bytes() != original.read_bytes():
+            raise ValueError("retained archive readback differs from uploaded bytes")
 
 
 if __name__ == "__main__":

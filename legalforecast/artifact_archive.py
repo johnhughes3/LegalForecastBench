@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import re
+import stat
 import subprocess
 import sys
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,6 +23,45 @@ _HELPER = Path(__file__).resolve().parents[1] / ".github/scripts/reconcile-s3-ob
 _TIMEOUT = 900
 # Artifact names become S3 key segments in the by-run lookup index.
 _SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,254}")
+
+
+def json_command(arguments: list[str]) -> object:
+    result = subprocess.run(arguments, check=True, stdout=subprocess.PIPE, text=True)
+    return json.loads(result.stdout)
+
+
+def metadata_object(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError("artifact metadata must be an object")
+    return cast(dict[str, object], value)
+
+
+def extract_artifact(payload: bytes, destination: Path) -> None:
+    """Extract regular ZIP entries without traversal, symlinks or duplicates."""
+    destination.mkdir(parents=True, exist_ok=False)
+    seen: set[str] = set()
+    with zipfile.ZipFile(io.BytesIO(payload)) as bundle:
+        for member in bundle.infolist():
+            relative = Path(member.filename)
+            mode = member.external_attr >> 16
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or relative.as_posix() in seen
+            ):
+                raise ValueError("artifact contains unsafe or duplicate paths")
+            seen.add(relative.as_posix())
+            if stat.S_ISLNK(mode) or stat.S_IFMT(mode) not in {
+                0,
+                stat.S_IFREG,
+                stat.S_IFDIR,
+            }:
+                raise ValueError("artifact contains a non-regular entry")
+            if member.is_dir():
+                continue
+            target = destination / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(bundle.read(member))
 
 
 def _prefix(repository: str) -> str:

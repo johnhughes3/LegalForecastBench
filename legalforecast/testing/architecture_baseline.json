@@ -233,37 +233,21 @@
       },
       "legalforecast/artifact_archive.py": {
         "cycle_id": "",
-        "disposition_kind": "below-watch",
+        "disposition_kind": "watch",
         "disposition_owner": "root",
-        "fan_in": 0,
+        "fan_in": 2,
         "fan_out": 1,
         "flags": [
-          "relative-path"
+          "relative-path",
+          "watch"
         ],
         "lane_owner": "root",
         "largest_symbol": "_download_phase",
-        "largest_symbol_lines": 86,
+        "largest_symbol_lines": 101,
         "layer": "application",
-        "line_count": 362,
-        "nonblank_line_count": 330,
-        "top_level_definition_count": 11
-      },
-      "legalforecast/artifact_restore.py": {
-        "cycle_id": "legalforecast/artifact_restore.py,legalforecast/retained_package.py",
-        "disposition_kind": "planned-seam",
-        "disposition_owner": "legalforecastbench-m1pv",
-        "fan_in": 1,
-        "fan_out": 2,
-        "flags": [
-          "cycle"
-        ],
-        "lane_owner": "root",
-        "largest_symbol": "restore_artifact",
-        "largest_symbol_lines": 125,
-        "layer": "application",
-        "line_count": 360,
-        "nonblank_line_count": 332,
-        "top_level_definition_count": 9
+        "line_count": 518,
+        "nonblank_line_count": 470,
+        "top_level_definition_count": 17
       },
       "legalforecast/contracts/ratchet.py": {
         "cycle_id": "",
@@ -1618,23 +1602,6 @@
         "line_count": 583,
         "nonblank_line_count": 483,
         "top_level_definition_count": 24
-      },
-      "legalforecast/retained_package.py": {
-        "cycle_id": "legalforecast/artifact_restore.py,legalforecast/retained_package.py",
-        "disposition_kind": "planned-seam",
-        "disposition_owner": "legalforecastbench-m1pv",
-        "fan_in": 1,
-        "fan_out": 2,
-        "flags": [
-          "cycle"
-        ],
-        "lane_owner": "root",
-        "largest_symbol": "validate_package",
-        "largest_symbol_lines": 100,
-        "layer": "application",
-        "line_count": 238,
-        "nonblank_line_count": 225,
-        "top_level_definition_count": 4
       },
       "legalforecast/runner/ledger.py": {
         "cycle_id": "",
