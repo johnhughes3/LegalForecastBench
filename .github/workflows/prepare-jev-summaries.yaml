@@ -110,7 +110,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  restore-inputs:
+    name: Restore exact Jev inputs without provider access
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: legalforecastbench-official-eval-fan-in
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Configure protected archive read access
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ vars.LFB_AWS_REGION }}
+          role-session-name: lfb-jev-restore-${{ github.run_id }}
+          role-to-assume: ${{ vars.LFB_GITHUB_FAN_IN_ROLE_ARN }}
+      - name: Restore exact locked inputs and optional prior cache
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          INPUT_ARTIFACT_ID: ${{ inputs.locked_inputs_artifact_id }}
+          PRIOR_RUN_ID: ${{ inputs.prior_summary_run_id }}
+          PRIOR_ARTIFACT_ID: ${{ inputs.prior_summary_artifact_id }}
+          LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = main
+          uv run python -m legalforecast.artifact_restore \
+            --repository "${GITHUB_REPOSITORY}" --run-id "${SOURCE_RUN_ID}" \
+            --artifact-id "${INPUT_ARTIFACT_ID}" --bucket "${LFB_RESULTS_BUCKET}" \
+            --destination /tmp/lfb-jev-restored/inputs
+          if [[ -n "${PRIOR_ARTIFACT_ID}" ]]; then
+            uv run python -m legalforecast.artifact_restore \
+              --repository "${GITHUB_REPOSITORY}" --run-id "${PRIOR_RUN_ID}" \
+              --artifact-id "${PRIOR_ARTIFACT_ID}" --bucket "${LFB_RESULTS_BUCKET}" \
+              --destination /tmp/lfb-jev-restored/prior
+          fi
+      - name: Pass restored inputs to summary preparation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: restored-jev-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/lfb-jev-restored
+          if-no-files-found: error
+          retention-days: 1
+
   prepare:
+    needs: restore-inputs
     name: Prepare release-bound Jev summaries
     runs-on: ubuntu-latest
     timeout-minutes: 360
@@ -192,11 +244,17 @@ jobs:
       - name: Download locked outcome-blinded forecast inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          artifact-ids: ${{ inputs.locked_inputs_artifact_id }}
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ inputs.source_run_id }}
-          path: /tmp/lfb-jev-inputs
+          name: restored-jev-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/lfb-jev-restored
+
+      - name: Materialize restored input bundle and prior cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv -f /tmp/lfb-jev-restored/inputs /tmp/lfb-jev-inputs
+          if [[ -d /tmp/lfb-jev-restored/prior ]]; then
+            mv -f /tmp/lfb-jev-restored/prior /tmp/lfb-jev-prior
+          fi
 
       - name: Verify the locked input bundle
         shell: bash
@@ -287,16 +345,6 @@ jobs:
           else:
               output.write_text("found=false\nartifact_id=\nattempt=\n", encoding="utf-8")
           PY
-
-      - name: Download prior Jev summary cache and ledger
-        if: ${{ inputs.prior_summary_artifact_id != '' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          artifact-ids: ${{ inputs.prior_summary_artifact_id }}
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ inputs.prior_summary_run_id }}
-          path: /tmp/lfb-jev-prior
 
       - name: Download the latest cache from an earlier rerun attempt
         if: ${{ inputs.prior_summary_artifact_id == '' && steps.discover-automatic-resume.outputs.found == 'true' }}

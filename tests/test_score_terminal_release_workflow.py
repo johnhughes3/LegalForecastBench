@@ -74,15 +74,16 @@ def test_source_run_and_artifact_are_bound_before_any_label_fetch() -> None:
 
     artifact_download = _section(
         "- name: Download exact terminal scoreless artifact",
-        "- name: Configure protected fan-in read access",
+        "- name: Fetch locked releases and labels inside protected fan-in",
     )
+    assert WORKFLOW.index(
+        "- name: Configure protected fan-in read access"
+    ) < WORKFLOW.index("- name: Download exact terminal scoreless artifact")
     for required in (
-        "actions/runs/{run_id}/artifacts?per_page=100",
-        'item.get("id") == artifact_id',
-        'item.get("name") == expected_name',
-        "terminal artifact contains an unsafe path",
-        "terminal artifact contains a duplicate path",
-        "terminal artifact contains a non-regular file",
+        "from legalforecast.artifact_restore import extract_artifact, restore_artifact",
+        'artifact_id=int(os.environ["FORECAST_ARTIFACT_ID"])',
+        'f"official-terminal-forecast-results-{run_id}-attempt-{attempt}"',
+        'bucket=os.environ["LFB_RESULTS_BUCKET"]',
         "run-compatibility.json",
         "selection-manifest.json",
         "task-index.json",
