@@ -130,3 +130,14 @@ def test_case_absent_from_appendix_preserves_original_results(tmp_path: Path) ->
     assert json.loads(output.read_text()) == json.loads(
         SOURCE.with_name("results.json").read_text()
     )
+
+
+def test_withdrawal_still_validates_removed_original_case(tmp_path: Path) -> None:
+    source = json.loads(SOURCE.read_text())
+    damaged = source["conditions"][0]["cases"][0]
+    removed = damaged["case_id"]
+    damaged["required_unit_ids"] = []
+    path = tmp_path / "damaged.json"
+    path.write_text(json.dumps(source))
+    with pytest.raises(ValueError, match="case units"):
+        MODULE.reproduce(path, tmp_path / "output.json", excluded_case_ids={removed})
