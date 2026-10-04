@@ -58,6 +58,55 @@ def test_pdf_date_comes_from_the_manuscript(tmp_path: Path) -> None:
     assert (tmp_path / "epoch").read_text(encoding="utf-8").strip() == expected
 
 
+def test_container_build_retries_a_stalled_image_pull(tmp_path: Path) -> None:
+    paper_dir = tmp_path / "docs" / "paper"
+    paper_dir.mkdir(parents=True)
+    shutil.copy2(ROOT / "docs" / "paper" / "build.sh", paper_dir / "build.sh")
+    shutil.copy2(
+        ROOT / "docs" / "paper" / "texlive-image.txt", paper_dir / "texlive-image.txt"
+    )
+    log = tmp_path / "docker.log"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    timeout_cmd = bin_dir / "timeout"
+    timeout_cmd.write_text(
+        '#!/usr/bin/env bash\nwhile [[ $1 == -* ]]; do shift; done\nshift\nexec "$@"\n'
+    )
+    timeout_cmd.chmod(0o755)
+    docker = bin_dir / "docker"
+    docker.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf "%s\\n" "$1" >> "$PAPER_TEST_DOCKER_LOG"\n'
+        "if [[ $1 == pull ]]; then\n"
+        '  pulls=$(grep -c "^pull$" "$PAPER_TEST_DOCKER_LOG")\n'
+        "  if [[ $pulls -lt 2 ]]; then exit 124; fi\n"
+        "  exit 0\n"
+        "fi\n"
+        'if [[ $1 == run ]]; then touch "$PAPER_TEST_COMPILED"; exit 0; fi\n'
+        "exit 1\n"
+    )
+    docker.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(paper_dir / "build.sh"), "--container"],
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "SOURCE_DATE_EPOCH": "1",
+            "PAPER_IMAGE_PULL_BACKOFF_SECONDS": "0",
+            "PAPER_TEST_DOCKER_LOG": str(log),
+            "PAPER_TEST_COMPILED": str(tmp_path / "compiled"),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert log.read_text(encoding="utf-8").splitlines() == ["pull", "pull", "run"]
+    assert "attempt 1 did not finish" in result.stderr
+    assert (tmp_path / "compiled").exists()
+
+
 def test_pdf_date_requires_a_manuscript_date(tmp_path: Path) -> None:
     result = _build_preview(tmp_path, "Settled prose.\n", source_date_epoch=None)
     assert result.returncode == 1
