@@ -4,6 +4,7 @@ import { datasetJson } from "./dataset-input.js";
 import gpt41 from "./exports/gpt-4-1.json";
 import lunaHigh from "./exports/gpt-5-6-luna-summaries-high.json";
 import lunaNone from "./exports/gpt-6-luna-summaries-none.json";
+import grokJev from "./exports/jev-grok-short-summaries.json";
 import jev from "./exports/jev-luna-summaries.json";
 import { publicUnitCensus } from "./extend-snapshot";
 import { meanForecast, rankAuc } from "./metrics";
@@ -35,6 +36,8 @@ export interface SummarySource {
 	forecast_run: string;
 	model_key: string;
 	summary_cache_sha256: string;
+	summary_packet_group: string;
+	input_label: string;
 	run_identity_sha256: string;
 	model_registry_sha256: string;
 	summary_preparation_estimated_usd: number;
@@ -50,7 +53,7 @@ const provenance = datasetJson(
 	"summary-comparison/catalog.json",
 	originalProvenance,
 );
-const exports = [jev, lunaNone, lunaHigh].map(parseSiteExport);
+const exports = [jev, lunaNone, lunaHigh, grokJev].map(parseSiteExport);
 export const summaryComparisons: SummaryComparison[] = provenance.map(
 	(item) => {
 		const source = { ...item, forecast_run: item.forecast_run_id };
@@ -76,7 +79,7 @@ export function buildSupplementaryRows(
 	if (!referenceRow || reference.results.length !== 1)
 		throw new Error("Expected one full-record reference");
 	const census = publicUnitCensus(referenceRow.units);
-	const cache = comparisons[0]?.source.summary_cache_sha256;
+	const caches = new Map<string, string>();
 	const slugs = new Set<string>();
 	const rows = comparisons.map(({ source, data }): SupplementaryRow => {
 		const row = data.results[0];
@@ -92,8 +95,14 @@ export function buildSupplementaryRows(
 			data.source.model_registry_sha256 !== source.model_registry_sha256
 		)
 			throw new Error("Summary condition does not match its source");
-		if (!cache || source.summary_cache_sha256 !== cache)
-			throw new Error("Summary inputs differ");
+		const cache = caches.get(source.summary_packet_group);
+		if (
+			!source.summary_packet_group ||
+			!source.summary_cache_sha256 ||
+			(cache !== undefined && source.summary_cache_sha256 !== cache)
+		)
+			throw new Error("Summary inputs differ within a packet group");
+		caches.set(source.summary_packet_group, source.summary_cache_sha256);
 		if (
 			data.excluded_case_count !== reference.excluded_case_count ||
 			data.contamination_boundary !== reference.contamination_boundary ||
@@ -104,12 +113,15 @@ export function buildSupplementaryRows(
 			throw new Error("Summary comparison cohort differs");
 		return {
 			slug: source.slug,
-			display_name: row.model_id.includes("typesafe-ai/jev")
-				? "Jev"
-				: row.model_id.includes("gpt-6-luna")
-					? "GPT-6 Luna"
-					: "GPT-5.6 Luna",
-			input_label: "GPT-5.6 Luna summaries · one shot",
+			display_name:
+				source.slug === "jev-grok-short-summaries"
+					? "Jev · Grok shorter summaries"
+					: row.model_id.includes("typesafe-ai/jev")
+						? "Jev"
+						: row.model_id.includes("gpt-6-luna")
+							? "GPT-6 Luna"
+							: "GPT-5.6 Luna",
+			input_label: source.input_label,
 			reasoning_label:
 				row.metadata.reasoning_effort === "none"
 					? "Off"

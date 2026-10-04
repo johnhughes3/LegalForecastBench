@@ -191,14 +191,14 @@ function experimentMarkdown(): string {
 			COPY.experiment.description,
 			"/experiments/summary-pipelines/",
 		),
-		"These conditions forecast from the same case summaries. They are not part of the full-document ranking.",
+		"The three Luna-summary conditions share identical packets. The separately labeled Grok-short condition uses different summaries of the same original documents. These conditions are outside the full-document ranking; cross-pipeline differences do not isolate model ability.",
 		"",
 		"| Condition | Micro Brier | Equal-case Brier | Accuracy |",
 		"| --- | --- | --- | --- |",
 	];
 	for (const row of supplementaryRows) {
 		lines.push(
-			`| ${row.display_name} (${row.reasoning_label}) | ${row.micro_brier.toFixed(4)} | ${row.equal_case_brier.toFixed(4)} | ${formatPercent(row.correct / row.unit_count)} |`,
+			`| ${row.display_name} (${row.input_label}; ${row.reasoning_label}) | ${row.micro_brier.toFixed(4)} | ${row.equal_case_brier.toFixed(4)} | ${formatPercent(row.correct / row.unit_count)} |`,
 		);
 	}
 	lines.push(

@@ -10,8 +10,8 @@ import {
 } from "./supplementary-results";
 
 test("summary results remain separate and use the same 91-case, 387-unit cohort", () => {
-	assert.equal(supplementaryRows.length, 4);
-	assert.equal(summaryComparisons.length, 3);
+	assert.equal(supplementaryRows.length, 5);
+	assert.equal(summaryComparisons.length, 4);
 	for (const row of supplementaryRows) {
 		assert.equal(row.case_count, 91);
 		assert.equal(row.unit_count, 387);
@@ -77,4 +77,29 @@ test("summary diagnostics separate ranking from calibration", () => {
 	assert.ok(gpt41Row.auc < 0.5);
 	assert.equal(jev.inference_usd, 0.044179);
 	assert.equal(gpt41Row.inference_usd, null);
+});
+
+// Different summarization pipelines are separate conditions, while shared-packet
+// controls must retain exactly the same frozen cache.
+test("distinct summary packet groups remain labeled and outside the agentic ranking", () => {
+	const rows = structuredClone(summaryComparisons);
+	const item = rows[0];
+	assert.ok(item);
+	item.source.summary_packet_group = "separate-test-pipeline";
+	item.source.summary_cache_sha256 = "different-frozen-cache";
+	item.source.input_label = "Grok 4.6 shorter summaries · one shot";
+	const result = buildSupplementaryRows(rows, parseSiteExport(gpt41));
+	assert.equal(result[0]?.input_label, item.source.input_label);
+});
+
+test("Grok short condition retains protected scores and provider-reported inference cost", () => {
+	const row = supplementaryRows.find(
+		(r) => r.slug === "jev-grok-short-summaries",
+	);
+	assert.ok(row);
+	assert.equal(row.micro_brier, 0.32725193798449614);
+	assert.equal(row.equal_case_brier, 0.30504730523444806);
+	assert.equal(row.inference_usd, 0.02015349);
+	assert.equal(row.preparation_usd, 29.987453);
+	assert.equal(row.input_label, "Grok 4.6 shorter summaries · one shot");
 });

@@ -43,8 +43,10 @@ const bySlug = (slug: string) => {
 	return row;
 };
 const jev = bySlug("jev-luna-summaries");
+const grokJev = supplementaryRows.find(
+	(r) => r.slug === "jev-grok-short-summaries",
+);
 const lunaOff = bySlug("gpt-6-luna-summaries-none");
-const lunaHigh = bySlug("gpt-5-6-luna-summaries-high");
 const gpt41 = bySlug("gpt-4-1");
 const lunaPair = summarySignificance.pairs.filter(
 	(p) =>
@@ -61,7 +63,7 @@ const preparation = jev.preparation_usd ?? 0;
 			<a href="/analysis/" class="text-sm text-ink-3 hover:text-ink">← Analysis</a>
 			<p class="eyebrow mt-8">Experiment · Summary pipelines</p>
 			<h1 class="mt-3 max-w-4xl font-serif text-4xl font-medium leading-[1.1] tracking-tight sm:text-5xl">
-				{refreshedDataDirectory ? "Summary forecasts on the retained cohort" : "Given the same case summaries, Jev forecast worse than always guessing 50%. Frontier models did not."}
+				{refreshedDataDirectory ? "Summary forecasts on the retained cohort" : "On the shared Luna summaries, Jev forecast worse than always guessing 50%. Frontier models did not."}
 			</h1>
 			<p class="mt-6 max-w-3xl text-lg leading-relaxed text-ink-2">
 				TypeSafe documents a 64,000-token request limit for Jev, with a separate 32,000-token limit for the state plus the longest question (<a class="text-accent" href="https://docs.typesafe.ai/models">TypeSafe model reference</a>). This experiment used GPT-5.6 Luna saved summaries for the {jev.case_count} retained cases. Jev forecast from those summaries in one shot. As controls, two OpenAI models received the identical summaries.
@@ -81,10 +83,10 @@ const preparation = jev.preparation_usd ?? 0;
 				<p class="eyebrow">Result</p>
 				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Scores against naive baselines</h2>
 				<p class="mt-4 text-sm leading-relaxed text-ink-2">
-					Jev's micro Brier is {jev.micro_brier.toFixed(3)}; always answering 50% scores {(0.25).toFixed(3)}, and forecasting the cohort's dismissal rate scores {baseRateBrier.toFixed(3)}. The chart compares the same summary inputs for each configuration.
+					Jev's micro Brier is {jev.micro_brier.toFixed(3)}; always answering 50% scores {(0.25).toFixed(3)}, and forecasting the cohort's dismissal rate scores {baseRateBrier.toFixed(3)}. The three Luna-summary conditions use identical packets. The separately labeled Grok condition uses shorter summaries of the same original documents; it is not a matched-packet model comparison.
 				</p>
 				<p class="mt-3 text-sm leading-relaxed text-ink-2">
-					{refreshedDataDirectory ? `${summarySignificance.significant_pairs.length} model/metric comparisons are significant after correction on the retained cohort. See the downloadable analysis for direction and metric.` : "Jev is significantly worse than both controls on micro Brier, equal-case Brier, and accuracy in a paired bootstrap with a Bonferroni correction."} {lunaPairSignificant ? "The two controls also differ significantly." : "The two controls are not significantly different from each other."}
+					{summarySignificance.significant_pairs.length} condition/metric comparisons are significant after correction on the retained cohort. See the downloadable analysis for direction and metric. {lunaPairSignificant ? "The two controls also differ significantly." : "The two controls are not significantly different from each other."}
 				</p>
 			</div>
 			<div class="card min-w-0 p-4 sm:p-6">
@@ -105,7 +107,7 @@ const preparation = jev.preparation_usd ?? 0;
 			</p>
 		</div>}
 		<div class="card mt-8 min-w-0 p-4 sm:p-6">
-			<ReliabilityGrid rows={[jev, lunaOff, lunaHigh, gpt41]} baseRate={baseRate} />
+			<ReliabilityGrid rows={supplementaryRows} baseRate={baseRate} />
 		</div>
 	</section>
 
@@ -148,7 +150,7 @@ const preparation = jev.preparation_usd ?? 0;
 				</table>
 			</div>
 			<p class="border-t border-rule px-4 py-3 text-xs text-ink-3">
-				Summary preparation by GPT-5.6 Luna cost an estimated {formatUsd(preparation)} once and was shared by all three summary conditions. Costs retain the original successful-request workload scope, including subsequently withdrawn cases; estimates exclude retries and uncertain charges and are not invoices. Base rate: {formatPercent(baseRate)} of {cohort.unit_count} units dismissed.
+				Summary preparation by GPT-5.6 Luna cost an estimated {formatUsd(preparation)} once and was shared by the three Luna-summary conditions. Costs retain the original successful-request workload scope, including subsequently withdrawn cases; estimates exclude retries and uncertain charges and are not invoices. Base rate: {formatPercent(baseRate)} of {cohort.unit_count} units dismissed.
 			</p>
 		</div>
 	</section>
@@ -181,8 +183,12 @@ const preparation = jev.preparation_usd ?? 0;
 				Jev, GPT-6 Luna with reasoning off, and GPT-5.6 Luna with high reasoning received the same frozen summaries of 482 documents prepared by GPT-5.6 Luna. Each forecast the original units in one shot, without document tools or search; the displayed retained cohort scores {cohort.unit_count} units, as in the main benchmark. GPT-4.1 used the full-document agentic harness from the main benchmark and did not receive the summaries.
 			</p>
 			<p>
-				Saved forecasts were rescored with the benchmark's scorer against the published outcomes for the same {cohort.case_count} cases. These rows are separate from the main leaderboard, whose models read the full record with document tools. Significance uses the repository's paired case-cluster bootstrap ({summarySignificance.replicates.toLocaleString("en-US")} replicates) across the three summary conditions. {summarySignificance.caveat}
+				The three original Luna-summary conditions were rescored with the benchmark's scorer against the published outcomes for the same {cohort.case_count} cases. These rows are separate from the main leaderboard, whose models read the full record with document tools. Significance uses the repository's paired case-cluster bootstrap ({summarySignificance.replicates.toLocaleString("en-US")} replicates) across the four summary conditions, with correction covering the expanded family. Cross-pipeline differences also reflect different summary representations. {summarySignificance.caveat}
 			</p>
+
+            {grokJev && <p>The additional Jev condition uses 482 Grok 4.6 summaries prepared with a shorter-summary prompt (24 KB target per document), retaining the same selected original documents and prediction units. Each of the {grokJev.case_count} cases receives one request with no tools and no truncation. It was scored in the protected fan-in workflow. No OpenAI control has received these Grok packets, so differences from the Luna conditions cannot isolate model ability or the effect of summarization alone.</p>}
+            {grokJev && <p>The successful shorter-summary preparation cost is {formatUsd(grokJev.preparation_usd)}; Gateway-reported successful Jev inference is {formatUsd(grokJev.inference_usd)}. Earlier preparation under the standard prompt cost an estimated $1.996868 separately. Recovery retains $4.106948 in uncertain charge holds, excluded from successful-workload totals. Preparation is reconstructed from recorded usage; inference is provider-reported and matches standard-rate repricing. Neither is invoice reconciliation.</p>}
+
 			<p>Download the complete summary-comparison directory, including its catalog, outcomes, forecasts, and frozen registries. From a checkout containing the <a href="https://github.com/johnhughes3/LegalForecastBench/blob/main/scripts/reproduce_summary_comparisons.py">summary reproducer</a>, run:</p>
 			<pre><code>{reproduceCommand}</code></pre>
 			<ul>

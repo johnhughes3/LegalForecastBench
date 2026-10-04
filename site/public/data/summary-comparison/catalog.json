@@ -19,7 +19,9 @@
 		"successful_inference_estimated_usd": 0.044179,
 		"inference_cost_caveat": "Registry-rate estimate for successful receipts only; excludes retries and uncertain charges; not an invoice total. Shared summary preparation is separate.",
 		"archive_workflow_run_id": "36284632360",
-		"archive_artifact_id": 10590228053
+		"archive_artifact_id": 10590228053,
+		"summary_packet_group": "luna-shared",
+		"input_label": "GPT-5.6 Luna summaries \u00b7 one shot"
 	},
 	{
 		"slug": "gpt-5-6-luna-summaries-high",
@@ -41,7 +43,9 @@
 		"successful_inference_estimated_usd": 1.617969,
 		"inference_cost_caveat": "Registry-rate estimate for successful receipts only; excludes retries and uncertain charges; not an invoice total. Shared summary preparation is separate.",
 		"archive_workflow_run_id": "36284632360",
-		"archive_artifact_id": 10716882391
+		"archive_artifact_id": 10716882391,
+		"summary_packet_group": "luna-shared",
+		"input_label": "GPT-5.6 Luna summaries \u00b7 one shot"
 	},
 	{
 		"slug": "gpt-6-luna-summaries-none",
@@ -63,6 +67,38 @@
 		"successful_inference_estimated_usd": 0.102504,
 		"inference_cost_caveat": "Registry-rate estimate for successful receipts only; excludes retries and uncertain charges; not an invoice total. Shared summary preparation is separate.",
 		"archive_workflow_run_id": "36284632360",
-		"archive_artifact_id": 10725139258
+		"archive_artifact_id": 10725139258,
+		"summary_packet_group": "luna-shared",
+		"input_label": "GPT-5.6 Luna summaries \u00b7 one shot"
+	},
+	{
+		"slug": "jev-grok-short-summaries",
+		"forecast_run_id": "37167631221",
+		"model_key": "vercel_ai_gateway:typesafe-ai/jev",
+		"run_identity_sha256": "54bede6a73ac089b05644f495dc512c1b72668898dacb364e2a3a00c31d75db8",
+		"model_registry_sha256": "32a4ca4328efef9994402322001276c6fb210980c4d024e8addd7d499e467703",
+		"summary_cache_sha256": "f3c93434cb6b3565b59358f994074a0cfce54b3628a93c8cca2e194c706b0eae",
+		"forecast_release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		"published_outcomes_scoring_run_id": "37174741889",
+		"published_outcomes_forecast_run_id": "37167631221",
+		"score_basis": "Protected fan-in scoring of the original saved valid forecasts against the locked release outcomes; the public extracts independently reproduce scores against the same already published outcomes.",
+		"recomputed_at": "2026-09-08T05:48:53.895083Z",
+		"forecast_case_count": 91,
+		"forecast_unit_count": 409,
+		"scored_unit_count": 387,
+		"summary_document_count": 482,
+		"summary_preparation_estimated_usd": 29.987453,
+		"successful_inference_estimated_usd": 0.02015349,
+		"inference_cost_caveat": "Gateway-reported charges for 91/91 successful responses; complete standard frozen-rate repricing agrees. Excludes summary preparation, failed attempts, retries and uncertain charges; not an invoice total.",
+		"archive_workflow_run_id": "37173289791",
+		"summary_packet_group": "grok-short",
+		"input_label": "Grok 4.6 shorter summaries \u00b7 one shot",
+		"inference_cost_basis": "provider_reported",
+		"historical_standard_summary_preparation_estimated_usd": 1.996868,
+		"uncertain_preparation_charge_holds_usd": 4.106948,
+		"scoring_artifact_id": 11292528953,
+		"archive_artifact_id": 11292326601,
+		"archive_artifact_name": "official-forecast-results-37167631221-1",
+		"scoring_archive_workflow_run_id": "37174797852"
 	}
 ]

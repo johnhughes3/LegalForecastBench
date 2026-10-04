@@ -33,10 +33,8 @@ export default function ReliabilityGrid({ rows, baseRate }: Props) {
 						<div key={row.slug} className="rounded-xl border border-rule p-3">
 							<p className="text-sm font-medium text-ink">{row.display_name}</p>
 							<p className="text-xs text-ink-3">
-								{row.role === "full-record-reference"
-									? "Full record"
-									: "Summaries"}{" "}
-								· reasoning {row.reasoning_label.toLowerCase()}
+								{row.input_label} · reasoning{" "}
+								{row.reasoning_label.toLowerCase()}
 							</p>
 							<svg
 								viewBox={`0 0 ${S} ${S}`}
