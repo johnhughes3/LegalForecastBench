@@ -156,3 +156,18 @@ def test_import_rejects_grades_for_the_wrong_criteria(
     score.write_text(score.read_text(encoding="utf-8").replace('"C-001"', '"C-999"'))
     with pytest.raises(SystemExit, match="grades other criteria"):
         runs.source_runs(tmp_path, [task])
+
+
+def test_run_outcomes_cover_every_criterion_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(ROOT)
+    rows = _rows()
+    records = {
+        p.name: sampler.load(p / "claude-opus-5-5-audit.json")
+        for p in (sampler.AUDIT_DIR / "tasks").iterdir()
+    }
+    table = [line for line in runs.run_outcomes(rows, records) if line.startswith("| ")]
+    counts = [int(line.split("|")[2]) for line in table[1:]]
+    assert sum(counts) == 2858
+    assert counts[:5] == [83, 135, 127, 271, 219]
