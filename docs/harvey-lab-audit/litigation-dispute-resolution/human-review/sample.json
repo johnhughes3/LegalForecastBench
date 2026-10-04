@@ -1,0 +1,213 @@
+{
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "population": "comparison.json rows with an agreement bucket (criteria flagged problematic/confirmed or arguable by either model)",
+  "population_size": 835,
+  "seed": 20261004,
+  "sample_size": 25,
+  "method": "random.Random(seed).sample over the population sorted by (task, criterion number)",
+  "python": "3.14.0",
+  "target": 200,
+  "confirmed_needed": 11,
+  "sample": [
+    {
+      "task": "assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+      "criterion": "C-049",
+      "bucket": "split",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": "problematic"
+    },
+    {
+      "task": "categorize-document-production-set-by-relevance-and-privilege",
+      "criterion": "C-012",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "compare-document-production-against-discovery-requests",
+      "criterion": "C-029",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_blind": "problematic"
+    },
+    {
+      "task": "draft-case-assessment-memorandum",
+      "criterion": "C-025",
+      "bucket": "both_arguable",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "draft-conflict-check-memorandum",
+      "criterion": "C-030",
+      "bucket": "both_arguable",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": null
+    },
+    {
+      "task": "draft-conflict-check-memorandum",
+      "criterion": "C-049",
+      "bucket": "opus_only",
+      "gpt_6_sol": null,
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement",
+      "criterion": "C-045",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": null
+    },
+    {
+      "task": "draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement",
+      "criterion": "C-046",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": null
+    },
+    {
+      "task": "draft-defective-industrial-equipment-product-liability",
+      "criterion": "C-003",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": null
+    },
+    {
+      "task": "draft-defective-industrial-equipment-product-liability",
+      "criterion": "C-026",
+      "bucket": "sol_only",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "draft-discovery-plan-memorandum",
+      "criterion": "C-036",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": null
+    },
+    {
+      "task": "draft-federal-complaint-drafting",
+      "criterion": "C-025",
+      "bucket": "opus_only",
+      "gpt_6_sol": null,
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "draft-interrogatories",
+      "criterion": "C-008",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": null
+    },
+    {
+      "task": "draft-interrogatories",
+      "criterion": "C-026",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": null
+    },
+    {
+      "task": "draft-litigation-discovery-responses",
+      "criterion": "C-028",
+      "bucket": "split",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence",
+      "criterion": "C-009",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": null
+    },
+    {
+      "task": "draft-motion-to-dismiss-brief",
+      "criterion": "C-037",
+      "bucket": "opus_only",
+      "gpt_6_sol": null,
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "draft-motion-to-dismiss-brief",
+      "criterion": "C-045",
+      "bucket": "both_arguable",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "draft-responses-to-interrogatories",
+      "criterion": "C-028",
+      "bucket": "opus_only",
+      "gpt_6_sol": null,
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "extract-key-obligations-from-litigation-hold-and-document-preservation-notice",
+      "criterion": "C-002",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_blind": "problematic"
+    },
+    {
+      "task": "identify-excessive-or-duplicative-research-charges-in-litigation-invoice",
+      "criterion": "C-013",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": null
+    },
+    {
+      "task": "identify-issues-in-matter-budget-proposal",
+      "criterion": "C-029",
+      "bucket": "split",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "review-counterpartys-proposed-jury-instructions",
+      "criterion": "C-020",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_blind": "problematic"
+    },
+    {
+      "task": "review-litigation-invoice-against-outside-counsel-billing-guidelines",
+      "criterion": "C-024",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_blind": "arguable"
+    },
+    {
+      "task": "review-litigation-invoice-against-outside-counsel-billing-guidelines",
+      "criterion": "C-042",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_blind": "problematic"
+    }
+  ]
+}

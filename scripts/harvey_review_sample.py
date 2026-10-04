@@ -41,6 +41,7 @@ from harvey_dual_audit_core import (
     AUDIT_DIR,
     BUCKETS,
     OPUS_JSON,
+    OPUS_MD,
     PINNED,
     TASKS_URL,
     Json,
@@ -50,6 +51,7 @@ from harvey_dual_audit_core import (
     dump,
     load,
 )
+from harvey_dual_audit_render import sol_report_name
 
 REVIEW_DIR = AUDIT_DIR / "human-review"
 
@@ -116,6 +118,7 @@ def render_item(i: int, row: Json, record: Json, criterion: Json) -> list[str]:
     line = as_dict(record.get("criterion_lines")).get(crit)
     anchor = f"#L{line}" if line else ""
     opus_blind = row.get("claude_opus_5_5_blind") or "not flagged"
+    sol_md = sol_report_name(AUDIT_DIR / "tasks" / task)
     findings = [f"- **GPT-6 Sol:** {f}" for f in as_list(row.get("sol_findings"))] + [
         f"- **Claude Opus 5.5:** {f}" for f in as_list(row.get("opus_findings"))
     ]
@@ -146,6 +149,9 @@ def render_item(i: int, row: Json, record: Json, criterion: Json) -> list[str]:
         f"(blind pass: {opus_blind}).",
         "",
         *(findings or ["- No finding text recorded."]),
+        "",
+        f"Full reports: [GPT-6 Sol](../tasks/{task}/{sol_md}) "
+        f"· [Claude Opus 5.5](../tasks/{task}/{OPUS_MD}).",
         "",
         "</details>",
         "",
