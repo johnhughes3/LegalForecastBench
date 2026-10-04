@@ -1,0 +1,326 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "47/49 criteria passed.  Missed 2 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 49,
+  "n_passed": 47,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Identifies Nina Barros as unapproved timekeeper",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Nina Barros as an unapproved mid-level associate/timekeeper, notes she was not on the approved staffing plan, and recommends rejecting her entries as a staffing-plan deviation."
+    },
+    {
+      "id": "C-002",
+      "title": "Cites Section 4.2 for Barros staffing violation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses Nina Barros as an unapproved mid-level associate and cites Guidelines \u00a74.2 as requiring written pre-approval and stating that absence of response is not approval. It also lists Barros reductions under \u00a74.1, \u00a74.2."
+    },
+    {
+      "id": "C-003",
+      "title": "Calculates Barros dollar impact as $21,375.00",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states for Nina Barros: \u201csummary billing 45.0 hrs \u00d7 $475 = $21,375.00,\u201d satisfying the required calculation, even though it also discusses a higher detail amount."
+    },
+    {
+      "id": "C-004",
+      "title": "Notes Hargrove & Linden requested approval for Barros on April 28",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Karen Cho asked on April 28, 2025 to add Nina Barros, and also references the Barros staffing email thread dated Apr. 28\u2013May 1."
+    },
+    {
+      "id": "C-005",
+      "title": "Notes Dominguez responded 'let me review this' on May 1",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that on May 1 Ms. Dominguez replied she would review the Barros staffing request with Ms. Whitmore and \u201ccircle back,\u201d which is words to the effect of \u201clet me review this.\u201d"
+    },
+    {
+      "id": "C-006",
+      "title": "Notes no subsequent written approval or denial was issued for Barros, creating ambiguity",
+      "verdict": "pass",
+      "reasoning": "The memo specifically discusses Barros\u2019s April 28 request and the May 1 non-committal response, states that no approval was given, notes H&L\u2019s rate schedule listed her as \u201cPending Approval \u2014 client response pending,\u201d and later says Pinnacle has not yet answered the pending Barros request and should decide it in writing. This captures the lack of subsequent final written approval or denial and the resulting pending/ambiguous status."
+    },
+    {
+      "id": "C-007",
+      "title": "Identifies Priya Sengupta as unapproved timekeeper",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Priya Sengupta as an unapproved second junior associate/timekeeper, states she was not requested or approved under the staffing plan, and rejects/flags her entries as violations."
+    },
+    {
+      "id": "C-008",
+      "title": "Notes no approval request was made for Sengupta",
+      "verdict": "pass",
+      "reasoning": "The memo expressly distinguishes Sengupta from Barros: it states that H&L requested approval for Barros but only received a non-committal response, while for Priya Sengupta, \u201cH&L never requested approval\u201d and she was merely listed as \u201cAdded May 2025.\u201d This satisfies the requirement to note that no approval request was ever communicated to Pinnacle for Sengupta."
+    },
+    {
+      "id": "C-009",
+      "title": "Calculates Sengupta dollar impact as $10,312.50",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly calculates Priya Sengupta\u2019s summary time as 27.5 hours \u00d7 $375 = $10,312.50, even though it also uses $10,125.00 based on detail entries for the applied reduction. The required $10,312.50 calculation is present."
+    },
+    {
+      "id": "C-010",
+      "title": "Cites Section 4.2 for Sengupta staffing violation",
+      "verdict": "pass",
+      "reasoning": "The memo identifies Priya Sengupta as an unapproved second junior associate and cites \u201c\u00a74.1, \u00a74.2; Staffing Plan \u00a72.4\u201d as the basis for that reduction in the Summary of Fee Reductions."
+    },
+    {
+      "id": "C-011",
+      "title": "Identifies Marcus Tate rate cap violation ($210 vs $200 cap)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Marcus Tate was billed at $210/hr, notes that this exceeds the Guidelines \u00a75.1 contract attorney cap of $200/hr, and treats it as a rate overcharge subject to reduction."
+    },
+    {
+      "id": "C-012",
+      "title": "Calculates Tate rate overcharge as $1,200.00",
+      "verdict": "fail",
+      "reasoning": "The memo calculates Marcus Tate\u2019s rate reduction as $3,862.50 on the detail and $3,000.00 on the summary, based on a $25/hour difference from $210 to $185. It does not calculate the Tate rate overcharge as $1,200.00 ($10/hour \u00d7 120 hours)."
+    },
+    {
+      "id": "C-013",
+      "title": "Cites Section 5.1 for Tate rate cap violation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly cites Guidelines \u00a75.1 as a basis for Marcus Tate\u2019s contract attorney rate cap issue, including in the summary of reductions and the detailed Tate rate discussion."
+    },
+    {
+      "id": "C-014",
+      "title": "Flags May 8 conference call as having too many billing timekeepers",
+      "verdict": "pass",
+      "reasoning": "The memo expressly includes a section titled \u201cMay 8 Team Strategy Call -- Five Billing Timekeepers,\u201d identifies Entries 22\u201326 with five billing timekeepers, cites the three-timekeeper limit, and recommends disallowing excess time. This satisfies the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "Identifies Section 4.3 limit of 3 billing timekeepers on internal meetings",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Guidelines \u00a74.3 allows no more than 3 billing timekeepers per internal meeting and specifically applies that rule to the May 8 Team Strategy Call, noting that five timekeepers billed and only three should be allowed."
+    },
+    {
+      "id": "C-016",
+      "title": "Recommends reducing May 8 call to max 3 billing timekeepers",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the May 8 team strategy call as having five billing timekeepers, states that the guidelines limit billing to three timekeepers, and recommends allowing only Hargrove, Cho, and Pettersson while disallowing the additional timekeepers' time."
+    },
+    {
+      "id": "C-017",
+      "title": "Calculates dollar reduction for excess May 8 call timekeepers",
+      "verdict": "pass",
+      "reasoning": "The memo specifically addresses the May 8 team strategy call, identifies excess billing timekeepers, and calculates a dollar reduction: Webb's Entry 26 at 2.5 \u00d7 $375 = $937.50, with Barros's $1,187.50 noted as already rejected under another finding."
+    },
+    {
+      "id": "C-018",
+      "title": "Flags Hargrove's May 5 document review as inappropriate for partner",
+      "verdict": "pass",
+      "reasoning": "The memo specifically flags Entry 9, David Hargrove\u2019s May 5 4.5-hour review of MedCore third-production documents, under \u201cTimekeeper-to-Task Appropriateness,\u201d re-rating it from partner to junior associate work and explaining that the narrative describes production review rather than appropriate partner-level work."
+    },
+    {
+      "id": "C-019",
+      "title": "Cites Section 6.1 for partner document review reduction",
+      "verdict": "pass",
+      "reasoning": "The memo specifically addresses Hargrove\u2019s May 5 document review entry (Entry 9) under \u201cTimekeeper-to-Task Appropriateness (\u00a76.1)\u201d and cites \u00a76.1 as the basis for re-rating/reducing that partner document review time."
+    },
+    {
+      "id": "C-020",
+      "title": "Calculates rate reduction for Hargrove May 5 document review",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies Entry 9 for Hargrove's May 5 document review, states 4.5 hours, reduces the rate from $985/hr to $375/hr, and calculates the reduction as $2,745.00."
+    },
+    {
+      "id": "C-021",
+      "title": "Flags Hargrove's May 14 cite-check work as inappropriate for partner",
+      "verdict": "pass",
+      "reasoning": "The memo specifically flags David Hargrove\u2019s May 14 Entry 43 for \u201cReview/revise cite-check memo; finalize citations,\u201d reduces it from the partner rate to a junior rate, and identifies the basis as task appropriateness under Guidelines \u00a76.1, describing it as \u201ccite-checking.\u201d It also frames such work as routine work to be re-rated to the appropriate level."
+    },
+    {
+      "id": "C-022",
+      "title": "Calculates rate reduction for Hargrove May 14 cite-check",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies Entry 43 for Hargrove\u2019s May 14 cite-check work, re-rates 2.0 hours from $985/hr to $375/hr, and calculates a $1,220 reduction."
+    },
+    {
+      "id": "C-023",
+      "title": "Identifies Karen Cho May 19 entry as block-billed",
+      "verdict": "pass",
+      "reasoning": "The memo expressly lists Karen Cho\u2019s May 19 Entry 61 for 6.5 hours in the block-billing section, describing it as combining deposition preparation/attendance, post-deposition analysis, and team debrief, and applies a 25% reduction under Section 5.4."
+    },
+    {
+      "id": "C-024",
+      "title": "Identifies Hargrove May 27 entry as block-billed",
+      "verdict": "pass",
+      "reasoning": "The memo expressly lists David Hargrove's May 27 Entry 92 for 6.0 hours as subject to a 25% block-billing reduction under Section 5.4, and explains that it combines the client strategy session, expert-plan drafting, and interrogatory-response editing."
+    },
+    {
+      "id": "C-025",
+      "title": "Cites Section 5.4 for block billing violations",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly cites Guidelines \u00a75.4 for block billing, states that block-billed entries receive an automatic 25% reduction, and explains that entries combining multiple discrete tasks should be resubmitted as separate line items."
+    },
+    {
+      "id": "C-026",
+      "title": "Calculates 25% block billing reduction for Cho May 19",
+      "verdict": "pass",
+      "reasoning": "The memo identifies Karen Cho's May 19 entry (Entry 61) as block billed, uses the correct base amount of $4,062.50 for 6.5 hours at $625/hour, and calculates a 25% reduction of $1,015.62, which is within rounding of the expected $1,015.63."
+    },
+    {
+      "id": "C-027",
+      "title": "Calculates 25% block billing reduction for Hargrove May 27",
+      "verdict": "pass",
+      "reasoning": "The memo identifies David Hargrove's May 27 entry (Entry 92) as block billed, with 6.0 hours at $985 for $5,910.00, and calculates a 25% reduction of $1,477.50. This matches the criterion."
+    },
+    {
+      "id": "C-028",
+      "title": "Identifies attorney fee subtotal exceeds approved budget ceiling beyond 15% tolerance",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the billed fees of $193,372.50 are $28,372.50 (17.2%) above the $165,000 budget high end and $3,622.50 above the 15% tolerance ceiling of $189,750 under Section 7.3."
+    },
+    {
+      "id": "C-029",
+      "title": "Notes no pre-approval for budget overage was obtained",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that fees exceeded the \u00a77.3 ceiling and that \u201cno pre-approval was requested,\u201d and later reiterates under the budget-overage section that H&L \u201cdid not request pre-approval.\u201d"
+    },
+    {
+      "id": "C-030",
+      "title": "Cites Section 7.3 for budget overage",
+      "verdict": "pass",
+      "reasoning": "The memo expressly cites Guidelines Section 7.3 multiple times, including the 115% threshold/max payable without pre-approval and the budget overage analysis."
+    },
+    {
+      "id": "C-031",
+      "title": "Calculates 115% threshold as $189,750",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states the maximum payable without pre-approval is $189,750.00 and identifies it as 115% \u00d7 $165,000. It also repeats the \u00a77.3 budget ceiling as $189,750.00."
+    },
+    {
+      "id": "C-032",
+      "title": "Calculates overage above 115% threshold as approximately $3,622.50",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that fees billed were $193,372.50 and were $3,622.50 above the $189,750.00 ceiling, matching the required calculation."
+    },
+    {
+      "id": "C-033",
+      "title": "Flags Hargrove's 38.5 hours as exceeding approved 15-25 hour range",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Hargrove's 38.5 hours are 54% above the top of his approved 15\u201325 hour range, satisfying the criterion."
+    },
+    {
+      "id": "C-034",
+      "title": "Calculates Hargrove's excess hours and fee impact",
+      "verdict": "fail",
+      "reasoning": "The memo notes that Hargrove billed 38.5 hours and was 54% above the approved 15\u201325 hour range, but it does not calculate the excess as 13.5 hours above the 25-hour cap or state the corresponding fee impact of approximately $13,297.50."
+    },
+    {
+      "id": "C-035",
+      "title": "Flags Tyler Webb May 22 document review as inappropriate task level",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags Entry 79 for Tyler Webb on May 22 as first-level review of MedCore's third production for relevance/privilege, re-rates it from the junior associate rate of $375/hr to the contract attorney rate of $185/hr, and cites Section 6.1 as the basis."
+    },
+    {
+      "id": "C-036",
+      "title": "Calculates Webb document review rate reduction as approximately $665",
+      "verdict": "pass",
+      "reasoning": "The memo expressly re-rates Tyler Webb\u2019s Entry 79 for 3.5 hours of document review from $375/hr to the $185/hr contract attorney rate and calculates the reduction as $665.00."
+    },
+    {
+      "id": "C-037",
+      "title": "Flags Pettersson May 6 scheduling tasks as administrative work",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies Pettersson\u2019s May 6 Entry 15 for scheduling depositions, coordinating court reporter availability, and confirming locations as administrative work under the guidelines and recommends a full write-off of $712.50."
+    },
+    {
+      "id": "C-038",
+      "title": "Calculates Pettersson administrative task reduction as approximately $712.50",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Pettersson\u2019s May 6 administrative entry (Entry 15) as 1.5 hours and applies a full write-off reduction of $712.50, which equals 1.5 \u00d7 $475/hr."
+    },
+    {
+      "id": "C-039",
+      "title": "Flags three attorneys at Dr. Liu deposition as potentially excessive",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that Hargrove, Cho, and Pettersson all billed for attending the May 19 Dr. Rebecca Liu deposition, notes lack of approval for more than two billing timekeepers, characterizes Hargrove as an observer, and recommends disallowing his time. This flags the three-attorney deposition staffing as potentially excessive."
+    },
+    {
+      "id": "C-040",
+      "title": "Analyzes whether three-attorney deposition staffing is justified given witness role and industry norms",
+      "verdict": "pass",
+      "reasoning": "The memo does more than merely flag the issue: it discusses the three attendees, their actual roles at Dr. Liu\u2019s deposition, and concludes Hargrove was only observing. It also states the governing deposition-staffing norm/limit that more than two billing timekeepers requires advance approval, and identifies Dr. Liu as a former Pinnacle data scientist. This satisfies the criterion\u2019s requirement to analyze justification by reference to an accepted staffing norm or witness role."
+    },
+    {
+      "id": "C-041",
+      "title": "Provides total recommended reduction amount",
+      "verdict": "pass",
+      "reasoning": "The memo clearly states aggregate recommended reductions/disallowances, including \u201cTotal disallowed $57,130.61,\u201d fee reductions of $55,030.61 compared with billed fees, and expense rejections, along with recommended payment and withheld amounts."
+    },
+    {
+      "id": "C-042",
+      "title": "Includes line-item breakdown of all reductions",
+      "verdict": "pass",
+      "reasoning": "The memo includes multiple itemized breakdowns of reductions, including a category summary with amounts, detailed findings with calculations, an expense review table, and Appendix A listing individual adjusted entries with billed amount, specific reduction, allowed amount, and basis. These amounts can be verified and summed."
+    },
+    {
+      "id": "C-043",
+      "title": "Provides approve/partially approve/dispute recommendation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends partial payment/approval, stating to pay $134,406.26 now, withhold $10,285.63 pending documentation, and disallow $57,130.61, with additional breakdowns of allowed fees and expenses."
+    },
+    {
+      "id": "C-044",
+      "title": "Distinguishes clear violations from judgment calls",
+      "verdict": "pass",
+      "reasoning": "The memo clearly separates mandatory/clear guideline violations (e.g., unapproved timekeepers rejected in full, contract attorney rate cap automatically reduced, deposition/meeting staffing limits, administrative time write-offs) from more discretionary or substantiation-based issues. It uses categories such as provisional allowance, withheld pending substantiation, flagged with no separate reduction, and expressly frames some choices as recommendations or methodological judgment calls (e.g., non-stacking block-billing reductions, Hargrove document review re-rating despite possible strategic characterization)."
+    },
+    {
+      "id": "C-045",
+      "title": "Correctly states invoice attorney fee subtotal as $193,372.50",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that H&L billed $193,372.50 in fees and refers to the Time Detail subtotal as $193,372.50, satisfying the criterion."
+    },
+    {
+      "id": "C-046",
+      "title": "Correctly states total invoice amount as $201,822.50",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that H&L billed $201,822.50 for May 2025, including fees and expenses, and repeats this as the total invoiced amount."
+    },
+    {
+      "id": "C-047",
+      "title": "Correctly identifies the approved budget range as $95,000-$165,000",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the approved monthly fee range as $95,000\u2013$165,000 in Part II and uses that range in its budget overage analysis."
+    },
+    {
+      "id": "C-048",
+      "title": "References case-status facts when assessing staffing levels",
+      "verdict": "pass",
+      "reasoning": "The memo references at least two qualifying case-status facts in its staffing/hours analysis: depositions of former employees (e.g., Liu, Krenshaw, remaining former Pinnacle data scientists) and the motion to compel. These are discussed in connection with deposition staffing limits, overstaffing/duplication, block billing, and workload-related billing issues."
+    },
+    {
+      "id": "C-049",
+      "title": "Calculates budget overage percentage as approximately 17%",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that fees billed were $193,372.50, which is $28,372.50 or 17.2% above the $165,000 high end, matching the required approximately 17% overage calculation."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/assess-reasonableness-of-staffing-levels-on-litigation-invoice/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:44:26.290146+00:00",
+  "cost": {
+    "input_tokens": 14,
+    "output_tokens": 21420,
+    "wall_clock_seconds": 206.19
+  },
+  "doc_coverage": {
+    "documents_read": 5,
+    "total_documents": 5,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "approved-staffing-plan.docx",
+      "barros-staffing-email.eml",
+      "case-status-summary.docx",
+      "hl-may-2025-invoice.xlsx",
+      "pinnacle-billing-guidelines.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

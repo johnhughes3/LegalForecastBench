@@ -1,0 +1,312 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "39/46 criteria passed.  Missed 7 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 46,
+  "n_passed": 39,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies complete failure to produce subcontractor agreements (RFP 8)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that zero documents were produced for RFP 8 regarding subcontractor/affiliate carrier arrangements, including in the Executive Summary and request-by-request gap analysis."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Connects missing subcontractor agreements to the 158-truck gap / fraud claim",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly links the missing RFP 8 subcontractor/affiliate carrier arrangements to the fleet-capacity misrepresentation, stating that RFP 8 goes to the heart of the 347-vs.-189-truck issue and that subcontractor records should exist for about 158 trucks. It also maps these materials to the fraud claim regarding fleet capacity and identifies the gap as critical."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Notes that Meridian agreed to produce but produced nothing for RFP 8",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that zero documents were produced for RFP 8 despite Meridian having agreed/promised to produce responsive documents, including in the Executive Summary and request-by-request gap analysis."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002: Identifies that audited financial statements for FY2022 are missing from RFP 15 production",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that RFP 15 sought audited and unaudited financials for FY2019\u20132023, notes that only audited FY2019\u20132021 and unaudited FY2022\u20132023 were produced, and identifies the gap as \u201cNo audited FY2022--2023,\u201d which includes missing audited FY2022 financials."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Identifies that audited financial statements for FY2023 are missing from RFP 15 production",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that RFP 15 concerned audited and unaudited financials for FY2019\u20132023, notes that only audited FY2019\u20132021 and unaudited FY2022/FY2023 were produced, and identifies \u201cNo audited FY2022--2023\u201d / missing audited FY2023 financials as a gap."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Notes audited statements should exist (Crestline audited FY2020\u20132023)",
+      "verdict": "fail",
+      "reasoning": "The memorandum identifies audited FY2022\u2013FY2023 statements as missing and recommends compelling them, but it does not state that Crestline Accounting Partners performed audits for FY2020 through FY2023 or use that fact to argue audited FY2022 and FY2023 financials likely exist."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Notes no privilege or objection asserted for FY2022\u20132023 audited financials",
+      "verdict": "fail",
+      "reasoning": "The memorandum identifies that audited FY2022\u20132023 financial statements were not produced, but it does not specifically note that Meridian asserted no privilege or specific objection for those audited statements, nor does it expressly state that this makes the omission unjustified."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Identifies pre-litigation business emails improperly withheld as privileged (PRIV-000012 through PRIV-000018)",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically flags PRIV-000012 through PRIV-000018 / entries 12--18 as seven Brisk\u2013Cho emails from November 2020 through February 2021, withheld as attorney-client despite no lawyer being involved, and characterizes them as non-privileged ordinary business communications concerning truck counts, EBITDA, fleet capacity, insurance, subcontractors, and related business issues."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Notes no attorney is listed on privilege log entries PRIV-000012 through PRIV-000018",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies PRIV-000012 through PRIV-000018 as seven Brisk\u2013Cho emails with \u201cno lawyer involved,\u201d and later states that no attorney is an author or recipient, undermining the attorney-client privilege claim. Although it does not separately spell out \u201cCC\u201d or name Martin Delaney in that sentence, it clearly notes the core deficiency that no attorney is listed/involved for those entries."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Notes descriptions reference business topics, not legal advice",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically analyzes PRIV-000012 through PRIV-000018, noting they involve Brisk and Cho with no lawyer and concern truck-count/fleet capacity assumptions, EBITDA schedules, capitalized maintenance adjustments, insurance summaries, and subcontractor estimates. It states these are business communications about preparing the representations at issue and do not describe legal advice, thereby undermining the privilege assertion."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004: Identifies that the produced insurance policy covers wrong period (2022 only)",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly identifies the insurance gap: it states that only the 2022 Pinnacle policy was produced, cites MLC-002341, and expressly notes that no 2020 or 2021 policies/declarations were produced. This satisfies the wrong-period issue, even though it does not spell out the full Bates range or exact Jan. 1\u2013Dec. 31 policy dates."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_004: Explains 2020\u20132021 policy period is critical to fraud claim",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly identifies the missing 2020\u20132021 insurance materials as critical to the insurance fraud theory. It states that RFP 11 sought insurance policies from 2020 to present, notes that only the 2022 policy was produced and that 2020/2021 policies are missing, identifies the alleged downgrade to $2M effective December 1, 2020, and discusses the January 2021 COI/request showing $5M coverage. It ties these gaps to the $5M vs. $2M insurance misrepresentation claim."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_004: Notes the 2023 policy period is also missing",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states under RFP 11 that only the 2022 policy was produced and that there are \u201cNo 2020, 2021 or 2023 policies or declarations,\u201d thereby noting the 2023 policy period is also missing."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_005: Identifies the 7-month gap in daily dispatch logs (Oct 2021\u2013Apr 2022)",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies that daily dispatch logs were produced for March 15\u2013September 30, 2021 and May 1, 2022\u2013August 31, 2023, and that the October 2021\u2013April 2022 period is missing, describing it as a seven-month gap. Although it does not cite the exact Bates range MLC-002876 through MLC-003412 in that line, it satisfies the substantive criterion by identifying the specific gap and surrounding coverage periods."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_005: Notes significance of gap period (Q4 2021 performance deterioration)",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly flags the October 2021\u2013April 2022 dispatch-log gap as critical, stating it covers the period of the \u201cmost acute performance failures,\u201d \u201cseveral breach notices,\u201d and the period Pacific Corridor identifies as the worst performance, including Q4 2021 missing reports. This satisfies the requirement to explain the timing significance of the gap."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_005: Notes no explanation provided for the gap",
+      "verdict": "fail",
+      "reasoning": "The memorandum identifies the 7-month dispatch-log gap, but it states that Meridian attributed the gap to a RouteCast Pro/FleetBridge migration and discusses shifting/incomplete explanations. It does not note that Meridian provided no explanation for the gap."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_006: Identifies emails produced from only 2 of 6 identified custodians (RFP 23)",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that RFP 23 custodial email production was limited to two of six custodians, with every RFP 23 document coming from Brisk or Sato and none from Alderton, Cho, Hale, or Delaney. It repeats this gap in the RFP-by-RFP table and action plan."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_006: Notes breach notice correspondence shows Alderton/Cho communicated directly with Pacific Corridor",
+      "verdict": "pass",
+      "reasoning": "The memorandum identifies the relevant evidentiary basis: in the RFP 23 gap analysis it states that although no Alderton or Cho custodial emails were produced, \u201cAlderton--Yamamoto letters \u2026 and Cho letters \u2026 produced under RFP 26 show they had such communications.\u201d This cites breach/termination correspondence produced under RFP 26 as proof that responsive communications from those custodians should exist. Although it does not expressly label Yamamoto as Pacific Corridor\u2019s CEO or spell out \u201cservice failures\u201d in that sentence, the RFP 26 context is breach notice correspondence, so the criterion is substantially satisfied."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_007: Identifies insufficient production of general ledger entries for capitalized maintenance (RFP 17)",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies RFP 17 as seeking GL and journal entries for capitalized maintenance and states that Meridian produced only a 2-page summary schedule at MLC-002004, with no underlying entries, work orders/invoices, or approvals/source documentation. This matches the specified deficiency."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_007: Connects missing ledger entries to $5.1M improper capitalization issue",
+      "verdict": "fail",
+      "reasoning": "The memorandum identifies that only a two-page summary was produced for the $5.1M capitalized maintenance and demands native GL/journal-entry detail, and it generally maps GL detail to the FY2020 EBITDA fraud issue ($31.4M vs. $22.7M). However, it does not expressly explain that the missing journal entries are needed to verify improperly capitalized maintenance expenses that inflated reported EBITDA as part of the $8.7M discrepancy. The specific causal connection required by the criterion is only implicit, not clearly made."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_007: Notes Meridian objected to RFP 17 as overly broad but promised production, yet produced only a single 2-page summary",
+      "verdict": "fail",
+      "reasoning": "The memorandum notes that RFP 17 received only a 2-page summary schedule (MLC-002004) and lacks journal entries, work orders, invoices, or approvals. It also generally criticizes Meridian\u2019s use of \u201cdocuments sufficient to show.\u201d However, it does not specifically state that Meridian objected to RFP 17 as \u201coverly broad and unduly burdensome\u201d while promising to produce \u201cresponsive documents sufficient to show the requested information,\u201d nor does it clearly frame that response-production inconsistency for RFP 17."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_008: Identifies PRIV-000031 as potential crime-fraud exception candidate",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically discusses privilege log Entry 31/PRIV-000031 as Delaney\u2019s January 10, 2021 communication to Alderton and Brisk regarding potential exposure if the actual fleet count were disclosed, and states it is a strong candidate for in camera review under the crime-fraud exception."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_008: Notes PRIV-000031 was 2 days after Fleet Capacity Report and its description suggests advice on concealing fleet discrepancy",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically identifies PRIV-000031 as Delaney\u2019s January 10, 2021 communication regarding \u201cpotential exposure if actual fleet count disclosed,\u201d notes it was two days after the Fleet Capacity Report went out, and analyzes that the description suggests concealment of the actual fleet count and supports crime-fraud/in camera review. It also contextualizes the fleet-capacity fraud issue as the 347-vs.-189 truck discrepancy elsewhere in the memo."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_009: Identifies complete absence of board minutes/resolutions (RFP 5)",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically flags RFP 5 as concerning board minutes/materials relating to the FMSA, states that zero documents were produced, and notes there are no corresponding privilege log entries. This satisfies the required identification of the complete absence of responsive board approval materials for RFP 5."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_009: Argues board approval documents should exist for a major contract",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly flags RFP 5 as producing zero board materials and argues that an exclusive five-year contract with a major customer \u201calmost certainly went to the board,\u201d making the absence of board materials a critical deficiency. Although it does not expressly state the $14+ million value in that sentence, it makes the required argument that board-level approval documentation should exist and that the complete absence is suspicious."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_010: Identifies complete absence of text messages and messaging app communications",
+      "verdict": "pass",
+      "reasoning": "The memorandum flags the gap multiple times: it states that no text messages or messaging-app data were produced from anyone, notes for RFP 23 that production included only Brisk/Sato items with no texts or chat, and recommends compelling texts/messaging apps for RFPs 23/24 with Teams/Slack/WhatsApp sources. Although it does not phrase the point exactly as \u201cRFPs 23\u201325 explicitly requested texts/apps\u201d or say \u201conly emails and hard-copy correspondence,\u201d it substantively identifies the complete absence of text and messaging-app communications from the production."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_010: Notes no objection or representation that no texts exist",
+      "verdict": "fail",
+      "reasoning": "The memorandum notes that no text messages or messaging-app data were produced and recommends follow-up collection, but it does not state that Meridian made no text-specific objection or no representation that such communications do not exist, nor does it expressly characterize the total absence over the 29-month relationship as implausible."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_011: Identifies 9 of 14 documents coded to RFP 27 are actually Greystone documents",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies that 9 documents coded to RFP 27, Bates MLC-003980 through MLC-004055, concern Greystone Distribution Partners, an unrelated customer, rather than Pacific Corridor, and treats this as a production/index miscoding issue. Although it does not explicitly state \u201cof 14,\u201d it captures the required mislabeling issue and Bates range."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_011: Notes only 5 documents actually relate to counterclaim damages",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses RFP 27 and notes that some documents are unrelated Greystone materials and that model inputs/consultant files are missing, but it does not state that only 5 of the 14 documents coded to RFP 27 in the MLC-004056 through MLC-004102 range actually relate to Pacific Corridor volume shortfall/counterclaim damages, nor does it make the specific point that the counterclaim damages support is thin on that basis."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_012: Identifies Pinnacle Fleet communications improperly withheld as work product (PRIV-000033 through PRIV-000040)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies PRIV-000033 through PRIV-000040 as eight communications between Rebecca Cho and Pinnacle Fleet underwriter James Whitfield from September 2020 through March 2021, states they were withheld as work product, and explains why that claim is problematic."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_012: Argues work product doctrine does not apply to pre-litigation insurer communications",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically challenges privilege log entries 33\u201340, describing them as 2020\u20132021 communications between Meridian\u2019s CFO and Pinnacle Fleet about coverage options, reducing cargo coverage, endorsements, and COIs. It argues these are ordinary-course underwriting communications with a third-party insurer, with no attorney involved, and were not prepared \u201cbecause of\u201d litigation; it also notes that claiming work product for September 2020 would imply anticipated litigation before the business relationship was even pitched. Although it does not expressly cite FRCP 26(b)(3), it articulates the relevant work-product standard and applies it to the pre-litigation insurer communications."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_013: Identifies that Meridian's relevance objection to RFP 16 is inconsistent with its counterclaim",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that Meridian refused RFP 16 as irrelevant, produced no responsive board/management financial reporting, and that this position is inconsistent with Meridian\u2019s own counterclaim seeking $3.2M in volume shortfall/lost-profit damages based on management reports, board presentations, and account-level profitability analyses. It repeatedly characterizes this as a sword-and-shield problem and recommends compelling or preclusion."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_013: Articulates the sword-and-shield doctrine argument",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly makes the sword-and-shield argument multiple times: it states Meridian refused RFP 16 as irrelevant while its Counterclaim relies on management reports, board presentations, and account-level profitability analyses to support the $3.2M claim, and says Meridian cannot use those documents as a sword while withholding them as a shield. It also frames Counterclaim damages analyses as subject to at-issue/implied waiver and seeks production or preclusion."
+    },
+    {
+      "id": "C-034",
+      "title": "References specific Bates numbers throughout the analysis",
+      "verdict": "pass",
+      "reasoning": "The memorandum references numerous specific Bates numbers throughout its gap analysis and related sections, including MLC-000001, MLC-000046--000108, MLC-000240, MLC-002399, MLC-002341, MLC-002004, MLC-003980--004055, MLC-004056--004102, and many others. This exceeds the minimum requirement of 5 distinct Bates references."
+    },
+    {
+      "id": "C-035",
+      "title": "References specific privilege log entry numbers throughout the analysis",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly references specific privilege log entries when analyzing privilege issues, including entries 12--18, 31, 33--40, 6, 8, 9, 19--26, 28, and others, as well as PRIV-12, PRIV-16, PRIV-18, etc. This easily satisfies the requirement of at least three distinct privilege log entry references."
+    },
+    {
+      "id": "C-036",
+      "title": "References specific RFP numbers when discussing each gap",
+      "verdict": "pass",
+      "reasoning": "The memorandum consistently ties identified production gaps to specific RFP numbers throughout the executive summary, threshold-defects table, request-by-request gap analysis, privilege analysis, claims mapping, and action plan. It references far more than 8 distinct RFPs, including RFPs 2, 5, 8, 10, 11, 12, 15, 16, 17, 18, 19, 23, 24, 26, and 27."
+    },
+    {
+      "id": "C-037",
+      "title": "Issues are prioritized or tiered by significance",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly differentiates issues by significance throughout: it lists \u201cmost significant findings\u201d in the Executive Summary, assigns severity ratings such as Critical/High/Medium/Low in the request-by-request gap analysis and privilege log analysis, and includes a motion-to-compel priority table with ranked priorities."
+    },
+    {
+      "id": "C-038",
+      "title": "Recommends motion to compel with at least 3 specific categories of relief",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends filing a motion to compel by October 1, 2024 and lists numerous specific categories of relief, including production of privilege-log entries 12\u201318 and 33\u201340, full responses to rewritten RFPs, production for RFPs 5 and 8, supplemental custodian/text collections, financial records, dispatch-gap preservation relief, in camera review of Entry 31, and corrected index/native production."
+    },
+    {
+      "id": "C-039",
+      "title": "Notes the October 1, 2024 deadline for motion to compel",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly notes a motion to compel deadline of October 1, 2024 in the header/action line, executive summary, deadlines table, and recommended motion section, and ties it to urgent meet-and-confer timing."
+    },
+    {
+      "id": "C-040",
+      "title": "References the meet-and-confer efforts already undertaken",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly references the meet-and-confer correspondence and efforts, including Nakamura\u2019s August 19 and September 9 deficiency letters, Farouk\u2019s September 2 and September 15 responses, Meridian\u2019s proposed call timing, and the need to document/continue informal resolution efforts before moving to compel. Appendix B specifically lists the Nakamura and Farouk meet-and-confer correspondence reviewed."
+    },
+    {
+      "id": "C-041",
+      "title": "Correctly identifies the case number as 2:24-cv-01837-PO",
+      "verdict": "pass",
+      "reasoning": "The memorandum header states: \u201cPacific Corridor Freight Solutions LLC v. Meridian Logistics Corp., No. 2:24-cv-01837-PO (C.D. Cal.)\u201d, which matches the required case number exactly."
+    },
+    {
+      "id": "C-042",
+      "title": "Correctly identifies the court as C.D. Cal.",
+      "verdict": "pass",
+      "reasoning": "The memorandum identifies the case as pending in \u201cNo. 2:24-cv-01837-PO (C.D. Cal.),\u201d which is the Central District of California."
+    },
+    {
+      "id": "C-043",
+      "title": "Correctly identifies the total production scope (312 documents, 4,217 pages, MLC-000001 through MLC-004217)",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly references the production scope multiple times, including the Bates range MLC-000001\u2013MLC-004217, 312 documents, and 4,217 pages."
+    },
+    {
+      "id": "C-044",
+      "title": "Recommends in camera review for PRIV-000031 (crime-fraud exception)",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically identifies PRIV-000031 / Entry 31 as a candidate for the crime-fraud exception and recommends seeking in camera review under United States v. Zolin, including in the privilege log analysis and motion-to-compel priorities."
+    },
+    {
+      "id": "C-045",
+      "title": "Identifies that Meridian's response to RFP 5 promised production but none materialized and no privilege entries correspond",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly notes for RFP 5 that Meridian agreed/promised to produce board materials, but produced zero documents and had no corresponding privilege log entries."
+    },
+    {
+      "id": "C-046",
+      "title": "Analysis covers all 27 RFPs or all seven RFP categories",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a request-by-request gap analysis table addressing RFPs 1 through 27, with RFP 14 and 25 combined but both substantively discussed. It also covers all seven broader categories: contract formation, fleet capacity, insurance, financials, performance, communications, and termination/counterclaim materials."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/compare-document-production-against-discovery-requests/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/compare-document-production-against-discovery-requests",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:53:01.124494+00:00",
+  "cost": {
+    "input_tokens": 20,
+    "output_tokens": 29606,
+    "wall_clock_seconds": 294.95
+  },
+  "doc_coverage": {
+    "documents_read": 6,
+    "total_documents": 8,
+    "documents_skipped": 2,
+    "documents_read_list": [
+      "complaint.docx",
+      "answer-counterclaim.docx",
+      "rfps-first-set.docx",
+      "meridian-rfp-responses.docx",
+      "scheduling-order.docx",
+      "meet-confer-emails.eml"
+    ],
+    "documents_skipped_list": [
+      "privilege-log.xlsx",
+      "production-index.xlsx"
+    ]
+  }
+}

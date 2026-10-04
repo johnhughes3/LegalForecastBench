@@ -1,0 +1,186 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "22/25 criteria passed.  Missed 3 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 25,
+  "n_passed": 22,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Identifies mandatory arbitration/mediation clause in Section 10.1",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Agreement \u00a710.1(a)-(b) as requiring disputes to proceed first to non-binding mediation in Cleveland through Keystone Arbitration Services, followed by binding arbitration if unresolved, and recommends moving to compel arbitration/stay litigation."
+    },
+    {
+      "id": "C-002",
+      "title": "Identifies that Crescent Ridge filed suit without initiating mediation or arbitration",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the mandatory mediation/arbitration requirement under Section 10.1, states that the complaint does not address the dispute-resolution clause, and notes that no mediation/arbitration filing appears in the packet, recommending a motion to compel mediation/arbitration and stay the case. This satisfies the requirement that Crescent Ridge bypassed the mandatory dispute resolution process."
+    },
+    {
+      "id": "C-003",
+      "title": "Recommends motion to compel arbitration or dismiss/stay pending arbitration",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends moving to compel arbitration and requesting a stay under the FAA, and also lists as an immediate priority to compel mediation/arbitration and seek a stay."
+    },
+    {
+      "id": "C-004",
+      "title": "Identifies arbitration issue as potentially dispositive",
+      "verdict": "pass",
+      "reasoning": "The memo treats mandatory mediation/arbitration as the lead procedural issue, states it covers all seven counts, labels it the \u201cbest immediate leverage,\u201d assigns it Priority 1\u2014Immediate, and recommends moving to compel arbitration and stay the action first. This satisfies the requirement that it be characterized as potentially dispositive or a high-priority threshold issue."
+    },
+    {
+      "id": "C-005",
+      "title": "Identifies Count I damages arithmetic error ($4,836,000 vs ~$934,694)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the Count I arithmetic problem: it notes the complaint claims $4,836,000 for 77 days despite alleging $4,431,500 in annual compensation, and calculates that a simple prorated amount would be roughly $932,000\u2013$935,000, making the claimed amount facially inconsistent and inflated."
+    },
+    {
+      "id": "C-006",
+      "title": "Recommends challenging Count I damages figure",
+      "verdict": "fail",
+      "reasoning": "The memo identifies the Count I/77-day commission arithmetic inconsistency and says to require a corrected model, but it does not recommend a specific defensive action such as moving to strike, seeking a more definite statement, or raising the inconsistency in a motion to dismiss or responsive pleading."
+    },
+    {
+      "id": "C-007",
+      "title": "Identifies exemplary damages under Ohio UTSA require willful and malicious misappropriation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that under the trade secret statutes exemplary damages are limited to twice misappropriation damages for \u201cwillful and malicious conduct,\u201d and notes the complaint\u2019s conclusory willful/malicious allegations. This satisfies the requirement to identify the Ohio UTSA willful-and-malicious standard for exemplary damages."
+    },
+    {
+      "id": "C-008",
+      "title": "Identifies that complaint lacks specific factual allegations supporting willful and malicious misappropriation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses exemplary damages for trade-secret misappropriation and notes that willful/malicious conduct is merely pleaded as a conclusory characterization, stating that the complaint\u2019s \u201cwillful and malicious\u201d label is not evidence and that willfulness must be tested. This satisfies the criterion of identifying insufficient specific factual support for willful and malicious misappropriation."
+    },
+    {
+      "id": "C-009",
+      "title": "Recommends motion to strike or dismiss exemplary damages claim",
+      "verdict": "fail",
+      "reasoning": "The memo identifies exemplary damages and notes that willful/malicious allegations are conclusory and require statutory predicates, but it does not specifically recommend moving to strike the exemplary damages claim or moving to dismiss the exemplary-damages portion of Count IV for inadequate pleading."
+    },
+    {
+      "id": "C-010",
+      "title": "Identifies unjust enrichment barred by express contract",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Count VII unjust enrichment and states that because a valid express Agreement governs commissions, exclusivity, confidentiality, and non-solicitation, restitution for the same benefits is generally unavailable. It also notes the alleged $3.8 million gain and overlap, satisfying the express-contract bar issue under Ohio law."
+    },
+    {
+      "id": "C-011",
+      "title": "Recommends dismissal of unjust enrichment claim",
+      "verdict": "pass",
+      "reasoning": "The memo identifies the unjust enrichment issue and states that a valid express Agreement governs the relevant subject matter, making restitution generally unavailable. It also recommends requiring election/offsets. Although it does not expressly say \u201cmove to dismiss Count VII,\u201d it raises the express-contract bar as a defense to unjust enrichment, which satisfies the criterion\u2019s alternative path."
+    },
+    {
+      "id": "C-012",
+      "title": "Identifies diversity jurisdiction LLC citizenship pleading deficiency",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags the diversity pleading defect: Crescent Ridge is an LLC, its citizenship depends on every member and ownership chain rather than Delaware formation or Pennsylvania principal office, and the complaint does not identify all members or establish sole membership. Although it does not name Lena Rosario-Calder, it identifies the LLC citizenship pleading issue required by the criterion."
+    },
+    {
+      "id": "C-013",
+      "title": "Identifies for-cause termination pretext (full-year sales exceeded target)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that Eastbrook\u2019s January 10 cause notice annualized only Q3/Q4 2023 sales to $18.6 million, while the Agreement required a $20 million calendar-year target and prohibited quarterly extrapolation. It also notes the complaint\u2019s asserted $24.3 million FY2023 sales figure and states that, if it matches calendar-year contract sales, the sales-shortfall basis is especially difficult to defend and creates meaningful exposure/fee-avoidance vulnerability."
+    },
+    {
+      "id": "C-014",
+      "title": "Acknowledges for-cause termination pretext as area of Eastbrook exposure",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Eastbrook\u2019s for-cause termination as vulnerable, noting the Q3/Q4 annualization conflicts with the contract\u2019s calendar-year/no-extrapolation language, that the plaintiff\u2019s sales figure makes the sales-shortfall rationale difficult to defend, and that the attempted substitution of cause termination after the convenience notice could be portrayed as a fee-avoidance maneuver. It frames this as meaningful contract and termination-fee exposure."
+    },
+    {
+      "id": "C-015",
+      "title": "Identifies CRM data ownership ambiguity",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the CRM as jointly used/configured for joint use, notes Eastbrook had approved CRM users and potentially authorized access, and flags the \u201cabsent CRM ownership clause\u201d along with Eastbrook-originated data as creating ownership/scope questions for the trade-secret claims. This satisfies the required issue identification and implications."
+    },
+    {
+      "id": "C-016",
+      "title": "Identifies duplicative federal and state trade secret claims",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses the Ohio UTSA and DTSA claims together, states they are pleaded in the alternative and that only one recovery is available for the same trade-secret loss, and later notes Count V is alternative to Count IV and should not be duplicated, with election/offset and narrowing themes. This satisfies the requirement to identify overlap/duplication and potential streamlining/election issues."
+    },
+    {
+      "id": "C-017",
+      "title": "Identifies improper lis pendens on real property",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the lis pendens recorded against Eastbrook Parcel 67-04421 as vulnerable/improper because the complaint seeks damages and business injunctions related to contract, data, solicitation, and trade secrets, and does not assert any claim affecting title, possession, foreclosure, lien, or other real property interest. It recommends prompt cancellation/release under Ohio lis pendens law."
+    },
+    {
+      "id": "C-018",
+      "title": "Recommends motion to expunge lis pendens",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends moving to cancel/release the lis pendens, including listing it as an immediate priority and advising cancellation/release under Ohio lis-pendens law."
+    },
+    {
+      "id": "C-019",
+      "title": "Identifies missing exhibits (I through L) as an issue",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags that Exhibits I\u2013L\u2014the access log, playbooks, diverted-account summary, and Ridgeline report\u2014were not supplied and are described as future discovery, and notes that key allegations depend on these missing materials. It also separately notes the need to obtain the complete complaint and cited/attached exhibits. This satisfies the criterion\u2019s requirement to identify missing Exhibits I through L as an issue/weakness."
+    },
+    {
+      "id": "C-020",
+      "title": "Identifies jury demand issue in light of arbitration clause",
+      "verdict": "fail",
+      "reasoning": "The memo extensively discusses the mandatory mediation/arbitration clause and recommends compelling arbitration/stay, but it does not address the complaint's jury demand or explain that compelling arbitration would moot the jury demand or constitute an implicit waiver of jury trial rights for covered disputes. The only jury reference concerns damages instructions, not the arbitration-jury demand interplay."
+    },
+    {
+      "id": "C-021",
+      "title": "Identifies non-solicitation scope \u2014 customers vs. employees",
+      "verdict": "pass",
+      "reasoning": "The memo expressly distinguishes Section 7.3 as a customer non-solicitation covenant, not a general no-compete or employee no-hire provision. It states that hiring Webb, Ortiz, or Hamdi is not itself a contractual breach and that breach would require proof of targeted customer solicitation, such as Eastbrook-directed outreach, during the relevant restricted period."
+    },
+    {
+      "id": "C-022",
+      "title": "Identifies that for-cause termination lacked proper cure period",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses Section 4.3(a)'s requirement of notice specifying the material breach and a 60-day opportunity to cure, notes that the January 10 notice set a March 15 effective date providing 65 days, and discusses whether the notice nonetheless provided a genuine cure opportunity."
+    },
+    {
+      "id": "C-023",
+      "title": "Addresses limitation of liability clause (Section 9.1)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses Section 9.1, noting that it excludes consequential, incidental, indirect, special, exemplary, and punitive damages except for willful misconduct, fraud, or breach of Section 7.1, and that it imposes an aggregate cap. It also analyzes how Eastbrook could use the clause to challenge or limit contract-related lost profits, consequential damages, duplicative tort/restitution theories, and fee/damages claims, while recognizing plaintiff\u2019s likely arguments based on the carve-outs."
+    },
+    {
+      "id": "C-024",
+      "title": "At least 8 issues include a specific recommended defensive action",
+      "verdict": "pass",
+      "reasoning": "The memo identifies well over eight issues with specific recommended defensive actions, including moving to compel arbitration and stay, seeking release/cancellation of lis pendens, opposing TRO/preliminary injunction, challenging diversity allegations, seeking partial dismissal/limitation of tort claims under Ohio UTSA displacement, challenging unjust enrichment based on the express contract, invoking damages caps/exclusions and no-double-recovery offsets, seeking denial/dismissal of expired injunctive relief, and pursuing expert/Daubert challenges."
+    },
+    {
+      "id": "C-025",
+      "title": "Correctly identifies the Agreement's governing law as Ohio",
+      "verdict": "pass",
+      "reasoning": "The memo does not expressly quote Section 10.3 or state in a standalone sentence that the Agreement is governed by Ohio law, but it consistently references and applies Ohio law to the dispute, including Ohio lis pendens, Ohio UTSA, and Ohio tort/restitution principles, and it does not apply another state\u2019s substantive law to the contract-based issues."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/identify-issues-in-counterparty-complaint/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/identify-issues-in-counterparty-complaint",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T22:29:05.117676+00:00",
+  "cost": {
+    "input_tokens": 1109685,
+    "output_tokens": 33944,
+    "wall_clock_seconds": 250.15
+  },
+  "doc_coverage": {
+    "documents_read": 9,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "verified-complaint.docx",
+      "distribution-agreement.docx",
+      "first-amendment.docx",
+      "termination-notice-cause.docx",
+      "termination-notice-convenience.docx",
+      "objection-letter.docx",
+      "lis-pendens.docx",
+      "tannick-email.eml",
+      "/workspace/output/issue-identification-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

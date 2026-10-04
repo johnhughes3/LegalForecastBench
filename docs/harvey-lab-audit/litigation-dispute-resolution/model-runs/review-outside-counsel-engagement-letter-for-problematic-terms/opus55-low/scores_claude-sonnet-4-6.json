@@ -1,0 +1,304 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "42/45 criteria passed.  Missed 3 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 45,
+  "n_passed": 42,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Identifies Morrow's rate ($1,050/hr) exceeds OCG partner cap ($850/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Sandra K. Morrow's proposed rate of $1,050/hr against the OCG cap of $850/hr, noting a $200 excess (23.5%) in the rates table under Section IV.B.4, and also lists this in the Issues Matrix as item #10."
+    },
+    {
+      "id": "C-002",
+      "title": "Identifies Alcott's rate ($975/hr) exceeds OCG partner cap ($850/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies James Alcott's rate in the rates table under Section IV.B.4: 'James Alcott | Equity Partner | 19 | $975 | $850 | $125 (14.7%) | 120 | $15,000'. This clearly shows the $975/hr proposed rate, the $850 OCG cap, and the $125 excess, satisfying the criterion."
+    },
+    {
+      "id": "C-003",
+      "title": "Identifies Dasgupta's rate ($625/hr) exceeds OCG senior associate cap ($575/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Priya Dasgupta's proposed rate of $625/hr against an OCG cap of $575/hr, noting a $50 excess (8.7%) in the rates table in Section IV.B.4, and again in Section VII where it states the required rate for Dasgupta is $575."
+    },
+    {
+      "id": "C-004",
+      "title": "Identifies Marsh's rate ($475/hr) exceeds OCG junior associate cap ($425/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Kevin Marsh's rate in the rates table under Section IV.B.4: 'Kevin Marsh | Junior Associate (<5) | 3 | $475 | $425 | $50 (11.8%) | 480 | $24,000'. This clearly shows the proposed rate of $475/hr exceeds the OCG cap of $425/hr by $50/hr."
+    },
+    {
+      "id": "C-005",
+      "title": "Identifies Solano's paralegal rate ($275/hr) exceeds OCG cap ($225/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Rita Solano's paralegal rate in the rates table under Section IV.B.4, showing her proposed rate of $275 vs. the OCG cap of $225, with a $50 excess (22.2%) and estimated excess cost of $17,500. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-006",
+      "title": "Identifies blended rate ($685/hr) exceeds OCG blended rate cap ($625/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies in Issue #12 of the Issues Matrix that the blended rate of $685 exceeds the $625 cap, and further elaborates in Section IV.B.6 ('Blended Rate Alternative') that '$685/hour blended rate exceeds the $625 cap in OCG \u00a7\u00a7 3.3 and 9.3.'"
+    },
+    {
+      "id": "C-007",
+      "title": "Identifies 5% automatic annual rate escalation as problematic",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the 5% automatic annual rate escalation in Section B.5 ('Automatic 5% Annual Rate Escalation (High)'), noting that EL \u00a7 3.3, Exhibit A and Staffing Plan \u00a7 5 impose a 5% increase every January 1 'automatically' and 'without prior notice to or approval by the Client,' and that OCG \u00a7 3.2 gives automatic escalation clauses 'no force or effect.' It also appears in the Issues Matrix as item #11. The memo clearly flags this as problematic and recommends deleting the clause."
+    },
+    {
+      "id": "C-008",
+      "title": "Notes 5% escalation is above market standard (3-4%)",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the 5% automatic annual rate escalation in Section B.5 and elsewhere, but it only notes that the clause is prohibited by OCG \u00a7 3.2 and calculates the financial impact. It never compares the 5% rate to market-standard escalation rates (typically 3-4%) or characterizes 5% as above-market or excessive relative to industry norms. The criterion specifically requires the memo to note or imply that 5% is above typical market rates of 3-4%."
+    },
+    {
+      "id": "C-009",
+      "title": "Flags non-refundable $250,000 retainer as ethically problematic",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the $250,000 non-refundable retainer in Section IV.B (Issue #8, 'Non-Refundable Engagement Retainer'). It flags it as 'High' severity, notes that OCG \u00a7 3.6 requires retainers to be held in trust and be refundable, and specifically cites 'N.C. RPC 1.5 and 1.16(d), and the parallel D.C. rules' stating that 'a fee labeled \"non-refundable\" must still be reasonable and any unearned part refunded.' It also notes the retainer is deposited into the firm's operating account rather than trust, and that it would be forfeited on early termination. The memo recommends deleting it or replacing it with a refundable trust-account deposit. This clearly satisfies the criterion of flagging the non-refundable retainer as ethically problematic under fee reasonableness rules."
+    },
+    {
+      "id": "C-010",
+      "title": "Identifies invoice submission timeline deviation (60 vs. 45 days)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies this deviation in Section C (Billing, Payment and Expenses) in the table, noting 'Invoice submission: Within 60 days of month-end' vs. OCG requirement of 'Within 45 days; >45 may be reduced; >90 not paid' under \u00a7 3.4. This clearly identifies the 60 vs. 45 day discrepancy."
+    },
+    {
+      "id": "C-011",
+      "title": "Identifies expense threshold deviation ($15,000 vs. $5,000)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies this issue in Issue #20 of the Issues Matrix: 'Expenses: $15,000 pre-approval threshold vs. $5,000' rated as High severity. It is also detailed in the billing/expenses table in Section C, which states 'Expense pre-approval: Only above $15,000 per item' vs. OCG requirement of 'Any single expense above $5,000, all categories' under \u00a7 5.2. The Required Revisions section also includes '$5,000 pre-approval threshold' as a required change. This clearly identifies the $15,000 vs. $5,000 deviation."
+    },
+    {
+      "id": "C-012",
+      "title": "Identifies business-class travel provision conflicts with OCG economy-only policy",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the business-class travel conflict in the billing/expenses table under Section C, noting 'Business-class air for partners on flights >2 hrs' versus the OCG requirement of 'Economy only, \"under any circumstances\"' (\u00a7 5.3). This is also listed in the required revisions section as 'economy airfare.'"
+    },
+    {
+      "id": "C-013",
+      "title": "Flags firm's sole staffing discretion vs. OCG 14-day notice requirement",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies in Section D (Staffing) that 'Sole discretion over staffing (EL \u00a7 2; Staffing Plan \u00a7\u00a7 3, 6)' contradicts OCG \u00a7 6.2, which states outside counsel 'does not have unilateral discretion.' It further specifies that 'Changes at the senior associate level or above require 14 days' written notice and Pinnacle's approval.' This directly satisfies the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "Flags contract attorney usage at $350/hr as unaddressed by OCG",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses contract attorney usage at $350/hr in multiple places. In the Issues Matrix (item 14), it flags 'Contract attorneys at up to $350/hr without prior approval' as a High severity issue citing OCG \u00a7 6.3. In Section D (Staffing), it states contract attorneys 'need prior written approval with qualifications, scope and duration (\u00a7 6.3). Rates are capped at $225 for document review and $425 for substantive work.' The memo identifies that the proposed $350/hr rate is problematic and requires prior approval, satisfying the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "Identifies work product lien conflicts with OCG ownership provision",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses this in Section H (Work Product, Confidentiality and Marketing): 'OCG \u00a7 7.1 provides that Pinnacle owns all work product absolutely, \"not contingent upon payment.\" OCG \u00a7 7.2 prohibits any lien, and asserting one is a material breach. Replace \u00a7 15 with the OCG language and an express lien waiver.' It also appears in the Issues Matrix as item #6 (Critical): 'Work product becomes Pinnacle's only on full payment; retaining lien (EL \u00a7 15)' citing OCG \u00a7\u00a7 7.1, 7.2. This clearly identifies the conflict between the firm's retaining lien and the OCG's ownership provision."
+    },
+    {
+      "id": "C-016",
+      "title": "Notes work product lien could prejudice client's defense in active litigation",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the retaining lien in Section III (Issue #6, Critical severity) and Section IV.H, noting that OCG \u00a7\u00a7 7.1 and 7.2 prohibit any lien and that asserting one is a material breach. However, the memo does not explain the practical prejudice to Pinnacle's defense in the active litigation \u2014 for example, that a billing dispute could result in HB&C withholding files, work product, or case materials mid-litigation, leaving Pinnacle unable to defend itself effectively. The memo treats the lien primarily as a contractual/OCG compliance issue and an ownership issue, without connecting it to the specific risk that arises when a lien is asserted during pending litigation (i.e., that Pinnacle could lose access to critical defense materials at a vulnerable moment). The criterion requires explanation of the practical prejudice or risk of the lien during active litigation, which is absent."
+    },
+    {
+      "id": "C-017",
+      "title": "Flags 15% client termination fee as problematic",
+      "verdict": "pass",
+      "reasoning": "The memo clearly identifies the 15% termination fee in multiple places. In the Issues Matrix (item #7), it is listed as 'Critical' severity: '15% termination fee on Client termination (EL \u00a7 9)' against OCG \u00a7 8.1. In Section G (Termination and Withdrawal), it explicitly states: 'A 15% fee on all fees billed, payable within 30 days, is void under OCG \u00a7 8.1. The OCG allows no termination fee, penalty, wind-down surcharge or minimum fee, and Pinnacle's only obligation is to pay for services properly rendered. Calling it \"not intended as a penalty\" does not change that. Delete.' This satisfies the criterion by flagging the termination fee as problematic and noting it functions as a penalty clause that restricts the client's right to terminate."
+    },
+    {
+      "id": "C-018",
+      "title": "Flags malpractice liability cap as disproportionate to matter size and potentially ethically impermissible",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the malpractice liability cap in Section IV.A.3, noting it is 'the lesser of $1M or fees actually paid' and that 'At signing, that is effectively $0.' It also references the $14.2M damages claim in the context of the insurance discussion, making the disproportionality clear. Additionally, it cites N.C. RPC 1.8(h)(1) and D.C. RPC 1.8(g)(1) as prohibiting agreements that prospectively limit malpractice liability without independent representation, directly addressing the ethical impermissibility angle. The issue is rated 'Critical' in the issues matrix."
+    },
+    {
+      "id": "C-019",
+      "title": "Flags client indemnification of law firm as unusual and ethically suspect",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags the client indemnification clause (EL \u00a7 14) as a Critical issue. It notes that Pinnacle would indemnify and defend the firm against all claims except those arising 'solely' from willful misconduct, which would cover the firm's own negligence and malpractice claims. The memo states this is inconsistent with the OCG framework and, combined with \u00a7 13's liability cap, would shift essentially all professional risk to Pinnacle. It also references RPC 1.8(h) in the issues matrix for the liability cap section, and the detailed analysis ties the indemnification clause to the liability cap as together creating an impermissible risk shift. The memo recommends deleting \u00a7 14 in full. This clearly satisfies the criterion of flagging the indemnification as unusual, risk-shifting, and ethically suspect."
+    },
+    {
+      "id": "C-020",
+      "title": "Notes willful misconduct carve-out is narrower than negligence standard",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses this in Section IV.A.3 (Limitation of Liability and Indemnification): '\u00a7 14 Indemnification. Pinnacle would indemnify and defend the firm against all claims \"arising out of or relating to the engagement,\" except those arising \"solely\" from willful misconduct. That would cover the firm's own negligence and malpractice claims.' This directly identifies that the 'solely willful misconduct' carve-out is too narrow and fails to exclude negligence or malpractice, meaning Pinnacle would be indemnifying the firm for its own negligent acts."
+    },
+    {
+      "id": "C-021",
+      "title": "Identifies MedBridge/NovaTech conflict of interest",
+      "verdict": "pass",
+      "reasoning": "The memo extensively identifies and analyzes the MedBridge/NovaTech conflict of interest. It is listed as Issue #1 in the Issues Matrix with 'Critical' severity, and Section IV.A.1 provides detailed analysis explaining that HB&C currently represents MedBridge Therapeutics, which holds approximately 8% equity in NovaTech (the adverse party), exceeding the OCG's 5% material financial interest threshold. The memo discusses the OCG requirements, the defective conflicts clearance, and the substantive risks of this concurrent representation."
+    },
+    {
+      "id": "C-022",
+      "title": "Notes firm's 'no conflict' characterization is inadequate",
+      "verdict": "pass",
+      "reasoning": "The memo extensively challenges the firm's 'no conflict' characterization. It specifically notes that Ms. Morrow called the MedBridge relationship a 'non-issue,' that Mr. Alcott's conflicts clearance email only searched NovaTech, its principals, and Prescott Lane without mentioning MedBridge at all, and that EL \u00a711 states there are 'no current conflicts' \u2014 which directly contradicts the firm's own October 3 disclosure. The memo calls this a 'candor concern as well as a compliance defect' and details why the clearance is inadequate under OCG \u00a72.2(a)-(d). It also raises substantive conflict-of-interest concerns under N.C. RPC 1.7(a)(2) regarding the 8% equity stake exceeding the 5% threshold."
+    },
+    {
+      "id": "C-023",
+      "title": "Flags broad adverse-representation waiver as compounding conflict risk",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the blanket advance waiver in EL \u00a7 11 as a Critical issue (Issue #2 in the Issues Matrix). In Section IV.A.1, the memo discusses the advance waiver in detail, noting it asks Pinnacle to consent in advance to 'any unrelated adverse representation, specifically including other healthcare companies, healthcare litigation, and related regulatory matters, with no notice.' It connects this directly to the MedBridge/NovaTech conflict context, noting that Ms. Morrow described it as the firm's 'customary provision' and that OCG \u00a7 2.2 states 'Blanket or advance waivers of future conflicts are not acceptable.' The memo treats the advance waiver as compounding the existing MedBridge conflict risk by requiring deletion of the clause as part of the required actions. This satisfies the criterion."
+    },
+    {
+      "id": "C-024",
+      "title": "Identifies firm insurance ($10M/$20M) is below OCG minimum ($25M/$50M)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies in Issue #3 of the Issues Matrix that HB&C carries '$10M/$20M coverage vs. required $25M/$50M' and further elaborates in Section IV.A.2 that 'Engagement letter \u00a7 12 discloses $10M per occurrence / $20M aggregate. That is 40% of each OCG minimum ($25M / $50M).' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-025",
+      "title": "Identifies success fee embedded in engagement letter vs. OCG separate agreement requirement",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies this issue in Section IV.B.7 (Success Fee), stating that 'OCG \u00a7 9.2 prohibits this: success fees must be in a separate written agreement approved by the General Counsel before execution. It also says a success-fee provision in an engagement letter does not bind Pinnacle.' The memo also notes the fee structure (10% of savings below $7M) and lists it as a High severity issue (#8) in the Issues Matrix with the note 'Success fee embedded in the letter; no cap; cliff structure; not a separate GC-approved agreement (EL \u00a7 10)'. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-026",
+      "title": "Notes success fee is uncapped and potentially very large (up to ~$1.42M)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section IV.B.7 that the success fee has 'No dollar cap (\u00a7 9.2(c))' and that 'The fee is 10% \u00d7 ($14.2M \u2212 resolution amount), so the maximum is $1,420,000 if Pinnacle pays nothing.' The success fee table in Section V also shows '$0 (dismissal / defense verdict)' yields '$1,420,000' with the note 'Maximum; no cap stated.' The Executive Summary also references 'Up to $1,420,000' as the success fee. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-027",
+      "title": "Flags affiliated e-discovery vendor (CrossPoint) as financial conflict",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies CrossPoint Analytics as a 'strategic partner' of HB&C, notes the possible financial interest not disclosed, flags that no competitive bid was conducted, and raises OCG \u00a7 1.2 concerns about vendors in which the firm may have a financial interest. Section E (E-Discovery Vendor) is entirely dedicated to this issue, including requiring HB&C to certify whether it or any attorney has 'any ownership, revenue-share, referral, rebate or other financial arrangement with CrossPoint.' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-028",
+      "title": "Identifies $380K e-discovery cost excluded from $2.4M budget",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the $380,000 CrossPoint e-discovery cost as excluded from the $2.4M litigation budget in multiple places. In the Executive Summary financial impact table, it lists 'CrossPoint e-discovery (outside budget): $380,000' and notes 'Firm-affiliated strategic partner; no competitive bid.' In Section F (Budget and Cost Management), it states 'The OCG requires all cost categories to be included' and notes e-discovery is excluded. In the Budget reconciliation table in Section V, it shows a total of $2,400,000 for the budget. In Section F it also states 'Total spend is about $2.78M including e-discovery.' The memo clearly identifies that the $380K e-discovery cost is excluded from the $2.4M budget and that the true total is approximately $2.78M."
+    },
+    {
+      "id": "C-029",
+      "title": "Identifies scope ambiguity regarding appeals",
+      "verdict": "fail",
+      "reasoning": "The memo does mention that Exhibit B adds 'interlocutims appeals' to the budget exclusions (in Section VI's inconsistencies table and briefly in Section F), but it does not identify the specific internal contradiction between the broad scope provision covering 'all matters relating to the NovaTech dispute, including any counterclaims, cross-claims, or related proceedings' and the separate statement that 'appellate work [is] scoped separately.' The memo never discusses how 'all matters' and 'related proceedings' could logically include appeals, creating ambiguity about whether appeals are in or out of scope. The criterion specifically requires identification of this scope ambiguity, which the memo does not address."
+    },
+    {
+      "id": "C-030",
+      "title": "Flags mandatory arbitration in D.C. as disadvantageous to NC-based client",
+      "verdict": "pass",
+      "reasoning": "Section I.D (Dispute Resolution and Governing Law) explicitly identifies that EL \u00a717 requires binding AAA arbitration in Washington, D.C., including malpractice claims, with a jury waiver, and contrasts this with the OCG requirement for litigation in Mecklenburg County (Charlotte) courts under North Carolina law. The memo notes the engagement is Charlotte-centered and that mandatory arbitration of malpractice claims raises informed-consent issues. This clearly flags the D.C. arbitration clause as disadvantageous to the NC-based client by forcing dispute resolution in an inconvenient forum and stripping jury trial rights."
+    },
+    {
+      "id": "C-031",
+      "title": "Flags marketing use of client name without adequate consent",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the marketing/client name use provision in Section H ('Work Product, Confidentiality and Marketing'), flagging that EL \u00a7 16's standing consent to name Pinnacle in marketing materials, the website, client lists and pitches violates OCG \u00a7 10.1, which requires the General Counsel's prior written consent for each use and bars even disclosing the existence of the engagement. The memo recommends deleting the marketing consent and notes confidentiality concerns. This satisfies the criterion of flagging the marketing use of client name without adequate consent as problematic."
+    },
+    {
+      "id": "C-032",
+      "title": "Identifies firm termination notice period (30 days) vs. OCG (60 days + consent)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses this issue in Section G (Termination and Withdrawal): 'Mutual 30-day termination. Pinnacle may terminate at any time (\u00a7 8.1). The firm must give 60 days' notice and obtain Pinnacle's consent (\u00a7 8.2), with a transition plan and full staffing during the notice period. Revise.' This identifies that the engagement letter allows the firm to withdraw on 30 days' notice, while the OCG requires 60 days' notice plus client consent. The discrepancy is clearly identified and flagged as needing revision."
+    },
+    {
+      "id": "C-033",
+      "title": "Recommendations are provided and differentiated across issues",
+      "verdict": "pass",
+      "reasoning": "The memo provides recommendations for virtually all identified issues (well above 75%). The recommendation types are highly varied and include: (1) outright deletion/rejection of terms (e.g., delete \u00a7\u00a7 4, 9, 10, 13, 14, 15, 16, 3.3 escalation clause); (2) specific revised language or replacement terms (e.g., replace liability cap with OCG language, replace integration clause, replace confidentiality clause with OCG \u00a7 X); (3) requests for additional information (e.g., require formal conflicts clearance letter, require disclosure of HB&C-CrossPoint financial relationship, confirm what data has been shared with CrossPoint); (4) requirements for separate agreements (e.g., success fee must be in a separate GC-approved agreement per \u00a7 9.2); (5) requirements for OCG compliance (e.g., LEDES 1998B billing, rate caps, staffing approval process, BAA); (6) competitive bidding requirements; (7) escalation to General Counsel for consent decisions. The memo's Section VII explicitly lists required revisions across all major issue areas, and Section VIII provides a prioritized action plan. All three-plus distinct recommendation types are clearly present and applied across the full range of issues."
+    },
+    {
+      "id": "C-034",
+      "title": "Cross-references Morrow email to engagement letter conflict waiver",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly connects Morrow's October 3 email (disclosing MedBridge's 8% equity stake in NovaTech) with the engagement letter's advance waiver provision in Section 11. In Section IV.A.1, the memo notes that Morrow raised the MedBridge issue informally, that the firm's clearance email omits MedBridge, and that EL \u00a711 states 'no current conflicts' \u2014 directly contradicting the firm's own disclosure. The memo then separately addresses the advance waiver in \u00a711 (blanket consent to future adverse representations), quoting Morrow's email describing it as 'customary,' and cross-references OCG \u00a72.2's prohibition on blanket waivers. The Issues Matrix also lists both as separate Critical items (rows 1 and 2) but the detailed analysis synthesizes them together under the same subsection. The memo clearly treats these as related and cross-references the Morrow email to the engagement letter's conflict waiver language."
+    },
+    {
+      "id": "C-035",
+      "title": "Cross-references CrossPoint proposal to budget exclusion in engagement letter",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly connects the CrossPoint Analytics e-discovery proposal ($380,000) to the engagement letter's exclusion of e-discovery from the $2.4M litigation budget. In the Issues Matrix (item 16), it notes that 'E-discovery ($380K), success fee and \"extraordinary\" costs excluded; budget \"not a cap\".' In Section E (E-Discovery Vendor), it states 'E-discovery is excluded from the litigation budget, contrary to \u00a7 4.1(c), which specifically requires e-discovery processing and hosting to be budgeted.' In Section F (Budget), it references the total spend as 'about $2.78M including e-discovery.' The financial summary table also shows CrossPoint e-discovery as '$380,000 \u2014 outside budget.' The memo clearly synthesizes information across both documents."
+    },
+    {
+      "id": "C-036",
+      "title": "Cross-references staffing plan rates against OCG rate caps",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the Staffing Plan in its rate analysis. In Section IV.B (Issue 4, 'Hourly Rates Exceed OCG Caps'), the table lists timekeepers with their proposed rates and OCG caps, and the narrative states 'Core-team fees at the proposed rates total $1,141,500 (1,880 hours)' derived from the staffing plan hours. Section IV.D (Staffing) also references 'Staffing Plan \u00a7\u00a7 3, 6' and 'Staffing Plan \u00a7 5' for the automatic escalation clause. The memo explicitly cites the Staffing Plan as a source document and uses its hour estimates to calculate fee totals, demonstrating cross-document analysis between the staffing plan and the OCG rate caps."
+    },
+    {
+      "id": "C-037",
+      "title": "Identifies inadequacy of conflicts clearance in Alcott email",
+      "verdict": "pass",
+      "reasoning": "The memo extensively discusses the inadequacy of the Alcott conflicts clearance email. In Section IV.A.1, it explicitly states that the Alcott October 4 email 'says the check was run only against NovaTech, its principals and Prescott Lane, and does not mention MedBridge at all.' It further notes the clearance 'does not meet \u00a7 2.2(a)-(d)' because 'It is an informal email, not a clearance letter. It was run against only three names (it did not search NovaTech's equity holders or affiliates). It omits the known MedBridge relationship.' The memo also flags that EL \u00a7 11 states 'no current conflicts' despite the firm's own prior disclosure of the MedBridge connection, calling this 'a candor concern as well as a compliance defect.' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-038",
+      "title": "Correctly identifies case as NovaTech v. Pinnacle with $14.2M exposure",
+      "verdict": "pass",
+      "reasoning": "The memo correctly identifies the matter as 'NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc., No. 3:25-cv-01847-MRD (W.D.N.C.)' and repeatedly references the $14.2M damages claim throughout the document (e.g., 'NovaTech's $14.2M damages claim', '10% \u00d7 $14.2M', 'a $14.2M commercial case'). Both the case name and damages amount are accurately stated."
+    },
+    {
+      "id": "C-039",
+      "title": "Recommends requiring competitive bidding for e-discovery vendor",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends competitive bidding for the e-discovery vendor in multiple places. In Section IV.E (E-Discovery Vendor \u2014 CrossPoint Analytics), it states: 'We recommend competitive bids, including any Pinnacle-preferred e-discovery vendor.' In Section VII (Required Revisions), under e-discovery: 'run a competitive bid (including any Pinnacle-preferred vendor).' In Section VIII (Next Steps), action item 6: 'Launch e-discovery vendor competitive bid.' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-040",
+      "title": "Recommends requiring informed written consent for conflict/adverse representation",
+      "verdict": "pass",
+      "reasoning": "The memo extensively addresses the MedBridge/NovaTech conflict. It identifies the issue as Critical, explains that OCG \u00a7 2.2 requires 'a detailed written disclosure' and 'informed written consent' from the General Counsel, notes the informal email is insufficient, and in the Required Action section explicitly states: (i) require a formal conflicts clearance letter, (ii) require detailed written disclosure of the MedBridge relationship, (iii) the General Counsel should decide whether to consent in a separate signed writing or decline the engagement, and (iv) delete the advance waiver. This goes well beyond merely noting the conflict's existence\u2014it makes specific recommendations for informed written consent and a more thorough conflicts analysis, and recommends removing the broad advance waiver."
+    },
+    {
+      "id": "C-041",
+      "title": "Recommends reducing or eliminating the malpractice liability cap",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the malpractice liability cap in Section IV.A.3 (Issue #4 in the matrix, rated Critical), stating the cap at 'the lesser of $1M or fees paid' is impermissible under RPC 1.8(h)(1) and concluding 'Delete in full.' Section VII's required revisions list also includes '\u00a7 13 (liability cap)' among items to delete. The memo clearly recommends eliminating the cap entirely, which satisfies the criterion of recommending reducing or eliminating the malpractice liability cap given the $14.2M matter exposure."
+    },
+    {
+      "id": "C-042",
+      "title": "Recommends removing or restructuring client indemnification clause",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the client indemnification clause in Section IV.A.3 (Issue #5 in the matrix, labeled Critical). It states that Section 14 requires Pinnacle to indemnify the firm for everything except 'solely' willful misconduct, which would cover the firm's own negligence, and recommends it be 'Delete[d] in full.' This satisfies the criterion of recommending removal of the indemnification obligation entirely."
+    },
+    {
+      "id": "C-043",
+      "title": "Recommends removing or restructuring the 15% termination fee",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the 15% termination fee in multiple places. In the Issues Matrix (Issue #7), it flags the termination fee as 'Critical' severity. In Section IV.G, it states the termination fee is 'void under OCG \u00a7 8.1' and that 'Pinnacle's only obligation is to pay for services properly rendered,' concluding with 'Delete.' In Section VII (Required Revisions), it lists 'Delete: \u00a7 4 (non-refundable retainer), \u00a7 9 termination fee...' The memo clearly recommends removing the termination fee entirely."
+    },
+    {
+      "id": "C-044",
+      "title": "Recommends requiring firm insurance to meet OCG minimums",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the insurance shortfall as a Critical issue (#3 in the Issues Matrix) and in Section IV.A.2 states that HB&C must provide proof of coverage meeting the $25M/$50M minimums before the engagement begins, noting that otherwise the engagement cannot proceed unless the General Counsel signs a separate written waiver. The Required Revisions section (VII) also lists 'Certificate showing $25M/$50M with an A- or better carrier before any work starts' as a required change. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-045",
+      "title": "Recommends removing or restructuring the work product lien",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the work product lien in multiple places. In Section IV.H, it states: 'OCG \u00a7 7.1 provides that Pinnacle owns all work product absolutely, \"not contingent upon payment.\" OCG \u00a7 7.2 prohibits any lien, and asserting one is a material breach. Replace \u00a7 15 with the OCG language and an express lien waiver.' The Issues Matrix also lists the lien as a Critical issue (#6). Section VII's Required Revisions explicitly states to 'Delete: \u00a7 4 (non-refundable retainer), \u00a7 9 termination fee, \u00a7 10 (success fee), \u00a7 13 (liability cap), \u00a7 14 (indemnity), the lien in \u00a7 15...' This clearly recommends removing the lien and replacing it with OCG-compliant language including an express lien waiver."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/review-outside-counsel-engagement-letter-for-problematic-terms/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/review-outside-counsel-engagement-letter-for-problematic-terms",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-10-03T23:42:09.854527+00:00",
+  "cost": {
+    "input_tokens": 12,
+    "output_tokens": 24490,
+    "wall_clock_seconds": 224.96
+  },
+  "doc_coverage": {
+    "documents_read": 4,
+    "total_documents": 6,
+    "documents_skipped": 2,
+    "documents_read_list": [
+      "pinnacle-ocg-2024.docx",
+      "engagement-letter-hbc.docx",
+      "staffing-plan-novatech.docx",
+      "crosspoint-ediscovery-proposal.docx"
+    ],
+    "documents_skipped_list": [
+      "alcott-conflicts-email.eml",
+      "morrow-conflict-email.eml"
+    ]
+  }
+}

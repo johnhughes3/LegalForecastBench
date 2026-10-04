@@ -1,0 +1,371 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "53/56 criteria passed.  Missed 3 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 56,
+  "n_passed": 53,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Memo identifies Verano Industries as prospective client",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Verano Industries, Inc. wants to retain the Firm and lists Verano Industries, Inc. as the proposed client in the background table."
+    },
+    {
+      "id": "C-002",
+      "title": "Memo identifies TriPoint Dynamics as proposed adverse party",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies TriPoint Dynamics LLC as an adverse party in the RE line and in the background table under \u201cAdverse parties.\u201d"
+    },
+    {
+      "id": "C-003",
+      "title": "Memo describes the proposed matter (trade secrets, breach of fiduciary duty)",
+      "verdict": "pass",
+      "reasoning": "The memo describes the proposed engagement as involving trade-secret misappropriation under ITSA/DTSA, breach of fiduciary duty, and tortious interference claims involving TriPoint Dynamics and former Verano engineers."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Identifies Reilly's prior representation of TriPoint/Trident",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Marcus Reilly previously represented Trident Sensor Solutions LLC, now TriPoint Dynamics LLC, while at Castellan Merritt LLP, including identifying the specific prior matters and his role as lead counsel."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001: Identifies substantial relationship between Reilly's prior work and current matter",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes Reilly's prior Trident/TriPoint work as involving the engineering division now central to the trade-secret and tortious-interference claims, and lists confidential information he accessed\u2014personnel files, organizational charts, compensation and retention strategies, restructuring/technical-direction plans, and assessments of engineering personnel\u2014that could materially advance Verano in the proposed litigation."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_001: Cites Illinois Rule 1.9 (former-client conflict)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses Marcus Reilly\u2019s prior representation of TriPoint/Trident and cites Rule 1.9(a) in analyzing his former-client conflict and personal disqualification."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_001: Applies the substantial-relationship test to Reilly's conflict",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes Reilly\u2019s prior TriPoint/Trident work under a \u201cSubstantial relationship (Rule 1.9(a))\u201d heading, states the substantial-relationship test, and applies it to the overlap between his prior confidential knowledge of TriPoint\u2019s engineering division and the proposed trade-secret litigation."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_001: Recommends screening or removal of Reilly from the engagement",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Marcus Reilly is personally disqualified, must be removed as Lead, screened immediately, receive no fee, and includes Tier 1 action items to remove and screen him from the matter."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_001: Analyzes whether TriPoint's consent is required for Reilly's conflict",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes Reilly\u2019s prior representation of TriPoint/Trident under Rule 1.9(a) and states that Reilly is personally disqualified from representing Verano against TriPoint unless TriPoint gives informed written consent. It also discusses why seeking that consent is unrealistic."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_002: Identifies Ridgeline Capital Partners as a current client of the firm",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Ridgeline Capital Partners LP as a current client in active Matter WH-2023-0088, describing the representation as SEC regulatory advisory services for Ridgeline Fund III LP and noting it is active and in good standing."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_002: Connects Ridgeline as TriPoint's majority owner (72%)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Ridgeline acquired/owns a 72% stake in TriPoint and analyzes how suing TriPoint could be directly adverse or materially limiting due to Ridgeline\u2019s current-client status and controlling investment."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_002: Cites Illinois Rule 1.7 (concurrent conflict of interest)",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the Ridgeline current-client/portfolio-company issue and expressly cites Illinois Rule 1.7(a)(1), Rule 1.7(a)(2), and Rule 1.7(b) in that context."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_002: Analyzes whether TriPoint and Ridgeline are same/aligned for conflicts",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes Ridgeline\u2019s 72% ownership/control of TriPoint, discusses whether suing TriPoint should be treated as direct adversity to current client Ridgeline, cites affiliate/portfolio-company principles, and evaluates factors for and against treating them as the same or aligned for conflict purposes."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_002: Analyzes the advance-waiver clause in the Ridgeline engagement letter",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses the Ridgeline engagement letter\u2019s Section 7 advance waiver, including \u00a77.2 permitting adversity to Ridgeline or affiliates in unrelated matters without use of confidential information, \u00a77.3 limitations if material confidential information was received, and \u00a77.4 notice requirements. It also analyzes whether the waiver is effective given the portfolio-company litigation context."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_002: Notes the advance waiver does NOT specifically cover litigation against portfolio companies",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the Ridgeline advance waiver is general/open-ended and \u201cdoes not specifically mention litigation against portfolio companies,\u201d and discusses that this gap may make the waiver insufficient for a $42M suit against a controlled portfolio company."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_002: Recommends informed consent from Ridgeline (and/or Verano)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends obtaining Ridgeline\u2019s specific/express informed written consent regarding the conflict involving its ownership of TriPoint, and also recommends Verano\u2019s informed written consent to the Ridgeline relationship and related limitations."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_003: Identifies the Hollcroft Ventures Sensor Technologies prior representation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Hollcroft Ventures Sensor Technologies, Inc. as a former client in Matter WH-2020-0412 and describes the prior representation."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_003: Identifies Hollcroft Ventures as a former wholly-owned subsidiary of Verano",
+      "verdict": "fail",
+      "reasoning": "The memo identifies Hollcroft as a former Verano subsidiary and states it was spun off on September 1, 2019, but it does not state that Hollcroft was a wholly-owned subsidiary of Verano until that spin-off."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_003: Analyzes conflict implications of former subsidiary representation",
+      "verdict": "pass",
+      "reasoning": "The memo contains a dedicated Hollcroft Ventures analysis. It addresses Hollcroft\u2019s status as an independent former client/former Verano subsidiary, concludes no Rule 1.9(a) adversity on current facts, analyzes confidentiality limits under Rule 1.9(c), notes Verano cannot waive Hollcroft\u2019s protections, and recommends confirming Hollcroft has no interest in Project Helix. This is substantive conflict analysis, not merely identification."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_003: Concludes Hollcroft Ventures conflict is manageable or low-risk",
+      "verdict": "pass",
+      "reasoning": "The memo expressly labels the Hollcroft Ventures issue as LOW risk, states there is no adversity and no Rule 1.9(a) conflict, and treats it as manageable through confidentiality precautions and confirmation that Hollcroft has no Project Helix interest. It does not treat the issue as disqualifying."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_004: Identifies Lisa Chow's spousal conflict (Dr. Brian Chow's TriPoint consulting)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Lisa Chow's spouse, Dr. Brian Chow, as having performed paid consulting for TriPoint from April 2022 to September 2023 on advanced sensor-coating technologies, including coating durability and performance specifications."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_004: Cites Rule 1.7(a)(2) or 1.8 for Chow's personal-interest conflict",
+      "verdict": "pass",
+      "reasoning": "The memo discusses Lisa Chow\u2019s spouse\u2019s consulting for TriPoint and expressly labels it a personal-interest/material-limitation conflict under Illinois Rule 1.7(a)(2)."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_004: Analyzes relevance of consulting subject matter to the proposed litigation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes the relationship between Dr. Brian Chow\u2019s sensor-coating consulting and the litigation, noting that the case concerns Project Helix precision/piezoelectric sensor technology and that his work on coating durability and performance specifications could support TriPoint\u2019s independent-development defense or be part of the challenged technical path."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_004: Recommends action for Lisa Chow (screening, removal, or conditions)",
+      "verdict": "pass",
+      "reasoning": "The memo makes specific recommendations regarding Lisa Chow: it identifies her spouse\u2019s TriPoint consulting as a high-risk conflict, directs that Chow be removed from the team and screened, and states she could be reconsidered only after inquiry and informed written consent from Verano."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_004: Notes Chow's spousal disclosure was NOT entered into ConflictTracker",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Lisa Chow disclosed Dr. Brian Chow\u2019s paid TriPoint consulting relationship in her March 1, 2024 annual questionnaire, but that the data-entry confirmation was blank and the relationship was never entered into ConflictTracker, so the system did not catch it."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_005: Identifies Caleb Strand's familial relationship with Morgan Strand at TriPoint",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies that Caleb Strand's sister, Morgan Strand, is an IP paralegal in TriPoint's Intellectual Property Department, and notes that TriPoint is an adverse party."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_005: Notes Caleb and Morgan Strand share a residence",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Caleb Strand's sister Morgan is an IP paralegal at TriPoint and that they live together/share a leased apartment at 445 W. Elm Street, Chicago."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_005: Discusses risk of inadvertent disclosure due to shared residence",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses Caleb and Morgan Strand sharing a residence and states that the shared living space creates a risk that confidential material may be seen or discussed, including Verano TRO strategy and TriPoint privileged IP information. It also recommends screening and work-from-home restrictions."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_005: Notes Morgan Strand's IP paralegal role is particularly concerning",
+      "verdict": "pass",
+      "reasoning": "The memo not only identifies Morgan Strand as Caleb's sister and a TriPoint IP paralegal, but expressly explains why that IP role is especially concerning in a trade-secret/IP matter: her department handles patent filings, IP portfolio management, and technical documentation that may be key evidence, making her a likely custodian/deponent and creating confidentiality risks."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_005: Recommends screening or removal of Caleb Strand",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Caleb Strand\u2019s sister\u2019s TriPoint role as a high-risk conflict and recommends removing Strand from the team and imposing a full ethical screen with access restrictions and written acknowledgment."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_005: Notes Strand's disclosure was in HR records only, not ConflictTracker",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Caleb Strand disclosed his sister\u2019s TriPoint employment on his June 1, 2023 new-hire questionnaire, that HR acknowledged/received it, and that it was not forwarded to the General Counsel or entered into ConflictTracker."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_006: Identifies the Kowalczyk Family Trust representation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the Kowalczyk Family Trust representation, including Matter No. WH-2019-0201, in the executive summary, materials reviewed, and a dedicated analysis section."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_006: Identifies David Kowalczyk as a trust beneficiary and CEO of TriPoint",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that David Kowalczyk is TriPoint's CEO and, in the Kowalczyk Family Trust analysis, that he is one of three beneficiaries of the trust."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_006: Analyzes whether attorney-client relationship existed with David Kowalczyk individually",
+      "verdict": "pass",
+      "reasoning": "The memo specifically addresses the Kowalczyk Family Trust matter, notes that the firm's client was the trust through trustee First Heritage Bank & Trust, identifies David Kowalczyk as a beneficiary who provided a sworn affidavit, and analyzes whether he may have separately become a former or prospective client if he sought or received individual legal advice."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_006: Discusses potential confidential information about Kowalczyk's personal finances",
+      "verdict": "pass",
+      "reasoning": "The memo specifically notes that David Kowalczyk may have shared personal financial information in connection with the Kowalczyk Family Trust matter, that he is now TriPoint\u2019s CEO and likely deponent, and that information learned about him remains protected and should not be used. This satisfies the criterion."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_007: Analyzes imputation of Reilly's conflict to the entire firm under Rule 1.10",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes Reilly\u2019s personal Rule 1.9 conflict and its imputation under Illinois Rule 1.10, including Rule 1.10(e) screening requirements, no-fee participation, notice to TriPoint, timing concerns, and the possibility that screening may not cure the conflict if confidences were already shared."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_007: Discusses screening as a mechanism to cure imputed conflict under Rule 1.10(a)(2)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses Reilly\u2019s prior-firm representation conflict, explains that imputation to the whole firm can be avoided under Illinois Rule 1.10 through timely screening, no fee sharing, and notice to TriPoint, and includes screening as a required condition for clearance. Although it cites Rule 1.10(e) rather than 1.10(a)(2), it addresses the equivalent screening mechanism for Reilly\u2019s imputed conflict."
+    },
+    {
+      "id": "C-038",
+      "title": "Screening protocol: identifies at least two specific procedural requirements",
+      "verdict": "pass",
+      "reasoning": "The memo identifies multiple specific screening requirements, including timely screening, screened lawyer receiving no part of the fee, prompt written notice to the former client under Rule 1.10(e), and restricted access to matter files/workspaces and communications."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_008: Identifies the 2022 declined engagement with Verano",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the April 2022 declined Verano engagement, stating that Verano contacted the firm about a patent suit against SynaptiCore LLC and that the firm declined the engagement on April 15, 2022."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_008: Cites Rule 1.18 (duties to prospective clients)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly cites Rule 1.18 in the governing standards and applies it in the April 2022 declined Verano engagement section, stating that Rule 1.18 duties from that contact run to Verano."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_008: Flags unspecified reason for 2022 declination as a red flag",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the April 2022 Verano declination as a potential issue because the reason was not documented/unspecified, states that the original conflict may still exist and affect the current matter, and recommends investigating the declined-engagement file, emails, and attorneys involved to determine the basis before clearance."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_008: Analyzes confidentiality duties for information received during 2022 intake",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses the April 2022 declined Verano engagement, states that Verano provided an intake form listing patent numbers and a one-paragraph dispute summary, and identifies Rule 1.18 duties owed to Verano as a prospective client protecting what it shared."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_009: Identifies the $1,250 billing discrepancy in Ridgeline account",
+      "verdict": "fail",
+      "reasoning": "The memo states Ridgeline billing as 618 hours and $387,500 in fees, and elsewhere notes a $625/hour rate, but it does not identify or calculate that 618 \u00d7 $625 = $386,250, nor does it flag the resulting $1,250 discrepancy/overcharge."
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_009: Recommends correction of the billing discrepancy",
+      "verdict": "fail",
+      "reasoning": "The memo states Ridgeline billing figures but does not identify the apparent $1,250 discrepancy or recommend that it be investigated or corrected."
+    },
+    {
+      "id": "C-045",
+      "title": "ISSUE_010: Identifies Jordan Voss's MSIA board service as a potential issue",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Jordan Voss as serving unpaid on the board of the Midwest Sensor Industry Alliance, states that both Verano and TriPoint are dues-paying members, and analyzes the resulting potential concerns including fiduciary duties, confidential member information, possible subpoenas, and recusal/acknowledgment requirements."
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_010: Discusses risks of Voss's board position (appearance of impropriety, access to information)",
+      "verdict": "pass",
+      "reasoning": "The memo discusses Voss\u2019s MSIA board position and identifies relevant risks, including his fiduciary duties to MSIA potentially conflicting with the litigation and possible access to confidential or competitively sensitive member information from TriPoint."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_010: Recommends action regarding Voss's MSIA board role during litigation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends actions for Voss's MSIA board role, including recusal from MSIA matters involving Verano, TriPoint, Kline, Torres, or the dispute, written confirmation/acknowledgment regarding confidential information, and notification if MSIA becomes involved."
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_011: Identifies systemic deficiencies in conflict-management procedures",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies systemic conflict-management deficiencies, including annual/HR disclosures for Lisa Chow, Caleb Strand, and Jordan Voss not being entered into ConflictTracker, incomplete declined-engagement records, data-entry gaps, and record mismatches. It also includes a dedicated process remediation section addressing these systemic issues."
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_011: Recommends integrating annual disclosure questionnaires with ConflictTracker",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends process remediation to enter annual disclosure information into ConflictTracker and to add questionnaires, family/household ties, and board/trade-association roles to ConflictTracker\u2019s search index or require manual cross-checks. This satisfies the criterion."
+    },
+    {
+      "id": "C-050",
+      "title": "ISSUE_011: Recommends integrating HR hiring records with conflict database",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies HR hiring questionnaires as outside ConflictTracker, notes the Strand HR disclosure was not forwarded or entered, and recommends entering such disclosures into ConflictTracker, closing the HR-to-General Counsel gap, and adding questionnaires/family ties to ConflictTracker\u2019s search index or requiring manual cross-checks."
+    },
+    {
+      "id": "C-051",
+      "title": "ISSUE_011: Recommends documenting reasons for declined engagements",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the April 2022 Verano declination where the conflict reason was unspecified, identifies that as a process failure, and recommends that every declination record its basis and reviewing attorney going forward. This satisfies the requirement to recommend documenting reasons for declined engagements."
+    },
+    {
+      "id": "C-052",
+      "title": "Overall recommendation: States whether the firm should accept or decline the engagement",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states an overall recommendation: \u201cCLEARED WITH CONDITIONS \u2014 NOT YET CLEARED,\u201d and explains that the firm should not accept the engagement until Tier 1 conditions are met, with decline recommended if certain conditions fail."
+    },
+    {
+      "id": "C-053",
+      "title": "Overall recommendation includes conditions for acceptance",
+      "verdict": "pass",
+      "reasoning": "The memo gives a conditional acceptance recommendation (\u201ccleared with conditions \u2014 not yet cleared\u201d) and specifies concrete conditions before proceeding, including removing/screening conflicted lawyers, obtaining Verano/Ridgeline consents or notices, resolving Ridgeline and prior declination issues, appointing a new lead partner, and running supplemental searches."
+    },
+    {
+      "id": "C-054",
+      "title": "Correct identification of TriPoint's former name as Trident Sensor Solutions LLC",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies TriPoint Dynamics LLC as \u201cf/k/a Trident Sensor Solutions LLC until March 2017\u201d and discusses the March 2017 rebrand."
+    },
+    {
+      "id": "C-055",
+      "title": "Risk assessment for each identified conflict",
+      "verdict": "pass",
+      "reasoning": "The memo assigns explicit risk levels or characterizations to numerous identified conflicts, including Reilly (HIGH), Ridgeline (HIGH), Chow (HIGH), Strand (HIGH), Voss (LOW), Kowalczyk (LOW\u2013MODERATE), Verano declination (POTENTIAL), and Hollcroft (LOW). This exceeds the requirement of risk assessments for at least three conflicts."
+    },
+    {
+      "id": "C-056",
+      "title": "Waivability analysis for identified conflicts",
+      "verdict": "pass",
+      "reasoning": "The memo discusses waivability/curability for multiple conflicts, including Reilly's former-client conflict (TriPoint informed consent theoretically possible but unrealistic; screening under Rule 1.10(e) conditions), Ridgeline current-client/affiliate conflict (advance waiver analysis, need for Verano and likely Ridgeline informed written consent and notice), Lisa Chow's personal-interest conflict (possible only after inquiry and Verano informed written consent, though not recommended), and Hollcroft confidentiality (only Hollcroft could waive). It also addresses conditions such as screens, notices, and written acknowledgments."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-conflict-check-memorandum/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-conflict-check-memorandum",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T02:02:25.731341+00:00",
+  "cost": {
+    "input_tokens": 12,
+    "output_tokens": 22843,
+    "wall_clock_seconds": 223.08
+  },
+  "doc_coverage": {
+    "documents_read": 8,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "new-matter-intake-form.docx",
+      "conflict-tracker-results.docx",
+      "verano-engagement-request.eml",
+      "ridgeline-engagement-letter.docx",
+      "reilly-lateral-disclosure.docx",
+      "chow-annual-disclosure.docx",
+      "voss-annual-disclosure.docx",
+      "strand-hiring-questionnaire.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

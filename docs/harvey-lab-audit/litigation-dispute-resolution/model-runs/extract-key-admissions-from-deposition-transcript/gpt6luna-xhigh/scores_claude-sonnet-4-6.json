@@ -1,0 +1,311 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "40/46 criteria passed.  Missed 6 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 46,
+  "n_passed": 40,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies Yoon's first contact with PAG was June 22, 2024 dinner",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly mentions the June 22 dinner with Adwell in Section 2C: 'he testified the June 22 dinner followed a June 8--9 industry event, Adwell described a CNC-optimization venture, and they discussed his non-compete.' This identifies the June 22, 2024 dinner with Adwell and notes that they discussed a CNC-optimization venture, satisfying the criterion."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Flags contradiction with Interrogatory No. 4",
+      "verdict": "pass",
+      "reasoning": "Section 2C of the memo explicitly addresses the contradiction between Yoon's interrogatory answers and his deposition testimony regarding PAG contact timing. It specifically references 'Interrogatory 4' which 'says first contact with Adwell occurred in late August, after resignation,' and contrasts this with testimony about the June 22 dinner following a June 8-9 industry event where Adwell described a CNC-optimization venture. The memo also cites 'Interrogatory Answers Nos. 3--4, 11' in the supporting citations. This directly satisfies the criterion of flagging the contradiction between the June 22, 2024 contact admission and Interrogatory No. 4's 'late August' claim."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Notes Yoon was still CTO at time of first PAG contact",
+      "verdict": "fail",
+      "reasoning": "The memo mentions the June 22 dinner and the August 16 resignation date (implied by 'August 20 offer came four days after resignation' and 'August 14 wrapping things up email'), and notes the June 8-9 industry event and June 22 dinner in Section 2C. However, the memo does not explicitly connect these facts to state that Yoon was still employed as CMS CTO at the time of the June 22 dinner. The criterion requires the memo to note that the June 22 contact occurred nearly two months before the August 16 resignation, meaning Yoon was still CTO when he first contacted PAG. While the timeline is present in the memo, the explicit connection that Yoon was still employed as CTO during the June 22 contact is not made. The memo discusses the contradiction between interrogatory answers and actual contact dates, but does not specifically highlight that Yoon was still CTO at the time of first PAG contact as a notable fact."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002: Identifies Yoon's admission of USB file transfer",
+      "verdict": "pass",
+      "reasoning": "The memo clearly identifies Yoon's admission regarding the USB file transfer in Section 1 under 'USB transfer.' It states he 'acknowledged that he may have connected his USB drive and transferred files' and that 'he copied a folder/set of folders from his work area, did not review each file.' The forensic analysis is cited (Forensic Report \u00a7\u00a75.1, 4.2) showing 3,847 files copied on August 10, 2024. This satisfies the criterion."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Flags contradiction with Interrogatory No. 7",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references Interrogatory No. 7 in Section 2A, stating: 'Interrogatory 7 says he \"did not remove or copy any confidential or proprietary documents\"' and identifies this as contradicting the forensic USB evidence and his deposition admission that he copied folders to a USB drive. This directly satisfies the criterion of flagging the contradiction between the USB transfer admission and Interrogatory No. 7."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Notes Yoon could not identify the 3,847 files",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section 1 (USB transfer bullet): 'he copied a folder/set of folders from his work area, did not review each file, could not name one file, and could not identify which files were personal.' This directly addresses both that Yoon did not review each file individually before copying and that he could not identify any of the transferred files. The criterion is satisfied."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_003: Identifies Yoon's admission of emailing Blue Book",
+      "verdict": "pass",
+      "reasoning": "The memo clearly identifies Yoon's Blue Book email admission in Section 1 ('Blue Book transmission') and Section 2B. It notes he initially said he did not recall the email, then admitted he 'may have forwarded it inadvertently.' It identifies his CMS sender account and personal Gmail recipient, the August 12 date, and the forensic confirmation of an exact hash-matched copy. This satisfies the criterion."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Flags Yoon's shift from denial to qualified admission on Blue Book email",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Yoon's shift in testimony regarding the Blue Book email in Section 1 (Blue Book transmission) and Section 2B. In Section 1, it states: 'after first saying he did not recall the email, he said he may have forwarded it inadvertently while cleaning his inbox and was not scrutinizing attachments.' Section 2B further elaborates: 'Yoon initially did not recall sending the email, then described a possible inadvertent forward.' This directly captures both the initial denial/non-recollection and the subsequent qualified admission with the 'inadvertent' explanation, satisfying the criterion."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Cross-references forensic report evidence",
+      "verdict": "pass",
+      "reasoning": "The memo cross-references the Blue Book testimony against the Ridgepoint Digital Forensics Report multiple times. In Section 1 (Blue Book transmission), it states: 'The forensic report says the attachment was an exact, hash-matched copy of CMS's restricted customer pricing matrix, sent August 12 with no subject/body.' In Section 2B, it references 'Forensics identifies the confidential pricing workbook as an exact copy emailed to his personal account.' The memo also cites 'Forensic Report \u00a75.2' and 'Vol. I at 131--37' (Exhibit 15 examination). Additionally, Section 5 notes a timestamp discrepancy between the Volume I examination of Exhibit 15 (11:47 a.m.) and the forensic report (14:22:17 EDT), and recommends reconciling via 'native Exchange transport records, headers, and source exhibit.' The memo references sender/recipient addresses (CMS sender account and personal Gmail), attachment metadata (hash-matched copy, exact copy), and the forensic report corroboration. This satisfies the criterion."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004a: Identifies Yoon's admission of attending MillEdge Pro technical architecture review",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section 1 (Most material admissions) under 'PAG timing and role': 'At PAG he attended a September 4 MillEdge Pro architecture review, made suggestions, had 11 September commits...' This directly identifies Yoon's admission of attending the MillEdge Pro technical architecture review in his first week at PAG and offering suggestions. Section 2D also references this: 'He later admitted attending an architecture review on day two, suggesting changes, reviewing the code, making 11 commits...'"
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004b: Identifies Yoon's admission of reviewing MillEdge Pro codebase",
+      "verdict": "pass",
+      "reasoning": "The memo in Section 2D (PAG duties contradiction) mentions that Yoon 'admitted attending an architecture review on day two, suggesting changes, reviewing the code, making 11 commits, continuing weekly meetings, overseeing MillEdge Pro, and participating in pre-launch review.' It also notes commit messages including 'optimization-engine refactors, engagement-angle parameters, feed-rate logic, convergence criteria, and harmonic-analysis integration.' The memo does reference Yoon reviewing the MillEdge Pro codebase (reviewing the code, making commits). However, the criterion specifically asks whether the memo identifies Yoon's admission of reviewing MillEdge Pro's codebase and/or flagging inefficiencies in it. The memo mentions 'reviewing the code' and making commits with optimization-related changes, which covers the codebase review aspect. The memo does not explicitly mention 'flagging inefficiencies,' but the criterion is satisfied by either the review or the flagging. The memo does identify that Yoon admitted reviewing the MillEdge Pro codebase during September 2024."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_004: Flags contradiction with Interrogatory No. 12",
+      "verdict": "pass",
+      "reasoning": "Section 2D of the memo explicitly addresses 'PAG duties --- not involved in development versus technical contributions' and directly references 'Interrogatory Answer No. 12' which states Yoon 'was not involved in development of any CNC optimization product.' The memo then contrasts this with his deposition admissions of attending architecture reviews, making commits, and overseeing MillEdge Pro. This satisfies the criterion."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_005: Identifies Yoon's misstatement of non-compete radius",
+      "verdict": "pass",
+      "reasoning": "Section 2E of the memo explicitly identifies that 'Yoon testified he believed the restriction was 100 miles and Troy was outside it' while 'The signed Employment Agreement states 150 miles.' This directly flags the discrepancy between Yoon's claimed understanding (100 miles) and the contractual term (150 miles) in Employment Agreement \u00a77(a)."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_005: Notes strategic significance of radius discrepancy",
+      "verdict": "fail",
+      "reasoning": "The memo in Section 2E mentions that Yoon believed the restriction was 100 miles, that the Employment Agreement states 150 miles, and that the C&D letter identified the 150-mile restriction and Troy's approximate 142-mile distance. However, the memo does not explicitly connect these three data points to show the strategic significance \u2014 specifically, that 142 miles falls within the actual 150-mile radius but outside the 100-mile radius Yoon claims he believed applied, making his 'mistake' conveniently self-serving. The memo notes the facts but does not draw the inference that his claimed misunderstanding is strategically convenient because PAG's location at ~142 miles would be prohibited under the real 150-mile radius but permitted under his claimed 100-mile belief. The criterion requires the memo to connect the distance to both radii to show strategic significance, which the memo does not explicitly do."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_006: Identifies suspicious spike in patent file access",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the suspicious spike in patent file access in Section 1 under 'Patent-file access': 'CMS's DMS log shows 47 AdaptGrip patent-prosecution-file accesses from July 1--August 15, 2024, versus a baseline near 3 per month.' This clearly flags the anomalous increase (roughly 10x or more) as required by the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_006: Notes Yoon's failure to provide business reason for patent access spike",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses this in Section 1 under 'Patent-file access': 'Yoon did not dispute the count, called it CTO oversight, but could not identify a specific project, filing, office action, or deadline explaining the increase.' This directly satisfies the criterion that the memo notes Yoon's inability to provide a specific business reason for the patent access spike despite claiming routine CTO oversight."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_007: Identifies Yoon told Adwell about non-compete before starting at PAG",
+      "verdict": "pass",
+      "reasoning": "The memo mentions the June 22 dinner and that Yoon 'discussed his non-compete' with Adwell at that time (Section 2C: 'Adwell described a CNC-optimization venture, and they discussed his non-compete'). This indicates the memo does identify that Yoon told Adwell about the non-compete during the June 22 dinner, before starting at PAG. The criterion requires identifying that Yoon admitted telling Adwell about the non-compete during the June 22 dinner, and this is present in the memo."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_007: Connects Adwell's awareness to tortious interference claim",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Adwell's contact with Yoon and mentions that Yoon testified Adwell told him PAG's counsel had reviewed the situation and thought they were 'fine,' and that the June dinner included discussion of his non-compete. However, the memo does not explicitly connect Adwell's pre-hiring knowledge of the non-compete to a tortious interference claim against PAG, nor does it note that this awareness undermines a PAG defense of ignorance of Yoon's restrictive covenants. The memo treats the non-compete issue primarily as a factual contradiction about Yoon's understanding of the geographic scope (100 vs. 150 miles) and as a contract enforcement matter, without framing Adwell's awareness as significant to a tortious interference theory against PAG."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_008: Identifies inconsistency re Separation Acknowledgment and USB drive",
+      "verdict": "pass",
+      "reasoning": "The memo clearly identifies this inconsistency in multiple places. In Section 1 under 'Written return/preservation certifications,' it states that Yoon signed a Separation Acknowledgment on August 28 certifying return of all company property and electronic data including USB drives, and specifically certifying he had not copied/transmitted CMS data to a personal account or external medium, yet 'He admitted he did not return the USB and did not disclose the Blue Book email, explaining that he forgot both.' In Section 2A, it further elaborates on this contradiction, noting that Interrogatory 10 says he returned all property, which conflicts with his admission that the drive was at home and had not been returned. The memo explicitly flags the inconsistency between the Separation Acknowledgment certification and Yoon's retention of the USB drive containing the copied files."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_008: Notes Yoon's 'forgot about the USB drive' explanation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section 1 under 'Written return/preservation certifications': 'He admitted he did not return the USB and did not disclose the Blue Book email, explaining that he forgot both.' This directly addresses Yoon's 'forgot' explanation for retaining the USB. The memo also notes he signed the Separation Acknowledgment on August 28 certifying return of all company property and that he had not copied/transmitted CMS data, while the USB with 3,847 files remained in his possession at his Troy home. This satisfies the criterion."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_009: Identifies Yoon's use of 'harmonic frequency matching' terminology when describing MillEdge Pro",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies that Yoon described MillEdge Pro using 'harmonic frequency matching for tool engagement angles' and notes this wording is also present in CMS's HarmonicPath documentation. This appears in Section 1 under 'Competitive overlap' and is further discussed in Section 3 under 'Technical terminology is a lead, not proof by itself.'"
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_009: Notes Yoon could not cite published source for 'harmonic frequency matching' terminology",
+      "verdict": "pass",
+      "reasoning": "The memo states in Section 3: 'Yoon asserts harmonic analysis and the underlying machining concept are longstanding academic/industry concepts learned before CMS; he could not identify a source for the exact phrase used.' This addresses Yoon's inability to cite a published source for the terminology. However, the criterion specifically requires noting that Yoon claimed it was a 'common industry term' \u2014 the memo characterizes his claim as 'longstanding academic/industry concepts' rather than explicitly using 'common industry term.' The substance is captured (he claimed it was a known concept and could not cite a source), and the inability to cite a source is explicitly noted. The criterion says PASS if the memo notes he 'could not cite any published source using that terminology' \u2014 this is satisfied. The exact phrasing 'common industry term' vs 'longstanding academic/industry concepts' is a minor difference in wording but the substance matches the criterion's requirements."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_009: Connects terminology to potential trade secret migration",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags in Section 1 (Competitive overlap) that Yoon described MillEdge Pro using 'harmonic frequency matching for tool engagement angles,' wording also present in CMS's HarmonicPath documentation. In Section 3 (Evidentiary limits), the memo further notes that 'Technical terminology is a lead, not proof by itself' and instructs counsel to 'Establish whether the specific wording, implementation, parameters, and code are CMS-specific, independently derived, or publicly known.' This directly connects Yoon's use of CMS-proprietary terminology when describing PAG's product to the potential migration of CMS's HarmonicPath algorithm or concepts, which is the core of the trade secret misappropriation claim."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_010: Identifies factory reset of personal iPhone as spoliation issue",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies that Yoon factory-reset his personal iPhone 15 Pro on September 1, 2024, after receiving CMS's August 22 cease-and-desist/preservation letter (which expressly required preservation of personal-device data). The memo flags this as a potential spoliation concern in Section 1 ('Phone reset after notice') and Section 3 ('Phone reset intent and recoverability are unresolved'), and recommends investigating for a spoliation motion in Section 4. All required elements are present: the device (iPhone 15 Pro), the date (September 1), the prior notice (August 22 C&D letter), and the spoliation flag."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_010: Notes litigation was reasonably anticipated before reset",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section 1 under 'Phone reset after notice' that Yoon acknowledged receipt of CMS's August 22 cease-and-desist/preservation letter around August 23-24, and that on September 1 he factory-reset his personal iPhone 15 Pro. It further notes that 'The letter expressly required preservation of personal-device data and communications with PAG.' This directly connects the C&D letter date (August 22) to the phone reset date (September 1), establishing that the preservation duty had attached before the phone was wiped. The memo also references this in Section 3 under 'Phone reset intent and recoverability are unresolved,' noting 'The reset followed the preservation notice.' This satisfies the criterion."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_010: Mentions adverse inference or sanctions possibility",
+      "verdict": "pass",
+      "reasoning": "In Section 3 (Evidentiary limits and defenses to anticipate), under the 'Phone reset intent and recoverability are unresolved' bullet, the memo states: 'Determine notice/knowledge, available backups, actual recoverability, and prejudice before seeking a spoliation remedy.' Additionally, in Section 4 (Recommended next steps), item 7 states: 'Evaluate tailored injunctive/preservation relief, damages, and any spoliation motion only after assessing recoverability, intent, prejudice, contract enforceability, and proportionality.' The memo explicitly mentions seeking a 'spoliation remedy' and a 'spoliation motion' in connection with the phone reset, which satisfies the criterion of mentioning the possibility of seeking an adverse inference instruction, sanctions, or other remedies for potential spoliation."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_011: Notes enforceability question on non-compete scope",
+      "verdict": "pass",
+      "reasoning": "Section 3 of the memo explicitly states: 'Contract remedies require separate legal analysis. The agreement provides an 18-month/150-mile non-compete and 24-month non-solicitation term, but enforceability, scope, reformation, and any current-law issues should be evaluated independently.' This directly identifies that the non-compete's 18-month duration and 150-mile geographic radius may face enforceability challenges, satisfying the criterion."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_011: References Michigan non-compete law or blue-pencil doctrine",
+      "verdict": "fail",
+      "reasoning": "The memo mentions non-compete enforceability and scope in Section 3 ('Contract remedies require separate legal analysis') and notes that 'enforceability, scope, reformation, and any current-law issues should be evaluated independently.' However, it does not reference Michigan's specific non-compete statute (MCL 445.774a), the reasonableness standard under Michigan law, or the blue-pencil/judicial reformation doctrine by name. The reference to 'reformation' is brief and generic, without tying it to Michigan law or the blue-pencil doctrine specifically. The criterion requires reference to Michigan's approach, MCL 445.774a, the reasonableness standard, and/or the blue-pencil doctrine. The memo fails to meet this standard."
+    },
+    {
+      "id": "C-029",
+      "title": "Assesses significance for trade secret misappropriation claim",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly connects multiple key admissions to the trade secret misappropriation claim. It discusses the USB transfer of 3,847 files from CMS repositories (OptiMill v3 source, HarmonicPath, AdaptGrip firmware) as evidence of access and transfer of proprietary materials. It addresses the Blue Book email as transfer of a 'restricted customer pricing matrix.' It notes the HarmonicPath terminology overlap with MillEdge Pro as a lead for misappropriation. It discusses the patent file access spike. The Bottom Line section explicitly states what the record does and does not yet establish for the misappropriation claim (e.g., 'The present record does not yet establish that PAG received or used CMS files, that a specific CMS secret was incorporated into MillEdge Pro'). Section 3 addresses evidentiary limits specifically relevant to trade secret claims (no proof of transfer to PAG, independent development defense, terminology not proof by itself). The memo clearly assesses significance of these admissions for the trade secret misappropriation claim throughout."
+    },
+    {
+      "id": "C-030",
+      "title": "Assesses significance for breach of non-compete claim",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the non-compete claim in Section 2E ('Non-compete understanding \u2014 100 miles claimed versus repeated 150-mile notice'), connecting Yoon's misstatement of the 100-mile radius to the signed Employment Agreement stating 150 miles, the C&D letter identifying Troy's ~142-mile distance, and Yoon's September 3 start at PAG. It also notes in Section 3 that contract remedies require separate legal analysis and that the factual case should not depend solely on the non-compete. Section 2D addresses Yoon's technical involvement in MillEdge Pro despite claiming managerial-only duties. These directly connect admissions to the breach of non-compete claim."
+    },
+    {
+      "id": "C-031",
+      "title": "Assesses significance for tortious interference claim",
+      "verdict": "fail",
+      "reasoning": "The memo discusses PAG's hiring of Yoon and Adwell's knowledge of the non-compete (Section 2E notes that 'Adwell told him PAG's counsel had reviewed the situation'), and Section 3 discusses contract remedies. However, the memo never explicitly frames any of these admissions in terms of a tortious interference with business relationships claim against PAG. The memo focuses on trade secret misappropriation, breach of contract, and spoliation issues. While it touches on PAG's knowledge of the non-compete and the hiring timeline, it does not connect these facts to a tortious interference theory or assess their significance for that specific claim. The criterion requires that the memo assess significance of admissions specifically for the tortious interference claim, which it does not do."
+    },
+    {
+      "id": "C-032",
+      "title": "Summary table of admissions with cross-references",
+      "verdict": "fail",
+      "reasoning": "The memo contains detailed sections with bullet points and narrative paragraphs listing admissions and contradictions with cross-references to source documents (transcript volumes, interrogatory numbers, forensic report sections, employment agreement sections, etc.). However, the criterion specifically requires a 'summary table (or structured tabular listing)' of admissions/contradictions. The memo does not include any actual table or tabular format \u2014 it uses prose paragraphs and bullet lists, but not a table structure. The criterion explicitly states FAIL if no summary table or structured tabular listing is present."
+    },
+    {
+      "id": "C-033",
+      "title": "Recommends motion to compel supplemental interrogatory answers",
+      "verdict": "pass",
+      "reasoning": "Section 4, item 4 explicitly states: 'Serve focused supplemental discovery and consider a continued deposition. Require verified amended answers addressing the USB, file identities/current location, Blue Book email and deletion, all devices/accounts, phone reset/backups, PAG contacts and recruiting dates, actual PAG duties, and the identity/employment-history discrepancies.' This directly recommends seeking supplemental/amended interrogatory answers from Yoon given the contradictions identified throughout the memo."
+    },
+    {
+      "id": "C-034",
+      "title": "Recommends spoliation sanctions motion or related action",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the phone reset issue in Section 3 (Evidentiary limits) and Section 4 (Recommended next steps). In Section 3, it states: 'Determine notice/knowledge, available backups, actual recoverability, and prejudice before seeking a spoliation remedy.' In Section 4, Step 7, it mentions 'any spoliation motion only after assessing recoverability, intent, prejudice, contract enforceability, and proportionality.' The memo does reference a potential spoliation motion, but frames it as something to consider only after further investigation\u2014it does not affirmatively recommend filing a spoliation sanctions motion or seeking an adverse inference instruction as a concrete next step. The criterion requires that the memo 'recommends (as a next step) filing a motion for spoliation sanctions, seeking an adverse inference instruction, or taking some other specific litigation action related to the factory-reset iPhone.' The memo's treatment is conditional and deferred rather than a recommendation to take action. However, Step 3 of the recommended next steps does recommend investigating the phone reset ('Investigate Gmail and phone recovery'), which is a specific litigation action related to the factory-reset iPhone. The criterion says 'or taking some other specific litigation action related to the factory-reset iPhone.' Step 3 recommends seeking a 'narrow, neutral protocol' for the iPhone/current backups and determining recoverability\u2014this is a specific litigation action related to the factory-reset iPhone. This satisfies the criterion's alternative of 'some other specific litigation action related to the factory-reset iPhone.'"
+    },
+    {
+      "id": "C-035",
+      "title": "Recommends additional discovery or subpoenas",
+      "verdict": "pass",
+      "reasoning": "The memo's Section 4 (Recommended next steps) contains extensive specific additional discovery recommendations including: obtaining and forensically imaging the USB drive, investigating Gmail and phone recovery through neutral protocols, serving supplemental discovery and considering a continued deposition, deposing Adwell and Quinlan on first contact and hiring timeline, deposing Ravi Chandrasekaran and MillEdge engineers, obtaining complete MillEdge Pro repository history and code diffs, seeking PAG Git repositories and development records, and requesting PAG source code for expert comparison. These clearly satisfy the criterion."
+    },
+    {
+      "id": "C-036",
+      "title": "Correct case name",
+      "verdict": "pass",
+      "reasoning": "The memo header clearly identifies the case as 'Corbin Machining Solutions, Inc. v. Derek Yoon and Pinnacle Automation Group, LLC,' which includes Yoon as a defendant. This satisfies the criterion of identifying the case as Corbin Machining Solutions, Inc. v. Yoon (or 'Yoon et al.')"
+    },
+    {
+      "id": "C-037",
+      "title": "Correct case number",
+      "verdict": "pass",
+      "reasoning": "The memo header includes 'Kent County Circuit Court No. 24-CV-10583', which correctly identifies the case number as 24-CV-10583."
+    },
+    {
+      "id": "C-038",
+      "title": "Correct court",
+      "verdict": "pass",
+      "reasoning": "The memo header identifies the court as 'Kent County Circuit Court No. 24-CV-10583,' which correctly identifies the court as Kent County Circuit Court. This satisfies the criterion."
+    },
+    {
+      "id": "C-039",
+      "title": "Identifies Interrogatory No. 4 contradiction (first contact with PAG)",
+      "verdict": "pass",
+      "reasoning": "Section 2C explicitly addresses the contradiction between Interrogatory No. 4 (which states first contact with Adwell occurred in late August, after resignation) and deposition testimony showing contact as early as June 2024, including a June 22 dinner following a June 8-9 industry event and a July 18 coffee with Quinlan. The memo cites 'Interrogatory Answers Nos. 3--4, 11' and the relevant deposition volumes."
+    },
+    {
+      "id": "C-040",
+      "title": "Identifies Interrogatory No. 7 contradiction (removal of documents)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the contradiction between Yoon's Interrogatory No. 7 answer and his deposition testimony in Section 2A, noting that 'Interrogatory 7 says he did not remove or copy any confidential or proprietary documents' while the forensic USB evidence and his own admissions contradict this. It is also referenced in Section 2B regarding the Blue Book. The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-041",
+      "title": "Identifies Interrogatory No. 12 contradiction (involvement in CNC products at PAG)",
+      "verdict": "pass",
+      "reasoning": "Section 2D of the memo explicitly addresses the Interrogatory No. 12 contradiction, noting that Interrogatory 12 states Yoon 'was not involved in development of any CNC optimization product and his duties were managerial,' while his deposition testimony admitted attending an architecture review, suggesting changes, reviewing code, making 11 commits, continuing weekly meetings, overseeing MillEdge Pro, and participating in pre-launch review. This directly identifies the contradiction between his interrogatory answer and deposition testimony regarding involvement in CNC optimization products at PAG."
+    },
+    {
+      "id": "C-042",
+      "title": "References Employment Agreement Section 7(a) for non-compete terms",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references 'Employment Agreement \u00a77(a)' in Section 2E when discussing the non-compete terms, specifically stating 'The signed Employment Agreement states 150 miles' and citing '(Employment Agreement \u00a77(a); C&D Letter \u00a7\u00a7I, III--IV; Separation Acknowledgment \u00a73(b), (e); Vol. I at 21--24, 87--89, 176--80; Vol. II at 310--11, 326--30, 340--41.)' It also references Employment Agreement \u00a7\u00a77, 10--13 in Section 3 when discussing contract remedies and the 18-month/150-mile non-compete term. The criterion is satisfied."
+    },
+    {
+      "id": "C-043",
+      "title": "References forensic report for USB and email evidence",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the Ridgepoint Digital Forensics Report multiple times when discussing both the USB file transfer and the Blue Book email. For the USB transfer, it cites 'Forensic Report \u00a7\u00a75.1, 4.2' and notes the forensic analysis reports 3,847 files / approximately 2.3 GB copied. For the Blue Book email, it cites 'Forensic Report \u00a75.2' and states 'the forensic report says the attachment was an exact, hash-matched copy of CMS's restricted customer pricing matrix.' The report is also listed in the Documents Reviewed section."
+    },
+    {
+      "id": "C-044",
+      "title": "References Separation Acknowledgment document",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the Separation Acknowledgment (August 28, 2024) in the context of Yoon's certification of returning all company property and his failure to return the USB drive. In Section 1 under 'Written return/preservation certifications,' the memo states: 'On August 28, Yoon signed a Separation Acknowledgment certifying return of all company property and electronic data, including USB drives, and specifically certifying that he had not copied/transmitted CMS data to a personal account or external medium. He admitted he did not return the USB and did not disclose the Blue Book email, explaining that he forgot both.' The Separation Acknowledgment is also cited multiple times throughout the document with specific section references (\u00a7\u00a71--4, \u00a7\u00a72, 4, \u00a73(b), (e)) and is listed in the Documents Reviewed section."
+    },
+    {
+      "id": "C-045",
+      "title": "References cease-and-desist letter for spoliation timeline",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references CMS's August 22 cease-and-desist/preservation letter when discussing the phone reset spoliation issue. In Section 1 ('Phone reset after notice'), it states: 'Yoon acknowledged receipt around August 23\u201324 of CMS's August 22 cease-and-desist/preservation letter. On September 1 he factory-reset his personal iPhone 15 Pro... The letter expressly required preservation of personal-device data and communications with PAG.' This directly establishes the notice timeline connecting the C&D letter (August 22) to the phone reset (September 1). The C&D letter is also cited in the documents reviewed section and referenced multiple times throughout the memo."
+    },
+    {
+      "id": "C-046",
+      "title": "Identifies USB drive details correctly",
+      "verdict": "pass",
+      "reasoning": "The memo correctly identifies all three key details of the USB transfer: 3,847 files, approximately 2.3 GB, and August 10, 2024. These appear in the USB transfer section: 'Forensic analysis reports 3,847 files / approximately 2.3 GB copied from locally synchronized OptiMill v3 source, HarmonicPath, test, and AdaptGrip firmware directories to a SanDisk Ultra 256GB drive on August 10, 2024.' All three specifics are present and correct."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/extract-key-admissions-from-deposition-transcript",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:10:20.382784+00:00",
+  "cost": {
+    "input_tokens": 1133396,
+    "output_tokens": 19740,
+    "wall_clock_seconds": 165.59
+  },
+  "doc_coverage": {
+    "documents_read": 8,
+    "total_documents": 7,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "yoon-deposition-vol1.docx",
+      "yoon-deposition-vol2.docx",
+      "forensic-report.docx",
+      "yoon-employment-agreement.docx",
+      "yoon-interrogatory-answers.docx",
+      "separation-acknowledgment.docx",
+      "cms-cease-desist-letter.docx",
+      "/workspace/output/admission-summary-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

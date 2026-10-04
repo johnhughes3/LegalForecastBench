@@ -1,0 +1,228 @@
+{
+  "score": 1.0,
+  "max_score": 1.0,
+  "summary": "32/32 criteria passed.  ALL-PASS.",
+  "all_pass": true,
+  "n_criteria": 32,
+  "n_passed": 32,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001a: Identifies force majeure argument fails \u2014 HVAC failures are mechanical, not external",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that the force majeure defense fails because the HVAC issues were mechanical failures of Pinnacle\u2019s own equipment, including refrigerant leaks and compressor failures, rather than external heat or utility events. It also notes the failures were due to old equipment/deferred maintenance and budget decisions within Pinnacle\u2019s control, undermining any claim that the events were beyond reasonable control under Section 11.7."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001b: Identifies force majeure fails \u2014 weather was only 2-4\u00b0F above average, not unprecedented",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the summer heat was only 2\u20134\u00b0F above average and, in the force majeure section, says Pinnacle\u2019s own SUMF and NWS data show only 2\u20134\u00b0F above the 30-year average, contradicting the claim of 'unprecedented' or 'record-breaking' heat."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001c: Identifies force majeure fails \u2014 no utility outages per Georgia Power records",
+      "verdict": "pass",
+      "reasoning": "The memo expressly notes that Georgia Power records/SUMF show no outages and continuous service at the facility, and states this undermines the force majeure theory based on third-party utility failure."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001d: Identifies force majeure fails \u2014 Pinnacle did not provide 72-hour notice",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that executed LSA \u00a7 11.7 conditions force majeure relief on notifying the other party within 72 hours, states Pinnacle\u2019s motion omitted that requirement, and cites record evidence/testimony that no notice was ever given, so the prerequisite was not satisfied."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001e: Identifies force majeure fails \u2014 budget decision, not force majeure response",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that Pinnacle chose to patch rather than replace HVAC Unit 3 for budget reasons, citing the Aug. 9, 2022 email where Holt said replacement was needed and Okafor replied, \u201cGet another patch. Replacement not in the budget until Q1 2023.\u201d It further states that a budget choice is within Pinnacle\u2019s control and therefore not a force majeure event."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002a: Identifies Section 7.1 liability cap has gross negligence exception that Pinnacle's MSJ fails to address",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly quotes Section 7.1 as stating that the liability limitation does not apply to claims arising from Pinnacle's gross negligence or willful misconduct, notes that Pinnacle omitted this carve-out from its MSJ, and later states Pinnacle does not address the carve-out in Sections 7.1, 7.2(b), and 7.3."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002b: Cites at least two pieces of record evidence supporting gross negligence",
+      "verdict": "pass",
+      "reasoning": "The memo cites multiple distinct record facts supporting gross negligence, including the August 9 email and Holt testimony showing a budget-driven refusal to replace the failing HVAC unit, Holt testimony that environmental reports were deliberately withheld because the numbers were bad, failure to provide required notices of HVAC events including the January complete failure, and failure to deploy dehumidifiers. This exceeds the requirement of at least two pieces of record evidence."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003a: Identifies Section 7.3 consequential damages waiver has a carve-out for breach of Section 4.2",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that executed LSA \u00a7 7.3 provides: \u201cThis waiver shall not apply to claims arising from a party\u2019s gross negligence, willful misconduct, or breach of Section 4.2,\u201d and explains that Greenfield\u2019s core claim arises from breach of \u00a7 4.2, including humidity above 60% and failure to provide environmental compliance reports."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003b: Identifies Pinnacle's MSJ ignores or misquotes the Section 7.3 carve-out language",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that Pinnacle misquoted Section 7.3 by omitting the carve-outs for gross negligence, willful misconduct, and breach of Section 4.2. It also states that the waiver does not apply to the $2.04M in expedited-manufacturing and lost-profit damages, corresponding to the $1.15M and $890K categories."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004a: Identifies SUMF conflates Greenfield's inspection rights with Pinnacle's affirmative reporting obligation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that Pinnacle\u2019s mitigation/inspection-rights theory ignores the distinction between Greenfield\u2019s Section 4.5 inspection rights and Pinnacle\u2019s affirmative Section 4.2 reporting obligations. It quotes/notes that reporting is not conditioned on inspection rights, that inspection rights are additional and not in lieu of reporting, and specifically calls out SUMF \u00b6 23\u2019s misleading claim that Greenfield had access to environmental data \u201cat all times\u201d despite the 48-hour notice inspection provision."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004b: Identifies Pinnacle deliberately withheld reports for November 2022 through January 2023",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the November 2022\u2013January 2023 environmental compliance reports were withheld on Okafor\u2019s instruction because \u201cthe numbers weren\u2019t good,\u201d cites Holt deposition testimony, and ties the point to Pinnacle\u2019s SUMF/record mischaracterizations, including SUMF \u00b6 25 and Okafor declaration issues."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_005: Identifies failure-to-mitigate defense undermined by Pinnacle's concealment",
+      "verdict": "pass",
+      "reasoning": "The memo expressly argues that Pinnacle's mitigation/inspection-rights defense is defeated by its own concealment, citing Sections 4.2, 4.5, and 7.4 and stating there is no duty to discover a breach concealed or not disclosed by the other party. It specifically identifies the three months of withheld environmental reports, Okafor's instruction to Holt to hold off because the numbers were bad, and failure to notify Greenfield of HVAC events including the January complete failure. This satisfies the criterion."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_006a: Identifies Holt-Okafor credibility dispute that Pinnacle's MSJ improperly resolves",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the Holt-Okafor dispute: it notes that Okafor claimed she did not recall instructing withholding, while Holt testified Okafor told him to hold off because the numbers were bad and renewed that instruction. It further states that the direct conflict creates genuine disputes and cannot be resolved by credibility weighing at summary judgment."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_006b: Identifies that summary judgment standard prohibits resolving credibility disputes",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the court may not weigh credibility at summary judgment and cites Anderson, 477 U.S. at 255. It applies that principle to conflicts between Okafor and Holt and notes those credibility disputes create genuine issues for trial."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_007: Identifies Dr. Ellington's salvageability opinion is unreliable/inadmissible",
+      "verdict": "pass",
+      "reasoning": "The memo squarely identifies the Ellington salvageability issue: it notes Pinnacle relies on Ellington to argue panels were salvageable and damages overstated, states he lacks mold remediation/industrial hygiene expertise, quotes/decribes his deposition concession that he would defer to Greenfield\u2019s CIH/Dr. Venkatesh-type expert on salvageability, and recommends Rule 702/Daubert exclusion of those opinions. It also flags that Pinnacle characterizes the opinions as undisputed despite these concessions."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_008: Identifies Pinnacle miscalculates liability cap as $1,860,000 instead of $2,000,000",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that Pinnacle quoted Section 7.1 as a flat twelve-month-fees cap of $1,860,000, while the executed LSA caps liability at the greater of twelve-month fees or $2,000,000. It states that the $2,000,000 floor was omitted and that Pinnacle\u2019s $1,860,000 figure is wrong as a matter of contract, satisfying the criterion."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_009: Identifies contributory negligence is not a defense to breach of contract under Georgia law",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that Georgia\u2019s comparative-fault/apportionment statute, O.C.G.A. \u00a7 51-12-33, does not apply to contract claims and is not a defense to Greenfield\u2019s breach of contract claim or implied covenant claim. This satisfies the criterion."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_010: Identifies MSJ ignores Section 9.1 indemnification obligation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that the MSJ omits Section 9.1, states that \u00a7 9.1 covers \u201cany and all Losses\u201d arising from breaches of \u00a7\u00a7 4.1\u20134.6 and contamination of Greenfield inventory, including attorneys\u2019 fees, and notes that \u00a7 7.2 excludes indemnification obligations from the liability cap. It further notes Pinnacle did not address \u00a7 9.1 or Greenfield\u2019s contractual fee claim and that summary judgment on all claims is unsupported."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_011: Identifies mischaracterization of Santos's testimony in SUMF",
+      "verdict": "pass",
+      "reasoning": "The memo identifies Pinnacle\u2019s treatment of Santos\u2019s visits/testimony as misleading: it states his visits were logistics visits rather than inspections, notes he had no HVAC training, points out the cited Santos deposition pages concern different topics, and explains that Greenfield followed up about missing reports and relied on reports showing compliance. This addresses the alleged SUMF mischaracterization that Santos visited quarterly and raised no concerns as if that showed conditions were fine."
+    },
+    {
+      "id": "C-020",
+      "title": "Each identified issue includes specific record citations",
+      "verdict": "pass",
+      "reasoning": "The memo identifies 13 main substantive issues, and virtually all include specific record citations such as LSA sections, SUMF paragraphs, deposition testimony by witness/page, declarations, expert reports, emails, logs, or exhibits. Even if the legal-authority verification issue is treated as lacking a record citation, well over 75% of the substantive issues include at least one specific record citation."
+    },
+    {
+      "id": "C-021",
+      "title": "Each identified issue includes recommended response strategy",
+      "verdict": "pass",
+      "reasoning": "The memo identifies numerous substantive issues and, for nearly all of them, provides an opposition strategy: contract language to quote, facts/evidence to cite, objections to raise under Rule 56/702, legal theories to invoke, authorities to verify, and record gaps to cure. Several issues have explicit \u201cResponse,\u201d \u201cRecommendation,\u201d or \u201cAction\u201d sections, and even lower-priority issues include suggested uses such as credibility attacks, cite-checking, or factual-dispute framing. This comfortably exceeds the 75% threshold."
+    },
+    {
+      "id": "C-022",
+      "title": "Memo identifies issues that independently warrant denial of MSJ",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies multiple issues as independently sufficient to defeat summary judgment, including the Holt-Okafor credibility disputes creating genuine issues of material fact, force majeure failing as a matter of law or at least presenting disputed facts, gross negligence/willful misconduct jury questions removing contractual limitations, and Pinnacle\u2019s failure to address entire claims. This satisfies the criterion."
+    },
+    {
+      "id": "C-023",
+      "title": "Correctly identifies Section 4.2 as the breached storage conditions provision",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly identifies LSA Section 4.2 as the key breached storage/environmental-conditions provision, including humidity not exceeding 60% and related reporting obligations. Although it does not expressly recite the 55\u00b0F\u201380\u00b0F temperature range, it references Section 4.2 with correct content and as the breached storage-conditions provision."
+    },
+    {
+      "id": "C-024",
+      "title": "Correctly states the humidity breach \u2014 readings of 72%-85% vs. 60% contractual max",
+      "verdict": "pass",
+      "reasoning": "The memo correctly identifies the Section 4.2 humidity obligation as a 60% maximum and cites Dr. Venkatesh/SUMF evidence showing February inspection readings of 72%\u201385% relative humidity, well above that contractual limit."
+    },
+    {
+      "id": "C-025",
+      "title": "Identifies Holt's testimony about being told to withhold reports",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Holt testified the reports were not sent because \u201cthe numbers weren\u2019t good and I was told to hold off\u201d by Okafor, and further describes Okafor\u2019s instructions to withhold/delay the reports in November and December."
+    },
+    {
+      "id": "C-026",
+      "title": "Identifies the three missing monthly reports (Nov 2022, Dec 2022, Jan 2023)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that the November 2022 through January 2023 monthly environmental compliance reports were not provided/withheld, ties those missing reports to Section 4.2\u2019s affirmative reporting obligation, and repeatedly characterizes this as three months of missing reports."
+    },
+    {
+      "id": "C-027",
+      "title": "References the January 18, 2023 complete HVAC failure and lack of notice to Greenfield",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the January 18, 2023 complete HVAC failure and states that no notice was given for the January event, including later noting no notice of HVAC events including a complete failure with no climate control."
+    },
+    {
+      "id": "C-028",
+      "title": "Identifies the pattern of repeated HVAC failures (June 2022, Aug 2022, Oct 2022, Jan 2023)",
+      "verdict": "pass",
+      "reasoning": "The memo identifies a repeated pattern of HVAC Unit 3 problems over an extended period, including June refrigerant leak, August compressor/refrigerant issues, October high humidity/temporary repair, and January 2023 complete compressor failure. This satisfies the requirement to reference at least three distinct failure or malfunction events from approximately June 2022 through January 2023."
+    },
+    {
+      "id": "C-029",
+      "title": "Total claimed damages correctly stated as $7.3 million (excluding attorneys' fees)",
+      "verdict": "pass",
+      "reasoning": "The memo does not state a single total of $7.3 million, but it correctly identifies the component damages that sum to approximately $7.3 million excluding attorneys' fees: $4.7M inventory, $385K remediation, $1.15M expedited manufacturing, $890K lost profits, and $175K Linden/expert fees."
+    },
+    {
+      "id": "C-030",
+      "title": "Correctly identifies Dr. Venkatesh as plaintiff's expert on causation/contamination",
+      "verdict": "pass",
+      "reasoning": "The memo identifies Venkatesh as Greenfield\u2019s/\u201cour\u201d CIH or industrial hygienist, uses her opinions to rebut Pinnacle\u2019s expert Ellington on mold contamination, salvageability, humidity exposure, and causation, and does not misidentify her as Pinnacle\u2019s expert. Although it notes some name inconsistencies to verify, her role is not materially mischaracterized."
+    },
+    {
+      "id": "C-031",
+      "title": "Correctly identifies Dr. Ellington as defendant's expert on damages/mitigation",
+      "verdict": "pass",
+      "reasoning": "The memo identifies Ellington as Pinnacle\u2019s damages expert, including references to \u201cPinnacle\u2019s damages expert, Ellington\u201d and his damages/mitigation opinions. It does not misidentify him as Greenfield\u2019s expert or materially mischaracterize his role."
+    },
+    {
+      "id": "C-032",
+      "title": "Memo addresses the Okafor email/communication refusing HVAC replacement for budget reasons",
+      "verdict": "pass",
+      "reasoning": "The memo expressly references the August 9, 2022 email in which Holt said the unit needed replacement and Okafor replied, \u201cGet another patch. Replacement not in the budget until Q1 2023,\u201d using it as evidence of a budget-driven refusal to replace HVAC Unit 3."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/analyze-counterpartys-motion-for-summary-judgment/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/analyze-counterpartys-motion-for-summary-judgment",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:43:37.302321+00:00",
+  "cost": {
+    "input_tokens": 14,
+    "output_tokens": 33194,
+    "wall_clock_seconds": 320.95
+  },
+  "doc_coverage": {
+    "documents_read": 9,
+    "total_documents": 9,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "pinnacle-msj-memorandum.docx",
+      "pinnacle-sumf.docx",
+      "logistics-services-agreement.docx",
+      "okafor-declaration.docx",
+      "holt-depo-excerpts.docx",
+      "santos-depo-excerpts.docx",
+      "ellington-declaration.docx",
+      "ellington-depo-excerpts.docx",
+      "subramanian-expert-summary.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

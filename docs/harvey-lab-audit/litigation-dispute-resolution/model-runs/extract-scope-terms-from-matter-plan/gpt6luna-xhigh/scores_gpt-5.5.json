@@ -1,0 +1,489 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "64/76 criteria passed.  Missed 12 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 76,
+  "n_passed": 64,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Extracts WS-1: Federal MDL Defense with correct case number",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies \u201cWS-1 Federal MDL Defense\u201d in the authorized work streams table and references MDL No. 3:24-md-02987 in the Northern District of Ohio in the proceedings/federal matter sections."
+    },
+    {
+      "id": "C-002",
+      "title": "Extracts WS-2: State Court Defense with correct case number",
+      "verdict": "pass",
+      "reasoning": "The report identifies WS-2 as \u201cState Court Defense\u201d and references the Cuyahoga County Court of Common Pleas Case No. CV-24-938471 in the proceedings/state matter sections."
+    },
+    {
+      "id": "C-003",
+      "title": "Extracts WS-3: Expert Retention and Management with named experts",
+      "verdict": "pass",
+      "reasoning": "The report expressly identifies WS-3 as \u201cExpert Retention & Management\u201d and lists the expert set/caps: Yeoh $120k, Nagarajan $185k, Renner $95k, and a damages expert TBD with a $150k cap. This satisfies the requirement to reference at least three of the four experts."
+    },
+    {
+      "id": "C-004",
+      "title": "Extracts WS-4: Regulatory Response (CPSC)",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies Work Stream 4 as \u201cRegulatory Response / CPSC,\u201d including its scope, budget, staffing, and related CPSC addendum details."
+    },
+    {
+      "id": "C-005",
+      "title": "WS-4 origin noted as Revision 1 addendum (March 28, 2025)",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states that Matter Plan Revision 1 dated March 28, 2025 adds CPSC WS-4, and elsewhere notes WS-4 was added by MP-R1/Revision 1."
+    },
+    {
+      "id": "C-006",
+      "title": "Extracts WS-4 sub-budget of $320,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states WS-4 Regulatory Response / CPSC has an MP fee allocation of $320,000 and also describes it as a post-engagement $320,000 work stream / fee sub-budget."
+    },
+    {
+      "id": "C-007",
+      "title": "Extracts WS-4 coordinating/primary counsel distinction",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states for WS-4 that W&C/Whitford & Callaway is coordinating counsel only and that Meridian Compliance Law Group LLP is primary regulatory counsel, including in the executive findings and WS-4 work-stream table."
+    },
+    {
+      "id": "C-008",
+      "title": "Extracts WS-5: Insurance Coverage Coordination with $95,000 sub-budget",
+      "verdict": "pass",
+      "reasoning": "The report expressly lists \u201cWS-5 Insurance Coverage Coordination\u201d in the authorized work streams table and states its MP fee allocation as \u201c$95,000.\u201d"
+    },
+    {
+      "id": "C-009",
+      "title": "Extracts WS-5 liaison with Graystone Risk Advisors or relevant carriers",
+      "verdict": "pass",
+      "reasoning": "The report expressly describes WS-5 as involving liaison with Graystone Risk Advisors and identifies the relevant carriers Fortitude Casualty & Surety Co. and Ridgeline Excess Insurance Company."
+    },
+    {
+      "id": "C-010",
+      "title": "Extracts WS-6: Document Review and E-Discovery with vendor restriction",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies WS-6 as \u201cDocument Review & E-Discovery\u201d and states it is coordinated with Precept Analytics, Inc., with no alternate vendor permitted without written DGC approval."
+    },
+    {
+      "id": "C-011",
+      "title": "Extracts WS-7: Settlement Strategy and Mediation with pre-approved mediators",
+      "verdict": "pass",
+      "reasoning": "The report identifies WS-7 as \u201cSettlement Strategy & Mediation\u201d and names all three pre-approved mediators: Ret. Judge Carolyn Fitzsimmons, Anthony Delmonico, and Marissa Tran."
+    },
+    {
+      "id": "C-012",
+      "title": "Extracts scope exclusions EX-1 through EX-6",
+      "verdict": "pass",
+      "reasoning": "The report expressly lists all six required scope exclusions in Section 3.3: EX-1 class actions, EX-2 appellate work, EX-3 affirmative claims/counterclaims, EX-4 recall advice, EX-5 lobbying/advocacy, and EX-6 non-HX-9000 claims unless consolidated/authorized. This meets the threshold of at least 5 of 6."
+    },
+    {
+      "id": "C-013",
+      "title": "Extracts EX-6 exception for MDL consolidation",
+      "verdict": "pass",
+      "reasoning": "The report explicitly mentions the EX-6 exception, including that non-HX-9000 claims are excluded unless consolidated into the MDL/covered proceedings, and discusses the MDL-consolidation exception in multiple sections."
+    },
+    {
+      "id": "C-014",
+      "title": "Extracts blended hourly rates for rate categories",
+      "verdict": "pass",
+      "reasoning": "The output lists all four blended hourly rate categories correctly: Partners $685/hr, Senior Associates $475/hr, Junior Associates $340/hr, and Paralegals $195/hr. This exceeds the requirement of at least 3 correct rates and contains no incorrect listed rate among these categories."
+    },
+    {
+      "id": "C-015",
+      "title": "Extracts contract reviewer rate of $55/hour",
+      "verdict": "pass",
+      "reasoning": "The report states multiple times that contract reviewers are billed at $55/hour, describes them as separately itemized, and discusses that reviewer costs are treated separately/excluded from WS6 professional fees rather than simply part of the blended professional-fee structure."
+    },
+    {
+      "id": "C-016",
+      "title": "Extracts monthly fee cap of $285,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states under fee controls that the monthly professional-fee cap is $285,000, and references the same cap in the budget appendix."
+    },
+    {
+      "id": "C-017",
+      "title": "Extracts retroactive overage approval up to 10% by Deputy GC",
+      "verdict": "pass",
+      "reasoning": "The report expressly states a $285,000 monthly professional-fee cap and that the Engagement Letter allows up to a 10% monthly overage to be retroactively approved by the Deputy GC within 15 business days. Although it does not calculate the resulting $313,500 figure, the required provision is present."
+    },
+    {
+      "id": "C-018",
+      "title": "Extracts General Counsel approval required for overages exceeding 10%",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states under Fee controls that the monthly professional-fee cap is $285,000, that up to 10% overage may be approved by DGC, and that a larger overage requires prior General Counsel approval."
+    },
+    {
+      "id": "C-019",
+      "title": "Extracts aggregate fee budget of $4,250,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states: \u201cAggregate fee budget $4.25m through trial (excludes success fee, expert fees and other disbursements),\u201d satisfying the required extraction."
+    },
+    {
+      "id": "C-020",
+      "title": "Extracts 50% budget checkpoint at $2,125,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies the fee checkpoints as \"$2.125m (50%) and $3.1875m (75%)\" in the Fee controls section, satisfying the requirement to extract the 50% budget checkpoint at $2,125,000."
+    },
+    {
+      "id": "C-021",
+      "title": "Extracts 75% budget checkpoint at $3,187,500",
+      "verdict": "pass",
+      "reasoning": "The report explicitly lists fee control checkpoints, including the 75% checkpoint as \"$3.1875m,\" which equals $3,187,500."
+    },
+    {
+      "id": "C-022",
+      "title": "Extracts 10-business-day reconciliation requirement at budget checkpoints",
+      "verdict": "pass",
+      "reasoning": "The report includes the budget checkpoints at 50% and 75% and states that reconciliation is due within 10 business days. This captures the required 10-business-day reconciliation requirement at budget checkpoints."
+    },
+    {
+      "id": "C-023",
+      "title": "Extracts total disbursement budget of $1,350,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states the total disbursement budget is $1,350,000 in multiple places, including the budget conflict discussion and Appendix A."
+    },
+    {
+      "id": "C-024",
+      "title": "Extracts disbursement sub-allocations (at least 3 of 4 categories)",
+      "verdict": "pass",
+      "reasoning": "The report lists all four disbursement sub-categories: expert witness fees ($780,000, though noting conflicts), e-discovery vendor costs ($340,000), travel/depositions ($155,000), and court reporting/transcripts ($75,000)."
+    },
+    {
+      "id": "C-025",
+      "title": "Extracts success fee rate of 7.5%",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states the success fee is \u201c7.5% of savings below $8.5 million\u201d and provides the formula \u201c7.5% \u00d7 ($8,500,000 \u2212 actual aggregate payments).\u201d"
+    },
+    {
+      "id": "C-026",
+      "title": "Extracts Target Resolution Amount of $8,500,000 and success fee calculation method",
+      "verdict": "pass",
+      "reasoning": "The output expressly identifies the $8,500,000 target/threshold and states the success fee formula as 7.5% \u00d7 ($8,500,000 minus actual aggregate payments), triggered only when aggregate payments are at or below $8,500,000, with no fee at or above that amount."
+    },
+    {
+      "id": "C-027",
+      "title": "Extracts settlement authority tier: Deputy GC up to $3,000,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states under settlement authority that DGC Ronan Giles has authority \u201cup to $3m,\u201d which matches Deputy GC up to $3,000,000."
+    },
+    {
+      "id": "C-028",
+      "title": "Extracts settlement authority tier: General Counsel $3,000,001 to $6,000,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states in the settlement authority section that GC Meg Stanhope has authority for $3,000,001--$6m, which matches the required tier."
+    },
+    {
+      "id": "C-029",
+      "title": "Extracts settlement authority tier: Pinnacle Board above $6,000,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states in the settlement authority row that the Board has authority for amounts \u201cabove $6m,\u201d which matches the required Pinnacle Board tier above $6,000,000."
+    },
+    {
+      "id": "C-030",
+      "title": "Extracts staffing for Nathaniel Voss as Lead Trial Partner (40% max)",
+      "verdict": "pass",
+      "reasoning": "The report lists \u201cNate Voss\u201d as \u201clead trial partner\u201d with \u201cmax 40% time,\u201d satisfying the requirement to identify Nathaniel Voss as Lead Trial Partner with a 40% maximum allocation."
+    },
+    {
+      "id": "C-031",
+      "title": "Extracts staffing for Katherine Sinclair as Second Chair (75% max)",
+      "verdict": "pass",
+      "reasoning": "The report lists \u201cKate Sinclair\u201d as second chair with \u201cup to 75%\u201d time allocation. Although it does not explicitly state Senior Associate, Year 7, the criterion\u2019s essential fail triggers\u2014Sinclair missing or 75% cap missing\u2014are not present."
+    },
+    {
+      "id": "C-032",
+      "title": "Extracts junior associate headcount cap of 3",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states in the staffing/core team section that the core team includes \u201cup to 3 rotating junior associates,\u201d satisfying the required headcount cap extraction."
+    },
+    {
+      "id": "C-033",
+      "title": "Extracts junior associate monthly billing limit of 160 hours",
+      "verdict": "pass",
+      "reasoning": "The report includes the staffing control: \u201cup to 3 rotating junior associates (160 hours/person/month absent Billing Partner approval),\u201d which states the required 160-hour monthly limit and approval condition."
+    },
+    {
+      "id": "C-034",
+      "title": "Extracts Elaine Marchetti authorized for WS-4 and WS-5 only",
+      "verdict": "pass",
+      "reasoning": "The report names Elaine Marchetti and states she is \u201cauthorized for regulatory/insurance streams only,\u201d which corresponds to WS-4 Regulatory Response/CPSC and WS-5 Insurance Coverage Coordination. The work-stream limitation is therefore stated."
+    },
+    {
+      "id": "C-035",
+      "title": "Extracts Elaine Marchetti billed at Partner rate ($685/hour)",
+      "verdict": "pass",
+      "reasoning": "The report states that Elaine Marchetti is authorized for certain streams \u201cat Partner rate,\u201d and the adjacent blended rates row defines the Partner rate as $685/hr."
+    },
+    {
+      "id": "C-036",
+      "title": "Extracts contract reviewer headcount cap of 15",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states under WS-6 that there may be \u201cUp to 15 reviewers\u201d and repeats in staffing that there are \u201cup to 15 contract reviewers per approved wave,\u201d satisfying the 15-person cap requirement."
+    },
+    {
+      "id": "C-037",
+      "title": "Extracts Deputy GC approval for contract reviewer wave sizing",
+      "verdict": "fail",
+      "reasoning": "The report mentions that each review wave requires advance DGC approval and that up to 15 reviewers may be used, but it does not state that the exact number of contract reviewers per wave requires Deputy GC approval."
+    },
+    {
+      "id": "C-038",
+      "title": "Extracts staffing change requirements (15 business days notice, GC consent)",
+      "verdict": "pass",
+      "reasoning": "The report expressly states in Section 3.4 that staffing changes restrict \u201cnew partner or lead-partner changes\u201d to \u201cprior GC consent and 15 business days\u2019 notice,\u201d which captures the required GC written consent and notice for adding partners or replacing the Lead Trial Partner."
+    },
+    {
+      "id": "C-039",
+      "title": "Extracts key deadline: Initial disclosures April 15, 2025",
+      "verdict": "fail",
+      "reasoning": "The report does not mention an April 15, 2025 deadline for initial disclosures in the MDL. The date and deadline are missing."
+    },
+    {
+      "id": "C-040",
+      "title": "Extracts key deadline: Damages expert by June 30, 2025",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states that the damages expert is TBD/by June 30, 2025 in the WS-3 Expert Retention & Management section and notes the deadline to identify the damages expert."
+    },
+    {
+      "id": "C-041",
+      "title": "Extracts key deadline: Fact discovery closes August 1, 2025",
+      "verdict": "fail",
+      "reasoning": "The report does not list August 1, 2025 as the close of fact discovery in the MDL; that deadline is missing from the output."
+    },
+    {
+      "id": "C-042",
+      "title": "Extracts key deadline: Expert reports September 15, 2025",
+      "verdict": "fail",
+      "reasoning": "The report mentions expert-related items such as retaining a damages expert by June 30, 2025, but it does not list September 15, 2025 as the deadline for expert reports."
+    },
+    {
+      "id": "C-043",
+      "title": "Extracts key deadline: Trial date June 1, 2026 (estimated)",
+      "verdict": "pass",
+      "reasoning": "The report explicitly lists the estimated MDL trial date as June 1, 2026 in the term/endpoint section and elsewhere."
+    },
+    {
+      "id": "C-044",
+      "title": "Extracts key deadline: Daubert motion December 1, 2025",
+      "verdict": "fail",
+      "reasoning": "The report mentions Daubert-related work generally but does not list December 1, 2025 as the Daubert motion filing deadline."
+    },
+    {
+      "id": "C-045",
+      "title": "Extracts key deadline: Dispositive motions February 15, 2026",
+      "verdict": "fail",
+      "reasoning": "The report does not list February 15, 2026 as the dispositive motion filing deadline. It mentions other dates such as the estimated June 1, 2026 trial and mediation timing, but not the required dispositive motions deadline."
+    },
+    {
+      "id": "C-046",
+      "title": "Extracts reporting: weekly Tuesday 3 PM ET call",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states: \u201cWeekly Tuesday 3:00 p.m. ET calls between Voss and Giles,\u201d and elsewhere identifies them as Nate Voss and Ronan Giles."
+    },
+    {
+      "id": "C-047",
+      "title": "Extracts reporting: monthly written status report by 5th business day",
+      "verdict": "pass",
+      "reasoning": "The report includes the reporting obligation in Section 3.4, stating: \u201cMonthly report by fifth business day.\u201d This captures the monthly status report deadline by the 5th business day, satisfying the criterion."
+    },
+    {
+      "id": "C-048",
+      "title": "Extracts reporting: quarterly business review (QBR) in person",
+      "verdict": "fail",
+      "reasoning": "The report mentions QBRs quarterly at Pinnacle HQ for GC/CFO, but it does not specifically state that QBR presentations are required to Meg Stanhope and Jonas Whitmore, nor does it expressly identify Jonas Whitmore. The required QBR obligation as specified is therefore incomplete."
+    },
+    {
+      "id": "C-049",
+      "title": "Extracts $25,000 individual disbursement pre-approval threshold",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states: \u201cIndividual disbursement >$25,000 requires DGC pre-approval,\u201d satisfying the required extraction of the $25,000 individual disbursement pre-approval threshold from the Deputy GC."
+    },
+    {
+      "id": "C-050",
+      "title": "Extracts new expert retention approval requirement",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states under \u201cExpert approval\u201d that any unlisted expert requires prior written GC approval and a budget estimate, satisfying the criterion."
+    },
+    {
+      "id": "C-051",
+      "title": "Extracts 30-day termination notice period",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states under Section 3.5: \u201cTermination: either party may terminate on 30 calendar days' written notice,\u201d satisfying the criterion."
+    },
+    {
+      "id": "C-052",
+      "title": "Extracts 15-business-day file delivery upon termination",
+      "verdict": "pass",
+      "reasoning": "The report expressly states under termination economics that \u201cfiles/work product [are] due within 15 business days\u201d after termination, satisfying the required extraction."
+    },
+    {
+      "id": "C-053",
+      "title": "Extracts success fee forfeiture on termination for cause or withdrawal",
+      "verdict": "pass",
+      "reasoning": "The report expressly states in Section 3.5 that the \u201cSuccess fee [is] forfeited on termination for cause or W&C voluntary withdrawal,\u201d which matches the required provision."
+    },
+    {
+      "id": "C-054",
+      "title": "Extracts wind-down fee of 2% after $2,000,000 billed",
+      "verdict": "pass",
+      "reasoning": "The report expressly states: \u201cWind-down fee: 2% of aggregate professional fees billed if Client terminates without cause after fees are \u2018in excess of\u2019 $2m,\u201d and also discusses the $2,000,000 threshold inconsistency. This includes both the 2% fee and the more-than-$2,000,000 billed trigger."
+    },
+    {
+      "id": "C-055",
+      "title": "Extracts prospective conflicts waiver: firm may represent clients adverse to Pinnacle affiliates but not Pinnacle Industrial Holdings or Pinnacle Hydraulics Solutions directly",
+      "verdict": "pass",
+      "reasoning": "The report expressly describes the prospective conflicts waiver, stating that it reaches unrelated matters adverse to Pinnacle affiliates only, and that it does not permit direct adversity to Pinnacle Industrial Holdings or PHS without GC consent. This captures the required core limitation."
+    },
+    {
+      "id": "C-056",
+      "title": "Extracts conflicts waiver restriction on hydraulic equipment matters",
+      "verdict": "pass",
+      "reasoning": "The report includes a conflicts boundary stating that the prospective waiver \u201cdoes not permit ... any matter involving hydraulic equipment without GC written consent,\u201d which captures the hydraulic-equipment restriction required by the criterion."
+    },
+    {
+      "id": "C-057",
+      "title": "Extracts conflicts waiver prohibition on use of confidential information",
+      "verdict": "fail",
+      "reasoning": "The report discusses the prospective conflicts waiver and mentions screens and limits on direct adversity, but it does not state that the waiver is conditioned on no confidential information being used."
+    },
+    {
+      "id": "C-058",
+      "title": "ISSUE_001: Flags $780,000 vs. $760,000 expert budget discrepancy",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies the WS-3 expert budget discrepancy: it states the narrative calculates $780,000 from $550,000 named/anticipated experts plus a $230,000 rebuttal reserve, while the MP table and workbook show $760,000 with a $210,000 reserve, a $20,000 difference, and recommends resolving/correcting it."
+    },
+    {
+      "id": "C-059",
+      "title": "ISSUE_002: Flags WS-4 $320K sub-budget exceeds 5% threshold ($212,500)",
+      "verdict": "pass",
+      "reasoning": "The report explicitly flags that MP-R1 adds a $320,000 WS-4 work stream, that this exceeds 5% of the $4.25M aggregate budget ($212,500), and that the engagement letter requires prior written GC re-approval. It also notes MP-R1 does not evidence GC approval, identifying only Layton and Giles/signature issues, and recommends confirming a separate GC approval. Although it does not use the exact words \u201cdoes not reference or amend the threshold,\u201d it identifies the substantive addendum-vs-engagement-letter conflict required by the criterion."
+    },
+    {
+      "id": "C-060",
+      "title": "ISSUE_003: Flags Of Counsel rate not defined in rate schedule",
+      "verdict": "fail",
+      "reasoning": "The report notes that Elaine Marchetti is authorized for regulatory/insurance work at the Partner rate and lists the rate categories, but it does not identify her as Of Counsel or flag that the rate schedule lacks an Of Counsel category, creating ambiguity or potential billing disputes."
+    },
+    {
+      "id": "C-061",
+      "title": "ISSUE_004: Flags contract reviewer rate missing from approved rate schedule",
+      "verdict": "fail",
+      "reasoning": "The report flags that contract reviewers are generically authorized and that OCG \u00a7\u00a73.1\u20133.2 require each individual\u2019s name, classification, and rate to be approved in the rate schedule or later in writing before invoicing, and it recommends DGC approval for every reviewer. However, it does not specifically identify that the $55/hour contract reviewer rate is missing from the engagement letter\u2019s approved rate schedule; instead it states the EL sets the $55/hour rate. The precise ISSUE_004 gap is therefore not fully flagged."
+    },
+    {
+      "id": "C-062",
+      "title": "ISSUE_005: Flags mediation deadline inconsistency (March 3 vs. Feb 28, 2026)",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies the inconsistency: the Matter Plan sections calculating 90 days before the June 1, 2026 trial date as approximately March 3, 2026, while the timeline chart states February 28, 2026, and recommends correcting/confirming the intended date."
+    },
+    {
+      "id": "C-063",
+      "title": "ISSUE_006: Flags conflict between retroactive overage approval and OCG advance-approval rule",
+      "verdict": "pass",
+      "reasoning": "The report expressly flags \u201cRetroactive monthly overages conflict with OCG,\u201d stating that EL \u00a77.3 permits up to 10% over the monthly cap to be approved retroactively by the DGC, while OCG \u00a7\u00a74.3 and hierarchy prohibit retroactive fee-cap overage approvals and require advance written approval for any amount."
+    },
+    {
+      "id": "C-064",
+      "title": "ISSUE_007: Flags scope gap for non-HX-9000 claims consolidated into MDL",
+      "verdict": "pass",
+      "reasoning": "The report expressly identifies the non-HX-9000/tag-along authorization gap, explaining that EX-6\u2019s MDL-consolidation exception conflicts with WS-1\u2019s limitation to the MDL \u201cas currently constituted,\u201d and states that later consolidated non-HX-9000 claims are not affirmatively authorized absent review/scope amendment and budget approval."
+    },
+    {
+      "id": "C-065",
+      "title": "ISSUE_008: Flags 'aggregate payments' in success fee is undefined",
+      "verdict": "pass",
+      "reasoning": "The report explicitly flags that the success-fee terms \u201caggregate payments,\u201d \u201cactual aggregate payments,\u201d and \u201cactual aggregate resolution amount\u201d are undefined, and it notes ambiguity over whether the base includes settlements/judgments, insurer-paid amounts/indemnity, defense costs, defense-cost reimbursement, and allocated loss-adjustment expenses."
+    },
+    {
+      "id": "C-066",
+      "title": "ISSUE_010: Flags 'affiliates' undefined in prospective conflicts waiver",
+      "verdict": "fail",
+      "reasoning": "The report mentions a prospective conflicts waiver involving \u201cPinnacle affiliates,\u201d but it does not flag that the term \u201caffiliates\u201d is undefined or note ambiguity about which subsidiaries/entities are covered. Therefore it does not satisfy the specific criterion."
+    },
+    {
+      "id": "C-067",
+      "title": "Extracts rebuttal expert reserve amount of $230,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies a $230,000 rebuttal reserve in the WS-3 description and again in the budget inconsistency section, noting it as part of the $780,000 expert allocation alongside $550,000 for named/anticipated experts."
+    },
+    {
+      "id": "C-068",
+      "title": "Extracts mediation joint approval requirement",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states under WS-7 that the mediator is to be jointly approved by the GC and Lead Trial Partner, and reiterates that mediator approval is jointly by GC and Voss."
+    },
+    {
+      "id": "C-069",
+      "title": "Extracts accrued fees payment term of 45 days upon termination",
+      "verdict": "pass",
+      "reasoning": "The report includes the termination term: \u201caccrued fees payable within 45 calendar days after final invoice,\u201d in the termination economics section. This satisfies the requirement to extract the 45-day accrued-fees payment term upon termination."
+    },
+    {
+      "id": "C-070",
+      "title": "Extracts 5% threshold for post-engagement work stream additions",
+      "verdict": "pass",
+      "reasoning": "The report explicitly extracts the 5% post-engagement work-stream threshold, including the calculation ($4.25m \u00d7 5% = $212,500) and notes that WS-4 at $320,000 required prior written General Counsel re-approval."
+    },
+    {
+      "id": "C-071",
+      "title": "Report includes document-specific references",
+      "verdict": "pass",
+      "reasoning": "The report provides document-specific references throughout, including repeated citations to the Engagement Letter, Matter Plan, Revision 1 addendum, OCGs, budget workbook tabs, and negotiation emails. Extracted terms are sourced in tables and narrative sections, not confined to a single reference section."
+    },
+    {
+      "id": "C-072",
+      "title": "Extracts Marcus Oduya as lead paralegal",
+      "verdict": "pass",
+      "reasoning": "The report\u2019s staffing section states: \u201cup to 2 paralegals led by Marcus Oduya,\u201d which names Marcus Oduya as lead paralegal and includes the authorization for up to two paralegals."
+    },
+    {
+      "id": "C-073",
+      "title": "Extracts key deadline: Rebuttal expert reports October 31, 2025",
+      "verdict": "fail",
+      "reasoning": "The report discusses expert retention and a rebuttal reserve, but it does not list October 31, 2025 as the deadline for rebuttal expert reports."
+    },
+    {
+      "id": "C-074",
+      "title": "Extracts insurance coverage details (primary $5M/$10M, excess $15M)",
+      "verdict": "pass",
+      "reasoning": "The report explicitly includes WS-5 Insurance Coverage Coordination and identifies Fortitude Casualty & Surety Co. primary CGL coverage at $5M per occurrence / $10M aggregate and Ridgeline Excess Insurance Company $15M follow-form excess coverage."
+    },
+    {
+      "id": "C-075",
+      "title": "Extracts mediation deadline (90 days before trial)",
+      "verdict": "pass",
+      "reasoning": "The report explicitly references the mediation deadline as at least/no later than 90 days before the estimated June 1, 2026 trial date, and discusses the related date discrepancy in the Matter Plan."
+    },
+    {
+      "id": "C-076",
+      "title": "Correct matter number referenced (WC-2025-04381)",
+      "verdict": "pass",
+      "reasoning": "The report references the firm's matter number as \u201cW&C Matter WC-2025-04381\u201d in the Matter field."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/extract-scope-terms-from-matter-plan/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/extract-scope-terms-from-matter-plan",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T21:57:06.958730+00:00",
+  "cost": {
+    "input_tokens": 1815916,
+    "output_tokens": 35666,
+    "wall_clock_seconds": 243.61
+  },
+  "doc_coverage": {
+    "documents_read": 6,
+    "total_documents": 6,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "engagement-letter.docx",
+      "matter-plan.docx",
+      "matter-plan-revision-1.docx",
+      "outside-counsel-guidelines.docx",
+      "budget-summary.xlsx",
+      "scope-negotiation-emails.eml"
+    ],
+    "documents_skipped_list": []
+  }
+}

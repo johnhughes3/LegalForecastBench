@@ -1,0 +1,439 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "52/66 criteria passed.  Missed 14 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 66,
+  "n_passed": 52,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies DOC_006 as facially privileged (attorney-client)",
+      "verdict": "pass",
+      "reasoning": "The memo discusses RDGL-00020401--02 (the Mullins/Nagarajan speaker deck communication) in section D and expressly states that it is facially a request for and rendering of legal advice and is privileged, while recommending clawback."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Flags crime-fraud exception risk for DOC_006",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags the Q4 2022 speaker deck communication as presenting crime-fraud risk, explaining that the Government could argue the advice furthered or disguised off-label promotion and evaded internal controls. It specifically quotes Nagarajan's statement: \u201cWe should keep this between us \u2014 the compliance team would flag this if they saw the original version,\u201d satisfying the criterion."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Recommends asserting privilege on DOC_006 despite crime-fraud risk",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends clawing back the crime-fraud-risk document: for the Mullins/Nagarajan Q4 speaker deck it states 'Include the document in the clawback notice' and 'Claw back in full,' while noting significant crime-fraud vulnerability and need for unconflicted client approval. Thus it recommends asserting privilege rather than abandoning the claim."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Warns against conceding substance in clawback letter",
+      "verdict": "fail",
+      "reasoning": "The memo discusses clawback notice logistics and recommends removing internal notes from the privilege log, but it does not specifically warn that the clawback demand letter to AUSA Cooperman should avoid language that reveals or concedes the substance of the DOC_006 communication. It does not provide careful-drafting guidance to prevent privileged content from being used against the privilege assertion."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001: DOC_006 included in privilege log",
+      "verdict": "pass",
+      "reasoning": "The privilege log includes entry PL-006 for Bates RDGL-00020401 through RDGL-00020402, dated August 3, 2022, involving Sandra Mullins and Priya Nagarajan, and asserts attorney-client privilege."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_001: DOC_006 privilege log notes vulnerability",
+      "verdict": "fail",
+      "reasoning": "The privilege log entry corresponding to DOC_006 (PL-006) includes an internal note about needing sign-off by an unconflicted client decision-maker, but it does not mention any vulnerability, issue, or risk related to the crime-fraud exception."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Identifies DOC_008 as involving common interest doctrine",
+      "verdict": "pass",
+      "reasoning": "The memo identifies RDGL-00020512--15 (Nagarajan/Metcalf email chain dated Nov. 2, 2023) as communications between Ridgeline's GC and Correa's counsel, explicitly analyzes whether the common interest doctrine applies, cites Third Circuit common-interest law, and recommends clawback on a common-interest basis."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_002: Identifies absence of written common interest agreement",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states in the analysis of the Nagarajan/Metcalf common-interest chain that \u201cno common-interest agreement existed\u201d and lists that as a serious weakness to the privilege claim, while also referencing Correa\u2019s counsel/Kendrick Sable. This identifies the absence of a formal agreement and its effect on the protection for the relevant document."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_002: Recommends asserting privilege on DOC_008",
+      "verdict": "pass",
+      "reasoning": "The memo recommends asserting privilege and including the relevant document in the clawback demand. If DOC_008 maps to the eighth listed document (H), the memo says to \u201cClaw back jointly with Audit Committee.\u201d If it maps to PL-008, the memo also recommends clawback/redaction. Thus it does not recommend no clawback."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_002: Notes vulnerability for DOC_008 privilege assertion",
+      "verdict": "pass",
+      "reasoning": "The memo\u2019s discussion of the common-interest clawback expressly identifies as a serious weakness that \u201cno common-interest agreement existed\u201d and recommends confirming the other party\u2019s position before clawback, while also advising future coordination under a written common-interest agreement. This notes the vulnerability tied to the privilege recommendation."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_002: DOC_008 included in privilege log",
+      "verdict": "pass",
+      "reasoning": "The privilege log includes PL-007 for Bates RDGL-00020512 through RDGL-00020515, dated 11/02/2023, between Priya Nagarajan and Andrew Metcalf, asserting AC/WP privilege under the common-interest doctrine."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_002: DOC_008 privilege log entry notes common interest vulnerability",
+      "verdict": "fail",
+      "reasoning": "The output does not include a DOC_008 privilege log entry noting a vulnerability from the absence of a formal common interest or joint defense agreement. The only common-interest entry cites the doctrine and has a generic internal note to confirm counsel's position, but it does not identify the formal agreement gap."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Identifies privilege waiver for DOC_004 due to third-party forwarding",
+      "verdict": "pass",
+      "reasoning": "The memo specifically discusses the Viklund speaker-program memo forwarded by Lassiter to Dr. Anita Deshmukh, identifies Deshmukh as an external KOL/paid speaker who is not within the privilege and not an agent or functional equivalent employee, and flags waiver by voluntary disclosure to a third party as a high-risk issue. Although it preserves arguments against waiver, it identifies the forwarding as creating the privilege waiver problem required by the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_003: Recommends NOT clawing back DOC_004",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the document forwarded to Dr. Anita Deshmukh and acknowledges a waiver risk, but it recommends clawing back the embedded memo rather than recommending not to claw it back due to waiver by voluntary disclosure to a third party."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_003: DOC_004 excluded from privilege log",
+      "verdict": "fail",
+      "reasoning": "DOC_004 (RDGL-00020231 through RDGL-00020234) is included as PL-001 in Part A, identified as privileged and requested to be clawed back. The criterion requires it to be excluded from the privilege log because privilege was waived."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Identifies DOC_005 as mixed business/legal communication",
+      "verdict": "pass",
+      "reasoning": "The memo identifies RDGL-00020340\u201353 as a mixed/partial privilege Q3 2022 thread, states that most messages are ordinary business content involving targets, budgets, speaker calendars, and related business issues, and specifically identifies the Ochoa request to Viklund and Viklund\u2019s advice against using the Nakamura fibromyalgia data in a detail aid as privileged legal content. It does not treat the whole thread as uniformly privileged or non-privileged."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_004: Only messages 9-10 of DOC_005 identified as privileged",
+      "verdict": "fail",
+      "reasoning": "The memo does distinguish privileged from non-privileged portions of the 14-message thread, but it identifies four privileged portions/messages, including Correa\u2019s request and Mullins\u2019s relay of advice, rather than limiting privilege to only Ochoa\u2019s legal question to Viklund and Viklund\u2019s legal advice response (messages 9 and 10)."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_004: DOC_005 privilege log entry scoped to legal exchange only",
+      "verdict": "pass",
+      "reasoning": "The output distinguishes privileged portions within the RDGL-00020340--20353 thread rather than asserting privilege over the entire thread. In particular, PL-003 logs Viklund\u2019s legal advice and PL-004 logs Ochoa\u2019s request for legal advice about referencing a published study in promotional materials, with replacement production/redactions rather than withholding the whole 14-message thread."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_005: Identifies DOC_009 as dual-purpose document (work product)",
+      "verdict": "pass",
+      "reasoning": "The memo specifically discusses RDGL-00020560 through RDGL-00020574, the Viklund Dec. 5, 2023 risk-assessment deck, and distinguishes Part I/slides 3\u20138 as mostly compliance/regulatory overview factual material from Part II/slides 9\u201315 as core attorney-client/work product material prepared after the CID addressing government theories, exposure estimates, witness risk, defense strategy, and investigation workplan. This satisfies the required dual-purpose identification."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_005: Slides 1-8 identified as not work product protected",
+      "verdict": "fail",
+      "reasoning": "The memo does not clearly identify slides 1-8 of DOC_009 as outside work-product protection because they were routine regulatory-risk materials not prepared in anticipation of litigation. It states only that slides 3-8 are mostly factual/business material and recommends redacting Part II summary bullets on slide 2, thereby treating part of slides 1-8 as protected."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_005: Slides 9-15 identified as work product protected",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the Dec. 5, 2023 Viklund risk-assessment deck and states that Part II, slides 9\u201315, is \u201ccore opinion work product\u201d prepared after the CID and covering government theories, exposure estimates, defense strategy, witness risk, and investigation workplan. It recommends clawing back/redacting slides 9\u201315."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_005: DOC_009 privilege log entry distinguishes portions",
+      "verdict": "pass",
+      "reasoning": "The log entry for the presentation (PL-008) distinguishes the routine/compliance portion from the litigation-specific portion, identifying Part I/slides 3-8 as a compliance-program overview to be produced and Part II/slides 9-15 as analyzing DOJ theories, exposure, defense strategy, and investigation workplan. It requests redaction of slides 9-15 and asserts work product protection for that litigation-specific material."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_006: Identifies DOC_003 as pre-engagement communication",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies RDGL-00020114--16 as September 2020 pre-engagement Ellsworth/Nagarajan emails, notes that the October 15, 2023 engagement letter formalized the relationship prospectively and did not retroactively adopt prior discussions, and analyzes whether a prospective-client privilege theory under RPC 1.18 could apply. This satisfies the criterion."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_006: Analyzes prospective client privilege for DOC_003",
+      "verdict": "pass",
+      "reasoning": "The memo specifically addresses the September 2020 pre-engagement Ellsworth/Nagarajan emails, recognizes that no formal attorney-client relationship existed, and analyzes a prospective-client theory under RPC 1.18 for communications seeking legal advice before engagement, though it deems the claim weak."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_007: Addresses timeliness under FRE 502(b)(3) \u2014 production date",
+      "verdict": "pass",
+      "reasoning": "The memo includes a timeliness/clawback deadline analysis and a FRE 502(b) defensibility section discussing prompt discovery and notification. It also expressly identifies June 10, 2024 as the production day in the deadline table and references the June 10 cover letter."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_007: Addresses timeliness under FRE 502(b)(3) \u2014 discovery date",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses timeliness/Discovery Date and identifies Monday, June 17, 2024 as the actual discovery date, including in the deadline table and related analysis tied to clawback/FRE 502 diligence."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_007: Addresses need for prompt clawback demand after discovery",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the prompt clawback requirement: it identifies June 17, 2024 as the actual discovery date, analyzes the 10-business-day deadline under the clawback order, recommends treating June 24 as the hard deadline, and targets service by June 21 to ensure timely notice."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_007: Addresses 7-day detection gap under FRE 502(b)",
+      "verdict": "pass",
+      "reasoning": "The memo specifically discusses the June 10 production and June 17 discovery timeline in the deadline section, and in the FRE 502(b)/reasonable diligence section it analyzes why the gap is defensible: reviewers had coded the documents correctly, the disclosure resulted from a silent vendor script defect, the Order-contemplated QC process caught it within five business days, and counsel was promptly notified. It also identifies diligence weaknesses such as lack of mixed-privilege testing and no pre-production reconciliation. This satisfies the criterion."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_007: References Court's Clawback Order date and 10-business-day provision",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the Clawback Order and states that written clawback notice is due within 10 business days of the Discovery Date. However, it does not reference the Stipulated Confidentiality and Clawback Order as entered by Judge Liu on February 28, 2024, or otherwise provide the Order\u2019s date. Because the criterion specifically requires the Court\u2019s Clawback Order date and the 10-business-day provision, the output is incomplete."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_007: Analyzes compliance with 10-business-day Clawback Order deadline",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes the Clawback Order\u2019s 10-business-day deadline, identifies the governing Discovery Date rule, considers multiple possible discovery dates and Juneteenth counting issues, calculates corresponding deadlines, and recommends serving by June 24/target June 21 to ensure compliance."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_007: Addresses FRE 502(b)(1) \u2014 inadvertence element",
+      "verdict": "pass",
+      "reasoning": "The memo specifically frames the issue under FRE 502(b), repeatedly characterizes the production as inadvertent, and explains that the privileged documents were produced because of a silent vendor technical/script defect/logic error that overwrote correct privilege coding, rather than because reviewers intentionally produced them. This satisfies the inadvertence element under FRE 502(b)(1)."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_007: Addresses FRE 502(b)(2) \u2014 reasonable preventive steps element",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses FRE 502(b) defensibility and discusses preventive/reasonable diligence steps, including reviewer privilege coding, vendor technology/script issues, the QC process that caught the error, vendor notification timing, and weaknesses in pre-production testing/reconciliation. This satisfies the criterion for addressing FRE 502(b)(2)."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_007: Addresses FRE 502(b)(3) \u2014 prompt rectification element",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses FRE 502(b) defensibility and the timing of rectification: it identifies the discovery date, notes the vendor notified counsel within 27 minutes, analyzes the clawback notice deadline, and recommends prompt service by June 21/June 24. This addresses whether the holder promptly took steps to rectify the inadvertent production after discovery under FRE 502(b)(3)."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_008: Identifies Audit Committee privilege holder issue for DOC_010",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies RDGL-00020601--03 as Audit Committee/Waverly Stone investigation-scope emails, states that the privilege belongs to the Audit Committee rather than Ridgeline management, and recommends serving the clawback jointly or with the Committee\u2019s written authorization. It also reiterates this distinct privilege-holder issue in the cross-cutting section."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_008: Flags tension from Nagarajan being copied on DOC_010",
+      "verdict": "pass",
+      "reasoning": "The memo expressly notes that the Audit Committee/Waverly Stone emails are privileged by the Audit Committee, not management, and that Ms. Nagarajan was copied only for coordination and this should not waive the Committee\u2019s privilege. It also discusses the need to keep Committee privileges separate from management\u2019s and references potential divergence involving management/CEO issues, which adequately flags the tension/complication."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_008: DOC_010 included in privilege log",
+      "verdict": "pass",
+      "reasoning": "The privilege log includes entry PL-009 for Bates RDGL-00020601 through RDGL-00020603, dated February 15, 2024, involving Helen Pak-Morrison and Rachel Greenwald with Priya Nagarajan copied, and it asserts attorney-client privilege (AC) and work product."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_009: Identifies post-departure privilege issue for DOC_011",
+      "verdict": "pass",
+      "reasoning": "The memo specifically discusses RDGL-00020644\u201345 and states that Correa wrote three weeks after leaving Ridgeline, from personal Gmail, seeking advice about her personal criminal and civil exposure. It further explains she was a former employee seeking advice for herself, not the company, and that any privilege would not belong to Ridgeline and was doubtful because Nagarajan was not her lawyer. This satisfies the post-departure and personal-advice issue required by the criterion."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_009: Analyzes whether DOC_011 is corporate privilege",
+      "verdict": "pass",
+      "reasoning": "The memo analyzes the Correa/Nagarajan personal-advice emails and concludes Ridgeline has no corporate privilege because Correa was a former employee seeking personal legal advice, with any privilege belonging to Correa rather than Ridgeline. It also notes the issue should potentially be raised with Kendrick Sable and flags ethics/Upjohn concerns. Although it does not expressly state that Correa had already retained Kendrick Sable or use the phrase 'inadvertent attorney-client relationship,' it substantively addresses the privilege complication arising from Nagarajan giving personal advice to Correa."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_010: Privilege log entries contain topic-specific descriptions",
+      "verdict": "pass",
+      "reasoning": "The privilege log contains 10 entries, and well over half include specific subject-matter descriptions such as Veratrine XR speaker program, promotional detail aid and published clinical literature, Q4 speaker-program slide deck, DOJ CID defense coordination, internal investigation scope, and Promotional Review Policy. These are topic-specific rather than generic boilerplate."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_010: Log entries include required fields",
+      "verdict": "pass",
+      "reasoning": "Each logged clawback entry (PL-001 through PL-010) includes the required core privilege-log fields: Bates range, date, document type, author/sender, recipients/CCs where applicable, specific privilege asserted, and a subject-matter description. No entry is missing more than one required field."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_011: Identifies metadata privilege issue in DOC_012",
+      "verdict": "pass",
+      "reasoning": "The memo specifically discusses RDGL-00020710 through RDGL-00020715, states that the clean draft policy text is not privileged on its face, and identifies embedded comments and tracked-deletion annotations by Deputy GC Thomas Viklund as privileged legal advice that were produced unredacted due to a document-level overwrite. This satisfies the metadata/tracked changes privilege issue criterion."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_011: Distinguishes clean text from metadata in DOC_012",
+      "verdict": "pass",
+      "reasoning": "The memo expressly distinguishes the draft policy\u2019s clean text as non-privileged from the embedded comments and tracked-deletion annotation by Deputy GC Viklund as privileged legal advice. It recommends clawing back the document only to re-produce it with the privileged comments redacted and logging those privileged portions as PL-010, thereby treating the clean text and privileged tracked/comment material separately."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_011: DOC_012 privilege log entry addresses metadata",
+      "verdict": "pass",
+      "reasoning": "PL-010 addresses the draft policy at RDGL-00020711--20714 and identifies Thomas Viklund's privileged marginal comments and tracked-deletion annotations as the withheld material, expressly stating that the clean policy text is not withheld. This distinguishes the privileged tracked changes/comments from the document text, satisfying the metadata/tracked-changes requirement."
+    },
+    {
+      "id": "C-044",
+      "title": "DISTRACTOR_003: Correctly identifies DOC_007 as non-privileged",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies RDGL-00020488--89, the Ochoa/FDA sNDA correspondence, as not privileged and correctly produced. It explains that communications with a regulator are not confidential and that the statement that legal/regulatory teams reviewed the submission does not disclose privileged advice, and recommends not clawing it back."
+    },
+    {
+      "id": "C-045",
+      "title": "DISTRACTOR_003: DOC_007 excluded from privilege log",
+      "verdict": "pass",
+      "reasoning": "DOC_007 (RDGL-00020488\u201300020489) is not listed in Part A as a clawed-back privileged document. It appears only in Part C as 'Flagged Documents Reviewed and NOT Logged' with a disposition that it was correctly produced and should be removed from the clawback set."
+    },
+    {
+      "id": "C-046",
+      "title": "Memo covers all flagged documents in findings summary",
+      "verdict": "pass",
+      "reasoning": "The memo's findings summary contains ten document-by-document entries (A\u2013J) with Bates numbers and explicit privilege/clawback determinations for each, corresponding to the ten flagged documents DOC_003 through DOC_012. None of the required documents appear to be omitted from the findings summary."
+    },
+    {
+      "id": "C-047",
+      "title": "Memo includes recommended next steps for clawback demand to AUSA Cooperman",
+      "verdict": "pass",
+      "reasoning": "The memo provides specific recommended next steps for the clawback demand to AUSA Cooperman, including timing and method of service, required contents of the notice, attaching or following with a conforming privilege log, invoking return/destroy and certification obligations, and identifying which documents should be clawed back in full or by redaction versus not asserted."
+    },
+    {
+      "id": "C-048",
+      "title": "Memo identifies broader issues: crime-fraud risk",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags the Mullins/Nagarajan speaker deck communication as creating serious crime-fraud and obstruction exposure in the Bottom Line, analyzes the crime-fraud risk in the document-specific section, and elevates it as a broader governance/conflict issue requiring escalation to an unconflicted client decision-maker."
+    },
+    {
+      "id": "C-049",
+      "title": "Memo identifies common interest agreement gap as broader issue",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags that no common-interest agreement existed with Correa\u2019s counsel/Kendrick Sable, discusses this as a weakness in the privilege claim, and elevates it as a broader matter-management issue by recommending future coordination through H&C under a written common-interest agreement and addressing Kendrick Sable/Correa in cross-cutting issues and action items."
+    },
+    {
+      "id": "C-050",
+      "title": "Memo recommends executing common interest agreement going forward",
+      "verdict": "pass",
+      "reasoning": "The memo includes a forward-looking recommendation that future coordination with individual counsel should proceed through H&C under a written common-interest agreement, satisfying the criterion."
+    },
+    {
+      "id": "C-051",
+      "title": "Memo identifies broader issues: metadata/tracked changes issue",
+      "verdict": "fail",
+      "reasoning": "The memo notes a specific document with embedded comments and a tracked-deletion annotation, but it does not identify the metadata/tracked-changes problem as a broader systemic production-protocol issue or recommend reviewing protocols to strip/catch privileged metadata before future productions."
+    },
+    {
+      "id": "C-052",
+      "title": "Correct reference to case number",
+      "verdict": "pass",
+      "reasoning": "The memo\u2019s RE line includes \u201c(D.N.J. 2:24-gj-00417-ML),\u201d which correctly references the required case number 2:24-gj-00417-ML."
+    },
+    {
+      "id": "C-053",
+      "title": "Correct reference to court and/or judge",
+      "verdict": "pass",
+      "reasoning": "The memo identifies the matter as pending in \u201cD.N.J.\u201d with docket \u201c2:24-gj-00417-ML,\u201d which correctly references the U.S. District Court for the District of New Jersey. It does not misidentify the court."
+    },
+    {
+      "id": "C-054",
+      "title": "Correct reference to FRE 502(d) Clawback Order",
+      "verdict": "fail",
+      "reasoning": "The memo repeatedly refers to a Clawback Order and its provisions, but it does not identify it as the FRE 502(d) Stipulated Confidentiality and Clawback Order entered on February 28, 2024, nor does it clearly state that the Order provides inadvertent disclosure does not waive privilege. It instead discusses deadlines and waiver risks without the required reference/date."
+    },
+    {
+      "id": "C-055",
+      "title": "Correct Production 3 date",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies June 10, 2024 as the Production day for Production 3, including in the clawback deadline table and references to the June 10 cover letter."
+    },
+    {
+      "id": "C-056",
+      "title": "Correct Production 3 document count and Bates range",
+      "verdict": "fail",
+      "reasoning": "The memo does not identify Production 3 as consisting of approximately 2,300 documents or state the Bates range RDGL-00019720 through RDGL-00022019. It only discusses the 47 flagged privileged documents and individual Bates numbers, so it does not satisfy the required criterion."
+    },
+    {
+      "id": "C-057",
+      "title": "References NorthBridge QC error as cause of inadvertent production",
+      "verdict": "fail",
+      "reasoning": "The memo references a NorthBridge/vendor issue, Relativity audit-trail overwrites, and a silent script defect/OR-AND logic error, but it does not describe the specific technical cause required by the criterion: a NorthBridge Relativity email threading/analytics coding error that stripped privilege designations from parent emails when child emails were coded responsive/non-privileged."
+    },
+    {
+      "id": "C-058",
+      "title": "Privilege log includes correct Bates ranges for entries",
+      "verdict": "pass",
+      "reasoning": "At least 6 of the 8 target Bates ranges are materially correct in the output. DOC_006, DOC_008, DOC_009, and DOC_010 are exact. DOC_003 and DOC_011 are also listed with the correct ranges in the reviewed/not-logged section. DOC_005 is at least identified as within the correct thread range RDGL-00020340--20353, though split into narrower sub-entries. DOC_012 is incorrect because it lists RDGL-00020711--20714 instead of RDGL-00020710--20715. This yields 6 or more materially correct ranges."
+    },
+    {
+      "id": "C-059",
+      "title": "Privilege log includes correct dates for entries",
+      "verdict": "pass",
+      "reasoning": "The output contains materially correct dates for at least 6 of the 8 specified documents: Q3/July 2022 for DOC_005, August 3, 2022 for DOC_006, November 2, 2023 for DOC_008, December 5, 2023 for DOC_009, February 15, 2024 for DOC_010, and July 2022 for DOC_012. It also references September 2020 and October 8\u20139, 2023 in the non-logged section, but even excluding those, the threshold is met."
+    },
+    {
+      "id": "C-060",
+      "title": "Memo does NOT recommend clawback for DOC_004 (privilege waived)",
+      "verdict": "fail",
+      "reasoning": "The memo identifies the Viklund speaker-program memo forwarded to Dr. Deshmukh and recommends clawing back the embedded memo, despite acknowledging waiver risk from voluntary disclosure. The criterion requires recommending NOT clawing it back because privilege was waived."
+    },
+    {
+      "id": "C-061",
+      "title": "Memo does NOT recommend clawback for DOC_007 (non-privileged FDA correspondence)",
+      "verdict": "pass",
+      "reasoning": "The memo identifies the FDA sNDA correspondence as non-privileged and explicitly recommends: \u201cDo not claw back\u201d / \u201cNot privileged; correctly produced.\u201d"
+    },
+    {
+      "id": "C-062",
+      "title": "Memo recommends clawback for clearly privileged documents DOC_006, DOC_008, and DOC_010",
+      "verdict": "pass",
+      "reasoning": "The memo recommends clawback for the 6th document (F/RDGL-00020512--15), the 8th document (H/RDGL-00020601--03, jointly with the Audit Committee), and the 10th document (J/RDGL-00020710--15). None of these are recommended against clawback."
+    },
+    {
+      "id": "C-063",
+      "title": "DOC_009 correctly identifies work product doctrine as basis",
+      "verdict": "pass",
+      "reasoning": "The entry for Bates RDGL-00020560\u2013RDGL-00020574 identifies the Viklund risk assessment presentation and expressly asserts \u201cWP (opinion)\u201d along with attorney-client privilege, including for slides 9\u201315."
+    },
+    {
+      "id": "C-064",
+      "title": "DOC_009 references CID as litigation trigger",
+      "verdict": "pass",
+      "reasoning": "The memo's analysis of the Dec. 5 Viklund risk-assessment deck states that Part II is core opinion work product and attorney-client material because it was \u201cprepared after the CID,\u201d linking the CID to the anticipation-of-litigation/work-product rationale. Elsewhere it identifies Nov. 2, 2023 as the day after the CID, implying the Nov. 1 receipt date."
+    },
+    {
+      "id": "C-065",
+      "title": "DOC_003 privilege log entry identifies correct parties",
+      "verdict": "fail",
+      "reasoning": "The output does not include a privilege log entry for DOC_003 identifying Catherine Ellsworth (Harwick & Calloway LLP) and Priya Nagarajan (Ridgeline General Counsel) as the communicants. The closest numbered entry, PL-003, identifies Thomas Viklund and other Ridgeline personnel instead, while Ellsworth/Nagarajan appear only in a non-logged/internal section."
+    },
+    {
+      "id": "C-066",
+      "title": "Grand jury subpoena number correctly referenced",
+      "verdict": "pass",
+      "reasoning": "The memo\u2019s RE line explicitly references \u201cGJ-2024-00417,\u201d which matches the required grand jury subpoena number."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/extract-privileged-communications-from-production-set/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/extract-privileged-communications-from-production-set",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T21:53:27.711366+00:00",
+  "cost": {
+    "input_tokens": 26,
+    "output_tokens": 31791,
+    "wall_clock_seconds": 329.2
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 15,
+    "documents_skipped": 8,
+    "documents_read_list": [
+      "clawback-order.docx",
+      "production-3-cover-letter.docx",
+      "northbridge-qc-report.docx",
+      "engagement-letter.docx",
+      "grand-jury-subpoena.docx",
+      "flagged-doc-batch-g.docx",
+      "flagged-doc-batch-j.docx"
+    ],
+    "documents_skipped_list": [
+      "flagged-doc-batch-a.eml",
+      "flagged-doc-batch-b.eml",
+      "flagged-doc-batch-c.eml",
+      "flagged-doc-batch-d.eml",
+      "flagged-doc-batch-e.eml",
+      "flagged-doc-batch-f.eml",
+      "flagged-doc-batch-h.eml",
+      "flagged-doc-batch-i.eml"
+    ]
+  }
+}

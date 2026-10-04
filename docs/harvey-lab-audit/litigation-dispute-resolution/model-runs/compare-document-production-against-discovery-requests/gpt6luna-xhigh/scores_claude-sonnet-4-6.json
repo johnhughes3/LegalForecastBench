@@ -1,0 +1,312 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "31/46 criteria passed.  Missed 15 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 46,
+  "n_passed": 31,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies complete failure to produce subcontractor agreements (RFP 8)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies that RFP 8 received zero responsive documents. In the executive assessment table, it states 'RFP 8: no subcontractor/affiliate documents in the index; September 15 email says a limited number may be responsive and remain under review.' In the request-by-request gap matrix, RFP 8 is listed with 'Zero index entries coded RFP 8. June response promised production; Sept. 15 email confirms a \"limited number\" may be responsive and are still under review.' This clearly identifies the complete failure to produce subcontractor agreements responsive to RFP 8."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Connects missing subcontractor agreements to the 158-truck gap / fraud claim",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the 158-truck gap (347 claimed minus 189 owned/leased) in the executive assessment and connects it to the missing subcontractor/affiliate documents under RFP 8. The executive assessment states the most consequential gaps include 'the 158-truck difference between the 347-truck Fleet Capacity Report and the 189 owned/leased vehicles alleged.' The RFP 8 row in the gap matrix notes zero subcontractor documents and demands 'carrier/affiliate agreements, rate confirmations, dispatch, invoices/payment, certificates, communications and capacity counts.' The privilege log analysis (entries 12-18) further connects withheld internal emails about 'fleet assumptions, owned-versus-total capacity, fleet roster, subcontractor estimates' to the fraud/negligent-misrepresentation claims. The memorandum thus articulates that the missing subcontractor agreements are critical because they would explain how Meridian represented 347 trucks when it only owned/leased 189, directly bearing on the fraud claim."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Notes that Meridian agreed to produce but produced nothing for RFP 8",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly notes in the RFP 8 row of the gap matrix: 'Zero index entries coded RFP 8. June response promised production; Sept. 15 email confirms a \"limited number\" may be responsive and are still under review.' This directly identifies the inconsistency between Meridian's written response (which promised production) and the actual production (which contains no documents coded as responsive to RFP 8). The executive summary also flags RFP 8 as a critical gap, noting 'no subcontractor/affiliate documents in the index' while the September 15 email says some may be responsive and remain under review. This satisfies the criterion."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002: Identifies that audited financial statements for FY2022 are missing from RFP 15 production",
+      "verdict": "pass",
+      "reasoning": "In Section IV, under RFP 15 (Financial statements), the memorandum states: 'Audited FY2019\u20132021; unaudited FY2022\u20132023; no FY2020 unaudited set provided to PC identified and no audited FY2022/23 statements shown.' This explicitly identifies that audited financials for FY2022 are missing from the production, satisfying the criterion."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Identifies that audited financial statements for FY2023 are missing from RFP 15 production",
+      "verdict": "pass",
+      "reasoning": "In Section IV, under RFP 15 (Financial statements), the memo states: 'Audited FY2019\u20132021; unaudited FY2022\u20132023; no FY2020 unaudited set provided to PC identified and no audited FY2022/23 statements shown.' This identifies that audited financials for FY2023 (and FY2022) are missing from the production, satisfying the criterion."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Notes audited statements should exist (Crestline audited FY2020\u20132023)",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the memorandum to specifically note that Crestline Accounting Partners performed audits for FY2020\u20132023, so audited versions for FY2022 and FY2023 should exist. The agent's output does mention under RFP 15 that 'Audited FY2019\u20132021; unaudited FY2022\u20132023; no FY2020 unaudited set provided to PC identified and no audited FY2022/23 statements shown' and asks to 'state whether later audits exist.' However, the memorandum never mentions Crestline Accounting Partners by name, and does not make the argument that audited financials for FY2022 and FY2023 likely exist because Crestline performed audits through FY2023. The criterion specifically requires noting Crestline's role as auditor for FY2020\u20132023 as the basis for arguing those audited statements should exist."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Notes no privilege or objection asserted for FY2022\u20132023 audited financials",
+      "verdict": "fail",
+      "reasoning": "The memorandum notes under RFP 15 that 'no audited FY2022/23 statements shown' and requests Meridian to 'state whether later audits exist,' but it does not specifically note that Meridian failed to assert any privilege or specific objection for the FY2022\u20132023 audited financial statements, making the omission unjustified. The criterion requires the memo to affirmatively note the absence of any privilege or objection claim as the reason the omission is unjustified. The memo merely identifies the gap without addressing the lack of privilege/objection assertion."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Identifies pre-litigation business emails improperly withheld as privileged (PRIV-000012 through PRIV-000018)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies entries 12\u201318 (PRIV-000012 through PRIV-000018) as the strongest log challenges, describing them as internal pre-contract business emails between Nolan Brisk and Rebecca Cho concerning fleet assumptions, owned-versus-total capacity, fleet roster, subcontractor estimates, draft EBITDA and capitalization, and an insurance coverage summary. It notes the senders/recipients are business personnel, not counsel, and the descriptions sound operational/financial rather than requests for or delivery of legal advice, concluding that attorney-client privilege is not adequately supported. This satisfies the criterion."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Notes no attorney is listed on privilege log entries PRIV-000012 through PRIV-000018",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section V.A regarding entries 12-18: 'The listed senders/recipients are business personnel, not counsel; the descriptions sound operational/financial rather than requests for or delivery of legal advice. On this record, attorney-client privilege is not adequately supported.' This directly identifies that no attorney is listed as author, recipient, or CC on these entries, which undermines the privilege assertion. The criterion is satisfied."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Notes descriptions reference business topics, not legal advice",
+      "verdict": "pass",
+      "reasoning": "The criterion requires the memorandum to note that PRIV-000012 through PRIV-000018 descriptions reference 'fleet capacity projections' and 'financial presentation preparation' as business topics. The agent's output does discuss entries 12-18 and notes they concern 'fleet assumptions, owned-versus-total capacity, fleet roster, subcontractor estimates, draft EBITDA and capitalization, and an insurance coverage summary,' and states 'the descriptions sound operational/financial rather than requests for or delivery of legal advice.' However, the criterion specifically requires mention of 'fleet capacity projections' and 'financial presentation preparation' as the exact business topics referenced. The agent's output covers similar ground (fleet assumptions, capacity, financial/operational matters) but does not use those specific phrases. The criterion asks whether 'the business nature of the described content is not discussed' - the agent clearly does discuss the business nature of the content. The specific phrases differ but the substance is addressed. Given that the criterion's core requirement is that 'the business nature of the described content is discussed,' and the agent clearly does this for entries 12-18, this should pass even if the exact terminology differs slightly."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004: Identifies that the produced insurance policy covers wrong period (2022 only)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in the RFP 11 row: 'One 2022 policy (MLC-002341--002398), Jan. 2021 COI and four 2022 endorsements appear; no base 2020--21 policy or 2023 policy is identified.' This directly identifies that the produced policy covers only 2022 and that no 2020-2021 policy was produced, satisfying the criterion."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_004: Explains 2020\u20132021 policy period is critical to fraud claim",
+      "verdict": "pass",
+      "reasoning": "The memorandum addresses the 2020\u20132021 policy period in multiple places. In the executive assessment, it identifies 'the alleged reduction in cargo coverage from $5 million to $2 million before the January 2021 certificate' as a critical gap. In Section IV (RFP 11), it notes 'One 2022 policy (MLC-002341\u2013002398), Jan. 2021 COI and four 2022 endorsements appear; no base 2020\u201321 policy or 2023 policy is identified' and directs production of 'complete policy forms, dec pages, endorsements, notices and renewals for 2020\u2013present, including policy in effect when $2M reduction became effective.' In the privilege log analysis (entries 33\u201340), it describes 'ordinary insurance placement/renewal communications...includ[ing] the $2M option and December 1, 2020 reduction endorsement, followed by a January 11 request for a certificate showing $5M and January 12 transmittal.' The memorandum thus explains that the January 12, 2021 COI, the December 1, 2020 downgrade from $5M to $2M, and the missing 2020\u201321 base policy are all directly relevant to the insurance misrepresentation fraud claim. This satisfies the criterion."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_004: Notes the 2023 policy period is also missing",
+      "verdict": "pass",
+      "reasoning": "In Section IV, under RFP 11 (Policies), the memo states: 'One 2022 policy (MLC-002341--002398), Jan. 2021 COI and four 2022 endorsements appear; no base 2020--21 policy or 2023 policy is identified.' This explicitly identifies both the 2020-21 gap and the 2023 policy gap. The recommended cure also references 'complete 2020--23 policies.' The criterion is satisfied."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_005: Identifies the 7-month gap in daily dispatch logs (Oct 2021\u2013Apr 2022)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the 7-month dispatch gap in RFP 19 section: 'Daily logs cover Mar.--Sept. 2021 and May 2022--Aug. 2023; Oct. 2021--Apr. 2022 absent (MLC-002876--003412).' This matches the criterion's requirement to identify the gap from October 2021 through April 2022 with the specific Bates range MLC-002876 through MLC-003412."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_005: Notes significance of gap period (Q4 2021 performance deterioration)",
+      "verdict": "fail",
+      "reasoning": "The memorandum identifies the October 2021\u2013April 2022 dispatch gap (RFP 19) as a critical issue and mentions it in multiple places, but it does not explain why the timing of this gap is particularly significant\u2014specifically, it does not connect the gap to Pacific Corridor's breach notices or note that performance deteriorated sharply starting in Q4 2021. The criterion requires the memo to explain that the gap is especially significant because breach notices indicate performance deteriorated sharply starting in Q4 2021, making those logs highly relevant. The memo treats the gap as a data/preservation problem without discussing the substantive significance of the timing in relation to alleged performance deterioration and breach notices."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_005: Notes no explanation provided for the gap",
+      "verdict": "fail",
+      "reasoning": "The memorandum states under RFP 19 that 'Meridian attributes it to a RouteCast Pro/FleetBridge transition and data not migrated.' This actually provides an explanation (the system transition). The criterion asks whether the memo notes that NO explanation was provided. However, looking more carefully, the memo does identify Meridian's explanation (the RouteCast Pro/FleetBridge transition). The criterion is specifically asking whether the memo notes that no explanation was provided for the gap. Since the memo actually acknowledges that Meridian did provide an explanation (the system migration/transition), the criterion as stated ('notes that Meridian's response provides no explanation') is not satisfied - the memo says the opposite, that Meridian did provide an explanation. Therefore this is a FAIL."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_006: Identifies emails produced from only 2 of 6 identified custodians (RFP 23)",
+      "verdict": "fail",
+      "reasoning": "The memorandum's RFP 23 section states: 'About 36 indexed email entries are chiefly Brisk/Sato. MLC-003821--003979 and MLC-004103--004127 describe many Alderton--PC communications, but coded RFP 26. No text/IM production identified.' And in the executive summary: 'no RFP 23 coding for Alderton, Cho, Hale or Delaney; no texts/IMs identified.' The memo does identify that emails are chiefly from Brisk/Sato and that Alderton, Cho, Hale, and Delaney are missing from RFP 23 coding. However, the criterion requires specifically identifying that Meridian identified six custodians (Alderton, Cho, Brisk, Delaney, Hale, and Sato) but produced emails only from Brisk and Sato. The memo does not explicitly state that Meridian identified these six as custodians \u2014 it identifies the gap in production/coding but does not frame it as 'six custodians were identified and only two produced emails.' The memo mentions these names but doesn't explicitly state that all six were identified as custodians by Meridian. The criterion requires this specific framing. The memo comes close but does not explicitly state that Meridian identified six custodians and only produced from two of them in that precise way."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_006: Notes breach notice correspondence shows Alderton/Cho communicated directly with Pacific Corridor",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the memorandum to specifically note that documents produced under RFP 26 (breach notice correspondence) show that Alderton and Cho were directly involved in communications with Pacific Corridor's CEO about service failures, and that this proves responsive emails from these custodians must exist. Looking at the agent's output, the RFP 26 section discusses termination notices and breach notices but does not mention Alderton or Cho in that context. The RFP 23 section does mention 'Alderton correspondence shows direct PC communications, yet no RFP 23 coding for Alderton, Cho, Hale or Delaney,' but this is not tied to RFP 26 breach notice correspondence showing Alderton/Cho communicating directly with Pacific Corridor's CEO about service failures. The specific evidentiary basis required by the criterion\u2014that RFP 26 produced documents reveal Alderton/Cho direct communications with PC's CEO about service failures, proving responsive emails must exist\u2014is not cited in the memorandum."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_007: Identifies insufficient production of general ledger entries for capitalized maintenance (RFP 17)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses RFP 17 in the request-by-request gap matrix. It states: 'Only two-page annual summary at MLC-002004--002005; no GL/journal activity, invoices, approvals or supporting records.' The cure section says: 'Produce underlying account-level GL/journal entries and source support for FY2019--2023, especially FY2020 $5.1M alleged capitalization; provide an export if system extraction is feasible.' This matches the criterion's requirement to identify that only a single 2-page summary was produced (MLC-002004, noted as MLC-002004--002005 in the memo) without underlying journal entries, supporting invoices, or approval documentation."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_007: Connects missing ledger entries to $5.1M improper capitalization issue",
+      "verdict": "fail",
+      "reasoning": "The memorandum mentions the $5.1M alleged capitalization in RFP 17's gap entry ('especially FY2020 $5.1M alleged capitalization') and notes that only a two-page annual summary was produced with no GL/journal activity, invoices, or supporting records. However, it does not explicitly connect this to the $8.7M EBITDA discrepancy between unaudited $31.4M and audited $22.7M figures, nor does it explain that the journal entries are needed to verify whether the $5.1M in maintenance expenses was improperly capitalized to inflate reported EBITDA. The executive summary mentions the '$8.7 million FY2020 EBITDA discrepancy and its maintenance/lease components' as a critical gap, but never ties the missing ledger entries specifically to verifying the $5.1M improper capitalization as the mechanism inflating EBITDA. The connection between the missing journal entries and the specific financial misrepresentation (improper capitalization inflating EBITDA) is not explicitly made in the memorandum."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_007: Notes Meridian objected to RFP 17 as overly broad but promised production, yet produced only a single 2-page summary",
+      "verdict": "fail",
+      "reasoning": "The memorandum addresses RFP 17 (capitalized maintenance) and notes that only a 'two-page annual summary at MLC-002004--002005' was produced, with no GL/journal activity, invoices, approvals or supporting records. However, the criterion specifically requires that the memo note Meridian's objection language ('overly broad and unduly burdensome') and its promise to produce 'responsive documents sufficient to show the requested information.' The memo does not mention Meridian's specific objection language or the promise language from the response. It only notes the gap in production. The criterion requires both the inconsistency between the response (objection + promise) and the minimal production to be noted. Since the objection language and the promise language are not mentioned, the criterion is not fully satisfied."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_008: Identifies PRIV-000031 as potential crime-fraud exception candidate",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies Entry 31 (PRIV-000031) in Section V.A and raises the crime-fraud exception. It states: 'Entry 31 (PRIV-000031): described as General Counsel's January 10, 2021 advice to the CEO and Brisk about fleet-capacity representations and exposure if the actual count were disclosed. This may be a genuine confidential legal-advice communication, but the description raises a focused crime-fraud issue.' It then recommends requesting in-camera review 'under the governing prima-facie standard as to whether advice was sought or used to further prospective fraud.' This satisfies the criterion of identifying PRIV-000031 and raising the crime-fraud exception. Note that the recipients listed in the memo (CEO and Brisk) differ slightly from the criterion's specification (Graham Alderton and Nolan Brisk), but the entry number, date, and crime-fraud exception argument are clearly present."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_008: Notes PRIV-000031 was 2 days after Fleet Capacity Report and its description suggests advice on concealing fleet discrepancy",
+      "verdict": "fail",
+      "reasoning": "The agent's output discusses PRIV-000031 in Section V.A, noting it is 'General Counsel's January 10, 2021 advice to the CEO and Brisk about fleet-capacity representations and exposure if the actual count were disclosed' and raises a crime-fraud issue. However, the memorandum does not mention the January 8, 2021 Fleet Capacity Report or note that PRIV-000031 is dated two days after that report was provided to Pacific Corridor. The criterion specifically requires analysis of the timing relationship (January 10 being two days after January 8) and the significance of that timing in suggesting advice on concealing the discrepancy between 347 and 189 trucks. While the agent does flag the crime-fraud concern and the substance of the entry, it fails to analyze the specific temporal relationship to the Fleet Capacity Report delivery date."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_009: Identifies complete absence of board minutes/resolutions (RFP 5)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the RFP 5 gap in multiple places. In the executive assessment table, it notes under 'High' priority: 'RFP 5 board materials: zero documents; RFP 16 financial/account profitability analysis: categorical refusal despite counterclaim allegations relying on management/board analyses.' In the request-by-request gap matrix under RFP 5, it states: 'Zero responsive entries identified in the index; response promised nonprivileged production. No board minutes, resolutions, consents or attachments shown.' The recommended cure is to 'Search Board and committee minutes/books, consent repositories, board portal, and materials circulated to directors; produce or verify none.' This clearly identifies the complete absence of board minutes/resolutions responsive to RFP 5 and notes zero documents were produced. The criterion also asks whether no privilege log entries correspond to board materials - the memo does not explicitly state this, but it does note zero responsive entries in the index and no board materials shown, which effectively covers the gap. The criterion is substantially met."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_009: Argues board approval documents should exist for a major contract",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses RFP 5 (board materials) and notes zero responsive entries, and mentions that Meridian's counterclaim relies on board/management analyses. However, it does not make the specific argument that for a $14+ million exclusive 5-year contract, board-level approval documentation *should exist* for a company of Meridian's size (~$215M annual revenue), making the complete absence suspicious. The memo simply notes the absence and requests a search, but does not argue that the scale of the contract and company size make the absence of board approval documents suspicious or implausible."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_010: Identifies complete absence of text messages and messaging app communications",
+      "verdict": "pass",
+      "reasoning": "The memorandum does mention under RFP 23 that 'No text/IM production identified' and recommends to 'search six custodians and relevant platforms' and 'produce missing email/text/IM.' However, the criterion requires that the memo identify that RFPs 23\u201325 explicitly requested text messages and electronic messaging application communications (e.g., Slack, Teams, WhatsApp) but zero such communications were produced. The memo only briefly notes the absence of texts/IMs under RFP 23, and does not clearly tie this gap to RFPs 24 and 25 as well, nor does it explicitly name messaging platforms like Slack, Teams, or WhatsApp. That said, the criterion asks whether the gap is 'identified' \u2014 and the memo does identify that no text/IM production was found under the external communications request (RFP 23). The mention is present but limited. Looking more carefully at the criterion: it requires identification that RFPs 23\u201325 explicitly requested texts/messaging app communications and zero were produced. The memo mentions 'No texts/IMs identified' under RFP 23 and under RFP 23's cure section says 'produce missing email/text/IM.' Under RFP 24, it mentions 'supplemental privilege log and responsive index mapping' but doesn't specifically call out missing texts/IMs. The criterion is partially met for RFP 23 but not fully for RFPs 24\u201325. However, the core gap \u2014 zero text/IM production \u2014 is identified in the context of RFP 23, which is the primary external communications request. Given the criterion says 'RFPs 23\u201325' and the memo only clearly identifies the gap for RFP 23, this is a partial identification. The criterion requires identification tied to RFPs 23\u201325, not just RFP 23. I'll consider this a PASS since the gap is identified (zero texts/IMs produced) in the context of the relevant RFPs, even if not exhaustively for each of 23\u201325 individually."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_010: Notes no objection or representation that no texts exist",
+      "verdict": "fail",
+      "reasoning": "The memorandum notes under RFP 23 that 'No text/IM production identified' and requests that Meridian 'search six custodians and relevant platforms' and 'produce missing email/text/IM.' However, the criterion specifically requires that the memo note that Meridian's responses do not assert any objection specific to text messages or messaging apps, nor represent that no such communications exist, AND that the complete absence over a 29-month business relationship is implausible. The memo identifies the absence of texts/IMs but does not explicitly note that Meridian failed to assert any specific objection to text messages or represent that no such communications exist, nor does it characterize the complete absence as implausible given the length of the business relationship."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_011: Identifies 9 of 14 documents coded to RFP 27 are actually Greystone documents",
+      "verdict": "pass",
+      "reasoning": "The criterion requires identifying that 9 of 14 documents coded to RFP 27 (MLC-003980 through MLC-004055) are actually Greystone Distribution Partners documents, not Pacific Corridor documents, and appear erroneously coded. The agent's output does identify this issue in multiple places: in Section III.A it notes 'eight numbered entries spanning MLC-003980--MLC-004055 described as Greystone Distribution Partners records, unrelated to the Pacific Corridor volume/damages request; its detailed content sheet characterizes nine documents in this range as Greystone-related.' In the RFP 27 row of the gap matrix, it states 'Eight index entries MLC-003980--004055 relate to Greystone, not PC.' The agent identifies the Bates range and the Greystone connection, though it mentions 'eight numbered entries' in one place and 'nine documents' in another (matching the criterion's '9 documents'). The criterion is satisfied because the agent identifies that documents in MLC-003980 through MLC-004055 coded to RFP 27 are actually Greystone Distribution Partners materials erroneously coded, with the nine-document count explicitly mentioned in Section III.A."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_011: Notes only 5 documents actually relate to counterclaim damages",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the memorandum to note that only 5 of the 14 documents coded to RFP 27 actually relate to Pacific Corridor's volume shortfall and counterclaim damages. The agent's output states in the RFP 27 row: 'Only five entries expressly described as PC volume/damages support are identified in MLC-004056--004102.' However, it does not mention that there are 14 documents total coded to RFP 27, nor does it characterize this as '5 of 14.' The Greystone issue is noted separately (8 entries relate to Greystone), but the memo does not explicitly frame this as '5 of 14 documents coded to RFP 27 actually relate to counterclaim damages.' The criterion specifically requires noting that only 5 of the 14 documents coded to RFP 27 actually relate to Pacific Corridor's volume shortfall and counterclaim damages calculation. The agent notes 5 entries but doesn't establish the denominator of 14 or make the explicit comparison that would show the counterclaim damages support is thin in those specific terms."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_012: Identifies Pinnacle Fleet communications improperly withheld as work product (PRIV-000033 through PRIV-000040)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies entries 33\u201340 (PRIV-000033 through PRIV-000040) as problematic in Section V.A, describing them as ordinary insurance placement/renewal communications between Rebecca Cho and Pinnacle representative James Whitfield, with no lawyer listed, and challenges the work product designation because no litigation anticipation basis is apparent. This directly satisfies the criterion requiring identification of these 8 entries as improperly withheld under work product doctrine."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_012: Argues work product doctrine does not apply to pre-litigation insurer communications",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses entries 33\u201340 (the Pinnacle insurer communications) and states: 'Work product requires preparation because of anticipated litigation, not routine coverage procurement; no such basis is apparent from the descriptions or dates.' This directly articulates the FRCP 26(b)(3) standard (anticipation of litigation) and argues that the 2020\u201321 insurance placement/renewal communications are routine business communications that do not satisfy that standard. The legal basis for challenging the work product assertion is clearly articulated."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_013: Identifies that Meridian's relevance objection to RFP 16 is inconsistent with its counterclaim",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses RFP 16 in the gap matrix, noting 'No board-level presentations or comprehensive management packages identified; response refuses production' and critically states 'Counterclaim relies on these reports.' In Section II, it notes that 'Meridian's Answer/Counterclaim affirmatively says internal finance analyses, senior-management reports and board presentations document the alleged damages (Answer/Counterclaim \u00b6\u00b6 45--48, 52--53, 59, 63--65).' The executive summary also flags RFP 16 as 'High' priority with 'categorical refusal despite counterclaim allegations relying on management/board analyses.' This directly identifies the inconsistency between Meridian's relevance/proportionality objection to RFP 16 and its own $3.2 million counterclaim that relies on those very documents."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_013: Articulates the sword-and-shield doctrine argument",
+      "verdict": "fail",
+      "reasoning": "The memorandum notes that Meridian's Answer/Counterclaim 'affirmatively says internal finance analyses, senior-management reports and board presentations document the alleged damages' and that the counterclaim 'relies on these reports,' and it calls for production of board/management materials 'narrowly tailored to counterclaim allegations.' However, it never explicitly articulates the sword-and-shield doctrine by name or concept \u2014 i.e., it never argues that by affirmatively asserting the $3.2M counterclaim, Meridian has waived relevance/proportionality objections to discovery of the very financial analyses it relies upon. The memo identifies the inconsistency (Meridian pleads reliance on financial analyses yet refuses to produce them) but does not frame this as a legal waiver argument or invoke the sword-and-shield principle that a party cannot use privileged or withheld materials offensively while shielding them from discovery."
+    },
+    {
+      "id": "C-034",
+      "title": "References specific Bates numbers throughout the analysis",
+      "verdict": "pass",
+      "reasoning": "The memorandum contains numerous specific Bates number references throughout the analysis. Examples include: MLC-000001--000169 (RFP 1), MLC-000240--000258 (Fleet Capacity Report), MLC-002341--002398 (2022 policy), MLC-002399--002401 (COI), MLC-002876--003412 (dispatch logs), MLC-002004--002005 (capitalized maintenance summary), MLC-003980--004055 (Greystone records), MLC-004056--004102 (counterclaim damages), MLC-003681--003820 (damages items), MLC-000526--000738 (vehicle rights), MLC-000739--000820 (maintenance), MLC-003491--003580 (KPI dashboards), MLC-002821--002840 (termination notices), and many more. Well over 5 distinct Bates number references appear throughout the document."
+    },
+    {
+      "id": "C-035",
+      "title": "References specific privilege log entry numbers throughout the analysis",
+      "verdict": "pass",
+      "reasoning": "The memorandum references specific privilege log entry numbers multiple times: entries 12-18 (PRIV-000012--PRIV-000018), entry 31 (PRIV-000031), entries 33-40 (PRIV-000033--PRIV-000040), and also entries 1-11, 19-30, 41-43 in various sections. This exceeds the minimum of 3 distinct privilege log entry references required."
+    },
+    {
+      "id": "C-036",
+      "title": "References specific RFP numbers when discussing each gap",
+      "verdict": "pass",
+      "reasoning": "The memorandum extensively references specific RFP numbers throughout. The executive assessment mentions RFPs 8, 19, and others. Section IV contains a detailed request-by-request gap matrix covering RFPs 1 through 27, each with specific RFP numbers. The privilege log analysis references RFPs 14, 24, 25, 26. The recommended actions reference RFPs 8, 19, 23, and others. Well more than 8 distinct RFP numbers are referenced and tied to specific gaps throughout the document."
+    },
+    {
+      "id": "C-037",
+      "title": "Issues are prioritized or tiered by significance",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly uses priority labels in the executive assessment table, with entries marked as 'Critical' or 'High' priority. This satisfies criterion (c) - labels such as 'high priority,' 'critical,' or equivalent designating certain gaps as more significant than others."
+    },
+    {
+      "id": "C-038",
+      "title": "Recommends motion to compel with at least 3 specific categories of relief",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly recommends filing a motion to compel in Section VI.C ('If material disputes remain, prepare a narrow motion to compel organized by actual RFP text and the Court's Protocol/Order'). It identifies well more than 3 specific categories of relief: (1) RFP 8 carrier/subcontractor materials, (2) RFP 19 dispatch logs and preservation account for the Oct 2021\u2013Apr 2022 gap, (3) production of entries 12\u201318 and 33\u201340 from the privilege log or substantiated basis for withholding, (4) in-camera review of entry 31 (PRIV-000031), (5) FY2020 unaudited financials and complete 2020\u201323 insurance policies/endorsements, (6) board/committee materials and PC-account profitability analyses, (7) the $3.2M counterclaim damages model in native format, (8) corrected production index and RFP crosswalk, and (9) Alderton/Cho correspondence mapped to RFP 23 with search terms and mobile/IM platform coverage. This clearly satisfies the criterion of recommending a motion to compel with at least 3 specific categories of relief."
+    },
+    {
+      "id": "C-039",
+      "title": "Notes the October 1, 2024 deadline for motion to compel",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly references the October 1, 2024 deadline multiple times. In Section II it states 'the Scheduling Order sets fact discovery close September 30, 2025, but fixes October 1, 2024 as the motion-to-compel deadline for productions completed on or before August 31, 2024.' It also notes in Section VI.A that 'The latest offer to meet during the week of September 23 does not fit the October 1 special deadline if that date is needed for a motion.' Section VI.C states 'The October 1, 2024 deadline applies to this August 12 production; the Order caps motions concerning these materials on that date.' And Section VII reiterates 'A fast, focused direct conference and verified supplemental responses are necessary to preserve the October 1 motion deadline.'"
+    },
+    {
+      "id": "C-040",
+      "title": "References the meet-and-confer efforts already undertaken",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that the memorandum reference the meet-and-confer correspondence between Troy Nakamura and Samira Farouk specifically, as establishing that Pacific Corridor has attempted to resolve issues informally before seeking court intervention. The memorandum does reference meet-and-confer emails (August 19 deficiency letter, September 2 Meridian response, September 9 follow-up, September 15 latest Meridian response) and discusses the email chain in Section VI, but it never mentions Troy Nakamura or Samira Farouk by name. The criterion specifically requires reference to the correspondence between these two named individuals from the meet-confer-emails.eml file. Since the memorandum does not identify these individuals, it fails to satisfy the criterion as described."
+    },
+    {
+      "id": "C-041",
+      "title": "Correctly identifies the case number as 2:24-cv-01837-PO",
+      "verdict": "pass",
+      "reasoning": "The memorandum header clearly states the matter as 'Pacific Corridor Freight Solutions LLC v. Meridian Logistics Corp., No. 2:24-cv-01837-PO (C.D. Cal.)', which includes the correct case number 2:24-cv-01837-PO."
+    },
+    {
+      "id": "C-042",
+      "title": "Correctly identifies the court as C.D. Cal.",
+      "verdict": "pass",
+      "reasoning": "The memorandum header clearly states the matter as 'Pacific Corridor Freight Solutions LLC v. Meridian Logistics Corp., No. 2:24-cv-01837-PO (C.D. Cal.)', which correctly identifies the court as the Central District of California (C.D. Cal.)."
+    },
+    {
+      "id": "C-043",
+      "title": "Correctly identifies the total production scope (312 documents, 4,217 pages, MLC-000001 through MLC-004217)",
+      "verdict": "pass",
+      "reasoning": "The memorandum references all three elements of the production scope: '312 documents' (in Section III.A: 'its summary and the meet-and-confer email state 312 documents'), '4,217 pages' (same sentence), and 'Bates MLC-000001--MLC-004217' (same sentence). This satisfies the criterion of referencing at least two of the three elements."
+    },
+    {
+      "id": "C-044",
+      "title": "Recommends in camera review for PRIV-000031 (crime-fraud exception)",
+      "verdict": "pass",
+      "reasoning": "In Section V.A, the memorandum explicitly addresses Entry 31 (PRIV-000031) and states: 'Request a non-privileged factual basis and, if necessary, in-camera review under the governing prima-facie standard as to whether advice was sought or used to further prospective fraud, rather than merely to assess exposure.' This directly recommends in camera review as a procedural mechanism to challenge the privilege assertion over PRIV-000031 in the context of the crime-fraud exception."
+    },
+    {
+      "id": "C-045",
+      "title": "Identifies that Meridian's response to RFP 5 promised production but none materialized and no privilege entries correspond",
+      "verdict": "fail",
+      "reasoning": "The memorandum explicitly states under RFP 5 in the gap matrix: 'Zero responsive entries identified in the index; response promised nonprivileged production. No board minutes, resolutions, consents or attachments shown.' This directly identifies that Meridian's response promised production of non-privileged documents but zero documents appeared in the production index. The criterion also requires noting that no privilege log entries correspond to board materials. The memo notes zero responsive entries in the index and that the response 'promised nonprivileged production' with nothing produced, but does not explicitly state that no privilege log entries correspond to board materials. However, the executive summary table also notes 'RFP 5 board materials: zero documents; RFP 16 financial/account profitability analysis: categorical refusal despite counterclaim allegations relying on management/board analyses.' The memo does not explicitly call out the absence of privilege log entries for board materials. The criterion specifically requires noting the absence of both production AND privilege log entries. The memo notes zero production but does not explicitly note the absence of corresponding privilege log entries for RFP 5 board materials. This is a partial gap in the analysis as required by the criterion."
+    },
+    {
+      "id": "C-046",
+      "title": "Analysis covers all 27 RFPs or all seven RFP categories",
+      "verdict": "pass",
+      "reasoning": "The memorandum contains a detailed request-by-request gap matrix in Section IV that explicitly addresses all 27 RFPs individually (RFP 1 through RFP 27), each with its own row identifying the record-indicated gap and a focused cure. This satisfies the criterion of addressing all 27 RFPs individually. Additionally, the memo covers all seven RFP categories: contract formation (RFPs 1-5), fleet capacity (RFPs 6-10), insurance (RFPs 11-14), financial (RFPs 15-18), performance (RFPs 19-22), communications (RFPs 23-25), and termination/counterclaim (RFPs 26-27)."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/compare-document-production-against-discovery-requests/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/compare-document-production-against-discovery-requests",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T01:21:51.259548+00:00",
+  "cost": {
+    "input_tokens": 921903,
+    "output_tokens": 25717,
+    "wall_clock_seconds": 198.45
+  },
+  "doc_coverage": {
+    "documents_read": 9,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "scheduling-order.docx",
+      "rfps-first-set.docx",
+      "meridian-rfp-responses.docx",
+      "answer-counterclaim.docx",
+      "complaint.docx",
+      "privilege-log.xlsx",
+      "production-index.xlsx",
+      "meet-confer-emails.eml",
+      "/workspace/output/discovery-gap-analysis.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

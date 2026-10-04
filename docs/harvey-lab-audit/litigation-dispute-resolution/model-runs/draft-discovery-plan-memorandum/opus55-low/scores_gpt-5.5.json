@@ -1,0 +1,428 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "56/65 criteria passed.  Missed 9 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 65,
+  "n_passed": 56,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Identifies 35-day delay in Hartwell's litigation hold implementation",
+      "verdict": "fail",
+      "reasoning": "The memo states that Hartwell\u2019s hold issued on October 30, 2024 and notes a 37-day period measured from the Complaint, but it does not identify Pinnacle\u2019s September 25, 2024 litigation hold notice or the approximately 35-day delay from that notice to implementation. The criterion specifically requires flagging that 35-day delay with the relevant dates/timeframe."
+    },
+    {
+      "id": "C-002",
+      "title": "Identifies spoliation exposure risk from litigation hold delay",
+      "verdict": "pass",
+      "reasoning": "The memo includes a detailed preservation/spoliation risk analysis. It notes Hartwell\u2019s hold issued October 30, 2024, after Pinnacle\u2019s demand and after the Complaint, specifically references the vendor\u2019s shorter 37-day Complaint-to-hold measurement, identifies exposure from delayed preservation of texts, deleted emails, Teams/SharePoint, phones, QualTrack, and physical evidence, and warns of Rule 37(e) remedies and likely discovery-on-discovery disputes by Pinnacle. This satisfies the criterion even though it frames the stronger risk as a seven-month delay from the April demand rather than only the 35/37-day post-Complaint gap."
+    },
+    {
+      "id": "C-003",
+      "title": "Recommends forensic preservation steps to address hold delay",
+      "verdict": "pass",
+      "reasoning": "The memo identifies the hold delay and recommends multiple remedial forensic preservation steps, including verifying Microsoft 365 retention and deleted-item purges, obtaining audit/retention reports, forensic imaging of Brecker\u2019s iPhone/iCloud and Ostrowski\u2019s phone/photos, checking Teams/SharePoint retention, reviewing deletion gaps before making disclosures, and disclosing any known lost categories. This satisfies the criterion."
+    },
+    {
+      "id": "C-004",
+      "title": "Identifies Tom Brecker's personal cell phone texts as discoverable",
+      "verdict": "pass",
+      "reasoning": "The memo specifically addresses Tom Brecker's phone, states that his texts with Pinnacle's Daniel Marsh were frequent and covered relevant issues, identifies them as a likely Rule 37(e) preservation battleground, and calls for forensic imaging/collection and production under a privacy protocol."
+    },
+    {
+      "id": "C-005",
+      "title": "Discusses legal/practical challenges for personal device collection",
+      "verdict": "pass",
+      "reasoning": "The memo identifies specific challenges for collecting Brecker's personal-device data, including potential Rule 37(e) issues, deletion/iCloud backup questions, need for forensic imaging, employee consent, lack of BYOD policy, and use of a privacy protocol for targeted extraction/production."
+    },
+    {
+      "id": "C-006",
+      "title": "Flags litigation hold's failure to mention personal device texts",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that as of the vendor assessment the hold \u201cleft out ... text messages on personal devices,\u201d and recommends a supplemental hold expressly covering personal devices and texts, identifying the preservation gap."
+    },
+    {
+      "id": "C-007",
+      "title": "Identifies Ostrowski red-flag emails as highly damaging evidence",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies Ray Ostrowski\u2019s July 2023 emails to Diane Kowalski and James Fenton warning about porosity and voids in HV-4400 castings, states they support Pinnacle\u2019s fraud allegations, calls them responsive and likely producible, and warns they are among Hartwell\u2019s \u201cworst documents.\u201d This satisfies the criterion."
+    },
+    {
+      "id": "C-008",
+      "title": "Identifies Kowalski's instruction to proceed despite casting irregularities",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the July 2023 emails in which Ostrowski reported porosity/void issues and states that Ms. Kowalski \u201ctold him to keep going,\u201d which identifies her instruction to proceed despite the casting irregularities. Although it does not use the exact phrase \u201cwithin tolerance,\u201d the required instruction is discussed."
+    },
+    {
+      "id": "C-009",
+      "title": "Identifies Fenton's forward of Ostrowski email to Brecker",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that on July 23, 2023, Mr. Fenton forwarded the Ostrowski email chain to Tom Brecker with the note \u201ckeep an eye on this with the customer,\u201d satisfying the criterion despite omitting \u201cFYI.\u201d"
+    },
+    {
+      "id": "C-010",
+      "title": "Identifies Brecker's non-disclosure of casting concerns to Pinnacle",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Brecker receiving the July 2023 email chain and recommends collecting/producing his communications with Pinnacle, but it does not state or analyze the absence of evidence that Brecker communicated the casting irregularity concerns to Pinnacle."
+    },
+    {
+      "id": "C-011",
+      "title": "Acknowledges Ostrowski emails cannot be withheld and must be produced",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the July 2023 Ostrowski email chain is responsive to likely requests and that Hartwell \u201cwill have to produce them,\u201d and it advises against strategies that would highlight those documents. This acknowledges they cannot be withheld as privileged."
+    },
+    {
+      "id": "C-012",
+      "title": "Recommends early assessment of Ostrowski emails' impact on strategy",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly recommends early strategic assessment of the Ostrowski emails, stating they undermine a Rule 9(b)/fraud-first strategy, affect preservation and production obligations, require prompt interviews/collection, and should inform realistic settlement valuation and defense amendments."
+    },
+    {
+      "id": "C-013",
+      "title": "Identifies fraud claim/consequential damages cap interaction",
+      "verdict": "pass",
+      "reasoning": "The memo expressly connects the fraud claim to potential unenforceability or exception to the MSA damages limitation/cap, noting Pinnacle's position that \u00a7 12 is unenforceable because of fraud, discussing Ohio's fraud exception to limitation clauses, and warning that whether the fraud exception applies depends on facts about Hartwell's knowledge and conduct. It also draws strategic discovery implications, recommending against fraud-first phasing because it would focus discovery on harmful fraud-related documents and suggesting a single-track schedule with only pure contract-interpretation issues briefed early."
+    },
+    {
+      "id": "C-014",
+      "title": "Correctly states Ohio law on fraud claims and liability caps",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses the relevant legal framework, noting that Ohio law recognizes a fraud exception to limitation-of-liability clauses and that whether the fraud exception to the cap applies will depend on facts regarding Hartwell\u2019s knowledge and conduct. It does not assume the cap definitively applies."
+    },
+    {
+      "id": "C-015",
+      "title": "Recommends discovery to support enforceability of consequential damages cap",
+      "verdict": "pass",
+      "reasoning": "The memo recommends discovery aimed at supporting enforcement of the MSA damages limitation/exclusion, including seeking pre-contract negotiations and drafting history of MSA \u00a7\u00a7 8, 9, and 12 relevant to Pinnacle\u2019s unconscionability challenge and non-reliance, as well as discovery on fraud/reliance and damages categories relevant to whether the \u00a7 12 limitation/exclusion applies. This satisfies the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "Recommends discovery to undermine Pinnacle's fraud claim",
+      "verdict": "pass",
+      "reasoning": "The memo recommends several discovery steps aimed at challenging Pinnacle\u2019s fraud claim, including interrogatories requiring Pinnacle to identify each allegedly false representation with speaker/date/medium, discovery into the factual sources for its information-and-belief fraud allegations, requests for receipt/acceptance and QA package records bearing on reliance, procurement/pre-contract negotiation discovery relevant to non-reliance, and communications with Hartwell employees to test Pinnacle\u2019s fraud narrative. Although the memo recognizes damaging internal emails, it still proposes discovery to undermine fraud elements such as falsity, reliance, and source of knowledge."
+    },
+    {
+      "id": "C-017",
+      "title": "Addresses Rule 45 subpoenas to Great Lakes Foundry Partners",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses non-party Rule 45 discovery to Great Lakes Foundry Partners, LLC in Erie, PA, recommending subpoenas for heat/lot records, heat-treatment records, RT/UT records, MTRs/material records, NCRs, customer complaints, and communications with Hartwell related to the HV-4400 castings."
+    },
+    {
+      "id": "C-018",
+      "title": "Addresses practical challenges of third-party discovery from Great Lakes",
+      "verdict": "pass",
+      "reasoning": "The memo recommends a subpoena to Great Lakes but also addresses a practical/legal challenge by noting Rule 45 logistics, including 14-day advance notice and that subpoena compliance would be in the Western District of Pennsylvania under Rule 45(c). This satisfies the criterion\u2019s example of discussing geographic limitations for non-party discovery."
+    },
+    {
+      "id": "C-019",
+      "title": "Identifies QualTrack database ESI production challenges",
+      "verdict": "pass",
+      "reasoning": "The memo specifically discusses QualTrack as an ESI source and challenge: it identifies it as an on-premises/legacy in-house system with CSV-only export, no full-text search, limited export functionality, and no attachments/images export. It addresses production format issues using fielded CSV/load files, data dictionaries, screenshots, and possible demonstrations, and expressly considers and rejects a Rule 26(b)(2)(B) 'not reasonably accessible' argument because the system is actively used."
+    },
+    {
+      "id": "C-020",
+      "title": "Proposes strategy for managing QualTrack production",
+      "verdict": "pass",
+      "reasoning": "The memo offers a concrete QualTrack production strategy: complete CSV export of records, schema/data dictionary and screenshots, fielded load files, structured query/demo options, vendor/IT involvement, and an explicit negotiating position not to claim inaccessibility. This satisfies the criterion."
+    },
+    {
+      "id": "C-021",
+      "title": "Proposes discovery into Pinnacle's failure to mitigate downtime damages",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends targeted discovery into Pinnacle's mitigation and downtime damages, including shutdown scope, partial operation, replacement valve RFQs/bids/POs/lead times, decisions not to pursue fitness-for-service or return 18 clean valves to service, and whether replacement could occur in about 90 days rather than 454.5 days."
+    },
+    {
+      "id": "C-022",
+      "title": "Recommends discovery into Pinnacle's actual financial losses",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends discovery into Pinnacle\u2019s damages support, including the $18,522/day figure, twelve-month historical data, offtaker contracts, penalty claims, invoices, insurance recoveries, and underlying operating/financial data. It also seeks operational records such as shutdown scope, maintenance/failure records, SCADA/DCS operating histories, and mitigation documents, which would help test actual losses and potential pre-existing operational issues."
+    },
+    {
+      "id": "C-023",
+      "title": "Proposes phased discovery with strategic rationale",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses phased discovery but expressly recommends against fraud-first or liability-first phasing and instead proposes a single-track discovery schedule, with only an early summary judgment window that does not phase or stay discovery. Thus it does not recommend at least two discovery phases with a strategic rationale."
+    },
+    {
+      "id": "C-024",
+      "title": "Phase 1 focused on contract/warranty/fraud claim viability",
+      "verdict": "fail",
+      "reasoning": "The memo expressly recommends against fraud-first or liability-first phased discovery and instead proposes a single-track schedule covering all claims, counterclaim, and damages, with damages discovery running early. Although it suggests an early partial summary judgment window for some contract-interpretation issues, it does not designate Phase 1 or an initial discovery phase focused on contract/warranty issues or fraud claim viability rather than full damages discovery."
+    },
+    {
+      "id": "C-025",
+      "title": "Connects phasing to early partial summary judgment opportunity",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses \u201cPhased Discovery and Early Motions,\u201d rejects fraud-first phasing due to factual risks, and proposes a single-track schedule paired with an early partial summary judgment window for contract-interpretation issues, including limitations/exclusions of damages and misrepresentation-related cap issues. It also lists the October 31, 2025 discovery cutoff and January 15, 2026 dispositive motions deadline in the proposed schedule."
+    },
+    {
+      "id": "C-026",
+      "title": "Proposes specific timeframes aligned with court schedule",
+      "verdict": "pass",
+      "reasoning": "The memorandum proposes specific discovery timeframes and dates, including the Rule 26(f) conference by February 10, 2025, initial disclosures/joint report by February 24, 2025, fact and expert discovery cutoff October 31, 2025, dispositive motions January 15, 2026, and trial May 4, 2026. It also includes interim dates for ESI protocol, productions, subpoenas, physical inspection, expert reports, and privilege logs aligned with the court schedule."
+    },
+    {
+      "id": "C-027",
+      "title": "Addresses privilege concerns for joint inspection communications",
+      "verdict": "pass",
+      "reasoning": "The memo addresses Margaret Liu\u2019s dual legal/business role, states that she coordinated the joint inspection, warns that Pinnacle may treat her as a fact witness and seek discovery into the basis for her statements, notes possible at-issue waiver, and recommends careful privilege logging and separating business from legal communications. Although it does not specifically name every communication before/during the May 10 inspection or Kowalski in that privilege section, it sufficiently flags privilege/work-product concerns tied to the joint inspection and Liu-related communications."
+    },
+    {
+      "id": "C-028",
+      "title": "Identifies waiver risk from sharing attorney communications in joint context",
+      "verdict": "fail",
+      "reasoning": "The memo discusses privilege generally, Margaret Liu\u2019s dual role, potential at-issue waiver, and cautions that no common-interest arrangement should be assumed with Great Lakes. However, it does not analyze waiver risk specific to the joint inspection context\u2014e.g., attorney communications or strategy being shared with non-attorney participants or adversaries during joint inspection activities. The criterion expressly requires that joint-inspection-specific waiver risk be analyzed."
+    },
+    {
+      "id": "C-029",
+      "title": "Identifies Liu's response letter as potential privilege risk",
+      "verdict": "pass",
+      "reasoning": "The memo specifically flags Margaret Liu\u2019s April 22, 2024 letter as a privilege/witness risk, stating that it relayed the results of her consultation with Quality/Director of Quality and that Pinnacle may seek discovery into the basis for those statements or argue at-issue waiver. This satisfies the criterion even though it does not quote the exact phrase \u201cconsulted with our quality assurance team.\u201d"
+    },
+    {
+      "id": "C-030",
+      "title": "Addresses counterclaim discovery needs for $612,400 unpaid invoices",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses discovery for the $612,400 unpaid-invoices counterclaim, including requests for Pinnacle\u2019s receipt of the invoices for the three unpaid POs, any MSA \u00a7 4.4 dispute notices, internal communications/decision to withhold payment, and accounts payable records. It also discusses counterclaim liability under the MSA and related interrogatories on set-off."
+    },
+    {
+      "id": "C-031",
+      "title": "Flags hardcopy inspection binders as preservation gap",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the hardcopy QA/inspection binders as a preservation issue: it states the hold left out the hardcopy QA binders, discusses their retention problem, and includes an action item to supplement the hold to cover hardcopy binders and inventory/scan them."
+    },
+    {
+      "id": "C-032",
+      "title": "Recommends inventory/preservation of HV-4400 hardcopy binders",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends corrective action for the hardcopy QA/inspection binders: a supplemental hold covering hardcopy binders and an action item to \u201cInventory the 8\u201312 QA binders, chain of custody, scan with OCR.\u201d This satisfies the requirement for inventory/preservation of HV-4400-related hardcopy binders."
+    },
+    {
+      "id": "C-033",
+      "title": "Notes litigation hold omits Ray Ostrowski as custodian",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly flags that Hartwell\u2019s hold omitted Ray Ostrowski, including noting that the hold 'left out Ostrowski' and recommending a supplemental hold adding him. It also identifies Ostrowski\u2019s July 2023 emails as critical evidence responsive to Pinnacle\u2019s fraud allegations."
+    },
+    {
+      "id": "C-034",
+      "title": "Notes litigation hold omits QualTrack database",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that, as of November 15, 2024, the litigation hold \u201cleft out\u201d QualTrack, and later recommends a supplemental hold expressly covering QualTrack."
+    },
+    {
+      "id": "C-035",
+      "title": "Identifies key Hartwell custodians",
+      "verdict": "pass",
+      "reasoning": "The memo identifies all six specified Hartwell custodians: Gerald/G.T. Hartwell, Tom Brecker, Diane Kowalski, James Fenton, Margaret Liu, and Ray Ostrowski, including in the custodian lists and related discussion."
+    },
+    {
+      "id": "C-036",
+      "title": "Provides custodian priority rankings",
+      "verdict": "pass",
+      "reasoning": "The memo provides custodian prioritization by identifying initial Hartwell custodians and specifically designating Gerald Hartwell as a Tier 2 custodian; it also references Tier 1 custodians/QA engineers in preservation and ESI sections."
+    },
+    {
+      "id": "C-037",
+      "title": "Identifies Microsoft 365 as a data source",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Microsoft 365 as a relevant ESI data source multiple times, including noting no platform-level Microsoft 365 hold, Purview holds on mailboxes/OneDrive/Teams, and listing Microsoft 365 Exchange Online, Teams, SharePoint/OneDrive in the ESI sources table."
+    },
+    {
+      "id": "C-038",
+      "title": "Identifies SAP S/4HANA (ERP) as a data source",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies SAP S/4HANA as an ESI data source in the ESI Sources table, describing it as containing POs, work orders, material receipts, QM inspection lots, shipping, invoicing, and A/R data. It also references SAP extractions and PO registers elsewhere."
+    },
+    {
+      "id": "C-039",
+      "title": "Identifies QualTrack database as a data source",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly identifies QualTrack as a relevant data source, including in preservation actions, ESI protocol discussions, and a dedicated ESI source list entry describing QualTrack records and export format."
+    },
+    {
+      "id": "C-040",
+      "title": "Identifies Brecker's personal cell phone as a data source",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Brecker\u2019s phone as a relevant data source, including noting that the \u201cBrecker phone had not been imaged,\u201d calling his texts with Daniel Marsh a likely Rule 37(e) issue, and listing forensic imaging of \u201cBrecker\u2019s iPhone and iCloud\u201d under pre-conference action items."
+    },
+    {
+      "id": "C-041",
+      "title": "Identifies key Pinnacle custodians for outbound discovery",
+      "verdict": "pass",
+      "reasoning": "The memo identifies all four specified Pinnacle individuals as discovery targets: Sandra Reeves, Kevin Alcott, Daniel Marsh, and Richard Okonkwo are listed in the deposition plan, and several are also included as demanded custodians/interrogatory topics."
+    },
+    {
+      "id": "C-042",
+      "title": "Recommends subpoena to Whitmore Testing / Dr. Cho",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Whitmore Testing Laboratories as a non-party discovery target for subpoenas if Pinnacle does not produce raw data, images, and chain-of-custody materials, and it seeks the Whitmore file including communications, lab notes, raw data, photographs, drafts, and invoices. It also discusses Dr. Cho/Whitmore issues as deposition topics."
+    },
+    {
+      "id": "C-043",
+      "title": "Addresses Rule 9(b) particularity defense against fraud claim",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses a Rule 9(b) particularity defense to Pinnacle's fraud claim, including Hartwell's potential Rule 9(b) argument and why it is strategically unwise given the complaint's details and the Ostrowski emails. It connects this analysis directly to phased discovery and early dispositive motion strategy in Part IV."
+    },
+    {
+      "id": "C-044",
+      "title": "References the $45,000 estimated document universe",
+      "verdict": "pass",
+      "reasoning": "The memo expressly references the vendor's \u201c45,000-document planning figure\u201d in the ESI protocol cost estimate section, which satisfies the requirement to mention the approximately 45,000 potentially relevant documents from the preliminary assessment."
+    },
+    {
+      "id": "C-045",
+      "title": "References estimated e-discovery costs of $175K\u2013$250K",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly includes a \u201cCost estimate (vendor): $175,000--$250,000 total\u201d in the ESI protocol section, satisfying the required e-discovery cost reference."
+    },
+    {
+      "id": "C-046",
+      "title": "Does not flag arbitration clause as a discovery plan issue",
+      "verdict": "pass",
+      "reasoning": "The memorandum does not flag a mandatory arbitration clause as a live discovery-planning issue, does not suggest the case should be arbitrated, and does not recommend altering discovery because of arbitration. It only briefly mentions negotiation/mediation conditions and forum/venue issues, which is not the prohibited arbitration analysis."
+    },
+    {
+      "id": "C-047",
+      "title": "Scopes discovery to HV-4400 valves rather than all products",
+      "verdict": "pass",
+      "reasoning": "The memorandum consistently focuses discovery on the HV-4400 valves, especially the 48 valves at issue, related lots/heats, QA records, QualTrack/SAP data, and physical evidence tied to those valves. It does not recommend discovery into the 212 standard gate valves or 27 check valves as disputed products, and it expressly suggests resisting broad company-wide product-line discovery."
+    },
+    {
+      "id": "C-048",
+      "title": "Memo references the Rule 26(f) conference date of February 10, 2025",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the CMO requires the Rule 26(f) conference by February 10, 2025, and the schedule also notes the conference must occur no later than Feb. 10."
+    },
+    {
+      "id": "C-049",
+      "title": "Memo references correct case number",
+      "verdict": "pass",
+      "reasoning": "The memo caption references the case as No. 1:24-cv-02187-JRA, which matches the required case number."
+    },
+    {
+      "id": "C-050",
+      "title": "Correctly states the consequential damages cap amount as $5,811,300",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that both sides refer to Section 12 as a \u201cconsequential damages cap\u201d of $5,811,300, and elsewhere lists Hartwell\u2019s position as a consequential cap of $5,811,300. The required amount is mentioned correctly."
+    },
+    {
+      "id": "C-051",
+      "title": "Correctly states total claimed damages as $14.7 million",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states \u201cAgainst $14.7M claimed,\u201d which correctly references Pinnacle\u2019s total claimed damages of $14.7 million."
+    },
+    {
+      "id": "C-052",
+      "title": "Correctly states counterclaim amount as $612,400",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the counterclaim amount as $612,400, including in the case snapshot table and in the initial disclosures section as unpaid invoices/counterclaim damages."
+    },
+    {
+      "id": "C-053",
+      "title": "Addresses Pinnacle's hold notice requesting personal device preservation",
+      "verdict": "fail",
+      "reasoning": "The memo discusses preservation of texts and personal devices, including Brecker\u2019s phone, and references an April 5 demand letter requesting text-message preservation. However, it does not note that Pinnacle\u2019s September 25, 2024 litigation hold notice specifically requested preservation of all communications, including text and instant messages, on any company-owned or personal device. The specific hold-notice demand required by the criterion is not discussed."
+    },
+    {
+      "id": "C-054",
+      "title": "Discusses installation torque specification defense and related discovery",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly addresses the installation torque defense, noting Hartwell\u2019s position that installation torque may have contributed, that Hartwell bears the burden under MSA \u00a7 8.4, and cautioning that Whitmore\u2019s report rejected over-torque evidence. It also recommends targeted discovery to support or test the defense, including contractor identity, torque logs, installation procedures, commissioning/hydrotest records, operating histories, installation contractor discovery, and a valve/installation expert."
+    },
+    {
+      "id": "C-055",
+      "title": "Identifies Whitmore report's distinction between casting defects and heat treatment",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Whitmore generally and refers to foundry-origin defects, both failure modes, NDE, hardness testing, and heat-treatment records, but it does not state the required distinction that Whitmore found 9 of 11 valves had micro-porosity/casting defects while 2 had cracking from improper heat treatment. It therefore does not satisfy the specific criterion."
+    },
+    {
+      "id": "C-056",
+      "title": "Addresses the 19 additional valves with ultrasonic indications",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses the 19 additional HV-4400 valves with ultrasonic indications, notes they had not been confirmed defective by Whitmore, questions the reliability of Pinnacle\u2019s pulse-echo UT testing, seeks raw UT data and inspector qualifications, ties the issue to mitigation and replacement of all 48 valves, and cautions not to stipulate that the 19 valves are defective."
+    },
+    {
+      "id": "C-057",
+      "title": "Proposes ESI format positions for Rule 26(f) meet and confer",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes specific ESI production format positions for the Rule 26(f) meet and confer, including TIFF with extracted text and metadata load files, native production for spreadsheets/CAD/structured data/photos, CSV exports for QualTrack/SAP, and RSMF or threaded PDFs for texts."
+    },
+    {
+      "id": "C-058",
+      "title": "Proposes search methodology for ESI",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly proposes ESI search methodology, including custodian-based keyword searches, hit reports, iterative negotiation, structured data field filters, date ranges, draft search strings, and possible use of TAR/continuous active learning with validation."
+    },
+    {
+      "id": "C-059",
+      "title": "References the MSA's warranty provision and applicable standards",
+      "verdict": "fail",
+      "reasoning": "The memo mentions MSA Section 8 in passing, including \u00a7 8.4, \u00a7 8.5, and \u00a7 8.6, and references API 600 in an expert context. However, it does not state the MSA warranty provision guaranteeing conformance to API 600 and/or ASME B16.34, nor does it mention a 24-month warranty period. Therefore, the required warranty terms are not referenced."
+    },
+    {
+      "id": "C-060",
+      "title": "Addresses Great Lakes' role per Whitmore report",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Great Lakes as the foundry, notes Whitmore attributed defects to foundry-origin issues, and recommends third-party discovery from Great Lakes including heat-treatment furnace charts. However, it does not specifically state the required Whitmore finding that heat treatment is typically performed by the foundry, Great Lakes, rather than the valve manufacturer, Hartwell. Because that specific finding is not discussed, the criterion is not satisfied."
+    },
+    {
+      "id": "C-061",
+      "title": "Recommends specific types of records to subpoena from Great Lakes",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies multiple categories of records to subpoena from Great Lakes, including heat/lot records, heat-treatment furnace charts, RT/UT records, MTRs/material records, NCRs/customer complaints, process documents, and communications with Hartwell. This satisfies the requirement to specify at least two qualifying record types."
+    },
+    {
+      "id": "C-062",
+      "title": "Addresses discovery into Pinnacle's decision to withhold invoice payments",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends discovery into counterclaim records, including receipt of invoices for the three unpaid POs, any dispute notices, \u201cthe internal decision to withhold payment,\u201d and \u201caccounts payable records.\u201d This directly addresses Pinnacle\u2019s decision-making regarding withheld invoice payments."
+    },
+    {
+      "id": "C-063",
+      "title": "Discusses proportionality under Rule 26(b)(1)",
+      "verdict": "pass",
+      "reasoning": "The memo discusses proportionality in managing discovery scope and costs, including limiting other-customer discovery to same lots/heats on proportionality grounds, assessing ESI review costs against the $14.7M amount in controversy, and framing requests as subject to proportionality. This satisfies the Rule 26(b)(1) proportionality criterion."
+    },
+    {
+      "id": "C-064",
+      "title": "Addresses settlement posture implications of discovery strategy",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses settlement posture in the Rule 26(f) agenda, proposing early mediation after core document exchange and joint testing, and noting that the Ostrowski emails and MSA terms require a realistic valuation before mediation. It also ties discovery priorities to strategic leverage and risk assessment."
+    },
+    {
+      "id": "C-065",
+      "title": "Identifies discovery cutoff date as October 31, 2025",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references discovery closing/cutoff as October 31, 2025, including in the proposed schedule as \u201cFact and expert discovery close \u2014 Oct. 31, 2025\u201d and in the recommended single-track discovery schedule."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-discovery-plan-memorandum/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-discovery-plan-memorandum",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T02:12:56.082151+00:00",
+  "cost": {
+    "input_tokens": 20,
+    "output_tokens": 26746,
+    "wall_clock_seconds": 284.5
+  },
+  "doc_coverage": {
+    "documents_read": 8,
+    "total_documents": 10,
+    "documents_skipped": 2,
+    "documents_read_list": [
+      "case-management-order.docx",
+      "pinnacle-v-hartwell-complaint.docx",
+      "hartwell-answer-counterclaim.docx",
+      "aldersgate-ediscovery-assessment.docx",
+      "hartwell-litigation-hold-memo.docx",
+      "pre-litigation-correspondence.docx",
+      "whitmore-testing-report.docx",
+      "hartwell-pinnacle-msa.docx"
+    ],
+    "documents_skipped_list": [
+      "ostrowski-internal-emails.eml",
+      "pinnacle-hold-notice.eml"
+    ]
+  }
+}

@@ -15,6 +15,12 @@ Subcommands:
     ``task.json`` at the pinned commit (network access to GitHub required). Refuses
     to overwrite an existing worksheet, which holds the reviewer's verdicts.
 
+``runs``
+    Insert or refresh, for every worksheet item, how the published GPT-6 Luna and
+    Claude Opus 5.5 runs were graded on that criterion (see ``harvey_model_runs.py``).
+    The block sits between ``<!-- runs:start -->`` markers and never touches the
+    reviewer's verdict fields.
+
 ``tally``
     Check that the worksheet still lists exactly the seeded draw, count the
     reviewer's verdicts, and report the exact one-sided hypergeometric lower bound
@@ -23,6 +29,7 @@ Subcommands:
 Example::
 
     uv run python scripts/harvey_review_sample.py draw
+    uv run python scripts/harvey_review_sample.py runs
     uv run python scripts/harvey_review_sample.py tally"""
 
 from __future__ import annotations
@@ -52,6 +59,14 @@ from harvey_dual_audit_core import (
     load,
 )
 from harvey_dual_audit_render import sol_report_name
+from harvey_model_runs import (
+    CONDITIONS,
+    JUDGES,
+    one_line,
+    results_by_criterion,
+    scores,
+    verdict_word,
+)
 
 REVIEW_DIR = AUDIT_DIR / "human-review"
 
@@ -73,6 +88,10 @@ DOCS_URL = TASKS_URL.replace("/blob/", "/tree/")
 RAW_URL = f"https://raw.githubusercontent.com/harveyai/harvey-labs/{PINNED}/tasks/litigation-dispute-resolution"
 
 BUCKET_LABELS = dict(BUCKETS)
+
+RUNS_START = "<!-- runs:start -->"
+
+RUNS_END = "<!-- runs:end -->"
 
 
 def population(rows: list[Json]) -> list[Json]:
@@ -224,6 +243,103 @@ def cmd_draw() -> None:
     print(f"Drew {len(sample)} of {len(pop)} flagged criteria into {REVIEW_DIR}.")
 
 
+def runs_block(task: str, crit: str) -> list[str]:
+    """How each published model run was graded on one sampled criterion."""
+    table = [
+        "| Run | "
+        + " | ".join(label for _, label in JUDGES)
+        + " | Other criteria failed ("
+        + " / ".join(label for _, label in JUDGES)
+        + ") |",
+        "|---|" + "---|" * (len(JUDGES) + 1),
+    ]
+    reasons: list[str] = []
+    for slug, label, *_ in CONDITIONS:
+        judged = scores(task, slug)
+        if not judged:
+            continue
+        page = f"../model-runs/{task}/{slug}/README.md"
+        cells: list[str] = []
+        others: list[str] = []
+        for judge, judge_label in JUDGES:
+            graded = results_by_criterion(judged[judge])
+            result = graded.get(crit)
+            cells.append(verdict_word(result))
+            others.append(
+                str(
+                    sum(
+                        1
+                        for other, r in graded.items()
+                        if other != crit and r.get("verdict") != "pass"
+                    )
+                )
+            )
+            reasoning = one_line(result.get("reasoning", "")) if result else ""
+            reasons.append(
+                f"- **{label}, {judge_label}: {verdict_word(result)}.** {reasoning}"
+            )
+        table.append(
+            f"| [{label}]({page}#{crit.lower()}) | "
+            + " | ".join(cells)
+            + f" | {' / '.join(others)} |"
+        )
+    if not reasons:
+        return [RUNS_START, RUNS_END]
+    return [
+        RUNS_START,
+        "<details><summary>How the model runs were graded (open after forming your "
+        "own view)</summary>",
+        "",
+        "Native LAB grades of the published runs; the judges are AI models and can "
+        "misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a "
+        "judge only if every criterion passes, so a Fail here with 0 other failures "
+        "would by itself have zeroed that judge's score. Each run link opens the "
+        "deliverables and every criterion's grades.",
+        "",
+        *table,
+        "",
+        *reasons,
+        "",
+        "</details>",
+        RUNS_END,
+    ]
+
+
+def add_runs(text: str) -> str:
+    """Insert or refresh each worksheet item's runs block, leaving verdicts alone."""
+    head, *items = re.split(r"(?m)^(?=## \d+\. )", text)
+    out = [head]
+    for item in items:
+        crit = item.splitlines()[0].rsplit("— ", 1)[1].strip()
+        found = re.search(r"\]\(\.\./tasks/([^/]+)/README\.md\)", item)
+        if not found:
+            sys.exit(f"worksheet item for {crit} has no task link")
+        block = "\n".join(runs_block(found.group(1), crit))
+        if RUNS_START in item:
+            item = re.sub(
+                re.escape(RUNS_START) + r".*?" + re.escape(RUNS_END),
+                lambda _m, block=block: block,
+                item,
+                flags=re.S,
+            )
+        else:
+            item = item.replace("- **Verdict:**", block + "\n\n- **Verdict:**", 1)
+        out.append(item)
+    return "".join(out)
+
+
+def cmd_runs() -> None:
+    worksheet = REVIEW_DIR / "worksheet.md"
+    text = worksheet.read_text(encoding="utf-8")
+    updated = add_runs(text)
+    if [v[1:] for v in parse_worksheet(updated)] != [
+        v[1:] for v in parse_worksheet(text)
+    ]:
+        sys.exit("refusing to write: the runs block changed parsed verdicts")
+    worksheet.write_text(updated, encoding="utf-8")
+    print(f"Updated model-run grades for {len(parse_worksheet(updated))} items.")
+
+
 def parse_worksheet(text: str) -> list[tuple[str, str, str, str]]:
     """(task, criterion, verdict, AI reasoning) per item, in worksheet order."""
     items = re.split(r"^## \d+\. ", text, flags=re.M)[1:]
@@ -285,9 +401,9 @@ def cmd_tally() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
-    parser.add_argument("command", choices=["draw", "tally"])
+    parser.add_argument("command", choices=["draw", "runs", "tally"])
     args = parser.parse_args()
-    {"draw": cmd_draw, "tally": cmd_tally}[args.command]()
+    {"draw": cmd_draw, "runs": cmd_runs, "tally": cmd_tally}[args.command]()
 
 
 if __name__ == "__main__":

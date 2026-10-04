@@ -1,0 +1,428 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "60/64 criteria passed.  Missed 4 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 64,
+  "n_passed": 60,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Timeline includes EDA execution date of March 15, 2020",
+      "verdict": "pass",
+      "reasoning": "The timeline contains a March 15, 2020 entry stating \u201cEDA executed\u201d with Stanton/Beckett, and it identifies key EDA provisions. In context, the EDA is the Exclusive Distribution Agreement between Greenleaf Organics and Harborview Distribution Partners."
+    },
+    {
+      "id": "C-002",
+      "title": "Timeline includes Year 1 performance ($4.3M vs $4.0M minimum)",
+      "verdict": "pass",
+      "reasoning": "The timeline expressly includes a Phase I entry for Mar. 15, 2020\u2013Mar. 14, 2021 stating Year 1 purchases were $4.3M against a $4.0M minimum, exceeding by $300K."
+    },
+    {
+      "id": "C-003",
+      "title": "Timeline includes Year 2 performance ($6.1M vs $5.5M minimum)",
+      "verdict": "pass",
+      "reasoning": "The timeline expressly includes a Phase I entry for March 15, 2021\u2013March 14, 2022 stating Year 2 purchases of $6.1M against a $5.5M minimum, exceeding by $600K."
+    },
+    {
+      "id": "C-004",
+      "title": "Timeline includes June 8, 2022 Holcomb-to-Yee email (Cascade trial run)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a June 8, 2022 entry stating Holcomb emailed Yee to start a small trial run of 2 pallets of Trail Mix Bars and to \u201cKeep it quiet for now,\u201d with additional context about keeping it informal/off the books."
+    },
+    {
+      "id": "C-005",
+      "title": "Timeline includes August 22, 2022 Holcomb-to-Stanton email (Cascade outperforming)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an August 22, 2022 entry describing Holcomb emailing Stanton that Cascade was moving product faster than Harborview and recommending/phasing or transitioning Harborview out of Portland metro."
+    },
+    {
+      "id": "C-006",
+      "title": "Timeline includes September 14, 2022 Stanton-to-Fong email (tighten QA)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a September 14, 2022 entry identifying Stanton \u2192 Fong and quoting the directive to \u201ctighten up QA on the Harborview batches\u201d and hold them to \u201cthe highest standard.\u201d"
+    },
+    {
+      "id": "C-007",
+      "title": "Timeline includes October 3, 2022 Fong-to-Stanton email (selective QA admission)",
+      "verdict": "pass",
+      "reasoning": "The timeline contains an October 3, 2022 entry for Fong \u2192 Stanton stating that enhanced screening was applied to lots H-2209 through H-2215, 4 lots were rejected, and the same criteria would have flagged at least 2 Cascade lots that were not in the enhanced screening protocol."
+    },
+    {
+      "id": "C-008",
+      "title": "Timeline includes December 1, 2022 Holcomb-to-Stanton email (cover story)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a December 1, 2022 entry for Holcomb to Stanton stating that Randy/Beckett was asking why shipments were down and Holcomb told him it was due to supply chain issues, with strategic annotation about falsity/scienter."
+    },
+    {
+      "id": "C-009",
+      "title": "Timeline includes December 15, 2022 non-renewal notice deadline",
+      "verdict": "pass",
+      "reasoning": "The output references the December 15, 2022 non-renewal deadline multiple times, including noting Holcomb flagged the \u201cDecember 15\u201d non-renewal deadline and explaining that no notice was sent to prevent auto-renewal, even though the agent also states it believes the correct deadline was December 14."
+    },
+    {
+      "id": "C-010",
+      "title": "Timeline includes January 3, 2023 Stanton-to-Ivers email (termination strategy)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a January 3, 2023 entry for Stanton \u2192 Ivers (GL-PROD-007834) quoting that Greenleaf needed to move on terminating Harborview because they were not hitting minimums and to \u201cuse that as the basis.\u201d"
+    },
+    {
+      "id": "C-011",
+      "title": "Timeline includes January 10, 2023 Notice of Material Breach",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a January 10, 2023 entry titled 'Notice of Material Breach' signed by Holcomb, stating Year 3 purchases were about $4,270,000 with a $2.73M shortfall and demanding cure within 30 days by purchase plan or purchases to reduce/eliminate the shortfall. This satisfies the required date, notice, failure to meet Year 3 minimum purchase commitment, and 30-day cure demand."
+    },
+    {
+      "id": "C-012",
+      "title": "Timeline includes February 15, 2023 Notice of Termination",
+      "verdict": "pass",
+      "reasoning": "The timeline contains a February 15, 2023 entry for the Notice of Termination by Greenleaf/Stanton, stating it was effective March 17, 2023 and based on an alleged uncured shortfall/material breach."
+    },
+    {
+      "id": "C-013",
+      "title": "Timeline includes February 22, 2023 Harborview breach response",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a February 22, 2023 entry for Harborview\u2019s response letter stating the breach notice was premature and that the shortfall was caused by Greenleaf\u2019s diversion/reduced shipments and QA issues/rejections, along with related demands."
+    },
+    {
+      "id": "C-014",
+      "title": "Timeline includes February 28, 2024 Complaint filing with case information",
+      "verdict": "pass",
+      "reasoning": "The output identifies the court and case number at the top (United States District Court, District of Oregon, Case No. 3:24-cv-00613-MRH) and includes a Phase V timeline entry dated February 28, 2024 stating that the Complaint was filed."
+    },
+    {
+      "id": "C-015",
+      "title": "Timeline identifies Breach of Contract cause of action in Complaint",
+      "verdict": "pass",
+      "reasoning": "The output lists Harborview\u2019s claims near the top, including \u201c(1) breach of contract,\u201d and later discusses Count 1 breach theories. Therefore Breach of Contract is identified as a cause of action in the Complaint/work product."
+    },
+    {
+      "id": "C-016",
+      "title": "Timeline identifies Breach of Implied Covenant cause of action in Complaint",
+      "verdict": "fail",
+      "reasoning": "The output does list \u201cbreach of implied covenant\u201d in the preliminary Claims summary and later claim-by-claim section, but the chronological timeline entry for the Complaint itself only says \u201cComplaint filed (4 counts; $8,202,000)\u201d and does not identify Breach of Implied Covenant as a cause of action."
+    },
+    {
+      "id": "C-017",
+      "title": "Timeline identifies Fraud cause of action in Complaint",
+      "verdict": "pass",
+      "reasoning": "The output lists Harborview's claims and expressly identifies \u201cfraud / intentional misrepresentation\u201d as Count 3, and later analyzes \u201cCount 3: Fraud.\u201d"
+    },
+    {
+      "id": "C-018",
+      "title": "Timeline identifies Tortious Interference cause of action in Complaint",
+      "verdict": "pass",
+      "reasoning": "The output lists Harborview\u2019s claims as including \u201c(4) tortious interference\u201d and later includes \u201cCount 4: Tortious interference,\u201d satisfying the requirement that Tortious Interference be identified as a cause of action in the Complaint."
+    },
+    {
+      "id": "C-019",
+      "title": "Timeline includes April 15, 2024 Answer and Counterclaim",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a Phase V entry dated Apr. 15, 2024 for Greenleaf\u2019s Answer and Counterclaim, identifying the Counterclaim as $1.2M. Elsewhere in the output, the counterclaim is described as based on breach of \u00a7 5.2 minimum purchase commitment / Year 3 shortfall."
+    },
+    {
+      "id": "C-020",
+      "title": "Timeline includes June 3, 2024 Scheduling Order",
+      "verdict": "pass",
+      "reasoning": "The output includes the June 3, 2024 Scheduling Order in multiple places, including the litigation calendar stating \u201cScheduling Order, Dkt. entered June 3, 2024\u201d and a timeline entry \u201cMay 21 / May 28 / June 3, 2024 \u2014 Joint Rule 26(f) Report; Rule 16 conference; Scheduling Order entered.\u201d"
+    },
+    {
+      "id": "C-021",
+      "title": "Scheduling Order entry references key deadlines",
+      "verdict": "pass",
+      "reasoning": "The output\u2019s Scheduling Order/litigation calendar references all three specified deadlines: discovery cutoff January 15, 2025, dispositive motions due March 1, 2025, and jury trial June 16, 2025."
+    },
+    {
+      "id": "C-022",
+      "title": "Timeline includes September 30, 2024 document production",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a Phase V entry dated Sept. 30, 2024 stating Greenleaf produced approximately 12,400 documents, including key emails, QA Log, and GL-PROD-007834."
+    },
+    {
+      "id": "C-023",
+      "title": "Timeline includes October 18, 2024 Holcomb deposition",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated Oct. 18, 2024 stating \u201cHolcomb deposition (187 pp.)\u201d and identifies Derek Holcomb in the witness matrix as deposed on Oct. 18, 2024."
+    },
+    {
+      "id": "C-024",
+      "title": "Timeline includes November 5, 2024 Fong deposition",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a litigation entry dated Nov. 5, 2024 stating \u201cFong deposition\u201d / \u201cFong deposition. Privilege instruction on the Jan. 3 email,\u201d identifying Lisa Fong\u2019s deposition on the correct date."
+    },
+    {
+      "id": "C-025",
+      "title": "Timeline includes November 22, 2024 Beckett deposition",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a Phase V entry dated Nov. 22, 2024 stating that Beckett was deposed, with note that no summary is in the file."
+    },
+    {
+      "id": "C-026",
+      "title": "Timeline includes December 10, 2024 expert reports exchange",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a Phase V entry dated December 10, 2024 identifying both the Buckley defense QA expert report and the Chakrabarti plaintiff damages expert report, with descriptions of each. The date is correct and both experts are included."
+    },
+    {
+      "id": "C-027",
+      "title": "Events are in strict chronological order",
+      "verdict": "fail",
+      "reasoning": "FAIL: The main timeline is generally chronological by phase, but it contains events that are not in strict chronological order. For example, in Phase III the row dated \u201cOct. 7 / Oct. 21, 2022\u201d is placed before the row dated \u201cOct. 17, 2022,\u201d meaning an Oct. 21 event appears before an Oct. 17 event. Phase IV also places \u201c\u2248 Feb. 9, 2023\u201d before a \u201cJan. 10 -- Feb. 15, 2023\u201d event range. These prevent a finding of strict chronological order."
+    },
+    {
+      "id": "C-028",
+      "title": "Timeline entries include source document references",
+      "verdict": "pass",
+      "reasoning": "The master chronological timeline contains a dedicated Source column and virtually every event entry cites one or more source documents from the listed 15-document set (e.g., EDA, Complaint, Answer, Scheduling Order, emails, deposition summaries, expert reports, QA log). Additional deadline/calendar entries also generally reference the Scheduling Order or other record documents. This comfortably exceeds the 80% threshold."
+    },
+    {
+      "id": "C-029",
+      "title": "Timeline entries identify parties or individuals involved",
+      "verdict": "pass",
+      "reasoning": "The timeline consistently identifies the relevant actors for the substantive events, repeatedly naming Harborview, Greenleaf, Cascade, Stanton, Holcomb, Fong, Beckett, Yee, and counsel where applicable. While some procedural deadlines or QA-log entries are less actor-specific, the vast majority of entries identify the parties or individuals involved, meeting the 80% threshold."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_001: Identifies breach notice was premature (Year 3 not yet complete)",
+      "verdict": "pass",
+      "reasoning": "The output expressly states that the January 10, 2023 Notice of Material Breach claimed failure to meet the Year 3 minimum while Year 3 did not end until March 14, 2023, noting the notice was issued 63 days before year-end and describing it as premature under \u00a75.3/\u00a79.2."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_001: Notes termination may be invalid due to premature breach notice",
+      "verdict": "pass",
+      "reasoning": "The output explicitly discusses that the January 10 breach notice was premature because Year 3 had not ended and the minimum purchase breach had not yet fully materialized, and it connects this to the February 15 termination notice being legally defective/void under \u00a79.2 because it was issued before an actual material breach occurred."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_001: Correctly identifies this issue favors plaintiff (Harborview)",
+      "verdict": "pass",
+      "reasoning": "The output clearly identifies the premature breach notice/invalid termination issue as adverse to Greenleaf and favorable to Harborview, calling it Harborview\u2019s strongest/cleanest cross-motion argument and assigning adverse impact to Greenleaf."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_002: Identifies selective/discriminatory QA enforcement against Harborview",
+      "verdict": "pass",
+      "reasoning": "The output explicitly identifies selective/discriminatory QA enforcement against Harborview, including Stanton's September 14 directive to tighten QA on Harborview batches, the September 15 confirmation to keep enhanced screening targeted to Harborview, and Fong's October 3 admission that Cascade lots would have been flagged under the same enhanced criteria but were not subject to that protocol."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_002: Notes 14 vs. 2 rejection disparity as evidence of bad faith",
+      "verdict": "pass",
+      "reasoning": "The output explicitly notes the QA disparity, including Fong deposition admissions of \u201cenhanced criteria applied only to Harborview; 14 vs. 2\u201d and elsewhere frames the selective QA evidence as supporting implied covenant/bad faith and fraud theories. It also discusses the statistical disparity in Buckley\u2019s rates and record-discrepancy sections."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_002: Identifies this as supporting Harborview's fraud/bad faith claims",
+      "verdict": "pass",
+      "reasoning": "The output repeatedly links selective/enhanced QA enforcement against Harborview to implied covenant/bad faith and fraud theories, e.g., stating Stanton's QA-related emails support intent for implied covenant and fraud, calling Fong's Oct. 3 email a key admission for implied covenant and fraud, and identifying these facts as adverse/problematic for Greenleaf's summary judgment defense."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_003: Identifies causation loop \u2014 diversion + rejections caused shortfall",
+      "verdict": "pass",
+      "reasoning": "The output expressly identifies that Greenleaf diverted about $1.9M to Cascade and rejected about $1.4M in Harborview shipments, totaling about $3.3M, and ties those acts to Harborview\u2019s $1.2M Year 3 shortfall. It includes causation arithmetic showing $5.8M actual purchases plus $1.9M diversion exceeds the $7.0M minimum, and $5.8M plus $3.3M equals $9.1M, supporting the conclusion that Greenleaf\u2019s own conduct caused or contributed to the shortfall."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_003: Notes Harborview could have met minimum absent interference",
+      "verdict": "pass",
+      "reasoning": "The output explicitly presents the required causation calculation: actual Year 3 purchases of $5.8M plus $1.9M Cascade diversion and $1.4M QA-denied product equals $9.1M, well above the $7.0M minimum. It also notes that diversion alone would have brought Harborview to $7.7M and that this undermines Greenleaf\u2019s breach/counterclaim theory under prevention/causation."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_003: Notes this undermines Greenleaf's counterclaim",
+      "verdict": "pass",
+      "reasoning": "The output explicitly discusses that Greenleaf's own diversion/QA conduct caused or prevented Harborview from meeting the Year 3 minimum, stating that \u201cCausation defeats the counterclaim,\u201d that diversion plus actual purchases exceeds the $7.0M minimum, and that the prevention doctrine undermines Greenleaf\u2019s $1.2M shortfall counterclaim."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_004: Flags Stanton-to-Ivers email as potentially privileged",
+      "verdict": "pass",
+      "reasoning": "The output explicitly identifies the Jan. 3, 2023 Stanton-to-Ivers email (GL-PROD-007834) as a privilege issue, noting it was produced, privilege was later asserted, no clawback documented, and recommending clawback/privilege-log actions. It therefore flags the communication as potentially attorney-client privileged."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_004: Notes risk of inadvertent privilege waiver from production",
+      "verdict": "pass",
+      "reasoning": "The output expressly identifies the Stanton\u2192Ivers privileged email (GL-PROD-007834) as having been produced in Greenleaf\u2019s September 30, 2024 production, notes that privilege was asserted later with no documented clawback, and discusses FRE 502(b), waiver risk, and recommended clawback actions."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_004: References clawback possibility under FRE 502(b) or similar",
+      "verdict": "pass",
+      "reasoning": "The output expressly discusses the privileged Stanton\u2192Ivers email, notes no clawback is documented, references FRE 502(b), Rule 502(d), protective order/clawback stipulation, and recommends sending a formal clawback notice under Rule 26(b)(5)(B)."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_005: Identifies Dr. Chakrabarti's 5-year projection as speculative",
+      "verdict": "pass",
+      "reasoning": "The output expressly identifies Dr. Chakrabarti\u2019s $5.8M lost future profits as based on a five-year horizon/Years 4\u20138 and flags it as speculative because the EDA renewed only in one-year terms with 90-day non-renewal rights. It also recommends limiting recovery to the single renewal term."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_005: Notes this is a target for summary judgment or Daubert challenge",
+      "verdict": "pass",
+      "reasoning": "The output explicitly identifies Dr. Chakrabarti\u2019s five-year lost-profits horizon as speculative and repeatedly frames it as a Daubert/Rule 37 and partial summary judgment target, including recommendations to limit recovery to the one-year renewal term and challenge the damages model."
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_006: Addresses statute of limitations for fraud claim",
+      "verdict": "pass",
+      "reasoning": "The output discusses limitations for the fraud claim multiple times, identifying ORS 12.110 as a 2-year period, noting the alleged acts began June 8, 2022 and occurred through the relevant 2022\u20132023 period, and that the Complaint filed February 28, 2024 was within two years of every alleged act. It also expressly considers the discovery-rule issue, stating it is academic because the claim is timely even without relying on discovery."
+    },
+    {
+      "id": "C-045",
+      "title": "ISSUE_006: Notes discovery rule may toll limitations period",
+      "verdict": "fail",
+      "reasoning": "The output mentions ORS 12.110 and says the discovery-rule debate is academic because all alleged acts occurred within two years of filing. It does not discuss that the discovery rule may toll the fraud limitations period based on Harborview not discovering the selective QA enforcement and Cascade diversion until the September 30, 2024 document production or an earlier discovery point. Thus the required tolling analysis is absent."
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_007: Identifies pre-litigation spoliation risk",
+      "verdict": "pass",
+      "reasoning": "The output expressly raises preservation/spoliation concerns: it notes a litigation hold was not issued until around March 2024, about 13 months after Harborview\u2019s February 22, 2023 preservation demand and after the key June 2022\u2013March 2023 events. It states the preservation duty was triggered no later than February 22, 2023, flags Rule 37(e) spoliation/adverse-inference exposure, references vague retention/deletion practices, and recommends auditing custodial collections and retention practices. This satisfies the criterion."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_007: Notes Holcomb's false 'supply chain' explanation as relevant",
+      "verdict": "pass",
+      "reasoning": "The output specifically discusses the Dec. 1, 2022 Holcomb email, notes that the supply-chain explanation was false and evidences knowledge of falsity/scienter and pretext. It also separately flags preservation/spoliation risk for Cascade communications, including Holcomb\u2019s vague retention/deletion testimony and Rule 37(e) exposure. This sufficiently connects the false explanation to consciousness of guilt/evidentiary concerns and notes deleted Cascade communications could worsen the issue."
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_008: Flags ambiguity in 'distribute' re: direct sales vs. third-party",
+      "verdict": "fail",
+      "reasoning": "The output clearly states that shipments to Cascade, a competing distributor, likely violate \u00a73.1 and discusses Greenleaf\u2019s attempted \u201cthird-party distribution only\u201d construction as applied to Cascade. However, it does not flag the specific ambiguity required by the criterion: whether \u201cexclusive rights to distribute\u201d also bars Greenleaf\u2019s own direct sales to retailers in the territory, as distinct from appointing or using third-party distributors/resellers. Nor does it note that direct-to-retailer sales may present a different legal question. Thus the required scope ambiguity is not discussed."
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_009: Maps Holcomb emails to deposition for impeachment",
+      "verdict": "pass",
+      "reasoning": "The output expressly maps all three specified Holcomb emails to his October 18, 2024 deposition testimony and flags impeachment contradictions: June 8 \u201ckeep it quiet/off the books\u201d versus his deposition explanation about avoiding sales-team confusion; August 22 transition/EDA-territory email versus his \u201cbrainstorming\u201d and \u201cinternal guidance\u201d testimony; and December 1 \u201csupply chain issues\u201d statement versus his inability to identify any supply disruption. It also summarizes Holcomb as heavily impeached based on these documents."
+    },
+    {
+      "id": "C-050",
+      "title": "ISSUE_010: Identifies EDA auto-renewed for Year 4 (missed non-renewal deadline)",
+      "verdict": "pass",
+      "reasoning": "The output explicitly states that no non-renewal notice was sent by the 90-day deadline (noting Dec. 14/15 discrepancy), and concludes the EDA auto-renewed on March 15, 2023 for the Year 4 renewal term through March 14, 2024."
+    },
+    {
+      "id": "C-051",
+      "title": "ISSUE_010: Notes termination occurred during renewed term, expanding damages",
+      "verdict": "pass",
+      "reasoning": "The output explicitly states that no non-renewal notice was sent, so the EDA arguably auto-renewed on March 15, 2023; it then notes the March 17, 2023 termination was effective two days into the Renewal Term and that Harborview's damages theory depends on this, with potential lost-term damages running through the Year 4 renewal period. It also discusses capping lost-profit exposure at the one-year Renewal Term rather than Year 3 only."
+    },
+    {
+      "id": "C-052",
+      "title": "Summary section includes top 5 critical issues ranked by importance",
+      "verdict": "pass",
+      "reasoning": "The output contains an Executive Summary section with a numbered list titled \u201cThe ten findings that matter most,\u201d presenting critical summary-judgment issues in ranked/order format. Although it lists ten rather than five, it clearly provides a ranked summary of the most important issues, including at least the top five."
+    },
+    {
+      "id": "C-053",
+      "title": "Summary assesses Greenleaf's exposure on Breach of Contract claim",
+      "verdict": "pass",
+      "reasoning": "The output expressly assesses Greenleaf's exposure on Harborview's breach of contract exclusivity claim, including in the Executive Summary and the claim-by-claim section. It identifies the Cascade diversion as a likely Section 3.1 breach, rates Greenleaf's summary judgment prospects as low and Harborview's cross-motion risk as high, and estimates likely recoverable damages for diverted sales at $342,000."
+    },
+    {
+      "id": "C-054",
+      "title": "Summary assesses Greenleaf's exposure on Breach of Implied Covenant claim",
+      "verdict": "pass",
+      "reasoning": "The output expressly assesses Harborview\u2019s Breach of Implied Covenant claim in the claim-by-claim summary judgment assessment, rating Greenleaf\u2019s SJ prospects as LOW, cross-motion risk as MODERATE, identifying key adverse facts, and recommending arguments/narrow motion strategy. It also references implied covenant exposure in the executive summary and timeline annotations."
+    },
+    {
+      "id": "C-055",
+      "title": "Summary assesses Greenleaf's exposure on Fraud claim",
+      "verdict": "pass",
+      "reasoning": "The output expressly assesses Greenleaf\u2019s exposure on Harborview\u2019s Fraud/Intentional Misrepresentation claim. The Executive Summary flags fraud as a key non-contract claim and notes exposure tied to concealment, QA issues, and punitive damages. The claim-by-claim assessment includes a dedicated fraud row, rates Greenleaf\u2019s summary judgment prospects as moderate/partial, discusses reliance, QA-notice theories, clear-and-convincing proof, and punitive exposure if the claim survives."
+    },
+    {
+      "id": "C-056",
+      "title": "Summary assesses Greenleaf's exposure on Tortious Interference claim",
+      "verdict": "pass",
+      "reasoning": "The output expressly assesses the Tortious Interference claim. In the Executive Summary it identifies tortious interference as part of Greenleaf\u2019s best Rule 56 terrain, and in the Claim-by-Claim Summary Judgment Assessment it provides a dedicated row for Count 4, analyzing Greenleaf\u2019s exposure, strengths, risks tied to Cascade/Yee and shared accounts, and recommending a motion strategy."
+    },
+    {
+      "id": "C-057",
+      "title": "Summary includes recommended next steps before filing",
+      "verdict": "pass",
+      "reasoning": "The output includes multiple recommended next steps before filing the summary judgment motion, including immediate clawback/privilege actions, confirming expert disclosures, additional discovery and authentication tasks, damages rebuttal preparation, preservation audit, and a prioritized action-item list with target dates before the SJ filing."
+    },
+    {
+      "id": "C-058",
+      "title": "Correctly identifies Cascade diversion dollar amounts",
+      "verdict": "pass",
+      "reasoning": "The output explicitly identifies the Cascade diversion amounts as approximately $420,000 for June\u2013August 2022, $630,000 for September\u2013November 2022, $850,000 for December 2022\u2013February 2023, and total June 2022\u2013February 2023 of approximately $1.9 million."
+    },
+    {
+      "id": "C-059",
+      "title": "Correctly states Harborview's claimed damages breakdown",
+      "verdict": "pass",
+      "reasoning": "The output correctly lists Harborview/Dr. Chakrabarti's damages components: $342,000 lost commissions on diverted sales, $252,000 lost commissions on rejected shipments, $5,800,000 lost future profits, and $1,808,000 mitigation costs, totaling $8,202,000."
+    },
+    {
+      "id": "C-060",
+      "title": "Correctly states Greenleaf counterclaim damages breakdown",
+      "verdict": "pass",
+      "reasoning": "The output expressly identifies Greenleaf\u2019s counterclaim as $1,200,000, broken down into $408,000 in lost profit and $792,000 in consequential damages. Although it does not expressly state the 34% margin formula, the counterclaim amount and component breakdown are correctly stated and not materially misstated."
+    },
+    {
+      "id": "C-061",
+      "title": "Correctly states Dr. Buckley's finding: 11 of 14 rejections inconsistent",
+      "verdict": "pass",
+      "reasoning": "The output explicitly states that Dr. Buckley found 11 of 14 QA rejections inconsistent/unjustified and 3 of 14 justified/consistent, including in the executive summary and expert report discussion."
+    },
+    {
+      "id": "C-062",
+      "title": "Identifies Fong deposition testimony as relevant to QA issue",
+      "verdict": "pass",
+      "reasoning": "The output repeatedly links Lisa Fong\u2019s November 5, 2024 deposition to the QA selective enforcement issue, including her testimony about the enhanced protocol, CEO directive, Harborview-only screening, and related impeachment evidence from QA emails/logs."
+    },
+    {
+      "id": "C-063",
+      "title": "Year 3 actual purchases correctly stated as $5.8M",
+      "verdict": "pass",
+      "reasoning": "The output repeatedly states the final Year 3 purchases as $5.8M against the $7.0M minimum, with a $1.2M shortfall, while separately flagging other inconsistent interim figures as discrepancies."
+    },
+    {
+      "id": "C-064",
+      "title": "Timeline includes QA rejection period (Sept 2022 \u2013 Feb 2023) with $1.4M value",
+      "verdict": "pass",
+      "reasoning": "The timeline contains a dedicated QA rejection period section covering September 2022 through February 2023, with detailed entries for rejections during that timeframe. It repeatedly notes the 14-rejection figure and approximately $1.4M affected product value, including references to 3 of 14 justified / 11 of 14 unjustified and the $1.4M canonical rejection value."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/build-litigation-case-timeline/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/build-litigation-case-timeline",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:55:44.867554+00:00",
+  "cost": {
+    "input_tokens": 28,
+    "output_tokens": 50195,
+    "wall_clock_seconds": 492.42
+  },
+  "doc_coverage": {
+    "documents_read": 2,
+    "total_documents": 15,
+    "documents_skipped": 14,
+    "documents_read_list": [
+      "qa-rejection-log.xlsx",
+      "/workspace/pg.png"
+    ],
+    "documents_skipped_list": [
+      "defendant-answer-counterclaim.docx",
+      "deposition-summary-fong.docx",
+      "deposition-summary-holcomb.docx",
+      "email-stanton-to-ivers.eml",
+      "exclusive-distribution-agreement.docx",
+      "expert-report-buckley.docx",
+      "expert-report-chakrabarti.docx",
+      "harborview-breach-response.docx",
+      "internal-emails-holcomb-yee-stanton.eml",
+      "internal-emails-stanton-fong-qa.eml",
+      "notice-of-material-breach.docx",
+      "notice-of-termination.docx",
+      "plaintiff-complaint.docx",
+      "scheduling-order.docx"
+    ]
+  }
+}

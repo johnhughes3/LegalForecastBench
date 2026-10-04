@@ -1,0 +1,232 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "23/33 criteria passed.  Missed 10 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 33,
+  "n_passed": 23,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Identifies Issue with Instruction No. 14 including dismissed SignalSift category",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly objects to Instruction No. 14 under the heading 'No. 14 --- Categories of alleged trade secrets.' It states 'OBJECT TO CATEGORY (7); REVISE THE LIST' and notes that 'The Court dismissed SignalSift with prejudice and the February 10 minutes specifically direct the parties to govern themselves accordingly. The jury must not decide whether SignalSift is a trade secret.' It requests deletion of SignalSift entirely and renumbering to the six surviving categories. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-002",
+      "title": "Cites summary judgment order as source for SignalSift dismissal",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the January 12, 2025 summary-judgment order in connection with the SignalSift dismissal. In Section II.B, No. 14, it states: 'The Court dismissed SignalSift with prejudice and the February 10 minutes specifically direct the parties to govern themselves accordingly.' The Record Sources section also pinpoints 'Summary-Judgment Order \u00a7\u00a7 IV.B.1--3 (GTSA definition, surviving categories, SignalSift)' as a key source. Additionally, No. 10 references the summary-judgment order context when discussing surviving claims and SignalSift's dismissal. The January 12, 2025 summary-judgment order is cited as the basis for excluding SignalSift/category 7."
+    },
+    {
+      "id": "C-003",
+      "title": "Explains prejudice from including dismissed SignalSift category",
+      "verdict": "fail",
+      "reasoning": "The memo identifies the SignalSift issue in multiple places (Instructions 14, 35, and the executive assessment) and directs that SignalSift be deleted and the surviving six categories be evaluated individually. However, the memo does not explain the potential prejudice to Oakvale from including SignalSift\u2014it does not discuss jury confusion, the risk of inviting the jury to consider a resolved claim, or the suggestion that Oakvale is over-claiming. The objection is framed purely as a procedural/order-compliance issue ('dismissed with prejudice,' 'the jury must not decide') without articulating why inclusion would harm Oakvale specifically."
+    },
+    {
+      "id": "C-004",
+      "title": "Identifies improper 'novelty' requirement in Instruction No. 12",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Instruction No. 12 under section II.B, stating 'OBJECT; REPLACE. The instruction adds \"novel.\" The summary-judgment order expressly holds that GTSA protection does not require novelty or an advance over prior art.' It also includes in the proposed replacement language: 'Novelty is not required.' This clearly identifies the improper novelty requirement as an error."
+    },
+    {
+      "id": "C-005",
+      "title": "Explains that Georgia Trade Secrets Act does not require novelty",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses this in multiple places. In the instruction-by-instruction review of No. 12, it states: 'The instruction adds \"novel.\" The summary-judgment order expressly holds that GTSA protection does not require novelty or an advance over prior art.' The requested revision states: 'Use the statutory definition and state: \"Novelty is not required.\"' Additionally, the core proposed replacement language for the trade-secret definition includes: 'Novelty is not required.' The memo also references the statutory elements including economic value from secrecy/not being readily ascertainable by proper means, and reasonable efforts under the circumstances. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-006",
+      "title": "Identifies omission of disclosure/use prong in Instruction No. 16",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Instruction No. 16 under section II.B, objecting that it 'largely defines only wrongful acquisition and requires proof that a defendant acquired information through improper means or knew it had been so acquired,' and states that 'misappropriation also includes unauthorized disclosure or use where the defendant used improper means or knew/reasonably should have known the information was acquired under circumstances giving rise to a duty to maintain secrecy or limit use.' The requested revision directs setting out 'both acquisition and unauthorized use/disclosure routes from O.C.G.A. \u00a7 10-1-761(2).' This clearly identifies the omission of the disclosure/use prong."
+    },
+    {
+      "id": "C-007",
+      "title": "Explains that omission of disclosure/use prong removes Oakvale's theory against Axial",
+      "verdict": "fail",
+      "reasoning": "The memo objects to Instruction No. 16 for omitting the unauthorized use/disclosure routes and repeats that objection in Nos. 17 and 22. However, the memo frames the problem primarily in terms of the statutory routes being incomplete and the agreement/evidence concerning 'use as well as transfer.' It does not specifically connect the omission of the disclosure/use prong to the impact on Oakvale's theory against Axial as a defendant\u2014i.e., that Axial's liability rests on using or disclosing trade secrets rather than on acquiring them through improper means. The memo notes the interference claim is against Axial only and that the GTSA claim is against both Voss and Axial, but it never explicitly explains that without the use/disclosure prong, Oakvale loses its primary theory of liability against Axial specifically. The connection between the omission and Axial's exposure is not drawn."
+    },
+    {
+      "id": "C-008",
+      "title": "Identifies argumentative second sentence in Instruction No. 23 (inevitable disclosure)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Instruction No. 23 in section II.B, distinguishing between the first paragraph (correctly rejecting standalone inevitable-disclosure doctrine) and the second paragraph (improperly stating that Dr. Voss's similar position 'is not evidence' of misappropriation). The memo objects to the second paragraph specifically, noting it contradicts the summary-judgment order which permits job similarity as circumstantial evidence when considered with other evidence. The proposed replacement language also preserves this distinction. This satisfies the criterion."
+    },
+    {
+      "id": "C-009",
+      "title": "Cites court's ruling on inevitable disclosure as limited to standalone theory",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the scope of the court's inevitable disclosure ruling in multiple places. In No. 23, it states: 'The first paragraph correctly says there is no standalone inevitable-disclosure doctrine. The second says Dr. Voss's similar position "
+    },
+    {
+      "id": "C-010",
+      "title": "Identifies 'adequacy' vs. 'reasonableness' error in Instruction No. 13",
+      "verdict": "fail",
+      "reasoning": "The memo's discussion of Instruction No. 13 says to 'REFINE, NOT STRIKE' and notes the charge 'may invite an isolated checklist or a binary \"adequacy\" test,' but it does not explicitly identify the substitution of 'adequate' for 'reasonable' as a legal error. It does not flag that the instruction uses the word 'adequate' instead of the statutory 'reasonable measures' or 'reasonable efforts' standard. The criterion requires the memo to identify that specific word substitution as a legal error, which it does not do clearly\u2014it only vaguely references a possible 'adequacy test' as a risk without calling out the 'adequate' vs. 'reasonable' distinction as a statutory misstatement."
+    },
+    {
+      "id": "C-011",
+      "title": "Notes Instruction No. 13 omits totality-of-circumstances standard",
+      "verdict": "pass",
+      "reasoning": "The memo's section on No. 13 explicitly states: 'The order treats reasonableness as a fact question under the totality of circumstances, including the information's nature, the business's size/sophistication, and measures taken.' It also notes the proposed charge 'may invite an isolated checklist or a binary "
+    },
+    {
+      "id": "C-012",
+      "title": "Identifies improper unanimity requirement on damages theories in Instruction No. 30",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Instruction No. 30 under section D, objecting to 'ELECTION, THEORY-SPECIFIC UNANIMITY, AND A CATEGORICAL BAN ON BOTH.' It states: 'The proposed charge adds unanimity on the damages theory without support in the supplied rulings.' This directly identifies the improper unanimity requirement on damages theories in Instruction No. 30."
+    },
+    {
+      "id": "C-013",
+      "title": "Explains that O.C.G.A. \u00a7 10-1-763(a) permits both lost profits and unjust enrichment",
+      "verdict": "pass",
+      "reasoning": "The memo discusses GTSA damages in Section D (No. 30) and states: 'The January 12 order denied exclusion of both damages measures and directed an instruction preventing double recovery: no award of both measures to the extent they compensate for the same injury. It did not order an election or hold that nonduplicative actual loss and unjust enrichment cannot both be awarded.' The proposed revision language also states: 'Instruct that GTSA damages may include actual loss and unjust enrichment caused by misappropriation, but unjust enrichment may be recovered only to the extent not taken into account in actual-loss damages, and no injury may be compensated twice.' This explains the complementary (not mutually exclusive) nature of the two damages measures. However, the memo attributes this to the summary-judgment order rather than explicitly citing O.C.G.A. \u00a7 10-1-763(a) by name. The criterion says 'or equivalent description of the Georgia Trade Secrets Act damages provision.' The memo does reference the GTSA damages framework and explains the complementary nature of the two measures, which satisfies the criterion's substance even without the specific statutory citation. The explanation is clear that both measures are available and complementary, not mutually exclusive, which is the core of the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "Notes no federal civil procedure requirement for unanimity on damages theories",
+      "verdict": "fail",
+      "reasoning": "The memo objects to the proposed charge adding unanimity on the damages theory (in No. 30) and states 'The proposed charge adds unanimity on the damages theory without support in the supplied rulings.' However, the memo does not affirmatively note that federal civil procedure does not require jury unanimity on which specific damages theory supports the award. It merely says there is no support in the supplied rulings for such a requirement, and recommends obtaining an express ruling before any theory-specific unanimity instruction. The criterion requires the memo to note that federal civil procedure does not require unanimity on damages theories \u2014 a positive statement about federal procedural law \u2014 which is absent from the memo."
+    },
+    {
+      "id": "C-015",
+      "title": "Identifies misstated punitive damages standard in Instruction No. 32",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Instruction No. 32 under 'No. 32 --- Punitive damages' and states: 'The summary-judgment order held the issue goes to the jury but did not adopt \"actual fraud,\" \"specific intent to injure,\" or a clear-and-convincing standard.' It further notes that 'No. 32 imports requirements from \u00a7 51-12-5.1 into the GTSA standard' and requests the Court determine the applicable burden and definition of 'willful and malicious' under O.C.G.A. \u00a7 10-1-763(b). This clearly identifies that the defense instruction misstates the punitive damages standard by importing 'actual fraud' and 'specific intent to injure' requirements that are not part of the GTSA standard."
+    },
+    {
+      "id": "C-016",
+      "title": "Explains correct punitive damages standard under O.C.G.A. \u00a7 10-1-763(b)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies O.C.G.A. \u00a7 10-1-763(b) as the applicable punitive damages statute, states the correct standard as 'willful and malicious misappropriation,' and objects to Defense Instruction No. 32 precisely because it 'imports requirements from \u00a7 51-12-5.1 into the GTSA standard' \u2014 i.e., it distinguishes the GTSA's 'willful and malicious' standard from the general Georgia punitive damages statute's 'actual fraud' and 'specific intent to injure' requirements. This satisfies the criterion."
+    },
+    {
+      "id": "C-017",
+      "title": "Identifies narrowing of breach of contract claim in Instruction No. 25",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly objects to Instruction No. 25 in Section II.C, stating 'OBJECT IN FULL; IT IMPROPERLY NARROWS THE SURVIVING CLAIM.' It identifies that No. 25 requires disclosure of 'specific documents' to Axial/third parties, while the court's order describes a broad prohibition on use or disclosure of Confidential Information in tangible or intangible form, expressly including information retained in memory. The memo requests replacement language covering unauthorized use or disclosure of covered Confidential Information, whether tangible or intangible and whether or not embodied in a transferred document. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-018",
+      "title": "References Employment Agreement's broad definition of Confidential Information",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Instruction No. 25 and explains why it is too narrow, citing the summary-judgment order's description of the broad prohibition on use or disclosure of Confidential Information 'in tangible or intangible form, expressly including information retained in memory.' However, the criterion specifically requires that the memo reference the Employment Agreement's definition of 'Confidential Information' as the source showing why No. 25 is too narrow. The memo's objection to No. 25 cites the summary-judgment order's interpretation rather than the Employment Agreement's own definition. While the Employment Agreement is mentioned elsewhere in the memo (e.g., in the record-check section about section numbering, and in No. 19's discussion), the specific objection to No. 25 does not cite the Employment Agreement's broad definition of Confidential Information as the basis for the objection. The criterion requires the Employment Agreement or its confidentiality definition to be cited in connection with this issue (No. 25), which is not done."
+    },
+    {
+      "id": "C-019",
+      "title": "Identifies improper 'independently wrongful act' element in Instruction No. 27",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Instruction No. 27 under section C and states: 'No. 27 adds an \"independently wrongful act, separate from the interference itself\" and a separate purpose element.' It then requests revision to track the Court's four elements and states 'Do not add an independent-wrongful-act prerequisite.' This directly identifies the improper 'independently wrongful act' element as an issue with Instruction No. 27."
+    },
+    {
+      "id": "C-020",
+      "title": "Explains distinction between tortious interference with contract vs. business relations",
+      "verdict": "fail",
+      "reasoning": "The memo objects to the 'independently wrongful act' element in Instruction No. 27 and states that the Court's four-element formulation does not include it, but it does not explain *why* that element is wrong as a matter of Georgia law. Specifically, it never articulates the legal distinction that the 'independently wrongful act' requirement belongs to tortious interference with business relations (a prospective economic advantage tort), not to tortious interference with an existing contract, where knowing inducement of breach is sufficient. The memo simply says 'do not add an independent-wrongful-act prerequisite' without explaining that this element applies to a different tort. The criterion requires that this legal distinction be articulated."
+    },
+    {
+      "id": "C-021",
+      "title": "Identifies improper fault apportionment instruction in No. 29",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Instruction No. 29 under section C ('No. 29 --- Failure to enforce/apportionment') and objects to it in full, noting that recasting the withdrawn mitigation defense as 'failure to enforce,' 'delay,' 'reasonable diligence,' or a 'proportional reduction' is the same forbidden mitigation/apportionment theory. It also flags No. 29 in the priority objections table as an 'unconditional withdrawal of mitigation.' This clearly identifies the improper fault apportionment/comparative-fault-style reduction instruction in No. 29."
+    },
+    {
+      "id": "C-022",
+      "title": "Notes failure to mitigate defense was withdrawn at pretrial conference",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Instruction No. 29 and states: 'The February 10 minutes record an unconditional withdrawal of the Fifteenth Affirmative Defense (failure to mitigate) and expressly state defendants may not raise it at any stage, including proposed instructions or closing.' This directly notes the withdrawal of the failure to mitigate defense at the pretrial conference in connection with the apportionment instruction in No. 29."
+    },
+    {
+      "id": "C-023",
+      "title": "Notes comparative fault does not apply to intentional tort claims",
+      "verdict": "fail",
+      "reasoning": "The memo's objection to Instruction No. 29 focuses on the withdrawal of the Fifteenth Affirmative Defense (failure to mitigate) as recorded in the pretrial minutes, and notes the instruction cites an inapplicable statute. It does not raise the point that comparative fault does not apply to intentional tort claims (such as misappropriation or tortious interference) under Georgia law as an additional reason the instruction is improper."
+    },
+    {
+      "id": "C-024",
+      "title": "Identifies conflict between Instruction No. 21 and the discovery sanctions order",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the conflict between Instruction No. 21 and the September 5, 2024 sanctions order. Under 'No. 21 --- Spoliation/adverse inference,' it states 'OBJECT IN FULL; IT CONTRADICTS THE SANCTIONS ORDER' and explains that the sanctions order found intentional loss of 347 files, found intent to deprive, and 'expressly authorized an instruction permitting the jury to infer the missing information was unfavorable to Dr. Voss' while also 'expressly prohibited an instruction purporting to bar adverse inferences.' It further notes that No. 21 'says the opposite and improperly refers to either party.' This directly satisfies the criterion."
+    },
+    {
+      "id": "C-025",
+      "title": "References the September 5, 2024 sanctions order as authority",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the September 5, 2024 sanctions order in connection with Instruction No. 21. Under 'No. 21 --- Spoliation/adverse inference,' it states: 'The September 5 order found intentional loss of 347 files after the preservation duty, found intent to deprive, and expressly authorized an instruction permitting the jury to infer the missing information was unfavorable to Dr. Voss. It also expressly prohibited an instruction purporting to bar adverse inferences. The February 10 minutes confirm that ruling remains in effect.' This directly cites the sanctions order and its substance as the authority contradicting Instruction No. 21."
+    },
+    {
+      "id": "C-026",
+      "title": "Identifies argumentative 'particular skepticism' language in Instruction No. 31",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Instruction No. 31 under section D, objecting to the 'PARTICULAR SKEPTICISM' language directed at Dr. Marchetti. It states: 'OBJECT TO \"PARTICULAR SKEPTICISM\" OF DR. MARCHETTI. The instruction singles out the plaintiff's paid expert for particular skepticism while mentioning compensation of any expert only as one credibility factor.' This directly identifies the argumentative nature of the language and contrasts it with the neutral standard that should apply to all experts."
+    },
+    {
+      "id": "C-027",
+      "title": "References Eleventh Circuit Pattern Instruction 3.5 as proper standard",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the expert witness instruction (No. 31) and calls for a neutral standard for all experts, but it never references the Eleventh Circuit Pattern Jury Instruction 3.5 or any equivalent pattern instruction by name or number. The criterion requires an explicit reference to that pattern instruction as the proper neutral standard."
+    },
+    {
+      "id": "C-028",
+      "title": "Provides recommendation for each identified issue",
+      "verdict": "pass",
+      "reasoning": "Every instruction identified as problematic in the memo is accompanied by at least a 'Requested revision' section or an explicit recommendation (strike, replace, refine, object, seek ruling, etc.). The priority table also maps each flagged instruction to a requested result. No identified issue is left without some form of recommended action."
+    },
+    {
+      "id": "C-029",
+      "title": "Identifies at least some unobjectionable instructions",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies several instructions as unobjectionable or acceptable. For example, Nos. 1, 3, 7, and 8 are described as 'generally acceptable' with 'NO SUBSTANTIVE OBJECTION.' No. 34 (Injunctive relief) is marked 'NO OBJECTION.' No. 11 is described as 'GENERALLY ACCEPTABLE.' No. 2 is 'ACCEPT WITH A CROSS-REFERENCE.' These are at least two (and in fact several) instructions affirmatively identified as proper or not warranting objection, satisfying the criterion."
+    },
+    {
+      "id": "C-030",
+      "title": "Memo identifies correct case name and parties",
+      "verdict": "pass",
+      "reasoning": "The memo identifies Oakvale Technologies, Inc. as the plaintiff (used throughout the document in instructions, proposed replacement language, and the spoliation instruction) and identifies Dr. Voss and Axial as the defendants (e.g., 'GTSA against Voss and Axial; confidentiality-contract claim against Voss; tortious-interference claim against Axial'). The memo does flag a name discrepancy with 'Ridgemont Technologies, Inc.' appearing in captions, but the operative plaintiff name used throughout is Oakvale Technologies, Inc., and the defendants are correctly identified as Dr. Nolan Voss and Axial Systems Corp. This satisfies the criterion."
+    },
+    {
+      "id": "C-031",
+      "title": "Memo identifies correct case number and court",
+      "verdict": "fail",
+      "reasoning": "The memo does not include any case number or court identification. There is no mention of Case No. 1:23-cv-01847-CME or the U.S. District Court for the Northern District of Georgia anywhere in the document."
+    },
+    {
+      "id": "C-032",
+      "title": "Describes potential prejudice to Oakvale for each flagged issue",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that the memo describe potential prejudice to Oakvale for at least 8 of the 12 planted issues. Reviewing the memo, while it identifies numerous problematic instructions and explains why they conflict with court orders or misstate the law, it rarely explicitly frames the analysis in terms of 'prejudice to Oakvale.' The memo is structured as an issue-spotting and charge-conference document that explains legal errors and requests corrections, but it does not systematically articulate how each flagged issue would prejudice Oakvale at trial. For example: No. 21 (spoliation) - the memo explains the instruction contradicts the sanctions order but doesn't explicitly say 'this prejudices Oakvale by depriving it of the court-authorized adverse inference'; No. 14 (SignalSift) - explains it's dismissed but doesn't frame prejudice to Oakvale; No. 23 (job similarity 'not evidence') - explains it contradicts the SJ order but doesn't explicitly state prejudice; No. 25 (contract narrowed to documents) - explains it narrows the claim but doesn't explicitly state prejudice to Oakvale; No. 29 (mitigation) - explains it was withdrawn but doesn't frame prejudice; No. 27 (tortious interference extra element) - explains the extra element but doesn't frame prejudice; No. 12 (novelty requirement) - explains it's wrong but doesn't frame prejudice; No. 31 (expert skepticism) - explains it's one-sided but doesn't frame prejudice to Oakvale. The memo consistently explains legal errors and requests corrections but does not include explicit prejudice-to-Oakvale analysis for 8 or more issues. The analysis is more 'this is legally wrong' than 'this prejudices Oakvale because...' The criterion specifically asks for 'description of potential prejudice to Oakvale' for each flagged issue, which is a distinct analytical step the memo largely omits."
+    },
+    {
+      "id": "C-033",
+      "title": "Distinguishes flatly wrong instructions from subtly misleading ones",
+      "verdict": "pass",
+      "reasoning": "The memo clearly distinguishes between instructions that are flatly wrong versus subtly misleading. The priority table explicitly categorizes issues as 'Critical' (direct conflicts with final orders, e.g., No. 21 adverse inference bar, No. 14 dismissed SignalSift, No. 23 job similarity 'not evidence') versus 'High' and 'Moderate' severity. The narrative uses language like 'OBJECT IN FULL' for clear violations (Nos. 21, 25, 29) versus 'REFINE, NOT STRIKE' or 'ACCEPT WITH A CROSS-REFERENCE' for subtler issues (Nos. 13, 19, 2). Instructions like No. 23 are described as directly contradicting the order, while others like No. 13 are described as potentially inviting a checklist approach that needs refinement. The memo also has a 'Moderate' category for instructions that 'need to preserve' certain analyses rather than being struck entirely. This multi-level differentiation clearly satisfies the criterion."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:24:48.413725+00:00",
+  "cost": {
+    "input_tokens": 571846,
+    "output_tokens": 26288,
+    "wall_clock_seconds": 195.76
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 6,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "defense-proposed-jury-instructions.docx",
+      "summary-judgment-order.docx",
+      "pretrial-conference-minutes.docx",
+      "discovery-sanctions-order.docx",
+      "voss-employment-agreement.docx",
+      "plaintiff-trial-brief-damages.docx",
+      "/workspace/output/jury-instruction-issues-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

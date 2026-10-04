@@ -1,0 +1,391 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "57/59 criteria passed.  Missed 2 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 59,
+  "n_passed": 57,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Caption includes correct case number",
+      "verdict": "pass",
+      "reasoning": "The caption in the motion clearly shows the case number '2:24-cv-00831-CAR' which appears multiple times throughout the document in the caption blocks."
+    },
+    {
+      "id": "C-002",
+      "title": "Caption identifies correct court",
+      "verdict": "pass",
+      "reasoning": "The motion repeatedly and consistently identifies the court as 'IN THE UNITED STATES DISTRICT COURT FOR THE WESTERN DISTRICT OF PENNSYLVANIA' in the caption, which appears multiple times throughout the document."
+    },
+    {
+      "id": "C-003",
+      "title": "Caption identifies Vantage Industrial Holdings, Inc. as Plaintiff",
+      "verdict": "pass",
+      "reasoning": "The caption clearly identifies 'VANTAGE INDUSTRIAL HOLDINGS, INC., a Delaware corporation, Plaintiff' in multiple places throughout the document."
+    },
+    {
+      "id": "C-004",
+      "title": "Caption identifies Corbin Machining & Fabrication, LLC as Defendant",
+      "verdict": "pass",
+      "reasoning": "The caption clearly identifies 'CORBIN MACHINING & FABRICATION, LLC, an Ohio limited liability company, Defendant.' This appears in multiple caption blocks throughout the document."
+    },
+    {
+      "id": "C-005",
+      "title": "Motion directed to Magistrate Judge Sheehan",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly references Magistrate Judge David P. Sheehan throughout. The caption identifies 'Hon. David P. Sheehan, U.S. Magistrate Judge.' The motion references 'Magistrate Judge Sheehan's Standing Order Regarding Discovery Motions' in the opening paragraph. The proposed order is signed by 'Hon. David P. Sheehan, United States Magistrate Judge.' The motion is clearly directed to Magistrate Judge Sheehan for resolution of the discovery dispute, not solely to District Judge Radford."
+    },
+    {
+      "id": "C-006",
+      "title": "Motion identifies Rule 37(a) as statutory basis",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly identifies Federal Rule of Civil Procedure 37(a) as the basis in multiple places: the title of the motion ('PURSUANT TO FED. R. CIV. P. 37(a)'), the opening paragraph citing 'Federal Rules of Civil Procedure 26(b), 33, 34, and 37(a)', and the expenses section citing 'Fed. R. Civ. P. 37(a)(5)(A)'."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_001: Argues failure to produce privilege log",
+      "verdict": "pass",
+      "reasoning": "The motion extensively argues that Corbin asserted attorney-client privilege and work product protection over documents (including in response to RFP No. 14 and other requests) but failed to produce a privilege log as required by Fed. R. Civ. P. 26(b)(5)(A). Section IV.B of the Memorandum is entirely dedicated to this argument, citing the CMO's requirement that logs be served within 14 days of responses, noting Corbin's counsel admitted the omission was an 'oversight,' and arguing waiver. The Appendix A chart also specifically notes for RFP 14 that privilege was asserted but no log was served and that privilege is waived. The proposed order paragraph 4 also addresses this directly."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_001: Cites Rule 26(b)(5)(A) for privilege log requirement",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly cites Fed. R. Civ. P. 26(b)(5)(A) multiple times in connection with the privilege log argument. In Section III (Legal Standard), it states: 'A party withholding otherwise discoverable information as privileged must \"expressly make the claim\" and \"describe the nature of the documents . . . not produced\" so as to \"enable other parties to assess the claim.\" Fed. R. Civ. P. 26(b)(5)(A).' In Section IV.B, it again cites Rule 26(b)(5)(A) in the context of privilege log waiver. The proposed order also references 'Fed. R. Civ. P. 26(b)(5)(A)' in paragraph 4 regarding privilege waiver. The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_001: Argues privilege waiver for failure to produce log",
+      "verdict": "pass",
+      "reasoning": "The motion extensively argues that Corbin's failure to timely serve a privilege log constitutes waiver of its privilege and work-product objections. Section IV.B of the Memorandum of Law is dedicated to this argument, citing Rule 26(b)(5)(A), CMO \u00a7 4.4 (which required the log by August 14, 2024 and warned that failure 'may be deemed a waiver'), Burlington N. & Santa Fe Ry. Co. v. U.S. Dist. Ct., and Westinghouse Elec. Corp. v. Republic of the Philippines. The proposed Order paragraph 4 also explicitly states that 'Defendant has waived any attorney-client privilege and work-product protection' due to failure to serve a privilege log. The Summary Chart also notes privilege waiver for multiple requests."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_001: Notes broken promise to produce privilege log",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly references the broken promise to produce a privilege log. In the Motion itself (paragraph 3(b)), it states that 'Corbin's counsel conceded the omission was an \"oversight,\" promised a log by September 28, 2024, and still has not served one.' The Memorandum of Law (Section II.C) states counsel 'acknowledged that the failure to serve a privilege log was an \"oversight\" and committed to serve one within thirty days.' The Local Rule 37.1 Certification also states Corbin 'acknowledged that the failure to produce a privilege log was an \"oversight\"; and committed to produce a privilege log by approximately September 28, 2024. Corbin did not produce the log.' This clearly satisfies the criterion of noting the broken promise to produce a privilege log made during the August 28, 2024 meet-and-confer."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_002: Challenges boilerplate overbreadth objections",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly challenges Corbin's boilerplate objections throughout. Section III (Legal Standard) cites Josephs v. Harris Corp. for the proposition that mere statements of 'overly broad, burdensome, oppressive and irrelevant' are inadequate. Section IV.C is titled 'Corbin's Boilerplate General Objections Should Be Stricken' and directly argues that incorporating general objections into every response violates Rules 33(b)(4) and 34(b)(2)(B)-(C) and the CMO. Section IV.D argues that overbreadth/burden objections require specific factual support (declarations, cost estimates) that Corbin never provided. The Appendix A chart repeatedly labels specific objections as 'boilerplate' and notes they lack factual support. The motion clearly and repeatedly challenges overbreadth objections as boilerplate and legally insufficient."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_002: States objecting party bears burden of justification",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states the burden-shifting principle in Section III (Legal Standard): 'A party moving to compel bears the initial burden of showing relevance; the burden then shifts to the objecting party to show specifically why discovery should not be had.' It also cites Josephs v. Harris Corp. for the proposition that a mere boilerplate objection is insufficient, and Section IV.D reiterates that 'An objecting party claiming undue burden must show specifically how each interrogatory is not relevant or how each question is overly broad, burdensome or oppressive.' This clearly states that Corbin, as the objecting party, bears the burden of justifying its objections with specificity."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Challenges trade secret objection to RFP No. 5",
+      "verdict": "pass",
+      "reasoning": "The motion specifically addresses Corbin's trade secret objection to RFP No. 5 in multiple places. In the Memorandum of Law Section E ('Corbin's Trade-Secret and Confidentiality Objections Do Not Justify Withholding Discovery'), the motion explicitly lists RFP No. 5 among the requests where Corbin invoked trade secrecy (citing 'served Req. Nos. 5--10, 19--20, 23'). In Appendix A, the chart entry for RFP 5 specifically notes Corbin's objection as '\"millions of pages\" burden; trade secret; overbroad. Nothing produced' and Vantage's position argues it is 'Core liability evidence; limited to one customer/specification/47 POs. No burden evidence; records MSA \u00a7\u00a7 4.2.3, 9.4 required Corbin to keep producible. Trade-secret claim unsupported; no Rule 26(c) motion. Compel, under protective order if needed.' The motion thus specifically and directly challenges the trade secret objection to RFP No. 5."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_003: Argues trade secret claim requires protective order motion",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly argues in Section IV.E that the remedy for legitimate confidentiality concerns is a protective order under Rule 26(c), requiring 'good cause' through particularized demonstration of harm. It further cites CMO \u00a7 4.7 which 'expressly requires that any trade-secret claim be presented by a motion for protective order identifying the specific information claimed as a trade secret and the factual and legal basis for such claim,' and notes that Corbin has done none of this. The motion also argues that Corbin 'cannot object that no protective order exists while refusing to negotiate one.' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_003: Notes Corbin failed to identify specific trade secrets",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly argues in Section IV.E that Corbin's trade-secret objections are 'unsupported by any declaration' and that Corbin never sought a protective order 'identifying the specific information claimed as a trade secret and the factual and legal basis for such claim' as required by CMO \u00a7 4.7. The motion further states that 'Broad allegations of harm, unsubstantiated by specific examples or articulated reasoning, do not satisfy the Rule 26(c) test' (citing Cipollone). The motion also argues that much of what Corbin labels proprietary is actually Vantage's own specification data, not Corbin's trade secrets. This clearly raises the lack of specificity in Corbin's trade secret claims."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Identifies Interrogatory No. 18 as evasive",
+      "verdict": "pass",
+      "reasoning": "The motion extensively and specifically identifies Corbin's response to Interrogatory No. 18 as evasive and contradicted by its own production. In Section IV.F of the Memorandum, the agent explicitly states that Corbin's answer 'cannot be reconciled with CORBIN-000247' and that the objection that 'failed' is vague 'is untenable.' The motion also cites Rule 37(a)(4) in Section III (Legal Standard) stating that 'an evasive or incomplete disclosure, answer, or response must be treated as a failure to disclose, answer, or respond,' and in Section IV.D references Rule 37(a)(4) for evasive responses. In Appendix A, Interrogatory No. 18 is specifically listed with the notation that it is 'Contradicted by CORBIN-000247' and the motion compels 'complete, truthful, verified supplemental answer.' The motion clearly flags Interrogatory No. 18 as evasive/incomplete under Rule 37(a)(4)."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_004: Uses Foss email to impeach Interrogatory No. 18 response",
+      "verdict": "pass",
+      "reasoning": "The motion extensively uses the Foss email (CORBIN-000247, September 14, 2022) to impeach Corbin's Interrogatory No. 18 response. In the Introduction, the memo quotes the email's content about 15 housings failing CMM inspection being cleared 'per your instruction' and directly contrasts it with Corbin's sworn answer that it is 'not aware of any parts that failed internal quality inspection and were thereafter shipped to Vantage.' Section IV.F is entirely dedicated to this impeachment argument, and the Summary Chart for Interrogatory 18 also explicitly notes the contradiction with CORBIN-000247."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_004: Identifies Foss email as inadvertently produced",
+      "verdict": "pass",
+      "reasoning": "The motion repeatedly references the Foss email with its Bates number CORBIN-000247, and the memorandum explicitly states it was part of Corbin's own production (the 312-page production CORBIN-000001 to -000312). The introduction states Corbin produced 'a single email that, standing alone, corroborates Vantage's core allegation,' and the background section lists the Foss email among the documents in Corbin's July 31, 2024 production. The Bates number CORBIN-000247 clearly indicates it came from Corbin's own document production."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_005: Addresses missing Certificates of Conformance",
+      "verdict": "pass",
+      "reasoning": "The motion extensively addresses the missing CoCs throughout multiple sections. In the motion itself (paragraph 3(e)), it states Corbin 'cannot locate 35 of the 47 CoCs (74.5%)' despite MSA retention requirements. The memorandum dedicates an entire section (Section H) to this issue, discussing the 12 of 47 CoCs produced and the 35 missing ones. The proposed order (paragraph 6) specifically requires a sworn declaration about the search for all 47 CoCs. Appendix A (RFP 22) also addresses this directly. The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_005: Cites MSA seven-year retention requirement",
+      "verdict": "pass",
+      "reasoning": "The motion repeatedly and explicitly cites MSA Section 9.4's seven-year retention requirement in connection with the 35 missing CoCs. For example, in the Memorandum Section H: 'every one of them falls within the seven-year period during which MSA \u00a7 9.4 prohibited their destruction.' In Appendix A under RFP 22: '74.5% missing despite MSA \u00a7 9.4 retention/no-destruction duty.' In the Factual Background: 'Corbin further agreed to retain all \"Quality Records\" ... for seven years after shipment, and not to destroy any of them without Vantage's written consent. (Id. \u00a7\u00a7 9.4.1, 9.4.3.)' The motion clearly argues that the inability to locate 35 of 47 CoCs after only approximately 3 years is suspicious given the contractual 7-year retention obligation."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_005: Raises spoliation concern regarding missing CoCs",
+      "verdict": "pass",
+      "reasoning": "The motion extensively addresses the missing 35 CoCs and raises spoliation concerns. In Section H of the Memorandum, the motion explicitly references the duty to preserve ('this action has been pending since May 20, 2024'), cites Bull v. United Parcel Serv., Inc. on spoliation factors ('spoliation turns on control, relevance, actual suppression, and foreseeability of the duty to preserve'), cites Fed. R. Civ. P. 37(e), notes that Corbin has been on notice since at least January 2024, and states 'Vantage does not presently seek Rule 37(e) sanctions, but reserves the right to do so on a full record.' The motion also requests a sworn declaration about the search for missing CoCs and production of retention/litigation hold policies. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_005: Requests sworn declaration on search methodology",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly requests a sworn declaration regarding Corbin's search for the missing CoCs. In the Motion itself (paragraph 5 of the WHEREFORE clause), Vantage requests 'requiring a sworn declaration regarding Corbin's search for the missing CoCs, its retention practices, and its litigation hold.' In Section H of the Memorandum, Vantage requests 'a sworn declaration from a knowledgeable Corbin representative describing the search for the 35 missing CoCs, including the custodians, locations, and systems searched, the search methods used, and what is known about the disposition of the missing records.' The Proposed Order paragraph 6(c) also orders 'a sworn declaration of a knowledgeable corporate representative describing the search conducted for Certificates of Conformance for all forty-seven (47) purchase orders, including the purchase orders for which no Certificate has been located, the custodians, locations, and systems searched, the search methods used, and all information known to Defendant regarding the loss, destruction, or disposition of any missing Certificate.' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_006: Challenges third-party confidentiality objection to RFP No. 37",
+      "verdict": "pass",
+      "reasoning": "The motion specifically addresses Corbin's objection to RFP No. 37 in multiple places. In Section I (Argument Section I), the motion states: 'Corbin refuses to produce them because they may contain AMT's confidential information and AMT has not consented. But \"third-party confidentiality\" is not a privilege, and Rule 34 requires production of every responsive document in a party's \"possession, custody, or control.\"' The motion also cites MSA \u00a7 14.3.3 which forecloses the confidentiality objection. In Appendix A, RFP 37 is specifically listed with Corbin's objection ('AMT confidentiality/consent required; overbroad; burdensome. Refused.') and Vantage's position ('Not a privilege; documents in Corbin's possession/control; MSA \u00a7 14.3.3 says NDA no excuse. Protective order addresses concerns. Compel.'). The motion clearly and specifically challenges the third-party confidentiality objection as not a recognized privilege or valid basis to withhold production under the Federal Rules."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_006: Argues protective order can address confidentiality",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly argues multiple times that confidentiality concerns can be addressed through a protective order rather than by refusing production. For example, in Section E on trade-secret objections, the motion states: 'The remedy for legitimate confidentiality concerns is a protective order under Rule 26(c)' and notes Vantage offered a stipulated protective order. Regarding AMT communications (Section I), the motion states: 'Any legitimate confidentiality interest of AMT can be protected by the protective order Vantage has offered.' The motion also offers attorneys'-eyes-only designations pending a protective order. These arguments are repeated throughout the memorandum and in Appendix A."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_007: Argues document retention policy (RFP No. 31) is relevant",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly argues the relevance of RFP No. 31 (document retention/destruction policies) in multiple places. In Section IV.H, the motion states: 'Corbin's refusal to produce its document retention and destruction policies on relevance grounds (Resp. to Req. No. 31) is untenable. Whether the missing CoCs were lost, destroyed in the ordinary course, or destroyed after a duty to preserve arose bears directly on Vantage's claims, on the reliability of Corbin's production, and on potential remedies.' The motion also connects this to the 35 missing CoCs and the MSA's seven-year retention requirement. In Appendix A, RFP 31 is listed with the position: 'Directly relevant given 35 missing CoCs and MSA \u00a7 9.4. Compel policies and hold dates/recipients/scope.' The proposed order also includes a paragraph compelling production of retention policies. The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_008: Requests attorney's fees under Rule 37(a)(5)",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly requests attorney's fees under Rule 37(a)(5)(A) in multiple places: (1) the motion title includes 'FOR AN AWARD OF EXPENSES PURSUANT TO FED. R. CIV. P. 37(a)'; (2) the WHEREFORE clause requests 'awarding Vantage its reasonable expenses, including attorney's fees, under Rule 37(a)(5)(A)'; (3) Section IV.K of the memorandum is titled 'Vantage Is Entitled to Its Reasonable Expenses' and cites Rule 37(a)(5)(A) explicitly; and (4) Paragraph 7 of the proposed order awards expenses under Fed. R. Civ. P. 37(a)(5)(A). The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_009: Includes meet-and-confer certification",
+      "verdict": "pass",
+      "reasoning": "The motion includes a dedicated 'LOCAL RULE 37.1 CERTIFICATION OF GOOD-FAITH CONFERRAL' section signed by Andrew J. Niles that explicitly certifies counsel conferred in good faith in an attempt to resolve the discovery disputes without court intervention. It details the dates of conferral, participating counsel, issues discussed, positions taken, and a statement of non-resolution. This fully satisfies the meet-and-confer certification requirement."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_009: Certification references specific meet-and-confer dates",
+      "verdict": "pass",
+      "reasoning": "The Local Rule 37.1 Certification explicitly lists all four dates: (i) August 14, 2024 written deficiency letter, (ii) August 28, 2024 telephone conference of approximately ninety minutes, (iii) September 9, 2024 letter memorializing the August 28 conference, and (iv) October 7, 2024 final letter setting an October 14, 2024 deadline. All four dates are present, satisfying the requirement that at least three of the four dates be mentioned."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_010: Includes summary chart per Magistrate Judge standing order",
+      "verdict": "pass",
+      "reasoning": "The motion includes Appendix A, a detailed summary chart of disputed discovery requests submitted pursuant to Magistrate Judge Sheehan's Standing Order. The chart is divided into two parts (interrogatories and RFPs) and contains three columns for each entry: (1) the served request number and subject, (2) Corbin's objection/basis for non-response, and (3) Vantage's position. This satisfies all three required elements of the criterion."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_011: Challenges 'millions of pages' burden claim as unsupported",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly challenges Corbin's 'millions of pages' burden claim in Section IV.D: 'Its central claim --- that producing QC records for Vantage's parts would require reviewing \"millions of pages\" (Resp. to Req. No. 5) --- is implausible on its face. The requests are limited to one customer, one part family, one specification, 47 purchase orders, and roughly 4,280 units shipped over 33 months.' The motion also references Corbin's 310 employees and notes no burden declaration was provided. The Appendix A chart for RFP 5 also notes 'No burden evidence; records MSA \u00a7\u00a7 4.2.3, 9.4 required Corbin to keep producible.' This directly satisfies the criterion."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_011: Notes lack of supporting declaration/affidavit for burden claim",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states in Section IV.D: 'An objecting party claiming undue burden must \"show specifically how . . . each interrogatory is not relevant or how each question is overly broad, burdensome or oppressive,\" typically with affidavits or other evidence revealing the nature of the burden. Corbin has offered no declaration, no estimate of cost, and no description of how its records are kept.' This directly addresses the evidentiary deficiency of Corbin's burden claim lacking any supporting declaration or affidavit."
+    },
+    {
+      "id": "C-032",
+      "title": "Addresses Interrogatory No. 7 deficiency",
+      "verdict": "pass",
+      "reasoning": "The motion specifically addresses Interrogatory No. 7 in multiple places. In Appendix A (Part 1), there is a dedicated row for 'Interrog. 7 -- All QC testing on shipped Components: method, dates, performer, reviewer, results, records.' It describes Corbin's objection ('unduly burdensome (4,280 units, 33 months), trade secret, compound, better suited to RFPs/depositions. No answer.') and Vantage's position ('Core liability discovery. No burden evidence; records MSA \u00a7 4.2.3 required Corbin to maintain. Corbin may invoke Rule 33(d) only by specifying records and producing them, which it has not. Compel.'). Additionally, Section IV.G of the Memorandum of Law references Interrogatory No. 7 specifically, noting it 'may be answered by specifying, under Rule 33(d), the particular business records from which the answer can be derived --- but Corbin has neither answered nor produced those records.'"
+    },
+    {
+      "id": "C-033",
+      "title": "Addresses Interrogatory No. 12 deficiency",
+      "verdict": "pass",
+      "reasoning": "The motion specifically addresses Interrogatory No. 12 in multiple places. In the motion itself (paragraph 4(c)), it references internal QC communications as a withheld category. In the Memorandum Section IV.G, it explicitly discusses Interrogatory No. 12 as part of the quality-control communications argument. Most directly, in Appendix A (Part 1, Summary Chart), there is a dedicated row for 'Interrog. 12 -- Internal communications re quality issues, complaints, shipping non-passing parts, investigations' which describes Corbin's objections (vague, overbroad, burdensome, privilege/work product, limited resources) and Vantage's position (limited to defined topics re Vantage Components, privilege waived due to no log, business QC communications not privileged, no burden showing, compel with ESI protocol if needed). The motion thus specifically and substantively addresses Corbin's failure to respond to Interrogatory No. 12."
+    },
+    {
+      "id": "C-034",
+      "title": "Addresses RFP No. 14 deficiency",
+      "verdict": "pass",
+      "reasoning": "The motion specifically addresses RFP No. 14 in multiple places. In Section IV.G of the Memorandum of Law, the motion explicitly states: 'Request No. 14 is limited to communications between two identified departments on four defined topics' and argues it is not overbroad. In Appendix A (Part 2), RFP 14 is listed with the subject 'Electronic communications between QC and production departments re Vantage, Components, VES-4400, CoCs, quality issues (2021--present),' Corbin's objection (privilege/work product; overbroad; burdensome; not proportional), and Vantage's position that inter-departmental business communications are not privileged, the privilege is waived due to no log, and the request is narrowly defined. The proposed order also compels production of all responsive documents. RFP No. 14 is clearly and specifically addressed."
+    },
+    {
+      "id": "C-035",
+      "title": "Cites Rule 26(b)(1) scope of discovery",
+      "verdict": "pass",
+      "reasoning": "The memorandum of law explicitly cites Fed. R. Civ. P. 26(b)(1) in Section III (Legal Standard): 'Parties may obtain discovery of \"any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case.\" Fed. R. Civ. P. 26(b)(1).' It is also cited again in Section IV.D regarding proportionality factors."
+    },
+    {
+      "id": "C-036",
+      "title": "Requests order compelling responses within specified time",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly requests that Corbin serve complete answers to interrogatories and full responses to document requests within fourteen (14) days. This appears in the WHEREFORE clause of the motion ('compelling Corbin, within fourteen (14) days, to serve complete, verified answers to Interrogatory Nos. 1\u201325 and complete written responses to, and full production in response to, Request Nos. 1\u201342') and is repeated in the proposed order (paragraphs 2 and 3, both specifying 'Within fourteen (14) days of this Order'). The motion clearly requests a specific time period for compliance."
+    },
+    {
+      "id": "C-037",
+      "title": "Includes proposed order",
+      "verdict": "pass",
+      "reasoning": "The agent's output includes a clearly labeled '[PROPOSED] ORDER GRANTING PLAINTIFF'S MOTION TO COMPEL DISCOVERY RESPONSES' section with eight numbered paragraphs granting specific relief, including compelling discovery responses, addressing privilege waiver, ordering a protective order process, requiring a sworn declaration about missing CoCs, and awarding expenses under Rule 37(a)(5)(A). The proposed order is comprehensive and directly tied to the relief requested in the motion."
+    },
+    {
+      "id": "C-038",
+      "title": "Correctly states total damages claimed as $14.7 million",
+      "verdict": "pass",
+      "reasoning": "The motion states in paragraph 1 that 'damages exceeding $14.7 million' and in the Introduction section references '$14.7 million' as the damages figure. The criterion requires the motion to reference $14.7 million as the total claimed damages. The motion does so accurately in multiple places. The component breakdown ($6.3M + $2.8M + $1.9M + $3.7M) is not provided, but the total figure is correctly stated."
+    },
+    {
+      "id": "C-039",
+      "title": "Correctly states number of failed turbine units as 38",
+      "verdict": "pass",
+      "reasoning": "The motion states 'thirty-eight turbine failures' in paragraph 1 and '$14.7 million' in damages, and later references '38 failed units' in the memorandum. The number 38 is correctly and consistently stated throughout the document."
+    },
+    {
+      "id": "C-040",
+      "title": "Correctly states total units shipped as 4,280 across 47 POs",
+      "verdict": "pass",
+      "reasoning": "The motion correctly states both figures: '4,280 Type 347 stainless steel turbine housings' and '47 purchase orders' appear multiple times throughout the document (in the motion itself, the memorandum, and the appendix), consistent with the criterion."
+    },
+    {
+      "id": "C-041",
+      "title": "Correctly identifies Foss email date as September 14, 2022",
+      "verdict": "pass",
+      "reasoning": "The motion repeatedly identifies the Gerald Foss email as dated September 14, 2022. For example, in the Introduction section: 'On September 14, 2022, Corbin's Quality Control Manager, Gerald Foss, wrote to Corbin's sole member-manager, Raymond T. Corbin...' and in Section F: 'Corbin's answer to Interrogatory No. 18 --- that it is \"not aware of any parts that 'failed' internal quality inspection and were thereafter shipped to Vantage\" --- cannot be reconciled with CORBIN-000247, in which Corbin's Quality Control Manager informs the very officer who verified the answer that fifteen housings failed CMM inspection...' The exhibit index also references 'Email from Gerald Foss to Raymond T. Corbin dated September 14, 2022 (CORBIN-000247)'. The date is consistently and correctly stated as September 14, 2022."
+    },
+    {
+      "id": "C-042",
+      "title": "Correctly states 15 housings in Foss email batch",
+      "verdict": "pass",
+      "reasoning": "The motion repeatedly and consistently states that the Foss email referenced 15 housings that failed CMM inspection. For example: 'another batch of 15 housings . . . didn't pass CMM inspection but I've cleared them for shipment per your instruction' appears multiple times throughout the document, including in the Introduction, Section F of the Argument, and Appendix A. The number 15 is correctly stated throughout."
+    },
+    {
+      "id": "C-043",
+      "title": "DISTRACTOR_003: Does not overstate production as total stonewalling",
+      "verdict": "pass",
+      "reasoning": "The motion repeatedly and accurately acknowledges Corbin's 312-page production (CORBIN-000001 to -000312) throughout the document. For example, in paragraph 4 of the motion: 'has produced no document beyond its initial 312 pages.' The memorandum states: 'Corbin served responses on July 31, 2024, together with a 312-page production (CORBIN-000001 to -000312).' The motion argues the production was grossly inadequate but never claims Corbin produced nothing or completely refused to participate. The motion accurately characterizes what was produced (MSA, PO confirmations, invoice summaries, organizational chart, insurance declarations, financial information, Articles of Organization, twelve CoCs, and the Foss email) while arguing these are insufficient."
+    },
+    {
+      "id": "C-044",
+      "title": "References Local Rule 37.1 by name or number",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly references 'Local Rule 37.1' by name and number in multiple places, including in the opening paragraph ('Local Rule 37.1'), in the meet-and-confer section ('The Local Rule 37.1 Certification is set forth below'), and in the certification section heading ('LOCAL RULE 37.1 CERTIFICATION OF GOOD-FAITH CONFERRAL')."
+    },
+    {
+      "id": "C-045",
+      "title": "References Magistrate Judge Sheehan's standing order",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly references Magistrate Judge Sheehan's Standing Order Regarding Discovery Motions multiple times. In the opening motion paragraph, it states the motion is filed pursuant to 'Magistrate Judge Sheehan's Standing Order Regarding Discovery Motions.' In paragraph 5, it states 'As required by the Standing Order, the Summary Chart of disputed requests is attached as Appendix A.' The Appendix A header also notes it is 'Submitted Pursuant to Magistrate Judge Sheehan's Standing Order Regarding Discovery Motions.'"
+    },
+    {
+      "id": "C-046",
+      "title": "Memorandum of law is included or incorporated",
+      "verdict": "pass",
+      "reasoning": "The agent's output includes a comprehensive standalone Memorandum of Law with five sections (Introduction, Factual and Procedural Background, Legal Standard, Argument with subsections A through K, and Conclusion), containing extensive legal analysis, case citations, and argument supporting the motion to compel."
+    },
+    {
+      "id": "C-047",
+      "title": "Correctly identifies discovery served on June 17, 2024",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states in paragraph 2: 'On June 17, 2024, Vantage served its First Set of Interrogatories (Nos. 1--25) and First Request for Production of Documents (Nos. 1--42).' This matches the criterion exactly."
+    },
+    {
+      "id": "C-048",
+      "title": "Correctly states responses served on July 31, 2024",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states in paragraph 2: 'After an agreed two-week extension, Corbin served responses on July 31, 2024.' This matches the criterion that the motion states Corbin served its responses on July 31, 2024."
+    },
+    {
+      "id": "C-049",
+      "title": "Identifies Corbin's response statistics for interrogatories",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the motion to state that out of 25 interrogatories, Corbin provided substantive answers to only 8, objected to 14 without substantive response, and gave partial/evasive answers to 3 (or substantially conveys this breakdown). The agent's motion does not provide this specific statistical breakdown. The motion states in Section IV.A that Corbin's responses 'correspond in substance to only a handful (principally Nos. 7, 12, and 18, and in part Nos. 6, 11, and 17)' \u2014 which suggests roughly 3 full answers and 3 partial answers, not 8 substantive answers, 14 objections without response, and 3 partial/evasive answers. The Appendix A chart goes through each interrogatory but does not aggregate the statistics in the way the criterion requires. The motion materially understates the number of substantive answers (says 'a handful' with 3 principal ones, vs. the criterion's 8) and does not provide the specific breakdown of 8/14/3. This is a material misstatement of the interrogatory response breakdown as specified in the criterion."
+    },
+    {
+      "id": "C-050",
+      "title": "Identifies Corbin's response statistics for RFPs",
+      "verdict": "fail",
+      "reasoning": "The motion does not state that Corbin objected to 29 of 42 RFPs in their entirety and provided only partial production for 13. The motion describes Corbin's production as 312 pages and notes that Corbin 'refused to produce any document at all in response to the overwhelming majority of the requests,' but it does not provide the specific breakdown of 29 complete refusals and 13 partial productions. The Appendix A chart addresses individual requests but does not aggregate or state these specific statistics. The criterion requires the motion to state or substantially convey this specific breakdown (29 complete objections, 13 partial productions out of 42 RFPs)."
+    },
+    {
+      "id": "C-051",
+      "title": "Correctly identifies 12 of 47 CoCs produced",
+      "verdict": "pass",
+      "reasoning": "The motion repeatedly and consistently states that Corbin produced 12 CoCs out of 47 required. For example: 'Corbin cannot locate 35 of the 47 CoCs (74.5%)' in the motion itself, and in the memorandum: 'Corbin produced CoCs for only 12 of 47 purchase orders and asserts that the remaining 35 \"cannot be located after a diligent search.\"' The RFP 22 entry in Appendix A also states: 'produced 12 CoCs (CORBIN-000127--246); remaining 35 \"cannot be located after a diligent search.\"' Both numbers (12 and 47) are correctly and consistently stated throughout the document."
+    },
+    {
+      "id": "C-052",
+      "title": "Identifies Allegheny Materials Testing by name",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly identifies Allegheny Materials Testing, Inc. (\"AMT\") by name as Corbin's metallurgical testing subcontractor in connection with RFP No. 37. In the Appendix A summary chart under RFP 37, the entry reads: 'Corbin--AMT communications re Type 347 testing, VES-4400, tensile/Charpy/IGC testing (2021--present)' and Corbin's objection references 'AMT confidentiality/consent required.' The subcontractor is also named throughout the memorandum of law in Section I (the Foss email discussion), Section IV.I (dedicated to AMT), and in the proposed order paragraph 3."
+    },
+    {
+      "id": "C-053",
+      "title": "References Bates stamp or production identification for Foss email",
+      "verdict": "pass",
+      "reasoning": "The motion repeatedly references the Foss email with its Bates number CORBIN-000247. For example, in the motion itself: '(Ex. 5, CORBIN-000247.)' and in the memorandum: '(Ex. 5, CORBIN-000247.)' and in the argument section: 'CORBIN-000247 is a September 14, 2022 email...' The document clearly identifies the Foss email both by exhibit number and Bates stamp."
+    },
+    {
+      "id": "C-054",
+      "title": "Correctly identifies MSA execution date as March 15, 2021",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states 'Master Supply Agreement dated March 15, 2021' in multiple places throughout the document, which matches the criterion exactly."
+    },
+    {
+      "id": "C-055",
+      "title": "Addresses RFP No. 22 specifically regarding CoCs",
+      "verdict": "pass",
+      "reasoning": "RFP No. 22 is explicitly identified by number in multiple places throughout the motion in connection with the CoC production issue. In the motion itself (paragraph 3(e)), it references the missing CoCs. In the memorandum Section H, it discusses the missing CoCs and references 'Req. Nos. 22, 31.' In Appendix A Part 2, RFP 22 is listed with the subject 'CoCs for each shipment Apr. 2021\u2013Dec. 2023, with underlying inspection/test data' and addresses Corbin's deficient response (produced only 12 of 47 CoCs, remaining 35 'cannot be located'). The proposed order paragraph 6 also references the 47 purchase orders and missing Certificates. RFP No. 22 is clearly and specifically identified by number in connection with the CoC production issue."
+    },
+    {
+      "id": "C-056",
+      "title": "Addresses RFP No. 31 specifically regarding retention policies",
+      "verdict": "pass",
+      "reasoning": "The motion specifically identifies RFP No. 31 by number in multiple places. In Section IV.H of the Memorandum, it states 'Corbin's refusal to produce its document retention and destruction policies on relevance grounds (Resp. to Req. No. 31) is untenable.' In the proposed Order, paragraph 6 compels production of retention policies. In Appendix A Part 2, RFP 31 is listed with the description 'Retention/destruction policies and litigation hold notices, 2020\u2013present,' Corbin's objection ('irrelevant; not proportional; overbroad. Refused.'), and Vantage's position challenging that objection. The criterion is fully satisfied."
+    },
+    {
+      "id": "C-057",
+      "title": "Addresses RFP No. 37 specifically regarding Allegheny communications",
+      "verdict": "pass",
+      "reasoning": "The motion specifically identifies RFP No. 37 by number in multiple places. In Appendix A (Part 2), there is a row explicitly labeled 'RFP 37' describing it as 'Corbin\u2013AMT communications re Type 347 testing, VES-4400, tensile/Charpy/IGC testing (2021\u2013present),' noting Corbin's objection based on 'AMT confidentiality/consent required; overbroad; burdensome,' and Vantage's position that 'third-party confidentiality' is not a privilege and that MSA \u00a7 14.3.3 forecloses the objection. Additionally, Section I of the Memorandum of Law references RFP Nos. 36\u201338 and specifically addresses the AMT communications and the third-party confidentiality objection. The criterion is fully satisfied."
+    },
+    {
+      "id": "C-058",
+      "title": "Fact discovery deadline correctly stated as March 31, 2025",
+      "verdict": "pass",
+      "reasoning": "The memorandum of law states 'With fact discovery closing on March 31, 2025, Vantage respectfully asks the Court to compel complete responses.' This matches the criterion exactly."
+    },
+    {
+      "id": "C-059",
+      "title": "Correctly attributes evasive Interrogatory 18 response language",
+      "verdict": "pass",
+      "reasoning": "The motion quotes Corbin's Interrogatory No. 18 response as stating Corbin is 'not aware of any parts that \"failed\" internal quality inspection and were thereafter shipped to Vantage.' This language appears multiple times in the document (in the motion itself, the memorandum, and the summary chart) and accurately captures the evasive nature of the response. The quote is consistent and correctly attributed throughout the document."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-motion-to-compel-discovery-responses/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-motion-to-compel-discovery-responses",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:23:29.682663+00:00",
+  "cost": {
+    "input_tokens": 38,
+    "output_tokens": 47579,
+    "wall_clock_seconds": 467.17
+  },
+  "doc_coverage": {
+    "documents_read": 10,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "case-management-order.docx",
+      "first-rfps.docx",
+      "corbin-rfp-responses.docx",
+      "first-set-interrogatories.docx",
+      "corbin-interrogatory-responses.docx",
+      "meet-and-confer-letters.docx",
+      "msa-excerpt.docx",
+      "foss-email-smoking-gun.eml",
+      "/workspace/build/pg-01.png",
+      "/workspace/build/pg-27.png"
+    ],
+    "documents_skipped_list": []
+  }
+}

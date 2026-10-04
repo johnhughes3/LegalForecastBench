@@ -1,0 +1,460 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "51/69 criteria passed.  Missed 18 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 69,
+  "n_passed": 51,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Caption identifies the court as W.D. Pa.",
+      "verdict": "pass",
+      "reasoning": "The caption at the top of the motion clearly states 'IN THE UNITED STATES DISTRICT COURT FOR THE WESTERN DISTRICT OF PENNSYLVANIA', which satisfies the criterion."
+    },
+    {
+      "id": "C-002",
+      "title": "Caption includes the correct case number",
+      "verdict": "pass",
+      "reasoning": "The caption in the agent's output clearly includes 'Civil Action No. 2:23-cv-01487-NMR' which matches the required case number exactly."
+    },
+    {
+      "id": "C-003",
+      "title": "Caption identifies the correct parties",
+      "verdict": "pass",
+      "reasoning": "The caption clearly identifies Ridgeline Manufacturing Corp. as 'Plaintiff and Counterclaim-Defendant' and Apex Digital Solutions, Inc. as 'Defendant and Counterclaim-Plaintiff.' Both parties are correctly named and their roles are accurately stated."
+    },
+    {
+      "id": "C-004",
+      "title": "Motion includes a statement of the case / factual background section",
+      "verdict": "pass",
+      "reasoning": "The brief contains a dedicated 'II. STATEMENT OF UNDISPUTED FACTS' section that provides a detailed factual background organized into subsections (A through D), covering Apex's pre-contract representations, admissions of falsity, the MSA terms, and Apex's performance and Ridgeline's termination. This clearly satisfies the criterion of including a dedicated section summarizing the factual background or statement of the case."
+    },
+    {
+      "id": "C-005",
+      "title": "Motion states the Fed. R. Civ. P. 56 summary judgment standard",
+      "verdict": "pass",
+      "reasoning": "Section III of the brief explicitly states: 'Summary judgment is appropriate where "
+    },
+    {
+      "id": "C-006",
+      "title": "Motion includes argument sections organized by claim",
+      "verdict": "fail",
+      "reasoning": "The motion's argument section is organized with separate labeled sections: Section IV.A addresses breach of contract (with multiple subsections), Section IV.B addresses Apex's counterclaim for unpaid milestone fees, and Section IV.C addresses fraudulent inducement. However, the criterion requires a separate section addressing negligent misrepresentation, and no such section exists anywhere in the brief. The task called for a motion covering breach of contract, fraudulent inducement, AND negligent misrepresentation, but negligent misrepresentation is entirely absent from the argument section."
+    },
+    {
+      "id": "C-007",
+      "title": "Motion includes a conclusion with prayer for relief",
+      "verdict": "pass",
+      "reasoning": "The motion includes a clear Conclusion section (Section V) that requests specific relief: (a) judgment on liability for breach of contract including proper termination determination, (b) judgment on Apex's counterclaim for unpaid milestone fees, (c) judgment on liability for fraudulent inducement or alternative Rule 56(g) order, and (d) determination that the liability cap doesn't bar recovery. This covers summary judgment on Ridgeline's claims and dismissal of Apex's counterclaim, satisfying the criterion."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_001: Addresses integration clause defense against fraud claims",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly addresses the integration clause defense in Section IV.C.6, titled 'The MSA's integration clause does not bar the claim.' It identifies that Apex's principal defense will be MSA \u00a7 14.1 (the integration/non-reliance clause) and preemptively argues three reasons why it does not bar the fraudulent inducement claim: (1) the representation is expressly set forth in the MSA itself; (2) the pre-contractual evidence is offered to prove the MSA's own representation was false, not to add to or vary the contract; and (3) the gist-of-the-action doctrine does not convert the fraud claim into a contract claim because the duty not to lie about existing capabilities is a social duty, not a contractual one. The motion also acknowledges the risk that courts applying Yocca have construed integration clauses broadly and provides a fallback argument."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_001: Applies Pennsylvania law on fraud claims surviving integration clauses",
+      "verdict": "pass",
+      "reasoning": "The motion extensively addresses Pennsylvania law on fraud claims surviving integration clauses. In Section IV.C.6, it cites Yocca v. Pittsburgh Steelers Sports, Inc. and Toy v. Metropolitan Life Ins. Co. for the integration clause issue, then explicitly invokes the gist-of-the-action doctrine with citation to Bruno v. Erie Ins. Co. and eToll, Inc. v. Elias/Savion Advert., Inc. It correctly articulates that the gist-of-the-action doctrine distinguishes fraud in the inducement (pre-contractual misrepresentations about existing capabilities) from fraud in performance, and that the duty not to lie about existing capabilities to induce a contract is a social duty independent of the contract. The motion also argues that the MSA's own recitals contain the representation, so reliance is preserved even under \u00a7 14.1's terms. This fully satisfies the criterion."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_002: Presents Ostroff Slack message as scienter evidence",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly cites Ryan Ostroff's May 3, 2022 internal message in multiple places. In the Introduction, it quotes: 'We have zero experience with Teamcenter. I've been Googling the API docs for two weeks. . . . Don't raise this with the client yet.' (CSMF \u00b6\u00b6 54). In Section IV.A.3 on warranty breach, it references CSMF \u00b6\u00b6 54, 60 where Ostroff wrote Apex was 'Googling the API docs' and 'flying blind.' In Section IV.C.3 on scienter for fraudulent inducement, the motion again references CSMF \u00b6\u00b6 54, 57 and the 'Don't raise this with the client' statement. The motion uses this evidence directly in the scienter argument to show Apex knew its pre-contract representations were false."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_002: Presents Ostroff and Bellingham deposition admissions on Corridor Metals/PrimeTech",
+      "verdict": "pass",
+      "reasoning": "The motion extensively cites deposition admissions from both Ryan Ostroff and Tara Bellingham regarding the falsity of the Corridor Metals and PrimeTech representations. Specifically, the brief states that Apex's Vice President of Sales (Bellingham) testified that Apex 'never actually performed a Teamcenter integration for anyone before Ridgeline,' and that Corridor Metals ran SAP (not Stratos) with no Teamcenter work, and PrimeTech was merely a consulting assessment. It also cites Ostroff's admission that he 'knew we hadn't done those integrations' and had flagged concerns before the Proposal was submitted. These admissions are referenced multiple times throughout the brief (CSMF \u00b6\u00b6 18-21, 25-27) and in the fraudulent inducement section. While the motion does not cite specific deposition dates (Oct. 17, 2024 for Ostroff; Nov. 8, 2024 for Bellingham), the criterion only requires that the deposition testimony be cited, not that the dates be specified. The admissions regarding Corridor Metals and PrimeTech are clearly and repeatedly cited."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_002: Presents Kresch admission on 'aspirational' AS9100D staffing claim",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly cites Jordan Kresch's admission that the '6 Certified AS9100D Implementation Specialists' claim was 'aspirational' and that Apex had only one certified employee (Gerald Frisk). Specifically, in Section IV.C.1: 'Mr. Kresch's description of the specialist count as \"aspirational\" is an admission that the statement described something that did not exist. CSMF \u00b6 23.' And in Section II.B: 'Apex had one AS9100D-certified employee, Gerald Frisk, who left in April 2022.' The motion also references Kresch approving the Proposal while knowing Apex had exactly one certified AS9100D employee (CSMF \u00b6\u00b6 5, 13, 22, 28). The criterion is satisfied."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_002: Uses Apex board minutes as motive/scienter evidence",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly references Apex's financial pressure as motive/scienter evidence in the fraud section. CSMF \u00b6\u00b6 29\u201330 are cited, and the brief states: 'Apex's documented need to close $2.5 million in contracts to meet loan covenants supplies the motive.' While the motion does not explicitly name 'Piedmont Capital Finance' or 'board minutes,' it does cite the cash-flow shortfall and the $2.5 million contract target by Q1 2022 to meet loan covenants as circumstantial evidence of motive and scienter. The criterion requires that the motion cite Apex's January 2022 board minutes showing financial pressure \u2014 specifically the cash-flow shortfall and need to close at least $2.5 million in new contracts by Q1 2022 to meet loan covenants. The motion does reference these facts (CSMF \u00b6\u00b6 29\u201330) and uses them in the fraud argument, even if it doesn't explicitly label them as 'board minutes' or name 'Piedmont Capital Finance.' The substance of the financial pressure evidence is present and used in the fraud/scienter argument."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_002: Addresses Bellingham's 'overstated' language as not creating genuine dispute",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly addresses Bellingham's 'overstated' language in Section IV.C.1: 'Ms. Bellingham's testimony that she \"may have overstated\" and that Slide 7 \"wasn't entirely accurate\" leaves nothing for a jury to resolve on falsity.' The motion treats this equivocal language as still constituting an admission of falsity, arguing it does not create a genuine dispute. The motion also pairs this with Ostroff's and Kresch's admissions to show the totality of evidence eliminates any genuine dispute on scienter. This satisfies the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_003: Addresses LOL clause and its inapplicability to fraud claims",
+      "verdict": "pass",
+      "reasoning": "Section IV.D of the brief explicitly addresses MSA \u00a7 11.2, the $2,850,000 cap on aggregate liability. It argues two points: (1) the cap does not bar Ridgeline's direct contract damages because those damages ($2,007,500) fall below the cap; and (2) the cap cannot limit recovery for Apex's intentional fraud, citing Pennsylvania public policy (Tayar v. Camelback Ski Corp.) and the principle that a limitation clause procured through the very fraud that induced the contract cannot shield the defrauding party. The proposed order also includes a paragraph (\u00b64) reflecting this relief. The motion clearly addresses the LOL clause and argues its inapplicability to fraud/intentional misconduct claims."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_003: States PA law principle that LOL clauses are unenforceable as to fraud",
+      "verdict": "pass",
+      "reasoning": "The motion does argue in Section IV.D that MSA \u00a7 11.2 cannot limit Ridgeline's recovery for Apex's intentional fraud, invoking Pennsylvania public policy against contracting away liability for intentional or reckless misconduct, and cites Tayar v. Camelback Ski Corp., 47 A.3d 1190 (Pa. 2012) as authority. However, the criterion specifically asks for citation to Pennsylvania authority on LOL clauses being unenforceable as to fraud\u2014examples given are Walton v. Johnson, Werwinski v. Ford Motor Co., or similar cases. The motion cites Tayar, which is a pre-injury release case involving reckless conduct in a tort context, not a case specifically addressing LOL clauses and fraud. The criterion says 'or similar cases,' so the question is whether Tayar qualifies as 'similar.' Tayar does stand for the Pennsylvania public policy principle that parties cannot contract away liability for intentional/reckless misconduct, which is the relevant legal principle. The motion does state the legal principle (LOL clauses unenforceable as to fraud/intentional misconduct on public policy grounds) and cites Pennsylvania authority (Tayar). While Tayar is not the most on-point case for LOL clauses specifically in fraud contexts, it is Pennsylvania authority supporting the public policy principle stated. The criterion is satisfied: the motion argues the principle and cites PA authority, even if not the exact cases listed as examples."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_003: Notes that LOL clause lacks a fraud/willful misconduct carve-out",
+      "verdict": "fail",
+      "reasoning": "The motion's Section IV.D discusses the limitation-of-liability clause (\u00a7 11.2) and argues it cannot limit fraud damages, but it does so by invoking Pennsylvania public policy (citing Tayar v. Camelback Ski Corp.) and the principle that a clause procured through fraud cannot shield the defrauding party. The motion does not mention or argue that the LOL clause itself lacks a carve-out for fraud, willful misconduct, or indemnification obligations. The absence of such a carve-out in the contract language is never noted as a basis for the argument. The criterion specifically requires that the motion note or argue that the LOL clause contains no carve-out for fraud/willful misconduct, which is relevant to arguing unenforceability. Since this point is not made, the criterion is not satisfied."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_004: Argues Apex's breaches were material",
+      "verdict": "pass",
+      "reasoning": "The motion extensively argues that Apex's breaches were material. Section IV.A.7 is explicitly titled 'Apex's breaches were material, and Ridgeline properly terminated under MSA \u00a7 8.2.' It identifies specific material breaches including: failure to complete Phase 2, failure to deliver a working Teamcenter integration (abandoned the original approach, CEO conceded it 'needed to be revised'), failure to properly configure AS9100D modules (seven of twelve critical traceability requirements non-functional), and staffing with unqualified personnel (project manager replaced with a five-month employee lacking Teamcenter and AS9100D experience). The motion also cites the MSA's own language that timely completion 'is material to this Agreement,' notes that Teamcenter integration and AS9100D compliance were the core deliverables, and argues Ridgeline was deprived of essentially the entire benefit of its bargain. These arguments satisfy the criterion fully."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_004: Motion establishes Ridgeline sent written breach notice on May 1, 2023",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states in Section II.D: 'Ridgeline served notice of material breach on May 1, 2023. CSMF \u00b6 82.' It also references this in Section IV.A.7: 'Ridgeline followed \u00a7 8.2 to the letter. It gave written notice identifying four specific breaches and allowed thirty days to cure. CSMF \u00b6 82.' The May 1, 2023 written breach notice identifying specific breaches is clearly referenced in the motion."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_004: Motion establishes Ridgeline provided 30-day cure period before termination",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states in Section IV.A.7: 'Ridgeline followed \u00a7 8.2 to the letter. It gave written notice identifying four specific breaches and allowed thirty days to cure. CSMF \u00b6 82. Apex did not cure.' It also states 'Ridgeline terminated effective June 1, 2023. CSMF \u00b6 84.' Both the 30-day cure period and the June 1, 2023 termination date are clearly referenced."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_004: Argues Apex's conditional cure offer was not genuine cure",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly addresses Apex's conditional cure response in multiple places. In the Introduction, it states Apex 'offered to cure only if Ridgeline paid more money and granted more time' and that 'The MSA states in terms that such a response shall not constitute cure.' In Section IV.A.7, the motion directly argues that Apex's response made remediation 'contingent upon Ridgeline's approval of the revised scope and fee structure' and sought to double the cure period, and then quotes MSA \u00a7 8.2 which states that a response conditioning cure on additional fees or timeline extensions 'shall not constitute cure.' The motion also argues this constitutes a repudiation under Pennsylvania law. This clearly satisfies the criterion of arguing that Apex's conditional cure offer was not genuine cure within the 30-day period."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_005: Addresses Phase 1 payment under protest and waiver defense",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly addresses the waiver/acceptance defense in Section IV.A.6, titled 'Ridgeline did not waive any breach by paying the Phase 1 milestone.' It cites MSA \u00a7\u00a7 4.4, 4.5, and 14.3, and specifically references Ridgeline's October 3, 2022 payment email that 'expressly reserved all rights regarding the delay and the incomplete Teamcenter integration design' (CSMF \u00b6 62). This directly addresses the payment-under-protest and reservation of rights argument the criterion requires."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_005: Cites Szymanski's October 3, 2022 reservation-of-rights email",
+      "verdict": "pass",
+      "reasoning": "The motion references the October 3, 2022 Phase 1 payment and states in Section IV.A.6: 'Ridgeline's payment email, copied to Apex's CEO, expressly reserved \"all rights regarding the delay and the incomplete Teamcenter integration design.\"' This is cited at CSMF \u00b6 62. The criterion requires citation to Szymanski's October 3, 2022 reservation-of-rights email with substantially equivalent language. The motion does reference this email with substantially equivalent language ('all rights regarding the delay and the incomplete Teamcenter integration design'), though it does not explicitly name Szymanski as the author or use the phrase 'under protest.' However, the criterion says 'or substantially equivalent language' and the quoted language matches closely. The motion satisfies the criterion."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_006: Addresses justifiable reliance for negligent misrepresentation",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the motion to address justifiable reliance for the negligent misrepresentation claim specifically, including why Ridgeline's reliance was justified despite Szymanski's reference checks revealing neither reference had Teamcenter or AS9100D experience. The motion does address justifiable reliance in Section IV.C.5, arguing that Ridgeline relied on Apex's representations, that a recipient of a fraudulent misrepresentation is justified in relying on it even without investigation (citing Restatement (Second) of Torts \u00a7 540), and that verifying the named projects would have required contacting other clients about confidential projects. However, two significant problems exist: (1) The motion addresses justifiable reliance only in the context of the fraudulent inducement claim, not the negligent misrepresentation claim. The task requires drafting a motion covering negligent misrepresentation, but the motion as drafted does not appear to include a separate negligent misrepresentation count or argument section at all\u2014the brief covers breach of contract, the counterclaim, fraudulent inducement, and the limitation clause, but there is no Section IV addressing negligent misrepresentation as a standalone claim. (2) The criterion specifically asks about the incomplete reference check problem\u2014that Szymanski's reference checks revealed neither reference had Teamcenter or AS9100D experience\u2014and while the motion mentions that Szymanski 'did not call the third reference because of Ms. Bellingham's assurances,' it does not directly address the fact that the references Szymanski did check revealed no Teamcenter/AS9100D experience and explain why reliance was still justified despite this red flag. The motion fails to address justifiable reliance in the context of a negligent misrepresentation claim specifically, and does not adequately address the incomplete reference check problem as it relates to that claim."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_006: Applies Restatement \u00a7 552 or PA negligent misrepresentation standard",
+      "verdict": "fail",
+      "reasoning": "The motion does not include a negligent misrepresentation claim or articulate any legal standard for negligent misrepresentation under Pennsylvania law (Restatement (Second) of Torts \u00a7 552 or equivalent). The task called for a motion covering breach of contract, fraudulent inducement, AND negligent misrepresentation, but the agent's output omits negligent misrepresentation entirely. The brief addresses only breach of contract and fraudulent inducement. No \u00a7 552 standard, no duty-of-care analysis, no negligent misrepresentation count appears anywhere in the motion."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_006: Argues Apex held itself out as expert with superior knowledge",
+      "verdict": "pass",
+      "reasoning": "The motion does argue that Apex held itself out as having specialized expertise (Teamcenter integration experience, AS9100D specialists) and that Ridgeline was justified in relying on those representations without independent verification. In Section IV.C.5, the motion argues justifiable reliance, noting that Ridgeline relied on Apex's representations and did not independently verify the named projects. It cites Restatement (Second) of Torts \u00a7 540 for the proposition that a recipient of a fraudulent misrepresentation is justified in relying on it 'although he might have ascertained the falsity of the representation had he made an investigation.' It also notes that verifying the claims would have required contacting Apex's other clients about confidential projects. However, the motion does not explicitly frame this as Apex holding itself out as an 'expert with superior knowledge' in the sense that Ridgeline lacked the technical expertise to evaluate the claims and therefore had to rely on Apex's representations. The motion does reference Apex's claimed 'deep experience,' specialized capabilities, and the fact that Ridgeline specifically raised the Teamcenter gap and was given specific (false) assurances. The argument about superior knowledge as a basis for justifiable reliance is implicit but not explicitly developed as a distinct legal argument. The criterion asks whether the motion argues that Apex's position of superior knowledge justified Ridgeline's reliance without independent verification. The motion does make this argument, though somewhat implicitly, through the Restatement citation and the discussion of why verification would have been difficult. The core argument is present even if not labeled 'superior knowledge.'"
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_007: Addresses Aerocore lost-profits causation carefully",
+      "verdict": "fail",
+      "reasoning": "The motion does not mention the Aerocore Dynamics contract or the $690,000 in lost profits at all. The criterion requires that the motion either address causation complexity for the Aerocore loss, argue concurrent causation, present supporting evidence, or strategically limit its request regarding those damages. Since the Aerocore damages are entirely omitted from the motion, the criterion is not satisfied."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_008: Seeks summary judgment dismissing Apex's counterclaim",
+      "verdict": "pass",
+      "reasoning": "Section IV.B of the brief is explicitly titled 'Apex's Counterclaim for Unpaid Milestone Fees Fails as a Matter of Law' and argues for summary judgment dismissing Apex's $1,567,500 counterclaim on the grounds that conditions precedent (written sign-off) were never met and Apex's prior material breach bars recovery. The proposed order also includes a paragraph entering judgment in favor of Ridgeline on Apex's counterclaim. The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_008: Argues milestone payments were conditioned on deliverable completion",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly argues in Section IV.B that the Phase 2, UAT, and Go-Live milestone payments were conditioned on Ridgeline's written sign-off and completion of corresponding deliverables, characterizing these as conditions precedent under Restatement (Second) of Contracts \u00a7\u00a7 224, 225(1). It states that Ridgeline never signed off on Phase 2 or UAT, Go-Live never occurred, and that Apex's prior material breach bars its recovery. The CSMF references (\u00b6\u00b6 42-43, 48, 64, 86-87) and the specific dollar amounts ($1,567,500 total counterclaim) are addressed. The motion also notes MSA \u00a7 8.4(b) limits post-termination payment to properly performed and accepted services. This satisfies the criterion."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_009: Uses Marcus Tran expert testimony to establish breach of professional standard",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly cites Marcus Tran's expert opinions in Section IV.A.3 under the \u00a7 5.1(a) warranty analysis. It states that Tran 'opines that Apex's Teamcenter design relied on a deprecated \"direct database-level integration\" that no competent integrator would have proposed after 2018' and that 'its AS9100D configuration made \"architectural choices that reflect a lack of understanding of what AS9100D requires,\" and that Apex's performance fell below generally accepted industry standards.' This is directly connected to the \u00a7 5.1(a) warranty requiring 'workmanlike performance consistent with industry standards.' The motion also notes that Apex's expert does not rebut Tran's findings, strengthening the argument. The connection between Tran's testimony and the \u00a7 5.1 warranty standard is explicit and clear."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_009: Argues uncontroverted expert testimony supports summary judgment",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly argues in Section IV.A.3 that Marcus Tran's expert opinion on the Teamcenter deprecated architecture and AS9100D configuration failures is unrebutted: 'Apex's expert does not address \u00a7 5.1, does not opine that Apex met industry standards, and does not respond to Mr. Tran's technical findings.' It then cites Anderson v. Liberty Lobby for the proposition that where a qualified expert's opinion on a technical standard is unrebutted and the nonmovant offers no contrary evidence, there is no genuine dispute for a factfinder to resolve. This directly argues that Tran's uncontroverted testimony supports summary judgment on the breach of warranty/professional standards element of the breach of contract claim. While the motion does not explicitly mention the absence of a Daubert challenge, it does argue the uncontroverted nature of Tran's testimony and uses it to support summary judgment on the professional standard issue, which satisfies the criterion."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_010: Addresses availability of punitive damages for fraud",
+      "verdict": "fail",
+      "reasoning": "The motion does not address punitive damages anywhere in the brief. The damages discussion focuses on direct contract damages, the limitation-of-liability clause, and reserving fraud damages for trial, but never mentions punitive damages, Pennsylvania's standard for awarding them (outrageous conduct, reckless indifference, intentional/wanton conduct), or argues that Apex's knowing misrepresentations combined with financial pressure support such an award."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_010: Acknowledges court may reserve punitive damages for jury",
+      "verdict": "fail",
+      "reasoning": "The motion does not demand summary judgment awarding punitive damages outright, nor does it acknowledge that courts typically reserve punitive damages for the jury. In fact, the motion does not address punitive damages at all\u2014it focuses on liability for breach of contract and fraudulent inducement, and reserves damages amounts for trial, but never mentions punitive damages or the jury's role in determining them. The criterion requires either (a) acknowledging/strategically handling the possibility that the court may reserve punitive damages for the jury, or (b) at minimum requesting that the court rule the evidence sufficient to submit punitive damages to the jury. Since the motion is entirely silent on punitive damages, it fails to satisfy the criterion."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_011: Correctly calculates total fees paid to Apex",
+      "verdict": "fail",
+      "reasoning": "The motion states in multiple places that Ridgeline paid $1,282,500 to Apex (e.g., 'Ridgeline paid Apex $1,282,500' in the damages section and the conclusion). However, the criterion requires that the motion also break down this figure as $570,000 at signing + $712,500 at Phase 1 completion. The motion does not provide this breakdown anywhere in the text. It only states the total figure of $1,282,500 without specifying the component amounts. Therefore, the criterion is not fully satisfied."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_011: Correctly states replacement cost total",
+      "verdict": "pass",
+      "reasoning": "The motion states the replacement cost as $3,575,000 in multiple places (CSMF \u00b6\u00b6 85\u201386, Section IV.A.8, Section IV.D). The criterion requires the motion to state the total replacement cost as $3,575,000 ($3,100,000 Caravel + $475,000 Whitlock). The total figure of $3,575,000 is correctly stated. However, the motion does not break down the $3,575,000 into its component parts (Caravel and Whitlock amounts). The criterion says PASS if the motion states the total as $3,575,000, which it does. The breakdown into components is mentioned in the criterion as context/explanation but the PASS condition is met by stating the total correctly."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_011: Correctly states cover differential",
+      "verdict": "pass",
+      "reasoning": "The motion states in Section IV.D: 'Those damages consist of the $1,282,500 in fees paid plus the $725,000 cost-of-cover differential ($3,575,000 in replacement cost less the $2,850,000 contract price).' This correctly states the cover differential as $725,000 = $3,575,000 - $2,850,000."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_011: Correctly states total contract damages claimed",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states in Section IV.D: 'Those damages consist of the $1,282,500 in fees paid plus the $725,000 cost-of-cover differential ($3,575,000 in replacement cost less the $2,850,000 contract price), for a total of $2,007,500.' This matches the criterion exactly, including the correct arithmetic breakdown."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_011: Correctly states production inefficiency costs of $1,840,000",
+      "verdict": "fail",
+      "reasoning": "The motion does not mention production inefficiency costs of $1,840,000 anywhere in the document. The damages discussion references $1,282,500 in fees paid, $3,575,000 in replacement vendor costs, and a $725,000 cost-of-cover differential, but the specific figure of $1,840,000 for production inefficiency costs is entirely absent."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_011: Correctly states lost Aerocore profits of $690,000",
+      "verdict": "fail",
+      "reasoning": "The motion does not mention lost Aerocore profits of $690,000 anywhere in the document. The damages discussion references $1,282,500 in fees paid, $3,575,000 in replacement vendor costs, and a $725,000 cost-of-cover differential, but the $690,000 lost Aerocore profits figure is entirely absent."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_011: Correctly states grand total damages excluding punitive",
+      "verdict": "fail",
+      "reasoning": "The motion does not state a grand total of $4,537,500 in damages. It states that Ridgeline paid Apex $1,282,500 in fees and paid replacement vendors $3,575,000, and calculates direct contract damages as $2,007,500 ($1,282,500 + $725,000 cost-of-cover differential). The figure $4,537,500 ($1,282,500 + $3,575,000 - $320,000, or simply $1,282,500 + $3,575,000 = $4,857,500, or some other combination) does not appear anywhere in the motion. The motion explicitly frames damages as $2,007,500 for contract purposes and reserves fraud damages for trial without stating a combined total. The criterion requires the motion to state or imply a grand total of $4,537,500 excluding punitive damages, which it does not do."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_011: Distinguishes LOL cap application between contract and fraud claims",
+      "verdict": "pass",
+      "reasoning": "Section IV.D of the brief explicitly distinguishes the LOL cap's application between contract and fraud claims. It first addresses contract damages ($2,007,500 falling below the $2,850,000 cap, so the cap doesn't bar recovery), then separately argues that the cap cannot limit fraud damages as a matter of Pennsylvania public policy, citing Tayar v. Camelback Ski Corp. The proposed order paragraph 4 also reflects this distinction. The motion clearly demonstrates awareness that the LOL interacts differently with the two categories of claims."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_011: Notes contract damages ($2,007,500) fall within LOL cap ($2,850,000)",
+      "verdict": "pass",
+      "reasoning": "In Section IV.D, the motion explicitly states: 'Those damages consist of the $1,282,500 in fees paid plus the $725,000 cost-of-cover differential ($3,575,000 in replacement cost less the $2,850,000 contract price), for a total of $2,007,500. That figure falls below the cap.' It then concludes: 'The cap therefore has no bearing on Ridgeline's contract recovery.' This directly and clearly notes that the $2,007,500 in contract damages falls within the $2,850,000 LOL cap, satisfying the criterion."
+    },
+    {
+      "id": "C-043",
+      "title": "Motion includes breach of contract argument identifying specific contractual obligations and failures",
+      "verdict": "pass",
+      "reasoning": "The motion contains a detailed breach of contract argument (Section IV.A) that identifies multiple specific contractual obligations and corresponding failures. It explicitly addresses: (1) Teamcenter integration - Apex never delivered a working integration, used deprecated architecture; (2) AS9100D module configuration - seven of twelve critical traceability requirements were non-functional; (3) Project timeline/Phase 2 completion - Phase 1 was eleven weeks late, Phase 2 was never completed, Go-Live never occurred; (4) Staffing with qualified personnel - Apex's only AS9100D-certified employee left in April 2022, replacement project manager lacked Teamcenter and AS9100D experience. This far exceeds the minimum threshold of identifying at least two specific contractual obligations and corresponding failures."
+    },
+    {
+      "id": "C-044",
+      "title": "Motion addresses fraudulent inducement as a distinct claim",
+      "verdict": "pass",
+      "reasoning": "Section IV.C of the brief is dedicated entirely to fraudulent inducement. It cites Gibbs v. Ernst, 647 A.2d 882, 889 (Pa. 1994) and explicitly lists all six elements under Pennsylvania law: (1) a representation, (2) material to the transaction, (3) made falsely with knowledge of falsity or recklessness, (4) with intent to mislead, (5) justifiable reliance, and (6) resulting injury proximately caused by reliance. The section then applies each element to the specific facts, including Apex's admissions of falsity, scienter evidence, intent to induce reliance, justifiable reliance analysis, and causation/damages. This fully satisfies the criterion."
+    },
+    {
+      "id": "C-045",
+      "title": "Motion addresses negligent misrepresentation as a distinct claim",
+      "verdict": "fail",
+      "reasoning": "The motion does not include any substantive argument section on negligent misrepresentation as a distinct claim. The task called for addressing breach of contract, fraudulent inducement, AND negligent misrepresentation. The brief's argument section covers only breach of contract (Section IV.A), Apex's counterclaim (Section IV.B), fraudulent inducement (Section IV.C), and the limitation-of-liability clause (Section IV.D). Negligent misrepresentation is entirely absent\u2014there is no separate section addressing the duty element, the negligence standard, or how negligent misrepresentation differs from fraudulent inducement. The proposed order also contains no reference to negligent misrepresentation. The criterion requires a substantive argument section on negligent misrepresentation as a separate claim; that is completely missing."
+    },
+    {
+      "id": "C-046",
+      "title": "Motion identifies the false Teamcenter integration representations",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly identifies the specific false Teamcenter representations. In the Introduction, it states Apex represented it 'has deep experience integrating Stratos ERP with Siemens Teamcenter and has successfully completed this integration for multiple manufacturing clients.' In the Statement of Facts (Section II.A), it identifies the Capability Summary's Slide 7 as describing both Corridor Metals and PrimeTech Industries as '[c]ompleted' Teamcenter integrations with quantified results. The fraudulent inducement section (IV.C.1) also specifically references these representations and the admissions that neither engagement involved Teamcenter work. The motion references CSMF paragraphs pointing to these specific representations throughout. While the motion references 'page 12' of the Proposal indirectly through CSMF citations rather than explicitly citing 'page 12,' it clearly identifies all the specific content required by the criterion: the 'deep experience' claim, the Stratos ERP/Siemens Teamcenter integration claim, and both Corridor Metals and PrimeTech Industries as the named prior clients from Slide 7 of the Capability Summary."
+    },
+    {
+      "id": "C-047",
+      "title": "Motion identifies the false AS9100D staffing representation",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly identifies the false AS9100D staffing representation multiple times. In the Introduction, it states Apex claimed '6 Certified AS9100D Implementation Specialists on Staff.' In Section II.A, it references 'Slide 9 claimed \"6 Certified AS9100D Implementation Specialists on Staff.\"' In Section II.B, it states 'Apex had one AS9100D-certified employee, Gerald Frisk, who left in April 2022.' The fraudulent inducement section (IV.C.1) also addresses this, noting Apex had one certified specialist, not six, and that Mr. Kresch's description of the specialist count as 'aspirational' is an admission. All required elements are present: the specific false representation (6 certified specialists on Slide 9), the actual truth (one certified employee, Gerald Frisk), and his departure in April 2022."
+    },
+    {
+      "id": "C-048",
+      "title": "Motion cites Flores memo as evidence of AS9100D configuration failures",
+      "verdict": "fail",
+      "reasoning": "The motion references that 'seven of twelve critical AS9100D traceability requirements were non-functional' and that 'three requests for remediation had gone unanswered' (CSMF \u00b6\u00b6 72--74), but it does not specifically cite or reference Anita Flores's April 2023 memorandum by name, nor does it mention Anita Flores or Dana Cho in connection with this evidence. The criterion requires the motion to cite or reference Anita Flores's April 2023 memorandum documenting these failures and her three occasions of raising issues with Dana Cho without resolution. The motion only cites CSMF paragraphs without identifying the Flores memo as the source."
+    },
+    {
+      "id": "C-049",
+      "title": "Motion references Dr. Varma's damages expert report",
+      "verdict": "fail",
+      "reasoning": "The motion does not mention Dr. Helen Varma, her expert report, or her specific damages figures ($1,840,000 in production inefficiency costs or $690,000 in lost Aerocore profits) anywhere in the document. The only damages expert referenced is Marcus Tran (technical expert) and an unnamed expert in App. Ex. 21. Dr. Varma's opinions are entirely absent."
+    },
+    {
+      "id": "C-050",
+      "title": "Motion notes that Apex's Daubert challenge to Varma was denied",
+      "verdict": "fail",
+      "reasoning": "The motion does not mention Judge Riegert's April 3, 2025 ruling denying Apex's Daubert motion to exclude Dr. Varma's testimony. The expert referenced in the motion is Marcus Tran, not Dr. Varma, and there is no mention of any Daubert ruling anywhere in the document."
+    },
+    {
+      "id": "C-051",
+      "title": "Motion addresses Phase 1 delay (11 weeks late)",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states in multiple places that Phase 1 was eleven weeks late and was signed off on October 3, 2022, with the original deadline being July 15, 2022. This appears in the Introduction, Statement of Undisputed Facts, and the Argument section."
+    },
+    {
+      "id": "C-052",
+      "title": "Motion addresses Ostroff's reassignment and replacement by junior consultant",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly references Apex's replacement of Ryan Ostroff with a junior consultant. In Section II.D, it states: 'In January 2023, Apex moved Mr. Ostroff to a revenue-generating project and replaced him with a five-month employee who had no Teamcenter experience and was still \"learning\" AS9100D.' In Section IV.A.4, it further details the breach of the key-personnel provision, referencing CSMF \u00b6\u00b6 67-70 and noting Ms. Cho had 'never led an implementation of this complexity and lacked Teamcenter and AS9100D experience.' While the exact date of January 12, 2023 is not specified, the staffing change involving Ostroff's reassignment and replacement by a junior consultant (Dana Cho, five-month employee) is clearly addressed."
+    },
+    {
+      "id": "C-053",
+      "title": "Motion addresses the rejected Change Order #4",
+      "verdict": "pass",
+      "reasoning": "The motion references the December 2022 demand for $680,000 and five more months to 're-architect' the Teamcenter approach, and states that Ridgeline refused. This appears in Section II.D ('In December 2022, Apex sought $680,000 and five more months to \"re-architect\" its failed Teamcenter approach, and Ridgeline refused. CSMF \u00b6\u00b6 65--66.') and is also referenced in Section IV.A.2 ('Ridgeline rejected CO-004 and the February 2023 \"framework,\" as \u00a7 6.3 entitled it to do. CSMF \u00b6\u00b6 45, 65--66, 71.'). The motion explicitly names CO-004 and references the $680,000/5-month extension request and Ridgeline's rejection, arguing Ridgeline was entitled to reject under \u00a7 6.3 and that Teamcenter integration was within the original scope. This satisfies the criterion."
+    },
+    {
+      "id": "C-054",
+      "title": "Motion notes that MSA is silent on consequential damages waiver",
+      "verdict": "fail",
+      "reasoning": "The motion discusses MSA \u00a7 11.2 (the liability cap) but never mentions a consequential damages waiver clause, nor does it note the absence of such a clause. When arguing for consequential damages (e.g., replacement vendor costs, delay damages) or discussing the limitation-of-liability provision, the motion does not affirmatively state that the MSA lacks a consequential damages exclusion clause. The criterion requires the motion to note or imply that the MSA does not contain a consequential damages waiver, which would support Ridgeline's claim for such damages. The motion's silence on this point means it fails to satisfy the criterion."
+    },
+    {
+      "id": "C-055",
+      "title": "56.1 Statement is a separate deliverable with numbered paragraphs",
+      "verdict": "pass",
+      "reasoning": "The agent's output is a standalone Concise Statement of Undisputed Material Facts document, clearly labeled as such, filed pursuant to Fed. R. Civ. P. 56(c) and LCvR 56.B.1. It contains 87 separately numbered paragraphs, each with citations to the record. It is presented as a separate deliverable (a distinct document titled as the statement of undisputed facts, not embedded within a brief). This satisfies the criterion requiring a separate 56.1 statement with numbered paragraphs."
+    },
+    {
+      "id": "C-056",
+      "title": "56.1 Statement includes record citations for factual assertions",
+      "verdict": "pass",
+      "reasoning": "The numbered paragraphs throughout the Statement of Undisputed Material Facts consistently include specific record citations. Each paragraph references deposition testimony with page and line numbers (e.g., 'Kresch Dep. 7:3--8:3 (App. Ex. 7)'), exhibit references with Bates numbers (e.g., 'App. Ex. 2 at APEX-000153'), contract sections (e.g., 'App. Ex. 1 \u00a7 2.2(c)'), email dates and document identifiers, expert report sections, and Slack message references. The citations are specific and consistent throughout all 87 numbered paragraphs, satisfying the criterion that factual paragraphs include citations to specific evidence from the record."
+    },
+    {
+      "id": "C-057",
+      "title": "56.1 Statement covers MSA execution date and effective date",
+      "verdict": "pass",
+      "reasoning": "Paragraph 34 explicitly states: 'The MSA was signed by Margaret A. Calloway for Ridgeline and by Jordan Kresch for Apex on February 28, 2022, and is stated to be entered into and effective as of March 1, 2022.' This directly covers both the execution date (February 28, 2022) and the effective date (March 1, 2022). Additionally, the Appendix index for Exhibit 1 also references '(signed Feb. 28, 2022; effective Mar. 1, 2022).'"
+    },
+    {
+      "id": "C-058",
+      "title": "56.1 Statement covers MSA fixed fee and milestone payment structure",
+      "verdict": "pass",
+      "reasoning": "Paragraphs 42-44 explicitly cover the fixed fee of $2,850,000 and the five-milestone payment structure ($570,000 at signing, $712,500 on Phase 1 sign-off, $855,000 on Phase 2 sign-off, $427,500 on UAT sign-off, and $285,000 on Go-Live), with citations to MSA \u00a7\u00a7 4.1-4.2 and Exhibit B. Paragraph 63 also confirms the amounts actually paid ($1,282,500). The criterion is fully satisfied."
+    },
+    {
+      "id": "C-059",
+      "title": "56.1 Statement covers MSA key deliverables (Teamcenter integration, AS9100D modules)",
+      "verdict": "pass",
+      "reasoning": "The Statement of Undisputed Material Facts extensively covers both key deliverables. For Teamcenter integration: MSA \u00a7 2.2(c) is quoted in \u00b6 36 (bidirectional data exchange for ECOs, part specs, revision control); Apex's false representations of Teamcenter experience are detailed in \u00b6\u00b6 6, 15, 18-21; performance failures including the deprecated direct database approach, Ostroff's admission of zero experience, and Phase 1 delay caused by Teamcenter work are covered in \u00b6\u00b6 54-61, 76. For AS9100D modules: MSA \u00a7 2.2(d) is quoted in \u00b6 37 (lot tracking, NCR, CAPA, FAI, supplier quality, traceability); false representations about six certified specialists are detailed in \u00b6\u00b6 7-8, 16, 22-24; Frisk's departure leaving no certified specialist is in \u00b6 53; seven specific configuration failures documented by Flores are in \u00b6 72; expert opinions on AS9100D deficiencies are in \u00b6\u00b6 77-78. Both deliverables are thoroughly addressed with contract language, factual background, performance failures, and expert support."
+    },
+    {
+      "id": "C-060",
+      "title": "56.1 Statement covers Apex's pre-contract misrepresentations",
+      "verdict": "pass",
+      "reasoning": "The Statement of Undisputed Material Facts extensively covers Apex's pre-contract misrepresentations. Section II (paragraphs 5-17) details the Proposal's Teamcenter claims (page 12, \u00b66), the Capability Summary Slide 7 listing Corridor Metals and PrimeTech with specific fabricated metrics (\u00b615), and Slide 9 claiming 6 certified AS9100D specialists (\u00b616). Section III (paragraphs 18-24) then establishes these as false. All are stated as undisputed facts with record citations."
+    },
+    {
+      "id": "C-061",
+      "title": "56.1 Statement covers discovery revelations on falsity of representations",
+      "verdict": "pass",
+      "reasoning": "Section III of the Statement (paragraphs 18-24) extensively covers the falsity of both the Teamcenter and AS9100D representations. Paragraph 18 cites Ostroff Dep. 25:12-21 and Bellingham Dep. 20:4-9 establishing Apex had never performed a Teamcenter integration. Paragraphs 19-20 cite both Ostroff and Bellingham depositions establishing the Corridor Metals and PrimeTech claims were false. Paragraph 21 quotes Bellingham admitting she 'overstated' experience and that the slide 'wasn't entirely accurate,' and Ostroff confirming both listings were inaccurate. Paragraphs 22-24 cite Kresch Dep. and Bellingham Dep. establishing only one AS9100D-certified specialist existed (not six), with Kresch admitting the '6 certified specialists' claim was 'aspirational.' All three deponents (Ostroff, Bellingham, Kresch) are cited with specific page and line references establishing the falsity of both categories of representations."
+    },
+    {
+      "id": "C-062",
+      "title": "56.1 Statement covers Phase 1 delay",
+      "verdict": "pass",
+      "reasoning": "The Statement of Undisputed Material Facts explicitly addresses Phase 1 delay in paragraphs 59-61. Paragraph 59 states: 'Phase 1 was not signed off until October 3, 2022, approximately eleven weeks after the July 15, 2022 contractual date. The primary cause of the delay was the Teamcenter integration design.' The July 15, 2022 deadline and October 3, 2022 sign-off date are both clearly stated as facts, satisfying the criterion."
+    },
+    {
+      "id": "C-063",
+      "title": "56.1 Statement covers Phase 2 non-completion",
+      "verdict": "pass",
+      "reasoning": "Paragraph 64 explicitly states that Phase 2 was not completed by November 30, 2022, that Ridgeline never gave written sign-off on Phase 2 Deliverables, and that as of January 2023 the Phase 2 milestones had not been achieved. Paragraph 86 states that Go-Live was achieved on April 15, 2024, approximately twelve and a half months after the MSA's March 31, 2023 Go-Live date, and paragraph 87 notes that Go-Live was never achieved under the MSA. These facts clearly cover Phase 2 non-completion and go-live failure."
+    },
+    {
+      "id": "C-064",
+      "title": "56.1 Statement covers termination facts",
+      "verdict": "pass",
+      "reasoning": "Section VIII (paragraphs 82-84) explicitly covers all three elements: the May 1, 2023 breach notice (\u00b682), Apex's May 15 response conditioning cure on revised scope/fees (\u00b683), and the June 1, 2023 termination (\u00b684). All required termination sequence facts are present with record citations."
+    },
+    {
+      "id": "C-065",
+      "title": "56.1 Statement covers fees paid to Apex",
+      "verdict": "pass",
+      "reasoning": "Paragraph 63 of the Statement explicitly states: 'Ridgeline has paid Apex a total of $1,282,500 under the MSA: $570,000 at signing and $712,500 for Phase 1.' This directly covers the fees paid to Apex with the exact amounts specified in the criterion."
+    },
+    {
+      "id": "C-066",
+      "title": "56.1 Statement covers replacement/mitigation costs",
+      "verdict": "pass",
+      "reasoning": "Paragraph 85 of the Statement explicitly states that Ridgeline engaged Caravel Technologies Group for $3,100,000 to complete the Stratos ERP implementation and separately engaged Whitlock Consulting LLC for $475,000 to perform the Teamcenter integration, both cited to Szymanski Dep. and App. Ex. 20. Both replacement/mitigation costs are covered."
+    },
+    {
+      "id": "C-067",
+      "title": "56.1 Statement covers consequential damages facts",
+      "verdict": "fail",
+      "reasoning": "The 56.1 Statement covers post-termination events including the cost to engage replacement vendors (Caravel Technologies for $3,100,000 and Whitlock Consulting for $475,000) and the delayed Go-Live (April 15, 2024, approximately 12.5 months late) with operation on the legacy ManuTrack system in the interim (\u00b6\u00b6 85-86). However, the criterion specifically asks about production inefficiency costs and/or Aerocore contract loss. The statement does not mention any Aerocore contract loss or specific production inefficiency costs. The replacement vendor costs and delay are covered, but the specific consequential damages categories called out in the criterion (production inefficiency costs and Aerocore contract loss) are absent from the statement."
+    },
+    {
+      "id": "C-068",
+      "title": "Motion references Apex's 12-month go-live commitment from proposal",
+      "verdict": "fail",
+      "reasoning": "The motion does not reference Apex's proposal statement that it was 'confident in delivering full go-live within 12 months of project kickoff.' The motion discusses the MSA milestone dates (Phase 1: July 15, 2022; Phase 2: November 30, 2022; Go-Live: March 31, 2023) and various pre-contract representations about Teamcenter experience and AS9100D specialists, but never mentions this specific 12-month go-live commitment from page 15 of the proposal."
+    },
+    {
+      "id": "C-069",
+      "title": "Motion argues for breach of \u00a7 5.1 warranty provision",
+      "verdict": "pass",
+      "reasoning": "The motion extensively cites MSA \u00a7 5.1 and argues it was breached. Section IV.A.3 is titled 'Apex breached its express warranties in MSA \u00a7 5.1' and addresses subsections (a) workmanlike performance consistent with industry standards, (b) conformity to specifications, and (e) qualified and certified personnel. The motion also references \u00a7 5.1 in the Statement of Facts (CSMF \u00b6 46) and in the Conclusion. The criterion is clearly satisfied."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-motion-for-summary-judgment/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-motion-for-summary-judgment",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:23:28.824790+00:00",
+  "cost": {
+    "input_tokens": 42,
+    "output_tokens": 50867,
+    "wall_clock_seconds": 474.19
+  },
+  "doc_coverage": {
+    "documents_read": 1,
+    "total_documents": 17,
+    "documents_skipped": 17,
+    "documents_read_list": [
+      "/workspace/prev.png"
+    ],
+    "documents_skipped_list": [
+      "apex-proposal-and-capability-summary.docx",
+      "audit-memo.docx",
+      "breck-deposition-excerpts.docx",
+      "breck-termination-memo.docx",
+      "comparator-discipline-summary.xlsx",
+      "deitz-deposition-excerpts.docx",
+      "deposition-excerpts.docx",
+      "email-and-slack-compilation.docx",
+      "employee-handbook-excerpts.docx",
+      "expert-reports-summary.docx",
+      "flores-as9100d-memo.docx",
+      "huang-bias-email.eml",
+      "huang-deposition-excerpts.docx",
+      "master-services-agreement.docx",
+      "plaintiff-complaint.docx",
+      "plaintiff-interrogatory-responses.docx",
+      "statement-of-facts.docx"
+    ]
+  }
+}

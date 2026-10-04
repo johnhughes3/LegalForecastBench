@@ -1,0 +1,318 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "38/47 criteria passed.  Missed 9 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 47,
+  "n_passed": 38,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies compound interrogatories violating FRCP 33(a)(1)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies compound interrogatories in the Global Positions section: 'also assess whether compound subparts in Nos. 1\u201325 independently consume multiple interrogatories (especially Nos. 2, 5, 9, 10, 12, 15, 17, 20, 21, and 24).' This lists 10 specific interrogatories flagged as potentially compound. Additionally, individual interrogatory analyses (e.g., No. 10 objects to 'many discrete subparts') reinforce this. The memo clearly identifies more than 6 compound interrogatories, satisfying the criterion."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Cites FRCP 33(a)(1) 25-interrogatory limit",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the 25-interrogatory limit and references 'Rule 33(b)(2)' and 'Rule 33(b)(3), (5)' and 'Rule 33(b)(4)' in various places, but never specifically cites FRCP 33(a)(1) or Rule 33(a)(1) or Fed. R. Civ. P. 33(a)(1) as the rule limiting interrogatories to 25 including discrete subparts. The numerical limit section mentions the CMO's 25-interrogatory cap but does not cite Rule 33(a)(1) as the source of that limitation."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Concludes total discrete subparts exceed 25",
+      "verdict": "fail",
+      "reasoning": "The memo identifies that Nos. 26-30 exceed the 25-interrogatory limit and flags specific interrogatories (Nos. 2, 5, 9, 10, 12, 15, 17, 20, 21, and 24) as potentially containing discrete subparts that independently consume multiple interrogatories. However, the memo does not actually perform a count of the discrete subparts and does not conclude that the total reaches at least 35. It merely flags the issue and recommends a meet-and-confer, without providing a specific total count of 35 or more discrete subparts."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Flags that Trident exceeded limit without leave of court",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section I under 'Numerical limit': 'The CMO permits no more than 25 interrogatories, including discrete subparts, absent stipulation or leave. Plaintiff numbered 30. Object specifically to Nos. 26--30 as exceeding the limit.' This clearly flags that Trident served more than 25 interrogatories without obtaining leave of court or a stipulation, and recommends objecting on this basis."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Flags Interrogatory No. 7 as seeking privileged info",
+      "verdict": "pass",
+      "reasoning": "The memo's section on Interrogatory No. 7 explicitly flags privilege concerns, stating: 'Object to the unlimited phrase \"all steps,\" and specifically to legal advice, attorney-client communications, and counsel-directed work product.' It further notes that '\"Advice received\" should be limited to nonprivileged operational advice; legal advice is withheld.' The memo also identifies the privilege boundary between the ordinary-course business review and counsel-directed work beginning September 2022, and instructs to log withheld documents. This clearly satisfies the criterion of flagging Interrogatory No. 7 as seeking attorney-client privileged information."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Flags Interrogatory No. 14 as seeking privileged info",
+      "verdict": "pass",
+      "reasoning": "In Section III, Interrogatory No. 14 (Consultations about Jan. 15, 2023 renewal), the memo explicitly states: 'Object to legal advice, attorney-client communications, and litigation work product concerning renewal; do not reveal counsel's advice or identify protected consultations solely to expose legal strategy.' This clearly flags Interrogatory No. 14 as seeking or implicating attorney-client privileged communications."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Flags Interrogatory No. 22 as seeking privileged info",
+      "verdict": "pass",
+      "reasoning": "The memo's section on Interrogatory No. 22 explicitly states: 'Object to an unbounded \"all persons/all communications\" sweep and to attorney-client advice, counsel-directed work product, litigation communications, and requests for legal advice.' It further notes 'Do not include counsel's advice under the phrase \"advice from any source.\"' This clearly flags No. 22 as seeking privileged attorney-client communications and work product, satisfying the criterion."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_002: Recommends asserting attorney-client privilege",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends asserting attorney-client privilege for Interrogatories 7, 14, and 22. For No. 7, it states 'Object to the unlimited phrase \"all steps,\" and specifically to legal advice, attorney-client communications, and counsel-directed work product.' For No. 14, it states 'Object to legal advice, attorney-client communications, and litigation work product concerning renewal.' For No. 22, it states 'Object to an unbounded \"all persons/all communications\" sweep and to attorney-client advice, counsel-directed work product, litigation communications, and requests for legal advice.' All three interrogatories have explicit recommendations to assert attorney-client privilege."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Flags Interrogatory No. 11 as premature contention",
+      "verdict": "pass",
+      "reasoning": "In Section III, Interrogatory No. 11, the memo explicitly states: 'Contention interrogatory; seek deferral or answer the presently known contractual facts without conceding the legal result.' This clearly flags No. 11 as a contention interrogatory and recommends seeking deferral, which satisfies the criterion of identifying it as premature contention discovery."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Flags Interrogatory No. 18 as premature contention",
+      "verdict": "pass",
+      "reasoning": "In Section III, under '## 18 --- Facts supporting Tenth Defense (comparative fault)', the memo explicitly states: 'Contention interrogatory; seek deferral under CMO \u00b6 9 or provide a provisional factual contention tied to documents.' This clearly flags Interrogatory No. 18 as a premature contention interrogatory."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_003: Flags Interrogatory No. 26 as premature contention",
+      "verdict": "pass",
+      "reasoning": "In Section III, under '26 --- Facts for Ninth Defense / arbitration application', the memo explicitly states: 'Object to \"each and every fact\" as premature contention discovery and to privileged legal analysis.' This clearly flags Interrogatory No. 26 as a premature contention interrogatory."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_003: Cites FRCP 33(a)(2) for deferral of contention interrogatories",
+      "verdict": "fail",
+      "reasoning": "The memo discusses deferral of contention interrogatories (Nos. 11, 18, 25, 26) and references CMO \u00b6 9 as the basis for deferral, but never cites FRCP 33(a)(2) or Rule 33(a)(2) or Fed. R. Civ. P. 33(a)(2) in connection with the premature contention interrogatory objection. The criterion specifically requires citation of FRCP 33(a)(2) as the basis for deferring contention interrogatories."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Recommends seeking deferral of contention interrogatories",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends seeking deferral of contention interrogatories in multiple places. In Section I under 'Contention timing,' it states: 'CMO \u00b6 9 permits the Court, on motion, to defer contention interrogatories until designated discovery is complete' and advises to 'seek stipulation or court deferral where appropriate.' For specific interrogatories identified as contention interrogatories (Nos. 11, 18, 25, 26), the memo recommends seeking deferral: No. 11 - 'Contention interrogatory; seek deferral or answer the presently known contractual facts'; No. 18 - 'Contention interrogatory; seek deferral under CMO \u00b6 9 or provide a provisional factual contention'; No. 25 - 'Object to the demand for legal analysis...and seek deferral as a contention interrogatory'; No. 26 - 'Object to \"each and every fact\" as premature contention discovery.' The memo also references the August 15, 2025 fact discovery cutoff in Section I. The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_004: Flags temporal overbreadth (from 2009 to present)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags temporal overbreadth for multiple interrogatories. For No. 2, it objects to 'the 16-year sweep.' For No. 5, it objects to '2009--present.' For No. 9, it objects to 'the historic 2009 start.' For No. 15, it objects to '2009--present accounting reconstruction.' For No. 24, it objects to '2009--present client-wide compilation.' The memo clearly identifies the temporal overbreadth issue across these interrogatories and flags it as a basis for objection, satisfying the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_004: Notes FASA effective date limits relevant period",
+      "verdict": "fail",
+      "reasoning": "The memo objects to the 2009-to-present scope in several places (e.g., Nos. 2, 5, 9, 15, 24) and proposes narrowing to periods like 2018-present or 2020-2022, but it never explicitly references the FASA effective date of March 1, 2018 as the basis for that narrowing. The criterion requires the memo to explain that the FASA was not executed until March 1, 2018 and/or that the alleged wrongful conduct occurred from Q3 2021 to Q2 2022 as the basis for narrowing temporal scope. The memo mentions 2018 as a preferred start date in a few places but does not tie it to the FASA execution date of March 1, 2018, nor does it identify the Q3 2021\u2013Q2 2022 conduct period as a specific basis for narrowing. The criterion is not satisfied."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Recommends narrowed temporal counter-proposal",
+      "verdict": "pass",
+      "reasoning": "The memo does recommend objecting to overbroad temporal scopes in multiple interrogatories and proposes specific narrowed time periods. For example, in Interrogatory 2, it proposes narrowing to '2018--present or the valuation years.' In Interrogatory 5, it suggests covering 'the FASA term and especially 2020--2022.' In Interrogatory 9, it specifies 'Q1 2018--Q4 2024.' In Interrogatory 12, it proposes 'a narrowed period.' In Interrogatory 24, it proposes '2018--2024 or 2020--2022.' These are specific counter-proposals tied to the FASA term or alleged conduct, satisfying the criterion."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_005: Flags Interrogatory No. 12 as overbroad re: non-party clients",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Interrogatory No. 12 in Section III under '12 --- Other client identities and individual NAV errors/restatements.' It raises strong objections noting that client identities, financial data, NAV errors, and remediation details are protected by FASA \u00a7 11.2 and implicate nonparty privacy, burden, and proportionality. It references the approximately 39 other clients and the 10-year scope ('a request to review 10 years of 39 client files'), and recommends seeking client notice, a protective order, anonymization, a narrowed period, and an aggregate/sample alternative. This clearly satisfies the criterion of flagging Interrogatory No. 12 as overbroad regarding non-party clients and their NAV restatements/errors."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_005: Raises third-party confidentiality concerns",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Interrogatory No. 12 and raises third-party confidentiality concerns, specifically referencing FASA \u00a7 11.2: 'Strong objections: client identities, financial data, NAV errors, and remediation details are expressly protected by FASA \u00a7 11.2 and implicate nonparty privacy, burden, and proportionality.' This satisfies the criterion."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_005: Raises relevance and/or proportionality objections for No. 12",
+      "verdict": "pass",
+      "reasoning": "In the memo's section on Interrogatory No. 12, the agent explicitly states: 'Strong objections: client identities, financial data, NAV errors, and remediation details are expressly protected by FASA \u00a7 11.2 and implicate nonparty privacy, burden, and proportionality.' The word 'proportionality' is directly used, and the section also discusses burden and the disproportionate nature of reviewing 10 years of 39 client files. This satisfies the criterion of raising proportionality objections for No. 12."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_006: Flags Interrogatory No. 20 as seeking work product",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Interrogatory No. 20 under section '20 --- Litigation experts/consultants and methodology' and objects to it as 'premature and protected under Rules 26(b)(3), 26(b)(4)(B)--(D), and CMO \u00b6 13.' It notes that facts/opinions of non-testifying consultants retained in anticipation of litigation are discoverable only on exceptional circumstances, and instructs not to disclose counsel-directed consultant identity, methodology, findings, or compensation. This clearly flags No. 20 as seeking work product and trial preparation materials related to expert/consultant methodology and analysis."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_006: Cites FRCP 26(b)(3) and/or 26(b)(4)",
+      "verdict": "pass",
+      "reasoning": "In the section for Interrogatory No. 20, the memo explicitly states: 'Object as premature and protected under Rules 26(b)(3), 26(b)(4)(B)--(D), and CMO \u00b6 13.' Both FRCP 26(b)(3) (work product doctrine) and 26(b)(4) (expert trial preparation materials) are cited as the basis for objecting to Interrogatory No. 20."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_006: Notes expert disclosures not yet due",
+      "verdict": "pass",
+      "reasoning": "In the memo's response to Interrogatory No. 20, the agent explicitly states: 'No testifying expert identity, opinions, or report is due before the affirmative-expert deadline (Sept. 15, 2025); rebuttal is due Oct. 15 and expert depositions by Nov. 14, 2025.' This references the expert discovery schedule from the CMO, including the November 14, 2025 expert deposition deadline, and uses these deadlines to support the objection that the interrogatory is premature. The criterion requires that the memo note expert disclosures are not due until November 14, 2025 per the CMO, making the interrogatory premature. The memo does reference November 14, 2025 as the expert deposition deadline and uses the expert schedule to argue prematurity, satisfying the criterion."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_007: Flags absurd definition of 'communication'",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the absurd definition of 'Communication' in Section I under 'General definitions / instructions': 'Treat \"telepathic impressions\" and \"subliminal messaging\" in the definition of \"Communication\" as outside any reasonable, relevant construction.' This directly flags the objectionable language as unreasonable, satisfying the criterion."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_007: Flags overbroad 'relating to' definition",
+      "verdict": "fail",
+      "reasoning": "The memo does not specifically identify or flag the 'relating to' definition from the Definitions and Instructions section as extraordinarily broad or objectionable. While the memo addresses various definitional objections (e.g., 'Relevant Period,' 'You,' 'Identify,' 'Communication'), it does not mention or flag an overbroad 'relating to' definition. The criterion specifically requires the memo to identify this particular definition as objectionable, which it fails to do."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_008: Flags Interrogatories No. 8, 16, 28 as de facto doc requests",
+      "verdict": "pass",
+      "reasoning": "Reviewing the memo for flags on Interrogatories 8, 16, and 28 as de facto document requests:\n\n- **No. 8**: The memo states 'Object to this interrogatory as an \"all documents\" catalog duplicating Rule 34 production' \u2014 this clearly flags it as functioning as a document request.\n\n- **No. 16**: The memo says 'Narrow \"all documents relating to any communication\" to communications with the auditor' and directs use of Rule 33(d) for produced records, but does not explicitly flag it as improperly functioning as a document request. It treats it more as an overbreadth issue.\n\n- **No. 28**: The memo states 'Object to a demand to catalog every document as an interrogatory' \u2014 this clearly flags it as functioning as a document request.\n\nSo Nos. 8 and 28 are explicitly flagged as de facto document requests. That is at least two of the three, satisfying the criterion's requirement of 'at least two of the three must be flagged.'"
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_008: Distinguishes FRCP 33 from FRCP 34",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the FRCP 33/34 distinction in multiple places. In the global positions section, it states that Rule 33(d) should be used only where the answer can be derived from specified business records and the burden is substantially the same for both sides. More directly, in Interrogatory No. 8 (MedStream), the memo objects to the interrogatory as 'an \"all documents\" catalog duplicating Rule 34 production,' explicitly noting that an interrogatory cannot be used as a substitute for a document request. This distinction is reinforced throughout the memo when it cautions against using interrogatory answers to catalog documents and instead directs use of Rule 33(d) with specific Bates references. The memo clearly explains that interrogatories are not the proper vehicle for demanding document catalogs (that is Rule 34's domain), satisfying the criterion."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_008: Mentions FRCP 33(d) business records option",
+      "verdict": "pass",
+      "reasoning": "The memo extensively references Rule 33(d) throughout, including in the global positions section ('Use Rule 33(d) only where the answer can be derived from specified business records and the burden is substantially the same for both sides') and in numerous individual interrogatory sections (Nos. 6, 8, 9, 10, 15, 16, 17, 21, 22, 27, 28). The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_009: Flags Interrogatory No. 19 re: Roszak's private info",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Interrogatory No. 19 regarding Roszak and states: 'Object to Social Security number and subsequent-employer compensation as irrelevant, highly private, and disproportionate; do not produce absent court order.' This directly flags the SSN and current compensation as objectionable on privacy and proportionality grounds, satisfying the criterion."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_009: Recommends narrowed response for Roszak contact info",
+      "verdict": "pass",
+      "reasoning": "In Interrogatory 19, the memo recommends providing 'known last-known witness contact information reasonably useful for discovery' including the last-known home address (47 Fernwood Drive, West Hartford, CT 06107) and a last-confirmed personal cell, while explicitly objecting to 'Social Security number and subsequent-employer compensation as irrelevant, highly private, and disproportionate.' This is precisely the narrowing recommendation described in the criterion: provide last known contact info while objecting to SSN and current compensation."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_010: Flags Interrogatory No. 25 as calling for legal conclusions",
+      "verdict": "pass",
+      "reasoning": "The memo's section on Interrogatory No. 25 states: 'Object to the demand for legal analysis and attorney mental impressions and seek deferral as a contention interrogatory; the legal position itself is already stated in the Answer's Ninth Affirmative Defense.' This identifies the interrogatory as calling for legal analysis/conclusions. However, the criterion specifically requires the memo to flag it as calling for a legal conclusion 'specifically noting it asks Whitmore to opine on whether Section 9.1 of the FASA constitutes a valid and enforceable arbitration agreement.' The memo does object to the demand for legal analysis and mental impressions, and it does note that a limited response can state Whitmore contends \u00a7 9.1 is valid and enforceable. The objection to 'legal analysis and attorney mental impressions' combined with the specific reference to \u00a7 9.1's validity and enforceability does effectively flag this as calling for a legal conclusion about whether \u00a7 9.1 constitutes a valid and enforceable arbitration agreement. The criterion is satisfied."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_011: Applies FRCP 26(b)(1) proportionality analysis",
+      "verdict": "fail",
+      "reasoning": "The memo repeatedly invokes proportionality language (e.g., 'disproportionate,' 'not proportional to claims,' 'burden vs. benefit,' 'burdensome') in the context of specific interrogatories (Nos. 2, 9, 12, 15, 24, etc.). However, it never explicitly cites FRCP 26(b)(1) by rule number or systematically applies its enumerated factors (importance of issues at stake, amount in controversy, parties' relative access to information, resources of the parties, importance of discovery in resolving issues, burden vs. likely benefit). The proportionality references are informal and conclusory rather than grounded in the rule's framework. The criterion requires either citing the rule or applying its specific factors to specific interrogatories. The memo does neither with sufficient specificity to satisfy the criterion."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_011: Identifies specific interrogatories with strongest proportionality objections",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses proportionality concerns for all three interrogatories: No. 12 ('Strong objections: client identities, financial data, NAV errors, and remediation details are expressly protected by FASA \u00a7 11.2 and implicate nonparty privacy, burden, and proportionality'), No. 15 ('Object to Whitmore-wide revenue from all sources and annual percentages as not proportional to claims about one client's fees, commercially sensitive, and burdensome'), and No. 24 ('Object to the 2009--present client-wide compilation as burdensome, ambiguous...confidential, and disproportionate'). All three are singled out with proportionality/burden language, satisfying the requirement of at least two."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_012: Flags arbitration waiver risk",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the arbitration waiver risk in multiple places. In Section I under 'Standing arbitration reservation,' it states: 'A reservation is not a safe harbor from waiver; counsel should assess promptly whether and when to move to compel arbitration.' It also notes that 'Whitmore's participation in discovery proceedings in this Court is made without waiver of...arbitration rights.' For Interrogatory No. 25, it directs routing to lead counsel before service. For Interrogatory No. 26, it states 'Preserve the arbitration reservation, but recognize that a discovery reservation alone does not determine waiver.' The memo also notes in No. 22 that the request 'may touch the arbitration defense and litigation strategy' and to coordinate with lead counsel. These passages collectively identify the risk that responding to interrogatories about the arbitration defense without proper reservation could be argued as waiver of the right to compel arbitration under FASA Section 9.1."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_012: Recommends express reservation of arbitration rights",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends including an express reservation of arbitration rights under FASA Section 9.1 in the response preamble and specifically in responses to Nos. 25-26. The memo provides exact reservation language to include, notes it should appear in the preamble and be referenced in arbitration-related interrogatories, and reiterates this reservation throughout the document (e.g., in the global positions section, in the individual interrogatory analyses for Nos. 25 and 26, and in the checklist). This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-035",
+      "title": "Response strategy categories used for each interrogatory",
+      "verdict": "pass",
+      "reasoning": "The memo provides interrogatory-by-interrogatory strategy sections (Section III) for all 30 interrogatories. For each interrogatory, it recommends a response posture that falls into recognizable categories: some are recommended to be answered fully (e.g., Nos. 1, 3, 4, 6, 14, 16, 21, 27, 29, 30), some are recommended to object and refuse or heavily limit (e.g., Nos. 12, 15, 20, 25), some are recommended to object but answer subject to/without waiving objection (e.g., Nos. 2, 5, 7, 8, 9, 10, 11, 13, 17, 18, 22, 23, 24, 26, 28), and some propose narrowed scope alternatives (e.g., Nos. 2, 12, 15, 24). While the memo does not use the exact labels (a)-(d), it clearly categorizes each interrogatory's recommended response strategy in ways that substantially correspond to those categories. The criterion is satisfied."
+    },
+    {
+      "id": "C-036",
+      "title": "Memo addresses all 30 interrogatories",
+      "verdict": "pass",
+      "reasoning": "The memo contains individual sections for all 30 interrogatories (Nos. 1 through 30), each with an objection/response position and execution/verification guidance. No interrogatory is omitted entirely from the analysis."
+    },
+    {
+      "id": "C-037",
+      "title": "Correct case name",
+      "verdict": "pass",
+      "reasoning": "The memo clearly identifies the case as 'Trident Growth Fund III LP v. Whitmore Capital Advisors LLC' in the header section, which matches the required case name exactly."
+    },
+    {
+      "id": "C-038",
+      "title": "Correct case number",
+      "verdict": "pass",
+      "reasoning": "The memo header clearly states 'Case No. 24-cv-08341-LTS (S.D.N.Y.)' which matches the required case number exactly."
+    },
+    {
+      "id": "C-039",
+      "title": "Correct court",
+      "verdict": "pass",
+      "reasoning": "The memo header identifies the case as 'Case No. 24-cv-08341-LTS (S.D.N.Y.),' which correctly identifies the court as the U.S. District Court for the Southern District of New York."
+    },
+    {
+      "id": "C-040",
+      "title": "Correct interrogatory response deadline",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section I: 'The set was served February 3, 2025. Under Rule 33(b)(2) and Case Management Order (\"CMO\") \u00b6 5, responses and specific objections are due March 5, 2025 absent stipulation or court-ordered extension.' This correctly identifies March 5, 2025 as the response deadline, which is 30 days from the February 3, 2025 service date per FRCP 33."
+    },
+    {
+      "id": "C-041",
+      "title": "Correctly references FASA Section 9.1 arbitration clause",
+      "verdict": "pass",
+      "reasoning": "The memo correctly references FASA Section 9.1 as the arbitration clause in multiple places. In the global positions section, it includes a reservation of rights under 'Section 9.1 of the Fund Administration Services Agreement.' In Section II (Contract provisions), it states: 'Arbitration: actual \u00a7 9.1 covers disputes arising out of or relating to the Agreement, its breach, termination, or validity, including scope/applicability disputes; it specifies JAMS, Hartford, and New York substantive law.' In Interrogatory 25 and 26 responses, it again references \u00a7 9.1 and the arbitration clause. The section number is correct and the key details (JAMS, Hartford) are correctly identified."
+    },
+    {
+      "id": "C-042",
+      "title": "FASA Section 8.3 liability cap section reference",
+      "verdict": "pass",
+      "reasoning": "The memo correctly references FASA Section 8.3 as the liability cap provision in multiple places: in Section II ('Liability cap: \u00a7 8.3 uses fees actually paid in the 12 months before the first event giving rise to liability') and in the interrogatory-by-interrogatory analysis for No. 11 ('Identify executed FASA \u00a7 8.3, relevant fee/payment records...'). The section number is accurate and the description of its content is consistent throughout."
+    },
+    {
+      "id": "C-043",
+      "title": "FASA Section 8.3 liability cap amount",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the memo to state that the liability cap is 2\u00d7 the prior 12 months' fees (i.e., $496,000). The memo repeatedly references $496,000 as the cap figure but explicitly states that the cap under \u00a7 8.3 is based on 'fees actually paid in the 12 months before the first event giving rise to liability'\u2014i.e., 1\u00d7 the prior 12 months' fees, not 2\u00d7. The memo never mentions a 2\u00d7 multiplier. The criterion says PASS if the memo states the cap is 2\u00d7 prior 12 months' fees ($496,000). Since the memo does not state a 2\u00d7 formula\u2014it states a 1\u00d7 formula\u2014the criterion is not satisfied."
+    },
+    {
+      "id": "C-044",
+      "title": "Identifies unobjectionable interrogatories as proper",
+      "verdict": "pass",
+      "reasoning": "The memo does affirmatively identify several interrogatories as proper and answerable without significant objection. For example, Interrogatory No. 1 is described as 'Mostly answerable; resist only unsupported or overbroad details.' Interrogatory No. 3 states 'Answer the account-specific core.' Interrogatory No. 6 states 'This is central and should not be met with a blanket objection.' Interrogatory No. 29 states 'No material relevance objection.' Interrogatory No. 30 states 'Answer fully.' These affirmative statements confirm that certain interrogatories are proper and can be answered without concern, satisfying the criterion."
+    },
+    {
+      "id": "C-045",
+      "title": "Correctly identifies damages amount of $14.7 million",
+      "verdict": "fail",
+      "reasoning": "The memo does not explicitly mention a $14.7 million damages figure anywhere in its text. The memo references other figures (e.g., $496,000 cap, $47,500 quarterly charges, $6.4m/$8.2m/$5.7m fair-value assertions, $8.2 billion AUA, $10 million insurance limits) but never states the alleged damages amount of $14.7 million. Since the criterion requires the memo to correctly state the alleged damages as approximately $14.7 million, and the memo simply does not reference this figure at all, it fails to satisfy the criterion."
+    },
+    {
+      "id": "C-046",
+      "title": "References the three portfolio companies at issue",
+      "verdict": "fail",
+      "reasoning": "The memo references MedStream Diagnostics (referred to as 'MedStream' in Interrogatory 8 and elsewhere) but does not name Cipherion Technologies LLC or NovaPharma Holdings Inc. The memo refers to 'the three named investments' or 'the three investments' generically in multiple places (Interrogatories 6, 10, 13) without naming them. Only one of the three portfolio companies (MedStream) is actually named. The criterion requires at least two of three to be named correctly. Since only one is named, this fails the criterion."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_005: References FASA Section 11.2 confidentiality obligations",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references FASA \u00a7 11.2 in connection with Interrogatory No. 12. In the global positions section under 'Other clients / confidentiality,' it states: 'FASA \u00a7 11.2 expressly protects other clients' identities and client-specific information and requires notice and an opportunity to assert rights before compelled disclosure.' It then specifically lists No. 12 among the interrogatories where this protection applies. In the interrogatory-by-interrogatory section for No. 12, it states: 'Strong objections: client identities, financial data, NAV errors, and remediation details are expressly protected by FASA \u00a7 11.2 and implicate nonparty privacy, burden, and proportionality.' This clearly satisfies the criterion."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/identify-issues-in-counterparty-interrogatories/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/identify-issues-in-counterparty-interrogatories",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:22:39.366264+00:00",
+  "cost": {
+    "input_tokens": 1139147,
+    "output_tokens": 27037,
+    "wall_clock_seconds": 210.4
+  },
+  "doc_coverage": {
+    "documents_read": 9,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "plaintiff-first-interrogatories.docx",
+      "verified-complaint.docx",
+      "answer-affirmative-defenses.docx",
+      "fasa-agreement.docx",
+      "fasa-renewal-letter.docx",
+      "plaintiff-initial-disclosures.docx",
+      "defense-discovery-strategy-memo.docx",
+      "case-management-order.docx",
+      "/workspace/output/interrogatory-objection-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

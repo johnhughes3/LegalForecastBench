@@ -1,0 +1,306 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "42/45 criteria passed.  Missed 3 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 45,
+  "n_passed": 42,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies marketing brochure guarantee language as creating express warranties",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the brochure language, including the 99.97% contaminant-removal guarantee and \u201cor we\u2019ll make it right \u2014 guaranteed,\u201d creates express warranties under UCC \u00a7 2-313, and further explains that such warranties cannot be undone by inconsistent disclaimers under \u00a7 2-316(1)."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Identifies sales deck 'Our Promise to You' as creating express warranties",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the sales deck\u2019s quantified performance guarantees and EPA/state purity standards statements are express warranties under UCC \u00a7 2-313. It specifically flags the sales deck as \u201cCritical\u201d and references Slide 7, \u201cOur Promise to You,\u201d including the \u201cmake customers whole\u201d promise and guaranteed performance language."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Identifies verbal sales representative instructions as warranty-creating conduct",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly analyzes the January 8 sales-team instruction memo and scripted oral statements as creating express warranty risk, including directives to say the numbers are guaranteed, to make customers whole, to not hedge, and to tailor performance commitments. It expressly states that oral statements create express warranties and flags the sales memo as critical evidence of warranty creation."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Explains that existing disclaimer cannot override express warranties under UCC \u00a7 2-316(1)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly explains that marketing and sales materials create express warranties under UCC \u00a7 2-313 and that, under UCC \u00a7 2-316(1), inconsistent disclaimer language cannot negate those express warranties. It states that a guarantee of 99.97% removal cannot reasonably coexist with the SLW disclaimer, that the express warranty prevails, and that the after-sale disclaimer cannot fix or undo the marketing warranties."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001: Recommends reconciling marketing language with warranty framework",
+      "verdict": "pass",
+      "reasoning": "The memo gives extensive, specific recommendations to reconcile marketing and sales language with the warranty framework. It recommends converting the \u201cTotal Performance Guarantee\u201d into a defined contractual Performance Warranty, revising brochures/decks/quotation templates, removing or qualifying claims such as \u201cmake customers whole,\u201d EPA/FDA compliance, WFI/Part 11, attaching warranty terms pre-sale, aligning express performance claims with defined metrics, conditions, testing protocols, remedies, caps, and retraining sales representatives."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Identifies conspicuousness deficiency in implied warranty disclaimer",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes UCC \u00a7 1-201(b)(10) conspicuousness, notes that although the disclaimer is in all capitals it is in the same font and size as surrounding text and not visually distinguished, and recommends bolding, larger type, boxed/shaded treatment, stand-alone heading, and initials. It flags this as a legal risk and potentially insufficient, especially under Texas law. Although it does not specifically say \u201c12-point Times New Roman,\u201d it clearly identifies the required visual-presentation deficiency."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Cites UCC \u00a7 1-201(b)(10) conspicuousness standard",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly cites UCC \u00a7 1-201(b)(10) as the conspicuousness standard in Part IV.C.2 and lists \u00a7 1-201(b)(10) 'Conspicuous' in Appendix A. It uses that provision as the source for evaluating disclaimer conspicuousness."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_002: Recommends specific formatting improvements for conspicuousness",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends specific formatting changes to improve conspicuousness, including bold and larger type, a bordered or shaded box, a stand-alone \u201cIMPORTANT \u2014 DISCLAIMER OF WARRANTIES\u201d heading, and buyer initials, and repeats similar recommendations for the revised SLW."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Identifies post-sale delivery of warranty terms as a critical deficiency",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly identifies that the Standard Limited Warranty is withheld until delivery/inside the crate and not provided before purchase, including noting the sales memo instructs reps not to provide it pre-sale. It flags this as a critical enforceability defect under UCC \u00a7\u00a7 2-207/2-209, especially for negotiated high-value $475,000+ transactions, and states the terms may never become part of the contract."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: References shrinkwrap/box-top enforceability case law or doctrine",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses post-formation delivery of the Standard Limited Warranty, analyzes it under UCC \u00a7\u00a7 2-207 and 2-209, and references the shrinkwrap/rolling-contract debate with citations to ProCD v. Zeidenberg, Hill v. Gateway 2000, and Step-Saver Data Systems v. Wyse Technology. This satisfies the criterion."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_003: Notes that 2021 Birchwood memo recommended pre-sale disclosure and CIT failed to implement",
+      "verdict": "pass",
+      "reasoning": "The memo expressly references the 2021 Birchwood, Sato & Klein memo, states that one of its most important recommendations was pre-sale disclosure, and says it was not implemented. It also notes BSK called the post-sale warranty delivery issue the highest-priority issue and that it \u201chas not been fixed.\u201d"
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_003: Recommends integrating warranty terms into pre-sale documentation",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly recommends pre-sale disclosure and integration of warranty terms: it calls for a pre-sale contract package before any pre-order, revising the quotation template to attach the SLW, Performance Warranty, and software terms, obtaining buyer signature before deposit, and stopping the practice of withholding the warranty until delivery. It also specifically recommends making disclaimers and limitations conspicuous and separately acknowledged pre-sale."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_004: Analyzes implied warranty of fitness for particular purpose under UCC \u00a7 2-315",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes UCC \u00a7 2-315 risk tied to CIT's customer-specific sales conduct. It states that if the SLW drops out, implied warranties of fitness apply, and specifically notes the sales memo tells reps to tailor performance commitments to each customer's water challenges and regulatory needs, describing this as the \u00a7 2-315 fact pattern: seller has reason to know the particular purpose and buyer relies on seller's skill. It also flags the sales memo's tailored commitments as creating fitness warranty risk and applies this concern to regulated and application-specific contexts such as municipal, food/FDA, pharmaceutical, and agricultural uses."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_004: Explains that disclaimer effectiveness is undermined by sales conduct inviting reliance",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses the implied warranty of fitness disclaimer and explains that CIT\u2019s sales conduct undermines it. It notes that although the SLW names and disclaims fitness, the disclaimer may not be enforceable because of timing and conflict with sales representations, and specifically states that the fitness warranty is \u201cespecially potent\u201d because sales reps are instructed to tailor performance commitments to each customer\u2019s water challenges and regulatory needs\u2014i.e., the classic UCC \u00a7 2-315 reliance scenario. It repeats this point in discussing the sales memo and customer-specific applications."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_005: Flags Texas-specific warranty risks for the Triton Municipal deal",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies Triton Municipal Water Authority as a Texas governmental entity purchasing $5.7M of units and includes a Texas-specific section discussing Texas UCC provisions, public procurement rules, governmental contracting issues, DTPA considerations, conspicuousness under Texas law, and related public-contract compliance risks. This satisfies the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_006: Flags California Song-Beverly Consumer Warranty Act risk for Harmon Valley deal",
+      "verdict": "fail",
+      "reasoning": "The memo mentions the California Song-Beverly Act in the Harmon Valley section, but it largely dismisses it as inapplicable because the Max 9000 is industrial equipment for commercial/agricultural use. It does not flag Song-Beverly as a potential California-specific risk for an agricultural cooperative purchasing for member use, nor does it note that Song-Beverly could impose more restrictive disclaimer limitations than UCC Article 2 for this deal."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_007: Analyzes failure of essential purpose doctrine under UCC \u00a7 2-719(2)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes UCC \u00a7 2-719(2) in connection with CIT\u2019s exclusive repair/replacement remedy, explaining that the remedy can fail of its essential purpose if CIT cannot repair within a reasonable time or cannot cure defects. It further discusses that, upon such failure, buyers may seek Article 2 remedies and addresses the split over whether a separate consequential-damages exclusion survives or may become unenforceable."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_007: Addresses whether consequential damages exclusion is independent of or dependent on exclusive remedy",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses whether the consequential-damages exclusion survives failure of the exclusive repair/replacement remedy. In Part VIII.A it identifies the independent vs. dependent approaches, cites representative cases for each, notes a case-by-case/unconscionability approach, and later applies that issue to the SLW\u2019s drafting. This satisfies the criterion."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_008: Identifies software component warranty gap for AquaMonitor v3.2",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies AquaMonitor v3.2 as a software/monitoring component providing accurate real-time compliance/performance data, flags it as a major warranty gap, and explains that the current SLW covers only hardware/materials-and-workmanship defects. It specifically states software is not 'material' and coding errors are not naturally 'workmanship,' and discusses the uncertainty/application of UCC Article 2 to embedded software and cloud services."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_008: Recommends addressing software in warranty framework",
+      "verdict": "pass",
+      "reasoning": "The memo not only identifies the AquaMonitor software gap but expressly recommends separate AquaMonitor Software License and Subscription Agreement terms covering limited software warranty, regulatory sampling disclaimers, calibration, data accuracy, cloud uptime/SLA, OTA updates, cybersecurity, data ownership, Part 11 language, and software-specific liability caps. It also recommends amending the SLW definition of Product to include embedded software, firmware, and data."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_009: Identifies sole-source filter cartridge warranty conditioning issue",
+      "verdict": "fail",
+      "reasoning": "The memo only briefly suggests making use of \u201cgenuine cartridges\u201d a condition of the Performance Warranty. It does not identify that CIT is the sole-source supplier of replacement filter cartridges priced at $8,500 and required every six months, nor does it discuss the legal risks of conditioning warranty coverage on use of CIT cartridges, including tying concerns or Magnuson-Moss implications. Therefore it does not satisfy the criterion."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_010: Identifies disconnect between quotation letter performance specs and warranty scope",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that the quotation letter includes the 99.97% contaminant-removal and 98.5% uptime specifications and treats them as likely express warranties under UCC \u00a7 2-313. It also separately flags that the Standard Limited Warranty is limited to defects in materials and workmanship, excluding design defects and performance shortfalls, creating a mismatch between the performance promises and the warranty\u2019s narrower scope."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_011a: References escalating warranty claims trend data",
+      "verdict": "pass",
+      "reasoning": "The memo includes a dedicated claims record table for FY2022\u2013FY2024 showing escalating claims filed (47, 62, 71) and repair/replacement costs ($1.34M, $1.87M, $2.21M), along with related increases in total warranty expense and other trend metrics."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_011b: Connects warranty claims trend data to legal analysis",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly ties the warranty claims trend data to legal conclusions and risk assessments. It uses rising claim counts, longer resolution times, full-unit replacement delays, consequential-damages settlements, and performance-spec disputes to argue that the repair/replacement remedy may fail of its essential purpose under UCC \u00a7 2-719, that consequential-damages exclusions are at risk, and that launching the higher-value Max 9000 under the same remedy structure amplifies exposure. It also incorporates the data into quantified risk projections and recommendations for a defined Performance Warranty."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_011c: References FY2024 consequential damage claims data",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the FY2024 consequential-damages settlements totaling $680,000, identifies the two settled claims as Meridian Pharmaceutical ($145,000) and Cascade Bottling Works ($535,000), and also references the pending Redmond Beverage Distributors claim for $1.2 million."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_011d: Uses consequential damage claims to support analysis of exclusion adequacy",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly connects the FY2024 consequential-damages settlements and Redmond litigation to the adequacy of the consequential-damages exclusion and risk that the repair/replacement remedy will fail of its essential purpose. It discusses the $680,000 settlements, Redmond\u2019s theory that the remedy failed and the consequential-damages exclusion falls, lengthening repair times, and explains how these facts undermine enforceability of the exclusion and support remedy-failure arguments."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_010: References email campaign language as additional express warranty source",
+      "verdict": "fail",
+      "reasoning": "The memo does mention the email campaign language quoted by Stoneridge\u2014\u201c98.5% uptime and 99.97% purity \u2014 that's our commitment to your operations\u201d\u2014and flags that any separate email campaign should be collected. However, it does not identify the email campaign itself as an additional source of express warranty creation in the express-warranty analysis; the document-by-document express warranty assessment covers the sales memo, brochure, sales deck, and quotation letter, but not the email campaign. The criterion requires the email campaign language to be mentioned as contributing to express warranty risk, not merely as an unreviewed document to collect."
+    },
+    {
+      "id": "C-028",
+      "title": "Cites UCC \u00a7 2-313 for express warranty analysis",
+      "verdict": "pass",
+      "reasoning": "The memo expressly cites UCC \u00a7 2-313 multiple times as the basis for express warranty creation, including affirmations of fact, descriptions of goods, and marketing/sales statements becoming part of the basis of the bargain."
+    },
+    {
+      "id": "C-029",
+      "title": "Cites UCC \u00a7 2-316 for disclaimer requirements",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly cites UCC \u00a7 2-316 as the basis for warranty disclaimer requirements, including \u00a7 2-316(2)\u2013(3) for excluding implied warranties of merchantability and fitness for a particular purpose, and discusses the required mention of merchantability, writing, and conspicuousness."
+    },
+    {
+      "id": "C-030",
+      "title": "Cites UCC \u00a7 2-719 for exclusive remedy and limitation of liability analysis",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly cites UCC \u00a7 2-719 multiple times, including stating that \u00a7 2-719(1) allows exclusive repair/replacement remedies, \u00a7 2-719(2) addresses failure of essential purpose, and \u00a7 2-719(3) permits exclusion of consequential damages unless unconscionable. It also uses \u00a7 2-719 in the remedy-limitation analysis."
+    },
+    {
+      "id": "C-031",
+      "title": "Discusses implied warranty of merchantability under UCC \u00a7 2-314",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses the implied warranty of merchantability in the context of CIT\u2019s disclaimer, including citing UCC \u00a7 2-314 multiple times and explaining that if the disclaimer drops out, the implied warranties of merchantability and fitness apply undisclaimed."
+    },
+    {
+      "id": "C-032",
+      "title": "References Stoneridge insurance coverage concerns",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly references the Stoneridge Risk Advisors letter and discusses insurance implications of the Total Performance Guarantee, including the warning that performance guarantee/warranty claims likely fall outside CGL/product liability coverage, contractual-liability concerns, exclusions, premium increase, and recommendations for coverage review."
+    },
+    {
+      "id": "C-033",
+      "title": "State-specific analysis includes Texas",
+      "verdict": "pass",
+      "reasoning": "The memo includes a dedicated Texas section addressing Triton Municipal Water Authority, Texas UCC/conspicuousness issues, procurement law, governmental immunity, DTPA considerations, public-contract requirements, and related warranty exposure."
+    },
+    {
+      "id": "C-034",
+      "title": "State-specific analysis includes Illinois",
+      "verdict": "pass",
+      "reasoning": "The memo includes a dedicated Illinois section for Great Lakes Processing Corp. addressing Illinois UCC warranty issues and Illinois-specific considerations such as the Illinois Consumer Fraud Act, Moorman economic loss doctrine, privity, and failure-of-essential-purpose treatment."
+    },
+    {
+      "id": "C-035",
+      "title": "State-specific analysis includes California",
+      "verdict": "pass",
+      "reasoning": "The memo includes a dedicated California section for Harmon Valley Agricultural Cooperative and discusses California-specific warranty and related risks, including Song-Beverly, CLRA, Magnuson-Moss applicability, UCL/FAL, privity exceptions for advertising warranties, Civil Code \u00a7 1668, and unconscionability."
+    },
+    {
+      "id": "C-036",
+      "title": "State-specific analysis includes New York",
+      "verdict": "pass",
+      "reasoning": "The memo includes a New York-specific section addressing warranty-related considerations, including express warranty proof under CBS v. Ziff-Davis, municipal procurement issues, consumer protection statutes, and enforcement of consequential-damages exclusions."
+    },
+    {
+      "id": "C-037",
+      "title": "State-specific analysis includes Massachusetts",
+      "verdict": "pass",
+      "reasoning": "The memo includes a state-specific discussion for Massachusetts, addressing Chapter 93A \u00a7 11, Mass. Gen. Laws ch. 106 \u00a7 2-316A, pharmaceutical regulatory representations, potential treble damages, and Massachusetts pharma-related warranty/marketing risks."
+    },
+    {
+      "id": "C-038",
+      "title": "Memo includes recommendations section with at least three concrete action items",
+      "verdict": "pass",
+      "reasoning": "The memo contains a dedicated Recommendations section with numerous concrete action items, including withdrawing the sales memo, revising quotation templates, attaching revised warranty/software terms before pre-orders, revising marketing language, creating a Performance Warranty, and building a Master Purchase Agreement before the April 1 pre-order date. It explicitly references the need to act before March 17 and April 1/product launch."
+    },
+    {
+      "id": "C-039",
+      "title": "Recommends revising marketing materials to address express warranty risk",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends revising the Total Performance Guarantee marketing materials, including the brochure, sales deck, and email campaign/customer-facing materials, to remove or qualify absolute guarantees such as \u201cmake customers whole,\u201d \u201cPeriod,\u201d unqualified EPA/FDA compliance, WFI/Part 11 claims, and \u201celiminates\u201d recall risk. It also recommends adding prominent qualifying language that the guarantee is governed by a written Performance Warranty defining conditions, testing, and remedies, and using language like \u201crated performance under specified conditions.\u201d"
+    },
+    {
+      "id": "C-040",
+      "title": "Recommends changes to sales representative practices or training",
+      "verdict": "pass",
+      "reasoning": "The memo directly addresses sales representative conduct: it recommends withdrawing and replacing the January 8 sales-team memo, stopping 'make customers whole,' 'do not hedge,' and warranty-withholding instructions, issuing interim guidance, documenting what reps have said, giving reps a written 'no side promises' notice, and retraining sales on acceptable performance-guarantee language."
+    },
+    {
+      "id": "C-041",
+      "title": "References the 2021 Birchwood, Sato & Klein memorandum",
+      "verdict": "pass",
+      "reasoning": "The memo expressly references the March 22, 2021 Birchwood, Sato & Klein LLP memorandum from Elaine Sato, discusses its analysis of CIT's warranty framework, notes discrepancies between the BSK-described warranty and the current file copy, and identifies which recommendations were not implemented, including pre-sale disclosure and enhanced conspicuousness."
+    },
+    {
+      "id": "C-042",
+      "title": "Mentions the March 17, 2025 deadline for finalizing revised warranty framework",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Ms. Dasgupta set March 17 as the deadline to lock/finalize the warranty framework and marketing language, and it also references the April 1 pre-order date as a deadline driving urgency."
+    },
+    {
+      "id": "C-043",
+      "title": "Recommends revising quotation letter to align with warranty framework",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends revising the Quotation Template to attach the SLW, Performance Warranty, and software terms as exhibits; replace language saying terms are included with delivery; state performance figures are governed by the attached Performance Warranty; fix governing law; and delete unqualified 'meets or exceeds' statements. This satisfies both incorporation of warranty terms/disclaimers and removal/qualification of performance specifications."
+    },
+    {
+      "id": "C-044",
+      "title": "Notes that UCC \u00a7 2-316(2) requires merchantability disclaimer to mention 'merchantability'",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Part IV.C.1 that to exclude the implied warranty of merchantability, the disclaimer language must mention \u201cmerchantability\u201d and, if in writing, be conspicuous, satisfying the UCC \u00a7 2-316(2) requirement."
+    },
+    {
+      "id": "C-045",
+      "title": "Identifies that specific performance numbers (99.97%, 98.5%) constitute express warranties",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies the 99.97% contaminant-removal figure and 98.5% uptime figure in the brochure, sales deck, quotation letter, and sales scripts as specific measurable statements of fact that constitute express warranties under UCC \u00a7 2-313. It repeats this analysis in the express warranty section, explaining they are objectively testable affirmations/descriptions rather than puffery."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/research-ucc-warranty-disclaimer-requirements-for-new-product-launch/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/research-ucc-warranty-disclaimer-requirements-for-new-product-launch",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T23:10:17.738613+00:00",
+  "cost": {
+    "input_tokens": 20,
+    "output_tokens": 43146,
+    "wall_clock_seconds": 454.61
+  },
+  "doc_coverage": {
+    "documents_read": 9,
+    "total_documents": 9,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "ogilvie-hsu-memo-assignment.eml",
+      "cit-standard-limited-warranty.docx",
+      "aquapure-max-9000-marketing-brochure.docx",
+      "aquapure-max-9000-sales-deck.pptx",
+      "draft-quotation-letter-template.docx",
+      "sales-team-instruction-memo.docx",
+      "bsk-warranty-memo-2021.docx",
+      "stoneridge-insurance-letter.eml",
+      "warranty-claims-summary-fy22-fy24.xlsx"
+    ],
+    "documents_skipped_list": []
+  }
+}

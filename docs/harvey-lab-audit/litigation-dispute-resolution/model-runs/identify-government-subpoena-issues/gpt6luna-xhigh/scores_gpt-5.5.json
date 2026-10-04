@@ -1,0 +1,349 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "45/52 criteria passed.  Missed 7 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 52,
+  "n_passed": 45,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies Request 9 as overbroad (formation/governance docs)",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies Request 9 as seeking formation/governance records for any Grayfield entity and recommends narrowing it to relevant funds/entities, noting the 10% ownership trigger is especially broad. Although it does not name Grayfield Capital Fund III LP or Grayfield Credit Partners LP, it discusses the overbreadth as to unrelated/non-relevant entities sufficiently to satisfy the criterion."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Identifies Request 12 as overbroad (bank statements all entities)",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically addresses Request 12, characterizing it as seeking bank/wire/fund flows for every entity, marking it for narrowing, and recommending limiting it to VRDN transaction/proceeds, fund accounts, relevant period, and relevant entities. Although it does not repeat the exact phrase that Grayfield Opportunity Fund LP is the only fund that traded Veridian, it does identify Request 12's all-entity bank/wire scope as overbroad and proposes narrowing to the VRDN-related fund activity."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Identifies Request 16 as overbroad (tax returns all entities)",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically discusses Request 16 in the request-by-request triage, describing the demand for all entity tax returns, schedules, and K-1s for 2022\u201324 as broad and sensitive, noting 2024 returns are unavailable, and recommending limits by entity, tax year, relevance, and protections. It also flags tax returns as part of the subpoena\u2019s overbreadth elsewhere."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Recommends negotiating scope with AUSA",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly recommends negotiating with verified government/AUSA contacts to narrow overbroad subpoena requests, including seeking an extension, staged/rolling production, meet-and-confer, limiting to VRDN/Veridian-related materials, relevant funds/entities, custodians, date ranges, and moving to quash/modify if negotiations fail."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001: Cites relevance/proportionality/burden as basis for narrowing",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly invokes Fed. R. Crim. P. 17(c)(2), the grand-jury subpoena overbreadth/oppressiveness standard, and United States v. R. Enterprises. It identifies burden, relevance, privacy, possession/control, and proportionality concerns as bases to meet and confer, narrow requests, or move to quash/modify."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Identifies Clearwater Nov 2023 audit report privilege as defective",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the Clearwater November 2023 audit privilege problem: it states the privilege legend is not enough, that nonlawyer CCO Rebecca Tsao commissioned/directed the review, no attorney directed/received/oversaw it, and it appears to be ordinary compliance/business work rather than privileged legal advice or work product."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Distinguishes Clearwater audit report from training presentation",
+      "verdict": "fail",
+      "reasoning": "The memorandum clearly addresses the November 2023 Clearwater audit and notes Request 14 covers all Clearwater documents. It also mentions a separate May 2023 Clearwater training engagement/presentation, but it does not meaningfully distinguish the training presentation as a separate non-privileged document requiring different treatment from the audit report. The treatment is largely lumped together under Clearwater materials."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_002: Distinguishes Ridgeline work product as properly protected",
+      "verdict": "pass",
+      "reasoning": "The memorandum separately discusses Ridgeline, stating it was retained on June 10 by Whitfield & Crane at counsel's direction after the subpoena timeline, and that its counsel-directed analyses, communications, and work files are strong work-product candidates created because of the investigation/litigation. It also distinguishes this from the Clearwater audit privilege issue."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Identifies iPhone trade-in as potential spoliation with timing relative to SEC investigation",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly notes that Grayfield\u2019s old iPhone was traded in on May 20 after the SEC Formal Order issued/was served on May 15 and after alleged May 16 notice to Grayfield. It flags the timing as a high preservation/spoliation and obstruction concern, discusses duty/hold timing, and recommends forensic recovery and disclosure steps."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Notes iCloud backups were off, making data potentially unrecoverable",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly discusses Grayfield\u2019s traded-in phone, states that no recent iCloud backup was available, references a \u201cdisabled backup setting,\u201d and flags that the old phone may be irretrievable/unrecoverable unless other recovery paths are tested."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_003: Identifies Signal disappearing messages as spoliation risk",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies Zheng's use of Signal with 24-hour disappearing messages, notes that Smarsh does not capture Signal, and characterizes this as an ongoing retention/hold and preservation risk requiring immediate forensic preservation and disabling of disappearing messages."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_003: Identifies duty to preserve as attaching by May 15, 2024",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly flags that the SEC Formal Order issued/was served on May 15, before the May 20 iPhone trade-in and before the June 6 company-wide hold, and describes the May 15-to-June 6 gap as a preservation issue requiring explanation. It also treats ongoing Signal auto-delete as a retention/hold risk. Although it does not use the exact phrase \u201cduty attached no later than May 15,\u201d it sufficiently identifies May 15 as the relevant preservation-trigger date rather than the later subpoena date."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Recommends immediate forensic preservation steps",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly recommends concrete immediate forensic preservation steps, including forensic acquisition of Grayfield\u2019s current iPhone and linked Apple/iCloud/carrier/app data, attempting to preserve/recover the traded-in iPhone through Apple/downstream custodians, preserving Zheng\u2019s device and linked Signal data, arranging same-day forensic capture, disabling disappearing messages after capture, and using forensic examiners/vendors."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_003: Advises on disclosure obligations to government re spoliation",
+      "verdict": "pass",
+      "reasoning": "The memorandum directly addresses government disclosure regarding potential spoliation. It recommends authenticating the subpoena and initiating recovery first, then making a prompt, precise counsel-to-government disclosure about the iPhone trade-in and remedial steps, and warns not to wait for the government to discover the gap or make unqualified preservation representations. It also discusses obstruction/spoliation optics, intent uncertainty, and preservation risks around Signal auto-delete, satisfying the criterion\u2019s requirement to address whether/how to disclose and the strategic risks of disclosure versus non-disclosure."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_004: Identifies conflict in joint representation of entity and Grayfield",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies that Whitfield & Crane represents only the entity, that Grayfield wants personal representation, and that joint representation presents acute conflict risks because the entity\u2019s interests may diverge from Grayfield\u2019s personal interests. It specifically cites Grayfield\u2019s unapproved personal trades, family connection/call with Ashford, device trade-in, and potential need for the entity to attribute failures to individual conduct, and recommends independent counsel for Grayfield."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Recommends Grayfield retain separate personal counsel",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends that Grayfield retain independent/separate personal counsel and states that Whitfield & Crane currently represents only Grayfield Capital Partners, LLC, with a workstream deliverable to confirm entity-only representation."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_004: References applicable ethics rules on concurrent conflicts",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly discusses concurrent conflict concerns, states that Whitfield & Crane represents the entity only, recommends independent counsel, and cites New York Rule of Professional Conduct 1.7 regarding concurrent representation. It also discusses entity-client/Upjohn principles that counsel represents the organization rather than individual employees or principals."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_005: Identifies Fifth Amendment issue for corporate representative",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly discusses Attachment B's demand that Grayfield Capital designate corporate representative(s) for broad testimony topics, notes that Rule 17 does not provide a 30(b)(6)-style mechanism, states that the entity has no Fifth Amendment privilege, and distinguishes that natural persons may assert personal Fifth Amendment rights question-by-question with personal counsel. It also flags individual exposure for Grayfield and Zheng and recommends separate counsel, adequately identifying the corporate-representative Fifth Amendment tension."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_005: References Braswell or collective entity doctrine",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes the Fifth Amendment issue for entity testimony/records, states that the entity has no Fifth Amendment privilege and that corporate records generally cannot be withheld based on an individual custodian\u2019s privilege, and cites Braswell v. United States, 487 U.S. 99 (1988)."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_005: Recommends not designating Marcus Grayfield as representative",
+      "verdict": "fail",
+      "reasoning": "The memo flags Marcus Grayfield\u2019s personal exposure, need for independent counsel, Fifth Amendment issues, and objects to the subpoena\u2019s corporate-representative mechanism, but it does not specifically recommend that Marcus Grayfield should not be designated as the corporate representative or identify that he should be avoided as designee for testimony topics like Veridian investment decisions."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_006: Identifies 'related entities' definition as vague/overbroad",
+      "verdict": "pass",
+      "reasoning": "The memo notes that the subpoena purports to cover every \u201cRelated Entity, Fund, and Affiliate,\u201d flags the \u201call Marcus-owned entities at a 10% threshold\u201d language as broad, and specifically calls the \u201c10% personal-ownership trigger\u201d especially broad. Although it does not give the exact examples of personal holding companies, family trusts, or Fund III portfolio companies, it does identify the related-entities definition/10% ownership trigger as overbroad and requiring narrowing."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_006: Identifies service deficiency for separate legal entities",
+      "verdict": "pass",
+      "reasoning": "The memorandum identifies that service was made on Grayfield Capital\u2019s registered agent and notes that, although this may be effective for the LLC, the subpoena purports to cover all related entities/funds/affiliates and service on Grayfield Capital does not automatically establish reach over separately organized affiliates or other entities. This sufficiently flags the separate-entity service/enforceability issue, even though it does not name \u201cDC Statutory Agent\u201d specifically."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_007: Identifies 33-day return date as unreasonably compressed",
+      "verdict": "pass",
+      "reasoning": "The memorandum flags the July 8 return date after June 5 service, notes the breadth of the subpoena and ESI/preservation burden, highlights same-day production and testimony concerns, and recommends seeking a 30\u201345 day extension and narrowed/staged protocol. Although it does not expressly use the phrase \u201c33 days\u201d or \u201cunreasonably compressed,\u201d it sufficiently identifies the compressed timeline/return-date issue in context."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_007: Recommends seeking extension or rolling production",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly recommends seeking a written 30\u201345 day extension of the July 8 return date, staged/rolling production, and a narrowed production/testimony protocol through verified USAO channels."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_007: References Fed. R. Crim. P. 17(c) or motion to quash standards",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly references Fed. R. Crim. P. 17(c)(2), states that it authorizes quashing or modifying an unreasonable or oppressive subpoena, cites United States v. R. Enterprises, and repeatedly recommends evaluating or filing a Rule 17(c)(2) motion to quash/modify if negotiations fail."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_008: Identifies possession/custody/control issue for personal accounts",
+      "verdict": "pass",
+      "reasoning": "The memorandum discusses that service on Grayfield Capital does not automatically establish possession, custody, or control over employees\u2019 personal records, recommends limits based on actual possession/custody/control, and specifically treats Request 11\u2019s demand for Grayfield/Zheng personal electronic messages as requiring preservation plus privacy/privilege review rather than automatic entity production. This identifies the relevant PCC concern for personal accounts/devices."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_008: Identifies privacy or SCA issues for personal communications",
+      "verdict": "pass",
+      "reasoning": "The memo specifically addresses Request 11, noting that it seeks Grayfield/Zheng electronic messages across business and personal platforms and recommending preservation plus review for \u201cpersonal-device privacy/privilege\u201d and targeted scope. Although it does not expressly cite the Stored Communications Act or Fourth Amendment, it identifies privacy concerns raised by compelling production of personal messaging/app communications, which satisfies the criterion."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_008: Notes need to assess BYOD/acceptable use policies",
+      "verdict": "fail",
+      "reasoning": "The memo repeatedly addresses preserving and collecting personal devices/accounts and notes some personal-device privacy and possession/control issues, and it references a Code provision requiring IT notice/extraction before device disposal. But it does not recommend reviewing BYOD, acceptable-use policies, employment agreements, or other internal policies to determine the firm\u2019s legal access rights to employees\u2019 personal devices/accounts."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_009: Identifies strategic risks of Request 7 (SEC production docs)",
+      "verdict": "fail",
+      "reasoning": "The memorandum addresses Request 7 by noting that SEC materials should be collected and reviewed for privilege, protective orders, confidentiality, and transcript restrictions, and it generally recognizes a parallel SEC/criminal investigation. However, it does not identify the strategic risk that the USAO may be piggybacking on the SEC investigation, nor does it discuss any of the required concerns: less-careful prior SEC productions, SEC-context privilege waivers extending to the criminal case, or the SEC acting as a stalking horse for the criminal investigation."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_009: References parallel proceeding doctrine or Stringer",
+      "verdict": "fail",
+      "reasoning": "The memo mentions a \u201cparallel SEC/criminal investigation\u201d and addresses some adjacent issues like privilege review of SEC materials and individual Fifth Amendment concerns, but it does not cite Stringer or discuss the parallel-proceedings doctrine or the specific SEC-DOJ coordination/self-incrimination/privilege-waiver risks contemplated by the criterion."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_010: Identifies investor identification request as objectionable",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Request 15 seeking Opportunity Fund investor identities/addresses/commitments/balances as \u201csensitive and attenuated,\u201d marks it \u201cObject / narrow,\u201d calls for a basis, limits, and confidentiality protection, and elsewhere flags investor information as private/sensitive. This satisfies the requirement to identify third-party privacy/relevance concerns."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_010: Recommends pushback or protective order for investor IDs",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically addresses Request 15, characterizing investor identities/addresses/commitments/balances as sensitive and attenuated, recommending that counsel request the government\u2019s basis, limit the request to necessary investor/control information, and seek confidentiality protection, with the treatment marked \u201cObject / narrow.\u201d This satisfies the requirement to resist or limit the investor-ID request."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_011: Flags March 23 email as evidentiary red flag",
+      "verdict": "fail",
+      "reasoning": "The memo specifically identifies the March 23 Grayfield\u2013Zheng email, quotes the key language, and calls it relevant, ambiguous/damaging, and responsive. However, it does not expressly flag that prosecutors will likely focus on the phrase \u201cthe data will speak for itself\u201d as potentially reflecting awareness of the non-public 89% ORR clinical data from the SAB meeting. The required evidentiary inference is missing."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_011: Notes March 23 email is non-privileged and must be produced",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly addresses the March 23 Grayfield\u2013Zheng email, states it is an ordinary internal business communication and not privileged, says there is no credible basis to withhold it merely because it is damaging, and instructs that the complete chain and metadata should be preserved and produced subject only to specific privilege review."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_012: Identifies temporal correlation between SAB meeting and first trade",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically identifies the March 3, 2024 confidential SAB meeting attended by Dr. Ashford and the Grayfield Opportunity Fund\u2019s first VRDN purchases on March 4, 2024, noting that the fund began buying the next day. It repeatedly flags this timing as a damaging/compelling chronology and significant investigative circumstantial evidence for potential insider trading."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_012: Identifies March 12 phone call as tightening circumstantial case",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly discusses the March 12, 2024 22-minute Ashford\u2013Grayfield call in the context of insider trading risk, including as part of the damaging chronology and circumstantial evidence for a potential tipper-tippee theory."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_012: Identifies tipper-tippee theory as basis for exposure",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies tipper-tippee liability as a potential insider-trading theory, names Ashford as the potential source/tipper with confidential Veridian SAB information, and Grayfield as the potential tippee. It specifically connects their brother-in-law/family relationship to the personal-benefit element under Salman, while noting factual caveats."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_012: Notes potential entity-level exposure for the fund",
+      "verdict": "pass",
+      "reasoning": "The memorandum identifies insider-trading/tipping risk tied to the Opportunity Fund\u2019s own VRDN trading, repeatedly discusses the fund\u2019s accumulation and sales as part of the potentially tainted trading chronology, and distinguishes entity interests/defense from Marcus Grayfield\u2019s personal exposure. It also notes entity-level compliance/enforcement exposure and warns the entity should not assume the investigation is confined to individuals."
+    },
+    {
+      "id": "C-039",
+      "title": "Identifies Marcus Grayfield's non-pre-cleared personal trades",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that Marcus Grayfield bought 15,000 Veridian shares on March 5, 2024, that Tsao reported the trade was not pre-cleared, and that the Code required prior written approval. It also discusses the significance, including blackout/policy violations, compliance failures, individual exposure, and conflict concerns."
+    },
+    {
+      "id": "C-040",
+      "title": "Memo includes recommended overall response strategy",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes multiple concluding strategy-oriented sections, including a detailed \u201cRecommended work plan / decision points for lead partner\u201d and a \u201cBottom line\u201d section that sets out an overall response strategy: authenticate the subpoena, preserve evidence, secure devices/off-channel data, address conflicts, reconcile trade records, and seek an extension/production protocol."
+    },
+    {
+      "id": "C-041",
+      "title": "Memo includes proposed timeline for USAO negotiations",
+      "verdict": "pass",
+      "reasoning": "The memo includes a concrete negotiation timeline and steps: verify the subpoena/AUSA today, contact the USAO through verified channels, request a 30\u201345 day extension within 24\u201348 hours/first contact, seek a meet-and-confer, propose staged or rolling production and testimony sequencing, send a request-by-request narrowing proposal in Week 1\u20132, and resolve by July 8 or file a Rule 17(c)(2) motion."
+    },
+    {
+      "id": "C-042",
+      "title": "Memo organized into discrete issue sections",
+      "verdict": "pass",
+      "reasoning": "The memo is clearly organized into discrete issue sections with numbered headings (e.g., Executive assessment, Subpoena authenticity/scope/procedural response, Merits and evidentiary issues, Preservation, Privilege, Production triage, Trading-data/P&L, Representation) and subsections/tables, rather than a single undifferentiated narrative."
+    },
+    {
+      "id": "C-043",
+      "title": "Each issue section includes description, factual/subpoena reference, and recommendation",
+      "verdict": "pass",
+      "reasoning": "The memorandum\u2019s issue sections consistently identify the legal/procedural issue, tie it to specific subpoena requests, dates, facts, or records, and provide concrete recommended actions such as authenticate, preserve, narrow, seek extensions, conduct privilege review, use separate counsel, or reconcile records. The request-by-request and risk tables further reinforce factual/subpoena references and recommendations for each issue."
+    },
+    {
+      "id": "C-044",
+      "title": "Memo includes risk severity ratings for issues",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes explicit risk severity assessments in the risk snapshot, such as \u201cHigh investigative risk,\u201d \u201cHigh policy risk,\u201d and \u201cHigh and time-sensitive,\u201d along with prioritization of response actions."
+    },
+    {
+      "id": "C-045",
+      "title": "Spoliation rated as critical or high risk",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly rates the preservation/spoliation issue as \u201cHigh and time-sensitive\u201d in the risk snapshot, describes the iPhone trade-in and Signal auto-delete as a \u201cserious preservation problem,\u201d and treats both as urgent top-tier risks requiring immediate forensic action."
+    },
+    {
+      "id": "C-046",
+      "title": "Conflict of interest rated as critical or high risk",
+      "verdict": "pass",
+      "reasoning": "The memo treats conflicts/joint representation as a top-tier concern: it lists conflicts among the \u201cstrongest immediate concerns,\u201d states the entity\u2019s and Grayfield\u2019s interests may directly diverge, says the conflict risk is \u201ctoo acute\u201d to proceed with joint representation, and recommends independent counsel immediately. This is equivalent to a high-risk rating."
+    },
+    {
+      "id": "C-047",
+      "title": "References specific subpoena request numbers in analysis",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically references numerous subpoena request numbers in its analysis, including Requests 1\u201318 in the request-by-request triage and additional discussion of Requests 3, 5, 7, 11, and 14. This exceeds the requirement of at least four different request numbers."
+    },
+    {
+      "id": "C-048",
+      "title": "References specific dates from the factual record",
+      "verdict": "pass",
+      "reasoning": "The memorandum references far more than five specific factual dates, including March 3, March 4, March 5, March 12, April 2, April 8, May 15, May 20, June 5, June 6, June 10, and July 8."
+    },
+    {
+      "id": "C-049",
+      "title": "Memo addresses no privilege log provision in subpoena",
+      "verdict": "fail",
+      "reasoning": "The memo repeatedly recommends privilege review, privilege logging, and negotiating a production/ESI protocol, but it does not specifically note that the subpoena itself lacks a privilege-log provision or protocol for handling privileged materials. The criterion requires that absence to be mentioned."
+    },
+    {
+      "id": "C-050",
+      "title": "Notes Kevin Zheng has not yet retained separate counsel",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly addresses Zheng\u2019s counsel status by recommending he be offered separate/independent counsel before interviews or testimony, noting potential divergent interests and separate subpoena exposure, and requiring Upjohn warnings because entity counsel does not represent employees individually. Although it does not use the exact phrase \u201chas not yet retained separate counsel,\u201d it sufficiently identifies the issue and implications."
+    },
+    {
+      "id": "C-051",
+      "title": "Correctly identifies Grand Jury No. and case identifiers",
+      "verdict": "pass",
+      "reasoning": "The memorandum correctly references the Grand Jury number \u201c24-GJ-1187\u201d in the heading and also references the SEC investigation number \u201cHO-14492\u201d in multiple places."
+    },
+    {
+      "id": "C-052",
+      "title": "Recommends Upjohn warnings or corporate Miranda for employees",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends Upjohn warnings before employee interviews, including stating that counsel represents the entity, not the employee, that the entity controls privilege, and that employees may retain personal counsel."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/identify-government-subpoena-issues/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/identify-government-subpoena-issues",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T22:19:12.777918+00:00",
+  "cost": {
+    "input_tokens": 882057,
+    "output_tokens": 34626,
+    "wall_clock_seconds": 243.75
+  },
+  "doc_coverage": {
+    "documents_read": 10,
+    "total_documents": 9,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "grand-jury-subpoena.docx",
+      "ic-memo-veridian.docx",
+      "preservation-notice.docx",
+      "trading-blotter-extract.xlsx",
+      "mehta-tsao-phone-email.eml",
+      "code-of-ethics.docx",
+      "clearwater-audit-report.docx",
+      "grayfield-zheng-email-chain.eml",
+      "intake-memo-tsao.docx",
+      "/workspace/output/subpoena-issues-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

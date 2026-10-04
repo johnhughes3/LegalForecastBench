@@ -1,0 +1,374 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "38/57 criteria passed.  Missed 19 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 57,
+  "n_passed": 38,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001a: Flags Line 3 hotel rate exceeds Tier 1 cap ($319 vs $275/night)",
+      "verdict": "pass",
+      "reasoning": "The report addresses Lines 3-4 together under 'San Francisco hotels,' noting a Tier 1 cap of $275/night and that 4 room-nights were billed at $319/night, with a reduction of $44 \u00d7 4 = $176. This covers Line 3 (M. Beale, 2 nights at $319/night) as non-compliant due to exceeding the $275/night Tier 1 cap. The criterion is satisfied."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001b: Flags Line 4 hotel rate exceeds Tier 1 cap ($319 vs $275/night)",
+      "verdict": "pass",
+      "reasoning": "The report groups Lines 3\u20134 together under 'San Francisco hotels' and states: 'Tier 1 cap is $275/night inclusive of taxes: 4 room-nights billed at $319; reduce $44 \u00d7 4.' This identifies that the $319/night rate exceeds the $275/night Tier 1 cap, and the reduction of $44 \u00d7 4 room-nights = $176 covers both lines 3 and 4. Line 4 (J. Palermo, 2 nights at $319/night) is implicitly included in this grouping and the rate violation is identified. The criterion requires that Line 4 be flagged as non-compliant because $319/night exceeds the $275/night cap, which is satisfied by the combined Lines 3\u20134 entry."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001c: Correctly calculates hotel overage for Lines 3 and 4",
+      "verdict": "pass",
+      "reasoning": "The report states for Lines 3-4: 'Tier 1 cap is $275/night inclusive of taxes: 4 room-nights billed at $319; reduce $44 \u00d7 4.' This calculates the overage as $44/night \u00d7 4 room-nights = $176 total. The criterion requires $44/night \u00d7 2 nights = $88 per person, totaling $176 for both lines combined. The total reduction of $176 matches, but the agent's calculation uses 4 room-nights rather than 2 nights \u00d7 2 persons. The criterion says '$44/night \u00d7 2 nights = $88 per person, totaling $176 for both Lines 3 and 4 combined (or $88 each).' The agent's math arrives at the same $176 total but describes it as 4 room-nights at $44 each. Whether it's 4 room-nights or 2 nights \u00d7 2 persons, the arithmetic is equivalent and the total is correct at $176. The criterion is satisfied as the calculation is correct ($176 total reduction)."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001d: Cites Section 5.2 for hotel rate violation",
+      "verdict": "fail",
+      "reasoning": "The report discusses the San Francisco hotel rate violation (lines 3-4) but does not cite Section 5.2 or any specific travel section for hotel rate caps. The basis given is simply 'Tier 1 cap is $275/night inclusive of taxes' without referencing a specific guideline section. The primary authorities section at the end references \u00a7\u00a75.1-5.9 broadly, but no specific section (like 5.2) is cited for the hotel rate violation specifically."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002a: Flags Line 15 internal photocopy rate of $0.15 vs guideline $0.10",
+      "verdict": "pass",
+      "reasoning": "The report explicitly addresses Line 15 in Section 1 (Recommended face-of-record reductions): '15 | Internal B&W copies | 1,860.00 | 620.00 | 12,400 pages \u00d7 $0.10 cap = $1,240 allowable; billed at $0.15/page.' This clearly identifies the line, the page count, the guideline cap of $0.10/page, the billed rate of $0.15/page, and the resulting reduction of $620.00. The criterion is fully satisfied."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002b: Calculates photocopy overcharge as $620",
+      "verdict": "pass",
+      "reasoning": "Line 15 in the report states: '12,400 pages \u00d7 $0.10 cap = $1,240 allowable; billed at $0.15/page.' The billed amount is $1,860.00 and the reduction is $620.00. This matches ($0.15 - $0.10) \u00d7 12,400 = $620.00, or equivalently $1,860 - $1,240 = $620."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002c: Cites Section 5.3 for photocopy rate violation",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that Section 5.3 be cited as the applicable guideline for the internal photocopy rate violation (line 15, internal B&W copies). Looking at the report, line 15 (Internal B&W copies) in Section 1 does not cite any specific section number. The only mention of Section 5.3 in the report is in Section 2, where it references 'Section 5.3 / 5.1' for the DataScan Solutions scanning/OCR charge (line 19), not for the internal photocopy rate violation. Therefore, the report fails to cite Section 5.3 for the internal photocopy rate violation."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003a: Flags Line 42 Westlaw charges as non-reimbursable overhead",
+      "verdict": "pass",
+      "reasoning": "Line 42 (Westlaw research, $3,870.00) is explicitly flagged in Section 1 of the report as a recommended face-of-record reduction with the full $3,870.00 disallowed, with the basis stated as 'Legal research database charges are firm overhead, even if allocated to a particular matter.' This directly satisfies the criterion."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003b: Recommends full rejection of $3,870 Westlaw charge",
+      "verdict": "pass",
+      "reasoning": "In Section 1 (Recommended face-of-record reductions), Line 42 (Westlaw research) shows a billed amount of $3,870.00 and a recommended reduction of $3,870.00 \u2014 the full amount \u2014 with the basis that legal research database charges are firm overhead. This satisfies the criterion of recommending full rejection of the $3,870 Westlaw charge."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003c: Cites Section 5.1 and/or 5.8 for Westlaw overhead rule",
+      "verdict": "fail",
+      "reasoning": "The report addresses Westlaw charges in line 42 of Section 1, stating 'Legal research database charges are firm overhead, even if allocated to a particular matter.' However, no specific guideline section (5.1, 5.8, or any other) is cited for this particular line item. The primary authorities section at the end mentions '\u00a7\u00a75.1--5.9' broadly, but this is a general citation covering all recommendations, not a specific citation for the Westlaw overhead rule. The criterion requires that Section 5.1 and/or 5.8 be referenced as the basis for classifying Westlaw charges as non-billable overhead. Since no section-specific citation is provided for the Westlaw line item, this fails the criterion."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004a: Flags Line 10 mileage as non-reimbursable local travel",
+      "verdict": "pass",
+      "reasoning": "The report explicitly flags Line 10 (Charlotte local mileage, $9.80) in Section 1 as non-reimbursable, stating 'HWK Charlotte office to Pinnacle Charlotte HQ is expressly non-reimbursable local travel.' The full $9.80 is recommended for reduction."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_004b: Recommends full rejection of $9.80 mileage charge",
+      "verdict": "pass",
+      "reasoning": "Line 10 in the report shows Charlotte local mileage billed at $9.80 with a recommended reduction of $9.80, meaning the full amount is disallowed. The basis states it is expressly non-reimbursable local travel. This satisfies the criterion of recommending full rejection of the $9.80 mileage charge."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_004c: Cites Section 5.2 for local travel prohibition",
+      "verdict": "fail",
+      "reasoning": "The report addresses local travel (line 10, Charlotte local mileage) but does not cite Section 5.2 as the applicable guideline. The only section references in the local travel entry are absent\u2014no section number is cited for that line item. The report's general authority citation at the end references '\u00a7\u00a75.1--5.9' broadly but does not specifically cite Section 5.2 for the local travel prohibition. The criterion requires a specific reference to Section 5.2 for the local travel prohibition."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_005a: Flags Line 5 dinner per-person cost exceeds $75/day cap",
+      "verdict": "pass",
+      "reasoning": "The report addresses Line 5 in the travel meals section: 'line 5 ($214 for 2) reduce $64'. This implies $214 / 2 = $107/person, which exceeds the $75/person/day cap, and the reduction of $64 = 2 \u00d7 ($107 - $75) confirms the per-person overage was identified. The criterion requires identifying that Line 5 ($214 dinner for 2 people = $107/person) exceeds the $75/person/day cap, which the report does."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_005b: Flags Line 6 M. Beale meals exceed $75/day cap on 05/03",
+      "verdict": "pass",
+      "reasoning": "The report explicitly addresses Line 6 in the travel meals section: 'line 6 ($82) reduce $7', which correctly identifies that Line 6 ($82) exceeds the $75/person/day cap by $7. This satisfies the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_005c: Identifies Palermo's share of Line 5 dinner also exceeds cap",
+      "verdict": "fail",
+      "reasoning": "The report mentions line 5 ($214 for 2 people) with a reduction of $64, implying the total exceeds the $75/person/day cap by $64 ($214 - $150 = $64). However, it does not specifically identify J. Palermo or mention that Palermo's individual share ($107) exceeds the $75/person cap. The criterion requires explicit identification of Palermo's share exceeding the cap, which is not present in the report."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_005d: Calculates total meal overage approximately $71",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the report to calculate total travel meal overage as approximately $71, broken down as $32 for Beale on 05/02, $7 for Beale on 05/03, and $32 for Palermo on 05/02. The agent's report shows travel meal reductions of $92 total across lines 5-7 and 13, with specific breakdowns: line 5 ($214 for 2) reduce $64; line 6 ($82) reduce $7; line 7 ($68) no reduction; line 13 ($96) reduce $21. These amounts ($64 + $7 + $21 = $92) do not match the expected ~$71 total, and the individual line overages don't correspond to the expected per-person breakdown ($32 + $7 + $32 = $71). The agent's calculation is significantly different from the criterion's expected values."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_006a: Flags Dr. Hartsfield total May charges exceed $35K budget",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies in Section 1 (Line 22, 27) that 'Hartsfield expert fees' total $40,900 ($32,500 + $8,400), that the approved monthly cap is $35,000 with GC concurrence, and recommends a reduction of $5,900 (the excess over the $35,000 cap). This directly satisfies the criterion."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_006b: Flags Dr. Hartsfield total exceeds $25K GC approval threshold",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the report to identify that Dr. Hartsfield's combined May charges of $40,900 exceed the $25,000/month threshold requiring General Counsel (Lorraine Cha) pre-approval under Section 5.4. Looking at the agent's output, in Section 1 (Recommended face-of-record reductions), lines 22 and 27 address the Hartsfield expert fees: 'Approved monthly cap is $35,000 with GC concurrence. May fees total $40,900; reduce the $8,400 rush-analysis line by $5,900 (leaving $2,500 under cap). No re-authorization located.' The report mentions a $35,000 monthly cap with GC concurrence, not a $25,000/month threshold requiring GC pre-approval under Section 5.4. The criterion specifically asks whether the report identifies that the $40,900 exceeds the $25,000/month threshold requiring GC pre-approval. The agent's report references a $35,000 cap (not $25,000) and mentions GC concurrence but does not specifically flag the $25,000/month threshold under Section 5.4 as the trigger for GC approval. The $25,000 threshold mentioned elsewhere in the report refers to per-invoice reduction authority, not the expert fee approval threshold. The criterion is specifically about the $25,000/month expert fee threshold requiring GC pre-approval under Section 5.4, which is not identified in the agent's output."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_006c: Cites Section 5.4 for expert fee threshold/pre-approval",
+      "verdict": "fail",
+      "reasoning": "The report does not cite Section 5.4 anywhere. For expert fee pre-approval and the GC threshold, the report references 'Section 5.3 / 5.1' (in the holds table for line 19) and 'Billing Guidelines \u00a7\u00a75.1--5.9, 6.6--6.7, 8.1--8.6 and Appendices A/C' in the primary authorities. Section 5.4 is never mentioned as the applicable guideline for expert fee pre-approval or the $25,000/month GC threshold."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_007a: Flags Line 24 Dr. Voss as lacking pre-approval",
+      "verdict": "pass",
+      "reasoning": "The report explicitly flags Line 24 (Dr. Leonard Voss vocational expert, $4,200) in Section 2 as lacking advance approval, noting 'Expert retention requires advance Relationship Attorney approval at any amount; no approval located. Hold in full pending retroactive approval and original invoice.' This satisfies the criterion of identifying Line 24 as non-compliant due to missing required written pre-approval for expert retention."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_007b: Flags Line 25 GraphicWorks as lacking pre-approval",
+      "verdict": "pass",
+      "reasoning": "The report explicitly flags Line 25 (GraphicWorks litigation graphics, $7,850) in Section 2 as lacking pre-approval, noting it exceeds $5,000 and no approval was located, recommending it be held pending approval, scope clarification, and vendor invoice. This satisfies the criterion."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_007c: Identifies total at-risk amount for unapproved experts ($12,050)",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that the report states or shows the combined at-risk amount for Dr. Voss ($4,200) and GraphicWorks ($7,850) equals $12,050. The agent's report lists these two items separately in Section 2 but never explicitly calculates or states their combined total of $12,050. The total shown in Section 2 is $30,190, which includes all five unapproved charges (DataScan $6,800 + Dr. Voss $4,200 + GraphicWorks $7,850 + TechForensic $5,100 + A. Brooks $6,240 = $30,190). The specific sub-total of $12,050 for just the two expert/consultant charges is never identified."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_008a: Flags Line 45 contract attorney R. Chen rate exceeds $65/hr cap",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies Line 45 (R. Chen contract attorney) as billed at $75/hour for 142 hours ($10,650), notes the approval expressly limited Chen to $65/hour, calculates the allowable amount as 142 \u00d7 $65 = $9,230, and recommends a reduction of $1,420. This clearly flags the rate violation as required by the criterion."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_008b: Calculates R. Chen rate overcharge as $1,420",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states for line 45 (R. Chen contract attorney): 'Approval expressly limited Chen to $65/hour; billed at $75 for 142 hours. Allow at most 142 \u00d7 $65 = $9,230.' The reduction shown is $1,420, which matches ($75 - $65) \u00d7 142 = $1,420. The criterion is satisfied."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_008c: Cites Section 5.9 for contract attorney rate cap",
+      "verdict": "fail",
+      "reasoning": "The report does not cite Section 5.9 specifically for the contract attorney rate cap. In Section 1 (recommended face-of-record reductions), the line for R. Chen contract attorney (line 45) mentions the rate cap of $65/hour but does not cite Section 5.9. In Section 2, the holds section cites 'Section 5.3 / 5.1' for the DataScan line but no section citation appears for contract attorney rate caps. The only reference to Section 5.9 in the entire document is in the 'Primary authorities' footer listing '\u00a7\u00a75.1--5.9' as a range, which is not a specific citation of 5.9 for the contract attorney rate cap. The criterion requires Section 5.9 to be cited as the applicable guideline for the contract attorney rate cap of $65/hour, which is not done."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_009a: Flags Line 47 A. Brooks as not pre-approved",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly flags Line 47 (A. Brooks contract attorney, $6,240) in Section 2 as lacking pre-approval. The report states: 'Each contract attorney requires separate advance approval. The log approves Chen and Mehta only; no Brooks approval located. Hold in full pending retroactive approval and staffing-agency invoice.' This directly satisfies the criterion of identifying Line 47 as non-compliant due to missing pre-approval."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_009b: Identifies full $6,240 as at-risk for A. Brooks",
+      "verdict": "pass",
+      "reasoning": "In Section 2 (Charges to hold for missing pre-approval), Line 47 for A. Brooks contract attorney is listed with an amount of $6,240.00, and the recommendation states to hold the full amount pending retroactive approval. The total at-risk amount of $30,190.00 includes this $6,240. The criterion requires the report to identify the full $6,240 as at risk or requiring retroactive approval, which it does."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_010a: Flags Line 41 e-discovery hosting exceeds pre-approved budget",
+      "verdict": "pass",
+      "reasoning": "The report explicitly addresses Lines 41 and 44 together in the face-of-record reductions table. It states the approved monthly cap is $12,000 for the Relativity workflow, that the two lines total $14,200 + $2,200 = $16,400, and recommends a $4,400 reduction. The e-discovery qualification section further clarifies that the $2,200 excess on line 41 over the approved Relativity cap 'remains unsupported.' This clearly identifies Line 41 as exceeding the pre-approved $12,000 budget."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_010b: Calculates e-discovery hosting overage as $2,200",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the report to calculate the e-discovery hosting overage as $14,200 - $12,000 = $2,200. Looking at the agent's output, in Section 1 under lines 41 and 44, it states 'Lines total $14,200 + $2,200' which appears to mean line 41 is $14,200 and line 44 is $2,200, totaling $16,400. The report does not calculate an overage of $14,200 - $12,000 = $2,200. Instead, it calculates a total reduction of $4,400 (allowing $12,000 of the $16,400 total). The $2,200 figure appears in the qualification section but in a different context: 'revisit $2,200 of that recommendation' referring to line 44's amount, not as an overage calculation of $14,200 - $12,000. The criterion specifically requires the overage to be calculated as $14,200 - $12,000 = $2,200, which is not present in the report."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_010c: Cites Section 5.8 for e-discovery pre-approval threshold",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the report to reference Section 5.8 (and/or Section 5.1) as the applicable guideline for e-discovery hosting pre-approval. Looking at the agent's output, the e-discovery lines (41 and 44) are discussed in Section 1 (face-of-record reductions) and in the executive summary, but no specific guideline section is cited for those lines. The only section citations in the disbursement table are 'Section 5.3 / 5.1' for line 19 (DataScan scanning/OCR). Section 5.8 is never mentioned anywhere in the report. The primary authorities listed at the end reference '\u00a7\u00a75.1--5.9' as a range but does not specifically call out 5.8 for e-discovery pre-approval. The criterion specifically asks for Section 5.8 to be cited for e-discovery hosting pre-approval, and it is not cited in connection with the e-discovery lines."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_011a: Flags Line 38 dinner includes ineligible summer associates",
+      "verdict": "pass",
+      "reasoning": "The agent's report addresses Line 38 ($612) in Section 1 under 'Non-travel working meals,' stating it is 'firm-only, including summer associates: disallow all.' This identifies the charge as non-compliant and recommends full disallowance. However, the criterion requires that the report identify the ineligibility specifically because Section 5.7 limits reimbursable working meals to those involving Pinnacle personnel or third-party witnesses, and summer associates qualify as neither. The agent's report does flag Line 38 as non-compliant due to summer associates being included, but the reasoning given is 'firm-only, including summer associates: disallow all' \u2014 which captures the essence that the meal was internal firm-only (not involving Pinnacle personnel or third-party witnesses). The criterion asks whether the ineligibility of summer associates is identified, which it is. The specific section citation (5.7) is not mentioned, but the substantive reason (firm-only meal including summer associates) aligns with the criterion's requirement. The criterion says PASS if the report identifies Line 38 as non-compliant because summer associates qualify as neither Pinnacle personnel nor third-party witnesses \u2014 the agent does identify this by noting it's 'firm-only, including summer associates.' This satisfies the criterion."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_011b: Identifies per-person cost exceeds $85 dinner cap",
+      "verdict": "fail",
+      "reasoning": "The report addresses line 38 ($612) by stating it is 'firm-only, including summer associates: disallow all.' It does not identify or calculate the per-person cost of $612/5 = $122.40 exceeding an $85/person working dinner cap. The basis for rejection is that it's a firm-only meal, not a per-person cap violation. The criterion specifically requires identification of the per-person cap violation ($122.40 vs $85 cap)."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_011c: Calculates Line 38 recommended reduction accounting for both ineligible attendees and per-person cap",
+      "verdict": "fail",
+      "reasoning": "The agent's report for Line 38 states: 'Line 38 ($612) is firm-only, including summer associates: disallow all.' The agent recommends a full $612 reduction by treating the charge as entirely disallowable because it is a firm-only meal including summer associates. The criterion requires the report to calculate a reduction that accounts for BOTH the exclusion of 2 ineligible summer associates AND the $85/person dinner cap for the 3 eligible attendees, arriving at approximately $357 ($612 - $255 = $357). The agent instead disallows the entire $612 without applying the per-person cap to eligible attendees. This deviates from the required $357 reduction by $255, which is well beyond the $20 tolerance. Therefore, the criterion is not satisfied."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_012a: Flags Line 39 solo working lunch as non-reimbursable",
+      "verdict": "pass",
+      "reasoning": "The agent's output does flag Line 39 as non-reimbursable. In Section 1 (Recommended face-of-record reductions), the table entry for lines 37-39 states: 'Line 39 ($24) is a solo firm meal: disallow all.' This identifies the solo meal as non-reimbursable. However, the criterion specifies that the report must identify it as non-compliant because Section 5.7 requires working meals to involve Pinnacle personnel or third-party witnesses. The agent's report does flag Line 39 and recommends disallowing it, but the reasoning given is simply that it is 'a solo firm meal' without explicitly citing Section 5.7 or the specific requirement that working meals must involve Pinnacle personnel or third-party witnesses. The criterion says PASS if the report identifies Line 39 as non-compliant because Section 5.7 requires working meals to involve Pinnacle personnel or third-party witnesses. The agent does flag it as non-compliant (solo firm meal, disallow all), but does not explicitly cite Section 5.7 or articulate the specific rule about Pinnacle personnel or third-party witnesses. The criterion's PASS condition requires identification of the specific reason (Section 5.7 / Pinnacle personnel or third-party witnesses requirement). The agent's output does not mention Section 5.7 or the specific requirement about Pinnacle personnel or third-party witnesses for Line 39. However, the criterion also says FAIL only if 'Line 39 is not flagged.' Since Line 39 IS flagged as non-reimbursable, this suggests the PASS condition is met even without the specific citation. Reading the criterion carefully: 'PASS if the report identifies Line 39 ($24 solo working lunch for M. Beale at desk) as non-compliant because Section 5.7 requires working meals to involve Pinnacle personnel or third-party witnesses, and a solo lunch does not qualify. FAIL if Line 39 is not flagged.' The FAIL condition is simply 'if Line 39 is not flagged.' Since Line 39 IS flagged, the verdict should be PASS."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_012b: Recommends full rejection of $24 for Line 39",
+      "verdict": "pass",
+      "reasoning": "In Section 1, the report states for lines 37-39: 'Line 39 ($24) is a solo firm meal: disallow all.' This clearly recommends full rejection of the $24.00 for Line 39."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_013a: Flags Line 36 courier for office supplies as non-reimbursable",
+      "verdict": "pass",
+      "reasoning": "Line 36 is explicitly flagged in Section 1 (Recommended face-of-record reductions) as 'FedEx---office supplies' with a $18.50 reduction, with the basis stated as 'Shipment of firm office supplies is overhead / non-reimbursable.' This satisfies the criterion."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_013b: Recommends full rejection of $18.50 for Line 36",
+      "verdict": "pass",
+      "reasoning": "In Section 1 (Recommended face-of-record reductions), Line 36 (FedEx\u2014office supplies) shows a billed amount of $18.50 and a recommended reduction of $18.50, with the basis being 'Shipment of firm office supplies is overhead / non-reimbursable.' This is a full rejection of the $18.50 charge."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_014a: Flags Line 19 scanning charge exceeds $5K without pre-approval",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies Line 19 (DataScan Solutions scanning/OCR, $6,800) in Section 2 as exceeding the $5,000 threshold with no advance approval located, citing Section 5.3/5.1, and recommends holding the entire charge pending retroactive approval and vendor invoice."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_014b: Identifies Line 19 as requiring retroactive approval or hold",
+      "verdict": "pass",
+      "reasoning": "The report explicitly addresses Line 19 (DataScan Solutions scanning/OCR, $6,800.00) in Section 2, recommending it be held pending retroactive approval and vendor invoice, noting it exceeds the $5,000 threshold with no advance approval located. The full $6,800 is flagged as at risk if retroactive approval is denied. This satisfies the criterion."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_015: Flags invoice total arithmetic discrepancy ($0.11)",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the report to identify a specific $0.11 discrepancy between the stated invoice disbursement total of $86,742.19 and the sum of the 47 line items ($86,742.30). The agent's report identifies a discrepancy between the Summary sheet total ($86,742.19) and the sum of the 47 disbursement lines, but states the line items sum to $145,404.30, resulting in a $58,662.11 difference. The agent does not identify the specific $0.11 arithmetic discrepancy described in the criterion. The criterion is looking for a very specific, minor $0.11 discrepancy, not the large $58,662.11 discrepancy the agent found."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_016a: Flags Line 14 rental car as full-size exceeding mid-size limit",
+      "verdict": "pass",
+      "reasoning": "The report explicitly flags Line 14 as a full-size rental car at $127.00, noting that 'Only mid-size or smaller is reimbursable' and that no unavailability or mid-size comparison is shown. It recommends capping at the supported mid-size rate or rejecting if not substantiated. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_016b: Provides a disposition recommendation for Line 14 rental car charge",
+      "verdict": "pass",
+      "reasoning": "The report addresses Line 14 (full-size rental car, $127.00) in Section 3, stating 'Only mid-size or smaller is reimbursable. No unavailability or mid-size comparison is shown. Cap at supported mid-size rate; if not substantiated, reject.' This satisfies criterion (a) by requesting documentation of the mid-size rate for adjustment, and also includes a conditional rejection recommendation. The criterion is met."
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_017a: Flags Line 40 dinner with opposing counsel as problematic",
+      "verdict": "fail",
+      "reasoning": "The agent's output does address Line 40 in Section 3 (Documentation, description, and rate issues to resolve), but it does NOT flag it as potentially non-compliant on the grounds that a dinner with opposing counsel may constitute client entertainment (non-reimbursable under Section 5.7) or that it fails to meet working meal criteria requiring Pinnacle personnel or third-party witnesses. Instead, the agent treats Line 40 as facially within the per-person cap and only requests better documentation (itemized receipt, attendee names/titles, confirmation of no alcohol, tip within cap, revised narrative). The criterion requires the report to flag the dinner with plaintiff's counsel as potentially non-compliant due to the entertainment concern or the working meal criteria issue. The agent failed to raise this substantive compliance concern."
+    },
+    {
+      "id": "C-045",
+      "title": "ISSUE_017b: Identifies Line 40 per-person cost exceeds $85 dinner cap",
+      "verdict": "fail",
+      "reasoning": "The agent's report discusses Line 40 (working dinner, $247.00) but states 'at least 3 attendees are indicated, so $247 is within a $255 three-person dinner cap on its face.' The agent assumed 3 attendees and compared against a $255 cap (3 \u00d7 $85). However, the criterion requires identifying that with 2 attendees, $247 / 2 = $123.50 per person exceeds the $85/person cap, for a total excess of $77. The agent did not identify this per-person cap violation for Line 40 as described in the criterion."
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_018a: Flags Line 12 Washington D.C. hotel exceeds Tier 1 cap",
+      "verdict": "pass",
+      "reasoning": "The report explicitly flags Line 12 (Washington, D.C. hotel) as non-compliant, noting the Tier 1 cap of $275/night and recommending a reduction of $73 on the $348 one-night charge, with no exception approval located. This satisfies the criterion."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_018b: Calculates Washington D.C. hotel overage as $73",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states for line 12: 'Washington, D.C. hotel $348.00 $73.00 Tier 1 cap $275/night; reduce the $348 one-night charge by $73.' This correctly calculates $348 - $275 = $73."
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_019a: Flags Line 13 C. Aldridge D.C. meals exceed $75/day cap",
+      "verdict": "pass",
+      "reasoning": "In Section 1, the agent's table for travel meals (lines 5\u20137, 13) explicitly states: 'line 13 ($96) reduce $21.' This identifies Line 13 as exceeding the $75/person/day cap (reducing $96 to $75, a $21 reduction). The criterion requires flagging Line 13 for the daily cap violation, which the agent has done."
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_019b: Calculates D.C. meal overage as $21",
+      "verdict": "pass",
+      "reasoning": "In Section 1, line 13 (Washington D.C. travel meal), the report states: 'line 13 ($96) reduce $21.' This matches the calculation $96 - $75 = $21 exactly."
+    },
+    {
+      "id": "C-050",
+      "title": "Summary table includes total billed disbursements",
+      "verdict": "pass",
+      "reasoning": "The report's summary table (AMOUNT CHECK section) explicitly states 'Disbursements stated on Summary sheet: $86,742.19' and 'Sum of the 47 listed Disbursement lines: $145,404.30'. The criterion asks whether the report includes a summary table or section that states the total billed disbursements (approximately $86,742.19 as stated on the invoice). This amount is clearly present in the report."
+    },
+    {
+      "id": "C-051",
+      "title": "Summary table includes total recommended reductions",
+      "verdict": "pass",
+      "reasoning": "The report includes a summary table in Section 1 that shows 'TOTAL RECOMMENDED REDUCTIONS: $17,358.30' and Section 2 shows 'TOTAL AT RISK IF NOT RETROACTIVELY APPROVED: $30,190.00'. The executive determination section also summarizes these amounts. The criterion requires a total recommended reduction amount to be provided, which is clearly present in the report."
+    },
+    {
+      "id": "C-052",
+      "title": "Summary table includes amount pending approval",
+      "verdict": "pass",
+      "reasoning": "Section 2 of the report contains a table titled 'Charges to hold for missing pre-approval' that lists individual charges (lines 19, 24, 25, 26, 47) with their amounts and a total of $30,190.00 labeled 'TOTAL AT RISK IF NOT RETROACTIVELY APPROVED.' This clearly identifies a total amount held pending further approval or retroactive authorization."
+    },
+    {
+      "id": "C-053",
+      "title": "Summary table includes recommended net payable amount",
+      "verdict": "fail",
+      "reasoning": "The report provides various amounts (total billed disbursements of $145,404.30, recommended reductions of $17,358.30, holds of $30,190.00, and line-based disbursements after reductions of $128,046.00) but does not explicitly calculate or present a single recommended net payable disbursement amount in a summary table or section. The summary table at the top shows intermediate figures but stops short of presenting a final 'recommended net payable' figure. The $128,046.00 figure ('Line-based disbursements after those reductions; before holds / documentation issues') is the closest approximation, but it is explicitly noted as being 'before holds/documentation issues' and is not labeled as a recommended net payable amount. No final net payable figure combining all adjustments is presented."
+    },
+    {
+      "id": "C-054",
+      "title": "Report distinguishes outright rejections from pending-approval items",
+      "verdict": "pass",
+      "reasoning": "The report clearly distinguishes between two categories of non-compliant charges. Section 1 ('Recommended face-of-record reductions') lists charges that are outright rejected/reduced on the face of the record\u2014such as Westlaw research (overhead, disallow entirely), local mileage (non-reimbursable, disallow), solo firm meal line 39 (disallow all), firm-only meal line 38 (disallow all), and other rate-cap excesses. Section 2 ('Charges to hold for missing pre-approval') separately identifies charges that should be held pending retroactive approval\u2014including Dr. Leonard Voss (expert, no approval), GraphicWorks (no approval), DataScan Solutions (no approval), TechForensic ESI imaging (no approval), and A. Brooks contract attorney (no approval). The report explicitly states that retroactive approval is discretionary and not presumed, and that if approval is denied, the charges should be rejected. This is a clear structural and substantive distinction between outright rejections and pending-approval holds."
+    },
+    {
+      "id": "C-055",
+      "title": "Line 25 GraphicWorks also flagged for exceeding $5,000 pre-approval threshold",
+      "verdict": "pass",
+      "reasoning": "In Section 2 of the report, Line 25 (GraphicWorks litigation graphics, $7,850) is described as: 'Line exceeds $5,000; graphics/demonstrative consulting can qualify as a consultant. No approval located.' This explicitly mentions that the line exceeds the $5,000 threshold, satisfying the criterion."
+    },
+    {
+      "id": "C-056",
+      "title": "Guideline section references provided for at least 75% of flagged violations",
+      "verdict": "fail",
+      "reasoning": "I need to count the flagged line items and check how many include specific guideline section citations.\n\nFlagged line items (non-compliant):\n\nSection 1 (Recommended reductions):\n1. Lines 3-4: San Francisco hotels - no section cited\n2. Line 12: Washington DC hotel - no section cited\n3. Lines 5-7, 13: Travel meals - no section cited\n4. Line 10: Charlotte local mileage - no section cited\n5. Line 15: Internal B&W copies - no section cited\n6. Lines 22, 27: Hartsfield expert fees - no section cited\n7. Lines 37-39: Non-travel working meals - no section cited\n8. Line 36: FedEx office supplies - no section cited\n9. Line 42: Westlaw research - no section cited\n10. Line 43: Routine video platform license - no section cited\n11. Lines 41, 44: E-discovery/predictive coding - no section cited\n12. Line 45: R. Chen contract attorney - no section cited\n\nSection 2 (Charges to hold):\n13. Line 19: DataScan Solutions - cites \"Section 5.3 / 5.1\" \u2713\n14. Line 24: Dr. Leonard Voss - no specific section cited\n15. Line 25: GraphicWorks - no specific section cited\n16. Line 26: TechForensic ESI - no specific section cited\n17. Line 47: A. Brooks contract attorney - no specific section cited\n\nSection 3 (Documentation issues):\n18. Lines 1-2: Airfare - no section cited\n19. Lines 8-9: Rideshare - no section cited\n20. Line 14: Full-size rental car - no section cited\n21. Lines 17-18, 20: Outside print/binding - no section cited\n22. Lines 32-35: Courier/express - no section cited\n23. Line 40: Working dinner - no section cited\n24. Lines 5-7, 13, 37-40: Meals/receipts - no section cited\n25. Lines 16, 21: Color copies - no section cited\n26. Lines 23, 46: Redmond/S. Mehta - no section cited\n27. Lines 28-31: Routine court costs - no section cited\n\nOnly 1 out of ~27 flagged items has a specific section citation (Line 19 with Section 5.3/5.1). The footer mentions general sections but these are not tied to specific violations.\n\nThe criterion requires at least 75% of flagged violations to include specific guideline section numbers. Only approximately 1/27 (~3.7%) include specific section citations. This clearly fails the 75% threshold."
+    },
+    {
+      "id": "C-057",
+      "title": "Billed amounts stated for at least 75% of flagged violations",
+      "verdict": "pass",
+      "reasoning": "Let me count the flagged line items and check whether each includes a billed dollar amount.\n\nSection 1 (Recommended face-of-record reductions):\n1. Lines 3-4: San Francisco hotels - $1,276.00 \u2713\n2. Line 12: Washington D.C. hotel - $348.00 \u2713\n3. Lines 5-7, 13: Travel meals - $460.00 \u2713\n4. Line 10: Charlotte local mileage - $9.80 \u2713\n5. Line 15: Internal B&W copies - $1,860.00 \u2713\n6. Lines 22, 27: Hartsfield expert fees - $40,900.00 \u2713\n7. Lines 37-39: Non-travel working meals - $754.00 \u2713\n8. Line 36: FedEx office supplies - $18.50 \u2713\n9. Line 42: Westlaw research - $3,870.00 \u2713\n10. Line 43: Routine video platform license - $125.00 \u2713\n11. Lines 41, 44: E-discovery/predictive coding - $16,400.00 \u2713\n12. Line 45: R. Chen contract attorney - $10,650.00 \u2713\n\nSection 2 (Charges to hold for missing pre-approval):\n13. Line 19: DataScan Solutions - $6,800.00 \u2713\n14. Line 24: Dr. Leonard Voss - $4,200.00 \u2713\n15. Line 25: GraphicWorks - $7,850.00 \u2713\n16. Line 26: TechForensic ESI imaging - $5,100.00 \u2713\n17. Line 47: A. Brooks contract attorney - $6,240.00 \u2713\n\nSection 3 (Documentation issues):\n18. Lines 1-2: Airfare - $974.00 \u2713\n19. Lines 8-9: Rideshare - $181.50 \u2713\n20. Line 14: Full-size rental car - $127.00 \u2713\n21. Lines 17-18, 20: Outside print/binding - $6,015.00 \u2713\n22. Lines 32-35: Courier/express - $140.50 \u2713\n23. Line 40: Working dinner - $247.00 \u2713\n24. Lines 5-7, 13, 37-40: Meals/receipts - no specific amount listed here (this is a general documentation note referencing already-listed lines) - this is a cross-reference, not a new flagged item\n25. Lines 16, 21: Color copies - $265.00 \u2713\n26. Lines 23, 46: Redmond/S. Mehta - $29,670.00 \u2713\n27. Lines 28-31: Routine court costs - $511.00 \u2713\n\nThe meals/receipts row in Section 3 is largely a cross-reference to already-flagged lines. Nearly all distinct flagged line items include billed dollar amounts. The count shows well over 75% (essentially all distinct flagged items) include billed amounts."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/verify-disbursement-charges-against-billing-guidelines/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/verify-disbursement-charges-against-billing-guidelines",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:32:20.662685+00:00",
+  "cost": {
+    "input_tokens": 961702,
+    "output_tokens": 26996,
+    "wall_clock_seconds": 207.68
+  },
+  "doc_coverage": {
+    "documents_read": 5,
+    "total_documents": 4,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "billing-guidelines.docx",
+      "pre-approval-log.docx",
+      "hwk-engagement-letter.docx",
+      "hwk-invoice-may-2025.xlsx",
+      "/workspace/output/disbursement-compliance-report.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

@@ -1,0 +1,334 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "43/48 criteria passed.  Missed 5 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 48,
+  "n_passed": 43,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies DOC_009 as forwarded to Dr. Kenji Moritani",
+      "verdict": "pass",
+      "reasoning": "The report expressly identifies the Emmerich-forward-to-Moritani email as involving Emmerich forwarding Associate GC Nandakumar's privileged legal risk analysis to Dr. Kenji Moritani, including details about waiver and lack of NDA/common interest agreement."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Identifies Dr. Moritani as a third party outside the attorney-client relationship",
+      "verdict": "pass",
+      "reasoning": "The report repeatedly identifies Dr. Kenji Moritani as a consultant who was retained outside counsel channels, had no NDA or common-interest agreement, and whose receipt of legal analysis was a voluntary disclosure to a third party causing waiver risk. This satisfies identifying him as outside the attorney-client relationship."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Identifies privilege waiver due to disclosure to Moritani",
+      "verdict": "pass",
+      "reasoning": "The report expressly concludes that Emmerich\u2019s forwarding of Nandakumar\u2019s legal risk analysis to Dr. Moritani likely waived privilege because Moritani was a third-party consultant not retained through counsel and had no NDA or common interest agreement. It designates the forwarded communication as not privileged/produce subject to partner sign-off."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: DOC_009 designated as not privileged or privilege waived",
+      "verdict": "pass",
+      "reasoning": "The output designates emmerich-forward-to-moritani.eml as \u201cNot Privileged \u2014 Produce\u201d and explicitly states that privilege was waived by voluntary disclosure to a third-party consultant, with waiver sign-off noted."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001: Identifies that DOC_008 original email is also at risk",
+      "verdict": "pass",
+      "reasoning": "The report does not treat the standalone Nandakumar legal-risk email as fully privileged. It expressly flags that the Moritani forward may waive privilege, notes the standalone version may differ from the forwarded text, and recommends further review to determine whether it is the same communication or whether waiver reaches overlapping disclosed substance."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Identifies verbatim work product in Board presentation",
+      "verdict": "fail",
+      "reasoning": "The report flags Slides 7\u20138 of the Board deck as privileged work product and says their content \u201cclosely tracks\u201d the Nov. 15 litigation strategy memo, but it does not identify that the slides contain near-verbatim reproduction of paragraphs from Caroline Frey\u2019s litigation strategy memorandum. The required verbatim/near-verbatim reproduction issue is not specifically identified."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Flags risk of work product incorporation into business doc",
+      "verdict": "fail",
+      "reasoning": "The report notes that the Board deck\u2019s privileged slides closely track or may incorporate the litigation strategy memo and says sharing with the Board for legal oversight does not waive privilege. However, it does not flag the specific risk that verbatim incorporation of attorney work product into a mixed/business presentation could weaken or complicate work product protection. It treats the incorporation as supporting privilege rather than identifying the required risk."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_002: Recommends reviewing distribution list for DOC_012",
+      "verdict": "pass",
+      "reasoning": "The report specifically recommends confirming the Board Audit Committee deck\u2019s distribution, including that it went only to Audit Committee members and was not shared with Thornfield Accounting Group LLP, addressing whether distribution was limited to appropriate legal-oversight recipients."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Identifies crime-fraud exception risk in DOC_014",
+      "verdict": "pass",
+      "reasoning": "The report expressly flags the Rennick\u2013Tsao labeling email as requiring escalation for crime-fraud concerns. It specifically identifies Tsao\u2019s reply directing QA reports to \u201conly reference the base ingredients\u201d so synthetic sources would not appear in materials pulled for audits or customer inquiries, and explains that this could be viewed as using counsel\u2019s advice to conceal material information from auditors/customers."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Identifies Tsao's instruction as the problematic element",
+      "verdict": "pass",
+      "reasoning": "The report specifically flags Tsao's 4:18 PM reply directing QA reports to only reference base ingredients so synthetic sources would not appear in audit/customer documents, and identifies that instruction as the crime-fraud concern rather than focusing only on Rennick's advice."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_003: Recognizes DOC_014 may not be protectable",
+      "verdict": "fail",
+      "reasoning": "DOC_014 (Pemberton opinion letter) is designated as privileged/withhold under attorney-client privilege, with caveats only about at-issue/advice-of-counsel waiver. Although the report briefly references a \u201ccrime-fraud narrative,\u201d it does not conclude that DOC_014 may be unprotectable if in furtherance of fraud/deception, nor does it designate DOC_014 for further review or withhold-with-caveats due to crime-fraud risk."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_004: Identifies DOC_003 as dual-purpose communication",
+      "verdict": "pass",
+      "reasoning": "The report identifies emmerich-reformulation-email.eml as a dual-purpose communication, stating that most of the email is technical/business discussion and that only one severable paragraph/closing sentence asks for legal advice. Although it does not use the exact 'approximately 80%' phrasing, it satisfies the criterion's core requirement."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_004: Applies predominant purpose analysis to DOC_003",
+      "verdict": "pass",
+      "reasoning": "The report expressly applies a predominant/primary-purpose analysis to the relevant email, stating that most of it is a technical and business update, citing the Ninth Circuit primary-purpose test and the Protocol\u2019s predominant-purpose standard, and concluding the email as a whole is not privileged except for a severable legal-request paragraph. It also notes that the business/technical nature weakens the privilege claim."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_004: Identifies cc to non-legal analysts as complicating factor",
+      "verdict": "fail",
+      "reasoning": "The report mentions a cc list including Fontaine and Chu in the analysis of the reformulation email, but it characterizes them as having a plausible need to know and says distribution is defensible. It does not identify Leah Fontaine and Derek Chu as non-legal Regulatory Affairs analysts who did not need legal advice, nor does it flag the overbroad cc distribution as weakening the privilege claim."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_005: Correctly designates DOC_006 as attorney-client privileged",
+      "verdict": "pass",
+      "reasoning": "The output designates pemberton-opinion-letter.docx as \u201cPrivileged \u2014 Withhold\u201d and expressly states \u201cClaim attorney-client privilege only\u201d / \u201cAC only (not WP).\u201d This satisfies the requirement that it be designated privileged under attorney-client privilege."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_005: DOC_006 not designated as work product",
+      "verdict": "pass",
+      "reasoning": "The report designates pemberton-opinion-letter.docx as privileged based on attorney-client privilege only and explicitly states \u201cAC only (not WP)\u201d and \u201cNo work product claim\u201d because it was pre-litigation regulatory advice not prepared in anticipation of litigation."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_005: DOC_007 not designated as work product",
+      "verdict": "pass",
+      "reasoning": "The report designates the Pemberton June 2021 invoice as protected, if at all, on attorney-client privilege grounds for narrative redactions, and does not assert work product protection for it."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_005: DOC_007 invoice treated as privileged",
+      "verdict": "pass",
+      "reasoning": "The output designates the Pemberton invoice as privileged with caveats and specifically recommends producing it with detailed billing narratives redacted because they reveal the nature of legal work and legal questions researched."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_005: Privilege log entry for DOC_006 does not reveal substance",
+      "verdict": "pass",
+      "reasoning": "The served privilege log entry for pemberton-opinion-letter.docx states only that it is a letter from outside regulatory counsel to in-house counsel providing a legal opinion on regulatory compliance matters. It does not disclose that the advice concerned 'Natural' labeling, additives, thresholds, or any specific regulatory conclusion."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_005: Privilege log entry for DOC_007 does not reveal substance",
+      "verdict": "pass",
+      "reasoning": "The privilege log entry for pemberton-invoice-june2021.docx (Entry 43) uses a generic description: it states that redacted narrative time-entry descriptions reflect legal advice on regulatory compliance matters, without mentioning 'Natural' labeling, citric acid concentration, FDA thresholds, or specific regulatory conclusions."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_006: Identifies privilege destruction in DOC_010 Slack post",
+      "verdict": "pass",
+      "reasoning": "The report expressly identifies the Slack export as not privileged because the channel had 23 members including warehouse staff, sales reps, a marketing intern, and IT support. It specifically states Nandakumar\u2019s Feb. 14, 2022 post reporting Legal\u2019s bottom-line conclusion was not privileged and flags waiver risk from that disclosure."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_006: Notes lack of confidentiality in Slack communication",
+      "verdict": "pass",
+      "reasoning": "The report expressly states that the Slack communication was not privileged because confidentiality was lost due to the broad 23-member channel, including warehouse staff, sales reps, a marketing intern, and IT support, and notes the legal conclusion was shared with the whole channel. This explains why the distribution undermines attorney-client confidentiality."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_006: DOC_010 designated as not privileged or waived",
+      "verdict": "pass",
+      "reasoning": "The output designates the Slack #product-reformulation export as \u201cNot Privileged \u2014 Produce (entire export)\u201d and specifically states that the Feb. 14, 2022 Nandakumar post \u201cis not privileged.\u201d This satisfies the criterion that Nandakumar\u2019s legal conclusion message be treated as not privileged, waived, or producible."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_007: Identifies DOC_011 privilege stamp as unwarranted",
+      "verdict": "pass",
+      "reasoning": "The report expressly identifies the competitive-market-analysis.docx as stamped attorney-client privileged but not privileged, explaining it was a routine marketing/business document, contained no legal advice, and was not written by, directed by, or sent to any attorney; it also states the stamp alone does not create privilege."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_007: DOC_011 designated for production as non-privileged",
+      "verdict": "pass",
+      "reasoning": "The output designates competitive-market-analysis.docx as \u201cNot Privileged \u2014 Produce\u201d and explains that the privilege stamp alone does not create privilege."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_007: Notes that stamping alone does not create privilege",
+      "verdict": "pass",
+      "reasoning": "The report expressly states for the Competitive Market Analysis that the \u201cATTORNEY-CLIENT PRIVILEGED AND CONFIDENTIAL\u201d stamp does not create privilege, making clear that marking alone is insufficient."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_008: Identifies common interest doctrine issue in DOC_015",
+      "verdict": "pass",
+      "reasoning": "The report expressly identifies the Bridger-to-Cascade-counsel email as sharing litigation analysis/opinion work product with Rachel Kovacs, counsel for Cascade, and discusses whether attorney-client privilege survives under the common interest doctrine/joint defense concepts, including the lack of a written agreement and potential adversity due to contribution/indemnification claims."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_008: Flags absence of written common interest agreement",
+      "verdict": "pass",
+      "reasoning": "The report repeatedly identifies that there is no written common interest or joint defense agreement with Cascade/its counsel and treats that absence as a risk factor for maintaining attorney-client privilege/work-product protection, recommending a written agreement before further sharing. Although it notes the Ninth Circuit does not strictly require a written agreement, it still flags the absence as creating privilege/waiver risk."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_008: DOC_015 designated with caveats or further review",
+      "verdict": "pass",
+      "reasoning": "The output designates bridger-to-cascade-counsel.eml as \u201cPrivileged \u2014 Withhold with Caveats\u201d and extensively flags uncertainty/weakness due to the lack of a written common interest agreement and potential adversity with Cascade."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_009: Identifies inadvertent production issue in DOC_016",
+      "verdict": "pass",
+      "reasoning": "The report identifies the inadvertent production/clawback issue, notes that three privileged documents were produced on Feb. 3 and later clawed back, and evaluates waiver under FRE 502(b), including timing, reasonable steps, and need for a 502(d) order."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_009: References FRE 502(b)",
+      "verdict": "pass",
+      "reasoning": "The report expressly references \u201cFRE 502(b)\u201d in the inadvertent production/claw-back analysis, stating that \u201cFRE 502(b) looks satisfied\u201d and discussing timing, reasonable steps, and notice."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_009: Analyzes FRE 502(b) factors",
+      "verdict": "pass",
+      "reasoning": "The report expressly discusses FRE 502(b) in Doc 9. It analyzes prompt rectification by noting the production date, discovery of the error, and claw-back notice within two business days, and it analyzes reasonable steps to prevent disclosure by noting the skipped two-person sign-off and its impact on that element. It also references the disclosure as an error/inadvertent production. This addresses at least two of the three required factors."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_009: Evaluates timeliness of claw-back notice",
+      "verdict": "pass",
+      "reasoning": "The report explicitly discusses the claw-back timeline: production on Feb. 3, discovery of the error on Feb. 5, and notice on Feb. 6. It assesses timeliness by stating this was within the Protocol's two-business-day window and that FRE 502(b) appears satisfied."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_009: Notes production occurred without completing privilege review",
+      "verdict": "pass",
+      "reasoning": "The report\u2019s Doc 9 analysis states that the documents were produced on Monday, February 3, and notes the internal memo records that the two-person sign-off was skipped, tying that admission directly to FRE 502(b)\u2019s \u201creasonable steps to prevent disclosure\u201d element. This identifies the incomplete privilege-review protocol as a factor in the claw-back analysis."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_010: Identifies DOC_017 as borderline/uncertain privilege",
+      "verdict": "pass",
+      "reasoning": "The report treats rennick-handwritten-note.docx as genuinely uncertain: it designates it \u201cRequires Further Review,\u201d notes it is mixed with business content, separates potentially privileged/work-product items from business planning items, and recommends considering redacted production pending further decision. This acknowledges the ambiguity rather than calling it clearly privileged or non-privileged."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_010: Recommends in camera review for DOC_017",
+      "verdict": "fail",
+      "reasoning": "The report flags DOC_017 as a crime-fraud issue and notes that a court could review the chain in camera under Zolin, but it does not recommend that Greenleaf request in camera review by Judge Kirkwood if the privilege designation is challenged. Its recommendation is to await NB sign-off and prepare a crime-fraud memorandum, not to seek in camera review."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_011: Flags overly revealing entry in draft privilege log",
+      "verdict": "pass",
+      "reasoning": "The report expressly identifies Entry 13 in the draft privilege log as improperly revealing privileged substance, quotes the problematic description about the risk that synthetic citric acid concentration exceeds the FDA threshold for the 'natural' claim, and recommends revising it to a more generic privilege-log description."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_011: Provides corrected generic log description",
+      "verdict": "pass",
+      "reasoning": "The output identifies the flagged Entry 13 as revealing privileged substance and provides a corrected generic description: \u201cEmail from in-house counsel to outside litigation counsel requesting legal advice regarding product labeling compliance in connection with pending litigation,\u201d which avoids mentioning citric acid concentration or FDA thresholds."
+    },
+    {
+      "id": "C-039",
+      "title": "DOC_005 correctly designated as privileged work product",
+      "verdict": "pass",
+      "reasoning": "The output designates the litigation-strategy-memo.docx as \u201cPrivileged \u2014 Withhold\u201d and explicitly identifies both attorney-client privilege and opinion work product as the bases, recognizing it as outside litigation counsel\u2019s strategy memorandum prepared after engagement."
+    },
+    {
+      "id": "C-040",
+      "title": "DOC_013 correctly designated as protected work product",
+      "verdict": "pass",
+      "reasoning": "The output designates the Frey personal email notes as \u201cPrivileged \u2014 Withhold (opinion work product)\u201d and explains that they contain outside counsel\u2019s mental impressions, defense theories, and discovery concerns/case strategy notes. It is not designated as non-privileged."
+    },
+    {
+      "id": "C-041",
+      "title": "Privilege log entries exist for DOC_005",
+      "verdict": "pass",
+      "reasoning": "The draft privilege log includes an entry for litigation-strategy-memo.docx as Log Entry 42, and the internal designation matrix identifies it as \u201cPrivileged \u2014 Withhold.\u201d"
+    },
+    {
+      "id": "C-042",
+      "title": "Privilege log entries exist for DOC_006",
+      "verdict": "pass",
+      "reasoning": "The draft privilege log includes an entry for `pemberton-opinion-letter.docx` as Log Entry 44 in the serve log, claiming attorney-client privilege, and the internal designation matrix designates it as `Privileged \u2014 Withhold`."
+    },
+    {
+      "id": "C-043",
+      "title": "Privilege log entries include required fields",
+      "verdict": "pass",
+      "reasoning": "The serveable privilege log entries include columns for document identifier/Bates or filename, date, author/sender, recipients/CC, document type, privilege claimed, and description. The provisional entries likewise include these fields. Some entries note caveats or need confirmation, but no privilege log entry is missing two or more required fields."
+    },
+    {
+      "id": "C-044",
+      "title": "Privilege log descriptions do not reveal substance of privileged communications",
+      "verdict": "pass",
+      "reasoning": "The serveable privilege log descriptions are generally high-level and characterize the communications by participants, privilege basis, and broad subject matter such as pending litigation, product labeling compliance, regulatory compliance, or litigation strategy. They do not disclose specific legal conclusions, risk assessments, strategic recommendations, or detailed factual content of the advice. Although internal tabs and correction notes contain more specific risk discussion, those are not the privilege log descriptions intended for service, and the log itself avoids two or more substantive disclosures."
+    },
+    {
+      "id": "C-045",
+      "title": "Report covers all 18 documents",
+      "verdict": "pass",
+      "reasoning": "The report includes a designation summary listing documents 1 through 18 by filename and provides document-by-document analysis sections for Doc 1 through Doc 18. Therefore, it addresses all 18 documents and does not omit three or more documents."
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_003: References crime-fraud legal standard",
+      "verdict": "pass",
+      "reasoning": "The report expressly discusses the crime-fraud issue for Doc 17 and states that a court could review the chain in camera under United States v. Zolin, satisfying the criterion\u2019s requirement to reference the procedural mechanism for resolving crime-fraud claims. It also describes a prima facie crime-fraud theory involving use of legal advice to conceal material information."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_008: Recommends executing written common interest agreement",
+      "verdict": "pass",
+      "reasoning": "The report expressly recommends that Greenleaf/Cascade execute a written common interest agreement before further sharing, including in the Executive Summary, Doc 2 analysis, and recommended next steps."
+    },
+    {
+      "id": "C-048",
+      "title": "DOC_014 designation reflects crime-fraud risk",
+      "verdict": "pass",
+      "reasoning": "The Rennick\u2013Tsao labeling email is designated as \u201cRequires Further Review \u2014 ESCALATE (crime-fraud)\u201d and the analysis expressly discusses crime-fraud concerns, partner sign-off, and a required memorandum. It is not treated as fully privileged without caveats."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/review-document-production-set-for-attorney/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/review-document-production-set-for-attorney",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T23:27:02.535495+00:00",
+  "cost": {
+    "input_tokens": 18,
+    "output_tokens": 36988,
+    "wall_clock_seconds": 350.65
+  },
+  "doc_coverage": {
+    "documents_read": 1,
+    "total_documents": 18,
+    "documents_skipped": 17,
+    "documents_read_list": [
+      "privilege-review-protocol.docx"
+    ],
+    "documents_skipped_list": [
+      "board-audit-committee-deck.pptx",
+      "bridger-to-cascade-counsel.eml",
+      "competitive-market-analysis.docx",
+      "draft-privilege-log.xlsx",
+      "emmerich-forward-to-moritani.eml",
+      "emmerich-reformulation-email.eml",
+      "first-rfp-set.docx",
+      "frey-personal-email-notes.eml",
+      "inadvertent-production-clawback.docx",
+      "litigation-hold-notice.docx",
+      "litigation-strategy-memo.docx",
+      "nandakumar-legal-risk-email.eml",
+      "pemberton-invoice-june2021.docx",
+      "pemberton-opinion-letter.docx",
+      "rennick-handwritten-note.docx",
+      "rennick-tsao-labeling-email.eml",
+      "slack-product-reformulation.txt"
+    ]
+  }
+}

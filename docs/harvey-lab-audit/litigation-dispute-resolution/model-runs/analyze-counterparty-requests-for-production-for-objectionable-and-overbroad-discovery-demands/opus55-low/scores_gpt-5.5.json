@@ -1,0 +1,316 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "44/47 criteria passed.  Missed 3 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 47,
+  "n_passed": 44,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies temporal overbreadth in RFP Nos. 3, 7, 14, and/or 22",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies temporal overbreadth for RFPs 3, 7, 14, and 22, stating they seek documents from January 1, 2009/Greenleaf\u2019s founding, ten years before the JV, and recommends narrowing the time period given the JV formed on January 15, 2019."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Proposes narrowing temporal scope to exclude pre-2017 period",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies RFPs reaching back to 2009 as temporally overbroad and recommends a default window beginning January 1, 2018, with limited possible extension to mid-2017 for pre-JV negotiations. This excludes the 2009\u20132017 pre-relationship period while covering relevant pre-JV negotiations."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: References burden from 2.3 TB data universe or 950K+ documents",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly discusses temporal overbreadth in Section IV.B and cites the burden of expanding beyond the 2018-forward window, stating that the existing window already involves \u201c2.3 TB / ~950,000 documents\u201d and that a 2009 window would substantially increase collection."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002: Identifies RFP No. 31 as seeking privileged attorney-client communications",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly flags RFP No. 31 as a high-priority privilege issue, stating that it seeks communications between Greenleaf and attorneys/legal advisors regarding the JV Agreement, Dissolution Agreement, and PureLine 400, and recommends objections based on attorney-client privilege and work product."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Recommends privilege log and warns against blanket waiver",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically addresses RFP 31, recommends withholding privileged attorney-client/work-product materials, and proposes a privilege logging approach including categorical logs and document-by-document logs for certain categories. It also warns about waiver risks, including lack of a Rule 502(d) clawback order and potential at-issue/subject-matter waiver if Greenleaf relies on advice of counsel."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_003: Identifies RFP No. 19 as sweeping in third-party financial info",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly flags RFP No. 19 as high-priority/problematic, describes it as seeking all financing arrangements, credit agreements, covenant calculations, borrowing base certificates, and lender communications from 2020 to present, and specifically identifies the $40M Sterling Ark revolving facility and confidentiality concerns over loan documents, covenants, borrowing base calculations, and projections."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_003: Notes irrelevance of broad financial info to breach of contract and trade secret claims",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically addresses RFP 19, noting that it seeks broad financing, credit, covenant, borrowing-base, and lender communications, and states that the relevance is attenuated because none of Caspian\u2019s claims turns on Greenleaf\u2019s creditworthiness. It recommends objecting on relevance and proportionality grounds, with only a narrow fallback for documents specifically discussing PureLine 400, the JV, NanoSieve, or the litigation."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Notes third-party confidentiality obligations under credit agreement",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly flags RFP 19 as implicating third-party confidentiality, notes that the Sterling Ark credit agreement may contain a confidentiality clause restricting disclosure of loan documents, covenants, borrowing base calculations, and projections, and recommends verifying the provision and providing notice to the lender."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_004: Identifies RFP No. 36 as disproportionate ESI/database request",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically flags RFP No. 36 as a high-priority enterprise database/ESI issue, describes it as seeking \u201call data, databases, and database records\u201d from SAP, Windchill, and other systems in native form, and recommends objecting to wholesale database production as disproportionate. It explains that SAP/Windchill contain company-wide and unrelated operational data across all product lines and proposes targeted exports/field lists instead. This satisfies the criterion."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004: Recommends narrowing RFP No. 36 to specific data fields or categories",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically recommends narrowing RFP No. 36 from wholesale SAP/Windchill/PLM database production to targeted exports/reports, including Windchill part/document records, ECO histories, BOM revisions with timestamps and authors, and SAP procurement, production, and cost records tied to PureLine 400 material numbers. It also proposes an ESI protocol addressing field lists and metadata fields."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_005: Identifies RFP Nos. 8, 12, and/or 27 as covering unrelated product lines",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies RFPs 8, 12, and 27 as seeking R&D/marketing/revenue information for all Greenleaf filtration products/product lines, notes that Greenleaf has eleven product lines while only PureLine 400 is accused/at issue, and recommends narrowing to PureLine 400 or other relevant membrane products."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_005: Cites proportionality under Fed. R. Civ. P. 26(b)(1)",
+      "verdict": "pass",
+      "reasoning": "The memorandum has a dedicated section on \u201cSubject-Matter Overbreadth \u2014 All Eleven Product Lines\u201d addressing RFPs that seek all Greenleaf product lines despite only PureLine 400 being accused, and it expressly cites Rule 26(b)(1) proportionality as a basis for narrowing/objecting to those requests."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_006: Identifies vague/overbroad 'relating to' requests in RFP Nos. 5, 16, 24, and/or 38",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly flags the broad 'relating to' definition as overbroad and specifically identifies RFPs 5, 16, and 38 as subject-matter overbroad. It also states that RFP 16 seeks everything 'relating to' membrane filtration technology from any source, including public materials, and recommends narrowing. This satisfies the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_006: Notes 'membrane filtration technology' encompasses unrelated materials",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies the broad \u201cmembrane filtration technology\u201d language as problematic. It notes that RFP 16 seeks materials from \u201cany source,\u201d including publicly available literature, and recommends limiting production to Greenleaf-authored analyses and third-party materials actually used in PureLine 400 development. It also discusses Greenleaf\u2019s pre-JV Background IP/independent-development materials as a distinct category requiring calibrated treatment rather than wholesale production."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_007a: Identifies RFP No. 33 as overbroad personnel files request",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly flags RFP No. 33 as a high-priority personnel files issue, describing it as demanding complete personnel files for all 23 JV engineers and PureLine 400 employees, raising employee privacy concerns and overbreadth. It recommends narrowing production and withholding compensation, benefits, medical, performance, and disciplinary records."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_007b: Notes irrelevance of compensation, medical/benefits, or disciplinary records to claims",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states in the personnel-files section that compensation, benefits, medical, and disciplinary information has no apparent bearing on the misappropriation or contract claims, and recommends objecting to/withholding those categories."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_007: Recommends narrowing to relevant employment info only",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically addresses RFP 33/personnel files and recommends narrowing production to relevant employment information such as name, title, employment dates, JV role and assignment history, access to NanoSieve/JV data, agreements, and exit/device audit records, while expressly withholding compensation, benefits, medical, performance, and disciplinary records absent a particularized showing."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_008: Identifies RFP No. 41 as contention interrogatory disguised as RFP",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically flags RFP 41 under \u201cContention-Style and Catch-All Requests,\u201d describes it as seeking documents that \u201csupport, contradict, or relate to\u201d defenses/counterclaims, states it effectively requests the entire case file, and notes it would require counsel to marshal evidence and reveal mental impressions. This satisfies the requirement to identify it as an improper contention-style request masquerading as an RFP."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_008: Cites Fed. R. Civ. P. 33(a)(2) or prematurity of contention discovery",
+      "verdict": "fail",
+      "reasoning": "The memorandum identifies RFP 41 as a contention-style/catch-all request and objects on reasonable particularity and work-product/mental-impression grounds, but it does not cite Fed. R. Civ. P. 33(a)(2) or state that contention discovery is premature at the outset of fact discovery or should be deferred until discovery is substantially complete."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_009: Identifies RFP No. 9 as threatening Greenleaf's own trade secrets",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly flags RFP No. 9 as seeking the full PureLine 400 technical package, including specifications, drawings, CAD files, formulas, BOMs, manufacturing work instructions, SOPs, tooling designs, and assembly instructions in complete, unredacted form. It identifies this as problematic because it would disclose Greenleaf\u2019s own trade secrets, proprietary Background IP, and manufacturing/process information, and recommends AEO treatment, redactions, and enhanced protective measures."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_009: Recommends AEO designation and/or limiting production to NanoSieve overlap",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends producing PureLine 400 technical information as AEO and limiting production to membrane/module components or components Caspian identifies as embodying NanoSieve/asserted trade secrets or Joint IP, while objecting to unrelated non-membrane materials."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_010: Identifies RFP No. 28 as overbroad competitor communications request",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly flags RFP No. 28 under \u201cCommunications With Competitors,\u201d states that it seeks all communications with any competitor, including Helix, Triton, and AquaPrime, on any subject since 2019, and recommends objecting to the remainder as overbroad. This satisfies the criterion."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_010: Acknowledges Helix Waterworks communications may be relevant to counterclaim",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly distinguishes Helix Waterworks communications from the broader competitor-communications request. In Part L, it states that RFP 28 is overbroad as to all competitor communications generally, but that Greenleaf\u2019s communications with Helix concerning the JV, Caspian, PureLine 400, NanoSieve, or confidential information are plainly relevant to Greenleaf\u2019s counterclaim alleging disclosure to Helix and should be produced subject to narrowing."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_011: Flags absence of ESI form-of-production specification in RFPs",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses ESI issues, database exports, backup tapes, and proposes an ESI protocol, and it notes that RFP 36 demands native format. However, it does not identify the general issue that the RFPs otherwise fail to specify the form of production for ESI, nor does it flag the resulting ambiguity. Therefore it does not satisfy ISSUE_011."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_011: References Fed. R. Civ. P. 34(b) regarding form of ESI production",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly cites \u201cRule 34(b)(1)(C), (b)(2)(E) (form of production; reasonably usable form)\u201d in the Enterprise Databases/ESI discussion, and also references Rule 34(b)(2)(E)(i) regarding production organization. This satisfies the criterion."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_011: Recommends negotiating ESI protocol before production",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends negotiating an ESI protocol/form-of-production agreement, including producing ESI with custodian metadata per an agreed protocol and proposing an ESI protocol for SAP/Windchill database exports, field lists, metadata, and a sample-then-expand approach before production."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_012a: Identifies need for FRE 502(d) clawback/non-waiver order",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly notes that the protective order lacks a clawback/Rule 502(d) provision and recommends proposing a stipulated Fed. R. Evid. 502(d) non-waiver order before the first production. It also reiterates this in the privilege section and timeline."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_012b: References document volume as justification for 502(d) order",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly ties the 502(d) recommendation to document volume and privilege risk, stating that with approximately 950,000 post-dedup documents and thousands of privileged communications, a stipulated FRE 502(d) order should be proposed before production."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_012: Notes Protective Order does not cover privilege waiver risk",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that the Stipulated Protective Order lacks a clawback or Rule 502(d) provision, notes that its provisions disclaim any procedure for inadvertently produced privileged material, and recommends a separate Fed. R. Evid. 502(d) order to prevent waiver. It thereby distinguishes confidentiality/AEO protections under the Protective Order from privilege-waiver protection."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_013: Identifies 24-month non-compete as relevance cutoff framework",
+      "verdict": "fail",
+      "reasoning": "The memorandum mentions a non-compete running through June 30, 2025, but attributes it to the Dissolution Agreement rather than JV Agreement \u00a7 9.1, does not identify it as a 24-month post-termination non-compete running from June 30, 2023 to June 30, 2025, and does not discuss using that period as a temporal cutoff for forward-looking requests seeking documents to the present or beyond the non-compete period."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_014: Identifies RFP Nos. 15 and/or 40 as imposing third-party collection burden",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly flags RFPs 15 and 40 as seeking documents held by Greenleaf\u2019s \u201cagents, representatives, consultants,\u201d and notes this could reach third parties including Ridgepoint Accounting Group, Sterling Ark, and outside consultants. It discusses lack of possession/custody/control, need to verify any legal right to obtain auditor workpapers, and identifies Rule 45 as the proper mechanism, thereby recognizing the third-party collection burden issue."
+    },
+    {
+      "id": "C-032",
+      "title": "Each issue identifies specific RFP number(s) affected",
+      "verdict": "pass",
+      "reasoning": "The memorandum consistently identifies the specific RFP number(s) implicated by each substantive discovery issue, including through dedicated \u201cRFP(s) affected\u201d tables in each issue section and a request-by-request Appendix covering RFP Nos. 1\u201346. Some procedural points and definition/instruction objections are not tied to a single RFP, but the substantive issue analyses do not discuss objectionable demands generically without RFP references."
+    },
+    {
+      "id": "C-033",
+      "title": "Each issue includes nature/category of the problem",
+      "verdict": "pass",
+      "reasoning": "The memorandum consistently identifies the nature/category of the problem for the issues it discusses, both through section headings (e.g., privilege/work product, temporal overbreadth, subject-matter overbreadth, third-party confidentiality, employee privacy, undue burden/database issues, trade secrets, vagueness/undefined trade secrets, litigation hold/work product, preservation, duplicative requests) and through request-by-request charts listing principal issues. Although some 'Nature of the problem' subsections appear formatting-corrupted, the objection categories are still clearly stated elsewhere for each issue."
+    },
+    {
+      "id": "C-034",
+      "title": "Each issue includes legal basis citing applicable rules",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly provides legal bases for the identified issues, citing applicable Federal Rules throughout, including Rules 26(b)(1), 26(b)(2), 26(b)(3), 26(c), 26(g), 34(b), 37(e), 45, and FRE 502(d), along with some supporting case law. Most issue sections include a dedicated \u201cLegal basis for objection\u201d discussion tied to the relevant RFPs."
+    },
+    {
+      "id": "C-035",
+      "title": "Each issue includes recommended objection or response strategy",
+      "verdict": "pass",
+      "reasoning": "The memorandum consistently pairs each identified objectionable issue/category and each RFP in the appendix with a recommended objection or response strategy, including narrowing proposals, partial production positions, privilege/work-product handling, AEO/protective-order measures, meet-and-confer topics, and client follow-up steps. Although some formatting is awkward, the required recommendations are present throughout."
+    },
+    {
+      "id": "C-036",
+      "title": "Issues include priority/risk ranking (Critical/High/Medium or equivalent)",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes explicit priority/risk rankings throughout, including tables with a 'Priority' column assigning High/Medium/Low to issue categories and individual RFPs, as well as an Appendix A request-by-request chart with priority levels."
+    },
+    {
+      "id": "C-037",
+      "title": "Privilege issues (RFP 31, 502(d)) ranked as Critical or highest priority",
+      "verdict": "pass",
+      "reasoning": "The output assigns RFP 31 a High priority, which appears to be the highest priority level used, and expressly states that obtaining a Rule 502(d) order is \u201cthe single most important protective step\u201d before production. Privilege and clawback issues are therefore clearly treated as among the most urgent/highest-priority risks."
+    },
+    {
+      "id": "C-038",
+      "title": "Correctly identifies case as Western District of North Carolina",
+      "verdict": "pass",
+      "reasoning": "The memorandum caption identifies the matter as \u201cCaspian Environmental Technologies, LLC v. Greenleaf Industrial Solutions, Inc., No. 3:24-cv-00412-RJC (W.D.N.C.),\u201d which correctly references the Western District of North Carolina and the specified case number."
+    },
+    {
+      "id": "C-039",
+      "title": "References September 11, 2024 response deadline",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that the RFPs were served August 12, 2024 and that responses are due September 11, 2024, and it also references serving responses by September 11 in the timeline."
+    },
+    {
+      "id": "C-040",
+      "title": "Recommends meet-and-confer with opposing counsel",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends a real-time meet-and-confer with Plaintiff's counsel/lead counsel, including discussion of narrowing issues such as trade secret identification, log format, time window, product-line scope, database exports, and secure review, before serving responses."
+    },
+    {
+      "id": "C-041",
+      "title": "Correctly states JV formation date as January 15, 2019",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly and correctly states the JV Agreement/formation date as January 15, 2019, including in the executive summary/background and temporal-scope discussions."
+    },
+    {
+      "id": "C-042",
+      "title": "Correctly states JV dissolution date as June 30, 2023",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that the JV was \u201cdissolved June 30, 2023\u201d and references the wind-down beginning July 1, 2023. It does not state an incorrect dissolution effective date."
+    },
+    {
+      "id": "C-043",
+      "title": "References Stipulated Protective Order in confidentiality/trade secret discussion",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly references the Stipulated Protective Order multiple times in confidentiality and trade secret contexts, including noting its AEO tier, non-party provisions, personnel-information protections, and proposing amendments for highly sensitive PureLine 400 technical/trade secret materials."
+    },
+    {
+      "id": "C-044",
+      "title": "Identifies systemic/cross-cutting issues as a separate category",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies overarching discovery-response issues apart from individual RFP objections, including a Rule 502(d) order, ESI/database protocol, lead-counsel meet-and-confer requirements, privilege logging approach, preservation/Rule 26(g) risks in a dedicated cross-cutting section, and objections to definitions/instructions."
+    },
+    {
+      "id": "C-045",
+      "title": "PureLine 400 correctly identified as the only product at issue",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that \u201cOnly PureLine 400 is accused\u201d and repeatedly treats PureLine 400 as the relevant Greenleaf product at issue. It uses that fact to object to or narrow requests seeking discovery across all Greenleaf product lines, including RFPs 8, 12, 22, and 27, while proposing production focused on PureLine 400 and closely related membrane/JV materials."
+    },
+    {
+      "id": "C-046",
+      "title": "References Section 9.1 non-compete or Section 7.2/7.4 IP provisions of JV Agreement",
+      "verdict": "pass",
+      "reasoning": "The memorandum cites specific JV Agreement sections when analyzing scope/relevance, including JV Agreement \u00a7 7.4 for Background IP, \u00a7 11.3/\u00a7 11.1 confidentiality provisions, and related sections such as \u00a7 3.3 and \u00a7 7.3. This satisfies the criterion."
+    },
+    {
+      "id": "C-047",
+      "title": "Notes wind-down period (July 1 \u2013 September 30, 2023) as relevant context",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly notes that the JV was dissolved June 30, 2023 with a wind-down period from July 1\u2013September 30, 2023, and later ties that context to RFP 23 concerning wind-down data segregation/return of information."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:45:57.762770+00:00",
+  "cost": {
+    "input_tokens": 16,
+    "output_tokens": 31743,
+    "wall_clock_seconds": 320.3
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 7,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "plaintiffs-first-rfps.docx",
+      "kerrigan-discovery-strategy.eml",
+      "case-management-order.docx",
+      "stipulated-protective-order.docx",
+      "litigation-hold-memo.docx",
+      "jv-agreement-executed.docx",
+      "dissolution-agreement-executed.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

@@ -1,0 +1,329 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "43/49 criteria passed.  Missed 6 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 49,
+  "n_passed": 43,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Argues reputational-harm opinion ($3M) lacks empirical basis",
+      "verdict": "pass",
+      "reasoning": "Section III.A.1 of the motion explicitly argues that Dr. Marchetti's $3 million reputational-harm opinion is 'unsupported ipse dixit,' noting she 'identified no study, survey, dataset, comparable-company analysis, or quantitative model supporting the range' and that it 'came from her professional experience.' The motion further states the opinion 'supplies a number without a testable method' and cites Joiner for the analytical gap standard. This directly satisfies the criterion requiring the motion to challenge the reputational-harm opinion on grounds of lacking empirical basis (no peer-reviewed study, survey data, regression analysis, or comparable-company analysis)."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Cites FRE 702 for reputational-harm exclusion",
+      "verdict": "pass",
+      "reasoning": "The motion cites FRE 702 in the governing standards section and in the heading 'A. Exclude the challenged Marchetti opinions under Rule 702.' The reputational-harm opinion is addressed in Section III.A.1, which falls under the Rule 702 argument heading. Additionally, the conclusion of Section III.A.1 cites Joiner (a Rule 702/Daubert case) and Alaska Rent-A-Car. The motion explicitly frames all three Marchetti opinion challenges, including the reputational-harm opinion, under Rule 702 in Section III.A."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: References Marchetti's deposition admission on reputational harm",
+      "verdict": "pass",
+      "reasoning": "The motion references Dr. Marchetti's deposition testimony that the 5-10% customer-loss range 'came from her professional experience' and that she 'identified no study, survey, dataset, comparable-company analysis, or quantitative model supporting the range.' It cites Marchetti Dep. 74:7--76:24. However, the criterion specifically requires reference to the November 18, 2024 deposition admission with the exact quote 'drawn from my professional experience.' The motion paraphrases the substance accurately but does not cite the specific date (November 18, 2024) of the deposition or use the exact quoted language 'drawn from my professional experience.' The criterion asks whether 'the deposition admission regarding the reputational-harm figure is not cited' - the motion does cite the deposition admission (Marchetti Dep. 74:7-76:24) and accurately describes its substance. The criterion says PASS if the motion 'references Dr. Marchetti's deposition admission...that the 5-10% customer-loss range was drawn from my professional experience and not from any quantitative model or empirical source.' The motion does reference this admission, citing the deposition pages and describing that the range 'came from her professional experience' and that she 'identified no...quantitative model.' This satisfies the criterion even without the exact date or verbatim quote."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002: Challenges lost-profits regression for excluding FY2020 without sensitivity analysis",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly addresses the FY2020 exclusion in Section III.A.2: 'She also excluded FY2020 without testing the effect of including it or otherwise quantifying the effect of that choice. Id. 35:5--17. The Court need not hold that excluding pandemic-affected data is always improper; the problem is the untested exclusion in this model.' This directly identifies the specific deficiency that FY2020 was excluded without performing sensitivity analysis to show the impact of that exclusion, satisfying the criterion."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Argues lost-profits model ignores Q2 2023 industry downturn",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly addresses the Q2 2023 regional automotive-components downturn in Section III.A.2, stating: 'Dr. Marchetti admitted she was unaware of the Q2 2023 regional automotive-components downturn and did not account for it, benchmark Ridgeline against competitors, or investigate whether competitors experienced similar declines.' It further argues that 'The model attributes the full revenue gap to the alleged resin defect without separating losses from the documented industry contraction.' This directly satisfies the criterion."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: References Marchetti's deposition admission on market downturn unawareness",
+      "verdict": "fail",
+      "reasoning": "The motion references Marchetti's deposition admission that she was unaware of the Q2 2023 regional automotive-components downturn and did not account for it. Specifically, in Section III.A.2, the motion states: 'Second, Dr. Marchetti admitted she was unaware of the Q2 2023 regional automotive-components downturn and did not account for it, benchmark Ridgeline against competitors, or investigate whether competitors experienced similar declines. Id. 36:10--37:12.' However, the criterion specifically requires that the motion reference that she was unaware of the downturn 'until she was shown an industry report during her deposition.' The motion references the deposition admission and the unawareness, but does not specifically mention that she was shown an industry report during the deposition that revealed her unawareness. The criterion is quite specific about this detail - the showing of an industry report during deposition. Since this specific detail is absent from the motion, the criterion is not fully satisfied."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_003: Challenges scrap/rework figure for lack of independent verification",
+      "verdict": "pass",
+      "reasoning": "Section III.A.3 explicitly argues that the $2.34 million scrap-and-rework opinion 'adopts Kevin Cho's internal spreadsheet as the entire quantitative basis' and that Dr. Marchetti 'did not verify it against production logs, inspect underlying production records, or reconcile it to audited financial statements.' This directly satisfies the criterion requiring the motion to argue that Marchetti's scrap/rework figure is unreliable due to unverified reliance on Cho's spreadsheet without independent verification against production logs or audited financials."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Argues insufficient facts or data under FRE 702",
+      "verdict": "pass",
+      "reasoning": "Section III.A.3 explicitly argues that the scrap-and-rework opinion 'lacks a reliable foundation for the amount and attribution' and invokes Rule 702's requirement of 'sufficient facts and a reliable application,' stating that 'Rule 703 does not displace Rule 702's requirement of sufficient facts and a reliable application.' The motion argues that Dr. Marchetti's unverified adoption of the party-prepared Cho spreadsheet 'supplies no reliable basis to present $2.34 million as an independently validated damages opinion,' directly invoking the FRE 702 'sufficient facts or data' requirement in connection with the scrap/rework data issue."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_004: Identifies the $11,000 arithmetic discrepancy",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly identifies the arithmetic discrepancy in Section III.A.4: 'the five itemized amounts in the report total $14,211,000, not the stated $14,200,000. Dr. Marchetti acknowledged the discrepancy and could not explain it at deposition.' This clearly identifies the $11,000 difference between the sum of itemized categories ($14,211,000) and the stated total ($14,200,000)."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004: Uses arithmetic discrepancy to undermine expert reliability",
+      "verdict": "fail",
+      "reasoning": "The motion mentions the $11,000 arithmetic discrepancy (items total $14,211,000 vs. stated $14,200,000) in Section III.A.4. However, the motion explicitly states: 'This arithmetic error alone would not warrant exclusion' and treats it as a minor additional point rather than connecting it to the broader Daubert reliability argument. The discrepancy is mentioned in passing and is explicitly downplayed rather than being used as evidence undermining Marchetti's overall reliability and care. The criterion requires the discrepancy to be connected to the reliability argument supporting the broader Daubert challenge, which the motion fails to do\u2014instead it distances the discrepancy from the exclusion argument."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_005: Argues FRE 407 bars evidence of subsequent remedial measures",
+      "verdict": "pass",
+      "reasoning": "Section B of the motion explicitly argues that FRE 407 bars evidence of Cascade's post-dispute testing and packaging changes, specifically identifying the November 2023 adoption of three-point moisture sampling (replacing single-point testing) and addition of desiccant packets. The motion cites Rule 407 directly and argues these subsequent remedial measures cannot be used to prove defect, culpable conduct, or inadequacy of prior procedures. This squarely satisfies the criterion."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_005: Addresses Plaintiff's anticipated 'feasibility' exception argument",
+      "verdict": "pass",
+      "reasoning": "Section III.B of the motion explicitly addresses and rebuts the feasibility exception argument. The motion states: 'Plaintiff invokes feasibility and says Cascade asserted that its prior single-point testing was \"industry standard,\" \"adequate,\" and consistent with best practices.' It then argues that Cascade's position that the existing procedure was adequate is not the same as contending that three-point sampling or desiccant packaging was impossible or impracticable, and therefore 'Feasibility is therefore not genuinely controverted within Rule 407's exception.' The motion further warns that 'The exception should not become a route to prove the forbidden inference that a later change demonstrates earlier fault.' This directly anticipates and rebuts the feasibility exception argument as required by the criterion."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_006: Argues OSHA citation should be excluded under FRE 404(b)",
+      "verdict": "pass",
+      "reasoning": "Section C of the motion explicitly argues that the OSHA citation (No. 2023-OR-00487) should be excluded under Rule 404(b). The motion states that Plaintiff proposes to use the citation to show a corporate 'pattern' and 'culture' of cutting corners, characterizing this as propensity reasoning forbidden by Rule 404(b)(1). It also addresses and rejects Plaintiff's alternative stated purposes (knowledge and plan). This directly satisfies the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_006: Argues OSHA citation should be excluded under FRE 403",
+      "verdict": "pass",
+      "reasoning": "Section C of the motion explicitly argues for exclusion of the OSHA citation under Rule 403, stating that 'Even if the citation had marginal relevance, Rule 403 requires exclusion.' The motion specifically notes the citation involved 'an inoperative exhaust fan and clogged ventilation filters---not moisture content, resin testing, packaging, or CascadeMax 7200,' and discusses the risk of unfair prejudice, confusion, and the danger that jurors would conflate the ventilation matter with polymer moisture quality. This satisfies the criterion requiring FRE 403 citation and prejudice-balancing argument regarding the OSHA citation's unrelatedness to resin quality/moisture testing."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_006: Addresses Plaintiff's anticipated 'plan or knowledge' argument",
+      "verdict": "pass",
+      "reasoning": "Section III.C of the motion explicitly addresses Plaintiff's anticipated 'plan or knowledge' argument under FRE 404(b). The motion states: 'Plaintiff's stated alternatives---knowledge and plan---do not cure the problem.' It then argues that awareness of a ventilation problem does not establish knowledge of a moisture-testing deficiency, a plan to ship nonconforming resin, or notice that any particular lot exceeded the contractual limit. It further notes that 'The cited process, hazard, equipment, and corrective work are distinct from the disputed quality-control process,' directly arguing there is no logical nexus between the ventilation citation and resin moisture specifications. This satisfies the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_006: Establishes OSHA citation is unrelated to resin quality",
+      "verdict": "pass",
+      "reasoning": "Section C of the motion explicitly states that the OSHA citation concerned 'inadequate ventilation and airborne particulate exposure in Cascade's Portland blending room' involving 'an inoperative exhaust fan and clogged ventilation filters' and expressly notes this was 'not moisture content, resin testing, packaging, or CascadeMax 7200.' The motion clearly articulates the lack of nexus between the OSHA citation and the resin quality claims at issue."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_007: Argues Marchetti failed to account for Ridgeline's failure to mitigate",
+      "verdict": "pass",
+      "reasoning": "Section III.A.4 explicitly addresses the mitigation issue, noting that Ridgeline discovered the issue on August 22, 2023, but did not order substitute resin until December 11, 2023 (approximately four months later), and that Dr. Marchetti acknowledged she performed no analysis of whether earlier procurement would have reduced lost profits or scrap costs. The motion argues this omission makes the damages model unreliable because it does not account for potentially avoidable losses during that period."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_007: Argues lost profits and scrap costs are inflated due to mitigation failure",
+      "verdict": "pass",
+      "reasoning": "Section III.A.4 explicitly argues that Ridgeline discovered the issue on August 22, 2023, but did not order substitute resin until December 11, 2023, and that Dr. Marchetti performed no analysis of whether earlier procurement would have reduced lost profits or scrap costs. The motion states that the calculations do not account for this known period or any potentially avoidable losses, and that the omission is especially consequential because the model extends well beyond the replacement purchase. This directly connects the inflated lost-profits ($6.78M) and scrap-and-rework ($2.34M) figures to Ridgeline's failure to mitigate timely."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_008: Raises contractual $2M consequential damages cap in FRE 403 context",
+      "verdict": "pass",
+      "reasoning": "Section III.D of the motion explicitly addresses the contractual consequential-damages limitation (Supply Agreement \u00a7 7.2) and connects it to FRE 403. The motion states that if the Court determines the provision limits recovery, 'testimony presenting the much larger consequential figure would have little or no proper purpose and would create an avoidable anchoring risk under Rule 403.' It identifies that $10,292,500 of the claimed damages are classified as consequential, subject to the $2 million cap, and argues that presenting the larger figure to the jury creates prejudice. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_008: Identifies consequential damages categories exceeding cap",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states in Section I that 'Dr. Marchetti classifies $10,292,500 of her claimed damages---including lost profits, replacement premium, and reputational harm---as consequential' and that the Supply Agreement caps consequential damages at $2 million. Section D further references the $10,292,500 consequential figure versus the $2 million cap. The motion identifies the specific categories (lost profits at $6,780,000, reputational harm at $3,000,000, and replacement resin premium at $512,500) and their total ($10,292,500) as consequential damages that substantially exceed the $2,000,000 contractual cap."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_009: References untimely defect notice to contextualize damages unreliability",
+      "verdict": "fail",
+      "reasoning": "The motion mentions that 'Ridgeline claims it discovered the alleged problem on August 22, 2023, and gave written notice on September 28, 2023' in the Relevant Facts section. However, it does not calculate or mention the 37-day gap, does not reference the 30-day contractual notice period, and does not use the untimely notice to contextualize the unreliability or prejudicial nature of Marchetti's damages opinions. The criterion requires that the motion reference the untimely notice (37 days after discovery, or 7 days beyond the 30-day contractual period) AND use this to contextualize the unreliability or prejudicial nature of Marchetti's speculative damages. The motion merely states the dates without connecting them to the notice period or using them to attack the damages opinions."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_010: Notes Marchetti has no prior Daubert qualification in federal court",
+      "verdict": "fail",
+      "reasoning": "The motion does not mention anywhere that Dr. Marchetti has never been qualified as an expert under the Daubert standard in federal court, nor does it reference her 30 prior engagements being exclusively in state courts or arbitrations. The motion explicitly states it does not attack her credentials. This fact is entirely absent from the document."
+    },
+    {
+      "id": "C-023",
+      "title": "DISTRACTOR_004: Applies Federal Rules of Evidence, not Washington evidence rules",
+      "verdict": "pass",
+      "reasoning": "The motion consistently cites and applies Federal Rules of Evidence throughout: FRE 104, 403, 404(b), 407, 702, and 703 are all referenced. The motion is filed in the United States District Court for the Western District of Washington, and all evidentiary arguments are grounded in the FRE and federal case law (Daubert, Joiner, Kumho Tire, City of Pomona, Alaska Rent-A-Car). There is no citation to or application of Washington state evidence rules anywhere in the document."
+    },
+    {
+      "id": "C-024",
+      "title": "Caption identifies the court as W.D. Washington",
+      "verdict": "pass",
+      "reasoning": "The caption clearly states 'UNITED STATES DISTRICT COURT WESTERN DISTRICT OF WASHINGTON AT SEATTLE', which correctly identifies the court as the United States District Court for the Western District of Washington."
+    },
+    {
+      "id": "C-025",
+      "title": "Caption identifies correct parties",
+      "verdict": "pass",
+      "reasoning": "The caption clearly lists 'RIDGELINE MANUFACTURING CORP.' as Plaintiff and 'CASCADE POLYMER SOLUTIONS, INC.' as Defendant, which matches the criterion exactly."
+    },
+    {
+      "id": "C-026",
+      "title": "Caption includes correct case number",
+      "verdict": "pass",
+      "reasoning": "The caption clearly includes 'Case No. 2:24-cv-00118-RW' which matches the required case number exactly."
+    },
+    {
+      "id": "C-027",
+      "title": "Motion title identifies it as a motion in limine",
+      "verdict": "pass",
+      "reasoning": "The document title in the caption clearly reads 'DEFENDANT CASCADE POLYMER SOLUTIONS, INC.'S MOTION IN LIMINE TO EXCLUDE SPECIFIED DAMAGES OPINIONS, SUBSEQUENT REMEDIAL MEASURES, AND UNRELATED OSHA EVIDENCE', which explicitly identifies it as a Motion in Limine."
+    },
+    {
+      "id": "C-028",
+      "title": "Motion filed on behalf of Cascade (Defendant)",
+      "verdict": "pass",
+      "reasoning": "The motion is clearly filed on behalf of Defendant Cascade Polymer Solutions, Inc. The title states 'DEFENDANT CASCADE POLYMER SOLUTIONS, INC.'S MOTION IN LIMINE,' the introduction identifies Cascade as the moving party, and the signature block lists attorneys 'for Defendant Cascade Polymer Solutions, Inc.'"
+    },
+    {
+      "id": "C-029",
+      "title": "Introduction previews Daubert/FRE 702 challenge to Marchetti's testimony",
+      "verdict": "pass",
+      "reasoning": "The motion's introduction (the paragraph beginning 'Defendant Cascade Polymer Solutions, Inc. (\"Cascade\") moves in limine...') explicitly identifies the challenge to 'specified damages opinions of Plaintiff's expert Dr. Lena Marchetti' as one of the three categories of evidence to be excluded, and cites Federal Rules of Evidence 702 and 703 among the governing rules. This clearly previews the Daubert/FRE 702 challenge to Marchetti's testimony."
+    },
+    {
+      "id": "C-030",
+      "title": "Introduction previews FRE 407 challenge to subsequent remedial measures",
+      "verdict": "pass",
+      "reasoning": "The introduction/opening paragraph of the motion explicitly states that Cascade moves to exclude '(2) evidence and argument concerning Cascade's post-dispute testing and packaging changes' and cites Federal Rules of Evidence 407 among the governing rules. This clearly identifies subsequent remedial measures as one of the categories of evidence to be excluded in the introduction."
+    },
+    {
+      "id": "C-031",
+      "title": "Introduction previews FRE 403/404(b) challenge to OSHA citation",
+      "verdict": "pass",
+      "reasoning": "The introduction/preamble of the motion explicitly states that Cascade moves to exclude '(3) an unrelated OSHA ventilation citation and associated evidence.' This clearly identifies the OSHA citation as one of the categories of evidence to be excluded in the introductory section of the motion."
+    },
+    {
+      "id": "C-032",
+      "title": "Includes legal standard section for Daubert/FRE 702",
+      "verdict": "pass",
+      "reasoning": "Section II (Governing Standards) explicitly sets forth FRE 702's requirements, references Daubert v. Merrell Dow Pharmaceuticals (509 U.S. 579) and the trial court's gatekeeping role, and discusses reliability, sufficient facts or data, and reliable principles and methods. It also cites Joiner and Kumho Tire. The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-033",
+      "title": "Cites Daubert v. Merrell Dow Pharmaceuticals",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly cites 'Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579, 589, 592--95 (1993)' in Section II (Governing Standards)."
+    },
+    {
+      "id": "C-034",
+      "title": "References the Daubert reliability factors",
+      "verdict": "pass",
+      "reasoning": "The motion does more than merely cite Daubert by name. It discusses the reliability framework in Section II, stating that Rule 702 requires the proponent to show the testimony is 'based on sufficient facts or data, is the product of reliable principles and methods, and reflects a reliable application of those methods to the case.' It references the gatekeeper role and the 'analytical gap' standard from Joiner. In the argument section, it repeatedly applies reliability concepts: the reputational-harm opinion is attacked for lacking a 'testable method,' the lost-profits opinion is criticized for an 'untested exclusion' and failure to account for alternative drivers, and the scrap-and-rework opinion is faulted for lacking 'sufficient facts and a reliable application.' The motion also cites Kumho Tire for the proposition that experience alone does not excuse an expert from explaining how it reliably supports the particular conclusion. These references go well beyond merely invoking Daubert by name and engage substantively with the reliability framework and factors."
+    },
+    {
+      "id": "C-035",
+      "title": "Distinct argument section for Daubert/FRE 702 challenge to Marchetti",
+      "verdict": "pass",
+      "reasoning": "Section III.A is a distinct, separately headed argument section titled 'Exclude the challenged Marchetti opinions under Rule 702.' It is lettered 'A' and contains multiple numbered sub-sections (1, 2, 3, 4) specifically addressing the Daubert/FRE 702 challenge to Dr. Marchetti's testimony. This clearly satisfies the criterion of having a distinct, identifiable argument section for the Daubert challenge."
+    },
+    {
+      "id": "C-036",
+      "title": "Distinct argument section for FRE 407 subsequent remedial measures",
+      "verdict": "pass",
+      "reasoning": "Section III.B is a distinct, separately headed argument section titled 'Rule 407 bars evidence of Cascade's post-dispute testing and packaging changes.' It is lettered 'B' and stands alone as its own argument section, clearly addressing the FRE 407 challenge to subsequent remedial measures evidence."
+    },
+    {
+      "id": "C-037",
+      "title": "Distinct argument section for FRE 403/404(b) OSHA citation",
+      "verdict": "pass",
+      "reasoning": "The motion contains a distinct, separately headed argument section labeled 'C. Exclude the unrelated OSHA citation and associated evidence under Rules 404(b) and 403.' This is a lettered subsection under Section III (Argument), clearly identifiable and separate from the other argument sections. It specifically addresses the FRE 403 and 404(b) challenges to the OSHA citation evidence (PX-25\u201327)."
+    },
+    {
+      "id": "C-038",
+      "title": "Conclusion requests exclusion of all three categories of evidence",
+      "verdict": "pass",
+      "reasoning": "The conclusion section (Section IV) explicitly requests: (1) exclusion of Dr. Marchetti's expert opinions including the $3M reputational-harm, $6.78M lost-profits, and $2.34M scrap-and-rework opinions; (2) exclusion of evidence concerning PX-22\u201324 and Cascade's subsequent testing and packaging changes (subsequent remedial measures); and (3) exclusion of PX-25\u201327 and any reference to the unrelated OSHA citation. All three categories are addressed in the conclusion."
+    },
+    {
+      "id": "C-039",
+      "title": "Correctly states Marchetti's total damages figure as $14.2 million",
+      "verdict": "pass",
+      "reasoning": "The motion states in Section I: 'Dr. Marchetti offers five damages categories, totaling $14.2 million as reported.' It also references '$14,200,000' and '$14.2 million' in Section III.A.4. The motion correctly states Marchetti's total damages figure as $14.2 million (noting the arithmetic discrepancy that the five items actually total $14,211,000, but the report states $14.2 million). The criterion asks whether the motion correctly states the figure as $14,200,000 or $14.2 million, which it does."
+    },
+    {
+      "id": "C-040",
+      "title": "Correctly states lost profits figure as $6,780,000",
+      "verdict": "pass",
+      "reasoning": "The motion correctly states the lost profits figure as $6,780,000 (also written as $6.78 million) in multiple places throughout the document, including in the introduction, the argument section header, and the conclusion."
+    },
+    {
+      "id": "C-041",
+      "title": "Correctly states reputational harm figure as $3,000,000",
+      "verdict": "pass",
+      "reasoning": "The motion clearly states '$3,000,000 for reputational harm/future business' in the facts section and refers to 'The $3 million reputational-harm opinion' throughout the argument section, correctly stating the figure as $3,000,000."
+    },
+    {
+      "id": "C-042",
+      "title": "Correctly states scrap/rework figure as $2,340,000",
+      "verdict": "pass",
+      "reasoning": "The motion correctly states the scrap and rework figure as $2.34 million (equivalently $2,340,000) in multiple places, including Section III.A.3 heading ('The $2.34 million scrap-and-rework opinion') and the conclusion. This matches the criterion requirement."
+    },
+    {
+      "id": "C-043",
+      "title": "Requests alternative relief if full exclusion of Marchetti is denied",
+      "verdict": "pass",
+      "reasoning": "The motion attacks Dr. Marchetti's opinions category by category\u2014reputational harm ($3M), lost profits ($6.78M), and scrap/rework ($2.34M)\u2014as separate, independent grounds for exclusion. The conclusion requests exclusion of each opinion individually. However, the criterion asks whether the motion requests alternative relief *if full exclusion is denied*\u2014i.e., a fallback position such as 'if the court declines to exclude all of Marchetti's testimony, at least exclude X category' or 'at minimum, limit the testimony in Y way.' The motion does include one 'at minimum' fallback for the scrap-and-rework opinion (Section III.A.3: 'At minimum, preclude Dr. Marchetti from vouching that the spreadsheet is verified, accurate, or independently substantiated'). This constitutes alternative/fallback relief requested in the event full exclusion of that category is denied. The motion also requests that if any categories remain, a corrected total be required (Section III.A.4). These constitute alternative relief positions if full exclusion is denied, satisfying the criterion."
+    },
+    {
+      "id": "C-044",
+      "title": "Correctly identifies OSHA citation number and penalty amount",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly references both the OSHA citation number 'OSHA Citation No. 2023-OR-00487' and the penalty amount '$14,502' in Section C of the argument. Both are correctly stated and present in the document."
+    },
+    {
+      "id": "C-045",
+      "title": "Correctly states the consequential damages cap as $2,000,000",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly states in Section I: 'caps them at $2 million in the aggregate' and in Section D: 'aggregate consequential liability may not exceed $2 million.' The $2,000,000 cap is correctly stated."
+    },
+    {
+      "id": "C-046",
+      "title": "References Marchetti's deposition date of November 18, 2024",
+      "verdict": "fail",
+      "reasoning": "The motion references Dr. Marchetti's deposition multiple times (e.g., 'Marchetti Dep. 74:7--76:24', 'Marchetti Dep. 34:12--35:17', etc.) but never specifies the date of the deposition. There is no mention of November 18, 2024, or any date in November 2024 for the deposition. The criterion requires that the motion reference Dr. Marchetti's deposition as occurring on November 18, 2024 (or at least in November 2024)."
+    },
+    {
+      "id": "C-047",
+      "title": "Correctly identifies CascadeMax 7200 as the product at issue",
+      "verdict": "pass",
+      "reasoning": "The motion explicitly identifies 'CascadeMax 7200' as the product at issue multiple times throughout the document, including in the factual background section ('four CascadeMax 7200 shipments'), the scrap-and-rework section ('caused by CascadeMax 7200 rather than another production cause'), and the OSHA section ('Not moisture content, resin testing, packaging, or CascadeMax 7200'). The product name is correctly and consistently stated."
+    },
+    {
+      "id": "C-048",
+      "title": "References Dr. Gerhardt's rebuttal report or opinions",
+      "verdict": "pass",
+      "reasoning": "The motion references 'Gerhardt Rebuttal Report' multiple times throughout the document, specifically citing it at \u00b6\u00b6 24, 31-35 in the facts section, \u00b6\u00b6 14-17 regarding the lost profits analysis, \u00b6\u00b6 18-22 regarding the scrap-and-rework analysis. Dr. Gerhardt's rebuttal report is used to support the Daubert challenge against Dr. Marchetti's methodology."
+    },
+    {
+      "id": "C-049",
+      "title": "Marchetti's deposition admission on lack of sensitivity analysis is cited",
+      "verdict": "fail",
+      "reasoning": "The motion discusses Dr. Marchetti's lost-profits regression at length, citing various deposition admissions (e.g., Marchetti Dep. 34:12\u201335:17, 35:5\u201317, 36:10\u201337:12, 102:7\u2013103:8). However, nowhere in the motion is there a specific reference to Dr. Marchetti admitting she did not perform any sensitivity analysis on her lost-profits regression. The motion mentions she did not test the effect of excluding FY2020, but does not cite a deposition admission about the absence of sensitivity analysis specifically."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T01:51:07.738382+00:00",
+  "cost": {
+    "input_tokens": 632816,
+    "output_tokens": 20126,
+    "wall_clock_seconds": 158.67
+  },
+  "doc_coverage": {
+    "documents_read": 8,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "defense-strategy-memo.docx",
+      "supply-agreement.docx",
+      "marchetti-deposition-excerpts.docx",
+      "gerhardt-rebuttal-report.docx",
+      "marchetti-expert-report.docx",
+      "osha-citation.docx",
+      "plaintiff-exhibit-list.docx",
+      "solano-trial-strategy-email.eml"
+    ],
+    "documents_skipped_list": []
+  }
+}

@@ -1,0 +1,576 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "45/82 criteria passed.  Missed 37 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 82,
+  "n_passed": 45,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Flags Entry #024 as deficient (non-lawyer-only communication)",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly flags Entry 24 (TF-PRIV-000189\u2013000194, Pruitt to Choi, April 5, 2020) as 'Not defensible \u2014 business budgeting' in both the memo and the spreadsheet Log Review sheet. The assessment states: 'Sample is operational cost projections, downtime, and capital planning exchanged between EHS and Operations, not counsel.' This correctly identifies that the communication is between non-lawyers (Donald Pruitt and Sandra Choi) with no attorney involved, and recommends producing the document. The entry is also placed in the 'Waiver & Exclusions' sheet under 'Business/nonlawyer/pre-engagement/routine consultant materials' with 'No privilege or work product shown' and 'Produce; not clawback candidates.' The criterion is satisfied."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Flags Entry #067 as deficient (non-lawyer-only communication)",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly flags Entry 67 (TF-PRIV-000529\u2013000535, William Haney to Donald Pruitt, November 11, 2020) as 'Not defensible \u2014 finance/business' in both the memo and the spreadsheet. The assessment states: 'Sample is divisional reserve allocation and cost-planning; no lawyer recipient or legal advice.' This correctly identifies the deficiency that the communication is between non-lawyers (Haney and Pruitt) with no attorney involved, and recommends producing it. The entry is also placed in the 'Waiver & Exclusions' sheet as a non-privileged item to be produced, not a clawback candidate. The criterion is satisfied."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Flags Entry #112 as deficient (non-lawyer-only communication)",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #112 (Choi to Molina, February 3, 2021) as deficient because it is a communication exclusively between non-lawyers. Looking through the agent's output, there is no 'Entry #112' in the 98-entry privilege log (which only goes up to Entry 98). The agent does reference 'sample-doc-112' in the Additional Samples sheet, identifying it as a communication between Sandra Choi and Teresa Molina about facility upgrades, NJDEP guidance, budget and scheduling, and correctly classifies it as 'Not privileged' because both are business personnel and Molina is a nonlawyer government relations officer. However, the criterion specifically asks about 'Entry #112' as a log entry, not a sample document. The agent's 98-entry log does not contain an Entry #112, and the agent does not flag any log entry numbered 112 as deficient. While sample-doc-112 is addressed, the criterion asks about flagging 'Entry #112' as deficient, which the agent did not do in the context of the privilege log entries. That said, the agent did identify sample-doc-112 as not privileged for the same reasons described in the criterion. The criterion says 'Entry #112 (Choi to Molina, February 3, 2021)' - this appears to correspond to sample-doc-112 which the agent did flag as not privileged. The agent correctly identified this document as a non-lawyer communication that is not privileged. Given that the agent did address this document (as sample-doc-112) and correctly flagged it as deficient/not privileged, this could be considered a pass, but the criterion specifically says 'Entry #112' which doesn't exist in the log. The agent flagged sample-doc-112 but not as a log entry. I'll consider this a fail since the criterion specifically references 'Entry #112' as a log entry deficiency, and no such entry exists or was flagged in the agent's log review."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Flags Entry #198 as deficient (non-lawyer-only communication)",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #198 (Pruitt to Haney, July 7, 2022) as deficient because it is a communication exclusively between non-lawyers. Looking at the agent's output, the 98-entry log review (entries 1-98) does not include an Entry #198 \u2014 the log only goes up to Entry 98. The agent does review a 'sample-doc-198' in the Additional Samples sheet, which describes 'Pruitt to CFO requesting $2.3m CapEx approval for treatment system, Jul. 7, 2022' and correctly classifies it as 'Not privileged' with a recommendation to 'Produce.' However, the criterion specifically asks about 'Entry #198' as a log entry, not a sample document. The agent's 98-entry privilege log does not contain an Entry #198, and the agent does not flag any log entry numbered 198 as deficient. While sample-doc-198 is correctly assessed, the criterion is specifically about flagging 'Entry #198' as deficient. The agent's log only covers entries 1-98, and there is no Entry #198 in the privilege log review. The agent did assess sample-doc-198 correctly as not privileged, but this is a sample document assessment, not a log entry deficiency flag. The criterion asks specifically about 'Entry #198' being flagged as deficient in the privilege log context. Since the agent does address sample-doc-198 and correctly identifies it as not privileged (non-lawyer communication, no attorney recipient/advice), this could be interpreted as satisfying the spirit of the criterion. However, strictly speaking, the criterion refers to a log entry numbered 198, which doesn't exist in the supplied 98-entry log. The agent correctly identifies sample-doc-198 as not privileged for the same reasons stated in the criterion."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001: Correct legal reasoning \u2014 ACP requires attorney involvement",
+      "verdict": "pass",
+      "reasoning": "The memo clearly and repeatedly articulates that attorney-client privilege requires communication with or at the direction of an attorney for the purpose of seeking or providing legal advice, and that non-lawyer-only business communications cannot support ACP. This is demonstrated in multiple places: (1) The Standards Applied section states 'Attorney-client privilege protects confidential communications made for the purpose of obtaining or providing legal advice, not the underlying facts' and cites Upjohn; (2) The Langford pre-GC analysis explains her law license or legal-sounding subject lines do not create ACP because she was in a business/operational role; (3) The Molina analysis explicitly states she is a nonlawyer and her communications are not ACP; (4) Individual entry assessments for Entries 31, 55, 89 state 'Not defensible --- nonlawyer / government relations' and explain no ACP arises from a 'counsel' label; (5) Entry 24 and 67 are flagged as not defensible because there is no lawyer recipient or legal advice. The principle is correctly stated and consistently applied throughout the memo."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Flags Entry #031 \u2014 Molina misidentified as attorney",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly flags Entry #031 (Teresa Molina to Donald Pruitt, May 18, 2020) as 'Not defensible \u2014 nonlawyer / government relations' in both the memo and the spreadsheet. The analysis clearly states that Molina is not licensed, not in the legal department, and has never provided legal advice, and recommends producing the document. This directly satisfies the criterion of identifying Entry #031 as deficient because Teresa Molina is not a licensed attorney."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Flags Entry #055 \u2014 Molina misidentified as attorney",
+      "verdict": "pass",
+      "reasoning": "Entry 55 (TF-PRIV-000434\u2013000440, Teresa Molina to William Haney, October 2, 2020, 'NJ Environmental Legislation \u2014 Lobbying Strategy') is explicitly flagged in both the memo and the spreadsheet as 'Not defensible \u2014 lobbying/business' because Molina is a nonlawyer government-relations executive who has never provided legal advice. The agent clearly identifies this deficiency and recommends producing the document."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_002: Flags Entry #089 \u2014 Molina misidentified as attorney",
+      "verdict": "pass",
+      "reasoning": "Entry 89 is explicitly flagged in the memo and spreadsheet as 'Not defensible \u2014 nonlawyer factual update.' The agent identifies Molina as a nonlawyer government-relations executive who has never provided legal advice, and recommends producing the document. This directly satisfies the criterion of flagging Entry #089 as deficient because Molina is not a licensed attorney."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_002: Flags Entry #141 \u2014 Molina misidentified as attorney",
+      "verdict": "pass",
+      "reasoning": "The criterion requires the agent to flag Entry #141 (Molina to Voss, August 20, 2021) as deficient because Molina is not a licensed attorney. Reviewing the agent's output, the agent does address Teresa Molina's non-attorney status extensively (Entries 31, 55, 89, and sample-docs 031, 055, 089, 134, 141, 203 are mentioned in the executive assessment). However, sample-doc-141 is mentioned in the executive assessment as one of Molina's communications, but there is no 'Entry #141' in the 98-entry privilege log (the log only goes up to Entry 98). The criterion specifically asks about 'Entry #141 (Molina to Voss, August 20, 2021).' The agent's log review covers only entries 1-98, and there is no Entry 141 in the log. The agent does flag sample-doc-141 in the Additional Samples sheet as 'Not privileged' because it is a 'Nonlawyer government relations communication; public-policy and agency lobbying strategy' by Molina. However, the criterion asks about 'Entry #141' specifically, which would be a log entry number, not a sample document number. The agent does not flag a log 'Entry #141' because no such entry exists in the supplied 98-entry log. The agent does flag sample-doc-141 as not privileged due to Molina's non-attorney status, which partially addresses the concern, but the criterion specifically references 'Entry #141' as a log entry. Since the agent does flag sample-doc-141 (Molina to CEO re NJDEP/legislative engagement strategy) as not privileged because Molina is a nonlawyer government relations officer, this appears to satisfy the spirit of the criterion even if the numbering refers to a sample document rather than a log entry number."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_002: Flags Entry #203 \u2014 Molina misidentified as attorney",
+      "verdict": "pass",
+      "reasoning": "The criterion asks whether the agent flags Entry #203 (Molina to Langford, September 12, 2022) as deficient because Molina is not a licensed attorney. Looking at the agent's output, Entry #203 does not appear in the 98-entry privilege log (which runs from Entry 1 to Entry 98). However, sample-doc-203 is addressed in the Additional Samples sheet. The agent's analysis of sample-doc-203 states: 'Teresa Molina's factual report to Langford of NJDEP meeting, Sep. 12, 2022 \u2014 Not privileged as to meeting facts; at most confidential business communication. Molina is not an attorney; report recounts direct agency meeting and public/regulatory positions. Sharing with GC does not convert facts into legal advice.' This clearly identifies the document as deficient and explicitly states that Molina is not an attorney. The criterion is satisfied because the agent does flag this entry/sample as deficient on the basis that Molina is not a licensed attorney."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_002: Explains Molina's informal title does not confer attorney status",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Molina extensively, noting she is a 'nonlawyer VP of Government Relations,' 'not licensed,' 'not in legal department,' and 'has never given legal advice.' However, the criterion specifically asks whether the memo explains that Molina's informal title of 'regulatory counsel' does not confer attorney status. The memo does not mention or address any informal title of 'regulatory counsel' that Molina may hold. It refers to her only as 'VP of Government Relations' and 'nonlawyer government-relations executive.' The specific distinction between an informal 'regulatory counsel' title and actual licensed attorney status is not addressed anywhere in the memo."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_003: Flags Entry #007 \u2014 pre-engagement marketing email",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly addresses Entry 7 (TF-PRIV-000046\u2013000054, dated 2019-11-12, Catherine Marsh Esq. to Richard Voss) in both the memo and the spreadsheet. It categorizes it as 'Not defensible \u2014 pre-engagement solicitation,' noting that the CLM engagement letter states no attorney-client relationship before 2020-01-06 and that the sample document is a law-firm capabilities pitch inviting possible future engagement, not legal advice. The recommended action is to produce it, with the note that a confidentiality disclaimer does not create privilege. This satisfies the criterion of flagging Entry #007 as deficient because it predates the CLM engagement and the sample reveals it is a marketing/pitch email without specific legal advice."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Flags Entry #011 \u2014 pre-engagement marketing email",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly addresses Entry 11 (TF-PRIV-000081\u2013000092, dated 2019-12-03, Marsh to Voss) in both the memo and the spreadsheet. It categorizes it as 'Not defensible \u2014 pre-engagement solicitation,' explaining that the sample is a follow-up regarding capabilities/standard engagement terms and that the engagement letter disclaims any attorney-client relationship or legal advice before January 6, 2020. The recommended action is to produce the document, including the attachment unless independently protected. This clearly flags Entry #011 as deficient because it predates the CLM engagement and constitutes a follow-up marketing/solicitation communication."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_003: Analyzes prospective client vs. marketing distinction",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Entries 2, 7, and 11 as pre-engagement solicitation/capabilities materials. For Entry 7, it states the sample is 'a law-firm capabilities pitch and invites possible future engagement, not advice' and notes 'confidentiality disclaimer does not create privilege.' For Entry 11, it describes the sample as 'follow-up re capabilities/standard engagement terms' and notes the engagement letter 'disclaims advice and relationship before Jan. 6, 2020.' The memo also references the CLM engagement letter's express statement that no attorney-client relationship existed before January 6, 2020. This directly addresses the distinction between prospective client communications (which can be privileged) and business development/solicitation pitches (which are not), explaining that these particular pre-engagement emails were capabilities pitches and engagement term discussions rather than the seeking or provision of specific legal advice."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_004: Flags Entry #003 \u2014 Langford pre-GC role",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly identifies Entry 3 (TF-PRIV-000016\u2013000022, dated 2018-02-08, Langford to Pruitt) as 'Not defensible \u2014 business/regulatory role,' noting that 'Langford was VP of Regulatory Affairs, not legal department; sample is operational SOP/sampling coordination and ordinary consultant use.' This appears in both the memo's entry-by-entry appendix and the Log Review sheet of the spreadsheet, with the recommended action to produce the document. The criterion is satisfied."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Flags Entry #005 \u2014 Langford pre-GC role",
+      "verdict": "pass",
+      "reasoning": "Entry 5 (TF-PRIV-000031\u2013000036, dated 2018-07-22, Langford to Sandra Choi re 'Quarterly Environmental Reporting Schedules') is explicitly flagged in both the memo and the spreadsheet as 'Not defensible \u2014 routine business' because Langford was acting as VP of Regulatory Affairs (pre-GC business/regulatory role) and the content is routine reporting dates, data collection, and contractor scheduling. The recommended action is to produce. This satisfies the criterion of flagging Entry #005 as deficient because Langford was acting in a business role."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_004: Flags Entry #009 \u2014 Langford pre-GC role",
+      "verdict": "pass",
+      "reasoning": "Entry 9 (TF-PRIV-000061\u2013000072, January 15, 2019, Langford to Voss) is explicitly flagged in both the memo and the spreadsheet as 'Not defensible \u2014 ordinary-course audit summary,' with the explanation that Langford was VP of Regulatory Affairs (not GC) at that time and the document is a routine audit summary. The memo states: 'Sample is Langford's VP Regulatory Affairs summary of Graystone routine audit, findings, monitoring, maintenance, and budget actions.' This clearly identifies the pre-GC role deficiency for Entry 9."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_004: Legal analysis \u2014 bar license alone insufficient for ACP",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses this principle in multiple places. In the 'Pre-GC Langford period' section, it states: 'Her law license or legal-sounding subject lines do not create ACP.' Entry 1 notes that 'Routine compliance procedures/reporting are operational' despite Langford's background. Entry 10 states 'legal-sounding subject line is insufficient.' The memo consistently explains that Langford's communications before March 15, 2019 are not privileged because she was acting in a business/regulatory capacity (VP of Regulatory Affairs), not a legal capacity, regardless of her credentials. This directly addresses the principle that holding a law license is insufficient for ACP and that the person must have been acting in a legal capacity when the communication occurred."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_004: States Langford was in a business role until March 15, 2019",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in multiple places that Langford served as VP of Regulatory Affairs until March 14/15, 2019 in a business/operational role and gave no legal advice in that role. The Executive Assessment section mentions 'Margaret Langford before March 15, 2019, when she was a business/regulatory executive and not Thornfield's lawyer.' The Key Legal Issues section states 'Langford served as VP of Regulatory Affairs through March 14, 2019, in a business/operational role, provided no legal advice, and was not in the legal department.' Multiple entries (1, 3-10) in the appendix reference this fact and recommend producing those documents."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_005: Flags Entry #078 \u2014 privilege waiver by forwarding to Graystone",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly flags Entry #078 (TF-PRIV-000616\u2013000625) as having its privilege waived by the forwarding to Graystone. In the memo under 'Graystone disclosure (Entry 78; sample-doc-078),' the agent states that Pruitt forwarded the Marsh/Kapadia legal exchange to Dr. Reese on June 14, 2021, that Graystone was retained under a routine consulting MSA with no common-interest agreement, and that 'the transmitted copy presents a substantial waiver problem.' The entry-by-entry appendix and the spreadsheet Log Review sheet both classify Entry 78 as 'Underlying advice privileged; forwarded copy likely waived.' The Waiver & Exclusions sheet also lists Entry 78 as 'Likely waiver for forwarded copy.' This clearly satisfies the criterion of flagging Entry #078 as waived due to Pruitt forwarding the privileged email to Dr. Reese at Graystone."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_005: Identifies Graystone as unprotected third party",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in multiple places that Graystone was not covered by any common interest agreement. In the 'Graystone disclosure' section: 'Graystone was retained under a routine consulting MSA, no common-interest agreement covered Graystone.' In Entry 78's analysis: 'Graystone was not counsel/party to a common-interest agreement.' This directly satisfies the criterion."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_006: Flags Entry #102 \u2014 privilege waiver by forwarding to Ridgeline",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly addresses sample-doc-102 multiple times. In the memo, it identifies sample-doc-102 as a case where 'GC forwarded outside counsel's litigation assessment to Ridgeline Risk Partners, an insurance broker with no common-interest agreement' and concludes this is a 'likely waiver, not Rule 502(b) inadvertent disclosure.' In the Waiver & Exclusions sheet, sample-doc-102 is listed with the description 'GC forwarded counsel assessment to Ridgeline insurance broker; no common-interest agreement exists' and classified as 'Likely waiver for forwarded copy.' In the Additional Samples sheet, sample-doc-102 is described as 'GC forwarded outside counsel litigation assessment to Ridgeline Risk Partners broker (Sep. 2020)' and categorized as 'Waiver / not defensible for forwarded copy.' The agent clearly flags this as a privilege waiver due to forwarding to the insurance broker without a common-interest agreement. The criterion asks whether Entry #102 is flagged as having privilege waived because Langford forwarded Marsh's litigation strategy email to Ridgeline Risk Partners. The agent does flag this, though it refers to it as 'sample-doc-102' rather than 'Entry #102' \u2014 however, the substance matches exactly: forwarding counsel's litigation assessment to an insurance broker with no common-interest agreement constitutes waiver. The agent satisfies the criterion."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_006: Explains insurance broker not covered by common interest",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the Ridgeline Risk Partners situation in the 'Broker and NJDEP disclosure' section, stating that 'Sample 102 forwards outside counsel's litigation assessment to Ridgeline Risk Partners, an insurance broker with no common-interest agreement.' It also notes in the recommended actions section to 'Confirm the Pacific Mutual common-interest agreement's April 22, 2020 effective date and scope. It does not cover...Ridgeline...' This clearly explains that no common interest agreement exists with Ridgeline. The memo identifies Ridgeline as an insurance broker and notes the absence of a common-interest agreement, explaining why the disclosure is likely a waiver rather than protected. While the memo doesn't explicitly state that 'insurance brokers are generally not covered by the common interest doctrine' as a categorical rule, it does explain the specific absence of a common interest agreement with Ridgeline and treats the disclosure as a likely waiver, which satisfies the substance of the criterion."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_007: Flags Entry #085 \u2014 pre-common-interest sharing with Whitmore",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly flags Entry #085 (Marsh to Whitmore, March 15, 2021) as 'High-risk / conditional common interest' in both the memo and the spreadsheet. The analysis clearly states that the Thornfield-Garfield JDA was not effective until August 3, 2021, and that the later agreement is not retroactive, making the pre-JDA sharing deficient. This is addressed in the executive assessment, the bottom-line table, the dedicated 'Garfield pre-JDA disclosures' section, the entry-by-entry appendix for Entry 85, the Log Review sheet, and the Waiver & Exclusions sheet. The criterion is satisfied."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_007: Flags Entry #091 \u2014 pre-common-interest sharing with Whitmore",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly flags Entry #091 (Catherine Marsh to James Whitmore/Rachel Dunn, May 2, 2021) as 'High-risk / conditional common interest' in both the memo and the spreadsheet. The analysis clearly states that the draft strategy was shared with Garfield counsel on May 2, 2021, before the August 3, 2021 JDA, and that the later JDA does not retroactively protect it. This directly satisfies the criterion of identifying Entry #091 as deficient because it predates the August 3, 2021 common interest agreement."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_007: States correct date of Garfield/Whitmore common interest agreement",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly and consistently states that the Thornfield\u2013Garfield common interest/JDA agreement is 'effective August 3, 2021' and is 'not retroactive.' This appears in the executive assessment, the Garfield pre-JDA section, the recommended actions, and the entry-level analysis for Entries 85 and 91. The date August 3, 2021 is correctly stated throughout."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_007: Analyzes that JCI cannot retroactively protect pre-agreement communications",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the retroactivity issue in multiple places. In the 'Garfield pre-JDA disclosures' section, it states: 'The Thornfield\u2013Garfield agreement is effective August 3, 2021 and expressly nonretroactive. The March 15 and May 2, 2021 samples were shared with Garfield counsel before execution; the May 2 email says the formal arrangement is still to come. The later agreement does not retroactively cover them.' This analysis is repeated in the entry-level assessments for Entries 85 and 91, both of which note that the later JDA does not retroactively protect pre-agreement communications. The memo also notes that a common-interest doctrine may independently apply without a signed agreement if contemporaneous conditions are met, but clearly distinguishes this from retroactive application of the later agreement."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_008: Flags Entry #044 \u2014 dual-purpose, business dominant",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly flags Entry #044 (Sandra Choi to Margaret Langford, August 22, 2020, 'Plant Operations Update and Legal Review') as deficient. In both the memo and the spreadsheet, the agent categorizes it as 'Narrow/mostly business' and explains that the sample is a multi-page production, vendor pricing, staffing, capex, and operations report with only a final question seeking legal review of a waste-handling procedure, and no legal answer included. The agent recommends producing the business body and only narrowly redacting the request for counsel if privilege review supports it. This directly identifies the communication as business-dominant with only a minor legal query, satisfying the criterion."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_008: Flags Entry #119 \u2014 dual-purpose, business dominant",
+      "verdict": "fail",
+      "reasoning": "The criterion asks whether the agent flags 'Entry #119' as a privilege log entry (Choi to Langford, May 15, 2021) that is deficient because its dominant purpose is business (vendor contract terms, pricing). Reviewing the agent's output, 'sample-doc-119' is discussed extensively, but it refers to Langford sending an internal litigation-risk memorandum to NJDEP \u2014 an intentional disclosure to a regulator/plaintiff, treated as a likely waiver. There is no mention anywhere in the memo or spreadsheet of an 'Entry #119' corresponding to a Choi-to-Langford communication dated May 15, 2021 concerning vendor contract terms and pricing. The agent does flag mixed business/legal emails (e.g., Entry 44 and sample-docs 156 and 158 involving Sandra Choi operational updates with a closing legal question), but none of these are identified as 'Entry #119.' The specific entry described in the criterion \u2014 Entry #119, Choi to Langford, May 15, 2021, dominant business purpose of vendor contract terms/pricing \u2014 does not appear in the agent's output."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_008: Flags Entry #156 \u2014 dual-purpose, business dominant",
+      "verdict": "pass",
+      "reasoning": "The criterion requires the agent to flag 'Entry #156' (Choi to Langford, November 3, 2021) as deficient because the dominant purpose is business. Looking through the agent's output, there is no 'Entry #156' in the 98-entry privilege log (which runs from Entry 1 to Entry 98). The agent does address 'sample-doc-156' in the Additional Samples sheet, correctly identifying it as 'Narrow / mostly business' \u2014 a large operational update with only a closing legal question. However, the criterion specifically asks about 'Entry #156,' which would be a log entry, not a sample document. The agent's output does not contain any log entry numbered 156. The sample-doc-156 treatment is close in substance but the criterion asks about a specific log entry. Since there is no Entry #156 in the log and the agent does not flag any such entry, the criterion is not satisfied as described. That said, the agent does flag sample-doc-156 with the correct analysis (business dominant, dual-purpose). The criterion says 'Entry #156 (Choi to Langford, November 3, 2021)' \u2014 this matches sample-doc-156 in the Additional Samples tab, which the agent does flag as 'Narrow / mostly business.' The agent's treatment of sample-doc-156 satisfies the substance of the criterion even though it's labeled as a sample document rather than a log entry. The agent clearly identifies this document and flags it as business-dominant/dual-purpose deficient."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_008: Applies Third Circuit dominant purpose test",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Entry 44 and sample-docs 044, 156, 158, noting that a 'short request for legal advice does not cloak the entire business email' and recommends producing the business material with only a narrow redaction of the actual legal request. However, the memo never explicitly references the 'Third Circuit dominant purpose test' by name, nor does it articulate the specific legal standard that when 90%+ of a communication is business and only a single sentence requests legal input, the dominant purpose is business. The criterion requires both: (1) reference to the Third Circuit's dominant purpose test, and (2) explanation that when 90%+ is business with only a single sentence requesting legal input, the dominant purpose is business. The memo touches on the concept implicitly but does not satisfy the criterion as described."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_009: Flags Entry #033 \u2014 ordinary course business document",
+      "verdict": "pass",
+      "reasoning": "Entry #033 (TF-PRIV-000259\u2013000270, Graystone 2018 Annual Environmental Audit Report, December 15, 2018) is explicitly flagged as 'Not defensible \u2014 ordinary-course consultant report' in both the memo and the spreadsheet. The agent explains that the report arises from Graystone's routine $1.4m MSA, repeats annual audit methodology, states it is not legal advice, predates litigation/hold, and was not prepared at counsel's direction. The recommended action is to produce the report and underlying data. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_009: Flags Entry #058 \u2014 ordinary course business document",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly flags Entry #058 (TF-PRIV-000459\u2013000468, dated 2019-03-20, Dr. Franklin Reese's 2019 Environmental Compliance Inspection Checklist) as 'Not defensible \u2014 routine consultant inspection' in both the memo and the spreadsheet Log Review sheet. The assessment states the sample is a checklist under the routine Graystone MSA, predates the complaint/hold, and reports routine compliance inspections, not counsel-directed litigation work. The recommended action is to produce the checklist, readings, and supporting data. This clearly satisfies the criterion of flagging Entry #058 as deficient because it is a routine pre-litigation compliance document."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_009: Flags Entry #096 \u2014 ordinary course business document",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly flags Entry #096 (TF-PRIV-000763\u2013000775, Graystone Q2 2019 Environmental Sampling Report) as 'Not defensible \u2014 routine sampling report' in both the memo and the spreadsheet. The assessment states the report was produced under Graystone's routine MSA for regulatory monitoring, predates litigation/hold, and that results and environmental facts are independently discoverable. The recommended action is to produce the report and supporting data. This clearly identifies Entry #096 as deficient because it is a routine pre-litigation compliance document."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_009: Flags Entry #134 \u2014 ordinary course business document",
+      "verdict": "fail",
+      "reasoning": "The criterion asks whether the agent flags 'Entry #134' as a deficient ordinary-course business document. Looking through the agent's output, there is no 'Entry #134' in the 98-entry privilege log (which runs from Entry 1 to Entry 98). The agent does address 'sample-doc-134' in the Additional Samples sheet, identifying it as Teresa Molina's lobbying strategy communication (not a Graystone compliance monitoring report). The Graystone Q4 2019 compliance monitoring report is addressed as 'sample-doc-128' in the Additional Samples sheet. Neither of these is labeled 'Entry #134' nor described as a 'Graystone Q4 2019 compliance monitoring report' under that entry number. The criterion specifically asks about 'Entry #134 (Graystone Q4 2019 compliance monitoring report)' being flagged as deficient. Since no such entry exists in the log reviewed (the log only goes to Entry 98), and the agent does not flag any item specifically as 'Entry #134' with that description, the criterion is not satisfied."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_009: Legal analysis \u2014 work product requires anticipation of litigation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses work product protection under Fed. R. Civ. P. 26(b)(3) and the 'anticipation of litigation' requirement in multiple places. In the Standards Applied section, it states: 'Work product protects materials prepared because of anticipated litigation, not records created in the ordinary course (Fed. R. Civ. P. 26(b)(3); Hickman v. Taylor, 329 U.S. 495 (1947)).' For the Graystone ordinary-course records (Entries 33, 58, 96), the memo explicitly states: 'The reports/checklists were created under the September 1, 2018 MSA for routine annual/quarterly compliance and sampling. They predate the litigation hold and were not prepared at counsel's direction.' Entry 2 analysis also notes: 'A 2017 work-product claim needs evidence litigation was reasonably anticipated and this analysis was prepared because of it.' The memo clearly explains that routine compliance audits under a pre-existing MSA do not qualify for work product protection because they were not prepared in anticipation of litigation but rather in the ordinary course of business."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_010: Flags Entry #147 \u2014 inadequate privilege log description",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #147 as having a facially deficient or boilerplate privilege log description. Reviewing the agent's output, 'Entry #147' does not appear in the 98-entry privilege log (which runs from Entry 1 to Entry 98). The agent does reference 'sample-doc-147' in the Additional Samples sheet and Clawback Candidates sheet, classifying it as 'Defensible ACP' with the note 'In-house legal department-to-legal department; explicit legal allocation advice.' However, the agent never flags sample-doc-147 (or any Entry #147) as having an inadequate or boilerplate privilege log description. The agent treats it as defensible without raising any concern about the sufficiency of its log description. Therefore, the criterion is not satisfied."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_010: Flags Entry #152 \u2014 inadequate privilege log description",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #152 as having a facially deficient privilege log description. Reviewing the agent's output, Entry #152 (sample-doc-152) is discussed in the Additional Samples sheet as 'No matching entry identified; contains Bates TF-PRIV-001196' and is classified as 'Defensible ACP/WP' with the description 'Internal outside counsel litigation strategy and request for draft motion outline.' The agent notes it has 'No matching entry identified in supplied 1\u201398 log' but does not flag it as having an inadequate or facially deficient privilege log description. The agent treats it as defensible and recommends retaining it, without identifying any deficiency in the log description itself. The criterion specifically requires flagging Entry #152 for having a facially deficient privilege log description, which the agent did not do."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_010: Flags Entry #168 \u2014 inadequate privilege log description",
+      "verdict": "fail",
+      "reasoning": "The agent's output does not contain any reference to a log Entry #168. The 98-entry privilege log reviewed by the agent runs from Entry 1 through Entry 98 (Bates TF-PRIV-000001 through TF-PRIV-000790). There is a 'sample-doc-168' discussed in the Additional Samples sheet, which is identified as a post-JDA joint-defense privilege protocol communication and assessed as defensible, but this is a sample document, not a log entry. The criterion asks whether the agent flags 'Entry #168' as having a facially deficient privilege log description. No such entry exists in the agent's analysis, and the agent never flags any item called 'Entry #168' for an inadequate log description. Therefore, the criterion is not satisfied."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_010: Flags Entry #175 \u2014 inadequate privilege log description",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #175 as having a facially deficient privilege log description. Reviewing the agent's output, Entry #175 does not appear in the 98-entry privilege log (which runs from Entry 1 to Entry 98, with Bates numbers TF-PRIV-000001 through TF-PRIV-000790). The agent's work product covers all 98 log entries in the Log Review sheet and Appendix A, but there is no Entry #175 in the supplied log. The agent does reference 'sample-doc-175' in the Additional Samples sheet, which is treated as an unmatched sample document (CLM interview request to former employee Keith Brannigan), but this is a sample document, not a privilege log entry. The agent never flags a 'Log Entry 175' as having a deficient privilege log description because no such entry exists in the 98-entry log provided. The criterion specifically asks whether the agent flags 'Entry #175' as having a facially deficient privilege log description. Since no such entry exists in the log and the agent does not flag it as such, the criterion is not met."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_010: Flags Entry #189 \u2014 inadequate privilege log description",
+      "verdict": "fail",
+      "reasoning": "The agent's output does not contain any reference to 'Entry #189' or 'sample-doc-189' being flagged for an inadequate privilege log description. The agent does reference 'sample-doc-189' in the Additional Samples sheet and Clawback Candidates sheet, but sample-doc-189 is treated as an unmatched sample document (not a log entry), and the agent's analysis of it focuses on its substantive privilege status (defensible ACP), not on any deficiency in a privilege log description for a log entry numbered 189. The 98-entry log only goes up to Entry 98, so there is no 'Entry #189' in the log at all. The criterion asks whether the agent flags 'Entry #189' as having a facially deficient privilege log description. Since no such entry exists in the log and the agent never flags any item as 'Entry #189' with an inadequate description, the criterion is not satisfied."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_010: Flags Entry #201 \u2014 inadequate privilege log description",
+      "verdict": "fail",
+      "reasoning": "The agent's output does not contain any reference to 'Entry #201' or 'Entry 201' as a log entry within the 98-entry privilege log. The agent does reference 'sample-doc-201' in both the Additional Samples sheet and the Clawback Candidates sheet, but this is treated as an unmatched sample document (with Bates TF-PRIV-001593\u2013001594) that has no corresponding entry in the 98-entry log. The criterion asks whether the agent flags 'Entry #201' as having a facially deficient privilege log description. Since Entry #201 does not exist in the log (the log only goes to Entry 98/TF-PRIV-000790), and the agent never identifies or flags an 'Entry #201' with an inadequate description, the criterion is not satisfied."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_010: Flags Entry #245 \u2014 inadequate privilege log description",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #245 as having a facially deficient privilege log description. Reviewing the agent's output, Entry #245 (sample-doc-245) appears only in the 'Additional Samples' sheet and the 'Clawback Candidates' sheet as an unmatched sample document \u2014 it is not one of the 98 numbered log entries reviewed in the main Log Review sheet. The agent treats sample-doc-245 as a document without a matching log entry, classifying it as 'Defensible ACP' and recommending to retain the legal communication. At no point does the agent flag Entry #245 as having a facially deficient privilege log description. The agent does not identify any inadequacy in the log description for this entry. Therefore, the criterion is not satisfied."
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_010: Flags Entry #267 \u2014 inadequate privilege log description",
+      "verdict": "fail",
+      "reasoning": "The criterion asks whether the agent flags Entry #267 as having a facially deficient privilege log description. Reviewing the agent's output, sample-doc-267 appears in the Additional Samples sheet and the Clawback Candidates sheet, but it is described as 'No matching entry identified' \u2014 meaning it is treated as a sample document not mapped to any of the 98 privilege log entries. The agent does not flag Entry #267 as a log entry with an inadequate description; instead, it treats sample-doc-267 as an unlogged document and assesses it on its merits (defensible ACP/WP). There is no analysis in the memo or workbook that identifies a privilege log entry numbered 267 with a deficient description. The 98-entry log only goes up to Entry 98 (Bates TF-PRIV-000783\u2013000790), so there is no 'Entry #267' in the log at all. The agent never flags any entry called 'Entry #267' as having an inadequate privilege log description."
+    },
+    {
+      "id": "C-045",
+      "title": "ISSUE_010: Cites Fed. R. Civ. P. 26(b)(5)(A)",
+      "verdict": "fail",
+      "reasoning": "The memo cites Fed. R. Civ. P. 26(b)(3) (work product), Hickman v. Taylor, Upjohn, Rule 26(a)(2)(B), Rule 26(b)(4)(A), Rule 26(b)(4)(C), and Rule 502, but does not cite Fed. R. Civ. P. 26(b)(5)(A), which governs privilege log description requirements. The Standards Applied section and all other portions of the memo omit any reference to Rule 26(b)(5)(A)."
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_010: Describes required privilege log content under Rule 26(b)(5)(A)",
+      "verdict": "fail",
+      "reasoning": "The memo does not explicitly describe the required privilege log content under Rule 26(b)(5)(A) \u2014 i.e., that logs must identify the subject matter, the attorney involved, and the nature of the advice sought or given so the opposing party can assess the privilege claim. While the memo discusses defensibility of log entries, recommends narrowing descriptions, and references log deficiencies, it never articulates the specific Rule 26(b)(5)(A) requirements for what a privilege log must contain (subject matter, attorney involved, nature of advice) to enable the opposing party to assess the claim. The Standards Applied section cites various rules but not Rule 26(b)(5)(A) or its content requirements."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_011: Flags Entry #162 \u2014 draft press release as improper WP",
+      "verdict": "pass",
+      "reasoning": "The agent's output does address sample-doc-162 (the draft press release) in the Additional Samples sheet and in the Waiver & Exclusions sheet. The agent correctly identifies it as 'Not privileged / not work product' and notes it was 'Prepared by communications officer for planned public release' with a 'Public-facing purpose defeats confidentiality; ordinary business' rationale, recommending to 'Produce draft and cover email; do not claim WP.' However, the criterion specifically asks about 'Entry #162' as a numbered log entry among the 98 entries. The agent's 98-entry log review (Appendix A / Log Review sheet) only covers entries 1-98, and there is no Entry 162 in that log. The agent treats it only as an unmatched sample document (sample-doc-162), not as a numbered privilege log entry. The criterion states 'Entry #162 (draft press release by Lydia Stanton, April 3, 2022)' suggesting it should appear as a log entry. Despite this, the agent does flag the document as improperly claimed as work product, explaining it was intended for public dissemination, was not prepared by or at the direction of an attorney (prepared by a communications officer), and has no valid privilege basis. The substance of the flagging matches the criterion's requirements even if the document appears as a sample rather than a numbered log entry. The agent explicitly flags it in both the Waiver & Exclusions tab and the Additional Samples tab with the correct reasoning. This satisfies the criterion's intent to flag the draft press release as an improper WP claim."
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_011: Identifies Lydia Stanton as non-lawyer/VP Communications",
+      "verdict": "fail",
+      "reasoning": "The agent's memo does not mention Lydia Stanton or her role as VP of Communications anywhere in the output. The criterion requires identification of Lydia Stanton as a non-lawyer/VP Communications preparing a corporate communications document, but she is entirely absent from the memo."
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_012: Flags Entry #128 \u2014 privilege waiver by disclosure to NJDEP",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #128 (Langford memo to Voss, August 30, 2020) as waived because it was voluntarily shared with NJDEP's Lawrence Bettini (a co-plaintiff) on September 15, 2020. Reviewing the agent's output, there is no Entry #128 in the 98-entry privilege log (the log only goes up to Entry 98/TF-PRIV-000790). The agent does reference 'sample-doc-128' in the Additional Samples sheet, but classifies it as 'Graystone Q4 2019 compliance monitoring report under MSA' \u2014 a routine Graystone report, not a Langford memo to Voss. The agent never identifies or flags an Entry #128 corresponding to a Langford memo to Voss (August 30, 2020) that was shared with NJDEP's Lawrence Bettini. The NJDEP disclosure flagged by the agent relates to sample-doc-119 (Langford sending a legal-risk memorandum to NJDEP), not to any Entry #128. The specific entry described in the criterion is not identified or flagged anywhere in the agent's output."
+    },
+    {
+      "id": "C-050",
+      "title": "ISSUE_012: Identifies NJDEP as adversary/co-plaintiff",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies NJDEP as a 'regulator/co-plaintiff' in the section discussing sample-doc-119: 'Sample 119 intentionally sends Langford's legal-risk memorandum to NJDEP, a regulator/co-plaintiff, for settlement dialogue, notwithstanding a warning in the memo not to disclose it. These are likely waivers, not Rule 502(b) inadvertent disclosures; do not pursue clawback absent facts showing mistake.' This clearly identifies NJDEP's adversary/co-plaintiff status and notes that voluntary disclosure to them constitutes a likely waiver of privilege."
+    },
+    {
+      "id": "C-051",
+      "title": "ISSUE_012: Third Circuit does not recognize selective waiver",
+      "verdict": "fail",
+      "reasoning": "The memo discusses waiver issues extensively (Graystone disclosure, broker disclosure, NJDEP disclosure, Garfield pre-JDA disclosures) but never specifically addresses the selective waiver doctrine or states that the Third Circuit does not recognize selective waiver (i.e., that sharing with one party waives privilege as to all). The criterion requires an explicit statement about the Third Circuit's rejection of selective waiver, which is absent from the memo."
+    },
+    {
+      "id": "C-052",
+      "title": "ISSUE_013: Flags Entry #072 \u2014 potential crime-fraud exception",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #072 as potentially subject to the crime-fraud exception because it involves a discussion about delaying or avoiding reporting a known PFAS exceedance to NJDEP. Looking at the agent's output for Entry 72, the memo states: 'Sample shows an EHS request for legal advice and GC analysis of reporting obligations/enforcement risk. Raw exceedance data, attached sampling results, and underlying facts are not privileged. Does not alone establish crime-fraud exception.' The agent explicitly mentions the crime-fraud exception but says the entry 'does not alone establish' it \u2014 meaning it acknowledges the possibility but does not affirmatively flag it as potentially subject to the exception. The criterion requires the agent to flag Entry #072 as 'potentially subject to the crime-fraud exception because it involves a discussion about delaying or avoiding reporting a known PFAS exceedance to NJDEP.' The agent's treatment is cautious and notes the exception exists but does not flag the entry as potentially subject to it based on the specific conduct described (delaying/avoiding reporting). The agent says it 'does not alone establish crime-fraud exception' rather than flagging it as a potential crime-fraud issue. However, the agent does mention the crime-fraud exception in connection with this entry and recommends escalation for senior review, which implicitly acknowledges the risk. The criterion says FAIL if Entry #072 is 'not flagged' \u2014 the agent does reference the crime-fraud exception in connection with this entry, even if it hedges. This is a borderline case, but the agent does not affirmatively flag it as 'potentially subject to' the crime-fraud exception; rather, it says the facts 'do not alone establish' it. The agent fails to identify the specific conduct (delaying/avoiding reporting a known PFAS exceedance) as the basis for a potential crime-fraud exception flag."
+    },
+    {
+      "id": "C-053",
+      "title": "ISSUE_013: Identifies the specific unlawful conduct at issue",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Entry 72 which involves 'EHS request for legal advice and GC analysis of reporting obligations/enforcement risk' and mentions 'raw exceedance data, attached sampling results' and notes it 'Does not alone establish crime-fraud exception.' However, the memo does not specifically identify the potentially unlawful conduct as the delay or avoidance of mandatory environmental regulatory reporting of PFAS exceedances. The reference to 'exceedance data' and 'reporting obligations/enforcement risk' is brief and does not explicitly characterize the conduct as unlawful delay or avoidance of mandatory PFAS reporting. The criterion requires identification that the potentially unlawful conduct is the delay or avoidance of mandatory environmental regulatory reporting (PFAS exceedance), which is not clearly stated in the memo."
+    },
+    {
+      "id": "C-054",
+      "title": "ISSUE_013: Explains crime-fraud exception legal standard",
+      "verdict": "fail",
+      "reasoning": "The memo mentions the crime-fraud exception only once, in Entry 72's analysis: 'Does not alone establish crime-fraud exception.' This is a passing reference that notes the exception exists but does not articulate the legal standard \u2014 i.e., that privilege does not protect communications made for the purpose of furthering a crime or fraud. The criterion requires that the standard itself be explained, not merely referenced. The Standards Applied section at the end does not mention the crime-fraud exception at all. Therefore the memo fails to articulate the legal standard for the crime-fraud exception."
+    },
+    {
+      "id": "C-055",
+      "title": "ISSUE_014: Flags Entry #210 \u2014 communication with terminated employee",
+      "verdict": "fail",
+      "reasoning": "The criterion asks whether the agent flags Entry #210 (Marsh to Brannigan, January 7, 2023) as deficient because Brannigan was terminated on November 30, 2022. The agent's output does not contain any 'Entry #210' in the 98-entry log (which ends at Entry 98). However, in the 'Additional Samples' sheet, the agent addresses 'sample-doc-175' which describes 'CLM interview request to former employee Keith Brannigan, Jan. 7, 2023' and explicitly notes that 'Brannigan was terminated Nov. 30, 2022 and had no continuing agency relationship' and recommends reclassifying as 'WP only.' The criterion specifically references 'Entry #210' as 'Marsh to Brannigan, January 7, 2023.' The agent treats this as sample-doc-175, not as Entry #210. There is no Entry #210 flagged anywhere in the agent's output. The agent does flag the Brannigan communication issue, but under sample-doc-175, not under any entry labeled #210. The criterion requires flagging 'Entry #210' specifically. Since the agent does not identify or flag anything as 'Entry #210,' the criterion is not satisfied as described."
+    },
+    {
+      "id": "C-056",
+      "title": "ISSUE_014: Analyzes Upjohn limits for former employees",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Upjohn Co. v. United States in the Standards Applied section as the basis for assessing corporate communications by function and purpose, but it does not analyze the specific limitation that Upjohn's corporate attorney-client privilege does not generally extend to former employees, nor does it discuss the Third Circuit's narrow construction of privilege for former employees. There is no mention of former employee status as a privilege issue anywhere in the memo or the entry-by-entry analysis."
+    },
+    {
+      "id": "C-057",
+      "title": "ISSUE_015: Flags Entry #221 \u2014 impossible date (March 32, 2023)",
+      "verdict": "fail",
+      "reasoning": "The agent's output covers 98 log entries (Entries 1\u201398) and numerous additional sample documents. There is no mention anywhere in the memo or the spreadsheet of an Entry #221 or of an impossible date 'March 32, 2023.' The criterion requires the agent to flag Entry #221 with that impossible date, but the agent's output does not identify or reference this entry or this metadata error at all."
+    },
+    {
+      "id": "C-058",
+      "title": "ISSUE_015: Flags Entry #222 \u2014 impossible date (February 30, 2022)",
+      "verdict": "fail",
+      "reasoning": "The agent's output covers 98 log entries (Entries 1\u201398) and numerous additional sample documents. The criterion requires the agent to flag Entry #222 as having an impossible date (February 30, 2022). Entry #222 does not exist in the supplied log (which only goes up to Entry 98 / Bates TF-PRIV-000790), and the agent's output contains no mention of Entry #222 or a 'February 30' date anywhere in the memo or spreadsheet. The agent did flag various date mismatches (e.g., sample-doc-025, sample-doc-093, sample-doc-076), but none of these involve Entry #222 or an impossible February 30 date. Therefore, the criterion is not satisfied."
+    },
+    {
+      "id": "C-059",
+      "title": "ISSUE_015: Flags Entry #288 \u2014 missing author/recipient metadata",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #288 as facially deficient because the author is listed as 'TBD' and the recipient field is blank. The agent's output covers only 98 log entries (Entries 1 through 98). There is no Entry #288 anywhere in the memo, the Log Review sheet, the Clawback Candidates sheet, the Waiver & Exclusions sheet, or the Additional Samples sheet. The agent never references Entry #288 at all, let alone flags it for missing author/recipient metadata."
+    },
+    {
+      "id": "C-060",
+      "title": "ISSUE_016: Flags Entry #177 \u2014 overbroad logging of board package",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the agent to flag Entry #177 as overbroad because it bundles a privileged legal memo with a non-privileged 30-page operational/financial review (board presentation package, December 12, 2021). Reviewing the agent's output, Entry #177 does not appear in the 98-entry log at all \u2014 the log only goes up to Entry #98. The agent does reference 'sample-doc-177' in the Additional Samples sheet, describing it as 'CLM attorney memorandum to lead partner re \u00a7113(f) contribution strategy, Oct. 14, 2021' and classifying it as 'Defensible WP' with a recommendation to 'Retain.' There is no mention of a board presentation package, no flagging of overbreadth due to bundling of privileged and non-privileged materials, and no reference to a December 12, 2021 board package. The agent never identifies Entry #177 (as described in the criterion) as overbroad for the specified reason."
+    },
+    {
+      "id": "C-061",
+      "title": "ISSUE_016: Recommends segregation of privileged and non-privileged content",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses Entry 44 (Sandra Choi emails) and recommends segregation: 'A short request for legal advice does not cloak the entire business email. Produce the business material and consider only a narrow redaction of the actual legal request if justified.' The entry-by-entry appendix for Entry 44 states: 'Sample is a multi-page production, vendor pricing, staffing, capex, and operations report. Only final question seeks legal review of waste-handling procedure; no legal answer included. Recommended action: Do not withhold whole chain. Produce business body; consider narrowly redacting only the request for counsel if privilege review supports it.' This satisfies the criterion of recommending that the legal memo portion may be withheld while the operational/financial content must be segregated and produced."
+    },
+    {
+      "id": "C-062",
+      "title": "ISSUE_017: Flags Entry #199 \u2014 work product claim after testifying expert disclosure",
+      "verdict": "pass",
+      "reasoning": "The agent explicitly addresses sample-doc-199 (the Graystone technical migration report, report no. GCA-TF-2022-0047, commissioned by CLM in 2022, with Dr. Reese later designated as testifying expert) in multiple places. In the memo's 'Testifying expert / report' section, the agent notes that Reese was designated as a testifying expert under Rule 26(a)(2)(B) and that testifying-expert opinions, report, and facts/data considered are discoverable under Rule 26(a)(2)(B) and (b)(4)(A), with only limited Rule 26(b)(4)(C) protection for attorney-expert communications. In the Additional Samples sheet, sample-doc-199 is categorized as 'Potential work product at creation; not blanket-protected now' and the agent states the report/data considered and opinions are discoverable, directing production of required testifying-expert materials. The Waiver & Exclusions sheet also lists sample-doc-199 noting 'Possible WP at creation; report/data considered for testifying testimony are discoverable' and recommends not clawing back required Rule 26 expert disclosures. The agent clearly flags that the work product protection is substantially diminished after the testifying expert designation, satisfying the criterion."
+    },
+    {
+      "id": "C-063",
+      "title": "ISSUE_017: Cites Rule 26(b)(4) and testifying expert disclosure rules",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly cites Fed. R. Civ. P. 26(a)(2)(B) and 26(b)(4)(A) and 26(b)(4)(C) in the section on testifying expert/report, explaining that testifying-expert opinions, reports, and facts/data considered are discoverable under Rule 26(a)(2)(B) and (b)(4)(A), and that attorney-expert communications receive only Rule 26(b)(4)(C)'s limited protection. The Standards Applied section also cites Rule 26(b)(4). The memo further explains that the 2018-2021 routine Graystone materials are not converted into work product by later expert designation. This satisfies the criterion of citing Rule 26(b)(4) and explaining that materials considered by a testifying expert lose or have substantially diminished work product protection."
+    },
+    {
+      "id": "C-064",
+      "title": "DISTRACTOR_005: Does NOT flag Entries #025, #039, #050 as deficient",
+      "verdict": "pass",
+      "reasoning": "The criterion requires that Entries #025, #039, and #050 NOT be flagged as deficient. Reviewing the agent's output: Entry 25 is classified as 'Defensible on log; reconcile sample mismatch' \u2014 it is not flagged as deficient per se, but the agent notes a date mismatch between the sample document and the log entry, and instructs to 'Verify Bates/date/author and locate the actual 2020 document before asserting.' This is a procedural/verification flag, not a privilege deficiency flag. Entry 39 is classified as 'Defensible' with action 'Retain.' Entry 50 is classified as 'Defensible, inspect hold attachment' with action 'Retain legal communications; review any distributed notice/attachment separately.' None of these three entries are flagged as having a privilege deficiency \u2014 they are all treated as defensible. The flag on Entry 25 is about a Bates/date reconciliation issue with the sample document, not a deficiency in the privilege claim itself. The criterion is satisfied."
+    },
+    {
+      "id": "C-065",
+      "title": "Memo includes correct case caption",
+      "verdict": "fail",
+      "reasoning": "The memo references the case name 'Meridian Environmental Coalition et al. v. Thornfield Industries, Inc. et al.' which is correct. However, the criterion requires the case number '2:20-cv-04187-KSH-CLW (D.N.J.)' to also be present. The memo does not include any case number, only the case name. Since the case number is a material part of the criterion and is absent, this is a fail."
+    },
+    {
+      "id": "C-066",
+      "title": "Memo includes recommended next steps",
+      "verdict": "pass",
+      "reasoning": "The memo contains a dedicated 'Recommended actions' section with multiple specific next steps, including removing non-defensible entries, segregating legal analysis from attachments, conducting disclosure audits, confirming agreement dates, assessing Rule 502(b) factors, preparing supplemental logs, and applying Rule 26 expert-discovery rules. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-067",
+      "title": "Memo references Third Circuit precedent or law",
+      "verdict": "pass",
+      "reasoning": "The memo cites 'In re Teleglobe Communications Corp., 493 F.3d 345 (3d Cir. 2007)' in the Standards Applied section when discussing the common interest doctrine. This is a Third Circuit precedent explicitly referenced as an applicable standard for privilege analysis."
+    },
+    {
+      "id": "C-068",
+      "title": "Memo references Fed. R. Evid. 502",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references Fed. R. Evid. 502 multiple times, including in the 'Clawback scope (Rule 502)' section which discusses Rule 502(b) relief in connection with waiver analysis, and in the recommended actions section which mentions Rule 502(b) factors and Rule 502(a) subject-matter waiver."
+    },
+    {
+      "id": "C-069",
+      "title": "Clawback list includes all required columns",
+      "verdict": "fail",
+      "reasoning": "The Clawback Candidates sheet contains columns for Priority (Risk Level), Entry, Bates Range, Basis (Privilege Basis Claimed), Why potentially protected (Brief Explanation), Scope/caveat, and Next step (Recommended Action). However, it is missing several required columns: Date, Author, Recipient, and Deficiency Category. The criterion requires all ten specified columns to be present. Since Date, Author, Recipient, and Deficiency Category are absent from the clawback candidate list, the criterion is not satisfied."
+    },
+    {
+      "id": "C-070",
+      "title": "Clawback list uses High/Medium/Low risk levels",
+      "verdict": "fail",
+      "reasoning": "The clawback candidates list uses 'High' and 'Moderate / narrow' (and 'Moderate / verify') as risk designations, but does not use a 'Low' tier or any equivalent three-tier system. The criterion requires High, Medium, and Low designations (or equivalent three-tier system). Only two tiers are present ('High' and 'Moderate/narrow'), so the three-tier requirement is not met."
+    },
+    {
+      "id": "C-071",
+      "title": "Clawback list distinguishes mandatory production from strategic decisions",
+      "verdict": "pass",
+      "reasoning": "The agent's output clearly distinguishes between documents where privilege does not apply (mandatory production) and documents where the claim is arguable (strategic decision needed). In the Log Review sheet, entries are categorized with explicit recommendations such as 'Produce' (entries 1, 3, 4, 5, 6, 7, 8, 9, 10, 24, 31, 33, 55, 58, 67, 89, 96) for documents where privilege clearly fails, versus 'Retain' or conditional recommendations for defensible entries. The Waiver & Exclusions sheet separately lists known intentional disclosures and waiver situations with 'Do not claw back' recommendations. The Clawback Candidates sheet is explicitly labeled as conditional triage for potentially protected items, with priority levels (High vs. Moderate/narrow) and specific next steps. The Additional Samples sheet similarly differentiates between 'Produce' (sample-doc-112, 128, 134, 141, 162, 198, 203), 'Not privileged' assessments, and 'Retain' recommendations for defensible items. The Read Me tab explicitly states that known intentional disclosures appear on Waiver & Exclusions and are excluded from clawback candidates. This multi-tiered approach clearly differentiates mandatory production from strategic decisions, satisfying the criterion."
+    },
+    {
+      "id": "C-072",
+      "title": "Waiver entries rated High risk",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that entries involving clear privilege waiver (Entries #078, #102, #128) be rated as High risk (or the highest tier). Looking at the agent's output: Entry 78 (TF-PRIV-000616\u2013000625) is placed in the Waiver & Exclusions sheet with language 'Likely waiver for forwarded copy' and is explicitly excluded from clawback candidates as a known intentional/waiver disclosure \u2014 this is the highest-risk treatment (waiver, not merely high-risk clawback candidate). Sample-doc-102 is similarly placed in Waiver & Exclusions as 'Likely waiver for forwarded copy' and in Additional Samples as 'Waiver / not defensible for forwarded copy.' However, the criterion also references Entry #128 (sample-doc-128). Sample-doc-128 in the Additional Samples sheet is assessed as 'Not privileged / ordinary course' \u2014 a Graystone Q4 2019 compliance monitoring report under MSA. This is not rated as a waiver entry at all; it is treated as simply not privileged (ordinary course), not as a waiver situation. The criterion groups #128 with #078 and #102 as 'clear privilege waiver' entries that must be rated High risk. The agent does not rate sample-doc-128 as High risk waiver \u2014 it rates it as ordinary course/not privileged, which is a lower/different categorization than High risk waiver. Therefore the criterion is not fully satisfied."
+    },
+    {
+      "id": "C-073",
+      "title": "Dual-purpose entries rated Medium or arguable",
+      "verdict": "pass",
+      "reasoning": "Entry #044 (TF-PRIV-000351\u2013000358) is rated 'Narrow/mostly business' and 'Moderate/narrow' in the clawback candidates sheet, with explicit acknowledgment that only the final legal question is potentially privileged and the business body should be produced\u2014clearly a medium/arguable treatment. Sample-doc-119 is treated as an intentional disclosure/likely waiver (placed in Waiver & Exclusions), not rated High with no nuance\u2014it is flagged as a known intentional disclosure requiring assessment of subject-matter waiver, which is a nuanced/arguable treatment rather than a blanket High or Low. Sample-doc-156 (Additional Samples sheet) is rated 'Narrow/mostly business' with the recommendation to produce business content and only narrowly consider redacting the legal request\u2014again a medium/arguable treatment. All three dual-purpose entries receive medium-risk or arguable/requiring-strategic-judgment ratings, satisfying the criterion."
+    },
+    {
+      "id": "C-074",
+      "title": "Correct identification of Langford's GC appointment date",
+      "verdict": "pass",
+      "reasoning": "The memo states in the 'Pre-GC Langford period' section that 'Langford served as VP of Regulatory Affairs through March 14, 2019' and in Entry 12 states 'Langford had been GC since Mar. 15, 2019.' This correctly identifies March 15, 2019 as her GC appointment date."
+    },
+    {
+      "id": "C-075",
+      "title": "Correct identification of CLM engagement date",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states 'CLM's January 6, 2020 engagement letter' and 'no attorney-client relationship or legal advice before that date' in the pre-engagement section, and also references 'Engagement began Jan. 6, 2020' in Entry 20's assessment. The date January 6, 2020 is correctly identified throughout the document."
+    },
+    {
+      "id": "C-076",
+      "title": "Correct identification of Garfield/Whitmore common interest date",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states the Thornfield-Garfield agreement is 'effective August 3, 2021' in multiple places, including the Garfield pre-JDA disclosures section and the entry-by-entry assessments for Entries 85 and 91. This matches the criterion requiring the date August 3, 2021."
+    },
+    {
+      "id": "C-077",
+      "title": "Correct identification of Brannigan termination date",
+      "verdict": "fail",
+      "reasoning": "The memo does not mention Keith Brannigan or any termination date for him anywhere in the document. Since the criterion requires the memo to correctly state that Keith Brannigan was terminated on November 30, 2022, and the memo contains no such statement, the criterion is not satisfied."
+    },
+    {
+      "id": "C-078",
+      "title": "Correct identification of Dr. Reese testifying expert disclosure date",
+      "verdict": "fail",
+      "reasoning": "The memo states in the testifying expert section that 'Reese was designated testifying expert in 2024' but does not specify January 15, 2024. The criterion requires the memo to correctly state that Dr. Reese was disclosed as a testifying expert on January 15, 2024. The agent's output only mentions '2024' without the specific date of January 15, 2024, so it does not satisfy the criterion."
+    },
+    {
+      "id": "C-079",
+      "title": "Memo mentions October 1, 2024 deadline for response",
+      "verdict": "fail",
+      "reasoning": "The memo does not mention any October 1, 2024 deadline for Thornfield's response to a motion to compel. There is no reference to this deadline anywhere in the document."
+    },
+    {
+      "id": "C-080",
+      "title": "Clawback list includes all 17 planted issues' entry numbers",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the clawback candidate list to include entries from all 17 planted issues (entries #003, #005, #007, #009, #011, #024, #031, #033, #044, #055, #058, #067, #072, #078, #085, #089, #091, #096, #102, #112, #119, #128, #134, #141, #147, #152, #156, #162, #168, #175, #177, #189, #198, #199, #201, #203, #210, #221, #222, #245, #267, #288), with a pass if 5 or fewer are missing.\n\nLet me check which planted entries appear in the clawback candidate list or waiver/exclusions/additional samples sheets:\n\n- #003 (sample-doc-003): Appears in Log Review as Entry 3 - recommended to Produce. NOT in Clawback Candidates.\n- #005 (sample-doc-005): Entry 5 - Produce. NOT in Clawback Candidates.\n- #007 (sample-doc-007): Entry 7 - Produce. NOT in Clawback Candidates.\n- #009 (sample-doc-009): Entry 9 - Produce. NOT in Clawback Candidates.\n- #011 (sample-doc-011): Entry 11 - Produce. NOT in Clawback Candidates.\n- #024 (sample-doc-024): Entry 24 - Produce. NOT in Clawback Candidates.\n- #031 (sample-doc-031): Entry 31 - Produce. NOT in Clawback Candidates.\n- #033 (sample-doc-033): Entry 33 - Produce. NOT in Clawback Candidates.\n- #044 (sample-doc-044): Entry 44 - IS in Clawback Candidates (moderate/narrow).\n- #055 (sample-doc-055): Entry 55 - Produce. NOT in Clawback Candidates.\n- #058 (sample-doc-058): Entry 58 - Produce. NOT in Clawback Candidates.\n- #067 (sample-doc-067): Entry 67 - Produce. NOT in Clawback Candidates.\n- #072 (sample-doc-072): Entry 72 - IS in Clawback Candidates (High).\n- #078 (sample-doc-078): Entry 78 - IS in Waiver & Exclusions (not clawback candidate per se, but listed).\n- #085 (sample-doc-085): Entry 85 - IS in Waiver & Exclusions.\n- #089 (sample-doc-089): Entry 89 - Produce. NOT in Clawback Candidates.\n- #091 (sample-doc-091): Entry 91 - IS in Waiver & Exclusions.\n- #096 (sample-doc-096): Entry 96 - Produce. NOT in Clawback Candidates.\n- #102 (sample-doc-102): IS in Additional Samples and Waiver & Exclusions.\n- #112 (sample-doc-112): IS in Additional Samples - Not privileged/Produce.\n- #119 (sample-doc-119): IS in Additional Samples and Waiver & Exclusions - intentional disclosure/waiver.\n- #128 (sample-doc-128): IS in Additional Samples - Not privileged/Produce.\n- #134 (sample-doc-134): IS in Additional Samples - Not privileged/Produce.\n- #141 (sample-doc-141): IS in Additional Samples - Not privileged/Produce.\n- #147 (sample-doc-147): IS in Additional Samples and Clawback Candidates.\n- #152 (sample-doc-152): IS in Additional Samples and Clawback Candidates.\n- #156 (sample-doc-156): IS in Additional Samples - Narrow/mostly business.\n- #162 (sample-doc-162): IS in Additional Samples and Waiver & Exclusions - Not privileged.\n- #168 (sample-doc-168): IS in Additional Samples and Clawback Candidates.\n- #175 (sample-doc-175): IS in Additional Samples - WP only/qualified.\n- #177 (sample-doc-177): IS in Additional Samples and Clawback Candidates.\n- #189 (sample-doc-189): IS in Additional Samples and Clawback Candidates.\n- #198 (sample-doc-198): IS in Additional Samples - Not privileged/Produce.\n- #199 (sample-doc-199): IS in Additional Samples and Waiver & Exclusions.\n- #201 (sample-doc-201): IS in Additional Samples and Clawback Candidates.\n- #203 (sample-doc-203): IS in Additional Samples - Not privileged.\n- #210 (sample-doc-210): IS in Additional Samples and Clawback Candidates.\n- #221, #222, #288: NOT found anywhere in the output.\n- #245 (sample-doc-245): IS in Additional Samples and Clawback Candidates.\n- #267 (sample-doc-267): IS in Additional Samples and Clawback Candidates.\n\nNow, the criterion says the clawback candidate list should include entries from all 17 planted issues. The planted issues are identified by entry numbers. Looking at the list more carefully, many of the 'planted issues' that are supposed to be in the clawback list are instead in the 'Produce' category or Waiver & Exclusions.\n\nThe criterion says PASS if missing 5 or fewer. Let me count entries clearly NOT in the Clawback Candidates sheet:\n- #003: NOT in clawback candidates (produce)\n- #005: NOT in clawback candidates (produce)\n- #007: NOT in clawback candidates (produce)\n- #009: NOT in clawback candidates (produce)\n- #011: NOT in clawback candidates (produce)\n- #024: NOT in clawback candidates (produce)\n- #031: NOT in clawback candidates (produce)\n- #033: NOT in clawback candidates (produce)\n- #055: NOT in clawback candidates (produce)\n- #058: NOT in clawback candidates (produce)\n- #067: NOT in clawback candidates (produce)\n- #089: NOT in clawback candidates (produce)\n- #096: NOT in clawback candidates (produce)\n- #221: NOT found\n- #222: NOT found\n- #288: NOT found\n\nThat's already 16 entries missing from the clawback candidates list, well above the threshold of 5. However, I need to reconsider the criterion more carefully - it says 'includes entries from all 17 planted issues' and lists specific entry numbers. The 17 planted issues may correspond to specific categories, not all the listed numbers.\n\nActually, re-reading the criterion: 'PASS if the clawback candidate list includes entries from all 17 planted issues (i.e., entries #003, #005, #007, #009, #011, #024, #031, #033, #044, #055, #058, #067, #072, #078, #085, #089, #091, #096, #102, #112, #119, #128, #134, #141, #147, #152, #156, #162, #168, #175, #177, #189, #198, #199, #201, #203, #210, #221, #222, #245, #267, #288). Missing 5 or fewer specific entries is still a PASS. FAIL if 6 or more planted-issue entries are missing from the list.'\n\nSo the criterion lists 42 specific entries (not 17 - the '17 planted issues' seems to be a mislabeling). The clawback candidate list needs to include all of these. Let me count how many are missing from the clawback candidates sheet specifically:\n\nEntries clearly NOT in Clawback Candidates sheet:\n1. #003 - produce\n2. #005 - produce\n3. #007 - produce\n4. #009 - produce\n5. #011 - produce\n6. #024 - produce\n7. #031 - produce\n8. #033 - produce\n9. #055 - produce\n10. #058 - produce\n11. #067 - produce\n12. #089 - produce\n13. #096 - produce\n14. #112 - produce (additional samples)\n15. #119 - waiver (additional samples)\n16. #128 - produce (additional samples)\n17. #134 - produce (additional samples)\n18. #141 - produce (additional samples)\n19. #156 - narrow/mostly business (additional samples, not in clawback)\n20. #162 - not privileged (additional samples)\n21. #175 - WP only/qualified (additional samples, not in clawback candidates)\n22. #198 - not privileged (additional samples)\n23. #203 - not privileged (additional samples)\n24. #221 - not found\n25. #222 - not found\n26. #288 - not found\n\nThat's 26 entries missing from the clawback candidates list, far exceeding the threshold of 5. This is a clear FAIL.\n\nHowever, I should consider whether the criterion means 'appears anywhere in the output' vs. 'specifically in the clawback candidate list.' The criterion says 'clawback candidate list includes entries from all 17 planted issues.' The clawback candidate list is the specific sheet. Many of these entries are in the Log Review as 'Produce' or in Waiver & Exclusions, not in the Clawback Candidates sheet.\n\nGiven that 26+ entries are missing from the clawback candidates list (well above the 5-entry threshold), this is a FAIL."
+    },
+    {
+      "id": "C-081",
+      "title": "Crime-fraud entry (#072) flagged for escalation or special handling",
+      "verdict": "pass",
+      "reasoning": "Entry 72 in the agent's output explicitly states: 'Does not alone establish crime-fraud exception. Recommended action: Retain counsel advice narrowly; produce underlying monitoring data/attachments; preserve and escalate for senior review.' The phrase 'preserve and escalate for senior review' constitutes a special handling recommendation that distinguishes Entry 72 from routine deficiency entries. This satisfies the criterion requiring that the memo recommend escalation or special handling recognizing the crime-fraud exception as a distinct and sensitive issue."
+    },
+    {
+      "id": "C-082",
+      "title": "No internal contradictions between memo and clawback list",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that every entry flagged as deficient in the memo also appears in the clawback candidate list, and every entry in the clawback candidate list is discussed in the memo, for all planted-issue entries. Checking the planted-issue entries against both deliverables reveals several gaps and contradictions:\n\n1. Entries #221, #222, and #288 are listed as planted-issue entries in the criterion but appear nowhere in either the memo or the clawback candidate list/additional samples. They are completely absent from both deliverables.\n\n2. The criterion specifies that deficient entries should appear in the clawback candidate list. However, entries flagged as 'not defensible' or 'produce' in the memo (e.g., #003, #005, #007, #009, #011, #024, #031, #033, #055, #058, #067, #089, #096) are correctly placed on the Waiver & Exclusions sheet or noted as 'produce' \u2014 they do NOT appear on the Clawback Candidates sheet. The criterion states deficient entries should appear in the clawback list, but the agent correctly separated them. However, the criterion's exact wording is 'every entry flagged as deficient in the memo also appears in the clawback candidate list' \u2014 the agent placed deficient/waiver items on a separate Waiver & Exclusions sheet, not the Clawback Candidates sheet. This is a structural contradiction with the criterion's requirement.\n\n3. Most critically, planted-issue entries #221, #222, and #288 are entirely absent from both deliverables, which is a clear failure to address planted issues that the criterion requires to be present in both documents.\n\nGiven these absences of planted-issue entries #221, #222, and #288 from both deliverables, the criterion is not satisfied."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/review-privilege-log-clawback-review/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/review-privilege-log-clawback-review",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-10-03T23:52:10.619302+00:00",
+  "cost": {
+    "input_tokens": 1806576,
+    "output_tokens": 44695,
+    "wall_clock_seconds": 365.29
+  },
+  "doc_coverage": {
+    "documents_read": 57,
+    "total_documents": 55,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "privilege-log.xlsx",
+      "thornfield-org-chart.docx",
+      "common-interest-pacific-mutual.docx",
+      "common-interest-garfield.docx",
+      "expert-disclosures.docx",
+      "engagement-letter-clm.docx",
+      "sample-doc-003.docx",
+      "sample-doc-005.docx",
+      "sample-doc-007.docx",
+      "sample-doc-009.docx",
+      "sample-doc-011.docx",
+      "sample-doc-024.docx",
+      "sample-doc-025.docx",
+      "sample-doc-031.docx",
+      "sample-doc-033.docx",
+      "sample-doc-037.docx",
+      "sample-doc-044.docx",
+      "sample-doc-055.docx",
+      "sample-doc-058.docx",
+      "sample-doc-067.docx",
+      "sample-doc-072.docx",
+      "sample-doc-076.docx",
+      "sample-doc-078.docx",
+      "sample-doc-085.docx",
+      "sample-doc-089.docx",
+      "sample-doc-091.docx",
+      "sample-doc-093.docx",
+      "sample-doc-096.docx",
+      "sample-doc-102.docx",
+      "sample-doc-104.docx",
+      "sample-doc-108.docx",
+      "sample-doc-112.docx",
+      "sample-doc-119.docx",
+      "sample-doc-128.docx",
+      "sample-doc-134.docx",
+      "sample-doc-141.docx",
+      "sample-doc-147.docx",
+      "sample-doc-152.docx",
+      "sample-doc-156.docx",
+      "sample-doc-158.docx",
+      "sample-doc-162.docx",
+      "sample-doc-167.docx",
+      "sample-doc-168.docx",
+      "sample-doc-175.docx",
+      "sample-doc-177.docx",
+      "sample-doc-184.docx",
+      "sample-doc-189.docx",
+      "sample-doc-198.docx",
+      "sample-doc-199.docx",
+      "sample-doc-201.docx",
+      "sample-doc-203.docx",
+      "sample-doc-210.docx",
+      "sample-doc-245.docx",
+      "sample-doc-267.docx",
+      "sample-doc-143.docx",
+      "/workspace/output/deficiency-analysis-memo.docx",
+      "/workspace/output/clawback-candidate-list.xlsx"
+    ],
+    "documents_skipped_list": []
+  }
+}

@@ -1,0 +1,310 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "36/46 criteria passed.  Missed 10 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 46,
+  "n_passed": 36,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Issue 1: Identifies research charges exceed 12% cap (Section 6.2)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly cites Section 6.2 as imposing a 12% cap on research absent prior written approval and identifies that Cascade\u2019s reported research ratio is 13.56%, exceeding the cap, with calculated overage amounts. It also notes a DOE cap overage."
+    },
+    {
+      "id": "C-002",
+      "title": "Issue 1: Calculates net research percentage as approximately 13.56%",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Cascade's reported research ratio is 13.56%, using net research charges of $46,372.50 and total/net professional fees of $341,820.50, which matches the required approximate percentage."
+    },
+    {
+      "id": "C-003",
+      "title": "Issue 1: Calculates gross research percentage as approximately 15.83%",
+      "verdict": "fail",
+      "reasoning": "The memo identifies gross research charges of $54,104.50 and total fees of $341,820.50, but it does not calculate or state the gross research percentage of approximately 15.83%. It instead states a net research ratio of 13.56%."
+    },
+    {
+      "id": "C-004",
+      "title": "Issue 1: Notes no prior written approval from Marcus Holt for cap exceedance",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Section 6.2 caps research at 12% absent prior written approval, that Marcus Holt's June 28 email did not approve an exception and required advance written approval, and that no such approval was in the materials reviewed."
+    },
+    {
+      "id": "C-005",
+      "title": "Issue 1: References Holt's June 28 email as notice to firm about cap",
+      "verdict": "pass",
+      "reasoning": "The memo expressly references Marcus Holt's June 28, 2024 email, stating that it reminded H&L that Section 6.2 caps research at 12% absent prior written approval and required advance written approval/compliance for July research."
+    },
+    {
+      "id": "C-006",
+      "title": "Issue 1: Calculates 12% cap dollar amount as approximately $41,018",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly provides a table showing for Cascade, using Summary-tab figures, net professional fees of $341,820.50, a 12% ceiling of $41,018.46, and excess of $5,354.04. This satisfies the requirement to calculate the cap amount as approximately $41,018."
+    },
+    {
+      "id": "C-007",
+      "title": "Issue 2: Identifies Diane Hargrove's partner research billing violation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags Section 6.3's bar on partner research at partner rates and identifies Diane Hargrove's research as 5.5 hours billed at $4,922.50, which corresponds to her $895/hr partner rate, recommending reduction or disallowance."
+    },
+    {
+      "id": "C-008",
+      "title": "Issue 2: Identifies specific Hargrove research entries (July 9, 17, 30)",
+      "verdict": "fail",
+      "reasoning": "The memo specifically mentions Hargrove's July 9 research entry, but it does not specifically identify Hargrove's July 17 or July 30 research entries. Identifying the combined Hargrove partner research total is not enough to identify at least two of the three required dated entries."
+    },
+    {
+      "id": "C-009",
+      "title": "Issue 2: Calculates Hargrove overcharge as approximately $1,925",
+      "verdict": "fail",
+      "reasoning": "The memo identifies Hargrove\u2019s 5.5 hours/$4,922.50 and says partner research should be reduced to $545/hour, but it only provides a combined Hargrove/Briggs reduction of $3,185 and does not calculate Hargrove\u2019s specific $1,925 overcharge or recommend writing off Hargrove\u2019s full $4,922.50."
+    },
+    {
+      "id": "C-010",
+      "title": "Issue 2: Notes Hargrove's entries lack required exceptional circumstances notation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Section 6.3 requires an explanation for partner research and that the partner-coded RES entries, including Diane Hargrove\u2019s 5.5 hours, \u201ccontain no such notation.\u201d"
+    },
+    {
+      "id": "C-011",
+      "title": "Issue 2: Identifies Nathan Briggs's partner research billing violation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags Nathan Briggs under \u201cPartner and senior-associate research,\u201d stating that he billed 7.0 hours/$5,075.00 in partner-coded research entries and that Section 6.3 bars partner research at partner rates, recommending a rate reduction or disallowance."
+    },
+    {
+      "id": "C-012",
+      "title": "Issue 2: Calculates Briggs overcharge as approximately $1,260",
+      "verdict": "pass",
+      "reasoning": "The memo identifies Briggs\u2019s 7.0 hours billed at $5,075 and recommends re-rating the partner research entries to the $545 senior associate rate, calculating a combined partner-research reduction of $3,185. Although it does not separately state \u201cBriggs overcharge = $1,260,\u201d the calculation necessarily includes Briggs\u2019s 7.0 \u00d7 ($725-$545) = $1,260 adjustment."
+    },
+    {
+      "id": "C-013",
+      "title": "Issue 3: Identifies duplicative MTCA research across Takahashi and Wendt",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies overlapping MTCA contractor-liability research by Wendt on July 1 and July 5 and Takahashi on July 1\u20132, references summary-judgment-related overlap, and invokes Section 6.4\u2019s duplicative research rule to recommend retaining only the junior qualified researcher\u2019s work."
+    },
+    {
+      "id": "C-014",
+      "title": "Issue 3: References specific duplicative MTCA entries",
+      "verdict": "pass",
+      "reasoning": "The memo identifies the MTCA contractor-liability research as duplicative, specifically listing Wendt\u2019s July 1 (3.2h) and July 5 (4.0h) entries and stating that Takahashi also researched the same MTCA contractor-liability framework on July 1\u20132. Although it does not state Takahashi\u2019s 4.5 hours, it does reference the relevant Takahashi July 1 research in the duplicative pairing with Wendt\u2019s entries."
+    },
+    {
+      "id": "C-015",
+      "title": "Issue 3: Calculates recommended adjustment for duplicative MTCA research",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies duplicative MTCA contractor-liability research by Wendt overlapping with Takahashi and recommends a $3,060 gross credit, which matches 7.2 hours at $425/hour and satisfies the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "Issue 4: Identifies duplicative consequential/lost profits damages research",
+      "verdict": "fail",
+      "reasoning": "The memo flags consequential damages research by Osei on July 8\u201310 and lost profits research by Wendt/Takahashi on July 18 as duplicative across timekeepers. However, it treats them as separate duplicate categories and does not note that lost profits is a subset of consequential damages, which the criterion specifically requires."
+    },
+    {
+      "id": "C-017",
+      "title": "Issue 4: Notes Osei's excessive hours (13.0 hrs) on one research topic",
+      "verdict": "fail",
+      "reasoning": "The memo mentions Osei\u2019s 13.0 hours on consequential damages/foreseeability, but only in the context of overlap with Takahashi and recommends retaining Osei\u2019s work. It does not flag Osei\u2019s 7.5 + 5.5 hours on a single consequential-damages research question as excessive."
+    },
+    {
+      "id": "C-018",
+      "title": "Issue 5: Identifies duplicative economic loss rule research on July 12",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the July 12 Washington economic-loss rule duplication: Takahashi billed 6.0 hours/$2,040 and Osei billed 4.5 hours/$1,327.50 on the same doctrine and same day, citing Section 6.4 and recommending a credit. This satisfies the criterion."
+    },
+    {
+      "id": "C-019",
+      "title": "Issue 5: Recommends adjustment for economic loss rule duplication",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies duplicative Washington economic-loss rule research and recommends a dollar credit of $2,040.00 for the overlap, which is a comparable/greater adjustment than the minimum $1,327.50 referenced in the criterion."
+    },
+    {
+      "id": "C-020",
+      "title": "Issue 6: Identifies duplicative spoliation/ESI sanctions research",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies spoliation/ESI sanctions research as duplicative, citing Briggs's July 2 and July 24 entries along with Wendt's July 29 2.8-hour entry and Takahashi's July 29 4.3-hour entry, and recommends removing overlapping time."
+    },
+    {
+      "id": "C-021",
+      "title": "Issue 7: Flags Wendt's July 25 'get up to speed' entry as non-billable",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies Wendt\u2019s July 25 entry as 3.8 hours/$1,615 for reviewing materials/background research and \u201cget up to speed,\u201d recommends disallowance absent support, and expressly references \u00a74.3\u2019s onboarding prohibition, stating the orientation component would be nonbillable in full if applicable."
+    },
+    {
+      "id": "C-022",
+      "title": "Issue 7: Flags Wendt's July 15 'familiarize' entry as non-billable",
+      "verdict": "fail",
+      "reasoning": "The memo does mention Wendt\u2019s July 15 2.5-hour/$1,062.50 entry and quotes \u201cfamiliarize with\u201d MTCA amendments as background research, recommending disallowance absent explanation. However, it flags that entry under \u00a76.5 rather than identifying it as non-billable or objectionable under \u00a74.3 for onboarding/background research; its \u00a74.3 discussion is conditional and tied to the July 25 orientation component, not July 15. Thus it does not fully satisfy the specified criterion."
+    },
+    {
+      "id": "C-023",
+      "title": "Issue 7: Calculates total onboarding adjustment (~$2,677.50)",
+      "verdict": "pass",
+      "reasoning": "The memo identifies Wendt's July 15 entry as 2.5 hours/$1,062.50 and July 25 entry as 3.8 hours/$1,615.00, and recommends disallowance absent explanation. Those amounts total $2,677.50, even though the memo also combines them with another Osei entry for a $4,152.50 total."
+    },
+    {
+      "id": "C-024",
+      "title": "Issue 8: Flags block-billed 'research and draft' entries under Section 6.5",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags Amara Osei\u2019s July 3, July 8, and July 16 entries as combining research with drafting without allocating time, and states that under \u00a76.5 they should count toward the research cap unless clearly allocated, with possible reductions for block billing."
+    },
+    {
+      "id": "C-025",
+      "title": "Issue 8: Notes Section 6.5 requires 50% allocation to non-research",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Section 6.5 block-billed research entries and says to count entire entries toward the research cap unless allocated, but it does not articulate the specific requirement that at least 50% of the time be allocated to the non-research component or the entire entry will be reduced to the research cap rate."
+    },
+    {
+      "id": "C-026",
+      "title": "Issue 9: Identifies Westlaw disbursement charge as prohibited",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags the $4,850.00 Westlaw online legal research disbursement in the disbursements section and states it should be disallowed in full under \u00a79.3 because legal research database subscriptions are included in hourly rates and cannot be passed through."
+    },
+    {
+      "id": "C-027",
+      "title": "Issue 9: Recommends $4,850 adjustment for Westlaw disbursement",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the Westlaw online legal research disbursement as $4,850.00 and recommends disallowing it in full, which is the required adjustment."
+    },
+    {
+      "id": "C-028",
+      "title": "Issue 10: Identifies inter-matter duplicative MTCA research with DOE Matter",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies cross-matter MTCA/CERCLA research duplication between the Cascade litigation invoice and the DOE matter, cites Section 6.6, names Takahashi\u2019s DOE entries, and discusses overlapping Cascade July 1\u20135 Takahashi/Wendt MTCA research. Although it does not explicitly state the Cascade July 1\u20132 Takahashi total as 9.5 hours, it identifies the required inter-matter duplication issue and the DOE overlap totaling 12.5 hours when including the additional July 15 and July 22 entries flagged for review."
+    },
+    {
+      "id": "C-029",
+      "title": "Issue 10: Cites Section 6.6 for inter-matter research prohibition",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses 'Cross-matter MTCA research' and states that 'Section 6.6 requires research that benefits multiple TerraVerde matters to be billed only once...' It also references \u00a7\u00a76.4 and 6.6 in the recommended response for duplicative research across matters."
+    },
+    {
+      "id": "C-030",
+      "title": "Issue 11: Identifies arithmetic error in research efficiency discount",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the research efficiency discount is $7,732.00 described as 15%, but 15% of $54,104.50 is $8,115.68, making the stated discount short by $383.68."
+    },
+    {
+      "id": "C-031",
+      "title": "Issue 11: Calculates correct discount amount (~$8,115.68)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that 15% of $54,104.50 is $8,115.68 and that the stated $7,732.00 discount is short by $383.68."
+    },
+    {
+      "id": "C-032",
+      "title": "Issue 12: Identifies duplicative unjust enrichment research (July 23-24)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags the unjust enrichment overlap: Amara Osei on July 23 for 4.0 hours and Kenji Takahashi on July 24 for 3.5 hours, both researching Washington unjust-enrichment issues, and cites Section 6.4 duplicative research principles."
+    },
+    {
+      "id": "C-033",
+      "title": "Issue 13: Flags July MTCA research as potentially duplicative of June work",
+      "verdict": "pass",
+      "reasoning": "The memo does raise the cross-month MTCA duplication concern, stating that the Cascade team had already researched and briefed the MTCA contractor-liability issue in June and that July MTCA research should be justified as incremental rather than redoing existing work. Although it does not recite the precise 14.5 June hours and 16.7 July hours breakdown, it flags the required issue of July MTCA research potentially duplicating June work."
+    },
+    {
+      "id": "C-034",
+      "title": "Issue 13: Acknowledges reply brief may justify some additional research",
+      "verdict": "pass",
+      "reasoning": "The memo expressly raises the prior-month duplication concern for MTCA research and, while questioning repeated July MTCA work, states that TerraVerde should \u201cretain only supported incremental reply-brief work.\u201d This acknowledges that some additional July research may be justified by reply-brief needs while still challenging excessive or duplicative volume."
+    },
+    {
+      "id": "C-035",
+      "title": "Distractor 5: Does not flag litigation database hosting as improper",
+      "verdict": "pass",
+      "reasoning": "The memo distinguishes the Evergreen litigation database hosting charge from the Westlaw charge. It disallows Westlaw under \u00a79.3, but for the $3,325 Evergreen charge it only conditions payment on vendor approval, actual cost/no markup, and invoice support under \u00a79.6; it does not recommend reducing or disallowing it as an improper database hosting charge."
+    },
+    {
+      "id": "C-036",
+      "title": "Memo states correct invoice total amount",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states the invoice's total due as $387,420.50 and also separately identifies $341,820.50 in net fees and $45,600.00 in disbursements."
+    },
+    {
+      "id": "C-037",
+      "title": "Memo includes a summary table of all recommended adjustments",
+      "verdict": "fail",
+      "reasoning": "The memo contains several issue-specific tables and dollar amounts, but it does not provide a consolidated summary table or clearly formatted list of all recommended adjustments with a total recommended reduction. It expressly avoids calculating a final net credit."
+    },
+    {
+      "id": "C-038",
+      "title": "Memo includes severity assessments for identified issues",
+      "verdict": "fail",
+      "reasoning": "The memo identifies many issues and recommends actions, but it does not assign explicit severity ratings or an equivalent priority ranking system (e.g., Critical/Significant/Minor) to the major issues."
+    },
+    {
+      "id": "C-039",
+      "title": "Issue 2: Cites Section 6.3 for partner research restriction",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section 2.1 that \u201cSection 6.3 bars partner research at partner rates\u201d and applies that provision to the partner-coded research entries."
+    },
+    {
+      "id": "C-040",
+      "title": "Issue 3: Cites Section 6.4 for duplicative MTCA research",
+      "verdict": "pass",
+      "reasoning": "The memo expressly cites Section 6.4 in the duplicative research section and applies it to MTCA contractor-liability research across Wendt and Takahashi, recommending retention of the most junior qualified researcher\u2019s work."
+    },
+    {
+      "id": "C-041",
+      "title": "Issue 7: Cites Section 4.3 for onboarding/get-up-to-speed entries",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the Wendt entries for 'familiarize' and 'get up to speed' in the same bullet and expressly cites \u201c\u00a74.3's onboarding prohibition,\u201d noting the orientation component would be nonbillable if applicable. Thus Section 4.3 is cited in connection with those onboarding/get-up-to-speed entries."
+    },
+    {
+      "id": "C-042",
+      "title": "Issue 9: Cites Section 9.3 for Westlaw disbursement violation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the Cascade Westlaw online legal research disbursement and states: \u201cDisallow in full under \u00a79.3. Legal research database subscriptions are included in hourly rates and cannot be passed through.\u201d This cites Section 9.3 in connection with the Westlaw charge."
+    },
+    {
+      "id": "C-043",
+      "title": "Summary table total reflects aggregation of individual adjustments",
+      "verdict": "fail",
+      "reasoning": "The output does not provide a final summary table with a stated total recommended reduction aggregating all individual adjustments. Although several intermediate subtotals shown appear arithmetically correct, the specific criterion concerns whether a summary-table total equals the sum of listed adjustments, and that required aggregate total is absent."
+    },
+    {
+      "id": "C-044",
+      "title": "Issue 4: Recommends dollar adjustment for damages research duplication",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies duplicative consequential damages research by Takahashi and Osei and recommends a $1,190 credit, and duplicative lost profits research by Wendt and Takahashi with a $1,912.50 credit. This satisfies the requirement to recommend a dollar adjustment for damages research duplication."
+    },
+    {
+      "id": "C-045",
+      "title": "Issue 6: Recommends dollar adjustment for spoliation/ESI duplication",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies duplicative \u201cSpoliation / ESI sanctions\u201d research, including the July 29 Wendt and Takahashi overlap, and recommends a dollar credit of $4,090.00 for that duplication."
+    },
+    {
+      "id": "C-046",
+      "title": "Osei's July 19 background research flagged as potentially non-billable",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Osei's July 19 entry for 5.0 hours/$1,475 as technical industry/background research and recommends disallowing it absent a substantive explanation, flagging it as problematic background/familiarization research."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/identify-excessive-or-duplicative-research-charges-in-litigation-invoice/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/identify-excessive-or-duplicative-research-charges-in-litigation-invoice",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T22:09:35.935833+00:00",
+  "cost": {
+    "input_tokens": 1039988,
+    "output_tokens": 47297,
+    "wall_clock_seconds": 304.93
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 6,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "doe-matter-july-2024-summary.docx",
+      "holt-email-research-concerns.eml",
+      "hl-july-2024-invoice.xlsx",
+      "terraverde-billing-guidelines.docx",
+      "engagement-letter-cascade.docx",
+      "hl-june-2024-invoice-summary.docx",
+      "/workspace/output/research-charge-review-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

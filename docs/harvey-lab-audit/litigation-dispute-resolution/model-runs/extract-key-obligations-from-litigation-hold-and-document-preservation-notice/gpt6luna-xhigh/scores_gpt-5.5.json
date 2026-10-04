@@ -1,0 +1,345 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "39/52 criteria passed.  Missed 13 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 52,
+  "n_passed": 39,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies conflicting Relevant Period for financial records",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the general Relevant Period is January 1, 2019 through March 3, 2025 under Notice \u00b612, and separately identifies an extended financial period beginning January 1, 2017 under \u00b647 for KOL, RPAF, Velcara financial/accounting/payment records, including noting that 2017\u20132018 financial data is independently in scope. This satisfies the requirement to identify the two-year discrepancy/extension for financial records."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Flags financial records date discrepancy as requiring DOJ clarification",
+      "verdict": "fail",
+      "reasoning": "The memo identifies both the general Jan. 1, 2019 relevant period and an extended Jan. 1, 2017 financial-records period, but it treats the 2017 period as controlling/extended rather than flagging a conflict and recommending DOJ clarification regarding the date discrepancy for financial records."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Notes broader date range creates additional preservation burden",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the extended financial period (January 1, 2017 to present) for KOL, RPAF, Velcara financial/accounting/payment records and states that earlier-period archives and backups must be preserved with the same rigor. It also notes that the financial extension independently brings 2017\u20132018 financial data into scope, creating an added preservation obligation beyond the general 2019 period. Although not heavily tied to the January 2025 destruction event, the practical impact of the broader date range is discussed sufficiently."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002: Identifies contradictory HCP communication scope",
+      "verdict": "fail",
+      "reasoning": "The memo recognizes that HCP communications are broad and says they are \u201cnot only listed HCPs,\u201d while also discussing the five Exhibit D HCPs. However, it does not identify the specific contradiction required by the criterion: that Paragraph 23 requires preservation of all HCP communications regarding Velcara, whereas Paragraph 24 appears to limit the scope to the five Exhibit D HCPs."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Explains dramatically different scope implications of HCP readings",
+      "verdict": "fail",
+      "reasoning": "The memo recognizes a broad reading covering communications with any HCP, not just the five Exhibit D HCPs, but it does not explain the dramatically different volume implications\u2014i.e., that the broad reading could encompass potentially millions of additional documents compared with the narrow five-HCP interpretation."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Recommends defaulting to broader HCP interpretation",
+      "verdict": "fail",
+      "reasoning": "The memo does recommend preserving broadly for HCP communications, expressly stating communications with \u201cany HCP about Velcara\u201d are covered and \u201cnot only listed HCPs,\u201d and it advises not to unilaterally narrow ambiguous categories while seeking clarification through counsel/DOJ. However, it does not clearly connect this broader default interpretation to avoiding spoliation risk. The only spoliation discussion is tied to the January 15 destruction issue, not the HCP scope ambiguity. Therefore, it does not fully satisfy the criterion as stated."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_003: Flags January 15, 2025 destruction of approximately 4.2 million records from the 2019\u20132021 period",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the January 15, 2025 destruction cycle as a significant issue, stating that approximately 4.2 million records dated 2019\u20132021 were destroyed and discussing related preservation risks and follow-up actions."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Notes destruction occurred approximately 7 weeks before Preservation Notice",
+      "verdict": "pass",
+      "reasoning": "The memo identifies the January 15, 2025 destruction and states that it predates / occurred before the March 3, 2025 Preservation Notice, giving both dates. Although it does not use the phrase \u201capproximately 7 weeks,\u201d it sufficiently identifies the timing relationship required by the criterion."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Addresses potential spoliation risk from pre-notice destruction",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly notes the January 15 destruction predated the DOJ notice and no active hold was found, but directs investigation into any earlier actual or reasonably anticipated preservation trigger and states no conclusion is made about spoliation. This addresses the anticipation-of-investigation/litigation spoliation risk even without an existing hold."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Recommends forensic investigation of destroyed records",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the January 15, 2025 destruction, recommends establishing what was destroyed, obtaining destruction logs and certificates, investigating remaining copies, and determining whether deleted items, backups, archives, vendor copies, devices, exports, or paper duplicates are recoverable."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004: Identifies email migration data loss affecting approximately 340,000 pre-September 2021 emails",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the Ashford Data Solutions migration problem: it states that approximately 340,000 pre-September 2021 emails for about 2,100 employees were not migrated to Microsoft 365, may exist only on six decommissioned Exchange servers, and treats this as the highest immediate preservation risk/critical issue."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_004: Identifies that 8 of 23 named custodians are affected by email migration loss",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that IT estimated missing emails for eight migration-affected individuals/custodians and ties this to the 23-custodian list, while also noting a roster reconciliation issue for two names."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_004: Notes affected emails fall within Relevant Period",
+      "verdict": "pass",
+      "reasoning": "The memo identifies the migration gap as approximately 340,000 emails from January 2019 through September 2021, separately states the Relevant Period is January 1, 2019 through March 3, 2025, and treats the gap as a high immediate preservation risk involving custodians and potentially responsive sources. This sufficiently connects the affected emails to the Relevant Period and preservation obligations."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_004: Recommends preserving decommissioned servers at offsite storage",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the six decommissioned Exchange servers at Sentinel Records Management as a key preservation source, directs immediate written notice to Sentinel to hold the equipment, says to preserve the legacy servers in their current condition, avoid booting or altering them before forensic protocol, maintain storage, and prohibits disposal, recycling, repurposing, degaussing, or destruction without authorization."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_005: Flags 'related compounds' as potential massive scope expansion",
+      "verdict": "fail",
+      "reasoning": "The memo notes that Paragraph 31 covers \u201cridgenostat and related compounds,\u201d but it does not flag that this language could sweep in Ridgeline\u2019s 4 additional oncology pipeline compounds or characterize it as a potentially massive, possibly unintended scope expansion requiring clarification."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_005: Recommends seeking clarification on 'related compounds'",
+      "verdict": "fail",
+      "reasoning": "The memo includes related compounds in the preservation scope and generally advises raising scope clarifications through counsel, but it does not specifically recommend seeking DOJ clarification on the meaning of \u201crelated compounds\u201d while preserving broadly pending that clarification."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_006: Identifies compressed third-party vendor notification deadline",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the third-party vendor notice deadline as 10 calendar days / March 13, 2025, and separately identifies the overall written certification deadline as 14 calendar days / March 17, 2025, showing the earlier compressed vendor-notification timeline."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_006: Flags need for immediate/parallel action on third-party notices",
+      "verdict": "fail",
+      "reasoning": "The memo identifies the March 13 deadline for third-party preservation notices and names Veeva, Concur, and IntegriCall, and it assigns responsibility for obtaining confirmations. However, it does not specifically flag that these vendor notices must be handled immediately or on a parallel/accelerated track rather than waiting for the general hold implementation. The urgency contemplated by the criterion is therefore not clearly stated."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_007: Identifies Exhibit B category count discrepancy (34 vs. 36)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Paragraph 19 refers to \u201cthirty-six (36)\u201d categories while Exhibit B as supplied enumerates only Categories 1\u201334, identifying the required numerical discrepancy."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_007: Recommends clarification on missing categories",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the discrepancy that Paragraph 19 refers to 36 categories while Exhibit B enumerates only Categories 1\u201334, and states that counsel should seek written clarification while preserving broadly in the interim."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_008: Identifies privacy concerns with forensic imaging of personal devices",
+      "verdict": "pass",
+      "reasoning": "The memo flags that imaging personal devices requires careful coordination and specifically instructs the team to coordinate \u201clawful/consensual acquisition for personal devices\u201d and document limitations. Although it does not expressly mention the Fourth Amendment or state privacy statutes, it identifies the need for lawful consent-based access to personal devices, which satisfies the criterion."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_008: Distinguishes forensic imaging from logical extraction",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly distinguishes forensic imaging from logical extraction, stating that mobile devices require a complete bit-for-bit forensic image and that logical extraction alone is insufficient. It also notes the scope includes personal devices and sensitive/deleted/app/location/browser data, with careful coordination and lawful/consensual acquisition, acknowledging the heightened intrusiveness of imaging personal devices."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_009: Identifies inconsistent use of 'documents,' 'records,' 'materials'",
+      "verdict": "fail",
+      "reasoning": "The memo does not identify that the Preservation Notice uses \u201cdocuments,\u201d \u201crecords,\u201d and \u201cmaterials\u201d interchangeably in operative provisions while defining them with distinct scopes in Paragraph 3, nor does it flag the resulting ambiguity. It identifies other ambiguities/discrepancies, but not this terminological inconsistency."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_009: Recommends applying broadest definition uniformly",
+      "verdict": "fail",
+      "reasoning": "The memo repeatedly advises preserving broadly and not narrowing ambiguous categories, but it does not specifically address a terminological inconsistency or recommend applying the broadest definition uniformly across all operative paragraphs to avoid preservation gaps."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_010: Assesses backup tape preservation burden and proportionality",
+      "verdict": "fail",
+      "reasoning": "The memo identifies the obligation to preserve backup tapes/images/archives and suspend the 90-day recycling/rotation, and it discusses investigating legacy tape availability. However, it does not analyze burden or proportionality of preserving all backup tapes from January 2019 forward, nor does it reference the general Zubulake-type principle that preserving backup tapes is often disfavored where the same data exists in accessible form. Therefore it does not satisfy ISSUE_010."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_010: Notes backup tapes may be sole source due to migration loss",
+      "verdict": "fail",
+      "reasoning": "The memo clearly connects the migration loss to preservation of legacy sources and says to investigate and preserve any surviving legacy backup tapes, but it frames the six decommissioned Exchange servers\u2014not backup tapes\u2014as the potentially only surviving source. It does not expressly note that backup tapes themselves may be the sole remaining source for certain custodian emails due to the migration loss or emphasize that this makes backup tape preservation critical despite proportionality concerns."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_011a: Identifies Linden & Pruitt conflict due to prior representation of Dr. Osei",
+      "verdict": "fail",
+      "reasoning": "The memo notes that Linden & Pruitt, P.A. is \u201cformer regulatory counsel\u201d and \u201cnow conflicted out,\u201d and mentions Dr. Osei as the primary business contact, but it does not identify the conflict as being due to prior representation of Dr. Franklin Osei personally."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_011b: Identifies that privileged Linden & Pruitt communications may be swept into preservation scope",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses privileged/former-counsel records, identifies Linden & Pruitt as former regulatory counsel now conflicted out, notes that preservation applies regardless of privilege, and recommends preserving potentially privileged files while using a segregated privilege protocol. It also lists outside/regulatory counsel communications, including Linden & Pruitt and Velcara-related matters, within the preservation scope."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_011: Recommends protocol for handling privileged materials",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses Linden & Pruitt as former regulatory counsel now conflicted out and recommends preserving privileged materials, segregating access, using an independent counsel-led privilege protocol, and not asking conflicted former counsel to conduct the review. It also lists an open item to implement segregated privilege review for Linden & Pruitt materials."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_012: Identifies RPAF as separate legal entity with preservation implications",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses RPAF as a separate 501(c)(3) with an independent board, separate systems/records and retention practices, and notes that board approval may be needed for a preservation directive. It also frames preservation obligations in terms of Ridgeline\u2019s possession, custody, or control and advises assessing control/governance before directing RPAF, satisfying the criterion."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_012: Notes RPAF board independence and coordination requirement",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that RPAF is a separate 501(c)(3) with an independent board, including two independent directors, and explains that board approval may be needed for a direct preservation directive. It recommends preserving Ridgeline-held records immediately while coordinating through counsel with RPAF\u2019s board/executive director for a separate hold as appropriate."
+    },
+    {
+      "id": "C-032",
+      "title": "Correctly states the 14-day confirmation deadline as March 17, 2025",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the 14-day written certification/confirmation deadline as March 17, 2025 in the executive summary, deadlines table, and checklist."
+    },
+    {
+      "id": "C-033",
+      "title": "Correctly states the 10-day third-party vendor deadline as March 13, 2025",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the third-party vendor preservation notice deadline as March 13, 2025, described as 10 calendar days, and lists vendors including Veeva, Concur, and IntegriCall Services."
+    },
+    {
+      "id": "C-034",
+      "title": "Correctly states the 21-day mobile device imaging deadline as March 24, 2025",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies March 24, 2025 as the 21-day deadline to complete forensic imaging of all 23 named custodians' qualifying mobile devices."
+    },
+    {
+      "id": "C-035",
+      "title": "Identifies the Relevant Period as January 1, 2019 to March 3, 2025",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states in Section 3.3 that the General Relevant Period is January 1, 2019 through March 3, 2025, citing Notice \u00b6 12."
+    },
+    {
+      "id": "C-036",
+      "title": "Identifies ESI preservation requirement including specific platforms",
+      "verdict": "pass",
+      "reasoning": "The memo expressly requires preserving ESI in native format with metadata intact and identifies numerous specific platforms, including Slack, Microsoft Teams, email with deleted/archived folders, SharePoint, OneDrive, Salesforce CRM, Veeva Vault/CRM, and SAP ERP."
+    },
+    {
+      "id": "C-037",
+      "title": "Identifies backup tape rotation suspension obligation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that all backup tapes/images/archives containing data from January 1, 2019 through March 3, 2025 and the 90-day rotation must be preserved, and instructs the company to immediately stop 90-day recycling/overwrite/degaussing or other disposal."
+    },
+    {
+      "id": "C-038",
+      "title": "Identifies paper records preservation obligation at Durham headquarters",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies paper records obligations, including named custodians' work areas, central filing/records rooms, and the Durham headquarters, and states they should be physically secured and access restricted."
+    },
+    {
+      "id": "C-039",
+      "title": "Identifies paper records preservation obligation at Atlanta field office",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies paper records at the Atlanta field office as within scope and instructs the company to physically secure/restrict access to paper records at Atlanta locations."
+    },
+    {
+      "id": "C-040",
+      "title": "Names the three specific third-party vendors requiring preservation notices",
+      "verdict": "pass",
+      "reasoning": "The memo identifies all three required third-party vendors/platforms: Veeva/Veeva CRM, Concur/Concur expense reports, and IntegriCall Services/hotline records, including in the vendor notice sections."
+    },
+    {
+      "id": "C-041",
+      "title": "Identifies the nine subject-matter areas or 34 document categories",
+      "verdict": "pass",
+      "reasoning": "The memo includes a subject-matter table cataloging the Exhibit B categories and identifies all nine required areas: KOL/Speaker Program administration, speaker compensation/FMV, HCP selection/due diligence, RPAF operations, compliance/audits, financial/accounting, marketing/promotional materials, government inquiry/counsel communications, and systems/IT infrastructure."
+    },
+    {
+      "id": "C-042",
+      "title": "Identifies conflict between retention policy and preservation obligations",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the Preservation Notice overrides RDG-LGL-007 and routine destruction practices, identifies the Preservation Notice\u2019s general relevant period as January 1, 2019 through March 3, 2025 and continuing, and specifically notes RDG-LGL-007\u2019s retention periods for general correspondence at three years and sales field records at two years. This identifies the relevant retention-policy schedules and their conflict with the preservation obligation to preserve materials from January 1, 2019 forward."
+    },
+    {
+      "id": "C-043",
+      "title": "Memo includes a prioritized action item list organized by urgency",
+      "verdict": "pass",
+      "reasoning": "The memo includes an identifiable prioritized action section, \u201c6.1 Sequenced checklist,\u201d with action items organized by urgency and specific timing tiers such as \u201cNow / first 24 hours,\u201d \u201cNext 24\u201348 hours,\u201d \u201cBy March 13,\u201d \u201cBy March 17,\u201d \u201cBy March 24,\u201d and \u201cContinuing.\u201d It also includes a deadlines table organized by due date."
+    },
+    {
+      "id": "C-044",
+      "title": "Action items include correct sequencing of the three deadlines",
+      "verdict": "pass",
+      "reasoning": "The output includes an action-oriented deadline sequence and checklist that correctly lists the three key deadlines in chronological order: March 13, 2025 for third-party vendor notices, March 17, 2025 for written certification/confirmation of the litigation hold, and March 24, 2025 for forensic imaging of mobile devices."
+    },
+    {
+      "id": "C-045",
+      "title": "References Grand Jury No. 24-GJ-0387",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references \u201cGrand Jury No. 24-GJ-0387\u201d in the title and source references."
+    },
+    {
+      "id": "C-046",
+      "title": "References Anti-Kickback Statute and/or False Claims Act",
+      "verdict": "fail",
+      "reasoning": "The memo does not mention the Anti-Kickback Statute or the False Claims Act. It only refers generally to healthcare fraud and related preservation categories, which does not satisfy the criterion."
+    },
+    {
+      "id": "C-047",
+      "title": "Identifies AUSA Brendan K. Faulkner as the DOJ contact for confirmation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the March 17 written certification/confirmation must be sent to Brendan K. Faulkner and Sonia R. Gutierrez, and elsewhere identifies communications as directed to AUSA Brendan K. Faulkner."
+    },
+    {
+      "id": "C-048",
+      "title": "Cites specific paragraph numbers from the Preservation Notice",
+      "verdict": "pass",
+      "reasoning": "The memo cites numerous specific Preservation Notice paragraph numbers when describing obligations and issues, including \u00b6\u00b6 5, 12, 17, 19, 23, 24, 31, 32, 40, 43, 45, 46, 47, 51, and others. This exceeds the requirement of at least 4 distinct paragraph references."
+    },
+    {
+      "id": "C-049",
+      "title": "Identifies the obligation to preserve files and data for 23 named custodians",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies a 23-custodian preservation obligation, describes the 23 total custodians, lists categories of custodians, and repeatedly states that files/data such as email, mobile devices, cloud repositories, and other repositories must be preserved for all 23 named custodians."
+    },
+    {
+      "id": "C-050",
+      "title": "Names at least 5 key custodians from the 23 named custodians",
+      "verdict": "pass",
+      "reasoning": "The memo specifically names all 9 listed key custodians, including Dr. Priya Venkataraman, Marcus Ellsworth, Diane Cho-Rosen, Dr. Franklin Osei, Gregory Hsu, Amanda Terrell, Richard Blaine, Dr. Katerina Novak, and Luis Delgado, exceeding the requirement of at least 5."
+    },
+    {
+      "id": "C-051",
+      "title": "Addresses the 5 non-employee HCP consultants in Exhibit D",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the 5 external HCP consultants/speakers in Exhibit D by name and states that Ridgeline-held communications and related records with these individuals must be preserved."
+    },
+    {
+      "id": "C-052",
+      "title": "Identifies Velcara (ridgenostat) as the drug at issue",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly mentions Velcara and also references ridgenostat/related compounds in the preservation scope, identifying the drug at issue in the investigation and obligations."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/extract-key-obligations-from-litigation-hold-and-document-preservation-notice",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T02:15:17.713703+00:00",
+  "cost": {
+    "input_tokens": 271066,
+    "output_tokens": 14323,
+    "wall_clock_seconds": 104.72
+  },
+  "doc_coverage": {
+    "documents_read": 6,
+    "total_documents": 5,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "doj-preservation-notice.docx",
+      "ridgeline-retention-policy.docx",
+      "ridgeline-org-chart.docx",
+      "it-migration-memo.eml",
+      "records-destruction-confirmation.eml",
+      "/workspace/output/obligation-extraction-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

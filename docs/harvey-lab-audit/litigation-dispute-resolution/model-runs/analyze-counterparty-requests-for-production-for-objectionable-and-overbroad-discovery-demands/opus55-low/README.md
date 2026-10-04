@@ -1,0 +1,399 @@
+# Claude Opus 5.5 (low): Analyze Counterparty Requests for Production for Objectionable and Overbroad Discovery Demands — Issue Identification Memorandum
+
+> [!NOTE]
+> **Unedited model output and AI judge grades.** The deliverables are AI-generated drafts on Harvey LAB's fictional task records. Pass/fail verdicts are the native LAB judges' AI judgments, not human review or accepted corrections. See the [model-runs overview](../../README.md).
+
+[Task audit page](../../../tasks/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/README.md) · [Pinned task and rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json) · [GPT-6 Luna (xhigh) run](../gpt6luna-xhigh/README.md) · [All runs](../../README.md)
+
+**Model:** `claude-opus-5-5`, reasoning effort `low`. **Run:** `20260926-202411`.
+
+**Native grades:** Sonnet 4.6 passed 44 of 47 criteria; GPT-5.5 passed 44 of 47 criteria. LAB all-pass score: 0 (mean of the judges' all-pass results; a task scores 1 with a judge only if every criterion passes).
+
+## Deliverables
+
+- [rfp-issue-memorandum.docx](output/rfp-issue-memorandum.docx) ([read as Markdown](output/rfp-issue-memorandum.docx.md))
+
+## Grades
+
+Failures are in bold. Each criterion links to both judges' reasoning below.
+
+| Criterion | Title | Sonnet 4.6 | GPT-5.5 |
+|---|---|---|---|
+| [C-001](#c-001) | ISSUE_001: Identifies temporal overbreadth in RFP Nos. 3, 7, 14, and/or 22 | Pass | Pass |
+| [C-002](#c-002) | ISSUE_001: Proposes narrowing temporal scope to exclude pre-2017 period | Pass | Pass |
+| [C-003](#c-003) | ISSUE_001: References burden from 2.3 TB data universe or 950K+ documents | Pass | Pass |
+| [C-004](#c-004) | ISSUE_002: Identifies RFP No. 31 as seeking privileged attorney-client communications | Pass | Pass |
+| [C-005](#c-005) | ISSUE_002: Recommends privilege log and warns against blanket waiver | Pass | Pass |
+| [C-006](#c-006) | ISSUE_003: Identifies RFP No. 19 as sweeping in third-party financial info | Pass | Pass |
+| [C-007](#c-007) | ISSUE_003: Notes irrelevance of broad financial info to breach of contract and trade secret claims | Pass | Pass |
+| [C-008](#c-008) | ISSUE_003: Notes third-party confidentiality obligations under credit agreement | Pass | Pass |
+| [C-009](#c-009) | ISSUE_004: Identifies RFP No. 36 as disproportionate ESI/database request | Pass | Pass |
+| [C-010](#c-010) | ISSUE_004: Recommends narrowing RFP No. 36 to specific data fields or categories | Pass | Pass |
+| [C-011](#c-011) | ISSUE_005: Identifies RFP Nos. 8, 12, and/or 27 as covering unrelated product lines | Pass | Pass |
+| [C-012](#c-012) | ISSUE_005: Cites proportionality under Fed. R. Civ. P. 26(b)(1) | Pass | Pass |
+| [C-013](#c-013) | ISSUE_006: Identifies vague/overbroad 'relating to' requests in RFP Nos. 5, 16, 24, and/or 38 | Pass | Pass |
+| [C-014](#c-014) | ISSUE_006: Notes 'membrane filtration technology' encompasses unrelated materials | Pass | Pass |
+| [C-015](#c-015) | ISSUE_007a: Identifies RFP No. 33 as overbroad personnel files request | Pass | Pass |
+| [C-016](#c-016) | ISSUE_007b: Notes irrelevance of compensation, medical/benefits, or disciplinary records to claims | Pass | Pass |
+| [C-017](#c-017) | ISSUE_007: Recommends narrowing to relevant employment info only | Pass | Pass |
+| [C-018](#c-018) | ISSUE_008: Identifies RFP No. 41 as contention interrogatory disguised as RFP | Pass | Pass |
+| [C-019](#c-019) | ISSUE_008: Cites Fed. R. Civ. P. 33(a)(2) or prematurity of contention discovery | **Fail** | **Fail** |
+| [C-020](#c-020) | ISSUE_009: Identifies RFP No. 9 as threatening Greenleaf's own trade secrets | Pass | Pass |
+| [C-021](#c-021) | ISSUE_009: Recommends AEO designation and/or limiting production to NanoSieve overlap | Pass | Pass |
+| [C-022](#c-022) | ISSUE_010: Identifies RFP No. 28 as overbroad competitor communications request | Pass | Pass |
+| [C-023](#c-023) | ISSUE_010: Acknowledges Helix Waterworks communications may be relevant to counterclaim | Pass | Pass |
+| [C-024](#c-024) | ISSUE_011: Flags absence of ESI form-of-production specification in RFPs | **Fail** | **Fail** |
+| [C-025](#c-025) | ISSUE_011: References Fed. R. Civ. P. 34(b) regarding form of ESI production | Pass | Pass |
+| [C-026](#c-026) | ISSUE_011: Recommends negotiating ESI protocol before production | Pass | Pass |
+| [C-027](#c-027) | ISSUE_012a: Identifies need for FRE 502(d) clawback/non-waiver order | Pass | Pass |
+| [C-028](#c-028) | ISSUE_012b: References document volume as justification for 502(d) order | Pass | Pass |
+| [C-029](#c-029) | ISSUE_012: Notes Protective Order does not cover privilege waiver risk | Pass | Pass |
+| [C-030](#c-030) | ISSUE_013: Identifies 24-month non-compete as relevance cutoff framework | **Fail** | **Fail** |
+| [C-031](#c-031) | ISSUE_014: Identifies RFP Nos. 15 and/or 40 as imposing third-party collection burden | Pass | Pass |
+| [C-032](#c-032) | Each issue identifies specific RFP number(s) affected | Pass | Pass |
+| [C-033](#c-033) | Each issue includes nature/category of the problem | Pass | Pass |
+| [C-034](#c-034) | Each issue includes legal basis citing applicable rules | Pass | Pass |
+| [C-035](#c-035) | Each issue includes recommended objection or response strategy | Pass | Pass |
+| [C-036](#c-036) | Issues include priority/risk ranking (Critical/High/Medium or equivalent) | Pass | Pass |
+| [C-037](#c-037) | Privilege issues (RFP 31, 502(d)) ranked as Critical or highest priority | Pass | Pass |
+| [C-038](#c-038) | Correctly identifies case as Western District of North Carolina | Pass | Pass |
+| [C-039](#c-039) | References September 11, 2024 response deadline | Pass | Pass |
+| [C-040](#c-040) | Recommends meet-and-confer with opposing counsel | Pass | Pass |
+| [C-041](#c-041) | Correctly states JV formation date as January 15, 2019 | Pass | Pass |
+| [C-042](#c-042) | Correctly states JV dissolution date as June 30, 2023 | Pass | Pass |
+| [C-043](#c-043) | References Stipulated Protective Order in confidentiality/trade secret discussion | Pass | Pass |
+| [C-044](#c-044) | Identifies systemic/cross-cutting issues as a separate category | Pass | Pass |
+| [C-045](#c-045) | PureLine 400 correctly identified as the only product at issue | Pass | Pass |
+| [C-046](#c-046) | References Section 9.1 non-compete or Section 7.2/7.4 IP provisions of JV Agreement | Pass | Pass |
+| [C-047](#c-047) | Notes wind-down period (July 1 – September 30, 2023) as relevant context | Pass | Pass |
+
+## Judge reasoning
+
+### C-001
+
+ISSUE_001: Identifies temporal overbreadth in RFP Nos. 3, 7, 14, and/or 22 ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L19))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly identifies temporal overbreadth in RFP Nos. 3, 7, 14, and 22 in Part IV.B, noting that these four requests seek documents from January 1, 2009 (Greenleaf's founding, ten years before the JV). This is also reflected in Appendix A where all four RFPs are flagged with 'Temporal overbreadth' as a principal issue and assigned High priority. The memorandum clearly ties the overbreadth to the fact that the JV was not formed until January 15, 2019, and proposes a default window of January 1, 2018 through February 8, 2024.
+- **GPT-5.5: Pass.** The memorandum expressly identifies temporal overbreadth for RFPs 3, 7, 14, and 22, stating they seek documents from January 1, 2009/Greenleaf’s founding, ten years before the JV, and recommends narrowing the time period given the JV formed on January 15, 2019.
+
+### C-002
+
+ISSUE_001: Proposes narrowing temporal scope to exclude pre-2017 period ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L27))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly addresses temporal overbreadth in Part IV.B, recommending a default window of January 1, 2018 through February 8, 2024, with a specific note that RFPs 16 and 38 (which go back to 2017) should 'Accept 2018 forward (or mid-2017 if negotiations documents exist).' The Appendix A chart also reflects this narrowing for the 2009-forward requests (RFPs 3, 7, 14, 22) by recommending '2018--present + Background IP carve-out.' This clearly proposes narrowing the temporal scope to exclude the pre-2017/2018 period, satisfying the criterion.
+- **GPT-5.5: Pass.** The memorandum expressly identifies RFPs reaching back to 2009 as temporally overbroad and recommends a default window beginning January 1, 2018, with limited possible extension to mid-2017 for pre-JV negotiations. This excludes the 2009–2017 pre-relationship period while covering relevant pre-JV negotiations.
+
+### C-003
+
+ISSUE_001: References burden from 2.3 TB data universe or 950K+ documents ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L35))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly references the 2.3 TB / ~950,000 document volume in Part IV.B (Temporal Overbreadth): 'Volume context: 2.3 TB / ~950,000 documents for the 2018-forward window alone; a 2009 window would substantially increase collection from sources that are not under hold.' This directly connects the data volume to the burden created by temporally overbroad requests (those reaching back to 2009).
+- **GPT-5.5: Pass.** The memorandum expressly discusses temporal overbreadth in Section IV.B and cites the burden of expanding beyond the 2018-forward window, stating that the existing window already involves “2.3 TB / ~950,000 documents” and that a 2009 window would substantially increase collection.
+
+### C-004
+
+ISSUE_002: Identifies RFP No. 31 as seeking privileged attorney-client communications ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L43))
+
+- **Sonnet 4.6: Pass.** The memorandum extensively identifies RFP No. 31 as targeting attorney-client privileged communications and work product. Section IV.A is dedicated to this issue, explicitly stating that 'RFP 31 expressly seeks all Communications between Greenleaf and any attorney, law firm, or legal advisor regarding the JV Agreement, the Dissolution Agreement, or the PureLine 400 product' and that 'On its face it targets privileged material.' The recommended response is to 'Object on attorney-client privilege and work-product grounds.' RFP 31 is also flagged as HIGH priority in Appendix A with the notation 'Object/withhold; categorical log; post-complaint carve-out; 502(d).'
+- **GPT-5.5: Pass.** The memorandum repeatedly flags RFP No. 31 as a high-priority privilege issue, stating that it seeks communications between Greenleaf and attorneys/legal advisors regarding the JV Agreement, Dissolution Agreement, and PureLine 400, and recommends objections based on attorney-client privilege and work product.
+
+### C-005
+
+ISSUE_002: Recommends privilege log and warns against blanket waiver ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L51))
+
+- **Sonnet 4.6: Pass.** The memorandum extensively addresses privilege log recommendations and waiver warnings for RFP 31 and related requests. In Part IV.A, it explicitly recommends a detailed log format proposal including: (i) no logging of post-complaint litigation counsel communications, (ii) a categorical log for March 2023–February 7, 2024 outside-counsel communications by category, and (iii) document-by-document logging for pre-March 2023 communications and mixed documents. It also warns against blanket 'all withheld' statements that imply nothing non-privileged exists. Additionally, it warns about the risk of inadvertent waiver due to the absence of a Rule 502(d)/clawback provision in the Protective Order, recommending a stipulated 502(d) order as 'the single most important protective step.' It also warns about subject-matter waiver if advice-of-counsel reliance is asserted. These recommendations and warnings clearly satisfy the criterion.
+- **GPT-5.5: Pass.** The memorandum specifically addresses RFP 31, recommends withholding privileged attorney-client/work-product materials, and proposes a privilege logging approach including categorical logs and document-by-document logs for certain categories. It also warns about waiver risks, including lack of a Rule 502(d) clawback order and potential at-issue/subject-matter waiver if Greenleaf relies on advice of counsel.
+
+### C-006
+
+ISSUE_003: Identifies RFP No. 19 as sweeping in third-party financial info ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L59))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly addresses RFP 19 in Part IV.D ('Third-Party Confidentiality — Lender Documents'). It identifies RFP 19 as seeking 'all financing arrangements, credit agreements, covenant calculations, borrowing base certificates, and all communications with lenders (specifically Sterling Ark Capital, LLC) from 2020 to present.' It notes the $40M March 2022 Sterling Ark revolving facility and references a confidentiality clause (possibly § 10.08) restricting disclosure of loan documents, covenants, borrowing base calculations and projections. The memorandum flags relevance and proportionality concerns, as well as third-party contractual confidentiality obligations. This satisfies the criterion of identifying RFP No. 19 as problematic because it sweeps in the $40 million revolving credit facility with Sterling Ark Capital, LLC, including proprietary financial covenants and confidential financial projections.
+- **GPT-5.5: Pass.** The memorandum expressly flags RFP No. 19 as high-priority/problematic, describes it as seeking all financing arrangements, credit agreements, covenant calculations, borrowing base certificates, and lender communications from 2020 to present, and specifically identifies the $40M Sterling Ark revolving facility and confidentiality concerns over loan documents, covenants, borrowing base calculations, and projections.
+
+### C-007
+
+ISSUE_003: Notes irrelevance of broad financial info to breach of contract and trade secret claims ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L67))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly addresses RFP 19 in Part IV.D (Third-Party Confidentiality — Lender Documents) and states: 'Relevance is attenuated: none of Caspian's claims turns on Greenleaf's creditworthiness. The only colorable theories are (i) motive (financial pressure to launch PureLine 400) and (ii) damages/ability to pay --- the latter is generally not discoverable absent a punitive/exemplary damages showing.' This directly notes that the broad financial information sought (financing arrangements, credit agreements, covenant calculations, borrowing base certificates, lender communications) is largely irrelevant to the breach of contract and trade secret claims at issue. The memorandum also lists RFP 19 in Appendix A with the recommended position to 'Object/withhold' on relevance grounds. The criterion is satisfied.
+- **GPT-5.5: Pass.** The memorandum specifically addresses RFP 19, noting that it seeks broad financing, credit, covenant, borrowing-base, and lender communications, and states that the relevance is attenuated because none of Caspian’s claims turns on Greenleaf’s creditworthiness. It recommends objecting on relevance and proportionality grounds, with only a narrow fallback for documents specifically discussing PureLine 400, the JV, NanoSieve, or the litigation.
+
+### C-008
+
+ISSUE_003: Notes third-party confidentiality obligations under credit agreement ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L75))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly addresses third-party confidentiality obligations under the Sterling Ark credit agreement in Part IV.D (Third-Party Confidentiality — Lender Documents). It notes that 'the $40M March 2022 Sterling Ark revolving facility contains a confidentiality clause (possibly § 10.08) restricting disclosure of loan documents, covenants, borrowing base calculations and projections without lender consent.' It also notes that 'A private confidentiality agreement is not itself a privilege and does not bar discovery; courts typically address it through a protective order. The stronger objection is relevance/proportionality; the confidentiality clause supports AEO treatment and a notice period rather than outright refusal.' The recommended response also includes client steps to 'Pull the executed credit agreement; confirm the confidentiality provision and notice requirements; prepare a short notice letter to Sterling Ark so we can move quickly if ordered.' This clearly satisfies the criterion of noting third-party contractual confidentiality obligations related to the lender relationship.
+- **GPT-5.5: Pass.** The memorandum expressly flags RFP 19 as implicating third-party confidentiality, notes that the Sterling Ark credit agreement may contain a confidentiality clause restricting disclosure of loan documents, covenants, borrowing base calculations, and projections, and recommends verifying the provision and providing notice to the lender.
+
+### C-009
+
+ISSUE_004: Identifies RFP No. 36 as disproportionate ESI/database request ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L83))
+
+- **Sonnet 4.6: Pass.** The memorandum dedicates an entire section (Part IV.G) to RFP 36, explicitly identifying it as a disproportionate ESI/database request. It notes that RFP 36 seeks 'all data, databases, and database records' from SAP, Windchill and any other enterprise system 'relating in any way' to PureLine 400, in native format with all metadata, version history and audit trails. The memo explains that SAP spans all eleven product lines, HR and company-wide financials, and that databases are not 'documents' that can be produced wholesale in usable form, and that native production of a live ERP is infeasible and would expose unrelated data. It cites Rule 26(b)(1) and (b)(2)(C) and the Sedona Principles on database discovery. The Appendix A chart also flags RFP 36 as 'Disproportionate; not reasonably usable' with a High priority. This clearly satisfies the criterion of identifying RFP 36 as imposing disproportionate burden due to failure to identify specific data fields and capturing massive volumes of irrelevant operational data.
+- **GPT-5.5: Pass.** The memorandum specifically flags RFP No. 36 as a high-priority enterprise database/ESI issue, describes it as seeking “all data, databases, and database records” from SAP, Windchill, and other systems in native form, and recommends objecting to wholesale database production as disproportionate. It explains that SAP/Windchill contain company-wide and unrelated operational data across all product lines and proposes targeted exports/field lists instead. This satisfies the criterion.
+
+### C-010
+
+ISSUE_004: Recommends narrowing RFP No. 36 to specific data fields or categories ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L91))
+
+- **Sonnet 4.6: Pass.** The memorandum addresses RFP 36 in Section IV.G ('Enterprise Databases — SAP, Windchill, PLM'). The recommended response explicitly narrows the request: 'Object to wholesale database production; agree to produce reasonably usable exports/reports from SAP and Windchill for PureLine 400 (and JV products), e.g., Windchill part/document records, ECO histories, BOM revisions with timestamps and authors, and SAP procurement, production and cost records tied to PureLine 400 material numbers, April 3, 2023 (project initiation) forward, with JV-era records where the PureLine 400 records reference them.' This clearly identifies specific data fields and record types (ECO histories, BOM revisions with timestamps and authors, SAP procurement/production/cost records tied to specific material numbers) rather than producing entire databases. The Appendix A chart also confirms: 'Targeted exports; ESI protocol' as the recommended position for RFP 36. The criterion is satisfied.
+- **GPT-5.5: Pass.** The memorandum specifically recommends narrowing RFP No. 36 from wholesale SAP/Windchill/PLM database production to targeted exports/reports, including Windchill part/document records, ECO histories, BOM revisions with timestamps and authors, and SAP procurement, production, and cost records tied to PureLine 400 material numbers. It also proposes an ESI protocol addressing field lists and metadata fields.
+
+### C-011
+
+ISSUE_005: Identifies RFP Nos. 8, 12, and/or 27 as covering unrelated product lines ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L99))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly identifies RFPs 8, 12, and 27 as overbroad because they cover all Greenleaf filtration product lines rather than just PureLine 400. In Part IV.C, the memo states: 'Verified: RFPs 8 (R&D/commercialization of "all Greenleaf filtration products"), 12 (marketing for "all" product lines) and 27 (revenues/margins "for all Greenleaf filtration products ... by individual product line") reach all of Greenleaf's lines.' It further notes that 'Only PureLine 400 is accused' and references the JV Agreement's preservation of Greenleaf's right to continue existing non-membrane product lines. The Appendix A chart also flags these requests with the issue 'All product lines' and recommends limiting production to PureLine 400 and other membrane products. The criterion is clearly satisfied.
+- **GPT-5.5: Pass.** The memorandum expressly identifies RFPs 8, 12, and 27 as seeking R&D/marketing/revenue information for all Greenleaf filtration products/product lines, notes that Greenleaf has eleven product lines while only PureLine 400 is accused/at issue, and recommends narrowing to PureLine 400 or other relevant membrane products.
+
+### C-012
+
+ISSUE_005: Cites proportionality under Fed. R. Civ. P. 26(b)(1) ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L107))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly cites Fed. R. Civ. P. 26(b)(1) proportionality in connection with the overbroad product-line requests. In Part IV.C (Subject-Matter Overbreadth — All Eleven Product Lines), the 'Legal basis for objection' section states: 'Rule 26(b)(1); Rule 26(c)(1)(G) (confidential commercial information of non-accused products).' The analysis also notes that Caspian's damages theories reach PureLine 400, not unrelated product lines, directly tying the proportionality argument to the product-line scope issue. Additionally, the governing discovery standards section (Part II.B) sets out Rule 26(b)(1) as the framework, and the Appendix A chart for RFPs 8, 12, 27 recommends limiting to 'PureLine 400 + other membrane products post-2019.' The criterion is satisfied.
+- **GPT-5.5: Pass.** The memorandum has a dedicated section on “Subject-Matter Overbreadth — All Eleven Product Lines” addressing RFPs that seek all Greenleaf product lines despite only PureLine 400 being accused, and it expressly cites Rule 26(b)(1) proportionality as a basis for narrowing/objecting to those requests.
+
+### C-013
+
+ISSUE_006: Identifies vague/overbroad 'relating to' requests in RFP Nos. 5, 16, 24, and/or 38 ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L115))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly addresses RFP Nos. 5, 16, 24, and 38 and flags them as overbroad. In Part IV.C (Subject-Matter Overbreadth), RFPs 5, 16, and 38 are identified as problematic: RFP 5 seeks strategic plans for the entire industrial filtration market, RFP 16 seeks everything 'relating to ... membrane filtration technology ... from any source,' and RFP 38 covers board/senior management materials broadly. In Part IV.I (Undefined Trade Secrets), RFP 24 is flagged for seeking 'all comparisons of NanoSieve against any other membrane filtration technology.' The memorandum also addresses the 'relating to' language in Definition 11 in Part III, noting the 'any way pertinent' formulation renders every 'relating to' request overbroad. Appendix A also lists all four RFPs with recommended narrowing positions. The criterion is satisfied.
+- **GPT-5.5: Pass.** The memorandum expressly flags the broad 'relating to' definition as overbroad and specifically identifies RFPs 5, 16, and 38 as subject-matter overbroad. It also states that RFP 16 seeks everything 'relating to' membrane filtration technology from any source, including public materials, and recommends narrowing. This satisfies the criterion.
+
+### C-014
+
+ISSUE_006: Notes 'membrane filtration technology' encompasses unrelated materials ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L123))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly addresses RFP 16 in Part IV.C (Subject-Matter Overbreadth), noting that 'RFP 16 seeks everything "relating to ... membrane filtration technology ... from any source," including published literature --- much of it public and equally available to Caspian.' It also notes in the Appendix A chart for RFP 16 that the issue is 'Overbroad; public literature' and recommends limiting to 'Greenleaf-authored analyses/materials used in PureLine 400.' Additionally, Part IV.C notes that the JV Agreement's exclusivity carved out Greenleaf's existing product lines, implying that unrelated Background IP predating the JV would be swept in by the broad language. The memorandum thus explains why the broad 'membrane filtration technology' language is problematic by identifying that it encompasses publicly available literature and materials unrelated to NanoSieve or JV technology.
+- **GPT-5.5: Pass.** The memorandum expressly identifies the broad “membrane filtration technology” language as problematic. It notes that RFP 16 seeks materials from “any source,” including publicly available literature, and recommends limiting production to Greenleaf-authored analyses and third-party materials actually used in PureLine 400 development. It also discusses Greenleaf’s pre-JV Background IP/independent-development materials as a distinct category requiring calibrated treatment rather than wholesale production.
+
+### C-015
+
+ISSUE_007a: Identifies RFP No. 33 as overbroad personnel files request ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L131))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly identifies RFP 33 as a high-priority issue in multiple places. Section IV.E is dedicated to 'Employee Privacy — Personnel Files' with RFP 33 as the primary affected request. It describes RFP 33 as demanding 'complete personnel files — performance reviews, PIPs, discipline, compensation, bonus, equity, benefits and enrollment forms — for all 23 JV engineers and for every Greenleaf employee who worked on PureLine 400,' and raises both overbreadth and privacy concerns. It also appears in Appendix A with the notation 'Privacy; relevance; Caspian files not held' and recommends a 'Narrowing framework; withhold comp/benefits/discipline' with High priority.
+- **GPT-5.5: Pass.** The memorandum expressly flags RFP No. 33 as a high-priority personnel files issue, describing it as demanding complete personnel files for all 23 JV engineers and PureLine 400 employees, raising employee privacy concerns and overbreadth. It recommends narrowing production and withholding compensation, benefits, medical, performance, and disciplinary records.
+
+### C-016
+
+ISSUE_007b: Notes irrelevance of compensation, medical/benefits, or disciplinary records to claims ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L139))
+
+- **Sonnet 4.6: Pass.** In Part IV.E (Employee Privacy — Personnel Files), the memorandum explicitly states: 'Compensation, benefits, medical and disciplinary information has no apparent bearing on misappropriation or contract claims; production would expose sensitive data of at least 14 Greenleaf JV engineers plus the PureLine 400 team.' It also recommends to 'Object to and withhold compensation, benefits, medical, performance and disciplinary records, stating so expressly.' This directly identifies these categories of personnel file information as irrelevant to the claims, satisfying the criterion.
+- **GPT-5.5: Pass.** The memorandum expressly states in the personnel-files section that compensation, benefits, medical, and disciplinary information has no apparent bearing on the misappropriation or contract claims, and recommends objecting to/withholding those categories.
+
+### C-017
+
+ISSUE_007: Recommends narrowing to relevant employment info only ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L147))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly addresses RFP 33 (personnel files) in Part IV.E with a detailed narrowing framework. It recommends producing only: (1) name, title, and employment dates; (2) JV role and assignment history; (3) documents sufficient to show access to NanoSieve/JV technical data; (4) NDAs, invention assignment, non-compete/non-solicit agreements; and (5) exit interview/device-audit records. It explicitly states to 'Object to and withhold compensation, benefits, medical, performance and disciplinary records.' This clearly satisfies the criterion of recommending narrowing to relevant employment information while excluding irrelevant compensation, benefits, medical, or disciplinary records.
+- **GPT-5.5: Pass.** The memorandum specifically addresses RFP 33/personnel files and recommends narrowing production to relevant employment information such as name, title, employment dates, JV role and assignment history, access to NanoSieve/JV data, agreements, and exit/device audit records, while expressly withholding compensation, benefits, medical, performance, and disciplinary records absent a particularized showing.
+
+### C-018
+
+ISSUE_008: Identifies RFP No. 41 as contention interrogatory disguised as RFP ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L155))
+
+- **Sonnet 4.6: Pass.** Section IV.M of the memorandum explicitly addresses RFP 41 under the heading 'Contention-Style and Catch-All Requests.' It identifies RFP 41 as seeking 'all documents that support, contradict, or relate to each affirmative defense and counterclaim,' describes it as 'unbounded as to relate to and effectively requests the entire case file,' and notes that it 'asks counsel to marshal evidence and reveals mental impressions about which documents are inconsistent with or adverse to Greenleaf's positions.' This directly identifies RFP 41 as a contention-interrogatory-style request that requires premature marshaling of case theory. The Appendix A chart also flags RFP 41 as a 'Contention catch-all; work product' issue. The criterion is satisfied.
+- **GPT-5.5: Pass.** The memorandum specifically flags RFP 41 under “Contention-Style and Catch-All Requests,” describes it as seeking documents that “support, contradict, or relate to” defenses/counterclaims, states it effectively requests the entire case file, and notes it would require counsel to marshal evidence and reveal mental impressions. This satisfies the requirement to identify it as an improper contention-style request masquerading as an RFP.
+
+### C-019
+
+ISSUE_008: Cites Fed. R. Civ. P. 33(a)(2) or prematurity of contention discovery ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L163))
+
+- **Sonnet 4.6: Fail.** The memorandum addresses contention-style requests (RFP 41) in Part IV.M, but the legal basis cited is Rule 34(b)(1)(A) (reasonable particularity) and Rule 26(b)(3)(B) (mental impressions), along with a general note that courts limit 'all documents relating to' contention requests. The memorandum does not cite Fed. R. Civ. P. 33(a)(2) or articulate that contention-type discovery is premature at the outset of fact discovery. The prematurity argument specific to contention discovery is absent from the analysis.
+- **GPT-5.5: Fail.** The memorandum identifies RFP 41 as a contention-style/catch-all request and objects on reasonable particularity and work-product/mental-impression grounds, but it does not cite Fed. R. Civ. P. 33(a)(2) or state that contention discovery is premature at the outset of fact discovery or should be deferred until discovery is substantially complete.
+
+### C-020
+
+ISSUE_009: Identifies RFP No. 9 as threatening Greenleaf's own trade secrets ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L171))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly identifies RFP No. 9 in Part IV.H ('Greenleaf's Own Trade Secrets --- Full PureLine 400 Technical Package') and notes that RFP 9 seeks all specifications, drawings, CAD files, formulas, compositions, BOMs, manufacturing work instructions, SOPs, tooling designs and assembly instructions for PureLine 400 'in complete, unredacted form.' It specifically flags that much of PureLine 400 incorporates Greenleaf's own Background IP (housings, flow control, FilterLogic software, SOPs, coating formulations) that is unrelated to membrane technology, and that production to a direct competitor creates real competitive risk. The Appendix A chart also lists RFP 9 with 'Greenleaf trade secrets; Instr. 8' as the principal issue. This clearly satisfies the criterion.
+- **GPT-5.5: Pass.** The memorandum expressly flags RFP No. 9 as seeking the full PureLine 400 technical package, including specifications, drawings, CAD files, formulas, BOMs, manufacturing work instructions, SOPs, tooling designs, and assembly instructions in complete, unredacted form. It identifies this as problematic because it would disclose Greenleaf’s own trade secrets, proprietary Background IP, and manufacturing/process information, and recommends AEO treatment, redactions, and enhanced protective measures.
+
+### C-021
+
+ISSUE_009: Recommends AEO designation and/or limiting production to NanoSieve overlap ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L179))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly recommends both limiting production of PureLine 400 technical information to aspects relevant to NanoSieve/Joint IP overlap and using AEO designation. In Part IV.H (RFP 9), the recommended response states: 'Agree to produce, as AEO, technical documents sufficient to show the structure, composition, fabrication and operation of PureLine 400's membrane and membrane-module components and any component Caspian identifies as embodying its asserted trade secrets or Joint IP; object to the balance (non-membrane housings, controls software, generic manufacturing SOPs) as irrelevant.' It also states 'relevance limited to the aspects of PureLine 400 that allegedly embody NanoSieve or Joint IP.' Appendix A for RFP 9 confirms 'Membrane-related components AEO; secure review; staged.' These recommendations clearly satisfy both prongs of the criterion.
+- **GPT-5.5: Pass.** The memorandum expressly recommends producing PureLine 400 technical information as AEO and limiting production to membrane/module components or components Caspian identifies as embodying NanoSieve/asserted trade secrets or Joint IP, while objecting to unrelated non-membrane materials.
+
+### C-022
+
+ISSUE_010: Identifies RFP No. 28 as overbroad competitor communications request ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L187))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly addresses RFP 28 in Part IV.L ('Communications With Competitors') and in Appendix A. In Part IV.L, it states that RFP 28 'seeks all communications with any competitor (named: Helix Waterworks, Triton Filtration, AquaPrime Systems) on any subject since 2019 --- which would cover routine industry, trade association, and supply communications.' It characterizes this as overbroad and recommends objecting to the remainder as overbroad while producing only subject-limited communications. In Appendix A, RFP 28 is listed with the principal issue 'Overbroad; but Helix central to counterclaim' and recommended position of 'Subject-limited production incl. all relevant Helix comms.' The memorandum clearly flags RFP 28 as overbroad, satisfying the criterion.
+- **GPT-5.5: Pass.** The memorandum expressly flags RFP No. 28 under “Communications With Competitors,” states that it seeks all communications with any competitor, including Helix, Triton, and AquaPrime, on any subject since 2019, and recommends objecting to the remainder as overbroad. This satisfies the criterion.
+
+### C-023
+
+ISSUE_010: Acknowledges Helix Waterworks communications may be relevant to counterclaim ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L195))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly distinguishes Helix Waterworks communications from the broader competitor communications request in Part IV.L. It states that RFP 28 seeks all communications with any competitor on any subject since 2019 (overbroad), but then specifically notes that 'Greenleaf's own counterclaim alleges Caspian disclosed Greenleaf confidential information to Helix, and Diss. Agr. § 7.4 names all three companies. Greenleaf's communications with Helix concerning the JV, Caspian, PureLine 400, NanoSieve, or Greenleaf confidential information are plainly relevant to the counterclaim and cannot be withheld.' The recommended response also states to 'Produce communications with Helix, Triton and AquaPrime (and any other competitor) that concern the JV, Caspian, NanoSieve, Joint IP, PureLine 400 or membrane filtration technology, 2019–present, plus all Helix communications bearing on the counterclaim.' This clearly distinguishes Helix Waterworks communications as relevant to the counterclaim while treating the broader request as overbroad.
+- **GPT-5.5: Pass.** The memorandum expressly distinguishes Helix Waterworks communications from the broader competitor-communications request. In Part L, it states that RFP 28 is overbroad as to all competitor communications generally, but that Greenleaf’s communications with Helix concerning the JV, Caspian, PureLine 400, NanoSieve, or confidential information are plainly relevant to Greenleaf’s counterclaim alleging disclosure to Helix and should be produced subject to narrowing.
+
+### C-024
+
+ISSUE_011: Flags absence of ESI form-of-production specification in RFPs ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L203))
+
+- **Sonnet 4.6: Fail.** The memorandum does not specifically flag that the RFPs (other than RFP 36) fail to specify the form of production for ESI. While the memo discusses ESI issues in several places—objecting to Instruction 5 (backup tapes), discussing RFP 36's demand for native format, and recommending an ESI protocol—it never identifies the absence of a form-of-production specification in the other RFPs as a distinct problem. The criterion requires the memo to flag that the RFPs generally fail to specify ESI form of production (except RFP 36 which demands native), creating ambiguity. This specific issue is not raised.
+- **GPT-5.5: Fail.** The memorandum discusses ESI issues, database exports, backup tapes, and proposes an ESI protocol, and it notes that RFP 36 demands native format. However, it does not identify the general issue that the RFPs otherwise fail to specify the form of production for ESI, nor does it flag the resulting ambiguity. Therefore it does not satisfy ISSUE_011.
+
+### C-025
+
+ISSUE_011: References Fed. R. Civ. P. 34(b) regarding form of ESI production ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L211))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly cites Rule 34(b)(1)(C) and Rule 34(b)(2)(E) in Section IV.G (Enterprise Databases) under 'Recommended objection / response and meet-and-confer position': 'Rule 26(b)(1) and (b)(2)(C); Rule 34(b)(1)(C), (b)(2)(E) (form of production; reasonably usable form).' This satisfies the criterion requiring reference to Fed. R. Civ. P. 34(b)(1)(C) and/or 34(b)(2)(D)-(E) regarding form of ESI production.
+- **GPT-5.5: Pass.** The memorandum expressly cites “Rule 34(b)(1)(C), (b)(2)(E) (form of production; reasonably usable form)” in the Enterprise Databases/ESI discussion, and also references Rule 34(b)(2)(E)(i) regarding production organization. This satisfies the criterion.
+
+### C-026
+
+ISSUE_011: Recommends negotiating ESI protocol before production ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L219))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly recommends negotiating an ESI protocol before production in multiple places. In Part IV.G (Enterprise Databases), the recommended response states: 'Propose an ESI protocol (none is in the CMO) covering database exports, field lists, metadata fields, and a sample-then-expand approach. Offer a technical conference between IT (Raymond Cho) and Caspian's vendor.' Additionally, in Part IV.J, the recommended response references 'an agreed ESI protocol' for disclosing hold facts. The memorandum also references producing documents 'per an agreed ESI protocol' in the Definitions/Instructions table (Instr. 2). These recommendations clearly satisfy the criterion of recommending negotiation of an ESI protocol or form-of-production agreement before production begins.
+- **GPT-5.5: Pass.** The memorandum expressly recommends negotiating an ESI protocol/form-of-production agreement, including producing ESI with custodian metadata per an agreed protocol and proposing an ESI protocol for SAP/Windchill database exports, field lists, metadata, and a sample-then-expand approach before production.
+
+### C-027
+
+ISSUE_012a: Identifies need for FRE 502(d) clawback/non-waiver order ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L227))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly identifies the need for a Fed. R. Evid. 502(d) order multiple times. In the Executive Summary, it states: 'The Protective Order contains no clawback / Rule 502(d) provision' and recommends proposing 'a stipulated Fed. R. Evid. 502(d) order (non-waiver regardless of care taken) before the first production.' It further describes this as 'the single most important protective step for the RFP 31 problem.' The issue is also addressed in Part IV.A under the privilege section, where the recommended response includes 'Rule 502(d) order: Circulate a proposed stipulated 502(d) order with the extension request.' The next steps table also includes circulating the proposed 502(d) order. The criterion is clearly satisfied.
+- **GPT-5.5: Pass.** The memorandum explicitly notes that the protective order lacks a clawback/Rule 502(d) provision and recommends proposing a stipulated Fed. R. Evid. 502(d) non-waiver order before the first production. It also reiterates this in the privilege section and timeline.
+
+### C-028
+
+ISSUE_012b: References document volume as justification for 502(d) order ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L235))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly references the document volume (~950,000 post-dedup documents) and thousands of privileged communications as justification for the 502(d) order. In the Executive Summary under 'Items that need action before the September 11 deadline,' it states: 'The Protective Order contains no clawback / Rule 502(d) provision... With ~950,000 post-dedup documents and thousands of privileged communications, we should propose a stipulated Fed. R. Evid. 502(d) order (non-waiver regardless of care taken) before the first production.' This directly ties document volume and privilege risk to the 502(d) recommendation.
+- **GPT-5.5: Pass.** The memorandum expressly ties the 502(d) recommendation to document volume and privilege risk, stating that with approximately 950,000 post-dedup documents and thousands of privileged communications, a stipulated FRE 502(d) order should be proposed before production.
+
+### C-029
+
+ISSUE_012: Notes Protective Order does not cover privilege waiver risk ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L243))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly addresses this issue in multiple places. In the Executive Summary, it states: 'The Protective Order contains no clawback / Rule 502(d) provision. PO §§ 1.4, 9 and 15.4 expressly disclaim any procedure for inadvertently produced privileged material.' It further notes that 'an inadvertent production could be argued to waive privilege, including subject-matter waiver under FRE 502(a).' In Part IV.A, it elaborates: 'No clawback: the Protective Order provides no Rule 502(b)/(d) mechanism (PO §§ 1.4, 9, 15.4 disclaim one), so an inadvertent production could be argued to waive privilege.' The memo clearly distinguishes the Protective Order's confidentiality protections (PO § 5 AEO tier, etc.) from the separate need for FRE 502(d) protection against privilege waiver, and recommends proposing a stipulated 502(d) order as 'the single most important protective step for the RFP 31 problem.'
+- **GPT-5.5: Pass.** The memorandum expressly states that the Stipulated Protective Order lacks a clawback or Rule 502(d) provision, notes that its provisions disclaim any procedure for inadvertently produced privileged material, and recommends a separate Fed. R. Evid. 502(d) order to prevent waiver. It thereby distinguishes confidentiality/AEO protections under the Protective Order from privilege-waiver protection.
+
+### C-030
+
+ISSUE_013: Identifies 24-month non-compete as relevance cutoff framework ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L251))
+
+- **Sonnet 4.6: Fail.** The memorandum does reference the non-compete provision, but only in the context of the substantive claims and defenses framework. Specifically, in Section II.A, it states: 'Non-compete on Joint IP runs through June 30, 2025 (Diss. Agr. §§ 6.1, 6.4); Joint IP royalties begin July 1, 2025 (Diss. Agr. Ex. B).' However, the criterion requires that the memorandum identify the 24-month non-compete as a relevance cutoff framework for narrowing the scope of forward-looking document requests that seek documents 'to the present' or beyond the non-compete period. The memorandum does not discuss using the non-compete period as a temporal scoping tool for discovery requests, does not reference Section 9.1 of the JV Agreement specifically, and does not analyze how the non-compete's end date of June 30, 2025 should inform the temporal scope of RFPs seeking documents 'to the present.' The non-compete is mentioned only as a substantive contractual provision, not as a framework for narrowing discovery requests temporally.
+- **GPT-5.5: Fail.** The memorandum mentions a non-compete running through June 30, 2025, but attributes it to the Dissolution Agreement rather than JV Agreement § 9.1, does not identify it as a 24-month post-termination non-compete running from June 30, 2023 to June 30, 2025, and does not discuss using that period as a temporal cutoff for forward-looking requests seeking documents to the present or beyond the non-compete period.
+
+### C-031
+
+ISSUE_014: Identifies RFP Nos. 15 and/or 40 as imposing third-party collection burden ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L259))
+
+- **Sonnet 4.6: Pass.** Section IV.F explicitly addresses RFPs 15 and 40, identifying that they seek documents in the possession, custody, or control of Greenleaf 'its agents, representatives, consultants, or any entity acting on its behalf,' and specifically flags that this reaches Ridgepoint Accounting Group, LLP (auditor) and Sterling Ark (lender) as third parties over whom Greenleaf may not have legal control. The memorandum notes that auditor workpapers are generally the auditor's property, that the Ridgepoint engagement letter needs to be verified to confirm whether Greenleaf has a contractual right to obtain workpapers, and that Rule 45 is the proper vehicle for non-party documents. This clearly satisfies the criterion.
+- **GPT-5.5: Pass.** The memorandum expressly flags RFPs 15 and 40 as seeking documents held by Greenleaf’s “agents, representatives, consultants,” and notes this could reach third parties including Ridgepoint Accounting Group, Sterling Ark, and outside consultants. It discusses lack of possession/custody/control, need to verify any legal right to obtain auditor workpapers, and identifies Rule 45 as the proper mechanism, thereby recognizing the third-party collection burden issue.
+
+### C-032
+
+Each issue identifies specific RFP number(s) affected ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L267))
+
+- **Sonnet 4.6: Pass.** Throughout the memorandum, every issue section explicitly identifies the specific RFP numbers affected. The table at the start of each issue section lists the RFP numbers (e.g., 'RFP 31 (primary); also RFPs 6, 11, 13, 14, 35, 41, 46' for privilege; 'RFPs 3, 7, 14, 22; RFPs 16, 38' for temporal overbreadth; etc.). The Definitions/Instructions table references specific instruction numbers. Appendix A provides a complete request-by-request chart covering all 46 RFPs individually. No issue is discussed generically without referencing specific RFP numbers.
+- **GPT-5.5: Pass.** The memorandum consistently identifies the specific RFP number(s) implicated by each substantive discovery issue, including through dedicated “RFP(s) affected” tables in each issue section and a request-by-request Appendix covering RFP Nos. 1–46. Some procedural points and definition/instruction objections are not tied to a single RFP, but the substantive issue analyses do not discuss objectionable demands generically without RFP references.
+
+### C-033
+
+Each issue includes nature/category of the problem ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L275))
+
+- **Sonnet 4.6: Pass.** The memorandum systematically categorizes each issue by its nature/type throughout. Section III (Definitions and Instructions) includes a 'Problem' column explicitly categorizing each issue (e.g., sweeps in outside counsel/privilege, vague and argumentative, beyond Rule 34, not reasonably accessible). Section IV organizes issues by named categories: A) Attorney-Client Privilege and Work Product, B) Temporal Overbreadth, C) Subject-Matter Overbreadth, D) Third-Party Confidentiality, E) Employee Privacy, F) Documents Held by Third Parties, G) Enterprise Databases, H) Greenleaf's Own Trade Secrets, I) Undefined Trade Secrets, J) Internal Investigations and Litigation Hold Materials, K) Preservation and Rule 26(g) Certification Risk, L) Communications With Competitors, M) Contention-Style and Catch-All Requests, N) Duplicative and Overlapping Requests. Appendix A includes a 'Principal issue(s)' column for all 46 RFPs that categorizes each problem (e.g., 'Temporal overbreadth; independent-development tension,' 'Greenleaf trade secrets; Instr. 8,' 'Attorney-client / work product,' 'Privacy; relevance'). Every issue raised is accompanied by a clear categorization of the nature of the problem.
+- **GPT-5.5: Pass.** The memorandum consistently identifies the nature/category of the problem for the issues it discusses, both through section headings (e.g., privilege/work product, temporal overbreadth, subject-matter overbreadth, third-party confidentiality, employee privacy, undue burden/database issues, trade secrets, vagueness/undefined trade secrets, litigation hold/work product, preservation, duplicative requests) and through request-by-request charts listing principal issues. Although some 'Nature of the problem' subsections appear formatting-corrupted, the objection categories are still clearly stated elsewhere for each issue.
+
+### C-034
+
+Each issue includes legal basis citing applicable rules ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L283))
+
+- **Sonnet 4.6: Pass.** The memorandum extensively cites applicable Federal Rules of Civil Procedure and Federal Rules of Evidence throughout. In Section II.B (Governing Discovery Standards), it explicitly lists Rules 26(b)(1), 26(b)(2)(B)-(C), 26(b)(3), 26(b)(5)(A), 26(c)(1)(G), 34(b)(2)(B)-(C), 26(g), and Rule 45. In Section III (Definitions and Instructions), it cites Rule 34(b)(2)(E)(i), Rule 26(b)(5)(A), Rule 26(b)(2)(B), and Rule 34. In each issue-by-issue section (IV.A through IV.N), legal bases are cited: Rule 26(b)(3) and FRE 502(d) for privilege issues; Rule 26(b)(1) and Rule 26(b)(2)(C) for temporal/subject overbreadth; Rule 34(a)(1) for third-party control; Rule 26(c)(1)(G) for trade secrets and confidential commercial information; Rule 37(e) and Rule 26(g) for preservation; Rule 34(b)(1)(C) and (b)(2)(E) for database production; Rule 26(b)(2)(C)(i) for duplicative requests; and Rule 34(b)(1)(A) for contention requests. Case law citations (Upjohn, Hickman v. Taylor, Hawkins v. Stables, Oppenheimer Fund, DeRubeis, Steele Software, etc.) are also provided. The criterion is clearly satisfied for the majority of identified issues.
+- **GPT-5.5: Pass.** The memorandum repeatedly provides legal bases for the identified issues, citing applicable Federal Rules throughout, including Rules 26(b)(1), 26(b)(2), 26(b)(3), 26(c), 26(g), 34(b), 37(e), 45, and FRE 502(d), along with some supporting case law. Most issue sections include a dedicated “Legal basis for objection” discussion tied to the relevant RFPs.
+
+### C-035
+
+Each issue includes recommended objection or response strategy ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L291))
+
+- **Sonnet 4.6: Pass.** The memorandum consistently pairs each identified issue with specific recommended objection or response strategies. For every issue category (privilege, temporal overbreadth, subject-matter overbreadth, third-party confidentiality, personnel files, third-party documents, databases, trade secrets, internal investigations, preservation, competitor communications, contention requests, duplicative requests), the memo provides concrete recommendations: narrowing language, meet-and-confer positions, AEO designations, partial production frameworks, privilege log formats, Rule 502(d) order proposals, staged production approaches, and specific fallback positions. The request-by-request chart in Appendix A also provides a recommended position for all 46 RFPs. No issue is identified without a corresponding recommendation.
+- **GPT-5.5: Pass.** The memorandum consistently pairs each identified objectionable issue/category and each RFP in the appendix with a recommended objection or response strategy, including narrowing proposals, partial production positions, privilege/work-product handling, AEO/protective-order measures, meet-and-confer topics, and client follow-up steps. Although some formatting is awkward, the required recommendations are present throughout.
+
+### C-036
+
+Issues include priority/risk ranking (Critical/High/Medium or equivalent) ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L299))
+
+- **Sonnet 4.6: Pass.** The memorandum includes priority rankings throughout. The Definitions/Instructions table has a 'Priority' column with HIGH/MEDIUM/LOW ratings. Each issue section (A through N) has a table with a 'Priority' column. Appendix A has a 'Priority' column for all 46 RFPs with High/Medium/Low ratings. The executive summary also identifies which requests need 'firm objection' versus minimal objection. The tiered system (High/Medium/Low) is consistently applied across the document.
+- **GPT-5.5: Pass.** The memorandum includes explicit priority/risk rankings throughout, including tables with a 'Priority' column assigning High/Medium/Low to issue categories and individual RFPs, as well as an Appendix A request-by-request chart with priority levels.
+
+### C-037
+
+Privilege issues (RFP 31, 502(d)) ranked as Critical or highest priority ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L307))
+
+- **Sonnet 4.6: Pass.** RFP 31 (attorney-client privilege/work product) is explicitly marked HIGH priority throughout the memorandum. In the executive summary, it is listed as one of the requests needing 'firm objection' and is called out first. In Part IV.A, it is marked HIGH priority. The 502(d) clawback order is described as 'the single most important protective step for the RFP 31 problem' in the executive summary's action items. In Appendix A, RFP 31 is marked High priority. The privilege issues are ranked at the same highest level (HIGH) as other issues like temporal overbreadth (also HIGH), but the 502(d) order is explicitly called out as 'the single most important protective step,' indicating it is treated as the most urgent risk. This satisfies the criterion that privilege issues are ranked at the highest priority level and clearly indicated as the most urgent risks.
+- **GPT-5.5: Pass.** The output assigns RFP 31 a High priority, which appears to be the highest priority level used, and expressly states that obtaining a Rule 502(d) order is “the single most important protective step” before production. Privilege and clawback issues are therefore clearly treated as among the most urgent/highest-priority risks.
+
+### C-038
+
+Correctly identifies case as Western District of North Carolina ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L315))
+
+- **Sonnet 4.6: Pass.** The memorandum's header clearly identifies the case as 'Caspian Environmental Technologies, LLC v. Greenleaf Industrial Solutions, Inc., No. 3:24-cv-00412-RJC (W.D.N.C.)' which correctly identifies both the Western District of North Carolina and the case number.
+- **GPT-5.5: Pass.** The memorandum caption identifies the matter as “Caspian Environmental Technologies, LLC v. Greenleaf Industrial Solutions, Inc., No. 3:24-cv-00412-RJC (W.D.N.C.),” which correctly references the Western District of North Carolina and the specified case number.
+
+### C-039
+
+References September 11, 2024 response deadline ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L323))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly references the September 11, 2024 response deadline multiple times. In the Executive Summary, it states 'responses due September 11, 2024'. In the Action Items section, it notes 'Until an order is entered, we should plan to serve on September 11.' In the Next Steps table, the last row shows 'Serve responses (absent court-approved extension)' with a target date of 'Sept. 11, 2024'. The criterion is clearly satisfied.
+- **GPT-5.5: Pass.** The memorandum explicitly states that the RFPs were served August 12, 2024 and that responses are due September 11, 2024, and it also references serving responses by September 11 in the timeline.
+
+### C-040
+
+Recommends meet-and-confer with opposing counsel ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L331))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly recommends a meet-and-confer with opposing counsel (Megan Forsythe/Mr. Beckett of Beckett Sloane) in multiple places. Section I notes 'Meet-and-confer must be a real-time conversation between lead counsel' citing CMO § 9, and specifies Julia should be on the call with Ms. Forsythe/Mr. Beckett. Section VI's action table includes 'Real-time meet-and-confer, lead counsel (CMO § 9): trade secret identification, log format, time window, product-line scope, database exports, RFP 9 secure review' assigned to JA in early September. Multiple individual issue sections also reference meet-and-confer positions (e.g., Parts IV.A, IV.D, IV.G, IV.I). The memorandum clearly and repeatedly recommends a meet-and-confer with plaintiff's counsel to resolve objections and negotiate narrowing of problematic requests.
+- **GPT-5.5: Pass.** The memorandum expressly recommends a real-time meet-and-confer with Plaintiff's counsel/lead counsel, including discussion of narrowing issues such as trade secret identification, log format, time window, product-line scope, database exports, and secure review, before serving responses.
+
+### C-041
+
+Correctly states JV formation date as January 15, 2019 ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L339))
+
+- **Sonnet 4.6: Pass.** The memorandum correctly states the JV formation date as January 15, 2019 in multiple places: Section II.A states 'JV formed Jan. 15, 2019,' Section II.A also references 'the executed JV Agreement (Jan. 15, 2019)' in the introduction, and various other references throughout the document (e.g., 'as of January 15, 2019,' 'January 15, 2019 forward') consistently use this date.
+- **GPT-5.5: Pass.** The memorandum repeatedly and correctly states the JV Agreement/formation date as January 15, 2019, including in the executive summary/background and temporal-scope discussions.
+
+### C-042
+
+Correctly states JV dissolution date as June 30, 2023 ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L347))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly states in Section II.A: 'JV formed Jan. 15, 2019; dissolved June 30, 2023; wind-down July 1 -- Sept. 30, 2023 (Diss. Agr. §§ 2.1, 5.1).' This correctly identifies the JV dissolution date as June 30, 2023. The document also references the non-compete running through June 30, 2025 and royalties beginning July 1, 2025, which are consistent with a June 30, 2023 dissolution date.
+- **GPT-5.5: Pass.** The memorandum expressly states that the JV was “dissolved June 30, 2023” and references the wind-down beginning July 1, 2023. It does not state an incorrect dissolution effective date.
+
+### C-043
+
+References Stipulated Protective Order in confidentiality/trade secret discussion ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L355))
+
+- **Sonnet 4.6: Pass.** The memorandum references the Stipulated Protective Order (Dkt. 34) multiple times in the context of confidentiality and trade secret discussions. For example, in Part I it notes the Protective Order lacks a clawback/Rule 502(d) provision. In Part IV.A it discusses the PO's lack of a Rule 502(b)/(d) mechanism. In Part IV.H it references the PO's AEO tier (PO § 5) and proposes a PO amendment for native CAD files and formulations. In Part IV.F it references PO § 11 regarding non-party provisions. The Protective Order is clearly and repeatedly referenced in the context of confidentiality and trade secret protection discussions throughout the memorandum.
+- **GPT-5.5: Pass.** The memorandum expressly references the Stipulated Protective Order multiple times in confidentiality and trade secret contexts, including noting its AEO tier, non-party provisions, personnel-information protections, and proposing amendments for highly sensitive PureLine 400 technical/trade secret materials.
+
+### C-044
+
+Identifies systemic/cross-cutting issues as a separate category ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L363))
+
+- **Sonnet 4.6: Pass.** The memorandum clearly identifies systemic and cross-cutting issues as distinct categories separate from individual RFP objections. Section I (Executive Summary) flags overarching concerns including: the need for a Rule 502(d)/clawback order (noting the Protective Order lacks one), the CMO's meet-and-confer requirements, extension procedures, preservation gaps, and the independent-development defense tension with temporal objections. Section III addresses Definitions and Instructions globally. Section IV.K explicitly addresses 'Preservation and Rule 26(g) Certification Risk (Cross-Cutting)' as its own subsection. The ESI protocol need is raised in Part IV.G (database section) and in the next steps table. The 502(d) order is discussed in Part IV.A and the Executive Summary as a standalone action item. These systemic issues are presented as distinct from the individual RFP-by-RFP analysis in Appendix A, satisfying the criterion.
+- **GPT-5.5: Pass.** The memorandum expressly identifies overarching discovery-response issues apart from individual RFP objections, including a Rule 502(d) order, ESI/database protocol, lead-counsel meet-and-confer requirements, privilege logging approach, preservation/Rule 26(g) risks in a dedicated cross-cutting section, and objections to definitions/instructions.
+
+### C-045
+
+PureLine 400 correctly identified as the only product at issue ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L371))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly and repeatedly identifies PureLine 400 as the only accused product and uses this as a basis for objecting to overbroad requests covering all product lines. In Part IV.C, it states: 'Only PureLine 400 is accused' and objects to RFPs 8, 12, and 27 for reaching all of Greenleaf's product lines. The recommended narrowing throughout is to limit production to PureLine 400 (and other membrane products post-2019 where relevant to the § 3.3 exclusivity theory). The Appendix A chart consistently recommends narrowing to 'PureLine 400 + membrane products' rather than all product lines. This criterion is clearly satisfied.
+- **GPT-5.5: Pass.** The memorandum expressly states that “Only PureLine 400 is accused” and repeatedly treats PureLine 400 as the relevant Greenleaf product at issue. It uses that fact to object to or narrow requests seeking discovery across all Greenleaf product lines, including RFPs 8, 12, 22, and 27, while proposing production focused on PureLine 400 and closely related membrane/JV materials.
+
+### C-046
+
+References Section 9.1 non-compete or Section 7.2/7.4 IP provisions of JV Agreement ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L379))
+
+- **Sonnet 4.6: Pass.** The memorandum references multiple specific sections of the JV Agreement throughout. It cites Section 7.4 (Background IP) in Part II.A and Part IV.B ('Greenleaf's defense rests on its Background IP (JV Agr. § 7.4; Ex. C)'), Section 7.3(c) (NanoSieve license termination), Section 11.2(b) (independent development exception), Section 11.1(a) (disclosure prohibition), Section 3.1-3.3 (JV Purpose and exclusivity), Section 6.1/6.3/6.5 (seconded engineers), Section 8.1 (financial records access), and Section 15.1 (integration clause). The counterclaim analysis also notes that Counterclaim II cites 'JV Agreement § 11.3' and discusses the correct provisions being § 11.1(a) and Dissolution Agreement § 7.4. The Appendix A chart references 'JV Agr. § 7.4(b), Ex. C' for Background IP. These are specific JV Agreement section citations used when analyzing discovery scope and relevance issues, satisfying the criterion.
+- **GPT-5.5: Pass.** The memorandum cites specific JV Agreement sections when analyzing scope/relevance, including JV Agreement § 7.4 for Background IP, § 11.3/§ 11.1 confidentiality provisions, and related sections such as § 3.3 and § 7.3. This satisfies the criterion.
+
+### C-047
+
+Notes wind-down period (July 1 – September 30, 2023) as relevant context ([rubric](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands/task.json#L387))
+
+- **Sonnet 4.6: Pass.** The memorandum explicitly references the wind-down period in Section II.A: 'JV formed Jan. 15, 2019; dissolved June 30, 2023; wind-down July 1 -- Sept. 30, 2023 (Diss. Agr. §§ 2.1, 5.1).' It also references wind-down data segregation and return in the context of RFP 23 ('Wind-down data segregation/return') in both Section V and Appendix A, noting it as a substantive production item and connecting it to Dissolution Agreement § 5.3 officer certification. The wind-down period is thus mentioned as relevant context for evaluating discovery scope and timing.
+- **GPT-5.5: Pass.** The memorandum expressly notes that the JV was dissolved June 30, 2023 with a wind-down period from July 1–September 30, 2023, and later ties that context to RFP 23 concerning wind-down data segregation/return of information.

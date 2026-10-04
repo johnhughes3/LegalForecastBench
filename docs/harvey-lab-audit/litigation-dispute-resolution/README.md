@@ -18,6 +18,7 @@ In brief, across 2,858 criteria: GPT-6 Sol flagged 616 and Claude Opus 5.5 flagg
 | `tasks/<task>/README.md` | Task landing page: pinned sources and a criterion-by-criterion comparison table |
 | `tasks/<task>/gpt-6-sol-audit.md` (`.json`) | GPT-6 Sol's report. Text unchanged from the original snapshot except for link targets; where its prose mentions `batch-N/` paths, those refer to the earlier layout |
 | `tasks/<task>/claude-opus-5-5-audit.md` (`.json`) | Claude Opus 5.5's report, with its blind-pass findings and its verdict on each GPT-6 Sol finding |
+| [`model-runs/`](model-runs/README.md) | Every GPT-6 Luna (xhigh) and Claude Opus 5.5 (low) run on the 52 tasks: deliverables as produced, Markdown renderings, both native judges' score files, and per-criterion verdicts with the judges' reasoning. Task pages link each flagged criterion to these grades |
 | [`human-review/`](human-review/README.md) | Human review of a seeded random sample of 25 AI-flagged criteria: the protocol and decision rule (committed before review), the sample, and the reviewer's worksheet |
 | [`gpt-6-sol/`](gpt-6-sol/) | GPT-6 Sol's indexes, batch summaries, and follow-up output/grade reviews |
 
@@ -60,7 +61,7 @@ This reference collection does **not** quantify a comparative drift rate or esta
 
 A human set the research question, raised initial concerns about selected criteria, selected the model conditions, and provided steering and guidance. AI workers generated the report text and findings. The human asked for the Claude Opus 5.5 audit after the GPT-6 Sol audit was published, and allowed Opus to consider GPT-6 Sol's findings in reaching its own. Their initial task audits were performed without seeing solver outputs, but the project was not fully blinded to the human's initial concerns. Later output/grade reviews are explicitly separate. Agreement among AI reviewers is not independent human or expert verification.
 
-Both audits were produced on September 26, 2026 (EDT; some stored timestamps fall on September 27 UTC). This directory is a reference snapshot, not a live results dashboard. The full solver sweeps and grading were still underway when this collection was prepared; the selected follow-up reports do not cover every eventual result.
+Both audits were produced on September 26, 2026 (EDT; some stored timestamps fall on September 27 UTC). This directory is a reference snapshot, not a live results dashboard. The full solver sweeps and grading were still underway when the audits and follow-up reports were prepared, so those reports do not cover every eventual result. The completed runs and grades were added later in [`model-runs/`](model-runs/README.md).
 
 ## Scope, sources, and limitations
 
@@ -70,7 +71,7 @@ The upstream snapshot is [Harvey LAB commit `1dd81403b2fbb60596f7aea3fcecafad7bf
 
 Exact filenames and criterion IDs have been linked programmatically where their task context resolves unambiguously. Criterion links point to the corresponding line in the pinned `task.json`; document links point to the original file. Each task page also lists every supplied source file. Narrative aliases such as “the complaint” are not guessed when ambiguous, and local extraction locators are not presented as GitHub document line numbers. These link checks validate navigation, not the legal analysis.
 
-The public copy retains report text, structured findings where available, and source pointers. Navigation, warning banners, and Markdown renderings of JSON reports have been added; machine-local paths have been removed or made portable. Raw document extractions, solver transcripts, native grade files, credentials, and working scripts are not copied into this directory. Quoted passages and native-grade summaries in the follow-up reports remain AI-produced representations of those artifacts. Extraction line numbers and XML paragraph identifiers are local analysis locators, not stable page numbers in the original files; use the named source and quoted passage when checking a finding.
+The public copy retains report text, structured findings where available, and source pointers. Navigation, warning banners, and Markdown renderings of JSON reports have been added; machine-local paths have been removed or made portable. Each run's deliverables and both native judges' score files are copied, unedited, into [`model-runs/`](model-runs/README.md). Raw document extractions, solver transcripts and workspaces, usage logs, credentials, and working scripts are not copied into this directory. Quoted passages and native-grade summaries in the follow-up reports remain AI-produced representations of those artifacts. Extraction line numbers and XML paragraph identifiers are local analysis locators, not stable page numbers in the original files; use the named source and quoted passage when checking a finding.
 
 The original task inputs, audit artifacts, solver outputs, and native grades were preserved separately. No native scores were overwritten with audit recommendations. Upstream source material is attributed to Harvey AI; its [MIT license notice](UPSTREAM-LICENSE.txt) is retained for quoted source material.
 

@@ -1,0 +1,350 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "35/52 criteria passed.  Missed 17 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 52,
+  "n_passed": 35,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "References October 2019 internal engineering emails as significant evidence",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the October 2019 Reedley-Mitchum emails in Section 1 under 'Plaintiffs' strongest proof,' describing them as 'unusually damaging' and detailing their content (single-point-of-failure identification, prior incidents, recommendation for redundant interlock, management deferral). The memo also references them again in the punitive damages section. While the specific document numbers (GF-DOC-004471 through GF-DOC-004479) are not cited, the criterion only requires that the memo identify the October 2019 internal engineering emails as significant or damaging evidence, which it clearly does."
+    },
+    {
+      "id": "C-002",
+      "title": "Identifies Reedley and Mitchum as authors of internal emails",
+      "verdict": "pass",
+      "reasoning": "The memo references 'the October 2019 Reedley--Mitchum emails' and identifies Reedley as the person who 'identified a single-point-of-failure, cited four prior re-cycling incidents... recommended a redundant interlock and retrofit notice.' However, the memo only names 'Reedley' without a first name, and refers to 'Mitchum' only in the compound 'Reedley--Mitchum emails' without identifying Mitchum's first name or role. The criterion asks whether the memo identifies 'Thomas Reedley and Sandra Mitchum' as the authors. The memo does identify both surnames (Reedley and Mitchum) as associated with the emails, but does not provide their first names. The criterion states PASS if the memo 'identifies Thomas Reedley and Sandra Mitchum as the authors/participants.' The memo does identify them by last name as participants/authors of the emails. Given that the criterion is about identifying these individuals as authors of the emails, and the memo does reference 'Reedley--Mitchum emails' and discusses Reedley's actions, this partially satisfies the criterion. However, the criterion specifically names 'Thomas Reedley and Sandra Mitchum' with first names, and the memo only uses last names. Still, the core requirement is identification of these individuals as email authors, which the memo does accomplish through the 'Reedley--Mitchum emails' reference and Reedley's described actions. I'll consider this a PASS since both surnames are identified in connection with the emails."
+    },
+    {
+      "id": "C-003",
+      "title": "Emails show Greenfield had internal knowledge of re-cycling defect",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly describes the content of the internal engineering emails (the October 2019 Reedley-Mitchum emails), stating that Reedley identified a single-point-of-failure, cited four prior re-cycling incidents (three with injuries by his October 11 follow-up), recommended a redundant interlock and retrofit notice, and warned of a foreseeable serious crush injury. Management deferred the fix to a future refresh. This clearly describes the emails' content regarding Greenfield's internal knowledge of the re-cycling defect."
+    },
+    {
+      "id": "C-004",
+      "title": "Emails show redundant interlock was rejected on cost grounds",
+      "verdict": "fail",
+      "reasoning": "The memo mentions that management deferred the fix to a future refresh and declined a separate risk assessment, but it does not specifically state that the redundant interlock was rejected on cost grounds or mention the $385/unit cost figure. The criterion requires the memo to state that the fix was rejected or deferred on cost grounds ($385/unit), which is absent from the output."
+    },
+    {
+      "id": "C-005",
+      "title": "Connects internal emails to punitive damages exposure",
+      "verdict": "fail",
+      "reasoning": "The memo explicitly connects the internal engineering emails to punitive damages exposure in Section 2 (Punitive damages): 'Plaintiffs have a strong conscious-disregard narrative: a written engineer warning, prior injuries, a modest proposed fix, a management deferral, no separate risk assessment, continued sales, and no field retrofit warning... the emails create a meaningful chance a jury will consider punitive damages.' However, the criterion specifically requires reference to O.R.C. \u00a7 2315.21 by name. The memo references 'Ohio's statutory standard and cap' for punitive damages but does not cite O.R.C. \u00a7 2315.21 specifically. It does cite O.R.C. \u00a7 2315.18(B)(3) for the catastrophic-injury cap exception, but not \u00a7 2315.21 for punitive damages. The criterion states the memo must 'specifically referencing that this evidence supports a conscious disregard finding under Ohio law (O.R.C. \u00a7 2315.21).' Since the specific statute number is not cited in connection with the punitive damages/conscious disregard analysis, the criterion is not fully met."
+    },
+    {
+      "id": "C-006",
+      "title": "References 7 prior field reports as compounding punitive risk",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references 'Seven reported events and three injuries by 2023 reinforce notice' in the Plaintiffs' strongest proof section, and later in the punitive damages section states 'seven field reports' as part of the conscious-disregard narrative. These references connect the 7 prior field reports to both the notice/liability argument and the punitive damages risk analysis."
+    },
+    {
+      "id": "C-007",
+      "title": "Factors punitive damages into settlement range despite Ohio cap",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses punitive damages in Section 2 ('Punitive damages') and Section 3 (decision scenarios). It acknowledges Ohio's statutory cap (generally up to two times compensatory damages for a large employer), notes the strong conscious-disregard narrative from the Reedley-Mitchum emails, flags that punitive exposure is a 'separate and material tail risk,' discusses insurability issues, and incorporates punitive risk into the overall settlement range recommendation. The memo does not dismiss punitive damages but treats them as a meaningful tail risk that influences the settlement valuation above the pure compensatory expected value."
+    },
+    {
+      "id": "C-008",
+      "title": "Identifies Ohio non-economic damages cap under O.R.C. \u00a7 2315.18",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references Ohio Rev. Code \u00a7 2315.18(B)(3) and discusses the general non-economic damages cap (citing the $350,000 figure) as well as the catastrophic-injury exception. This satisfies the criterion of referencing Ohio's non-economic damages cap under O.R.C. \u00a7 2315.18."
+    },
+    {
+      "id": "C-009",
+      "title": "Identifies cap exception for amputation under O.R.C. \u00a7 2315.18(B)(3)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies O.R.C. \u00a7 2315.18(B)(3) and its catastrophic-injury exception, noting that a below-elbow amputation appears to fit the statutory language covering loss of use of a limb and permanent, substantial physical deformity. It warns against relying on the $350,000 cap as a dependable valuation premise and recommends a legal check on the exception's application. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-010",
+      "title": "Recognizes full non-economic damages claim is viable",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the non-economic damages cap exception under Ohio Rev. Code \u00a7 2315.18(B)(3), noting that a below-elbow amputation appears to fit the catastrophic-injury exception (loss of use of a limb, permanent substantial physical deformity). It states the defense's reliance on the $350,000 cap 'should not be used as a dependable valuation premise' and estimates a reasonable jury range for Holt's non-economic damages at approximately $2.5\u2013$5.5 million. This uncapped non-economic damages range is factored into the overall gross compensatory verdict range of $4.5\u2013$8.5 million and the recommended settlement range of $3.5\u2013$5.5 million. The memo clearly treats the non-economic damages claim as viable and substantial, not capped at $250,000\u2013$350,000."
+    },
+    {
+      "id": "C-011",
+      "title": "Addresses workers' comp subrogation lien amount",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the Buckeye Mutual workers' compensation lien of $481,800, breaking it down as $418,600 in medical benefits plus $63,200 in temporary total disability. It discusses the lien's impact on settlement multiple times: requiring documented resolution as a condition of any settlement, noting that any offer should be contingent on lien resolution, providing net recovery illustrations at various settlement amounts after lien payment, and flagging a discrepancy between the lien amount and Aldrich's past medical expenses figure that needs reconciliation. This fully satisfies the criterion."
+    },
+    {
+      "id": "C-012",
+      "title": "Analyzes lien's impact on plaintiff's net recovery and settlement dynamics",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses the lien's impact on plaintiff's net recovery. In the 'Lien, net recovery, and coverage' section, it provides illustrative calculations: 'At a $4.5M gross settlement, an illustrative plaintiff net after a one-third fee and full lien payment is about $2.52M before case costs and allocation between the Holts; at $5.0M it is about $2.85M.' This directly addresses how the lien reduces plaintiff's net recovery from any gross settlement. The memo also notes these are 'distribution illustrations only, not a reason to add the lien to damages,' and emphasizes that any offer should be 'expressly contingent on lien resolution.' While the memo doesn't explicitly state that the lien creates incentive for plaintiff's counsel to demand a higher gross settlement, it does analyze the lien's effect on plaintiff's net recovery, which satisfies the criterion as written (the criterion uses 'and/or')."
+    },
+    {
+      "id": "C-013",
+      "title": "Analyzes Apex's guard modification as comparative fault factor",
+      "verdict": "pass",
+      "reasoning": "The memo extensively discusses Apex's guard modification as a comparative fault factor. It describes Briggs removing the original guard for production convenience, installing a generic aftermarket guard without measurement or compatibility review, creating a 4.5-inch gap versus the OEM's approximately 1-inch gap. The memo explicitly discusses Apex's fault allocation, notes that 'Apex allocation and whether it may be placed on the verdict form require legal confirmation,' references the guard modification as a 'concrete, understandable alternative cause,' and uses it in the liability and damages analysis throughout. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "Recognizes re-cycling defect exists independently of guard modification",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly acknowledges Dr. Vasquez's opinion that 'the hydraulic control defect caused the re-cycle independently of the guard.' It further states that 'if the jury accepts her account that the OEM guard permitted access during retrieval, the guard change may be viewed as a contributing exposure condition rather than a superseding cause.' The memo also notes that 'the press's unexpected cycling is undisputed' and treats the re-cycling defect as an independent issue from the guard modification. The memo does not treat Apex's modification as completely eliminating Greenfield's liability; rather, it explicitly identifies the independent defect as a key liability driver and a reason to settle above Greenfield's initial valuation range. This satisfies the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "Provides fault allocation percentage or range for Greenfield",
+      "verdict": "pass",
+      "reasoning": "The memo states in Section 1: 'On plaintiff verdicts, an illustrative Greenfield share of 30%\u201360% is more realistic than either side's most extreme allocation.' This provides a fault allocation range for Greenfield of 30%\u201360%, which overlaps with the criterion's reference range of approximately 40%\u201360%. The memo does provide a specific percentage range for Greenfield's fault allocation, satisfying the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "Provides fault allocation percentage or range for Apex",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Apex's role extensively but does not provide a specific fault allocation percentage or range for Apex. It mentions Greenfield's illustrative share of 30%\u201360%, plaintiff fault of approximately 0%\u20135%, and notes that 'Apex allocation and whether it may be placed on the verdict form require legal confirmation,' but never assigns a specific percentage or range to Apex itself. The criterion requires an estimated fault allocation percentage or range for Apex (approximately 25%\u201345% or within a reasonable zone). The memo explicitly defers this question rather than providing it."
+    },
+    {
+      "id": "C-017",
+      "title": "Provides fault allocation percentage or range for Holt",
+      "verdict": "fail",
+      "reasoning": "The memo states 'Plaintiff fault appears low (approximately 0%--5%) on this record.' This provides a specific fault allocation percentage range for Holt. However, the criterion specifies the range should be approximately 5%\u201315% or within a reasonable zone of these figures. The memo's range of 0%\u20135% is below the specified criterion range of 5%\u201315%. While it does provide a specific percentage range, it does not fall within the reasonable zone of 5%\u201315% as specified by the criterion."
+    },
+    {
+      "id": "C-018",
+      "title": "References Ohio's modified comparative fault system",
+      "verdict": "fail",
+      "reasoning": "The memo references comparative fault and fault allocation multiple times (e.g., 'comparative allocation,' 'plaintiff fault appears low (approximately 0%--5%),' 'Greenfield share about 30%--60%,' 'comparative-fault effect' in the pre-mediation checklist). However, it never specifically references Ohio's modified comparative fault statute (O.R.C. \u00a7 2315.33) or explicitly describes the 50% threshold rule that bars recovery when plaintiff's fault exceeds 50%. The criterion requires a reference to Ohio's modified comparative fault system including the 50% bar. The memo does not mention the 50% threshold or cite O.R.C. \u00a7 2315.33 or equivalent statutory description."
+    },
+    {
+      "id": "C-019",
+      "title": "Applies fault allocated to non-party Apex as reducing plaintiff's recovery",
+      "verdict": "fail",
+      "reasoning": "The memo does not clearly apply Apex's fault as reducing plaintiff's recovery from Greenfield. In Section 1, the memo notes that 'Apex allocation and whether it may be placed on the verdict form require legal confirmation,' treating this as an open legal question rather than applying it as a reduction. The scenario table shows Greenfield's share ranges (e.g., 30-60% of compensatory damages) but frames this as Greenfield's comparative allocation share, not explicitly as Apex's fault reducing plaintiff's recovery from Greenfield. The memo never states that fault allocated to non-party Apex would reduce what plaintiff can recover from Greenfield \u2014 in fact, it flags this as something needing legal confirmation. Under Ohio's comparative fault framework, a non-party's fault can reduce plaintiff's recovery, but the memo explicitly leaves this unresolved rather than applying it. The criterion requires the memo to apply or state that Apex's fault reduces plaintiff's recovery from Greenfield, which it does not do \u2014 instead it treats this as an uncertain legal question requiring further analysis."
+    },
+    {
+      "id": "C-020",
+      "title": "Identifies litigation reserve of $3.2M as inadequate and recommends increase",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses the $3.2M reserve in Section 5, stating: 'the current $3.2M reserve is below the recommended settlement target and close to the rough expected-value floor before adding variance risk. Recommend that Finance and coverage counsel reassess it promptly and consider increasing the gross indemnity reserve to approximately $4.0--$4.5M (midpoint $4.25M).' This clearly identifies the $3.2M reserve as inadequate and recommends increasing it."
+    },
+    {
+      "id": "C-021",
+      "title": "Recommends specific updated reserve amount",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends increasing the gross indemnity reserve to approximately $4.0\u2013$4.5M (midpoint $4.25M), which is higher than the current $3.2M reserve and falls within the expected zone of $4M\u2013$8.5M. This satisfies the criterion of recommending a specific updated reserve amount or range above $3.2M that aligns with the recommended settlement range."
+    },
+    {
+      "id": "C-022",
+      "title": "Discusses post-incident interlock addition as litigation risk",
+      "verdict": "fail",
+      "reasoning": "The memo mentions that 'the redundant interlock was implemented only after Holt's injury' in the context of the Reedley-Mitchum emails and prior knowledge narrative, but it does not specifically discuss the post-incident interlock addition (manufactured after September 1, 2023) as a distinct litigation risk factor. The criterion requires analysis of the trial risk created by Greenfield adding the redundant interlock to GP-7500 units manufactured after September 1, 2023. The memo references the post-incident implementation only as evidence of prior knowledge/notice, not as a separate litigation risk (e.g., subsequent remedial measure admissibility issues, or what it signals to a jury). While the pre-mediation checklist mentions 'subsequent-remedial-measure evidence' as a topic for an Ohio-law update, this is a brief bullet point rather than an analysis of the post-incident interlock addition as a litigation risk. The criterion specifically requires discussion of the September 1, 2023 date and analysis of the trial risk this creates, neither of which is adequately addressed."
+    },
+    {
+      "id": "C-023",
+      "title": "References FRE 407 and its exceptions regarding post-incident remedial measure",
+      "verdict": "fail",
+      "reasoning": "The memo mentions 'subsequent-remedial-measure evidence' in the pre-mediation checklist under Section 5 ('Obtain a focused Ohio-law update on the catastrophic-injury cap exception, any cap applicable to consortium, fault allocation to Apex in light of workers' compensation immunity, comparative-fault effect, subsequent-remedial-measure evidence, punitive-damages limits, and punitive coverage.'). However, this is merely a passing reference to obtaining a legal update on the topic. The memo does not actually reference FRE 407 by name or rule number, does not explain that subsequent remedial measures are generally inadmissible to prove negligence or defect, and does not discuss the exceptions to FRE 407 (such as admissibility to show feasibility of precautionary measures when feasibility is disputed). The criterion requires the memo to reference FRE 407 and its exceptions. A bare mention of 'subsequent-remedial-measure evidence' as a topic to research does not satisfy this requirement."
+    },
+    {
+      "id": "C-024",
+      "title": "Identifies Daubert risk to defense expert Dr. Kwan",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Daubert in the context of the plaintiff's expert (Vasquez) being subject to a Daubert challenge, and mentions confirming the pending Daubert motion targets the correct witness. However, the memo does not identify any Daubert risk to the defense expert Dr. Kwan. The only Daubert reference regarding Dr. Kwan is that his opinion is 'vulnerable to cross-examination and a Daubert challenge' \u2014 but this phrase actually appears in the context of Vasquez's opinion being vulnerable, not Kwan's. Reading carefully: 'Her "
+    },
+    {
+      "id": "C-025",
+      "title": "Identifies analytical gap in Dr. Kwan's opinion regarding independent re-cycling defect",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the analytical gap in Dr. Kwan's opinion. In the 'Plaintiffs' strongest proof' section, it states: 'Her report attacks Dr. Kwan for analyzing access but not the root cause of ram movement.' This directly identifies that Kwan focuses on physical access (related to the guard modification) but does not adequately address the independent re-cycling defect \u2014 the root cause of the ram's unexpected re-descent. The memo further reinforces this by noting that Vasquez 'squarely opines that the hydraulic control defect caused the re-cycle independently of the guard,' contrasting her approach with Kwan's guard-access-focused analysis. This satisfies the criterion of identifying the specific analytical gap in Dr. Kwan's opinion regarding the independent re-cycling defect."
+    },
+    {
+      "id": "C-026",
+      "title": "Compares Dr. Aldrich's and Dr. Cho's economic damages figures",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly compares both economists' figures: 'Dr. Aldrich calculates $2.405 million; Dr. Cho calculates $1.687 million.' It then discusses the components and differences between the two reports in detail."
+    },
+    {
+      "id": "C-027",
+      "title": "Identifies specific disputed assumptions between economists",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the dispute between Dr. Aldrich and Dr. Cho but does not identify the specific disputed assumptions with their precise values. It mentions: (1) 'discounting' as a disputed area, (2) 'Cho's $52,000 retraining assumption' (though this appears to refer to alternative wage), (3) 'prosthetic replacement assumptions' as disputed, and (4) 'work-life expectancy' is not explicitly mentioned. The memo does not specify the discount rates (2.5% vs. 3.5%), does not clearly identify the alternative wage figures ($42,000 vs. $52,000 \u2014 it mentions '$52,000 retraining assumption' which may conflate retraining costs with alternative wage), does not mention work-life expectancy (27 vs. 24 years), and mentions prosthetic assumptions without the specific figures ($85,000\u00d78 vs. $72,000\u00d77). The criterion requires identifying at least 3 of the 4 specific disputed assumptions. The memo identifies at most 2 clearly (discounting/discount rate and prosthetic costs), with the alternative wage/retraining conflation being ambiguous and work-life expectancy not mentioned. This falls short of the 3 required."
+    },
+    {
+      "id": "C-028",
+      "title": "Analyzes which economic assumptions are more defensible",
+      "verdict": "pass",
+      "reasoning": "The memo does not simply average the two expert totals. It explicitly analyzes which assumptions are more defensible: it notes that Aldrich's lower alternative-wage assumption is 'supportable,' that Cho's $52,000 retraining assumption 'may be optimistic absent a completed retraining or placement record,' that Cho's higher discount rate and lower prosthetic assumptions are 'not self-proving,' and that Cho's arithmetic has an internal inconsistency regarding fringe benefits. It also flags that Aldrich's component totals do sum correctly while Cho's do not. The memo then sets a working range of $1.8\u2013$2.4 million with a practical center of $2.0\u2013$2.2 million, which is not a simple average of $1.687M and $2.405M but a range informed by the qualitative assessment of which assumptions hold up better."
+    },
+    {
+      "id": "C-029",
+      "title": "Arrives at a 'most probable' economic damages figure",
+      "verdict": "pass",
+      "reasoning": "The memo provides a working range for economic damages of $1.8\u2013$2.4 million with a practical center of approximately $2.0\u2013$2.2 million. This synthesized midpoint falls squarely between Dr. Aldrich's $2,405,400 and Dr. Cho's $1,687,200, and within the $1,900,000\u2013$2,200,000 range specified in the criterion. The memo also provides reasoning for why certain assumptions were adopted over others (e.g., Aldrich's lower alternative-wage assumption is supportable; Cho's retraining assumption may be optimistic; Cho's discount rate and prosthetic assumptions are not self-proving; and a flag about Cho's arithmetic inconsistency regarding fringe benefits). This satisfies the criterion."
+    },
+    {
+      "id": "C-030",
+      "title": "Addresses Halcyon contract as practical settlement pressure",
+      "verdict": "fail",
+      "reasoning": "The memo does mention the Halcyon Construction Group contract in the 'STRICTLY INTERNAL \u2014 DO NOT DISCLOSE' box in Section 5. It identifies the prospective $60M Halcyon Construction Group contract and management's concern about public trial developments as a confidential business-timing factor. However, the criterion requires that the memo 'discusses how the Board's desire to avoid adverse trial publicity to protect this contract creates practical pressure to settle, potentially at the higher end of the reasonable range.' The memo explicitly instructs that this factor should NOT inflate the merits valuation and should only be treated as a confidential business-timing factor in deciding whether to use available authority within the merits range. It does not discuss how this creates pressure to settle at the higher end of the range \u2014 in fact, it cautions against letting it do so. The criterion asks for discussion of how this creates practical pressure to settle potentially at the higher end, but the memo actively discourages using it that way. That said, the memo does identify the contract and acknowledge it as a settlement-timing factor, which partially satisfies the criterion. The criterion says PASS if the memo 'identifies the pending $60M equipment supply contract with Halcyon Construction Group and discusses how the Board's desire to avoid adverse trial publicity to protect this contract creates practical pressure to settle, potentially at the higher end of the reasonable range.' The memo identifies the contract but explicitly warns against letting it inflate the valuation or create bargaining signals, rather than discussing it as pressure to settle at the higher end. This does not fully satisfy the criterion as described."
+    },
+    {
+      "id": "C-031",
+      "title": "Identifies loss of consortium as separate damages element",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Jennifer Holt's loss of consortium claim as a separate derivative claim. In Section 2 under 'Non-economic damages and consortium,' it states: 'Consortium exposure is approximately $150,000--$500,000 for valuation purposes; plaintiffs seek $500,000--$750,000.' It also notes that Jennifer's derivative consortium claim 'may remain capped' separately from Holt's non-economic damages. The memo includes consortium in the gross compensatory verdict range calculation and addresses it in the comparables table. The quantification ($150,000\u2013$500,000) falls within a reasonable range overlapping with the criterion's $200,000\u2013$500,000 benchmark."
+    },
+    {
+      "id": "C-032",
+      "title": "Analyzes loss of consortium under Ohio law",
+      "verdict": "fail",
+      "reasoning": "The memo mentions consortium damages as a line item ($150,000\u2013$500,000 range) and notes that Jennifer's 'derivative consortium claim may remain capped' separately from Marcus's claim under the catastrophic-injury exception. However, it does not analyze whether comparative fault reduction applicable to Marcus Holt also applies to Jennifer Holt's derivative consortium claim, nor does it address separate fault allocation for the consortium claim under Ohio law. The only Ohio-law analysis related to consortium is the brief note about the cap, not the comparative fault/derivative nature question specified in the criterion. The criterion requires discussion of comparative fault reduction or separate fault allocation for the consortium claim\u2014neither of which appears in the memo."
+    },
+    {
+      "id": "C-033",
+      "title": "Identifies potential contribution/indemnity claim against Apex",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Apex's fault allocation and mentions 'Apex allocation and whether it may be placed on the verdict form require legal confirmation,' but it does not identify a right of contribution or indemnity that Greenfield may have against Apex, nor does it reference O.R.C. \u00a7 2307.25 or the general concept of contribution/indemnity claims. The memo treats Apex's fault only as a comparative fault defense reducing Greenfield's liability, not as a basis for Greenfield to seek recovery from Apex. The criterion specifically requires identification of a contribution or indemnity claim against Apex as a factor in the net cost analysis."
+    },
+    {
+      "id": "C-034",
+      "title": "Notes settlement does not extinguish contribution rights against Apex",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Apex's role in the case (guard modification, fault allocation, workers' compensation immunity) and mentions that 'Apex allocation and whether it may be placed on the verdict form require legal confirmation.' However, the memo does not address whether settling with the plaintiff preserves or extinguishes Greenfield's potential contribution or indemnification rights against Apex. The criterion requires the memo to discuss or acknowledge that settlement does not necessarily extinguish contribution rights against Apex. This topic is entirely absent from the memo."
+    },
+    {
+      "id": "C-035",
+      "title": "Identifies Garza v. Titan Hydraulics as most analogous comparable",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Garza v. Titan Hydraulics (S.D. Ohio, 2020) as the 'Closest injury/jurisdiction analog' in the comparables table, noting the $6.4M settlement, below-elbow amputation, and 20% employer fault. It further explains adjustments to make (down-adjust for admitted defect in Garza and greater Apex fault; up-adjust for Holt's stronger internal notice/punitive evidence), demonstrating why it is particularly analogous in terms of injury type, employer modification issue, and jurisdiction."
+    },
+    {
+      "id": "C-036",
+      "title": "Identifies Novak v. Steelform Industries as most analogous comparable",
+      "verdict": "fail",
+      "reasoning": "The memo does reference Novak v. Steelform (N.D. Ohio, 2022) with the $8.7M verdict and estimated $6.5\u2013$7.5M appeal settlement, and notes it as an 'upper anchor with prior notice.' However, the criterion requires that Novak be identified as one of the MOST analogous comparable cases and that the memo explains why (prior notice of defect, similar injury severity, Ohio jurisdiction). The memo actually identifies Garza v. Titan Hydraulics as the 'closest injury/jurisdiction analog' and describes Novak merely as an 'upper anchor with prior notice,' noting that the above-elbow injury is more severe and the final settlement figure is unverified. The memo does not explain Novak's analogousness in terms of the three specified factors (prior notice, similar injury severity, Ohio jurisdiction) \u2014 in fact it distinguishes Novak on injury severity. The criterion specifically requires Novak to be identified as particularly analogous, which the memo does not do; it treats Garza as the closest analog instead."
+    },
+    {
+      "id": "C-037",
+      "title": "Discusses adjustments to comparables for factual differences",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses adjustments to each comparable for factual differences. For Garza, it notes to 'down-adjust for admitted defect in Garza and potentially greater Apex fault here; up-adjust for Holt's unusually strong internal notice/punitive evidence.' For Novak, it notes 'above-elbow injury is more severe' and that the final settlement figure is unverified. For Williams, it distinguishes by 'less severe injury and plaintiff fault.' For Ostrowski, it calls it a 'defense-oriented floor only; materially less severe injury and direct plaintiff fault.' For Petersen/Tanaka/Brewer, it notes Petersen involved 'bilateral injury/no comparative fault,' Tanaka highlights 'expert/appellate risk,' and Brewer 'lacks Holt's comparable notice record and involved no amputation.' This satisfies the criterion of explaining adjustments to comparables for factual differences."
+    },
+    {
+      "id": "C-038",
+      "title": "Provides settlement range with low/mid/high values",
+      "verdict": "pass",
+      "reasoning": "The memo provides a tiered settlement structure: a low/opening value of $1.8M, a fair global range of $3.5\u2013$5.5M, a target zone of $4.25\u2013$4.75M (mid), and a maximum authority of $5.5M (high). The negotiation plan also outlines incremental offer steps. This clearly satisfies the criterion of providing low, mid, and high estimates in a tiered structure."
+    },
+    {
+      "id": "C-039",
+      "title": "Settlement range falls within reasonable bounds ($4M\u2013$8.5M)",
+      "verdict": "pass",
+      "reasoning": "The agent recommends a settlement range of $3.5M\u2013$5.5M gross, with a target zone of $4.25M\u2013$4.75M. The criterion requires: low end no lower than ~$3.5M (agent's low end is $3.5M \u2014 borderline but acceptable), high end no higher than ~$9.5M (agent's high end is $5.5M \u2014 well within bounds), and midpoint approximately between $5M and $7M. The midpoint of $3.5M\u2013$5.5M is $4.5M, which falls below the criterion's ideal midpoint range of $5M\u2013$7M. The criterion states FAIL if midpoint is below $4M or above $8M \u2014 the midpoint here is $4.5M, which is above $4M. However, the criterion also states the ideal midpoint is $5M\u2013$7M, and $4.5M is below that ideal range. The FAIL condition is explicitly 'midpoint below $4M or above $8M' \u2014 since $4.5M is above $4M, it does not trigger the explicit FAIL condition. The range is somewhat conservative but does not dramatically fall outside the stated bounds. The low end of $3.5M meets the approximate threshold, the high end of $5.5M is well within bounds, and the midpoint of $4.5M, while below the ideal $5M\u2013$7M, is above the explicit FAIL threshold of $4M. This is a borderline case, but since the explicit FAIL conditions are not met, a PASS is appropriate."
+    },
+    {
+      "id": "C-040",
+      "title": "Provides recommended opening offer for mediation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends a $1.8 million opening offer for the March 14, 2025 mediation, with strategic rationale explaining it aligns with the bottom of Greenfield's stated range in its mediation brief and avoids opening below its disclosed position. The memo also provides detailed negotiation strategy including offer progression steps, conditions for movement, and how to use the mediator."
+    },
+    {
+      "id": "C-041",
+      "title": "Assesses insurance coverage adequacy",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses the insurance tower in Section 4 (Lien, net recovery, and coverage): it identifies the $250,000 SIR as exhausted, notes Ridgeline's $10M per-occurrence indemnity limit, states that defense expenses are paid in addition to limits, and identifies the $25M Beacon excess layer attaching above the primary. It then explicitly states that 'The recommended settlement range is within the primary layer,' directly assessing whether the recommended $3.5\u2013$5.5M range falls within available coverage. It also notes the $35M total tower and cautions against using it as a negotiating rationale. All required elements of the criterion are addressed."
+    },
+    {
+      "id": "C-042",
+      "title": "Notes settlement likely within primary policy limits",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section 4 (Lien, net recovery, and coverage): 'The recommended settlement range is within the primary layer.' It also notes that Ridgeline's $10M per-occurrence indemnity limit remains available, and that the $25M Beacon excess layer attaches above the primary. The memo further notes that trial exposure 'may exceed the $10 million primary indemnity limit in an adverse compensatory-plus-punitive outcome,' implying the umbrella/excess could be triggered at trial but not at the recommended settlement range. This satisfies the criterion: the memo notes the settlement range falls within the primary policy limits and implies the umbrella is unlikely to be triggered at settlement (though possible at trial)."
+    },
+    {
+      "id": "C-043",
+      "title": "References plaintiff's settlement demand of $9.5M",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the plaintiff's $9.5 million settlement demand in Section 3 (Comparable Outcomes and Trial-Exposure Scenarios): 'the analogs support a global settlement materially above $2.5 million but below plaintiffs' $9.5 million demand absent a very favorable liability ruling. The $9.5 million demand is not simply compensatory math: plaintiffs' stated midpoint components total about $8.0 million (\\ $2.405 million economic + $5.0 million Holt non-economic + $0.6 million consortium), leaving roughly $1.5 million as a settlement/punitive-risk premium.'"
+    },
+    {
+      "id": "C-044",
+      "title": "References defense's proposed range of $1.8M\u2013$2.5M",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references the defense's proposed range of $1.8M\u2013$2.5M in multiple places. For example, in the Executive Recommendation section it states 'Open at $1.8 million, consistent with the defense mediation brief's stated range' and 'The principal reason to settle above Greenfield's filed $1.8\u2013$2.5 million valuation is...' It also appears in Section 4: 'The defense mediation brief's $1.8\u2013$2.5 million range should not be treated internally as a ceiling.'"
+    },
+    {
+      "id": "C-045",
+      "title": "Correctly states plaintiff's total economic damages per Dr. Aldrich",
+      "verdict": "pass",
+      "reasoning": "The memo states Dr. Aldrich calculates '$2.405 million' for economic damages. The criterion requires the figure to be $2,405,400 (or approximately $2.4M\u2013$2.41M). $2.405 million equals $2,405,000, which is within $400 of $2,405,400\u2014well within the $50,000 tolerance. The memo also later confirms 'Aldrich's component totals do sum to $2.405 million.' This satisfies the criterion."
+    },
+    {
+      "id": "C-046",
+      "title": "Correctly states defense total economic damages per Dr. Cho",
+      "verdict": "pass",
+      "reasoning": "The memo states Dr. Cho calculates $1.687 million, which rounds to $1,687,000. The criterion requires the figure to be $1,687,200 or approximately $1.69M, with a tolerance of $50,000. The difference between $1,687,000 and $1,687,200 is only $200, well within the $50,000 tolerance. This satisfies the criterion."
+    },
+    {
+      "id": "C-047",
+      "title": "References June 9, 2025 trial date as relevant timing factor",
+      "verdict": "fail",
+      "reasoning": "The memo does not mention a June 9, 2025 trial date anywhere in its text. While it references confirming the trial date as a pre-mediation task, it does not specify June 9, 2025 or discuss the proximity of that specific trial date as a factor in settlement dynamics or urgency."
+    },
+    {
+      "id": "C-048",
+      "title": "Discusses plaintiff's counsel's track record as risk factor",
+      "verdict": "fail",
+      "reasoning": "The memo does not mention plaintiff's counsel Diane M. Calloway, her track record, or her large verdicts (including the $14.2M Petersen v. Ironhorse verdict) as a risk factor anywhere in the document."
+    },
+    {
+      "id": "C-049",
+      "title": "Correctly describes Holt's injury as below-elbow amputation",
+      "verdict": "pass",
+      "reasoning": "The criterion requires the memo to correctly describe Holt's injury as a through-wrist amputation revised to a below-elbow (trans-radial) amputation of the left hand/forearm. The memo describes the injury as 'a trans-radial (below-elbow) amputation of his left forearm' in Section 1, and references 'below-elbow amputation' multiple times throughout. However, the criterion specifically requires mention of a 'through-wrist amputation revised to a below-elbow (trans-radial) amputation' \u2014 the memo does not mention any through-wrist component or revision of the injury description. It only describes it as a trans-radial (below-elbow) amputation. That said, the criterion says PASS if the memo 'correctly describes Holt's injury as a through-wrist amputation revised to a below-elbow (trans-radial) amputation' but also says FAIL if it 'incorrectly describes the injury (e.g., states it was an above-elbow amputation, finger amputation, or right hand).' The memo correctly identifies it as a below-elbow (trans-radial) amputation of the left forearm, which is not one of the listed incorrect descriptions. The memo does not describe it as above-elbow, finger amputation, or right hand. The description given is accurate for a trans-radial amputation. The through-wrist detail may be a nuance from the case facts, but the memo's description is not incorrect per the FAIL criteria listed. I'll assess this as a pass since the injury is correctly identified as below-elbow trans-radial of the left forearm, matching the core requirement."
+    },
+    {
+      "id": "C-050",
+      "title": "Addresses Brewer defense verdict as limiting comparable",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly mentions Brewer in the comparables table and in the narrative. In the comparables table, it notes 'Brewer defense verdict' and states 'Brewer shows modification-defense risk but lacks Holt's comparable notice record and involved no amputation.' In Section 1 (Greenfield's strongest proof), it states 'The defense verdict in Brewer illustrates that an employer-modification case can end in no manufacturer liability, although Brewer is materially less adverse to the manufacturer than Holt on notice and injury severity.' This satisfies the criterion: the memo discusses Brewer as supporting Greenfield's position while distinguishing it from the Holt facts."
+    },
+    {
+      "id": "C-051",
+      "title": "Discusses SIR exhaustion by defense costs",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in Section 4 (Lien, net recovery, and coverage): 'The $250,000 SIR is reported exhausted. Ridgeline's $10M per-occurrence indemnity limit remains available, and defense expenses are paid in addition to limits.' This directly addresses SIR exhaustion by defense costs and notes that Ridgeline is now responsible for indemnity within the primary policy limit, satisfying the criterion."
+    },
+    {
+      "id": "C-052",
+      "title": "Holt's 78% whole-person permanent impairment rating referenced",
+      "verdict": "pass",
+      "reasoning": "The memo references 'Holt's amputation, 78% whole-person impairment, phantom-limb pain, permanent disfigurement...' in the Non-economic damages and consortium section. However, the criterion specifies that the 78% rating must be attributed to Dr. Okonkwo and the AMA Guides, 6th Edition. The memo mentions the 78% figure but does not attribute it to Dr. Okonkwo or the AMA Guides, 6th Edition. The criterion requires the memo to reference the rating 'per Dr. Okonkwo' as a factor. Since the attribution to Dr. Okonkwo and AMA Guides 6th Edition is absent, this is a partial match but the criterion as written says PASS if the memo 'references Holt's 78% whole-person permanent impairment rating (AMA Guides, 6th Edition, per Dr. Okonkwo) as a factor supporting the severity of non-economic damages.' The parenthetical appears to be descriptive context about what the rating is, not necessarily a requirement that the memo cite the source. The memo does reference the 78% whole-person impairment rating as a factor supporting non-economic damages severity. The criterion's parenthetical likely describes the rating for identification purposes. The memo does mention the 78% whole-person impairment rating as a factor in non-economic damages, which satisfies the core requirement."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/assess-settlement-value-range/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/assess-settlement-value-range",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T01:15:13.611700+00:00",
+  "cost": {
+    "input_tokens": 695492,
+    "output_tokens": 22301,
+    "wall_clock_seconds": 771.99
+  },
+  "doc_coverage": {
+    "documents_read": 11,
+    "total_documents": 10,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "plaintiff-mediation-brief.docx",
+      "defense-mediation-brief.docx",
+      "briggs-deposition-excerpts.docx",
+      "vasquez-expert-report.docx",
+      "kwan-expert-report.docx",
+      "aldrich-economic-report.docx",
+      "cho-rebuttal-report.docx",
+      "insurance-coverage-memo.docx",
+      "comparable-outcomes-summary.xlsx",
+      "greenfield-engineering-emails.eml",
+      "/workspace/output/settlement-valuation-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

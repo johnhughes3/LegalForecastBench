@@ -1,0 +1,304 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "44/45 criteria passed.  Missed 1 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 45,
+  "n_passed": 44,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Identifies Morrow's rate ($1,050/hr) exceeds OCG partner cap ($850/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies Morrow\u2019s proposed rate as $1,050/hr, the OCG cap as $850/hr, and the excess as $200/hr in the rates table."
+    },
+    {
+      "id": "C-002",
+      "title": "Identifies Alcott's rate ($975/hr) exceeds OCG partner cap ($850/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo specifically includes a rates table listing \u201cAlcott \u2014 equity partner\u201d with a proposed rate of $975, an OCG cap of $850, and an excess of $125/hr."
+    },
+    {
+      "id": "C-003",
+      "title": "Identifies Dasgupta's rate ($625/hr) exceeds OCG senior associate cap ($575/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies \u201cDasgupta \u2014 senior associate (7 yrs)\u201d with a proposed rate of $625, an OCG cap of $575, and a $50/hr excess."
+    },
+    {
+      "id": "C-004",
+      "title": "Identifies Marsh's rate ($475/hr) exceeds OCG junior associate cap ($425/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly includes a rates table listing \u201cMarsh \u2014 junior associate (3 yrs)\u201d with proposed rate $475, OCG cap $425, and excess $50/hr, satisfying the criterion."
+    },
+    {
+      "id": "C-005",
+      "title": "Identifies Solano's paralegal rate ($275/hr) exceeds OCG cap ($225/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly lists \u201cSolano \u2014 senior paralegal\u201d with a proposed rate of $275, an OCG cap of $225, and an excess of $50/hr."
+    },
+    {
+      "id": "C-006",
+      "title": "Identifies blended rate ($685/hr) exceeds OCG blended rate cap ($625/hr)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the blended option is $685/hr, the OCG cap is $625/hr, and the excess is $60/hr, including both a table entry and explanatory text."
+    },
+    {
+      "id": "C-007",
+      "title": "Identifies 5% automatic annual rate escalation as problematic",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the proposed 5% automatic increase effective Jan. 1, 2026 as problematic, states it is ineffective under the OCG absent prior written GC approval, and requires removal of automatic escalation."
+    },
+    {
+      "id": "C-008",
+      "title": "Notes 5% escalation is above market standard (3-4%)",
+      "verdict": "fail",
+      "reasoning": "The memo identifies the 5% automatic annual rate increase as noncompliant with the OCG and requiring approval, but it does not compare it to typical market escalation rates of 3\u20134% or characterize it as above-market or excessive."
+    },
+    {
+      "id": "C-009",
+      "title": "Flags non-refundable $250,000 retainer as ethically problematic",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies the $250,000 retainer as problematic because it is deposited to the operating account, deemed earned/non-refundable on receipt, and forfeits any unused balance on termination. It recommends deleting it or restructuring any advance deposit as held in trust and refundable to the extent unearned, with non-refundable treatment only under extraordinary circumstances and express approval. This satisfies the criterion, even though it does not expressly cite Model Rule 1.5."
+    },
+    {
+      "id": "C-010",
+      "title": "Identifies invoice submission timeline deviation (60 vs. 45 days)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the OCG requires invoices to be submitted within 45 days after month-end and that the engagement letter permits submission within 60 days, identifying the timing deviation."
+    },
+    {
+      "id": "C-011",
+      "title": "Identifies expense threshold deviation ($15,000 vs. $5,000)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the engagement letter allows expenses up to $15,000 per item without approval, while the OCG requires prior written approval for any single expense over $5,000. Although it does not spell out the $10,000 difference, it identifies the threshold deviation required by the criterion."
+    },
+    {
+      "id": "C-012",
+      "title": "Identifies business-class travel provision conflicts with OCG economy-only policy",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the engagement letter allows partners business-class airfare for flights over two hours and contrasts this with the OCG requirement of economy/coach travel only, recommending replacement with economy-only terms."
+    },
+    {
+      "id": "C-013",
+      "title": "Flags firm's sole staffing discretion vs. OCG 14-day notice requirement",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that the engagement documents reserve sole discretion to add, substitute, or remove timekeepers and states this conflicts with the OCG requirement for 14-day advance notice/approval for lead partner, partner, senior associate, and specialist staffing changes."
+    },
+    {
+      "id": "C-014",
+      "title": "Flags contract attorney usage at $350/hr as unaddressed by OCG",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the staffing plan/engagement provision allowing contract attorneys at up to $350/hr as problematic, compares it to OCG limits, and states contract/temporary attorneys require prior client approval with qualifications, scope, rate, hours, and duration; it also recommends applying the $225/hr document review rate and obtaining written approval."
+    },
+    {
+      "id": "C-015",
+      "title": "Identifies work product lien conflicts with OCG ownership provision",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that HB&C's retaining lien on files/work product until payment conflicts with the OCG's requirement that Pinnacle owns all work product/files regardless of payment and that no lien may be asserted."
+    },
+    {
+      "id": "C-016",
+      "title": "Notes work product lien could prejudice client's defense in active litigation",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies the retaining lien as conflicting with Pinnacle\u2019s ownership rights and explains the practical risk: it \u201ccould impair continuity or court deadlines during a billing dispute,\u201d which addresses prejudice to Pinnacle\u2019s defense in active litigation."
+    },
+    {
+      "id": "C-017",
+      "title": "Flags 15% client termination fee as problematic",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags the 15% termination fee as problematic in the executive assessment and in Section 15, stating it conflicts with Pinnacle\u2019s right to terminate at any time with no termination penalty and requiring deletion of the fee."
+    },
+    {
+      "id": "C-018",
+      "title": "Flags malpractice liability cap as disproportionate to matter size and potentially ethically impermissible",
+      "verdict": "pass",
+      "reasoning": "The memo flags the malpractice liability cap (lesser of $1 million or fees paid) as a serious issue, notes it applies to malpractice, and states that professional-responsibility rules may restrict prospective malpractice limitations, with a recommendation for ethics review. This satisfies the criterion even though it does not expressly compare the cap to the $14.2 million exposure."
+    },
+    {
+      "id": "C-019",
+      "title": "Flags client indemnification of law firm as unusual and ethically suspect",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags the broad client indemnity as a serious risk transfer, notes it covers third-party claims and could indemnify the firm for its own negligence or malpractice, says it is not routine boilerplate, and warns that professional-responsibility rules may restrict prospective malpractice limitations. It recommends deleting the indemnity."
+    },
+    {
+      "id": "C-020",
+      "title": "Notes willful misconduct carve-out is narrower than negligence standard",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the indemnity exception is only for claims arising solely from willful misconduct and that, as drafted, the indemnity could cover the firm\u2019s own negligence or malpractice. It also recommends not indemnifying HB&C for its own negligence, malpractice, gross negligence, or willful misconduct."
+    },
+    {
+      "id": "C-021",
+      "title": "Identifies MedBridge/NovaTech conflict of interest",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies HB&C's current representation of MedBridge Therapeutics and MedBridge's approximately 8% equity stake in NovaTech, states this exceeds the OCG's material financial interest threshold, and treats it as a critical conflict requiring disclosure and GC consent or declining the engagement."
+    },
+    {
+      "id": "C-022",
+      "title": "Notes firm's 'no conflict' characterization is inadequate",
+      "verdict": "pass",
+      "reasoning": "The memo directly challenges the firm's conflict clearance/no-conflict characterization, emphasizing that MedBridge's 8% stake creates a material financial interest under the OCG and that Alcott's clearance omits MedBridge/material investors and is inadequate. It treats the issue as a stop issue requiring full disclosure and GC consent."
+    },
+    {
+      "id": "C-023",
+      "title": "Flags broad adverse-representation waiver as compounding conflict risk",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the MedBridge/NovaTech material conflict in the conflicts section and specifically flags the engagement letter's blanket waiver of future unrelated adverse representations as expressly unacceptable/prohibited, directing that it be struck. This connects the broad adverse-representation waiver to the conflict concern, satisfying the criterion."
+    },
+    {
+      "id": "C-024",
+      "title": "Identifies firm insurance ($10M/$20M) is below OCG minimum ($25M/$50M)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that HB&C\u2019s professional liability coverage is only $10M per occurrence / $20M aggregate and that this is below the OCG minimum of $25M per occurrence / $50M aggregate."
+    },
+    {
+      "id": "C-025",
+      "title": "Identifies success fee embedded in engagement letter vs. OCG separate agreement requirement",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that the OCG requires any success/performance fee to be in a separate written agreement reviewed and approved by the GC, and states that the engagement letter improperly embeds a 10% success fee for resolutions below $7 million directly in the engagement letter."
+    },
+    {
+      "id": "C-026",
+      "title": "Notes success fee is uncapped and potentially very large (up to ~$1.42M)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the success fee has no stated dollar cap and calculates that if the matter resolves for $0, the formula yields $1.42 million, also noting a $1.02 million example at a $4 million resolution."
+    },
+    {
+      "id": "C-027",
+      "title": "Flags affiliated e-discovery vendor (CrossPoint) as financial conflict",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies CrossPoint as HB&C\u2019s \u201cstrategic partner,\u201d notes the lack of Pinnacle approval or competitive-cost analysis/competitive bid for the $380,000 vendor proposal, and calls for disclosure of any HB&C/timekeeper financial interest in CrossPoint and compliance with vendor cost controls. This raises the affiliated vendor/cost-control conflict issue required by the criterion."
+    },
+    {
+      "id": "C-028",
+      "title": "Identifies $380K e-discovery cost excluded from $2.4M budget",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that CrossPoint's $380,000 e-discovery proposal is excluded from HB&C's $2.4 million budget and identifies a stated subtotal before success fee/extras of $2,780,000."
+    },
+    {
+      "id": "C-029",
+      "title": "Identifies scope ambiguity regarding appeals",
+      "verdict": "pass",
+      "reasoning": "The memo notes that the scope includes related proceedings while appellate work is separately scoped, which identifies the relevant inconsistency/ambiguity between broad dispute-related scope language and separate appellate treatment, even though it does not elaborate extensively."
+    },
+    {
+      "id": "C-030",
+      "title": "Flags mandatory arbitration in D.C. as disadvantageous to NC-based client",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags the D.C. mandatory AAA arbitration and D.C. law/courts provisions as problematic, noting they apply to fee and malpractice claims, waive jury rights, and conflict with the North Carolina/Mecklenburg County dispute path in the OCG."
+    },
+    {
+      "id": "C-031",
+      "title": "Flags marketing use of client name without adequate consent",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags the engagement letter\u2019s marketing/client-name provision as problematic, noting HB&C\u2019s continuing consent to identify Pinnacle and the engagement on websites/client lists/pitches, that this conflicts with confidentiality restrictions, and that separate prior written GC approval for each specific disclosure is required. This satisfies the criterion."
+    },
+    {
+      "id": "C-032",
+      "title": "Identifies firm termination notice period (30 days) vs. OCG (60 days + consent)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that the engagement letter requires either party to give 30 days' notice, while the OCG requires the firm to provide 60 days' advance notice and obtain Pinnacle's written consent before withdrawal. It also notes this inconsistency and recommends revision."
+    },
+    {
+      "id": "C-033",
+      "title": "Recommendations are provided and differentiated across issues",
+      "verdict": "pass",
+      "reasoning": "The memo provides a specific \u201cRequired action\u201d for essentially every identified issue, far exceeding the 75% threshold. It also differentiates recommendation types across issues, including rejecting/deleting terms outright, requiring OCG-compliant revisions, requesting additional information or documentation, requiring separate GC approvals or separate agreements, pausing work/vendor authorization, and negotiating vendor/security terms."
+    },
+    {
+      "id": "C-034",
+      "title": "Cross-references Morrow email to engagement letter conflict waiver",
+      "verdict": "pass",
+      "reasoning": "The memo expressly combines the Morrow email disclosure about MedBridge\u2019s 8% equity stake with the engagement letter\u2019s conflict provision in the same conflicts issue, citing both documents and stating that the draft\u2019s blanket waiver of future unrelated adverse representations is unacceptable and must be struck. This synthesizes the email disclosure and the waiver rather than treating them as unrelated."
+    },
+    {
+      "id": "C-035",
+      "title": "Cross-references CrossPoint proposal to budget exclusion in engagement letter",
+      "verdict": "pass",
+      "reasoning": "The memo expressly connects CrossPoint Analytics\u2019 $380,000 e-discovery proposal and HB&C strategic-partner relationship to the engagement letter/budget\u2019s exclusion of CrossPoint/e-discovery costs from the stated $2.4 million litigation budget, including in the executive assessment and detailed budget/vendor sections."
+    },
+    {
+      "id": "C-036",
+      "title": "Cross-references staffing plan rates against OCG rate caps",
+      "verdict": "pass",
+      "reasoning": "The memo expressly cites both the staffing plan and OCG in the rate issue, lists individual timekeeper/category rates against OCG caps in a comparison table, and uses staffing-plan hours to calculate the impact. This demonstrates cross-document analysis rather than relying solely on the engagement letter."
+    },
+    {
+      "id": "C-037",
+      "title": "Identifies inadequacy of conflicts clearance in Alcott email",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Alcott's purported standard conflicts clearance is inadequate because it does not address MedBridge or material investors despite Morrow's disclosure of MedBridge's 8% NovaTech stake, and notes that the OCG requires a comprehensive written conflicts clearance before work begins."
+    },
+    {
+      "id": "C-038",
+      "title": "Correctly identifies case as NovaTech v. Pinnacle with $14.2M exposure",
+      "verdict": "pass",
+      "reasoning": "The memo correctly names the matter as \u201cNovaTech Solutions, LLC v. Pinnacle Health Systems, Inc.\u201d and references the $14.2 million amount as the basis for the success-fee formula, reflecting the claimed exposure/damages amount."
+    },
+    {
+      "id": "C-039",
+      "title": "Recommends requiring competitive bidding for e-discovery vendor",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends not accepting CrossPoint yet and requiring Pinnacle approval plus a competitive bid/competitive-cost review where required, including in the priority actions and vendor approval sequence."
+    },
+    {
+      "id": "C-040",
+      "title": "Recommends requiring informed written consent for conflict/adverse representation",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies the MedBridge/NovaTech conflict as a stop issue, calls for complete conflict disclosure and analysis, recommends separate matter-specific informed written GC consent if ethically permissible, and instructs that the blanket future adverse-representation waiver be struck."
+    },
+    {
+      "id": "C-041",
+      "title": "Recommends reducing or eliminating the malpractice liability cap",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the $1 million/fees-paid liability cap as applying to malpractice and recommends deleting the liability cap, or at minimum not accepting it without review and carve-outs. This satisfies the criterion to remove or renegotiate the malpractice liability cap."
+    },
+    {
+      "id": "C-042",
+      "title": "Recommends removing or restructuring client indemnification clause",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the broad client indemnity as problematic and recommends deleting the client indemnity entirely. It also provides a fallback restructuring that excludes indemnification for the firm's negligence, malpractice, gross negligence, willful misconduct, breaches, confidentiality/security failures, and legal violations."
+    },
+    {
+      "id": "C-043",
+      "title": "Recommends removing or restructuring the 15% termination fee",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the 15% termination fee as inconsistent with the client's termination rights and recommends deleting it entirely, including in the required action and negotiation sequence."
+    },
+    {
+      "id": "C-044",
+      "title": "Recommends requiring firm insurance to meet OCG minimums",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies HB&C's professional liability coverage as below the OCG minimum and recommends requiring proof of at least $25 million per occurrence / $50 million aggregate coverage, with any exception separately documented and approved by the GC."
+    },
+    {
+      "id": "C-045",
+      "title": "Recommends removing or restructuring the work product lien",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the retaining/work-product lien as conflicting with the OCG and recommends deleting all lien/ownership/payment conditions, waiving any retaining/charging/possessory lien, and confirming Pinnacle\u2019s unconditional ownership and file delivery rights."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/review-outside-counsel-engagement-letter-for-problematic-terms/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/review-outside-counsel-engagement-letter-for-problematic-terms",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T23:38:33.039780+00:00",
+  "cost": {
+    "input_tokens": 1323265,
+    "output_tokens": 36821,
+    "wall_clock_seconds": 282.6
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 6,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "engagement-letter-hbc.docx",
+      "pinnacle-ocg-2024.docx",
+      "staffing-plan-novatech.docx",
+      "crosspoint-ediscovery-proposal.docx",
+      "morrow-conflict-email.eml",
+      "alcott-conflicts-email.eml",
+      "/workspace/output/engagement-review-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}
