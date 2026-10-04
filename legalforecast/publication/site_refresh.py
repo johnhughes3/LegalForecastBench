@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from legalforecast.cli_support import read_records, write_jsonl
 from legalforecast.evals.output_parser import (
     parse_model_output,
 )
@@ -376,6 +377,16 @@ def _refresh_other_downloads(
                 if record["case_id"] not in excluded
             ]
             _write(forecasts, records)
+            accounting = forecasts.with_name("accounting.jsonl")
+            if accounting.exists():
+                write_jsonl(
+                    accounting,
+                    (
+                        row
+                        for row in read_records(accounting)
+                        if row["case_id"] not in excluded
+                    ),
+                )
             source.update(
                 forecast_case_count=len(records),
                 forecast_unit_count=sum(

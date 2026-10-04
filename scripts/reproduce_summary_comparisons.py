@@ -12,6 +12,7 @@ from datetime import date
 from pathlib import Path
 from typing import TypedDict, cast
 
+from legalforecast.cli_support import read_records
 from legalforecast.evals.model_registry import (
     load_model_registry_bytes,
     model_registry_sha256,
@@ -135,8 +136,14 @@ def reproduce(
         summary = score_cases(
             tuple(cases), base_rate=sum(p["outcome"] for p in labels) / len(labels)
         )
+        accounting_path = root / "accounting.jsonl"
+        accounting = read_records(accounting_path) if accounting_path.exists() else []
+        # Historical reconstructions shared the first catalog timestamp; keep
+        # those exports unchanged while retaining protected conditions' own date.
         payload = {
-            "generated_at": catalog[0]["recomputed_at"],
+            "generated_at": (
+                item["recomputed_at"] if accounting else catalog[0]["recomputed_at"]
+            ),
             "identity": {
                 "run_identity_sha256": item["run_identity_sha256"],
                 "model_registry_sha256": item["model_registry_sha256"],
@@ -144,11 +151,13 @@ def reproduce(
             "summaries": [summary.to_record()],
         }
         export = build_site_export(
-            payload, registry=registry, contamination_boundary=date(2026, 6, 30)
+            payload,
+            registry=registry,
+            accounting=accounting,
+            contamination_boundary=date(2026, 6, 30),
         )
-        # This reproducer has no receipt accounting input. Preserve the original
-        # no-cost-evidence contract rather than minting default accounting claims
-        # that were absent from the published experiment.
+        # Older extracts have no accounting. Keep their original no-cost fields;
+        # protected conditions reproduce costs from optional sanitized accounting.
         historical_cost_fields = {
             "currency",
             "basis",
@@ -161,12 +170,13 @@ def reproduce(
         }
         historical = export.model_dump(mode="json")
         for row in historical["results"]:
-            assert row["costs"]["basis"] == "unavailable"
-            row["costs"] = {
-                key: value
-                for key, value in row["costs"].items()
-                if key in historical_cost_fields
-            }
+            if not accounting:
+                assert row["costs"]["basis"] == "unavailable"
+                row["costs"] = {
+                    key: value
+                    for key, value in row["costs"].items()
+                    if key in historical_cost_fields
+                }
         (output / (item["slug"] + ".json")).write_text(
             json.dumps(historical, indent=2) + "\n"
         )
