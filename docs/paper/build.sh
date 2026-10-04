@@ -80,8 +80,40 @@ if [[ -z "${SOURCE_DATE_EPOCH}" ]]; then
 fi
 export FORCE_SOURCE_DATE=1
 
+# ghcr sometimes leaves one texlive-full layer in "Waiting" until the job
+# clock expires. Stop a stalled pull and try again before compiling.
+pull_pinned_texlive_image() {
+  local image=$1
+  local attempt=1
+  local attempts=${PAPER_IMAGE_PULL_ATTEMPTS:-3}
+  local pull_timeout=${PAPER_IMAGE_PULL_TIMEOUT_SECONDS:-240}
+  local backoff=${PAPER_IMAGE_PULL_BACKOFF_SECONDS:-10}
+  if ! command -v timeout >/dev/null 2>&1; then
+    printf 'timeout is required to pull the pinned TeX Live image.\n' >&2
+    return 1
+  fi
+  while (( attempt <= attempts )); do
+    if timeout --foreground "$pull_timeout" \
+      docker pull --platform linux/amd64 "$image"; then
+      return 0
+    fi
+    if (( attempt == attempts )); then
+      printf 'Could not pull the pinned TeX Live image after %s attempts.\n' \
+        "$attempts" >&2
+      return 1
+    fi
+    printf 'Pinned TeX Live image pull attempt %s did not finish; retrying.\n' \
+      "$attempt" >&2
+    if (( backoff > 0 )); then
+      sleep "$backoff"
+    fi
+    attempt=$((attempt + 1))
+  done
+}
+
 if "$container"; then
   image=$(cat "$paper_dir/texlive-image.txt")
+  pull_pinned_texlive_image "$image"
   options=()
   if "$release"; then options+=(--release); fi
   exec docker run --rm --platform linux/amd64 --network none \
