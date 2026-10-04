@@ -33,6 +33,7 @@ from pathlib import Path
 import openpyxl
 from harvey_dual_audit_core import (
     AUDIT_DIR,
+    BUCKETS,
     OPUS_JSON,
     TASKS_URL,
     Json,
@@ -91,6 +92,19 @@ def verdict_word(result: Json | None) -> str:
     return str(result.get("verdict", "?")).capitalize() if result else "—"
 
 
+def run_verdicts(task: str, crit: str) -> dict[str, dict[str, str]]:
+    """Native verdict per run and judge for one criterion; empty if unpublished."""
+    out: dict[str, dict[str, str]] = {}
+    for slug, *_ in CONDITIONS:
+        judged = scores(task, slug)
+        if judged:
+            out[slug] = {
+                j: str(results_by_criterion(judged[j]).get(crit, {}).get("verdict"))
+                for j, _ in JUDGES
+            }
+    return out
+
+
 def run_grades(task: str, crit: str, up: str) -> str:
     """Compact per-run verdicts for one criterion, e.g. ``Luna F/P · Opus P/P``.
 
@@ -108,6 +122,44 @@ def run_grades(task: str, crit: str, up: str) -> str:
         link = f"{up}model-runs/{task}/{slug}/README.md#{crit.lower()}"
         cells.append(f"{SHORT[slug]} [{marks}]({link})")
     return " · ".join(cells) or "—"
+
+
+def run_outcomes(all_rows: list[Json], records: dict[str, Json]) -> list[str]:
+    """Comparison-page table: how often each agreement group failed in the runs."""
+    failed: dict[tuple[str, str], int] = {}
+    for task in records:
+        judged = [scores(task, slug) for slug, *_ in CONDITIONS]
+        if not all(judged):
+            return []
+        for by_judge in judged:
+            for j, _label in JUDGES:
+                for crit, result in results_by_criterion(by_judge[j]).items():
+                    hit = result.get("verdict") != "pass"
+                    failed[(task, crit)] = failed.get((task, crit), 0) + hit
+    votes = len(CONDITIONS) * len(JUDGES)
+    bucket_of = {(str(r["task"]), str(r["criterion"])): r["bucket"] for r in all_rows}
+    groups = [*BUCKETS, (None, "Not flagged by either model")]
+    out = [
+        "## Model-run outcomes",
+        "",
+        "How often each group of criteria was failed by LAB's native judges in the "
+        "two [published model runs](model-runs/README.md) (GPT-6 Luna xhigh and "
+        f"Claude Opus 5.5 low, each graded by Sonnet 4.6 and GPT-5.5: {votes} "
+        "verdicts per criterion). A failure is not evidence that a criterion is "
+        "defective, nor a pass that it is sound; these counts show where flagged "
+        "criteria actually decided grades.",
+        "",
+        "| Group | Criteria | Failed in any verdict | Failed in all verdicts |",
+        "|---|---:|---:|---:|",
+    ]
+    for key, label in groups:
+        keys = [k for k in failed if bucket_of.get(k) == key]
+        any_fail = sum(1 for k in keys if failed[k])
+        all_fail = sum(1 for k in keys if failed[k] == votes)
+        page = f"comparison/{key.replace('_', '-')}.md" if key else ""
+        name = f"[{label}]({page})" if key else label
+        out.append(f"| {name} | {len(keys)} | {any_fail} | {all_fail} |")
+    return [*out, ""]
 
 
 def one_line(text: object) -> str:

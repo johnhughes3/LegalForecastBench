@@ -17,6 +17,19 @@ Each row is one rubric criterion that at least one model flagged. A model's stat
 
 Denominator: 2858 criteria across 52 tasks. Counts are criterion-level flags, not a verified error rate or a score correction. Claude Opus 5.5 flagged 650 criteria in its blind pass; after reading GPT-6 Sol it added 41 and withdrew 127.
 
+## Model-run outcomes
+
+How often each group of criteria was failed by LAB's native judges in the two [published model runs](model-runs/README.md) (GPT-6 Luna xhigh and Claude Opus 5.5 low, each graded by Sonnet 4.6 and GPT-5.5: 4 verdicts per criterion). A failure is not evidence that a criterion is defective, nor a pass that it is sound; these counts show where flagged criteria actually decided grades.
+
+| Group | Criteria | Failed in any verdict | Failed in all verdicts |
+|---|---:|---:|---:|
+| [Both models: problematic](comparison/both-problematic.md) | 83 | 45 | 25 |
+| [Both models: arguable](comparison/both-arguable.md) | 135 | 77 | 18 |
+| [Both flagged, different strength (one problematic, one arguable)](comparison/split.md) | 127 | 52 | 16 |
+| [Flagged by GPT-6 Sol only](comparison/sol-only.md) | 271 | 74 | 6 |
+| [Flagged by Claude Opus 5.5 only](comparison/opus-only.md) | 219 | 86 | 32 |
+| Not flagged by either model | 2023 | 339 | 50 |
+
 ## By task
 
 | Task | Criteria | Both problematic | Both arguable | Split | Sol only | Opus only |

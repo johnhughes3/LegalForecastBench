@@ -254,11 +254,21 @@ def runs_block(task: str, crit: str) -> list[str]:
         "|---|" + "---|" * (len(JUDGES) + 1),
     ]
     reasons: list[str] = []
+    files: list[str] = []
     for slug, label, *_ in CONDITIONS:
         judged = scores(task, slug)
         if not judged:
             continue
         page = f"../model-runs/{task}/{slug}/README.md"
+        files.append(
+            f"- {label}: "
+            + " · ".join(
+                f"[{judge_label} score file](../model-runs/{task}/{slug}/"
+                f"scores_{judge}.json)"
+                for judge, judge_label in JUDGES
+            )
+            + f" · [deliverables]({page}#deliverables)"
+        )
         cells: list[str] = []
         others: list[str] = []
         for judge, judge_label in JUDGES:
@@ -297,6 +307,10 @@ def runs_block(task: str, crit: str) -> list[str]:
         "deliverables and every criterion's grades.",
         "",
         *table,
+        "",
+        "Raw files:",
+        "",
+        *files,
         "",
         *reasons,
         "",

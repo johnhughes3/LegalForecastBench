@@ -23,7 +23,14 @@ from harvey_dual_audit_core import (
     as_list,
     dump,
 )
-from harvey_model_runs import CONDITIONS, RUNS_DIR, SHORT, run_grades
+from harvey_model_runs import (
+    CONDITIONS,
+    RUNS_DIR,
+    SHORT,
+    run_grades,
+    run_outcomes,
+    run_verdicts,
+)
 
 
 def crit_link(record: Json, crit: str) -> str:
@@ -305,8 +312,11 @@ def render_bucket_page(
         out.append("None.")
     else:
         out += [
-            "| Task | Criterion | GPT-6 Sol | Claude Opus 5.5 |",
-            "|---|---|---|---|",
+            "Runs gives each model run's native verdicts (P pass, F fail) from "
+            "Sonnet 4.6 / GPT-5.5, linked to the judges' reasoning.",
+            "",
+            "| Task | Criterion | GPT-6 Sol | Claude Opus 5.5 | Runs |",
+            "|---|---|---|---|---|",
         ]
         for r in rows:
             record = records[str(r["task"])]
@@ -324,6 +334,7 @@ def render_bucket_page(
                     crit_link(record, str(r["criterion"])),
                     cell(sol_text),
                     cell(opus_text),
+                    run_grades(str(r["task"]), str(r["criterion"]), "../"),
                 )
             )
     out.append("")
@@ -368,6 +379,7 @@ def render_comparison(
         f"blind pass; after reading GPT-6 Sol it added {adopted} and withdrew "
         f"{dropped}.",
         "",
+        *run_outcomes(all_rows, records),
         "## By task",
         "",
         row(
@@ -416,7 +428,10 @@ def render_comparison(
                 "GPT-6 Sol 'confirmed' is shown as 'problematic'. Rows list only "
                 "criteria flagged by either model or by Opus's blind pass."
             ),
-            "rows": all_rows,
+            "rows": [
+                {**r, "runs": run_verdicts(str(r["task"]), str(r["criterion"]))}
+                for r in all_rows
+            ],
         },
     )
 
