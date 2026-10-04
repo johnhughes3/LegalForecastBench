@@ -4,7 +4,7 @@ import copy
 from dataclasses import replace
 
 import pytest
-from legalforecast.evals.model_registry import ModelRegistry
+from legalforecast.evals.model_registry import ModelRegistry, ToolPolicy
 from legalforecast.publication.receipt_accounting import build_public_accounting
 from legalforecast.publication.site_export import build_site_export
 
@@ -404,3 +404,75 @@ def test_withdrawn_case_costs_do_not_enter_retained_workload_or_repricing() -> N
     assert costs.standard_rate_total_cost == pytest.approx(0.0004)
     assert costs.response_count == 1
     assert "synthetic-case-b" not in output.model_dump_json()
+
+
+def jev_receipt_and_registry():
+    entry = replace(
+        registry().entries[0],
+        provider="vercel_ai_gateway",
+        model_id="typesafe-ai/jev",
+        jev_input_mode="grok_summaries",
+        tool_policy=ToolPolicy.NO_TOOLS,
+        jev_summaries_sha256="a" * 64,
+        input_token_price=0.042,
+        output_token_price=0,
+        pricing_source="https://vercel.com/ai-gateway/models/jev",
+    )
+    record = receipt()
+    record.pop("cost_evidence")
+    record["model_key"] = entry.registry_key
+    record["jev_request_count"] = 1
+    record["usage"] = {
+        "input_tokens": 6692,
+        "output_tokens": 169,
+        "estimated_cost_microusd": 282,
+    }
+    record["jev_provider_metadata"] = {
+        "gateway": {"gatewayCost": "0.000281064", "cost": "0.000281064"}
+    }
+    return record, ModelRegistry(entries=(entry,))
+
+
+def test_jev_exact_gateway_charge_and_one_shot_repricing():
+    record, frozen = jev_receipt_and_registry()
+    output = build_public_accounting([record], frozen)[0]
+    assert output["estimated_cost"] == 0.000281064
+    assert output["cost_basis"] == "provider_reported"
+    assert output["cost_method"] == "gateway_reported_charge"
+    assert output["standard_rate_cost"] == pytest.approx(0.000281064)
+    assert output["response_count"] == 1
+    assert output["missing_response_usage_case_count"] == 0
+    assert output["missing_cache_read_response_count"] == 1
+    record["jev_provider_metadata"]["gateway"]["gatewayCost"] = "0.0003"
+    output = build_public_accounting([record], frozen)[0]
+    assert output["estimated_cost"] == 0.0003
+    assert output["standard_rate_cost"] == pytest.approx(0.000281064)
+
+
+@pytest.mark.parametrize(
+    "amount", [None, True, "bad", "NaN", "Infinity", "-0.01", "1e10000"]
+)
+def test_jev_malformed_present_gateway_charge_refuses_fallback(amount):
+    record, frozen = jev_receipt_and_registry()
+    record["jev_provider_metadata"]["gateway"]["gatewayCost"] = amount
+    with pytest.raises(ValueError, match="Gateway metadata cost"):
+        build_public_accounting([record], frozen)
+
+
+def test_jev_missing_charge_falls_back_without_losing_usage_coverage():
+    record, frozen = jev_receipt_and_registry()
+    record["jev_provider_metadata"] = {}
+    output = build_public_accounting([record], frozen)[0]
+    assert output["estimated_cost"] == 0.000282
+    assert output["cost_basis"] == "estimated_from_pricing_snapshot"
+    assert output["standard_rate_cost"] == pytest.approx(0.000281064)
+    record["jev_request_count"] = 2
+    output = build_public_accounting([record], frozen)[0]
+    assert output["response_count"] == 0
+    assert output["standard_rate_cost"] is None
+
+
+def test_jev_older_cost_field_is_supported_without_rounding():
+    record, frozen = jev_receipt_and_registry()
+    record["jev_provider_metadata"]["gateway"].pop("gatewayCost")
+    assert build_public_accounting([record], frozen)[0]["estimated_cost"] == 0.000281064

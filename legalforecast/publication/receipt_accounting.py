@@ -11,6 +11,7 @@ from legalforecast.evals.model_registry import (
     load_model_registry,
 )
 from legalforecast.runner.anthropic_cache import anthropic_cache_cost
+from legalforecast.runner.gateway import gateway_total_cost_usd
 from legalforecast.runner.managed_cost import (
     ManagedResponseUsage,
     managed_usage_cost,
@@ -54,6 +55,12 @@ def _standard_cost(
                 for row in details
             ],
         )[0]
+    if entry.jev_input_mode is not None and entry.provider in {
+        "vercel_ai_gateway",
+        "typesafe",
+    }:
+        # Native Jev is a single request priced by the frozen input/output rates.
+        return managed_usage_cost(entry, details)
     source = entry.pricing_source.lower()
     multiplier: float | None = None
     if "flex is 50% of standard" in source or (
@@ -161,11 +168,49 @@ def build_public_accounting(
                 usage.get(field), field
             ):
                 raise ValueError(f"response usage {field} differs from receipt total")
+        public_amount = amount / 1_000_000
+        entry = entries[model]
+        if entry.jev_input_mode is not None and entry.provider in {
+            "vercel_ai_gateway",
+            "typesafe",
+        }:
+            # Only the native one-shot contract identifies aggregate usage as one
+            # response. Do not invent per-response details for agentic receipts.
+            if (
+                not details
+                and type(receipt.get("jev_request_count")) is int
+                and receipt.get("jev_request_count") == 1
+            ):
+                details = [
+                    ManagedResponseUsage(
+                        input_tokens=_count(usage.get("input_tokens"), "input_tokens"),
+                        output_tokens=_count(
+                            usage.get("output_tokens"), "output_tokens"
+                        ),
+                    )
+                ]
+            metadata = receipt.get("jev_provider_metadata", {})
+            if not isinstance(metadata, Mapping):
+                raise ValueError("Jev provider metadata must be an object")
+            metadata = cast(Mapping[str, object], metadata)
+            gateway = metadata.get("gateway", {})
+            if not isinstance(gateway, Mapping):
+                raise ValueError("Jev Gateway metadata must be an object")
+            gateway = cast(Mapping[str, object], gateway)
+            # gatewayCost includes surcharges; cost is the older transport field.
+            # A malformed present preferred amount must never fall through.
+            field = next(
+                (key for key in ("gatewayCost", "cost") if key in gateway), None
+            )
+            if field is not None:
+                public_amount = gateway_total_cost_usd([{"cost_usd": gateway[field]}])
+                basis = "provider_reported"
+                method = "gateway_reported_charge"
         records.append(
             {
                 "model_id": model,
                 "case_id": case,
-                "estimated_cost": amount / 1_000_000,
+                "estimated_cost": public_amount,
                 "cost_basis": basis,
                 "cost_method": method,
                 "rate_provenance": str(
