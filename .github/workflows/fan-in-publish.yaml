@@ -35,7 +35,7 @@ on:
         required: true
         type: string
       model_registry_uri:
-        description: Frozen public model registry URI under the configured results bucket.
+        description: "Frozen registry: S3 URI, manifests/ key, model_registries/ file, or artifact:ID."
         required: true
         type: string
       labels_release_uri:
@@ -173,9 +173,11 @@ jobs:
               echo "historical model registry must be a regular file" >&2
               exit 1
             }
+          elif [[ "${MODEL_REGISTRY_URI}" =~ ^artifact:[1-9][0-9]*$ ]]; then
+            : # Exact frozen registry artifact; releases and labels remain S3-only.
           else
             [[ "${MODEL_REGISTRY_URI}" =~ ^(s3://[^/]+/[A-Za-z0-9._/-]+|manifests/[A-Za-z0-9._/-]+)$ ]] || {
-              echo "model_registry_uri must be an S3 URI, manifests/ key, or checked-out model registry" >&2
+              echo "model_registry_uri must be an S3 URI, manifests/ key, exact artifact ID, or checked-out model registry" >&2
               exit 1
             }
             key_only="${MODEL_REGISTRY_URI#s3://}"
@@ -349,6 +351,8 @@ jobs:
           MANIFEST_URI: ${{ inputs.manifest_uri }}
           MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
           RELEASE_SHA: ${{ inputs.release_sha }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY_NAME: ${{ github.repository }}
         run: |
           set -euo pipefail
           reference=/tmp/lfb-fan-in-reference
@@ -359,6 +363,39 @@ jobs:
               # Scoring uses current code; registry bytes retain the original
               # forecast revision and are compared with its saved package below.
               git show "${RELEASE_SHA}:${locator}" > "${destination}"
+              return
+            fi
+            if [[ "${checked_out_registry}" == true && "${locator}" =~ ^artifact:[1-9][0-9]*$ ]]; then
+              REGISTRY_ARTIFACT_ID="${locator#artifact:}" REGISTRY_DESTINATION="${destination}" uv run python - <<'PY'
+          import os
+          import tempfile
+          from pathlib import Path
+          from legalforecast.artifact_archive import json_command, metadata_object
+          from legalforecast.artifact_restore import extract_artifact, restore_artifact
+
+          repository = os.environ["GITHUB_REPOSITORY_NAME"]
+          artifact_id = int(os.environ["REGISTRY_ARTIFACT_ID"])
+          metadata = metadata_object(json_command([
+              "gh", "api", f"repos/{repository}/actions/artifacts/{artifact_id}",
+          ]))
+          if type(metadata.get("id")) is not int or metadata["id"] != artifact_id:
+              raise ValueError("registry artifact metadata ID does not match")
+          run_id = metadata_object(metadata.get("workflow_run")).get("id")
+          if type(run_id) is not int or run_id <= 0:
+              raise ValueError("registry artifact requires a positive source run ID")
+          payload = restore_artifact(
+              repository, run_id, None, artifact_id=artifact_id,
+              bucket=os.environ["LFB_RESULTS_BUCKET"],
+          )
+          with tempfile.TemporaryDirectory() as scratch:
+              root = Path(scratch) / "registry"
+              extract_artifact(payload, root)
+              members = list(root.rglob("*"))
+              registry = root / "model-registry.json"
+              if members != [registry] or not registry.is_file() or not registry.stat().st_size:
+                  raise ValueError("registry artifact must contain only model-registry.json")
+              Path(os.environ["REGISTRY_DESTINATION"]).write_bytes(registry.read_bytes())
+          PY
               return
             fi
             case "${locator}" in

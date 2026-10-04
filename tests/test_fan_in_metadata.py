@@ -153,3 +153,116 @@ def test_workflow_metadata_fields_statically_match_shared_contract() -> None:
         if isinstance(key, ast.Constant) and key.value == "schema_version"
     )
     assert ast.literal_eval(schema_value) == "legalforecast.forecast-run.v1"
+
+
+@pytest.mark.parametrize(
+    "metadata,members,accepted",
+    [
+        (
+            {"id": 456, "workflow_run": {"id": 123}},
+            {"model-registry.json": b"{  }\n"},
+            True,
+        ),
+        (
+            {"id": 457, "workflow_run": {"id": 123}},
+            {"model-registry.json": b"{}"},
+            False,
+        ),
+        (
+            {"id": 456, "workflow_run": {"id": True}},
+            {"model-registry.json": b"{}"},
+            False,
+        ),
+        ({"id": 456, "workflow_run": {"id": 0}}, {"model-registry.json": b"{}"}, False),
+        ({"id": 456}, {"model-registry.json": b"{}"}, False),
+        ({"id": 456, "workflow_run": {"id": 123}}, {"model-registry.json": b""}, False),
+        ({"id": 456, "workflow_run": {"id": 123}}, {"other.json": b"{}"}, False),
+        (
+            {"id": 456, "workflow_run": {"id": 123}},
+            {"model-registry.json": b"{}", "extra.json": b"{}"},
+            False,
+        ),
+        (
+            {"id": 456, "workflow_run": {"id": 123}},
+            {"../model-registry.json": b"{}"},
+            False,
+        ),
+    ],
+)
+def test_artifact_bound_registry_fetch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    metadata: dict[str, object],
+    members: dict[str, bytes],
+    accepted: bool,
+) -> None:
+    import io
+    import subprocess
+    from zipfile import ZipFile
+
+    from legalforecast import artifact_archive, artifact_restore
+
+    workflow = Path(".github/workflows/fan-in-publish.yaml").read_text()
+    marker = "REGISTRY_DESTINATION=\"${destination}\" uv run python - <<'PY'\n"
+    script = textwrap.dedent(workflow.split(marker, 1)[1].split("          PY", 1)[0])
+    output = io.BytesIO()
+    with ZipFile(output, "w") as bundle:
+        for name, content in members.items():
+            bundle.writestr(name, content)
+
+    def get_metadata(arguments: list[str]) -> object:
+        assert arguments == ["gh", "api", "repos/owner/bench/actions/artifacts/456"]
+        return metadata
+
+    def restore(
+        repository: str, run_id: int, name: str | None, *, artifact_id: int, bucket: str
+    ) -> bytes:
+        assert (repository, run_id, name, artifact_id, bucket) == (
+            "owner/bench",
+            123,
+            None,
+            456,
+            "results",
+        )
+        return output.getvalue()
+
+    monkeypatch.setattr(artifact_archive, "json_command", get_metadata)
+    monkeypatch.setattr(artifact_restore, "restore_artifact", restore)
+    destination = tmp_path / "reference.json"
+    for key, value in {
+        "GITHUB_REPOSITORY_NAME": "owner/bench",
+        "REGISTRY_ARTIFACT_ID": "456",
+        "REGISTRY_DESTINATION": str(destination),
+        "LFB_RESULTS_BUCKET": "results",
+    }.items():
+        monkeypatch.setenv(key, value)
+    if accepted:
+        exec(compile(script, "registry-fetch", "exec"), {})
+        assert destination.read_bytes() == members["model-registry.json"]
+        saved = tmp_path / "saved-model-registry.json"
+        saved.write_bytes(members["model-registry.json"])
+        subprocess.run(["cmp", "--", str(destination), str(saved)], check=True)
+        saved.write_bytes(b'{"different": true}')
+        assert (
+            subprocess.run(
+                ["cmp", "--", str(destination), str(saved)], check=False
+            ).returncode
+            != 0
+        )
+    else:
+        with pytest.raises(ValueError):
+            exec(compile(script, "registry-fetch", "exec"), {})
+        assert not destination.exists()
+    # The artifact reference cannot widen protected labels or skip byte binding.
+    assert (
+        'fetch_locked "${MODEL_REGISTRY_URI}" "${reference}/model-registry.json" true'
+        in workflow
+    )
+    assert (
+        'fetch_locked "${LABELS_RELEASE_URI}" "${reference}/labels-release.json"'
+        in workflow
+    )
+    assert (
+        'cmp -- "${reference}/model-registry.json" '
+        "/tmp/lfb-forecast/model-registry.json" in workflow
+    )
