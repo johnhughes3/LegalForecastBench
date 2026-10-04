@@ -11,6 +11,12 @@ from a checkout but do not belong in the installed `legalforecast` CLI.
   uv run python scripts/build_harvey_dual_audit.py render
   ```
 
+- `harvey_review_sample.py`: draws the seeded random sample of AI-flagged Harvey LAB litigation criteria for human review and tallies the reviewer's verdicts against the pre-committed decision rule in `docs/harvey-lab-audit/litigation-dispute-resolution/human-review/README.md`. `draw` refuses to overwrite a worksheet that may hold verdicts; `tally` needs no network.
+
+  ```bash
+  uv run python scripts/harvey_review_sample.py tally
+  ```
+
 - `release_check.py`: runs the full v0.1 alpha release gate: locked sync, formatting, linting, type checking, scoped public-API docstring coverage, the supported four-worker pytest suite, CLI smokes, fixture E2E, multi-harness no-network smokes, package build, package hashes, and installed wheel/sdist smokes.
 
   ```bash
