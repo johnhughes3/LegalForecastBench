@@ -12,6 +12,7 @@ from typing import Any, cast
 
 from legalforecast import cli_support as _cli_support
 from legalforecast.evals.model_registry import (
+    is_gateway_jev_summary,
     load_model_registry_bytes,
     model_registry_entry_sha256,
     model_registry_sha256,
@@ -414,7 +415,14 @@ def _validate_score_payload_identity(
                 entry
             ):
                 raise ValueError("score artifact model registry entry differs")
-            if binding["served_model_version"] != entry.model_version_or_snapshot:
+            # Locked scoring validated Jev's saved Gateway route. Its SDK does
+            # not report a served snapshot, so retain the truthful omission.
+            if binding[
+                "served_model_version"
+            ] != entry.model_version_or_snapshot and not (
+                binding["served_model_version"] == "unreported"
+                and is_gateway_jev_summary(entry)
+            ):
                 raise ValueError("score artifact served model version differs")
 
     expected_case_by_unit = {

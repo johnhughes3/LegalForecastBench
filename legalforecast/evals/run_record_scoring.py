@@ -12,6 +12,7 @@ from typing import Any, cast
 from legalforecast.contracts import ARTIFACT_RAW_SHA256_V1, PUBLIC_RUN_RECEIPT_V1
 from legalforecast.evals.model_registry import (
     ModelRegistry,
+    is_gateway_jev_summary,
     model_registry_entry_sha256,
     require_official_registry_entries,
 )
@@ -34,6 +35,10 @@ from legalforecast.release import (
     ForecastRelease,
     LabelsRelease,
     validate_manifest_against_forecast,
+)
+from legalforecast.runner.gateway import (
+    gateway_provider_metadata,
+    validate_gateway_metadata,
 )
 from legalforecast.runner.service import derive_case_call_id
 
@@ -362,7 +367,19 @@ def _validate_locked_receipt_identity(
         raise ValueError(
             "run receipt model registry entry differs from frozen registry"
         )
-    if _required_str(record, "served_model_version") != entry.model_version_or_snapshot:
+    served_version = _required_str(record, "served_model_version")
+    if served_version == "unreported" and is_gateway_jev_summary(entry):
+        # The supported evaluate SDK reports its route, but no dated snapshot.
+        # Preserve that omission; require the actual route to match the registry.
+        if record.get("execution_condition") != f"jev_{entry.jev_input_mode}":
+            raise ValueError("Jev receipt execution condition differs from registry")
+        routing = gateway_provider_metadata(record.get("jev_provider_metadata"))
+        if routing is None:
+            raise ValueError("Jev receipt lacks Gateway routing metadata")
+        validate_gateway_metadata(
+            routing, expected_model_id=entry.model_id, expected_provider="typesafe-ai"
+        )
+    elif served_version != entry.model_version_or_snapshot:
         raise ValueError("run receipt served model differs from frozen registry")
     repeat_index = record.get("repeat_index")
     if type(repeat_index) is not int or repeat_index != expected_repeat_index:

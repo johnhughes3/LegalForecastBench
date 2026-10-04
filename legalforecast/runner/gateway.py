@@ -107,6 +107,12 @@ def gateway_response_metadata(response: Response) -> dict[str, str] | None:
     provider_metadata = typed_extras.get(
         "providerMetadata", typed_extras.get("provider_metadata")
     )
+    return gateway_provider_metadata(provider_metadata)
+
+
+def gateway_provider_metadata(provider_metadata: object) -> dict[str, str] | None:
+    """Extract saved SDK Gateway metadata without inventing provider fields."""
+
     if not isinstance(provider_metadata, Mapping):
         return None
     provider_metadata = cast(Mapping[str, object], provider_metadata)
@@ -279,6 +285,7 @@ __all__ = [
     "gateway_model_is_allowlisted",
     "gateway_model_profile",
     "gateway_normalize_model_identity",
+    "gateway_provider_metadata",
     "gateway_request_extra_body",
     "gateway_response_metadata",
     "gateway_route_provider",
