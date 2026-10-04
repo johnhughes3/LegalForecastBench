@@ -135,3 +135,24 @@ def test_runs_block_is_idempotent_and_keeps_verdicts(
     assert len(parsed) == sampler.SAMPLE_SIZE
     assert parsed[0][2].startswith("X_(")
     assert once.count(sampler.RUNS_START) == sampler.SAMPLE_SIZE
+
+
+def test_import_rejects_grades_for_the_wrong_criteria(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(ROOT)
+    task = "draft-complaint"
+    for slug, *_ in runs.CONDITIONS:
+        src = tmp_path / task / slug / "run"
+        (src / "output").mkdir(parents=True)
+        for judge, _label in runs.JUDGES:
+            published = ROOT / runs.run_dir(task, slug) / f"scores_{judge}.json"
+            (src / published.name).write_text(published.read_text(encoding="utf-8"))
+    assert set(runs.source_runs(tmp_path, [task])) == {
+        (task, slug) for slug, *_ in runs.CONDITIONS
+    }
+    first = tmp_path / task / runs.CONDITIONS[0][0] / "run"
+    score = first / f"scores_{runs.JUDGES[0][0]}.json"
+    score.write_text(score.read_text(encoding="utf-8").replace('"C-001"', '"C-999"'))
+    with pytest.raises(SystemExit, match="grades other criteria"):
+        runs.source_runs(tmp_path, [task])

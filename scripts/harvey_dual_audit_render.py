@@ -245,11 +245,8 @@ def render_task_section(record: Json, rows: list[Json], task_dir: Path) -> None:
             "",
         ]
     if flagged:
-        section += [
-            "| Criterion | GPT-6 Sol | Claude Opus 5.5 | Opus blind pass | Agreement "
-            "| Runs |",
-            "|---|---|---|---|---|---|",
-        ]
+        header = "| Criterion | GPT-6 Sol | Claude Opus 5.5 | Opus blind pass |"
+        section += [header + " Agreement | Runs |", "|---|---|---|---|---|---|"]
         labels = dict(BUCKETS)
         for r in flagged:
             agreement = (

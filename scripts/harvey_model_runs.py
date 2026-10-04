@@ -288,12 +288,39 @@ def index_page(records: list[Json]) -> str:
     return "\n".join(out) + "\n"
 
 
+def source_runs(base: Path, tasks: list[str]) -> dict[tuple[str, str], Path]:
+    """Validate the whole archive before anything is deleted or written.
+
+    Every task needs exactly one run per condition, and each judge must have graded
+    exactly the rubric's criterion IDs, so a partial or mislabeled archive cannot
+    replace the published copy."""
+    found: dict[tuple[str, str], Path] = {}
+    for task in tasks:
+        record = as_dict(load(AUDIT_DIR / "tasks" / task / OPUS_JSON))
+        rubric = set(as_dict(record.get("criterion_lines")))
+        if len(rubric) != record["criteria_total"]:
+            raise SystemExit(f"{task}: rubric criterion IDs are incomplete")
+        for slug, *_ in CONDITIONS:
+            runs = sorted(p for p in (base / task / slug).iterdir())
+            if len(runs) != 1 or not (runs[0] / "output").is_dir():
+                raise SystemExit(f"{task}/{slug}: expected one run with output")
+            for judge, _label in JUDGES:
+                score = as_dict(load(runs[0] / f"scores_{judge}.json"))
+                graded = as_list(score.get("criteria_results"))
+                ids = [str(as_dict(r).get("id")) for r in graded]
+                if len(ids) != len(set(ids)) or set(ids) != rubric:
+                    raise SystemExit(f"{task}/{slug}: {judge} grades other criteria")
+            found[(task, slug)] = runs[0]
+    return found
+
+
 def import_runs(results: Path) -> None:
     base = results / "litigation-dispute-resolution"
     tasks = sorted(p.name for p in base.iterdir() if p.is_dir())
     expected = sorted(p.name for p in (AUDIT_DIR / "tasks").iterdir() if p.is_dir())
     if tasks != expected:
         raise SystemExit("archive tasks do not match the audit's task directories")
+    sources = source_runs(base, tasks)
     if RUNS_DIR.exists():
         shutil.rmtree(RUNS_DIR)
     records: list[Json] = []
@@ -301,16 +328,9 @@ def import_runs(results: Path) -> None:
         record = as_dict(load(AUDIT_DIR / "tasks" / task / OPUS_JSON))
         records.append(record)
         for condition in CONDITIONS:
-            runs = sorted(p for p in (base / task / condition[0]).iterdir())
-            if len(runs) != 1:
-                raise SystemExit(f"{task}/{condition[0]}: expected one run")
-            src, dest = runs[0], run_dir(task, condition[0])
+            src, dest = sources[(task, condition[0])], run_dir(task, condition[0])
             (dest / "output").mkdir(parents=True)
             for judge, _label in JUDGES:
-                score = as_dict(load(src / f"scores_{judge}.json"))
-                graded = results_by_criterion(score)
-                if len(graded) != record["criteria_total"]:
-                    raise SystemExit(f"{task}/{condition[0]}: {judge} is incomplete")
                 shutil.copy2(src / f"scores_{judge}.json", dest)
             outputs: list[str] = []
             for path in sorted((src / "output").iterdir()):
