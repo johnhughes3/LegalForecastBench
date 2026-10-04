@@ -172,6 +172,65 @@ def validate_package(payload: bytes, run_id: int, attempt: int) -> None:
             )
 
 
+def download_draft_asset(
+    repository: str, asset_id: int, asset_name: str, target: Path
+) -> None:
+    """Download an exact asset only when it belongs to one unpublished draft."""
+    asset = metadata_object(
+        json_command(
+            [
+                "gh",
+                "api",
+                f"repos/{repository}/releases/assets/{asset_id}",
+            ]
+        )
+    )
+    releases = json_command(
+        [
+            "gh",
+            "api",
+            "--paginate",
+            "--slurp",
+            f"repos/{repository}/releases?per_page=100",
+        ]
+    )
+    if not isinstance(releases, list):
+        raise ValueError("release listing is invalid")
+    drafts: list[dict[str, object]] = []
+    for page in cast(list[object], releases):
+        if not isinstance(page, list):
+            raise ValueError("release page must be an array")
+        for raw in cast(list[object], page):
+            release = metadata_object(raw)
+            assets = release.get("assets")
+            if not isinstance(assets, list):
+                raise ValueError("release assets must be an array")
+            if release.get("draft") is True and any(
+                metadata_object(item).get("id") == asset_id
+                for item in cast(list[object], assets)
+            ):
+                drafts.append(release)
+    if (
+        len(drafts) != 1
+        or asset.get("id") != asset_id
+        or asset.get("name") != asset_name
+    ):
+        raise ValueError("package must belong to one unpublished draft release")
+    result = subprocess.run(
+        [
+            "gh",
+            "api",
+            "--allow-escape-sequences",
+            "-H",
+            "Accept: application/octet-stream",
+            f"repos/{repository}/releases/assets/{asset_id}",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    target.write_bytes(result.stdout)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True)
@@ -190,59 +249,7 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     target = args.output_dir / "retained-package.zip"
     if not args.upload_only:
-        asset = metadata_object(
-            json_command(
-                [
-                    "gh",
-                    "api",
-                    f"repos/{args.repository}/releases/assets/{args.asset_id}",
-                ]
-            )
-        )
-        releases = json_command(
-            [
-                "gh",
-                "api",
-                "--paginate",
-                "--slurp",
-                f"repos/{args.repository}/releases?per_page=100",
-            ]
-        )
-        if not isinstance(releases, list):
-            raise ValueError("release listing is invalid")
-        drafts: list[dict[str, object]] = []
-        for page in cast(list[object], releases):
-            if not isinstance(page, list):
-                raise ValueError("release page must be an array")
-            for raw in cast(list[object], page):
-                release = metadata_object(raw)
-                assets = release.get("assets")
-                if not isinstance(assets, list):
-                    raise ValueError("release assets must be an array")
-                if release.get("draft") is True and any(
-                    metadata_object(item).get("id") == args.asset_id
-                    for item in cast(list[object], assets)
-                ):
-                    drafts.append(release)
-        if (
-            len(drafts) != 1
-            or asset.get("id") != args.asset_id
-            or asset.get("name") != f"{name}.zip"
-        ):
-            raise ValueError("package must belong to one unpublished draft release")
-        result = subprocess.run(
-            [
-                "gh",
-                "api",
-                "--allow-escape-sequences",
-                "-H",
-                "Accept: application/octet-stream",
-                f"repos/{args.repository}/releases/assets/{args.asset_id}",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        target.write_bytes(result.stdout)
+        download_draft_asset(args.repository, args.asset_id, f"{name}.zip", target)
     payload = target.read_bytes()
     if hashlib.sha256(payload).hexdigest() != args.sha256:
         raise ValueError("retained package digest differs from selected asset")
@@ -262,20 +269,20 @@ def main() -> None:
     write_archive_index(args.output_dir / "retained-package-pointer.json", pointer)
     if args.upload_only:
         upload_archive_object(args.bucket, target, key)
-        _readback(args.bucket, key, target)
+        readback_archive_object(args.bucket, key, target)
         upload_archive_object(
             args.bucket,
             args.output_dir / "retained-package-pointer.json",
             retained_pointer_key(args.repository, args.source_run_id, name),
         )
-        _readback(
+        readback_archive_object(
             args.bucket,
             retained_pointer_key(args.repository, args.source_run_id, name),
             args.output_dir / "retained-package-pointer.json",
         )
 
 
-def _readback(bucket: str, key: str, original: Path) -> None:
+def readback_archive_object(bucket: str, key: str, original: Path) -> None:
     with tempfile.TemporaryDirectory() as scratch:
         downloaded = Path(scratch) / "readback"
         subprocess.run(
