@@ -2,9 +2,10 @@
 	"models": {
 		"jev-luna-summaries": "jev-luna-summaries.jsonl",
 		"gpt-6-luna-summaries-none": "gpt-6-luna-summaries-none.jsonl",
-		"gpt-5-6-luna-summaries-high": "gpt-5-6-luna-summaries-high.jsonl"
+		"gpt-5-6-luna-summaries-high": "gpt-5-6-luna-summaries-high.jsonl",
+		"jev-grok-short-summaries": "jev-grok-short-summaries.jsonl"
 	},
-	"family_model_count": 3,
+	"family_model_count": 4,
 	"missing_models": [],
 	"provenance": {
 		"release": "cycle-1-91-2026-09-08-luna-r5",
@@ -21,7 +22,14 @@
 			"gpt-5-6-luna-summaries-high": {
 				"forecast_run": "35773842374",
 				"source": "summary_export_units"
+			},
+			"jev-grok-short-summaries": {
+				"forecast_run": "37167631221",
+				"scoring_run": "37174741889",
+				"source": "protected_summary_export_units",
+				"summary_packet_group": "grok-short"
 			}
-		}
+		},
+		"comparison_scope": "Four summary conditions on the same outcomes; three controls share Luna packets, while Grok shorter summaries use a different representation. Cross-pipeline differences cannot isolate model ability or summarization effects."
 	}
 }

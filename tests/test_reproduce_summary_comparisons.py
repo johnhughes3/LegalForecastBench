@@ -20,17 +20,30 @@ SPEC.loader.exec_module(MODULE)
 def test_public_summary_comparisons_reproduce_displayed_exports(tmp_path: Path) -> None:
     """Exercise frozen registries, prediction census, canonical scoring and export."""
     site = Path(__file__).parents[1] / "site"
-    MODULE.reproduce(site / "public/data/summary-comparison", tmp_path)
+    source = site / "public/data/summary-comparison"
+    catalog = json.loads((source / "catalog.json").read_text())
+    MODULE.reproduce(source, tmp_path)
     exports = sorted(tmp_path.glob("*.json"))
-    assert len(exports) == 3
+    assert {export.stem for export in exports} == {item["slug"] for item in catalog}
+    assert len(exports) == len(catalog) == 4
     for export in exports:
         expected = site / "src/data/exports" / export.name
         reproduced = json.loads(export.read_text())
-        assert reproduced == json.loads(expected.read_text())
+        displayed = json.loads(expected.read_text())
+        if export.stem == "jev-grok-short-summaries":
+            costs = displayed["results"][0]["costs"]
+            assert costs["basis"] == "provider_reported"
+            assert costs["total_cost"] == 0.02015349
+            assert costs["covered_case_count"] == costs["response_count"] == 91
+            assert costs["missing_case_count"] == 0
+            assert costs["standard_rate_status"] == "complete"
+            assert costs["standard_rate_total_cost"] == 0.02015349
+        assert reproduced == displayed
         costs = reproduced["results"][0]["costs"]
-        assert costs["basis"] == "unavailable"
-        assert "cost_scope" not in costs
-        assert "missing_response_usage_case_count" not in costs
+        if export.stem != "jev-grok-short-summaries":
+            assert costs["basis"] == "unavailable"
+            assert "cost_scope" not in costs
+            assert "missing_response_usage_case_count" not in costs
 
 
 def test_cli_refresh_then_summary_reproduction(tmp_path: Path) -> None:
@@ -133,3 +146,19 @@ def test_cli_refresh_then_summary_reproduction(tmp_path: Path) -> None:
         ):
             assert actual[field] == expected[field]
         assert case not in json.dumps(actual)
+
+    accounting_path = (
+        refreshed / "summary-comparison/jev-grok-short-summaries/accounting.jsonl"
+    )
+    accounting = [json.loads(line) for line in accounting_path.read_text().splitlines()]
+    assert len(accounting) == 90
+    assert case not in {row["case_id"] for row in accounting}
+    retained = json.loads((output / "jev-grok-short-summaries.json").read_text())[
+        "results"
+    ][0]
+    original_workload = json.loads(
+        (refreshed / "exports/jev-grok-short-summaries.json").read_text()
+    )["results"][0]
+    assert retained["costs"]["covered_case_count"] == 90
+    assert original_workload["costs"]["covered_case_count"] == 91
+    assert original_workload["costs"]["total_cost"] == 0.02015349

@@ -121,7 +121,7 @@ const STATIC_ITEMS: AnalysisItem[] = [
 	{
 		href: "/experiments/summary-pipelines/",
 		title:
-			"Given the same case summaries, Jev forecast worse than always guessing 50%",
+			"On shared Luna summaries, Jev forecast worse than always guessing 50%",
 		summary:
 			"TypeSafe's Jev forecast from GPT-5.6 Luna summaries and scored below every naive baseline. Two OpenAI controls given the identical summaries beat the base rate.",
 		date: new Date("2026-09-27T00:00:00Z"),

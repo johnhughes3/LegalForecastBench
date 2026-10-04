@@ -18,11 +18,20 @@ export default function SummaryBrierChart({ rows, baseRateBrier }: Props) {
 		{ value: baseRateBrier, label: "Base-rate forecast" },
 		{ value: 0.25, label: "Always 50%" },
 	];
+	const labels = [
+		...new Set(
+			rows
+				.filter((r) => r.role !== "full-record-reference")
+				.map((r) => r.input_label),
+		),
+	];
 	const groups = [
-		{
-			title: "Same GPT-5.6 Luna summaries, one shot",
-			rows: rows.filter((r) => r.role !== "full-record-reference"),
-		},
+		...labels.map((title) => ({
+			title,
+			rows: rows.filter(
+				(r) => r.role !== "full-record-reference" && r.input_label === title,
+			),
+		})),
 		{
 			title: "Full record, agentic tools (older non-reasoning model)",
 			rows: rows.filter((r) => r.role === "full-record-reference"),

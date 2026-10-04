@@ -3,18 +3,19 @@
 	"replicates": 1000000,
 	"seed": 20260514,
 	"rng": "NumPy PCG64 multinomial case multiplicities",
-	"numpy_version": "2.4.2",
-	"family_model_count": 3,
+	"numpy_version": "2.5.3",
+	"family_model_count": 4,
 	"available_models": [
 		"gpt-5-6-luna-summaries-high",
 		"gpt-6-luna-summaries-none",
+		"jev-grok-short-summaries",
 		"jev-luna-summaries"
 	],
 	"case_count": 91,
 	"unit_count": 387,
 	"familywise_alpha": 0.05,
-	"interval_confidence": 0.9944444444444445,
-	"correction": "Bonferroni across 3 model pairs and three metrics",
+	"interval_confidence": 0.9972222222222222,
+	"correction": "Bonferroni across 6 model pairs and three metrics",
 	"metrics": {
 		"gpt-5-6-luna-summaries-high": {
 			"micro_brier": 0.1548945736434109,
@@ -25,6 +26,11 @@
 			"micro_brier": 0.17152093023255813,
 			"equal_case_brier": 0.186942624439053,
 			"accuracy": 0.7416020671834626
+		},
+		"jev-grok-short-summaries": {
+			"micro_brier": 0.32725193798449614,
+			"equal_case_brier": 0.30504730523444806,
+			"accuracy": 0.38242894056847543
 		},
 		"jev-luna-summaries": {
 			"micro_brier": 0.3675413436692507,
@@ -38,8 +44,8 @@
 			"model_b": "gpt-6-luna-summaries-none",
 			"metric": "micro_brier",
 			"delta": -0.01662635658914724,
-			"ci_low": -0.04597998475609756,
-			"ci_high": 0.011680173225276048,
+			"ci_low": -0.048416712907243656,
+			"ci_high": 0.013932617431045118,
 			"significant": false
 		},
 		{
@@ -47,8 +53,8 @@
 			"model_b": "gpt-6-luna-summaries-none",
 			"metric": "equal_case_brier",
 			"delta": -0.025748257060399904,
-			"ci_low": -0.06627741807101621,
-			"ci_high": 0.0065766204906203924,
+			"ci_low": -0.06994084137737264,
+			"ci_high": 0.008839401833286135,
 			"significant": false
 		},
 		{
@@ -56,17 +62,44 @@
 			"model_b": "gpt-6-luna-summaries-none",
 			"metric": "accuracy",
 			"delta": 0.043927648578811374,
-			"ci_low": -0.013227513227513255,
-			"ci_high": 0.10795454545454541,
+			"ci_low": -0.017587939698492483,
+			"ci_high": 0.11331444759206799,
 			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna-summaries-high",
+			"model_b": "jev-grok-short-summaries",
+			"metric": "micro_brier",
+			"delta": -0.17235736434108526,
+			"ci_low": -0.28375696379009213,
+			"ci_high": -0.027008478596244282,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-5-6-luna-summaries-high",
+			"model_b": "jev-grok-short-summaries",
+			"metric": "equal_case_brier",
+			"delta": -0.14385293785579498,
+			"ci_low": -0.22247598810366218,
+			"ci_high": -0.05793509924153209,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-5-6-luna-summaries-high",
+			"model_b": "jev-grok-short-summaries",
+			"metric": "accuracy",
+			"delta": 0.4031007751937985,
+			"ci_low": 0.15088352481319917,
+			"ci_high": 0.6111111111111112,
+			"significant": true
 		},
 		{
 			"model_a": "gpt-5-6-luna-summaries-high",
 			"model_b": "jev-luna-summaries",
 			"metric": "micro_brier",
 			"delta": -0.2126467700258398,
-			"ci_low": -0.32644138718761834,
-			"ci_high": -0.06433223472456742,
+			"ci_low": -0.33361214037061654,
+			"ci_high": -0.051356669052162754,
 			"significant": true
 		},
 		{
@@ -74,8 +107,8 @@
 			"model_b": "jev-luna-summaries",
 			"metric": "equal_case_brier",
 			"delta": -0.182967720414506,
-			"ci_low": -0.26553515833967606,
-			"ci_high": -0.09276395312227446,
+			"ci_low": -0.27147164665344575,
+			"ci_high": -0.08512657099448162,
 			"significant": true
 		},
 		{
@@ -83,8 +116,35 @@
 			"model_b": "jev-luna-summaries",
 			"metric": "accuracy",
 			"delta": 0.4599483204134367,
-			"ci_low": 0.21143958777540872,
-			"ci_high": 0.6634066102816086,
+			"ci_low": 0.19047619047619047,
+			"ci_high": 0.6761363636363636,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-6-luna-summaries-none",
+			"model_b": "jev-grok-short-summaries",
+			"metric": "micro_brier",
+			"delta": -0.15573100775193802,
+			"ci_low": -0.2626595636256951,
+			"ci_high": -0.024311956314953982,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-6-luna-summaries-none",
+			"model_b": "jev-grok-short-summaries",
+			"metric": "equal_case_brier",
+			"delta": -0.11810468079539507,
+			"ci_low": -0.20174294296179998,
+			"ci_high": -0.025781551936158543,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-6-luna-summaries-none",
+			"model_b": "jev-grok-short-summaries",
+			"metric": "accuracy",
+			"delta": 0.3591731266149871,
+			"ci_low": 0.10511363636363645,
+			"ci_high": 0.5745257452574526,
 			"significant": true
 		},
 		{
@@ -92,8 +152,8 @@
 			"model_b": "jev-luna-summaries",
 			"metric": "micro_brier",
 			"delta": -0.19602041343669255,
-			"ci_low": -0.30680771293294884,
-			"ci_high": -0.06011302817718015,
+			"ci_low": -0.31382497236551216,
+			"ci_high": -0.048226181372723644,
 			"significant": true
 		},
 		{
@@ -101,8 +161,8 @@
 			"model_b": "jev-luna-summaries",
 			"metric": "equal_case_brier",
 			"delta": -0.1572194633541061,
-			"ci_low": -0.24463113500784928,
-			"ci_high": -0.06178089384920636,
+			"ci_low": -0.2508599714100385,
+			"ci_high": -0.05372736262695618,
 			"significant": true
 		},
 		{
@@ -110,12 +170,54 @@
 			"model_b": "jev-luna-summaries",
 			"metric": "accuracy",
 			"delta": 0.4160206718346253,
-			"ci_low": 0.16666666666666663,
-			"ci_high": 0.6270874431337807,
+			"ci_low": 0.14562806732102843,
+			"ci_high": 0.6412213740458015,
+			"significant": true
+		},
+		{
+			"model_a": "jev-grok-short-summaries",
+			"model_b": "jev-luna-summaries",
+			"metric": "micro_brier",
+			"delta": -0.04028940568475453,
+			"ci_low": -0.07056180669490858,
+			"ci_high": -0.009809152712377481,
+			"significant": true
+		},
+		{
+			"model_a": "jev-grok-short-summaries",
+			"model_b": "jev-luna-summaries",
+			"metric": "equal_case_brier",
+			"delta": -0.039114782558711036,
+			"ci_low": -0.06586134701211464,
+			"ci_high": -0.013505275200989401,
+			"significant": true
+		},
+		{
+			"model_a": "jev-grok-short-summaries",
+			"model_b": "jev-luna-summaries",
+			"metric": "accuracy",
+			"delta": 0.056847545219638196,
+			"ci_low": 0.0023094688221709236,
+			"ci_high": 0.12806539509536785,
 			"significant": true
 		}
 	],
 	"significant_pairs": [
+		{
+			"better": "gpt-5-6-luna-summaries-high",
+			"worse": "jev-grok-short-summaries",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "gpt-5-6-luna-summaries-high",
+			"worse": "jev-grok-short-summaries",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "gpt-5-6-luna-summaries-high",
+			"worse": "jev-grok-short-summaries",
+			"metric": "accuracy"
+		},
 		{
 			"better": "gpt-5-6-luna-summaries-high",
 			"worse": "jev-luna-summaries",
@@ -133,6 +235,21 @@
 		},
 		{
 			"better": "gpt-6-luna-summaries-none",
+			"worse": "jev-grok-short-summaries",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "gpt-6-luna-summaries-none",
+			"worse": "jev-grok-short-summaries",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "gpt-6-luna-summaries-none",
+			"worse": "jev-grok-short-summaries",
+			"metric": "accuracy"
+		},
+		{
+			"better": "gpt-6-luna-summaries-none",
 			"worse": "jev-luna-summaries",
 			"metric": "micro_brier"
 		},
@@ -143,6 +260,21 @@
 		},
 		{
 			"better": "gpt-6-luna-summaries-none",
+			"worse": "jev-luna-summaries",
+			"metric": "accuracy"
+		},
+		{
+			"better": "jev-grok-short-summaries",
+			"worse": "jev-luna-summaries",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "jev-grok-short-summaries",
+			"worse": "jev-luna-summaries",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "jev-grok-short-summaries",
 			"worse": "jev-luna-summaries",
 			"metric": "accuracy"
 		}
@@ -151,7 +283,8 @@
 	"sources": {
 		"jev-luna-summaries": "jev-luna-summaries.jsonl",
 		"gpt-6-luna-summaries-none": "gpt-6-luna-summaries-none.jsonl",
-		"gpt-5-6-luna-summaries-high": "gpt-5-6-luna-summaries-high.jsonl"
+		"gpt-5-6-luna-summaries-high": "gpt-5-6-luna-summaries-high.jsonl",
+		"jev-grok-short-summaries": "jev-grok-short-summaries.jsonl"
 	},
 	"provenance": {
 		"release": "cycle-1-91-2026-09-08-luna-r5",
@@ -168,8 +301,15 @@
 			"gpt-5-6-luna-summaries-high": {
 				"forecast_run": "35773842374",
 				"source": "summary_export_units"
+			},
+			"jev-grok-short-summaries": {
+				"forecast_run": "37167631221",
+				"scoring_run": "37174741889",
+				"source": "protected_summary_export_units",
+				"summary_packet_group": "grok-short"
 			}
-		}
+		},
+		"comparison_scope": "Four summary conditions on the same outcomes; three controls share Luna packets, while Grok shorter summaries use a different representation. Cross-pipeline differences cannot isolate model ability or summarization effects."
 	},
 	"missing_models": []
 }

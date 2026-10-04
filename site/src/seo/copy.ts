@@ -43,7 +43,7 @@ export const COPY = {
 	experiment: {
 		title: "Summary pipeline experiment",
 		description:
-			"A summary-based legal model forecast motions to dismiss worse than always guessing 50%. Frontier models given the same summaries beat the base rate.",
+			"On shared GPT-5.6 Luna summaries, Jev forecast motions to dismiss worse than always guessing 50%. OpenAI controls beat the base rate. A separate Grok-short condition uses different summaries.",
 	},
 	runNotes: {
 		title: "Run notes and cost methods",
