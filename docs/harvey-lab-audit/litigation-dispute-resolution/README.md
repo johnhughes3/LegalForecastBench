@@ -18,6 +18,7 @@ In brief, across 2,858 criteria: GPT-6 Sol flagged 616 and Claude Opus 5.5 flagg
 | `tasks/<task>/README.md` | Task landing page: pinned sources and a criterion-by-criterion comparison table |
 | `tasks/<task>/gpt-6-sol-audit.md` (`.json`) | GPT-6 Sol's report. Text unchanged from the original snapshot except for link targets; where its prose mentions `batch-N/` paths, those refer to the earlier layout |
 | `tasks/<task>/claude-opus-5-5-audit.md` (`.json`) | Claude Opus 5.5's report, with its blind-pass findings and its verdict on each GPT-6 Sol finding |
+| [`human-review/`](human-review/README.md) | Human review of a seeded random sample of 25 AI-flagged criteria: the protocol and decision rule (committed before review), the sample, and the reviewer's worksheet |
 | [`gpt-6-sol/`](gpt-6-sol/) | GPT-6 Sol's indexes, batch summaries, and follow-up output/grade reviews |
 
 The Claude Opus 5.5 reports and the comparison are rendered by [`scripts/build_harvey_dual_audit.py`](../../../scripts/build_harvey_dual_audit.py) (with its `harvey_dual_audit_core.py` and `harvey_dual_audit_render.py` modules) from the JSON files, so the counts can be regenerated from this directory.
